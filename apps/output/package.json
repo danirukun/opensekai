@@ -1,0 +1,14 @@
+{
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "name": "@opensekai/output",
+  "scripts": {
+    "build": "vite build",
+    "check": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@opensekai/renderer": "workspace:*",
+    "@opensekai/browser-client": "workspace:*"
+  }
+}

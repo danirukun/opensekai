@@ -1,0 +1,22 @@
+import { afterEach, expect, test } from 'vitest';
+import { mkdtemp, mkdir, writeFile, readFile, readdir, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { snapshotUi } from './bootstrap-ui.ts';
+const temporary: string[] = [];
+afterEach(async () => { await Promise.all(temporary.map(path => rm(path, { recursive: true, force: true }))); temporary.length = 0; });
+test('copies only distributable metadata and files, removes scripts, and replaces stale files', async () => {
+ const root = await mkdtemp(join(tmpdir(), 'opensekai-ui-')); temporary.push(root);
+ const source = join(root, 'source'), target = join(root, 'target');
+ await mkdir(join(source, 'dist'), { recursive: true }); await mkdir(target);
+ await writeFile(join(source, 'dist/index.js'), 'export const value = 1;');
+ await writeFile(join(source, 'package.json'), JSON.stringify({ name: '@test/ui', scripts: { prepare: 'touch secret' }, exports: './dist/index.js' }));
+ await writeFile(join(source, '.env'), 'PRIVATE=secret'); await writeFile(join(target, 'stale'), 'old');
+ const first = await snapshotUi(source, target);
+ expect((await readdir(target)).sort()).toEqual(['dist', 'package.json']);
+ expect(JSON.parse(await readFile(join(target, 'package.json'), 'utf8'))).toEqual({ name: '@test/ui', exports: './dist/index.js' });
+ expect(await readFile(join(target, 'dist/index.js'), 'utf8')).toBe('export const value = 1;');
+ const second = await snapshotUi(source, target); expect(second.sha256).toBe(first.sha256); expect(first.sha256).toMatch(/^[a-f0-9]{64}$/);
+ await writeFile(join(source, 'dist/index.js'), 'export const value = 2;');
+ expect((await snapshotUi(source, target)).sha256).not.toBe(first.sha256);
+});

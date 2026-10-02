@@ -1,0 +1,16 @@
+{
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "name": "@opensekai/renderer",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@opensekai/contracts": "workspace:*",
+    "@opensekai/browser-client": "workspace:*",
+    "three": "0.180.0",
+    "@pixiv/three-vrm": "3.5.5"
+  }
+}

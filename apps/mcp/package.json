@@ -1,0 +1,19 @@
+{
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "name": "@opensekai/mcp",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@opensekai/contracts": "workspace:*",
+    "@opensekai/browser-client": "workspace:*",
+    "@modelcontextprotocol/server": "2.3.0",
+    "@modelcontextprotocol/client": "2.3.0",
+    "@modelcontextprotocol/core": "2.3.0",
+    "zod": "4.6.5",
+    "ws": "8.22.0"
+  }
+}

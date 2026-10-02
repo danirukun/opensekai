@@ -1,0 +1,39 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "OpenSekai",
+  "version": "0.1.0",
+  "identifier": "com.oshi-connect.opensekai",
+  "build": {
+    "beforeDevCommand": "pnpm --filter @opensekai/desktop dev",
+    "beforeBuildCommand": "pnpm --filter @opensekai/desktop build",
+    "devUrl": "http://127.0.0.1:1420",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "label": "main",
+        "title": "OpenSekai",
+        "width": 1100,
+        "height": 720
+      }
+    ],
+    "security": {
+      "capabilities": [
+        "main"
+      ],
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost http://127.0.0.1:1420 ws://127.0.0.1:1420"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "app"
+    ],
+    "resources": {
+      "resources/output/": "output/"
+    },
+    "icon": []
+  }
+}

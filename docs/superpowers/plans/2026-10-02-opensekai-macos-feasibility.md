@@ -112,7 +112,7 @@ Verified metadata on 2026-10-02:
 | @pixiv/three-vrm | 3.5.5 |
 | bitecs | 0.4.0 |
 | svelte / @sveltejs/vite-plugin-svelte | 5.57.1 / 7.3.1 |
-| vite / vitest / typescript | 8.3.2 / 5.0.3 / 7.0.2 |
+| vite / vitest / typescript | 8.3.2 / 5.0.3 / 6.0.3 |
 | svelte-check / @types/node / @types/ws | 4.7.6 / 26.6.4 / 8.18.2 |
 | @modelcontextprotocol/server, client, core | 2.3.0 each |
 | zod / tsx / ws / obs-websocket-js | 4.6.5 / 4.23.15 / 8.22.0 / 5.0.8 |

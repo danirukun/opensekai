@@ -1,0 +1,9 @@
+@import "tailwindcss";
+@import "@oshi-connect/ui/theme.css";
+@source "../../../.local/ui/dist";
+:root { font-family: system-ui, sans-serif; background: #101217; color: #e7e9ed; }
+body { margin: 0; }
+main { max-width: 960px; margin: 0 auto; padding: 40px; }
+header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 48px; }
+h1 { font-size: 24px; font-weight: 600; }
+section { display: flex; align-items: center; gap: 16px; max-width: 520px; }
