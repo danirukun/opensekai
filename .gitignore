@@ -1,0 +1,21 @@
+# Dependency and build output
+node_modules/
+target/
+dist/
+build/
+.svelte-kit/
+.vite/
+.turbo/
+coverage/
+.DS_Store
+
+# Local evaluation data and private assets
+artifacts/
+fixtures/local/
+*.log
+
+# Local agent worktrees and credentials
+.worktrees/
+.env
+.env.*
+!.env.example

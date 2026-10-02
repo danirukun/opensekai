@@ -1,0 +1,27 @@
+---
+description: Binding Oshi Connect constitution (UX, infra, tests, language, schema)
+alwaysApply: true
+---
+
+# Oshi Connect Constitution (binding)
+
+These MUST rules beat ad-hoc habit. A product `AGENTS.md` MAY be stricter, not looser. The long form is `docs/constitution.md` in the `ai-native` repository. In a product repository, this file is the copy Cloud Agents and Grok Bot read.
+
+1. **UI copy restraint.** Do not add helper text, labels, or empty states that only repeat what the control already shows. Prefer affordance over narration.
+2. **Agent design smells.** Do not default to card grids, decorative gradients, or a colored side bar on the selected tab. Do not add pills or badges when nearby copy, labels, or state already convey the same information. Prefer layout, type, spacing, and one clear primary action.
+3. **Object storage.** Default to Cloudflare R2. Put uploads behind a small S3-compatible adapter (`put` / `get` / `delete` / `presign`) so another S3 API provider can replace the implementation without rewriting callers.
+4. **Email.** Send mail with Cloudflare Email Sending. Receive mail with Cloudflare Email Routing or Email Workers. Do not add a third-party ESP unless a product already depends on one and the task is not introducing mail.
+5. **Tests.** Prefer an integration test or an end-to-end test for a critical path. Do not add a large unit-test suite for wiring, static copy, or behavior a browser check will catch. Add a unit test when the logic is pure and a higher-level test would be slow or unclear.
+6. **Language.** Write long prose (PR text, specs, docs, explanations) in [ASD-STE100 Simplified Technical English](https://www.asd-europe.org/standards-specifications/simplified-technical-english/). Do not use this rule to add UI copy; UI stays short (principle 1).
+7. **Database shape.** Do not add columns for a related group that is not a FK and is not usually filtered or indexed (for example image width/height or nested metadata). Store that group as JSONB (or the product JSON column type). Keep real relations and query keys as columns.
+8. **Asset images.** When a high-traffic page serves an image from the Cloudflare asset CDN, deliver it through Cloudflare Image Transformations (`/cdn-cgi/image/`). Do not use the raw object URL as the page image source.
+9. **UI kit.** Build Svelte UI with `@oshi-connect/ui` from `oshi-connect-ui`. Do not add a second primitive kit in a product when the shared kit already has the control.
+10. **Hosting.** Deploy SvelteKit applications to Cloudflare. Deploy Elixir backends to Fly.io.
+11. **Cloudflare services.** Prefer Cloudflare for DNS, Realtime, Turnstile, Email Sending, R2, and Image Transformations. Do not add another vendor for that job unless the product already depends on it.
+12. **Package manager.** TypeScript and JavaScript projects use pnpm. Do not introduce npm or yarn as the project package manager.
+13. **Identity.** New sign-in uses WorkOS AuthKit. Do not enable Zitadel or deploy `oshi-connect-auth`.
+14. **Schema release.** When new code needs a new schema, apply the migration before you deploy that code. Name the migration file in the PR summary and in the test plan.
+15. **UI check.** When you change UI, layout, routing, or rendered data, verify the changed flow in the browser before you finish.
+16. **TypeScript.** Prefer functional TypeScript. Add a comment only when the logic is hard to follow without it.
+
+A conflict with a MUST is a blocker. Change the spec, plan, or code. Do not weaken the principle.
