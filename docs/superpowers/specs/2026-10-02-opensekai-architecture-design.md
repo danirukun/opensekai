@@ -1,7 +1,7 @@
 # OpenSekai architecture design
 
 Date: 2026-10-02
-State: decisions recorded; written-spec review pending
+State: approved for first-slice planning on 2026-10-02; implementation not started
 Implementation: not started
 
 ## Purpose and scope
@@ -192,4 +192,4 @@ Tracking, editor, and MCP implementation can overlap with renderer work after co
 
 A slice is complete only after its spec checks pass, the running path is verified, and the parity checklist cites evidence. Documentation does not mark a feature implemented. Integration tests must explain the real boundary they cover. Unit tests cover new logic. Visual changes need app and OBS checks as appropriate.
 
-This design records the selected directions and the unproven candidates. Review this file before writing the detailed macOS implementation plan.
+This design records the selected directions and the unproven candidates. The [macOS implementation plan](../plans/2026-10-02-opensekai-macos-feasibility.md) defines the first slice. Review that plan before implementation.

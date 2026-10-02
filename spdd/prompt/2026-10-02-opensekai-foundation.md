@@ -1,6 +1,6 @@
 # REASONS: OpenSekai foundation contract
 
-Date: 2026-10-02. State: design-level contract; implementation planning pending.
+Date: 2026-10-02. State: design-level contract; macOS feasibility plan written; implementation not started.
 
 This master contract records the agreed direction. Create bounded slice contracts before generating code. The initial slice covers macOS feasibility and early MCP. Broader parity remains in [the checklist](../../docs/warudo-parity.md).
 
