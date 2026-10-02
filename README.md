@@ -10,6 +10,7 @@ Start on macOS. Keep the core portable to Windows and leave a path to mobile. Us
 - [Warudo feature parity checklist](docs/warudo-parity.md)
 - [Performance contract](docs/evaluation/benchmark-contract.md)
 - [MCP and model evaluation](docs/evaluation/mcp-evaluation-design.md)
+- [Observed macOS and OBS baseline](docs/evaluation/2026-10-02-local-baseline.md)
 - [Development and checkpoints](docs/development-workflow.md)
 - [SPDD analysis](spdd/analysis/2026-10-02-opensekai-foundation.md)
 - [SPDD foundation contract](spdd/prompt/2026-10-02-opensekai-foundation.md)

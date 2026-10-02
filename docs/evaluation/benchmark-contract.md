@@ -87,4 +87,4 @@ A screenshot of the app preview cannot establish OBS alpha or frame delivery. A 
 
 ## Current evidence
 
-There is no OpenSekai performance result. Hardware and OBS readiness do not establish app performance.
+There is no OpenSekai performance result. [The local baseline](2026-10-02-local-baseline.md) records hardware and OBS readiness only.
