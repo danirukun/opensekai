@@ -151,7 +151,7 @@ it('keeps screenshots outside 30s warmup plus 120s timing', async () => {
     const f = driverFixture();
     const report = await evaluateSmokeWithPorts(f.api, f.obs, f.options, f.ports);
     expect(f.stats).toEqual([30000, 150000]);
-    expect(f.screenshots).toEqual([0, 151000, 151000, 151000, 151000]);
+    expect(f.screenshots).toEqual([0, 151000, 152000, 153000, 154000]);
     expect(report.markers).toHaveLength(2);
     expect(report.checks.find(c => c.name === 'measurement-window')?.result).toBe('pass');
     expect(report.checks.find(c => c.name === 'tick-progression')?.result).toBe('pass');
@@ -256,7 +256,7 @@ it('rejects wrong byte-summary run and session identity', () => {
         })).toThrow();
 });
 import { decodeMarker } from '../src/marker';
-it('keeps matching composition freshness unknown and fails revision mismatch', async () => {
+it('passes capture-anchored composition freshness and fails revision mismatch', async () => {
     const f = driverFixture();
     const screenshot = f.obs.screenshot;
     f.obs.screenshot = async (name) => {
@@ -281,7 +281,7 @@ it('keeps matching composition freshness unknown and fails revision mismatch', a
     };
     const report = await evaluateSmokeWithPorts(f.api, f.obs, f.options, f.ports);
     expect(report.checks.find(c => c.name === 'composition-dark')?.result).toBe('fail');
-    expect(report.checks.find(c => c.name === 'composition-light')?.result).toBe('unknown');
+    expect(report.checks.find(c => c.name === 'composition-light')?.result).toBe('pass');
     expect(f.screenshots).toHaveLength(5);
 });
 it('accepts matching run metadata and rejects an oversized run ID', () => {
@@ -361,4 +361,85 @@ it('reports delayed OBS window as unknown separately from native policy', async 
     expect(window.result).toBe('unknown');
     expect(window.detail).toContain('119000');
     expect(window.detail).toContain('native');
+});
+
+it('anchors all compositions to fresh rate-limited captures after timing despite newer status ACKs', async () => {
+    const f = driverFixture();
+    const status = vi.mocked(f.api.appStatus).getMockImplementation()!;
+    vi.mocked(f.api.appStatus).mockImplementation(async (p) => {
+        const reply = await status(p);
+        if (reply.ok) {
+            reply.data.outputs[0].lastFrame!.tick += 100;
+            reply.data.outputs[0].lastFrame!.sequence += 100;
+        }
+        return reply;
+    });
+    const capture = vi.mocked(f.api.captureFrame).getMockImplementation()!;
+    const times: number[] = [];
+    vi.mocked(f.api.captureFrame).mockImplementation(async (p) => {
+        times.push(f.ports.now());
+        expect(f.isActive()).toBe(false);
+        return capture(p);
+    });
+    const report = await evaluateSmokeWithPorts(f.api, f.obs, f.options, f.ports);
+    expect(times).toEqual([0, 151000, 152000, 153000, 154000]);
+    expect(f.stats).toEqual([30000, 150000]);
+    expect(report.appEvidenceIds).toEqual(times.map(t => 'cap_' + t));
+    expect(f.api.captureFrame).toHaveBeenCalledTimes(5);
+    for (const [request] of vi.mocked(f.api.captureFrame).mock.calls)
+        expect(request).toEqual({ outputId: 'output_main', expectedRevision: 0, preset: 'diagnostic_v1', maxAgeMs: 500 });
+    for (const background of ['dark', 'light', 'checker'])
+        expect(report.checks.find(c => c.name === 'composition-' + background)?.result).toBe('pass');
+});
+it('fails composition evidence with wrong capture ID, session, hash or bytes despite a valid marker', async () => {
+    for (const field of ['id', 'sessionId', 'uri', 'sha256', 'bytes']) {
+        const f = driverFixture();
+        const evidence = vi.mocked(f.api.evidenceRead).getMockImplementation()!;
+        vi.mocked(f.api.evidenceRead).mockImplementation(async (p) => {
+            const reply = await evidence(p);
+            if (reply.ok && p.evidenceId === 'cap_152000') {
+                if (field === 'id' || field === 'sessionId') reply.data[field] = 'other';
+                else if (field === 'bytes') reply.data.resources[0].bytes += 1;
+                else reply.data.resources[0][field as 'uri' | 'sha256'] = field === 'uri' ? 'opensekai://evidence/other/capture.png' : 'b'.repeat(64);
+            }
+            return reply;
+        });
+        const report = await evaluateSmokeWithPorts(f.api, f.obs, f.options, f.ports);
+        expect(report.checks.filter(c => c.name === 'capture-evidence').map(c => c.result)).toEqual(['pass', 'pass', 'fail', 'pass', 'pass']);
+        expect(report.checks.find(c => c.name === 'composition-dark')?.result).toBe('fail');
+    }
+});
+it('rejects composition capture scope changes before screenshot', async () => {
+    for (const changed of [{ outputId: 'other' }, { revision: 99 }, { cameraId: 'other' }, { backend: 'webgpu' }]) {
+        const f = driverFixture();
+        const capture = vi.mocked(f.api.captureFrame).getMockImplementation()!;
+        vi.mocked(f.api.captureFrame).mockImplementation(async (p) => {
+            const reply = await capture(p);
+            if (reply.ok && f.ports.now() >= 152000) Object.assign(reply.data, changed);
+            return reply;
+        });
+        await expect(evaluateSmokeWithPorts(f.api, f.obs, f.options, f.ports)).rejects.toMatchObject({ code: 'CONFLICT' });
+        expect(f.screenshots).toEqual([0, 151000]);
+    }
+});
+it('fails a composition capture-to-screenshot interval above 500ms', async () => {
+    const f = driverFixture();
+    const screenshot = f.obs.screenshot;
+    f.obs.screenshot = async name => {
+        if (name.endsWith('_dark')) await f.ports.sleep(501);
+        return screenshot(name);
+    };
+    const report = await evaluateSmokeWithPorts(f.api, f.obs, f.options, f.ports);
+    expect(report.checks.find(c => c.name === 'composition-dark')?.result).toBe('fail');
+    expect(report.checks.find(c => c.name === 'composition-light')?.result).toBe('pass');
+});
+
+it('keeps the inclusive 30-tick and 500ms correlation bounds', () => {
+    const expected = { sessionId: 'session', cameraId: 'camera', revision: 2, tick: 100, sequence: 100 };
+    const marker = { sessionTag: tagId('session'), cameraTag: tagId('camera'), revision: 2, tick: 130, sequence: 130 };
+    expect(correlateMarker(marker, expected, 500).result).toBe('pass');
+    expect(correlateMarker({ ...marker, tick: 131 }, expected, 500).result).toBe('fail');
+    expect(correlateMarker({ ...marker, sequence: 131 }, expected, 500).result).toBe('fail');
+    expect(correlateMarker({ ...marker, tick: 99 }, expected, 500).result).toBe('fail');
+    expect(correlateMarker(marker, expected, 501).result).toBe('fail');
 });

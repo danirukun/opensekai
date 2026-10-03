@@ -72,7 +72,7 @@ export async function evaluateSmokeWithPorts(api: AppApi, obs: ObsAdapter, optio
             throw evaluationError('CONFLICT', 'Renderer backend differs from profile');
         return output.lastFrame;
     };
-    const rawCapture = async (sourceName: string) => {
+    const rawCapture = async (sourceName: string, checkName = 'marker-correlation') => {
         const frame = await getOutput();
         const started = p.now();
         const capture = unwrap(await api.captureFrame({
@@ -83,20 +83,28 @@ export async function evaluateSmokeWithPorts(api: AppApi, obs: ObsAdapter, optio
         const manifest = unwrap(await api.evidenceRead({
             evidenceId: capture.id
         }));
-        report.checks.push(verifyCaptureEvidence(capture, manifest, descriptor.sessionId));
+        const evidenceCheck = verifyCaptureEvidence(capture, manifest, descriptor.sessionId);
+        report.checks.push(evidenceCheck);
         report.appEvidenceIds.push(capture.id);
         const png = await obs.screenshot(sourceName);
         const elapsed = p.now() - started;
         const marker = decodeMarker(png);
         if (marker.ok) {
-            report.markers.push(marker.data);
-            report.checks.push(correlateMarker(marker.data, {
+            if (checkName === 'marker-correlation')
+                report.markers.push(marker.data);
+            const correlation = correlateMarker(marker.data, {
                 ...capture, sessionId: descriptor.sessionId
-            }, elapsed));
+            }, elapsed);
+            report.checks.push({
+                ...correlation, name: checkName,
+                result: evidenceCheck.result === 'pass' ? correlation.result : 'fail',
+                detail: (evidenceCheck.result === 'pass' ? correlation.detail : evidenceCheck.detail) +
+                    (checkName === 'marker-correlation' ? '' : '; visual alpha review remains pending')
+            });
         }
         else
             report.checks.push({
-                name: 'marker-correlation', result: 'fail', detail: 'OBS source has no valid diagnostic marker'
+                name: checkName, result: 'fail', detail: 'OBS source has no valid diagnostic marker'
             });
         const hash = createHash('sha256').update(png).digest('hex');
         report.obsCaptureHashes.push(hash);
@@ -202,39 +210,8 @@ export async function evaluateSmokeWithPorts(api: AppApi, obs: ObsAdapter, optio
                 });
             }
             for (const background of ['dark', 'light', 'checker']) {
-                const started = p.now();
-                let expected: Awaited<ReturnType<typeof getOutput>> | null = null;
-                let scopeConflict = false;
-                try {
-                    expected = await getOutput();
-                }
-                catch (error) {
-                    scopeConflict = (error as {
-                        code?: string;
-                    }).code === 'CONFLICT';
-                }
-                const png = await obs.screenshot(`${owned.sceneName}_${background}`);
-                const marker = decodeMarker(png);
-                const elapsed = p.now() - started;
-                const correlation = !marker.ok ? {
-                    result: 'fail' as const, detail: 'Composition has no valid marker'
-                } :
-                    scopeConflict ? {
-                        result: 'fail' as const, detail: 'Native output scope changed during composition'
-                    } :
-                        !expected ? {
-                            result: 'unknown' as const, detail: 'Native output state unavailable for composition'
-                        } :
-                            correlateMarker(marker.data, expected, elapsed);
-                const result = correlation.result === 'pass' ? 'unknown' : correlation.result;
-                const detail = correlation.result === 'pass' ? 'Current marker metadata matches, but AppStatus exposes no native receive age' : correlation.detail;
-                report.checks.push({
-                    name: `composition-${background}`, result,
-                    detail: detail + '; visual alpha review remains pending'
-                });
-                const hash = createHash('sha256').update(png).digest('hex');
-                report.obsCaptureHashes.push(hash);
-                await p.write(options.destinationDir, hash + '.png', png);
+                await p.sleep(1000);
+                await rawCapture(`${owned.sceneName}_${background}`, `composition-${background}`);
             }
             await p.write(options.destinationDir, 'smoke-report.json', new TextEncoder().encode(JSON.stringify(report, null, 2) + '\n'));
             return report;

@@ -57,7 +57,7 @@ Before PNG decoding, walk the bounded chunk envelope. Require exactly one first 
 
 Bind benchmark evidence to the requested run. Use exactly `opensekai://evidence/<run.id>/summary.json`, with an opaque ID of at most 128 ASCII letters, digits, underscores or hyphens. The manifest ID and parsed summary.run.id must equal that run ID. Check session metadata when supplied, and require the expected fixture/profile. A same-session summary for another run is invalid.
 
-Compare each composition marker with current native output state for camera, revision, tick and a 500 ms observation round trip. A mismatch fails. AppStatus has no native receive timestamp, so matching metadata remains unknown for freshness. Do not add captures to the timing window or infer freshness from a session tag. Actual OBS checks can supply separate freshness evidence.
+After measurement, request a separate native captureFrame with maxAgeMs 500 immediately before each dark, light and checker screenshot. Keep all native capture requests at least one second apart. Bind each capture to the current output/backend/camera/revision and validate its registered evidence ID, canonical URI, session, fixture, hash and byte count. Store all three additional capture IDs. Use the returned capture metadata as the freshness anchor, rather than an AppStatus ACK which can be newer than cached composition pixels. Require matching session/camera/revision, nonnegative tick and sequence deltas at most 30, and a capture-to-screenshot round trip at most 500 ms. A mismatch fails. Keep all captures outside the measurement window. Visual alpha review remains separate from marker correlation.
 
 ## Task 11 driver refinements
 
