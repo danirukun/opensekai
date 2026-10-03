@@ -330,6 +330,866 @@
           "sha256": "fef69499765227e899d3272cf6c391b3a352c3b1aade8ce6b14da5edec89e752"
         }
       ]
+    },
+    {
+      "runId": "d203303b-93b2-41d0-901a-7f5a99168e38",
+      "sourceCommit": "c5e107a4028f65b2e622384450f379363ba43d29",
+      "profileId": "webgpu_smoke_v1",
+      "fixtureId": "smoke_v1",
+      "verdict": "timing pass on this host and smoke fixture; full acceptance pending",
+      "artifactDirectory": "artifacts/evaluation/1791031949662-webgpu_smoke_v1",
+      "windowTransitions": [
+        {
+          "runId": "d203303b-93b2-41d0-901a-7f5a99168e38",
+          "action": "minimize",
+          "issuedAtMs": 1791032010298,
+          "completedAtMs": 1791032011579,
+          "offsetMs": 60002
+        },
+        {
+          "runId": "d203303b-93b2-41d0-901a-7f5a99168e38",
+          "action": "restore",
+          "issuedAtMs": 1791032055298,
+          "completedAtMs": 1791032056106,
+          "offsetMs": 105002
+        }
+      ],
+      "obsMeasurementMs": 120449,
+      "files": [
+        {
+          "name": "08676d89ca34b30d308a05bcc18948afbb1ae915056f13941029a08994e4ad97.png",
+          "bytes": 83554,
+          "sha256": "08676d89ca34b30d308a05bcc18948afbb1ae915056f13941029a08994e4ad97"
+        },
+        {
+          "name": "2610e38a-c530-4553-9613-03a5d5157f0d-manifest.json",
+          "bytes": 469,
+          "sha256": "6ee5236728a2ac197de58c0882bc2019c68acb25431db9a728ec61798d8a53b5"
+        },
+        {
+          "name": "2610e38a-c530-4553-9613-03a5d5157f0d.png",
+          "bytes": 132897,
+          "sha256": "6ed6428a105460c690f297470a53b776bad64c033643514fc3220fa42e1aa0f1"
+        },
+        {
+          "name": "2a26b6da-66b7-4264-b664-5f173ae7fd3b-manifest.json",
+          "bytes": 469,
+          "sha256": "30a093d5e8e9c80dbc8820848b892634221bc0f17decce227d426229d95664f2"
+        },
+        {
+          "name": "2a26b6da-66b7-4264-b664-5f173ae7fd3b.png",
+          "bytes": 134198,
+          "sha256": "beaa2e44c257dca1389cb1fd9c209740faaaccdd117c283b1be2ab731e856677"
+        },
+        {
+          "name": "78d27e98-a150-4be6-b180-0feb145bf996-manifest.json",
+          "bytes": 469,
+          "sha256": "384b7821e464261f160ee603440e36613211d6ea90a08678917bd6b46250b245"
+        },
+        {
+          "name": "78d27e98-a150-4be6-b180-0feb145bf996.png",
+          "bytes": 133597,
+          "sha256": "90971d83d1d5b30d23e073d087e3d7df4a9ac2561c4d4cec7f977a87e4ddeee7"
+        },
+        {
+          "name": "8635a9424c0eb8ac36c907046c2e73f2d27f9ac594b4368fb5c16c712da9ca82.png",
+          "bytes": 82446,
+          "sha256": "8635a9424c0eb8ac36c907046c2e73f2d27f9ac594b4368fb5c16c712da9ca82"
+        },
+        {
+          "name": "92725df00d5e8981eba1aa07e6f23db6b63a0784a6979eb451cfa4de32777894.png",
+          "bytes": 81200,
+          "sha256": "92725df00d5e8981eba1aa07e6f23db6b63a0784a6979eb451cfa4de32777894"
+        },
+        {
+          "name": "930a2399-28cb-4e0f-9865-f21a947b799f-manifest.json",
+          "bytes": 469,
+          "sha256": "7a577c89774c149fb3051d406a8cb596270d03fe320e400efc92636c9968958b"
+        },
+        {
+          "name": "930a2399-28cb-4e0f-9865-f21a947b799f.png",
+          "bytes": 131778,
+          "sha256": "27a3abb4d1ef818618dbeda71c22d8c5129bca936b16c8e6073c36981baf736a"
+        },
+        {
+          "name": "c00db7bb-fe62-413f-aa4f-548d885521a6-manifest.json",
+          "bytes": 469,
+          "sha256": "9d930c8f4c5ea6e307f4dfdb1e7fffd51713e61c0f36642a4c01c126dfca12cd"
+        },
+        {
+          "name": "c00db7bb-fe62-413f-aa4f-548d885521a6.png",
+          "bytes": 133831,
+          "sha256": "6820dd94b38b325e0b45e9e4c935c2c8227828b9de7376b2a3a9d7eb1c1e4b80"
+        },
+        {
+          "name": "d203303b-93b2-41d0-901a-7f5a99168e38-manifest.json",
+          "bytes": 476,
+          "sha256": "62362a923a5154ba11c28e1d7657437882d1be7c8f49d26eef1436630c8657b9"
+        },
+        {
+          "name": "d203303b-93b2-41d0-901a-7f5a99168e38.json",
+          "bytes": 591,
+          "sha256": "68e7b6cb63d347dade5973c0b8e4d507b660248d81f6249045d92a9e3d555fc5"
+        },
+        {
+          "name": "ebb30420ad89ef31bc2c46affb08647612b08b4198acf8f5a7368c90ac9e093e.png",
+          "bytes": 80289,
+          "sha256": "ebb30420ad89ef31bc2c46affb08647612b08b4198acf8f5a7368c90ac9e093e"
+        },
+        {
+          "name": "fb6a9d22bf4c3512c05af825356cfa34897f06e0f776bf2a2e63f96f95c8de69.png",
+          "bytes": 81143,
+          "sha256": "fb6a9d22bf4c3512c05af825356cfa34897f06e0f776bf2a2e63f96f95c8de69"
+        },
+        {
+          "name": "smoke-report.json",
+          "bytes": 4548,
+          "sha256": "70075bb414cf8969be1cbe5564c07f42f46242e73cfc079e37722b9531d76549"
+        },
+        {
+          "name": "window-transitions.json",
+          "bytes": 361,
+          "sha256": "61ecf5f1a7f81c6c0601ce0692bb9ebb0a675552d13eadbc76e542757d8e90b0"
+        }
+      ]
+    },
+    {
+      "runId": "85a56557-7714-42b7-9b9c-cc6f9b36d257",
+      "sourceCommit": "c5e107a4028f65b2e622384450f379363ba43d29",
+      "profileId": "webgpu_smoke_v1",
+      "fixtureId": "smoke_v1",
+      "verdict": "timing pass on this host and smoke fixture; full acceptance pending",
+      "artifactDirectory": "artifacts/evaluation/1791032173601-webgpu_smoke_v1",
+      "windowTransitions": [
+        {
+          "runId": "85a56557-7714-42b7-9b9c-cc6f9b36d257",
+          "action": "minimize",
+          "issuedAtMs": 1791032234239,
+          "completedAtMs": 1791032235528,
+          "offsetMs": 60002
+        },
+        {
+          "runId": "85a56557-7714-42b7-9b9c-cc6f9b36d257",
+          "action": "restore",
+          "issuedAtMs": 1791032279238,
+          "completedAtMs": 1791032280036,
+          "offsetMs": 105001
+        }
+      ],
+      "obsMeasurementMs": 120450,
+      "files": [
+        {
+          "name": "0e098695-7333-4d3a-9017-b34648d888d7-manifest.json",
+          "bytes": 469,
+          "sha256": "eb17b1fcaafe4ba78094a7219847266b05ad9be44ef40e42df5d498d582a510f"
+        },
+        {
+          "name": "0e098695-7333-4d3a-9017-b34648d888d7.png",
+          "bytes": 131766,
+          "sha256": "87d8bdbca9476ccde5fd6e2e333584b4b1ffcce748983ccebda7a34cfe78bb27"
+        },
+        {
+          "name": "56147537910219178dcb52d2699d845603b094ec34aabb328c8675d4ce0ad1bb.png",
+          "bytes": 85497,
+          "sha256": "56147537910219178dcb52d2699d845603b094ec34aabb328c8675d4ce0ad1bb"
+        },
+        {
+          "name": "61cd11fd77896f778327ec2c5fcf99b18278d8d55a39fbfa31a1d4aa6e3982fd.png",
+          "bytes": 79941,
+          "sha256": "61cd11fd77896f778327ec2c5fcf99b18278d8d55a39fbfa31a1d4aa6e3982fd"
+        },
+        {
+          "name": "85a56557-7714-42b7-9b9c-cc6f9b36d257-manifest.json",
+          "bytes": 476,
+          "sha256": "25b65c588e21ad847ff85d8a25e603501c61f8a625172e4aa9bb436521789705"
+        },
+        {
+          "name": "85a56557-7714-42b7-9b9c-cc6f9b36d257.json",
+          "bytes": 589,
+          "sha256": "8c6601b49a7355eec789a81213b809e1fd5367cdfbcc2266da72870d71580658"
+        },
+        {
+          "name": "88cc4817-e13a-4cd1-a043-7985d2d71b09-manifest.json",
+          "bytes": 469,
+          "sha256": "3bc8fe0285cf23732e01d6078575ffb3b9bef8bed3dc4a5504f4c6d99386fe79"
+        },
+        {
+          "name": "88cc4817-e13a-4cd1-a043-7985d2d71b09.png",
+          "bytes": 132643,
+          "sha256": "1952c466f7c771c37c28682283bd1323b316dee25c68f583db854cd40dd4545d"
+        },
+        {
+          "name": "8c2a2ee5-ee46-485d-a862-6ea7a29ee05d-manifest.json",
+          "bytes": 469,
+          "sha256": "0b179d895ca383338083cd74ae15bc7779111f6ce0c36a36f7a27e78583e0c05"
+        },
+        {
+          "name": "8c2a2ee5-ee46-485d-a862-6ea7a29ee05d.png",
+          "bytes": 133826,
+          "sha256": "0bd7f9a9ca65538e76961008128d289bfb656dd925e600342be080e838ff5fd8"
+        },
+        {
+          "name": "d7db4967-9260-446e-b2b9-5578cd77b35a-manifest.json",
+          "bytes": 469,
+          "sha256": "46796ab909233e0d7af160ccb37ad6d99fac78c3adc18afdd95aee5867809d03"
+        },
+        {
+          "name": "d7db4967-9260-446e-b2b9-5578cd77b35a.png",
+          "bytes": 134062,
+          "sha256": "0f99d91d81eaf8be7a7628ffd720d78b1c8a2821d0e817cfc9cc1ac9f1eaad5d"
+        },
+        {
+          "name": "e3ad31fa2fa0325e3fd1d92708184f53b46076425d1cde85238a56800db2d6cd.png",
+          "bytes": 80929,
+          "sha256": "e3ad31fa2fa0325e3fd1d92708184f53b46076425d1cde85238a56800db2d6cd"
+        },
+        {
+          "name": "e4a6ab78793cf3f68603744d323ac0d84304f928ba70284da54613275e228c6a.png",
+          "bytes": 81694,
+          "sha256": "e4a6ab78793cf3f68603744d323ac0d84304f928ba70284da54613275e228c6a"
+        },
+        {
+          "name": "ef82ee533725f35c6e16f0ca7c9aafc999106de56de947a1a7e53b6d0c15ada2.png",
+          "bytes": 80110,
+          "sha256": "ef82ee533725f35c6e16f0ca7c9aafc999106de56de947a1a7e53b6d0c15ada2"
+        },
+        {
+          "name": "f771bfd3-a607-40c5-9c1a-4f5d311add77-manifest.json",
+          "bytes": 469,
+          "sha256": "c506fbfa4ac2e5736dd28578bb9808360f54028cc813044f5a4164d7d22d3dbf"
+        },
+        {
+          "name": "f771bfd3-a607-40c5-9c1a-4f5d311add77.png",
+          "bytes": 132745,
+          "sha256": "20ef0a7e236e90d097b8d503cfdd819f584e5073379ef09c6c051023a50be9bc"
+        },
+        {
+          "name": "smoke-report.json",
+          "bytes": 4550,
+          "sha256": "30c802d3ec9c4a243c3d79c7d680e03526175135182d0061a612e080e1223b50"
+        },
+        {
+          "name": "window-transitions.json",
+          "bytes": 361,
+          "sha256": "926c0e8297dd72a21bfe5a784f433484397547a5825a1a87ec6d170d9409c5d5"
+        }
+      ]
+    },
+    {
+      "runId": "71551038-484c-4755-87d7-2b31d2f91894",
+      "sourceCommit": "c5e107a4028f65b2e622384450f379363ba43d29",
+      "profileId": "webgpu_smoke_v1",
+      "fixtureId": "smoke_v1",
+      "verdict": "timing pass on this host and smoke fixture; full acceptance pending",
+      "artifactDirectory": "artifacts/evaluation/1791032332415-webgpu_smoke_v1",
+      "windowTransitions": [
+        {
+          "runId": "71551038-484c-4755-87d7-2b31d2f91894",
+          "action": "minimize",
+          "issuedAtMs": 1791032393052,
+          "completedAtMs": 1791032394339,
+          "offsetMs": 60002
+        },
+        {
+          "runId": "71551038-484c-4755-87d7-2b31d2f91894",
+          "action": "restore",
+          "issuedAtMs": 1791032438051,
+          "completedAtMs": 1791032438852,
+          "offsetMs": 105001
+        }
+      ],
+      "obsMeasurementMs": 120479,
+      "files": [
+        {
+          "name": "02e0288f-854d-4c0d-9496-bfe038447318-manifest.json",
+          "bytes": 469,
+          "sha256": "f6754cd7fc32b74484b4d62670a7429bb4e2695255299710f05c85662d20759a"
+        },
+        {
+          "name": "02e0288f-854d-4c0d-9496-bfe038447318.png",
+          "bytes": 133865,
+          "sha256": "7682ad1929a29fe7253160fc6b43ac0d87a773da583347399e0220c99a8bacbd"
+        },
+        {
+          "name": "13a546aecec6eaec7da04e599bafa6fcc08b18dc99da56b121121c34e2418259.png",
+          "bytes": 80029,
+          "sha256": "13a546aecec6eaec7da04e599bafa6fcc08b18dc99da56b121121c34e2418259"
+        },
+        {
+          "name": "1b49eb34-6145-45cb-b818-619f77a55fef-manifest.json",
+          "bytes": 469,
+          "sha256": "45c79a6c4ccb7ea8fe8641046bb13f9bec525a8319e82ca18bfc3cf3b6a73aa7"
+        },
+        {
+          "name": "1b49eb34-6145-45cb-b818-619f77a55fef.png",
+          "bytes": 131883,
+          "sha256": "b13bfce3d14e22667e5f6db79713dfb3b737d78b513ce6f8a7c2f0d8868ca066"
+        },
+        {
+          "name": "65f1f063-b121-4bc3-95d3-e1fb13e97a20-manifest.json",
+          "bytes": 469,
+          "sha256": "119d2f8b3c476c6d5a227024c642b27c330eab79248a2439f87068e071bf28a5"
+        },
+        {
+          "name": "65f1f063-b121-4bc3-95d3-e1fb13e97a20.png",
+          "bytes": 133509,
+          "sha256": "8c385992aeec91de6d76fad9e13a18678da4b93e01ff6cc5f550cdddc98032eb"
+        },
+        {
+          "name": "71551038-484c-4755-87d7-2b31d2f91894-manifest.json",
+          "bytes": 476,
+          "sha256": "a843d90c0aa5b1d9b01bbea58877d827acdb8bf0160f1f12b2313b779a833960"
+        },
+        {
+          "name": "71551038-484c-4755-87d7-2b31d2f91894.json",
+          "bytes": 575,
+          "sha256": "757cc0b410fb2a63b174196aa2741b003b9fa1d88d19652c7dfcd0a3cc1dfdfb"
+        },
+        {
+          "name": "81179eae-0732-43ef-8651-46fdc17b9c87-manifest.json",
+          "bytes": 469,
+          "sha256": "bc05e6846300aceb5b5542df4d561561ffa36e3c807a530bae1b38587b7f4c4b"
+        },
+        {
+          "name": "81179eae-0732-43ef-8651-46fdc17b9c87.png",
+          "bytes": 134244,
+          "sha256": "6271a4773967f4641be91d8a058e228964be12e088a81defabc7c002646e9180"
+        },
+        {
+          "name": "8417dddf6a11e2b78b3cac06005f97e6ba0984576fa7c1a8fc92b159cb9c4e8f.png",
+          "bytes": 83457,
+          "sha256": "8417dddf6a11e2b78b3cac06005f97e6ba0984576fa7c1a8fc92b159cb9c4e8f"
+        },
+        {
+          "name": "a1ad8d6252404a8c1e9672eafc6ff79ed3880706a49678f6d81d6792302d4d50.png",
+          "bytes": 82217,
+          "sha256": "a1ad8d6252404a8c1e9672eafc6ff79ed3880706a49678f6d81d6792302d4d50"
+        },
+        {
+          "name": "b8a892bd-30db-4b1d-9fec-0b4a0af2f6c0-manifest.json",
+          "bytes": 469,
+          "sha256": "aa77be0a309ef00f2252f325c4975f74fcf2e99baf1afd602dcb29fdb317c35a"
+        },
+        {
+          "name": "b8a892bd-30db-4b1d-9fec-0b4a0af2f6c0.png",
+          "bytes": 132563,
+          "sha256": "f8279f7c55d18bf596ac10c50fa1267749204d5bdf20683f4be221e6aca2ad34"
+        },
+        {
+          "name": "c3bfdecadc3eaf6e1ddac74bee601f0f6d12b1a3c9cdbaaee09e8edc59e4fea8.png",
+          "bytes": 81592,
+          "sha256": "c3bfdecadc3eaf6e1ddac74bee601f0f6d12b1a3c9cdbaaee09e8edc59e4fea8"
+        },
+        {
+          "name": "fdd25305de8344efbb559fb12ac627a09d0e45a4360531a324f963886cc317ef.png",
+          "bytes": 81719,
+          "sha256": "fdd25305de8344efbb559fb12ac627a09d0e45a4360531a324f963886cc317ef"
+        },
+        {
+          "name": "smoke-report.json",
+          "bytes": 4550,
+          "sha256": "e7c59ef1dd1a744e68f6137ce5486950e549c852bcdcc06ef37f39fa4ca0ab81"
+        },
+        {
+          "name": "window-transitions.json",
+          "bytes": 361,
+          "sha256": "7eb86ce7256714afc17b0f82bd18081883c3152f8357a112648c752a44493385"
+        }
+      ]
+    },
+    {
+      "runId": "09aa701d-cc78-497b-a7e2-a967c37df6c9",
+      "sourceCommit": "c5e107a4028f65b2e622384450f379363ba43d29",
+      "profileId": "webgl2_smoke_v1",
+      "fixtureId": "smoke_v1",
+      "verdict": "timing pass on this host and smoke fixture; full acceptance pending",
+      "artifactDirectory": "artifacts/evaluation/1791032491495-webgl2_smoke_v1",
+      "windowTransitions": [
+        {
+          "runId": "09aa701d-cc78-497b-a7e2-a967c37df6c9",
+          "action": "minimize",
+          "issuedAtMs": 1791032552140,
+          "completedAtMs": 1791032553446,
+          "offsetMs": 60001
+        },
+        {
+          "runId": "09aa701d-cc78-497b-a7e2-a967c37df6c9",
+          "action": "restore",
+          "issuedAtMs": 1791032597140,
+          "completedAtMs": 1791032597933,
+          "offsetMs": 105001
+        }
+      ],
+      "obsMeasurementMs": 120445,
+      "files": [
+        {
+          "name": "04c4adc4-becb-40d6-9d0b-7897961ec5aa-manifest.json",
+          "bytes": 469,
+          "sha256": "a63c90c378bfcdc57ce6865d110398e6245a59cbf3d8e42a9513b19d1c07c5f1"
+        },
+        {
+          "name": "04c4adc4-becb-40d6-9d0b-7897961ec5aa.png",
+          "bytes": 135204,
+          "sha256": "c830270ab9fcada159060da8566130ab2411f697636748026bdd84060de92660"
+        },
+        {
+          "name": "09aa701d-cc78-497b-a7e2-a967c37df6c9-manifest.json",
+          "bytes": 476,
+          "sha256": "3683af95aa38573efa6a038bb8bc12c2ce50fc8f5846bbbe004ff9cb324d059a"
+        },
+        {
+          "name": "09aa701d-cc78-497b-a7e2-a967c37df6c9.json",
+          "bytes": 562,
+          "sha256": "0d0afadefa9622f4e61b1de2d0c008af0f9d26f0576028360687cd0b2e0f07ac"
+        },
+        {
+          "name": "2fe25943ae623521a9e6c4764594c65b401827d2e479d731e47b791b913c58c8.png",
+          "bytes": 86840,
+          "sha256": "2fe25943ae623521a9e6c4764594c65b401827d2e479d731e47b791b913c58c8"
+        },
+        {
+          "name": "37647f2702105c0dd865c6c371ad246e88b19fc583d8565fca300d74adfd2c19.png",
+          "bytes": 81504,
+          "sha256": "37647f2702105c0dd865c6c371ad246e88b19fc583d8565fca300d74adfd2c19"
+        },
+        {
+          "name": "52721a38-142b-4db6-8f8a-7a7fd273df21-manifest.json",
+          "bytes": 469,
+          "sha256": "fbe08e8974026166396cdec5836c505f374ee230267e49ad0c6f7c0fb5eb7849"
+        },
+        {
+          "name": "52721a38-142b-4db6-8f8a-7a7fd273df21.png",
+          "bytes": 133448,
+          "sha256": "6c8ae71dae459c76c910493d818893e385b11e1844e76c5c51cc5744354432fe"
+        },
+        {
+          "name": "7cc284476c7c2f4efc89b6543124e111a8c4c645e38ad4f7ee1e622343199791.png",
+          "bytes": 81463,
+          "sha256": "7cc284476c7c2f4efc89b6543124e111a8c4c645e38ad4f7ee1e622343199791"
+        },
+        {
+          "name": "8286180488214d8600c5ee8243af82578b42c0cbdd5fd4b7bd44a65e04d07281.png",
+          "bytes": 82747,
+          "sha256": "8286180488214d8600c5ee8243af82578b42c0cbdd5fd4b7bd44a65e04d07281"
+        },
+        {
+          "name": "8fe6bee8-888d-40e2-9d9a-30b89b474f1f-manifest.json",
+          "bytes": 469,
+          "sha256": "dbc56a23483d047f4480c4e7e25ca735dbc7e2a6f815880de3f0918897ba6bdd"
+        },
+        {
+          "name": "8fe6bee8-888d-40e2-9d9a-30b89b474f1f.png",
+          "bytes": 134491,
+          "sha256": "17049b40ddc9012c5ff02b2a9a41886c1e43f7620c4e4bbeeed47117b6f419ce"
+        },
+        {
+          "name": "90314becf4347150dd8052cd767b8f7eb2179031c31d7cb4456b7662b95e4b16.png",
+          "bytes": 81487,
+          "sha256": "90314becf4347150dd8052cd767b8f7eb2179031c31d7cb4456b7662b95e4b16"
+        },
+        {
+          "name": "abda4bf2-3dac-4a54-86e2-0041fa843ff4-manifest.json",
+          "bytes": 469,
+          "sha256": "24f072ada2451d8ac3b4ccdbbb9d8b1edbb751d5660e25bf4a5bbf64186afa6b"
+        },
+        {
+          "name": "abda4bf2-3dac-4a54-86e2-0041fa843ff4.png",
+          "bytes": 133679,
+          "sha256": "2fa511f2f2b622bc15837bdad28776bad271a679a63f37c3387cd33315c69621"
+        },
+        {
+          "name": "dcd153b5-5e7c-4b91-950c-41f0a8e4b2e6-manifest.json",
+          "bytes": 469,
+          "sha256": "5fe9763f85c435fbe7c711c00e552b8aba3cbd08ddbb5d6712dadb9b7897aefa"
+        },
+        {
+          "name": "dcd153b5-5e7c-4b91-950c-41f0a8e4b2e6.png",
+          "bytes": 132901,
+          "sha256": "5cfa68209466332bd806c79305bde2e86db11b15d8d9776164f85d8fc48358e7"
+        },
+        {
+          "name": "smoke-report.json",
+          "bytes": 4551,
+          "sha256": "a2bbf30ecb6e12f44b79ea020032a59c8d55c5bf96d896409c4a98a476719d14"
+        },
+        {
+          "name": "window-transitions.json",
+          "bytes": 361,
+          "sha256": "0e264a301bc84e01438a58b7cf6ff8503938afbd70c5622e8a4566d2bedde318"
+        }
+      ]
+    },
+    {
+      "runId": "01d181e1-7766-4d51-8afc-e864aca9a5a4",
+      "sourceCommit": "c5e107a4028f65b2e622384450f379363ba43d29",
+      "profileId": "webgl2_smoke_v1",
+      "fixtureId": "smoke_v1",
+      "verdict": "timing pass on this host and smoke fixture; full acceptance pending",
+      "artifactDirectory": "artifacts/evaluation/1791032650803-webgl2_smoke_v1",
+      "windowTransitions": [
+        {
+          "runId": "01d181e1-7766-4d51-8afc-e864aca9a5a4",
+          "action": "minimize",
+          "issuedAtMs": 1791032711448,
+          "completedAtMs": 1791032712739,
+          "offsetMs": 60001
+        },
+        {
+          "runId": "01d181e1-7766-4d51-8afc-e864aca9a5a4",
+          "action": "restore",
+          "issuedAtMs": 1791032756448,
+          "completedAtMs": 1791032757295,
+          "offsetMs": 105001
+        }
+      ],
+      "obsMeasurementMs": 120417,
+      "files": [
+        {
+          "name": "01d181e1-7766-4d51-8afc-e864aca9a5a4-manifest.json",
+          "bytes": 476,
+          "sha256": "b0063eb8a0fe5e058a48baa4e17fa0f98aa1ea1e85b94430c0cc3c724ec0bc13"
+        },
+        {
+          "name": "01d181e1-7766-4d51-8afc-e864aca9a5a4.json",
+          "bytes": 574,
+          "sha256": "b62ca7f4f63abbf919d0f98b14bf38dd5a80145e4377f81cb4b37bf10cc685f3"
+        },
+        {
+          "name": "032ea5b7-1bad-492e-a4eb-f66e6b8a9a3c-manifest.json",
+          "bytes": 469,
+          "sha256": "ce51812a67ecdfa2da3dadfae1bf31d05f81729051d72ab00b567120ce184d77"
+        },
+        {
+          "name": "032ea5b7-1bad-492e-a4eb-f66e6b8a9a3c.png",
+          "bytes": 132803,
+          "sha256": "3cd1fbc95182d71f2af89a4ae63915db7b45038c293c6e2d2a8083af5535431c"
+        },
+        {
+          "name": "042415a6f57700c377ce9369c478b45f18b3087b5f5aee22d6209a2060bb2b15.png",
+          "bytes": 82011,
+          "sha256": "042415a6f57700c377ce9369c478b45f18b3087b5f5aee22d6209a2060bb2b15"
+        },
+        {
+          "name": "1533b3892fc2338bf6a06f8701b5a7e863dea79552cbf87cfd56cf9c2f283eca.png",
+          "bytes": 81471,
+          "sha256": "1533b3892fc2338bf6a06f8701b5a7e863dea79552cbf87cfd56cf9c2f283eca"
+        },
+        {
+          "name": "4060eeb9-a27b-432a-9bb9-53a5d56c984f-manifest.json",
+          "bytes": 469,
+          "sha256": "d3550a9587571bd41e453a3e4bb54927f308255a88e86e4d430ae317dd6fac15"
+        },
+        {
+          "name": "4060eeb9-a27b-432a-9bb9-53a5d56c984f.png",
+          "bytes": 133496,
+          "sha256": "0710624c333086b4bd17c7d4eb65ae6fe820da5d1e682570d4ec100973f27050"
+        },
+        {
+          "name": "7d77295f73cd0b5b28abdf0c2d75833a983db3a9e497a9485831c2cc84469d14.png",
+          "bytes": 82744,
+          "sha256": "7d77295f73cd0b5b28abdf0c2d75833a983db3a9e497a9485831c2cc84469d14"
+        },
+        {
+          "name": "8412fa0c-2d5d-420f-b31d-33a755be4c5b-manifest.json",
+          "bytes": 469,
+          "sha256": "130f7f5d031d9cb2b9660bd2757dcbc7f1da2a28edf5019ebd1b27f6e7315b91"
+        },
+        {
+          "name": "8412fa0c-2d5d-420f-b31d-33a755be4c5b.png",
+          "bytes": 133891,
+          "sha256": "ff16ab9f2154ee54a9b6705222708156e22753419110ca7b0b95d37ebd2abd0e"
+        },
+        {
+          "name": "8515a52770eb7176606e5804663533338258834fbc55e08682b1c88216ee9907.png",
+          "bytes": 81206,
+          "sha256": "8515a52770eb7176606e5804663533338258834fbc55e08682b1c88216ee9907"
+        },
+        {
+          "name": "a8c523b3-0f2e-48ab-a26e-6cd748234b58-manifest.json",
+          "bytes": 469,
+          "sha256": "17de3f10573ead04dc8a2ca50593a5886411eda1f77b91a11375515c930f978b"
+        },
+        {
+          "name": "a8c523b3-0f2e-48ab-a26e-6cd748234b58.png",
+          "bytes": 135313,
+          "sha256": "6c3b7955dbc8579d220c5278c4cc693748ed94e35bffe8a6360814bc4d561df2"
+        },
+        {
+          "name": "ca286b9928eff3088f0244255b7acd54748a237772d6089b686114858bf73ba5.png",
+          "bytes": 85522,
+          "sha256": "ca286b9928eff3088f0244255b7acd54748a237772d6089b686114858bf73ba5"
+        },
+        {
+          "name": "fd37fcf3-254c-4980-a57f-3fbabf1e5870-manifest.json",
+          "bytes": 469,
+          "sha256": "1fca7d1635bf870c0c9ff3783a995c7eb83362d7d7dd7009b994ce049fae8bae"
+        },
+        {
+          "name": "fd37fcf3-254c-4980-a57f-3fbabf1e5870.png",
+          "bytes": 134461,
+          "sha256": "6182885ccd97c931659a0e114b65323201630f3a8d5d8a31be89bd5cb19f6813"
+        },
+        {
+          "name": "smoke-report.json",
+          "bytes": 4534,
+          "sha256": "da53f3bca67555c388afcc0443774b3b3f75ed9edd8fcef26621580df2849c1e"
+        },
+        {
+          "name": "window-transitions.json",
+          "bytes": 361,
+          "sha256": "19b4c4a4f8687395cb22c3d3a2ca81f7b150039e59ea3d415527e60c5cd4e46f"
+        }
+      ]
+    },
+    {
+      "runId": "8169ba14-a6af-4d03-a533-abe5fe9cc25f",
+      "sourceCommit": "c5e107a4028f65b2e622384450f379363ba43d29",
+      "profileId": "webgl2_smoke_v1",
+      "fixtureId": "smoke_v1",
+      "verdict": "timing pass on this host and smoke fixture; full acceptance pending",
+      "artifactDirectory": "artifacts/evaluation/1791032809956-webgl2_smoke_v1",
+      "windowTransitions": [
+        {
+          "runId": "8169ba14-a6af-4d03-a533-abe5fe9cc25f",
+          "action": "minimize",
+          "issuedAtMs": 1791032870596,
+          "completedAtMs": 1791032871893,
+          "offsetMs": 60002
+        },
+        {
+          "runId": "8169ba14-a6af-4d03-a533-abe5fe9cc25f",
+          "action": "restore",
+          "issuedAtMs": 1791032915596,
+          "completedAtMs": 1791032916389,
+          "offsetMs": 105002
+        }
+      ],
+      "obsMeasurementMs": 120450,
+      "files": [
+        {
+          "name": "2fbe95cb-1ec1-4526-b236-f1a63eeb4dd0-manifest.json",
+          "bytes": 469,
+          "sha256": "034c4bd81985cff3b86f15138ea14317a1926c91aa9ec14fa8d459328caafed8"
+        },
+        {
+          "name": "2fbe95cb-1ec1-4526-b236-f1a63eeb4dd0.png",
+          "bytes": 132859,
+          "sha256": "e543af849035cf70e149b95aa32914c002855e6764a9e5287befaa46f32a16cb"
+        },
+        {
+          "name": "362a5a57d9c47a5d91516eb264825a052c2b59c201b40ef0c3d52642280bb0dc.png",
+          "bytes": 83257,
+          "sha256": "362a5a57d9c47a5d91516eb264825a052c2b59c201b40ef0c3d52642280bb0dc"
+        },
+        {
+          "name": "3f8749e1-5404-42c8-b0a0-953800b3f276-manifest.json",
+          "bytes": 469,
+          "sha256": "76cb3544887680663525b1e7f98ab1e64c847b546d886e6a095cade2eb27a957"
+        },
+        {
+          "name": "3f8749e1-5404-42c8-b0a0-953800b3f276.png",
+          "bytes": 134429,
+          "sha256": "8a0b982846097c2269456dbe1a58c3b9c646e260b0db7639fae700d7dab080a4"
+        },
+        {
+          "name": "4696d23f-325a-41f2-8ddd-5ab4c6bfe1dd-manifest.json",
+          "bytes": 469,
+          "sha256": "71adbba426151d6a215c469b3f8941dfc94abe5bb1c9c98b4ab5272ca1786fd2"
+        },
+        {
+          "name": "4696d23f-325a-41f2-8ddd-5ab4c6bfe1dd.png",
+          "bytes": 133236,
+          "sha256": "148d48dce4166a5988a1fba6a9e4923cfe0f0f4cdd5bf179b1312176cb351c2a"
+        },
+        {
+          "name": "48e06adbfa161ce25dbce5e405f2404170b578935729c383291a04cf324f69f0.png",
+          "bytes": 82416,
+          "sha256": "48e06adbfa161ce25dbce5e405f2404170b578935729c383291a04cf324f69f0"
+        },
+        {
+          "name": "684b36f1-6450-44ec-9105-80e6baf290f4-manifest.json",
+          "bytes": 469,
+          "sha256": "641fe1924b1163110be15d351883b18a5f05ce470e546da318687a932ea113bd"
+        },
+        {
+          "name": "684b36f1-6450-44ec-9105-80e6baf290f4.png",
+          "bytes": 134586,
+          "sha256": "19ad03b86aa5a51326f11ee7cc3096322159ef887cffb4b34d50894799772027"
+        },
+        {
+          "name": "6f3adbc111ad9f672055857d2ac6224f2705807db05d936d611c967feb40e1af.png",
+          "bytes": 80843,
+          "sha256": "6f3adbc111ad9f672055857d2ac6224f2705807db05d936d611c967feb40e1af"
+        },
+        {
+          "name": "79ebacd2467a6d93b6fc3ad1b3dec23170d34a78dddeb58fb80babc9e8aac23c.png",
+          "bytes": 84611,
+          "sha256": "79ebacd2467a6d93b6fc3ad1b3dec23170d34a78dddeb58fb80babc9e8aac23c"
+        },
+        {
+          "name": "8169ba14-a6af-4d03-a533-abe5fe9cc25f-manifest.json",
+          "bytes": 476,
+          "sha256": "91942463c4bcb534bbf6e97b56631aa3c2d3e5ac23794cd6772168bd1b6fa347"
+        },
+        {
+          "name": "8169ba14-a6af-4d03-a533-abe5fe9cc25f.json",
+          "bytes": 577,
+          "sha256": "75b6cb836ae210042a3ecbc08aeecfd83254b0f0358f5cca6b9a329eb24f81fd"
+        },
+        {
+          "name": "e9ba98b1-387e-4ee8-bb0f-532f978090b3-manifest.json",
+          "bytes": 469,
+          "sha256": "b4489ca08d530889c579d14f26418023f11e58305387af0a15bd05ae4fe7c542"
+        },
+        {
+          "name": "e9ba98b1-387e-4ee8-bb0f-532f978090b3.png",
+          "bytes": 134215,
+          "sha256": "d9153dbc59548bc94a515416445888a7f4a1b2c55ac162b363b7b5724c67f11c"
+        },
+        {
+          "name": "f16f91b99c7285b23d6cbd6c7a48c96d9e66518c2c2427f41897f2c92908587f.png",
+          "bytes": 82814,
+          "sha256": "f16f91b99c7285b23d6cbd6c7a48c96d9e66518c2c2427f41897f2c92908587f"
+        },
+        {
+          "name": "smoke-report.json",
+          "bytes": 4551,
+          "sha256": "8c74e6755ef63e179d79159fe5608227499bad1db07ebb6faf20a27b69d88e04"
+        },
+        {
+          "name": "window-transitions.json",
+          "bytes": 361,
+          "sha256": "4063873d4dfcb3a43c29380acc544651ef4b84a9e1a1824fbbdf8a458ddddfee"
+        }
+      ]
+    }
+  ],
+  "additionalEvidence": [
+    {
+      "kind": "release MCP round trip",
+      "sourceCommit": "75de982eebe9506760a9ff2e8ae3845b93298809",
+      "sourceProvenance": "release observation ledger; retained summary has no source commit field",
+      "captureId": "2b23b7cd-8f2c-43d6-8fc2-4dcd1dc4b852",
+      "runId": "ff44c283-661a-4d08-886a-3d6c0e719547",
+      "verdict": "tool loop only; cancelled run is not timing acceptance",
+      "artifactDirectory": "artifacts/evaluation/mcp-release-75",
+      "captureManifest": "not retained; no reconstructed manifest",
+      "files": [
+        {
+          "name": "2b23b7cd-8f2c-43d6-8fc2-4dcd1dc4b852.png",
+          "bytes": 169889,
+          "sha256": "c4c522dac648bf2465c0ef5057671862947958f73204511228723bb4fd14ea98"
+        },
+        {
+          "name": "ff44c283-661a-4d08-886a-3d6c0e719547.json",
+          "bytes": 456,
+          "sha256": "5bf42b7c117e3abf6427f17453ce86f39831c08f960abd533489d7e958fe5934"
+        }
+      ]
+    },
+    {
+      "kind": "preliminary visual review",
+      "artifactDirectory": "artifacts/evaluation",
+      "reviewedArtifactDirectory": "artifacts/evaluation/1791027960403-webgpu_smoke_v1",
+      "rubricVersion": 1,
+      "reviewerModelLabel": "gpt-6.1-sol",
+      "reviewerEffort": "low",
+      "modelIdentityProvenance": "orchestration context; independent provider model ID unknown",
+      "verdict": "preliminary; final visual and minimized acceptance pending",
+      "files": [
+        {
+          "name": "preliminary-model-review.md",
+          "bytes": 6405,
+          "sha256": "d077aa437b4248f4e908944cf08c95cbe5d04a30c7fa14e2bf4be1a3b66e34c3"
+        }
+      ]
+    },
+    {
+      "kind": "wide framing probe",
+      "artifactDirectory": "artifacts/evaluation/framing-1791033009265",
+      "verdict": "runtime camera_wide Y=1; fresh correlated captures only; visual review pending; default preset crop remains documented",
+      "files": [
+        {
+          "name": "0c13be1d-5a67-4650-87cb-a5dd99ce9657-manifest.json",
+          "bytes": 469,
+          "sha256": "4eed754bfa0cbc78c7577b5fe943a0803daa66a77f691a83e3fd6219d0a78c45"
+        },
+        {
+          "name": "0c13be1d-5a67-4650-87cb-a5dd99ce9657.png",
+          "bytes": 133331,
+          "sha256": "ec2e18d479eb985324ee4829865f76c1ad0e6f8776e16045aeb6fdd9eb019981"
+        },
+        {
+          "name": "3d51e8e3-0233-4e39-a757-af3586f191c7-manifest.json",
+          "bytes": 469,
+          "sha256": "85b1c7a6eaf2d9fd0be1ed4c5193315d5d295e0e15bb7915e0a9cda754d537e9"
+        },
+        {
+          "name": "3d51e8e3-0233-4e39-a757-af3586f191c7.png",
+          "bytes": 133217,
+          "sha256": "ae5aebc10f584ed208b7c950b18a7e17263d95b3bcb063e4201aee91ea1aa080"
+        },
+        {
+          "name": "6982c442-5775-4ff0-85b2-73faf4772294-manifest.json",
+          "bytes": 469,
+          "sha256": "10fb6d26015f995726a226e7663785930bc79c46d30b613cf8dc3cbbc6e238ac"
+        },
+        {
+          "name": "6982c442-5775-4ff0-85b2-73faf4772294.png",
+          "bytes": 133703,
+          "sha256": "129ed47b934731827bfbec41b2646688580ffc4ad197c7ac3e7867a15c46edb4"
+        },
+        {
+          "name": "6dcad744-fd27-4b9a-82be-1e73136375b2-manifest.json",
+          "bytes": 469,
+          "sha256": "734247a5b1406c7b0bfedcbc44064c8ee458e44d0ff7b78bf7b1c5fea628e7f5"
+        },
+        {
+          "name": "6dcad744-fd27-4b9a-82be-1e73136375b2.png",
+          "bytes": 132950,
+          "sha256": "2c977cb2cf466dfbe309487fd1a78f9ed99139c07419786959e9ef12b0c4814b"
+        },
+        {
+          "name": "cd4e423f-6217-458d-90b8-749964e94da3-manifest.json",
+          "bytes": 469,
+          "sha256": "5c68e99f1742f04dd359151deddf1028ed2c1d202ff982457c153ed0a6c5f084"
+        },
+        {
+          "name": "cd4e423f-6217-458d-90b8-749964e94da3.png",
+          "bytes": 133392,
+          "sha256": "4cca79f12d358246f18250acc4a4f58814b63ee1d53174529e2fc671e9d580e8"
+        },
+        {
+          "name": "checker-ba56693eef4a9f65fabc5ca6f8a2772dfc7f1cfb628c2476220a853b3ab26a81.png",
+          "bytes": 85261,
+          "sha256": "ba56693eef4a9f65fabc5ca6f8a2772dfc7f1cfb628c2476220a853b3ab26a81"
+        },
+        {
+          "name": "dark-7f00991daceaa300c0b168e07a7638448a9cc79c946794faf98176063ece958a.png",
+          "bytes": 80708,
+          "sha256": "7f00991daceaa300c0b168e07a7638448a9cc79c946794faf98176063ece958a"
+        },
+        {
+          "name": "framing-report.json",
+          "bytes": 6355,
+          "sha256": "03fddbb8ea703adbe5238ecef4ffd7e7cb9f74ed14211cb3875d8a7fd50dd341"
+        },
+        {
+          "name": "light-0ef2e19939c887e112087eb195bfd98d392b45df7a1d66e752ad96a260d9ed85.png",
+          "bytes": 80990,
+          "sha256": "0ef2e19939c887e112087eb195bfd98d392b45df7a1d66e752ad96a260d9ed85"
+        },
+        {
+          "name": "raw-after-14636ddf11fce9e570f26aa5909d1a44a7d52ab56f7b8f568e328e80486820ff.png",
+          "bytes": 81472,
+          "sha256": "14636ddf11fce9e570f26aa5909d1a44a7d52ab56f7b8f568e328e80486820ff"
+        },
+        {
+          "name": "raw-before-39fba5733b566f30fdd4d9c53e94df6a4c1cbf28006fb8e3bbc8c04779a511dc.png",
+          "bytes": 81183,
+          "sha256": "39fba5733b566f30fdd4d9c53e94df6a4c1cbf28006fb8e3bbc8c04779a511dc"
+        }
+      ]
     }
   ]
 }

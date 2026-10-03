@@ -206,7 +206,7 @@ The desktop shell, shared contracts, scene worker, renderer, editor, and MCP hav
 
 | OSE-08 (partial) | 7072861, cb87325, 79f0d02 | Hierarchy selection, finite position validation, persistent position/visibility edits, both output cameras | macOS release / WKWebView and OBS WebGPU | [First output check](evaluation/macOS-feasibility/first-output.md) | Panel resizing and keyboard controls checked; clipboard and full editor acceptance pending; box remains unchecked |
 
-| OSE-05 (incomplete) | 75de982, 953ab9b | Accurate minimized timing exposed worker stalls of 122 ms and 121 ms | macOS release / OBS WebGPU | [Current results](evaluation/macOS-feasibility/results.md) | Native clock correction and qualifying repeats pending; box remains unchecked |
+| OSE-05 (incomplete) | 75de982, 953ab9b, c5e107a | Two formal failures retained; native clock passed three prescribed timing runs per backend on the smoke fixture | macOS release / OBS WebGPU and WebGL2 | [Current results](evaluation/macOS-feasibility/results.md) | Separate recording continuity, source lifecycle and full acceptance pending; box remains unchecked |
 
 | OSE-06 (partial) | 75de982 | All nine official MCP tools, registered capture/resource integrity, benchmark start/status/cancel, default read-only rejection | macOS release / OBS WebGPU | [MCP round trip](evaluation/macOS-feasibility/mcp-roundtrip.md) | Final slice acceptance pending; no performance claim |
 

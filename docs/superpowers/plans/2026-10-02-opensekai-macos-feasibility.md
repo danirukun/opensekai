@@ -1403,3 +1403,5 @@ The user approved execution on 2026-10-03. Implementation is in progress. The se
 ## Checkpoint status — 2026-10-03
 
 Tasks 6–10 have source, boundary, and release tool evidence in the macOS feasibility documents. Task 7 still has an incomplete clipboard check. Task 11 remains incomplete: two correctly minimized WebGPU runs failed the 100 ms gate. See [current results](../../evaluation/macOS-feasibility/results.md). The native wakeup correction in the slice contract takes precedence over the earlier worker-timer example. The next concert slice must wait for qualifying repeats, recording, source lifecycle, soak, and final review.
+
+Timing checkpoint at c5e107a: three qualifying runs each on WebGPU and WebGL2 passed on the measured smoke host. Both earlier failures remain evidence. Task 11 Step 3 stays unchecked because the separate recording is pending; lifecycle, soak, final review and clipboard checks also remain pending. Exact results and action timestamps are indexed in the feasibility results.
