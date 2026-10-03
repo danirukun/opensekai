@@ -1,0 +1,449 @@
+import { z } from "zod";
+import type { AppApi, Capability, Reply, ValidatedCall } from "./types";
+export const LIMITS = {
+    jsonBytes: 262144,
+    captureEnvelopeBytes: 3145728,
+    pngBytes: 2097152,
+    pendingCalls: 32,
+    queuedFrames: 2,
+    rpcTimeoutMs: 2000
+} as const;
+export const IdSchema = z.string().min(1).max(256);
+const n = z.number().finite(), u = n.int().nonnegative().max(Number.MAX_SAFE_INTEGER);
+export const Vec3Schema = z.tuple([
+    n,
+    n,
+    n
+]);
+export const QuatSchema = z.tuple([
+    n,
+    n,
+    n,
+    n
+]).refine(q => Math.abs(Math.hypot(...q) - 1) <= 0.001);
+export const BackendSchema = z.enum([
+    "webgpu",
+    "webgl2"
+]);
+export const CapabilitySchema = z.enum([
+    "read",
+    "edit",
+    "capture",
+    "benchmark"
+]);
+export const ErrorCodeSchema = z.enum([
+    "INVALID_INPUT",
+    "CONFLICT",
+    "FORBIDDEN",
+    "UNAVAILABLE",
+    "NOT_FOUND",
+    "UNSUPPORTED",
+    "TIMEOUT",
+    "RATE_LIMITED",
+    "BUSY",
+    "CANCELLED",
+    "VERSION_MISMATCH",
+    "STALE_FRAME"
+]);
+export const AppErrorSchema = z.strictObject({
+    code: ErrorCodeSchema,
+    message: z.string(),
+    ids: z.array(IdSchema)
+});
+export const replySchema = <T extends z.ZodType>(data: T) => z.union([
+    z.strictObject({
+        ok: z.literal(true),
+        data
+    }),
+    z.strictObject({
+        ok: z.literal(false),
+        error: AppErrorSchema
+    })
+]);
+export const TransformSchema = z.strictObject({
+    position: Vec3Schema,
+    rotation: QuatSchema,
+    scale: z.tuple([
+        n.positive(),
+        n.positive(),
+        n.positive()
+    ])
+});
+export const EntityBaseSchema = z.strictObject({
+    id: IdSchema,
+    name: z.string(),
+    visible: z.boolean(),
+    transform: TransformSchema
+});
+export const LensSchema = z.strictObject({
+    fovDegrees: n.min(1).max(179),
+    near: n.positive(),
+    far: n.positive()
+}).refine(l => l.far > l.near);
+export const SceneEntitySchema = z.discriminatedUnion("kind", [
+    EntityBaseSchema.extend({
+        kind: z.literal("mesh"),
+        source: z.discriminatedUnion("kind", [
+            z.strictObject({
+                kind: z.literal("box")
+            }),
+            z.strictObject({
+                kind: z.literal("asset"),
+                assetId: IdSchema
+            })
+        ])
+    }),
+    EntityBaseSchema.extend({
+        kind: z.literal("avatar"),
+        assetId: IdSchema
+    }),
+    EntityBaseSchema.extend({
+        kind: z.literal("camera"),
+        lens: LensSchema
+    })
+]);
+export const OutputSpecSchema = z.strictObject({
+    id: IdSchema,
+    cameraId: IdSchema,
+    width: z.literal(1920),
+    height: z.literal(1080),
+    fps: z.literal(60)
+});
+export const SceneViewSchema = z.strictObject({
+    schemaVersion: z.literal(1),
+    sceneId: IdSchema,
+    revision: u,
+    entities: z.array(SceneEntitySchema).max(64),
+    outputs: z.array(OutputSpecSchema).max(64)
+}).refine(s => new Set(s.entities.map(e => e.id)).size === s.entities.length && new Set(s.outputs.map(o => o.id)).size === s.outputs.length && s.outputs.every(o => s.entities.some(e => e.id === o.cameraId && e.kind === "camera")), "Duplicate ID or invalid camera reference");
+export const PatchOpSchema = z.discriminatedUnion("kind", [
+    z.strictObject({
+        kind: z.literal("setTransform"),
+        entityId: IdSchema,
+        transform: TransformSchema
+    }),
+    z.strictObject({
+        kind: z.literal("setVisibility"),
+        entityId: IdSchema,
+        visible: z.boolean()
+    })
+]);
+export const ScenePatchSchema = z.strictObject({
+    sceneId: IdSchema,
+    expectedRevision: u,
+    operations: z.array(PatchOpSchema).min(1).max(32)
+});
+const sha = z.string().regex(/^[a-f0-9]{64}$/);
+export const AssetRecordSchema = z.strictObject({
+    id: IdSchema,
+    format: z.enum([
+        "glb",
+        "vrm"
+    ]),
+    sha256: sha,
+    bytes: u,
+    sourceUrl: z.url().nullable(),
+    licenseLabel: z.string(),
+    importerVersion: z.literal(1)
+});
+export const ConnectionDescriptorSchema = z.strictObject({
+    schemaVersion: z.literal(1),
+    sessionId: IdSchema,
+    httpOrigin: z.url().refine(v => { const x = new URL(v); return x.protocol === "http:" && x.hostname === "127.0.0.1" && x.pathname === "/" && !x.search && !x.hash && !x.username && !x.password; }),
+    wsUrl: z.url().refine(v => { const x = new URL(v); return x.protocol === "ws:" && x.pathname === "/ws" && x.hostname === "127.0.0.1" && !x.search && !x.hash && !x.username && !x.password; }),
+    role: z.enum([
+        "publisher",
+        "operator",
+        "renderer"
+    ]),
+    token: z.string().min(1),
+    capabilities: z.array(CapabilitySchema),
+    outputId: IdSchema.nullable()
+}).refine(d => new URL(d.wsUrl).host === new URL(d.httpOrigin).host).refine(d => d.role !== "renderer" || (d.outputId !== null && d.capabilities.every(c => c === "read")));
+export const RuntimeFrameSchema = z.strictObject({
+    schemaVersion: z.literal(1),
+    sessionId: IdSchema,
+    sequence: u,
+    tick: u,
+    elapsedMs: n.nonnegative(),
+    scene: SceneViewSchema
+});
+export const FrameAppliedSchema = z.strictObject({
+    outputId: IdSchema,
+    sessionId: IdSchema,
+    sequence: u,
+    tick: u,
+    revision: u,
+    cameraId: IdSchema,
+    backend: BackendSchema,
+    cpuMs: n.nonnegative(),
+    gpuMs: n.nonnegative().nullable(),
+    warnings: z.array(AppErrorSchema)
+});
+export const AppStatusSchema = z.strictObject({
+    schemaVersion: z.literal(1),
+    sessionId: IdSchema,
+    ready: z.boolean(),
+    revision: u.nullable(),
+    capabilities: z.array(CapabilitySchema),
+    warnings: z.array(AppErrorSchema),
+    outputs: z.array(z.strictObject({
+        outputId: IdSchema,
+        connected: z.boolean(),
+        lastFrame: FrameAppliedSchema.nullable()
+    }))
+});
+export const CaptureParamsSchema = z.strictObject({
+    outputId: IdSchema,
+    expectedRevision: u,
+    preset: z.literal("diagnostic_v1"),
+    maxAgeMs: z.literal(500)
+});
+export const CaptureRecordSchema = z.strictObject({
+    id: IdSchema,
+    outputId: IdSchema,
+    revision: u,
+    tick: u,
+    sequence: u,
+    backend: BackendSchema,
+    cameraId: IdSchema,
+    width: u.positive().max(1920),
+    height: u.positive().max(1080),
+    mimeType: z.literal("image/png"),
+    bytes: u.max(LIMITS.pngBytes),
+    sha256: sha,
+    resourceUri: z.string().min(1),
+    createdAtUtc: z.iso.datetime()
+});
+export const BenchmarkParamsSchema = z.strictObject({
+    requestId: IdSchema,
+    fixtureId: z.literal("smoke_v1"),
+    profileId: z.enum([
+        "webgpu_smoke_v1",
+        "webgl2_smoke_v1"
+    ])
+});
+export const BenchmarkRunSchema = z.strictObject({
+    id: IdSchema,
+    state: z.enum([
+        "warming",
+        "measuring",
+        "complete",
+        "cancelled",
+        "failed"
+    ]),
+    progress: n.min(0).max(1),
+    summaryResourceUri: z.string().nullable(),
+    error: ErrorCodeSchema.nullable()
+});
+export const EvidenceManifestSchema = z.strictObject({
+    id: IdSchema,
+    kind: z.enum([
+        "capture",
+        "benchmark"
+    ]),
+    sessionId: IdSchema,
+    fixtureId: z.literal("smoke_v1"),
+    appCommit: z.string(),
+    resources: z.array(z.strictObject({
+        uri: z.string(),
+        mimeType: z.string(),
+        sha256: sha,
+        bytes: u
+    }))
+});
+export const DiagnosticMarkerSchema = z.strictObject({
+    sessionTag: u.max(4294967295),
+    sequence: u.max(4294967295),
+    tick: u.max(4294967295),
+    revision: u.max(4294967295),
+    cameraTag: u.max(4294967295)
+});
+export const CaptureBytesSchema = z.strictObject({
+    frame: FrameAppliedSchema,
+    png: z.instanceof(Uint8Array).refine(p => p.byteLength <= LIMITS.pngBytes),
+    width: u.positive().max(1920),
+    height: u.positive().max(1080)
+});
+export const ParamSchemas = {
+    appStatus: z.strictObject({}),
+    sceneInspect: z.strictObject({
+        sceneId: IdSchema
+    }),
+    scenePatch: ScenePatchSchema,
+    cameraSelect: z.strictObject({
+        outputId: IdSchema,
+        cameraId: IdSchema,
+        expectedRevision: u
+    }),
+    captureFrame: CaptureParamsSchema,
+    benchmarkStart: BenchmarkParamsSchema,
+    benchmarkStatus: z.strictObject({
+        runId: IdSchema
+    }),
+    benchmarkCancel: z.strictObject({
+        runId: IdSchema
+    }),
+    evidenceRead: z.strictObject({
+        evidenceId: IdSchema
+    })
+};
+export const ResultSchemas = {
+    appStatus: AppStatusSchema,
+    sceneInspect: SceneViewSchema,
+    scenePatch: z.strictObject({
+        revision: u
+    }),
+    cameraSelect: z.strictObject({
+        revision: u
+    }),
+    captureFrame: CaptureRecordSchema,
+    benchmarkStart: BenchmarkRunSchema,
+    benchmarkStatus: BenchmarkRunSchema,
+    benchmarkCancel: BenchmarkRunSchema,
+    evidenceRead: EvidenceManifestSchema
+};
+export const MethodSchema = z.enum([
+    "appStatus",
+    "sceneInspect",
+    "scenePatch",
+    "cameraSelect",
+    "captureFrame",
+    "benchmarkStart",
+    "benchmarkStatus",
+    "benchmarkCancel",
+    "evidenceRead"
+]);
+export function validateCall(method: unknown, params: unknown): Reply<ValidatedCall> { const m = MethodSchema.safeParse(method); if (m.success) {
+    const p = ParamSchemas[m.data].safeParse(params);
+    if (p.success)
+        return {
+            ok: true,
+            data: {
+                method: m.data,
+                params: p.data
+            } as ValidatedCall
+        };
+} return {
+    ok: false,
+    error: {
+        code: "INVALID_INPUT",
+        message: "Invalid method or parameters",
+        ids: []
+    }
+}; }
+export function requiredCapability(method: keyof AppApi): Capability { if (method === "scenePatch" || method === "cameraSelect")
+    return "edit"; if (method === "captureFrame")
+    return "capture"; if (method.startsWith("benchmark"))
+    return "benchmark"; return "read"; }
+export const CallSchema = z.strictObject({
+    kind: z.literal("call"),
+    requestId: IdSchema,
+    method: MethodSchema,
+    params: z.unknown()
+}).refine(v => validateCall(v.method, v.params).ok);
+export const CaptureReplyDataSchema = z.strictObject({
+    metadata: z.strictObject({
+        frame: FrameAppliedSchema,
+        width: u.positive().max(1920),
+        height: u.positive().max(1080)
+    }),
+    pngBase64: z.string().regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/).max(Math.ceil(LIMITS.pngBytes / 3) * 4)
+}).refine(v => v.pngBase64.length * 3 / 4 - (v.pngBase64.endsWith("==") ? 2 : v.pngBase64.endsWith("=") ? 1 : 0) <= LIMITS.pngBytes);
+export const AuthSchema = z.strictObject({
+    kind: z.literal("auth"),
+    role: z.enum([
+        "publisher",
+        "operator",
+        "renderer"
+    ]),
+    token: z.string().min(1),
+    schemaVersion: z.literal(1),
+    outputId: IdSchema.nullable()
+});
+export const AuthReplySchema = z.strictObject({
+    kind: z.literal("authReply"),
+    sessionId: IdSchema,
+    schemaVersion: z.literal(1),
+    capabilities: z.array(CapabilitySchema)
+});
+export const ReplyEnvelopeSchema = z.strictObject({
+    kind: z.literal("reply"),
+    requestId: IdSchema,
+    result: replySchema(z.unknown())
+});
+export const FrameEnvelopeSchema = z.strictObject({
+    kind: z.literal("frame"),
+    frame: RuntimeFrameSchema
+});
+export const AppliedEnvelopeSchema = z.strictObject({
+    kind: z.literal("applied"),
+    frame: FrameAppliedSchema
+});
+export const CaptureRequestSchema = z.strictObject({
+    kind: z.literal("captureRequest"),
+    requestId: IdSchema,
+    params: CaptureParamsSchema
+});
+export const CaptureReplySchema = z.strictObject({
+    kind: z.literal("captureReply"),
+    requestId: IdSchema,
+    result: replySchema(CaptureReplyDataSchema)
+});
+export const PingPongSchema = z.strictObject({
+    kind: z.enum([
+        "ping",
+        "pong"
+    ]),
+    requestId: IdSchema
+});
+export const WireMessageSchema = z.union([
+    AuthSchema,
+    AuthReplySchema,
+    CallSchema,
+    ReplyEnvelopeSchema,
+    FrameEnvelopeSchema,
+    AppliedEnvelopeSchema,
+    CaptureRequestSchema,
+    CaptureReplySchema,
+    PingPongSchema
+]);
+export type WireMessage = z.infer<typeof WireMessageSchema>;
+export function parseWire(text: string): WireMessage { const value: unknown = JSON.parse(text); const capture = typeof value === "object" && value !== null && "kind" in value && value.kind === "captureReply"; if (new TextEncoder().encode(text).length > (capture ? LIMITS.captureEnvelopeBytes : LIMITS.jsonBytes))
+    throw new Error("Message too large"); return WireMessageSchema.parse(value); }
+export const publicJsonSchemas = Object.fromEntries(Object.entries({
+    Id: IdSchema,
+    Vec3: Vec3Schema,
+    Quat: QuatSchema,
+    Backend: BackendSchema,
+    Capability: CapabilitySchema,
+    ErrorCode: ErrorCodeSchema,
+    AppError: AppErrorSchema,
+    Transform: TransformSchema,
+    EntityBase: EntityBaseSchema,
+    SceneEntity: SceneEntitySchema,
+    OutputSpec: OutputSpecSchema,
+    SceneView: SceneViewSchema,
+    PatchOp: PatchOpSchema,
+    ScenePatch: ScenePatchSchema,
+    AssetRecord: AssetRecordSchema,
+    ConnectionDescriptor: ConnectionDescriptorSchema,
+    RuntimeFrame: RuntimeFrameSchema,
+    FrameApplied: FrameAppliedSchema,
+    AppStatus: AppStatusSchema,
+    CaptureParams: CaptureParamsSchema,
+    CaptureRecord: CaptureRecordSchema,
+    BenchmarkParams: BenchmarkParamsSchema,
+    BenchmarkRun: BenchmarkRunSchema,
+    EvidenceManifest: EvidenceManifestSchema,
+    DiagnosticMarker: DiagnosticMarkerSchema,
+    Call: CallSchema,
+    CaptureReplyData: CaptureReplyDataSchema,
+    WireMessage: WireMessageSchema,
+    Auth: AuthSchema, AuthReply: AuthReplySchema, ReplyEnvelope: ReplyEnvelopeSchema, FrameEnvelope: FrameEnvelopeSchema, AppliedEnvelope: AppliedEnvelopeSchema, CaptureRequest: CaptureRequestSchema, CaptureReply: CaptureReplySchema, PingPong: PingPongSchema
+}).map(([key, schema]) => [
+    key,
+    z.toJSONSchema(schema, {
+        unrepresentable: "any"
+    })
+]));
