@@ -296,7 +296,7 @@ pnpm check runs workspace TypeScript checks and svelte-check. test:unit runs the
 
 **Interfaces:** Produce the command scripts above, desktop window label main, and a native app_version() command returning package version. Build output is copied into resources/output/ before Tauri packaging.
 
-- [ ] **Step 1: Verify the installed tools and pin dependencies.**
+- [x] **Step 1: Verify the installed tools and pin dependencies.**
 
 ~~~sh
 node --version
@@ -307,7 +307,7 @@ xcode-select -p
 
 Use the exact pins above. Resolve remaining helper versions, including Tailwind, PNG decoders for Rust/TypeScript, Rust random/UUID/HTTP test helpers, serde, and serde_json, through published metadata and record them. Fail on incompatible engine constraints instead of ignoring peer errors.
 
-- [ ] **Step 2: Create the workspace configuration and shells.**
+- [x] **Step 2: Create the workspace configuration and shells.**
 
 ~~~json
 {
@@ -342,7 +342,7 @@ fn app_version() -> &'static str {
 
 Use Vite for the Svelte SPA. Set Tauri beforeDevCommand to run Vite for @opensekai/desktop, beforeBuildCommand to build that frontend, devUrl to its loopback port, and frontendDist to ../dist. Keep global Tauri injection disabled. Window main receives only the native/window permissions needed by this plan. No remote page receives a native bridge.
 
-- [ ] **Step 3: Add the reproducible local UI adapter and output preparation.**
+- [x] **Step 3: Add the reproducible local UI adapter and output preparation.**
 
 ~~~ts
 export async function snapshotUi(sourceDir: string, targetDir: string):
@@ -394,7 +394,7 @@ OPENSEKAI_UI_SOURCE=/Users/danirukun/ghq/github.com/oshi-connect/oshi-connect-ui
 
 For the initial bootstrap before workspace dependencies exist, use the installed Node 26 native TypeScript support to run the erasable script: node scripts/bootstrap-ui.ts. Subsequent calls can use tsx after install. Run pnpm exec vitest run scripts/bootstrap-ui.test.ts scripts/prepare-output.test.ts --project integration after install. Add the Tailwind Vite plugin and scan .local/ui/dist so shared component utilities are generated.
 
-- [ ] **Step 4: Run the shell and verify the native version round trip.**
+- [x] **Step 4: Run the shell and verify the native version round trip.**
 
 ~~~sh
 pnpm install
@@ -404,7 +404,7 @@ pnpm --filter @opensekai/desktop tauri dev
 
 Expected: one OpenSekai window; app_version resolves to 0.1.0; shared Button/Input render; no console errors. Exercise minimize/restore once. This is a smoke check, not a static-label unit test.
 
-- [ ] **Step 5: Checkpoint.**
+- [x] **Step 5: Checkpoint.**
 
 ~~~sh
 git add package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json vitest.config.ts Cargo.toml Cargo.lock rust-toolchain.toml .node-version .npmrc .gitignore scripts apps packages crates tools docs/dependencies.md
@@ -521,9 +521,9 @@ pub fn resolve_asset(id: &str, registry: &AssetRegistry)
     -> Result<std::path::PathBuf, AppError>;
 ~~~
 
-AppError is the shared error object from Reply. ServiceHandle internally owns task cancellation, pending requests, tokens, and current publisher/output connections. Add a descriptor-writing helper that atomically replaces owner-readable operator and output renderer descriptor files; return their paths only to trusted app bootstrap. Add ServiceHandle::last_applied(output_id: &str) -> Option<(FrameApplied, u64)>, applied_at(output_id: &str, sequence: u64) -> Option<(FrameApplied, u64)>, and request_capture(params: CaptureParams) -> Result<CaptureBytes, AppError> for the native evaluation bridge. The timestamp is the native monotonic receive time. Keep a bounded ring of the last 32 validated acknowledgements per output for capture correlation. Clear it on reconnect/session change. The request_capture helper forwards to the authenticated renderer and pairs its reply; public capture RPC stays UNSUPPORTED until Task 10 enforces the budgets.
+AppError is the shared error object from Reply. ServiceHandle internally owns task cancellation, pending requests, tokens, and current publisher/output connections. Add a descriptor-writing helper that atomically replaces owner-readable operator and output renderer descriptor files; return their paths only to trusted app bootstrap. Add ServiceHandle::last_applied(output_id: &str) -> Option<(FrameApplied, u64)>, applied_at(output_id: &str, sequence: u64) -> Option<(FrameApplied, u64)>, and request_capture(params: CaptureParams) -> Result<CaptureBytes, AppError> for the native evaluation bridge. The timestamp is the native monotonic receive time. Export ServiceHandle::now_ms(&self) -> u64 from the same clock origin, and use it for evaluation age checks. Keep a bounded ring of the last 32 validated acknowledgements per output for capture correlation. Clear it on reconnect/session change. The request_capture helper forwards to the authenticated renderer and pairs its reply; public capture RPC stays UNSUPPORTED until Task 10 enforces the budgets.
 
-The router owns route_scene_call(call: Call) -> Reply<serde_json::Value> as an async method. Define RpcHandler as an Arc callback from Call to a boxed Send future returning Reply<serde_json::Value>. ServiceHandle::install_evaluation_handler(handler: RpcHandler) installs the optional native evaluation handler. The router checks capabilities before invoking it. Clear the handler and pending requests during shutdown. Avoid strong service/handler reference cycles.
+The router owns route_scene_call(call: Call) -> Reply<serde_json::Value> as an async method. Define RpcContext with client_id: String, assigned by the authenticated connection, and never read from call params. Define RpcHandler as an Arc callback from (Call, RpcContext) to a boxed Send future returning Reply<serde_json::Value>. ServiceHandle::install_evaluation_handler(handler: RpcHandler) installs the optional native evaluation handler. The router checks capabilities before invoking it. Clear the handler and pending requests during shutdown. Avoid strong service/handler reference cycles.
 
 - [ ] **Step 1: Write focused logic tests and real network tests.**
 
@@ -1221,15 +1221,15 @@ Expected: evaluation routes are initially UNSUPPORTED; tests fail against the in
 
 ~~~rust
 match call.method.as_str() {
-    "captureFrame" => evaluation.capture(call).await,
+    "captureFrame" => evaluation.capture(call, context).await,
     "benchmarkStart" | "benchmarkStatus" | "benchmarkCancel" =>
-        evaluation.run(call).await,
-    "evidenceRead" => evaluation.evidence(call).await,
+        evaluation.run(call, context).await,
+    "evidenceRead" => evaluation.evidence(call, context).await,
     _ => route_scene_call(call).await,
 }
 ~~~
 
-Define NativeEvaluation::new with the service ports, RunManager, CaptureStore, and native clock/commit/evidence context. Its capture/run/evidence methods each accept Call and return Reply<serde_json::Value>. Register their dispatch closure through ServiceHandle::install_evaluation_handler.
+Define NativeEvaluation::new with the service ports, RunManager, CaptureStore, and native clock/commit/evidence context. Its capture/run/evidence methods each accept Call and RpcContext and return Reply<serde_json::Value>. Use RpcContext.client_id for per-client capture budgets and ServiceHandle::now_ms for the shared native clock. Register their dispatch closure through ServiceHandle::install_evaluation_handler.
 
 The native module defines these exact bridge methods using the shared Call/Reply wire types and existing service ports. Keep scope checks ahead of dispatch. Status remains native-owned.
 
@@ -1396,6 +1396,6 @@ Self-review coverage:
 | F11 role/capability boundary | 2, 3, 8, 10 |
 | F12 concurrent workers/checkpoints | execution graph and each task |
 
-All five Review Focus classes have explicit owning tests. VRM0, unavailable WebGPU, absent frontier review, concert hardware, and broader parity have explicit pending/unsupported outcomes. Implementation source is still absent; tests and runtime results above are expected checks, not performed results.
+All five Review Focus classes have explicit owning tests. VRM0, unavailable WebGPU, absent frontier review, concert hardware, and broader parity have explicit pending/unsupported outcomes. Task 1 is complete with a reviewed desktop shell and recorded smoke checks. Later tasks remain pending; their test and runtime results above are expected checks.
 
-Implementation starts after the user reviews this plan. The selected method is concurrent agents at lower effort with separate worktrees; do not ask the user to choose that method again.
+The user approved execution on 2026-10-03. Implementation is in progress. The selected method is concurrent agents at lower effort with separate worktrees; do not ask the user to choose that method again.

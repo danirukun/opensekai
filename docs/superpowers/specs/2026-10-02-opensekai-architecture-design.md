@@ -1,8 +1,8 @@
 # OpenSekai architecture design
 
 Date: 2026-10-02
-State: approved for first-slice planning on 2026-10-02; implementation not started
-Implementation: not started
+State: approved; first-slice implementation started on 2026-10-03
+Implementation: desktop shell runs; feasibility acceptance pending
 
 ## Purpose and scope
 

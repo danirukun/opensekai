@@ -1,6 +1,6 @@
 # REASONS: macOS feasibility slice
 
-Date: 2026-10-02. State: implementation contract for plan review.
+Date: 2026-10-02. State: approved for implementation on 2026-10-03; feasibility evidence pending.
 
 ## R — Requirements
 
@@ -65,3 +65,34 @@ Source and evidence updates travel with each verified feature checkpoint. The im
 - Mark unavailable GPU timing as unknown. Measure capture-free performance windows.
 - No live streaming, public publication, NDI integration, full shader conversion, or guest plugin execution in this slice.
 - If minimized-session behavior fails, record the failed gate and write the independent-runtime follow-up spec before proceeding to concert acceptance.
+
+## Execution rulings
+
+2026-10-03: Keep svelte-check 4.7.6. Use an exact published TypeScript 6.x version because the checker peer range excludes TypeScript 7.0.2. Record the selected version and metadata in docs/dependencies.md before the first parallel wave. Do not suppress peer checks.
+
+## Wire envelope contract v1
+
+Task 2 must export strict schemas and a WireMessage union for these JSON forms. All names are literal. A native client can omit the WebSocket Origin header, but must authenticate before all other messages. Authentication failure closes the connection; it is not a successful authReply.
+
+```ts
+type WireMessage =
+  | { kind: "auth"; role: ConnectionDescriptor["role"]; token: string;
+      schemaVersion: 1; outputId: Id | null }
+  | { kind: "authReply"; sessionId: Id; schemaVersion: 1;
+      capabilities: Capability[] }
+  | Call
+  | { kind: "reply"; requestId: Id; result: Reply<unknown> }
+  | { kind: "frame"; frame: RuntimeFrame }
+  | { kind: "applied"; frame: FrameApplied }
+  | { kind: "captureRequest"; requestId: Id; params: CaptureParams }
+  | { kind: "captureReply"; requestId: Id;
+      result: Reply<{ metadata: { frame: FrameApplied; width: number; height: number };
+        pngBase64: string }> }
+  | { kind: "ping" | "pong"; requestId: Id };
+```
+
+The reply envelope has a method-specific result schema selected from the pending request. Rust uses the same field names with serde camelCase. Rust can store result data as serde_json::Value, but must validate incoming method results before relaying them. Requests sent to the publisher include the validated Call. Request IDs are scoped to their connection; the native relay allocates distinct internal request IDs and restores the caller's original ID on reply. This prevents callers with equal request IDs from receiving each other's replies.
+
+A successful captureReply carries the metadata and PNG bytes for one displayed frame. An error uses the same Reply error form as command replies. The separate encoded capture limit applies to this envelope only. Each diagnostic capture is serialized with applyFrame so its metadata matches its pixels.
+
+Native evaluation callbacks receive RpcContext { client_id: String } from the authenticated connection. It is internal metadata, never a wire field or caller-supplied parameter. Use it for per-client capture limits. ServiceHandle::now_ms returns the same monotonic clock origin used for acknowledgement timestamps. This prevents capture freshness checks from comparing unrelated clocks.

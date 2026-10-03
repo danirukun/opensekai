@@ -4,7 +4,7 @@ Baseline reviewed: 2026-10-02. Source: [Warudo handbook](https://docs.warudo.app
 
 Goal: broad functional parity, including documented Pro production features. OpenSekai uses a different engine and extension API. Unity pipeline internals, C# plugin binaries, bundled commercial content, and .warudo archive compatibility are not implied.
 
-This is an initial handbook-category inventory. Reviewed feature pages inform the entries below. It is not a completed audit of every setting, built-in node, tutorial, or Pro-only restriction. Expand each category into tested behaviors before claiming full parity for it. All boxes start unchecked because no app code exists.
+This is an initial handbook-category inventory. Reviewed feature pages inform the entries below. It is not a completed audit of every setting, built-in node, tutorial, or Pro-only restriction. Expand each category into tested behaviors before claiming full parity for it. All boxes remain unchecked until the complete behavior in each item is verified. A desktop shell alone does not establish a production feature.
 
 ## Status and evidence rules
 
@@ -196,11 +196,11 @@ These do not imply corresponding Warudo handbook features.
 
 ## Evidence ledger
 
-No implementation evidence exists.
+The desktop shell has limited implementation evidence. Production feature acceptance is pending.
 
 | Feature ID | Commit | Verified scope | Platform / backend | Evidence | Remaining gap |
 | --- | --- | --- | --- | --- | --- |
-| — | — | No features implemented | — | — | All entries unverified |
+| OSE-01, OSE-08 (partial) | 58b7955, b0cd4fb | Native desktop shell, shared Input/Button, version round trip | macOS / WKWebView; renderer absent | [Shell check](evaluation/macOS-feasibility/desktop-shell.md) | Production output, full editor, session, MCP, and timing pending; boxes remain unchecked |
 
 ## Audit maintenance
 
