@@ -39,7 +39,10 @@ export function createAvatarBinding(vrm: VRM) {
         vrm.humanoid.resetNormalizedPose();
         const normalized: VRMPose = {};
         for (const [name,bone] of Object.entries(pose?.baseBones ?? {})) {
-            normalized[name as VRMHumanBoneName]={rotation:[...bone.rotation],...(bone.position ? {position:[...bone.position]} : {})};
+            const sign=vrm.meta.metaVersion==='0'?-1:1;
+            const [x,y,z,w]=bone.rotation;
+            normalized[name as VRMHumanBoneName]={rotation:[x*sign,y,z*sign,w],
+                ...(bone.position ? {position:[bone.position[0]*sign,bone.position[1],bone.position[2]*sign]} : {})};
         }
         resolveChest(normalized);
         for (const [name,bone] of Object.entries(pose?.bones ?? {})) {
