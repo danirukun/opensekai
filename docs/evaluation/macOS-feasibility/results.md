@@ -1,6 +1,6 @@
 # macOS feasibility results
 
-Date: 2026-10-03. Status: technical macOS smoke gates passed; clipboard UI acceptance pending. This document retains earlier failures. It does not approve the next concert slice.
+Date: 2026-10-03. Status: technical macOS smoke gates passed; clipboard UI acceptance passed at ce6bccb. Earlier sections retain the state at their source checkpoints. This document retains earlier failures. It does not approve the next concert slice.
 
 ## Scope
 
@@ -18,7 +18,7 @@ Pinned fixture asset records:
 | Requirement | Evidence | Result |
 | --- | --- | --- |
 | Packaged app outside checkout; VRM/glTF output | [First output](first-output.md) | Verified on this host |
-| Editor edits and camera changes | [First output](first-output.md) | Partial; clipboard pending |
+| Editor edits and camera changes | [Editor interactions](../warudo-editor-interactions.md) | Scoped UI slice and clipboard verified; broad editor parity pending |
 | All nine MCP tools and resource integrity | [Release round trip](mcp-roundtrip.md) | Verified; not a timing result |
 | Three qualifying runs per supported backend | Timing records below | Passed on this host and smoke_v1; six runs below |
 | Separate minimized recording | c5e107a: 40 decoded samples; 18 minimized samples advance | Verified at 2 FPS on WebGPU; not every encoded frame |
@@ -104,3 +104,7 @@ The latest source check passed 200 JavaScript unit tests, five integration tests
 ## Final evidence review
 
 The stable final-model-review.json packet identifies rubric 1 and prompt task-11-final-wide-webgpu-visual-review-v1. Its SHA-256 is 7238f3a6e03c84f08eab011903870b20f4b4358ae2175846c2cd1cc8e2ba24c1. The reviewer inspected real native/OBS images, sampled recording frames, lifecycle packets and 17 completed-soak images with hashes and markers checked. The orchestration model label is gpt-6.1-sol with low effort; an independent provider model identifier was not exposed. No provider upload is claimed. The conditional verdict supports the technical smoke gates within the stated sources, fixture and backends. Clipboard UI acceptance remains pending. The default Wide shoe crop remains minor; GPU timing/reclamation, minimum hardware and concert performance remain unknown.
+
+## Warudo-style editor at ce6bccb
+
+The later [editor interaction check](../warudo-editor-interactions.md) records direct transforms, property scrubbing, context menus, panel resizing, separate windows and actual clipboard acceptance under explicit user authorization. Clipboard comparisons passed privately at 68b9293 and ce6bccb. Earlier clipboard-pending statements describe historical checkpoints. The new targeted rendering check retains its own source and evidence; it does not replace the older full two-backend, recording or soak results.

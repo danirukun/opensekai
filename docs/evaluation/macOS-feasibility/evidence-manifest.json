@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "status": "technical macOS smoke gates passed; clipboard UI acceptance pending",
+  "status": "technical macOS smoke gates passed; clipboard UI acceptance verified at ce6bccb; see ../warudo-editor-interactions.md for later UI scope",
   "scope": "smoke_v1 on this macOS host only",
   "runs": [
     {

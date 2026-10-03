@@ -194,25 +194,31 @@ These do not imply corresponding Warudo handbook features.
 - [ ] OSE-09 — Undo/redo, project repair, and saved layouts.
 - [ ] OSE-10 — Mobile feasibility investigation without replacing portable core.
 
+## Verified editor subset
+
+These split the first editor slice from broad OSE-08 and SCN-02. The broad boxes remain unchecked.
+
+- [x] UI-01 — Separate Scene/Editor windows, light asset/property layout and 620-pixel property view on macOS.
+- [x] UI-02 — Numeric transform input, label scrubbing, reset and invalid-scale rejection on macOS.
+- [x] UI-03 — Preview selection and released Move/Rotate/Scale gestures; production output has no gizmo. Scene-only evaluation harness used for pointer targeting.
+- [x] UI-04 — Context-menu keyboard actions, menu Escape, panel resizing and editor hide/reopen on macOS.
+- [x] UI-05 — Actual OBS URL copy and private clipboard match on macOS.
+- [x] UI-06 — Renderer unsupported-feature warnings retained in Resources.
+
 ## Evidence ledger
 
-The desktop shell, shared contracts, scene worker, renderer, editor, and MCP have implementation evidence. The technical macOS smoke gates passed on the measured host. Clipboard UI acceptance remains pending; minimum-hardware and concert performance are unknown.
+The desktop shell, shared contracts, scene worker, renderer, editor, and MCP have implementation evidence. The technical macOS smoke gates passed on the measured host. Clipboard UI acceptance passed under explicit authorization at ce6bccb. Minimum-hardware and concert performance are unknown. Earlier rows retain their historical scope.
 
 | Feature ID | Commit | Verified scope | Platform / backend | Evidence | Remaining gap |
 | --- | --- | --- | --- | --- | --- |
 | OSE-01, OSE-08 (partial) | 58b7955, b0cd4fb | Native desktop shell, shared Input/Button, version round trip | macOS / WKWebView; renderer absent | [Shell check](evaluation/macOS-feasibility/desktop-shell.md) | Later output/editor/MCP evidence below; Later smoke timing evidence is below; clipboard and full editor acceptance remain pending; these boxes stay unchecked |
-
 | MAT-01, CAM-04, OSE-03 (partial) | 0009d97, 0f59ae0, 1848c85, 521468a | Controlled Chrome VRM1/MToon, GLB/PBR, both backends, alpha, marker, camera and reload; live OBS WebGL2 and release WebGPU image, current markers and camera changes | macOS / Chrome WebGPU and WebGL2; OBS WebGL2 and WebGPU | [First output check](evaluation/macOS-feasibility/first-output.md) | Historical partial scope; later smoke timing, alpha and lifecycle evidence is below. MAT-01 and OSE-03 remain unchecked; CAM-04 has a separate scoped verified row. |
-
 | OSE-08 (partial) | 7072861, cb87325, 79f0d02 | Hierarchy selection, finite position validation, persistent position/visibility edits, both output cameras | macOS release / WKWebView and OBS WebGPU | [First output check](evaluation/macOS-feasibility/first-output.md) | Panel resizing and keyboard controls checked; clipboard and full editor acceptance pending; box remains unchecked |
-
 | OSE-05 (scoped verified) | 75de982, 953ab9b, c5e107a | Two formal failures retained; native clock passed three prescribed timing runs per backend on the smoke fixture | macOS release / OBS WebGPU and WebGL2 | [Current results](evaluation/macOS-feasibility/results.md) | Sampled WebGPU recording and correlated hide/recreate recovery passed at c5e107a; five refreshes/ten-minute WebGPU soak passed at 1073130; clipboard UI acceptance, minimum hardware and concert scope remain separate |
-
 | OSE-06 (scoped verified) | 75de982, c5e107a | All nine official MCP tools, registered capture/resource integrity, benchmark start/status/cancel, default read-only rejection | macOS release / OBS WebGPU | [MCP round trip](evaluation/macOS-feasibility/mcp-roundtrip.md) | All nine tools and registered resource integrity verified; no performance or broader production claim |
-
 | CAM-04 (scoped verified) | c5e107a, 1073130 | Raw alpha and dark/light/checker smoke output reviewed; fresh capture/OBS marker correlation | macOS / OBS WebGPU and WebGL2 | [Current results](evaluation/macOS-feasibility/results.md) | Default Wide shoe crop is minor; runtime reframing is separate; broader material compatibility remains unchecked |
-
 | OSE-07 (scoped verified) | c5e107a, 1073130 | Actual smoke images, recording samples, lifecycle and soak reviewed with capture hashes and reproducible crop defect | macOS / WebGPU and WebGL2 smoke evidence | [Final review scope](evaluation/macOS-feasibility/results.md) | Orchestration model label/effort recorded; provider ID not exposed; clipboard, GPU timing/reclamation, minimum hardware and concert remain separate |
+| UI-01 through UI-06; OSE-08 and SCN-02 (partial) | 36d8519, 68b9293, ce6bccb | Separate windows, property edits, gizmos, menus, resizing, clipboard and warnings | macOS release / WKWebView and OBS WebGPU | [Editor interaction check](evaluation/warudo-editor-interactions.md) | Full hierarchy/CRUD/property coverage and active pointer Escape live verification remain open; scene-only and compact harnesses identified separately |
 
 The [shared contract check](evaluation/macOS-feasibility/contracts.md) records validation and client lifecycle evidence. It does not establish an OBS or MCP production feature.
 

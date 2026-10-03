@@ -1400,8 +1400,12 @@ The original plan review assigned tests to all five Review Focus classes. It def
 
 The user approved execution on 2026-10-03. Implementation is in progress. The selected method is concurrent agents at lower effort with separate worktrees; do not ask the user to choose that method again.
 
-## Checkpoint status — 2026-10-03
+## Historical checkpoint status — through 1073130
 
 Tasks 6–10 have source, boundary, and release tool evidence in the macOS feasibility documents. Task 7 still has an incomplete clipboard check. Task 11 remains incomplete. Two correctly minimized WebGPU failures remain evidence; six later c5e107a runs passed the timing gates. See [current results](../../evaluation/macOS-feasibility/results.md). The native wakeup correction in the slice contract takes precedence over the earlier worker-timer example. The next concert slice must wait for clipboard UI acceptance and the scoped acceptance checkpoint. Technical smoke checks do not establish concert or minimum-hardware performance.
 
 Timing checkpoint at c5e107a: three qualifying runs each on WebGPU and WebGL2 passed on the measured smoke host. Both earlier failures remain evidence. Task 11 Step 3 is now checked: the separate c5e107a recording passed 40 sampled session markers with 18 advancing minimized samples. Correlated hide/recreate lifecycle v2 also passed. At 1073130, in-document refresh and the 600002 ms/five-reload soak passed. Step 4 is checked with the stable scoped final model packet; GPU reclamation remains unknown. Step 2 remains unchecked for clipboard UI acceptance. Step 5 records the technical evidence checkpoint and the remaining UI exception. Clipboard testing still needs explicit authorization. Exact results and action timestamps are indexed in the feasibility results.
+
+## Later UI acceptance checkpoint — ce6bccb
+
+The user explicitly authorized OBS URL copying. The actual control and private clipboard comparison passed at 68b9293 and ce6bccb. The [Warudo editor interaction report](../../evaluation/warudo-editor-interactions.md) records the completed first UI slice, final targeted minimized WebGPU check, retained unsuccessful attempts and remaining live cancellation limit. Earlier clipboard-pending statements describe the historical checkpoint. This later check does not establish concert or minimum-hardware performance.
