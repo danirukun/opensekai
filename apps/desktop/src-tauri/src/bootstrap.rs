@@ -17,6 +17,13 @@ pub struct NativeBootstrap {
     assets: Vec<AssetRecord>,
     renderer_mode: &'static str,
 }
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NativeEditorConnection {
+    operator: ConnectionDescriptor,
+    output: ConnectionDescriptor,
+    assets: Vec<AssetRecord>,
+}
 #[derive(Default)]
 struct Owned {
     service: Option<ServiceHandle>,
@@ -125,6 +132,14 @@ impl DesktopState {
             }
         }
     }
+    pub async fn editor_connection(&self) -> Result<NativeEditorConnection, AppError> {
+        let ready = self.wait_ready().await?;
+        Ok(NativeEditorConnection {
+            operator: ready.operator,
+            output: ready.output,
+            assets: ready.assets,
+        })
+    }
     pub fn fail_startup(&self, error: AppError) {
         self.ready.send_replace(Some(Err(error)));
     }
@@ -170,6 +185,48 @@ mod tests {
         state.shutdown().await.unwrap();
         assert_eq!(
             state.wait_ready().await.err().unwrap().code,
+            ErrorCode::Unavailable
+        );
+    }
+    #[tokio::test]
+    async fn editor_projection_contains_only_existing_operator_output_and_assets() {
+        let dir = tempfile::tempdir().unwrap();
+        let manifest = dir.path().join("manifest.json");
+        std::fs::write(
+            &manifest,
+            r#"{"schemaVersion":1,"fixtureId":"smoke_v1","assets":[]}"#,
+        )
+        .unwrap();
+        let state = DesktopState::new();
+        state
+            .clone()
+            .initialize(
+                ServiceConfig {
+                    output_root: dir.path().into(),
+                    asset_manifest: manifest,
+                    evidence_root: dir.path().join("evidence"),
+                    evaluation_enabled: false,
+                },
+                dir.path().join("descriptors"),
+            )
+            .await;
+        let owner = serde_json::to_value(state.wait_ready().await.unwrap()).unwrap();
+        let editor = serde_json::to_value(state.editor_connection().await.unwrap()).unwrap();
+        let keys: Vec<_> = editor
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        assert_eq!(keys, ["assets", "operator", "output"]);
+        assert_eq!(editor["operator"], owner["operator"]);
+        assert_eq!(editor["output"], owner["output"]);
+        assert_eq!(editor["assets"], owner["assets"]);
+        assert_eq!(editor["operator"]["role"], "operator");
+        assert_eq!(editor["output"]["role"], "renderer");
+        state.shutdown().await.unwrap();
+        assert_eq!(
+            state.editor_connection().await.err().unwrap().code,
             ErrorCode::Unavailable
         );
     }

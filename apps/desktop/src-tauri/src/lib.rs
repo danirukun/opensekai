@@ -2,7 +2,7 @@ pub mod assets;
 mod bootstrap;
 pub mod evaluation;
 pub mod service;
-use bootstrap::{DesktopState, NativeBootstrap};
+use bootstrap::{DesktopState, NativeBootstrap, NativeEditorConnection};
 use opensekai_contracts::{AppError, ErrorCode};
 use std::{path::PathBuf, sync::Arc};
 use tauri::Manager;
@@ -18,13 +18,63 @@ pub fn output_resource_dir(app: &tauri::AppHandle) -> tauri::Result<PathBuf> {
 
 #[tauri::command]
 async fn bootstrap_session(
+    window: tauri::WebviewWindow,
     state: tauri::State<'_, Arc<DesktopState>>,
 ) -> Result<NativeBootstrap, AppError> {
+    require_window_label(window.label(), "main")?;
     state.wait_ready().await
 }
 #[tauri::command]
-async fn shutdown_session(state: tauri::State<'_, Arc<DesktopState>>) -> Result<(), AppError> {
+async fn shutdown_session(
+    window: tauri::WebviewWindow,
+    state: tauri::State<'_, Arc<DesktopState>>,
+) -> Result<(), AppError> {
+    require_window_label(window.label(), "main")?;
     state.shutdown().await
+}
+fn require_window_label(actual: &str, expected: &str) -> Result<(), AppError> {
+    if actual == expected {
+        Ok(())
+    } else {
+        Err(AppError {
+            code: ErrorCode::Forbidden,
+            message: "Command is unavailable in this window".into(),
+            ids: vec![],
+        })
+    }
+}
+#[tauri::command]
+async fn editor_connection(
+    window: tauri::WebviewWindow,
+    state: tauri::State<'_, Arc<DesktopState>>,
+) -> Result<NativeEditorConnection, AppError> {
+    require_window_label(window.label(), "editor")?;
+    state.editor_connection().await
+}
+fn window_error(_: tauri::Error) -> AppError {
+    AppError {
+        code: ErrorCode::Unavailable,
+        message: "Editor window is unavailable".into(),
+        ids: vec![],
+    }
+}
+#[tauri::command]
+fn show_editor(window: tauri::WebviewWindow) -> Result<(), AppError> {
+    require_window_label(window.label(), "main")?;
+    let editor = window
+        .get_webview_window("editor")
+        .ok_or_else(|| AppError {
+            code: ErrorCode::Unavailable,
+            message: "Editor window is unavailable".into(),
+            ids: vec![],
+        })?;
+    editor.show().map_err(window_error)?;
+    editor.set_focus().map_err(window_error)
+}
+#[tauri::command]
+fn hide_editor(window: tauri::WebviewWindow) -> Result<(), AppError> {
+    require_window_label(window.label(), "editor")?;
+    window.hide().map_err(window_error)
 }
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -63,10 +113,20 @@ pub fn run() {
             });
             Ok(())
         })
+        .on_window_event(|window, event| {
+            if window.label() == "main"
+                && matches!(event, tauri::WindowEvent::CloseRequested { .. })
+            {
+                window.app_handle().exit(0);
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             app_version,
             bootstrap_session,
-            shutdown_session
+            shutdown_session,
+            editor_connection,
+            show_editor,
+            hide_editor
         ])
         .build(tauri::generate_context!())
         .expect("OpenSekai failed to start");
@@ -75,4 +135,25 @@ pub fn run() {
             let _ = tauri::async_runtime::block_on(state.shutdown());
         }
     });
+}
+
+#[cfg(test)]
+mod command_boundary_tests {
+    use super::*;
+    #[test]
+    fn editor_commands_and_owner_commands_reject_other_window_labels() {
+        assert!(require_window_label("main", "main").is_ok());
+        assert!(require_window_label("editor", "editor").is_ok());
+        for (actual, expected) in [
+            ("editor", "main"),
+            ("main", "editor"),
+            ("remote", "editor"),
+            ("", "main"),
+        ] {
+            assert_eq!(
+                require_window_label(actual, expected).unwrap_err().code,
+                ErrorCode::Forbidden
+            );
+        }
+    }
 }

@@ -34,6 +34,9 @@ fn main() {
             "app_version",
             "bootstrap_session",
             "shutdown_session",
+            "editor_connection",
+            "show_editor",
+            "hide_editor",
         ]),
     ))
     .expect("OpenSekai build configuration failed");
