@@ -5,6 +5,13 @@ use serde::Serialize;
 use std::{path::PathBuf, sync::Arc, time::Duration};
 use tokio::sync::{watch, Mutex};
 
+#[derive(Clone, Copy, Serialize)]
+enum RendererMode {
+    #[serde(rename = "auto")]
+    Auto,
+    #[serde(rename = "force-webgl2")]
+    ForceWebgl2,
+}
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NativeBootstrap {
@@ -15,7 +22,7 @@ pub struct NativeBootstrap {
     operator_descriptor_file: String,
     renderer_descriptor_file: String,
     assets: Vec<AssetRecord>,
-    renderer_mode: &'static str,
+    renderer_mode: RendererMode,
 }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -23,6 +30,7 @@ pub struct NativeEditorConnection {
     operator: ConnectionDescriptor,
     output: ConnectionDescriptor,
     assets: Vec<AssetRecord>,
+    renderer_mode: RendererMode,
 }
 #[derive(Default)]
 struct Owned {
@@ -111,9 +119,9 @@ impl DesktopState {
                 renderer_mode: if std::env::var("OPENSEKAI_RENDERER_BACKEND")
                     .is_ok_and(|value| value == "webgl2")
                 {
-                    "force-webgl2"
+                    RendererMode::ForceWebgl2
                 } else {
-                    "auto"
+                    RendererMode::Auto
                 },
             })
         })();
@@ -138,6 +146,7 @@ impl DesktopState {
             operator: ready.operator,
             output: ready.output,
             assets: ready.assets,
+            renderer_mode: ready.renderer_mode,
         })
     }
     pub fn fail_startup(&self, error: AppError) {
@@ -189,7 +198,7 @@ mod tests {
         );
     }
     #[tokio::test]
-    async fn editor_projection_contains_only_existing_operator_output_and_assets() {
+    async fn editor_projection_contains_only_connection_assets_and_safe_renderer_mode() {
         let dir = tempfile::tempdir().unwrap();
         let manifest = dir.path().join("manifest.json");
         std::fs::write(
@@ -218,12 +227,26 @@ mod tests {
             .keys()
             .map(String::as_str)
             .collect();
-        assert_eq!(keys, ["assets", "operator", "output"]);
+        assert_eq!(keys, ["assets", "operator", "output", "rendererMode"]);
+        assert_eq!(editor["rendererMode"], owner["rendererMode"]);
         assert_eq!(editor["operator"], owner["operator"]);
         assert_eq!(editor["output"], owner["output"]);
         assert_eq!(editor["assets"], owner["assets"]);
         assert_eq!(editor["operator"]["role"], "operator");
         assert_eq!(editor["output"]["role"], "renderer");
+        // Vary the existing readiness preference without process-global environment races.
+        let mut ready = state.wait_ready().await.unwrap();
+        for (mode, expected) in [
+            (RendererMode::Auto, "auto"),
+            (RendererMode::ForceWebgl2, "force-webgl2"),
+        ] {
+            ready.renderer_mode = mode;
+            state.ready.send_replace(Some(Ok(ready.clone())));
+            let projected = serde_json::to_value(state.editor_connection().await.unwrap()).unwrap();
+            assert_eq!(projected["rendererMode"], expected);
+            assert_eq!(projected["operator"], owner["operator"]);
+            assert_eq!(projected["output"], owner["output"]);
+        }
         state.shutdown().await.unwrap();
         assert_eq!(
             state.editor_connection().await.err().unwrap().code,
