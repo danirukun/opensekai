@@ -2,7 +2,8 @@ import { createHash } from 'node:crypto';
 import { McpServer, type RegisteredResource } from '@modelcontextprotocol/server';
 import { LIMITS, type AppApi } from '@opensekai/contracts';
 export function validEvidenceUri(uri: string): boolean {
- return /^opensekai:\/\/evidence\/[A-Za-z0-9_-]+\/(?:capture\.png|summary\.json)$/.test(uri);
+ const match = /^opensekai:\/\/evidence\/[A-Za-z0-9_-]{1,256}\/(?:capture\.png|summary\.json)$/.exec(uri);
+ return match !== null && match[0] === uri;
 }
 export function registerResources(server: McpServer, api: AppApi, readResource: (uri: string) => Promise<Uint8Array>) {
  const retained = new Map<string, RegisteredResource>();
