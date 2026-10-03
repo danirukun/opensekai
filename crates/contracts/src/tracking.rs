@@ -40,6 +40,8 @@ pub struct TrackingBone {
     pub space: BoneSpace,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub position: Option<Vec3>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub weight: Option<f64>,
 }
 object!(TrackingRoot {
     position: Vec3,
@@ -180,6 +182,11 @@ fn channels(
     for (name, bone) in bones {
         require(humanoid_bone(name), "unknown humanoid bone")?;
         rotation(&bone.rotation)?;
+        require(
+            bone.weight
+                .is_none_or(|w| w.is_finite() && (0. ..=1.).contains(&w)),
+            "invalid bone weight",
+        )?;
         if let Some(p) = bone.position {
             require(p.iter().all(|n| n.is_finite()), "invalid bone position")?;
         }

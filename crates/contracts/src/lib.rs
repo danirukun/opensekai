@@ -875,7 +875,9 @@ fn scalar_checks(v: &Value) -> Result<(), AppError> {
                         )?;
                     }
                 }
-                scalar_checks(v)?;
+                if k != "expressions" {
+                    scalar_checks(v)?;
+                }
             }
         }
         Value::Array(a) => {

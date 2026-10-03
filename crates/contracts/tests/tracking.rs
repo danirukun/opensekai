@@ -19,3 +19,8 @@ fn tracking_config_rejects_hostname() {
     v["config"]["bindAddress"] = json!("localhost");
     assert!(validate_value::<SceneEntity>(&v).is_err());
 }
+#[test]
+fn expression_names_are_not_reserved_contract_fields() {
+    let v = json!({"kind":"clock","sessionId":"s","elapsedMs":2,"tracking":{"samples":[{"sourceId":"s","generation":2,"receivedAtMs":1,"bones":{},"expressions":{"generation":0.5,"sourceId":0.5,"avatarId":0.5,"packets":0.5}}],"statuses":[]}});
+    assert!(parse_wire(&serde_json::to_vec(&v).unwrap()).is_ok());
+}
