@@ -20,8 +20,8 @@ it('fits the preview canvas without letterboxing inside its pointer hit rectangl
 
 it('preserves the selected output backend in copied URLs from either window',()=>{
  const descriptor={httpOrigin:'http://127.0.0.1:1234',ticket:'test-only'} as ConnectionDescriptor;
- const forced=new URL(makeOutputUrl(descriptor,'force-webgl2'));expect(forced.searchParams.get('backend')).toBe('webgl2');expect(JSON.parse(decodeURIComponent(forced.hash.slice(1)))).toEqual(descriptor);
- expect(new URL(makeOutputUrl(descriptor,'auto')).searchParams.has('backend')).toBe(false);
+ const forced=new URL(makeOutputUrl(descriptor,'force-webgl2'));expect(forced.searchParams.get('backend')).toBe('webgl2');expect(forced.searchParams.has('diagnostics')).toBe(false);expect(JSON.parse(decodeURIComponent(forced.hash.slice(1)))).toEqual(descriptor);
+ const automatic=new URL(makeOutputUrl(descriptor,'auto'));expect(automatic.searchParams.has('backend')).toBe(false);expect(automatic.searchParams.has('diagnostics')).toBe(false);
 });
 
 it('passes only bounded device choices to the editor without camera frames or privileged fields',()=>{

@@ -12,7 +12,7 @@ Support iFacialMocap UDP v2 with optional legacy UDP delimiter acceptance. Defau
 
 MediaPipe provides a local webcam tracker with face head/expression mapping, upper-body arms, and optional hands/fingers. No inferred locomotion, foot contact or absolute root motion. Use one face, one pose and two hands. Use @mediapipe/tasks-vision1.0.1 with its matching WASM. Models/WASM are pinned and bundled locally with origin, hash and license notices. Inference is in a separate worker, maximum 30Hz, one active image and one latest pending image. Stop closes tracks, worker/models and images. Camera denial and missing device are errors; late startup after Stop cannot restart tracking. Camera access requires explicit Start and an accurate macOS usage description.
 
-OBS continues to render evaluated scene and pose with no helpers or per-frame image IPC. Verify the supplied avatar, mixed VMC body+iFacial face mock packets, camera settings, MediaPipe mapping and actual model loading. Real device inference/phone evidence is a separate stated check when connected. Keep unknown hardware/performance results unknown.
+OBS continues to render evaluated scene and pose with no helpers or per-frame image IPC. The user-facing copied OBS URL does not enable diagnostics. Evaluation tools can explicitly enable the diagnostic marker on their own temporary sources. Verify the supplied avatar, mixed VMC body+iFacial face mock packets, camera settings, MediaPipe mapping and actual model loading. Real device inference/phone evidence is a separate stated check when connected. Keep unknown hardware/performance results unknown.
 
 ## Entities
 
