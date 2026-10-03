@@ -206,3 +206,35 @@ fn unrelated_and_duplicate_acknowledgements_do_not_refresh_a_run() {
     r.observe(&f, 500);
     assert_eq!(r.status(&x.id, 501).unwrap().state, RunState::Failed);
 }
+
+#[test]
+fn rate_limit_precedes_decode_and_failed_capture_does_not_reserve_rate() {
+    let mut s = store();
+    assert_eq!(
+        insert(&mut s, capture(), output(), vec![0; 10], 0, 0)
+            .unwrap_err()
+            .code,
+        ErrorCode::InvalidInput
+    );
+    insert(&mut s, capture(), output(), png(), 0, 0).unwrap();
+    assert_eq!(
+        insert(&mut s, capture(), output(), vec![0; 10], 0, 0)
+            .unwrap_err()
+            .code,
+        ErrorCode::RateLimited
+    );
+    assert_eq!(
+        s.insert(
+            "other",
+            capture(),
+            output(),
+            vec![0; 10],
+            0,
+            0,
+            "2026-10-03T00:00:00Z".into()
+        )
+        .unwrap_err()
+        .code,
+        ErrorCode::InvalidInput
+    );
+}

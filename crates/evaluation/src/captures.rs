@@ -51,6 +51,16 @@ impl CaptureStore {
         if received_at_ms > now_ms || now_ms.saturating_sub(received_at_ms) > 500 {
             return Err(error(ErrorCode::StaleFrame, "capture frame expired"));
         }
+        let active_rates = self
+            .rates
+            .iter()
+            .filter(|(_, at)| now_ms.saturating_sub(*at) < 1000);
+        if active_rates.clone().any(|(client, _)| client == client_id) {
+            return Err(error(ErrorCode::RateLimited, "capture rate exceeded"));
+        }
+        if active_rates.count() >= 1024 {
+            return Err(error(ErrorCode::Busy, "capture client budget exceeded"));
+        }
         if png.len() > 2 * 1024 * 1024 || !png.starts_with(b"\x89PNG\r\n\x1a\n") {
             return Err(error(
                 ErrorCode::InvalidInput,
@@ -102,13 +112,6 @@ impl CaptureStore {
         record.validate()?;
         self.rates
             .retain(|(_, at)| now_ms.saturating_sub(*at) < 1000);
-        if self.rates.iter().any(|(client, _)| client == client_id) {
-            return Err(error(ErrorCode::RateLimited, "capture rate exceeded"));
-        }
-        // Bound active client rate entries without losing a live client's limit.
-        if self.rates.len() >= 1024 {
-            return Err(error(ErrorCode::Busy, "capture client budget exceeded"));
-        }
         self.rates.push_back((client_id.into(), now_ms));
         self.records.push_back(Stored {
             record: record.clone(),
