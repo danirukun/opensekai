@@ -1,6 +1,6 @@
-import type {SceneEntity,TrackingStatus} from '@opensekai/contracts';
+import type {SceneEntity,TrackingStatus,TrackingConfig} from '@opensekai/contracts';
 import {describe,it,expect} from 'vitest';
-import {parseLens,reconcileDraft,sourceOptions,parseTrackingConfig,matchingStatus} from '../src/editor/live-fields';
+import {parseLens,reconcileDraft,sourceOptions,parseTrackingConfig,matchingStatus,initialTrackingDraft} from '../src/editor/live-fields';
 describe('live property drafts',()=>{
  it('validates the complete lens',()=>{expect(parseLens({fovDegrees:'60',near:'0.1',far:'100'})).toEqual({fovDegrees:60,near:.1,far:100});for(const values of [{fovDegrees:'',near:'1',far:'2'},{fovDegrees:'180',near:'1',far:'2'},{fovDegrees:'60',near:'2',far:'2'}])expect(parseLens(values)).toBeNull();});
  it('retains ordinary drafts through equal polls and resets on revision or selection change',()=>{const draft={value:'unfinished'};expect(reconcileDraft('a:2',{entityId:'a',revision:2},draft,{value:'base'}).values).toBe(draft);expect(reconcileDraft('a:2',{entityId:'a',revision:3},draft,{value:'base'}).values).toEqual({value:'base'});expect(reconcileDraft('a:2',{entityId:'b',revision:2},draft,{value:'base'}).values).toEqual({value:'base'});});
@@ -9,3 +9,5 @@ describe('live property drafts',()=>{
  it('ignores superseded runtime status',()=>{const status:TrackingStatus={sourceId:'source',generation:4,state:'error',packets:0,invalidPackets:0,lastReceivedAtMs:null,error:'Bind failed'};expect(matchingStatus([status],'source',5)).toBeUndefined();expect(matchingStatus([status],'source',4)).toBe(status);});
  it('requires a channel before enabling webcam tracking',()=>{expect(parseTrackingConfig({kind:'mediapipe',enabled:true,deviceId:'',face:false,upperBody:false,hands:false,mirror:false},{bindAddress:'',port:'',address:''})).toBeNull();});
 });
+
+describe('proxy tracking input',()=>{it('initializes isolated drafts from each reactive config kind',()=>{const configs:TrackingConfig[]=[{kind:'vmc',enabled:false,bindAddress:'127.0.0.1',port:39539,senderAddress:null},{kind:'ifacialmocap',enabled:false,bindAddress:'0.0.0.0',port:49983,phoneAddress:'192.168.1.2'},{kind:'mediapipe',enabled:false,deviceId:'camera',face:true,upperBody:true,hands:false,mirror:false}];for(const config of configs){const reactive=new Proxy(config,{});const draft=initialTrackingDraft(reactive);expect(draft.config).toEqual(config);expect(draft.config).not.toBe(reactive);expect(draft.port).toBe(config.kind==='mediapipe'?'':String(config.port));expect(draft.address).toBe(config.kind==='ifacialmocap'?'192.168.1.2':'');draft.config.enabled=true;expect(config.enabled).toBe(false);expect(()=>reconcileDraft(null,{entityId:'source',revision:1},draft,initialTrackingDraft(reactive))).not.toThrow();}});});

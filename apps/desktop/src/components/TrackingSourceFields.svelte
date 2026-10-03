@@ -2,9 +2,9 @@
  import {untrack} from 'svelte';
  import {Button,Input,Select} from '@oshi-connect/ui';
  import type {TrackingConfig,TrackingStatus} from '@opensekai/contracts';
- import {parseTrackingConfig,reconcileDraft,matchingStatus,type Commit} from '../editor/live-fields';
+ import {parseTrackingConfig,reconcileDraft,matchingStatus,initialTrackingDraft,type Commit} from '../editor/live-fields';
  let {entityId,config,generation,revision,disabled=false,oncommit,ontoggle,statuses=[],devices=[]}:{entityId:string;config:TrackingConfig;generation:number;revision:number;disabled?:boolean;oncommit?:Commit<TrackingConfig>;ontoggle?:(id:string,enabled:boolean,revision:number)=>Promise<unknown>;statuses?:TrackingStatus[];devices?:{deviceId:string;label:string}[]}=$props();
- const base=()=>({config:structuredClone(config),bindAddress:config.kind==='mediapipe'?'':config.bindAddress,port:config.kind==='mediapipe'?'':String(config.port),address:config.kind==='vmc'?config.senderAddress??'':config.kind==='ifacialmocap'?config.phoneAddress??'':''});
+ const base=()=>initialTrackingDraft(config);
  let draft=$state(untrack(base)),invalid=$state(false);let key:string|null=null;
  const status=$derived(matchingStatus(statuses,entityId,generation));
  const deviceId=$derived(draft.config.kind==='mediapipe'?draft.config.deviceId:'');
