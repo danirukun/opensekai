@@ -18,7 +18,7 @@ export const TrackingConfigSchema=z.discriminatedUnion('kind',[
 ]);
 export const AvatarTrackingSchema=z.strictObject({bodySourceId:id.nullable(),faceSourceId:id.nullable()});
 export const TrackingBoneSchema=z.strictObject({rotation:quat,space:z.enum(['raw','normalized']),position:vec.optional()});
-const bones=z.partialRecord(z.enum(HUMANOID_BONES),TrackingBoneSchema).refine(v=>Object.keys(v).length<=64);
+const bones=z.record(z.string().refine(name=>HUMANOID_BONES.includes(name)),TrackingBoneSchema).refine(v=>Object.keys(v).length<=64);
 const expressions=z.record(z.string().min(1).max(128),n.min(0).max(1)).refine(v=>Object.keys(v).length<=64);
 const root=z.strictObject({position:vec,rotation:quat});
 export const TrackingSampleSchema=z.strictObject({sourceId:id,generation:u,receivedAtMs:n.nonnegative().max(Number.MAX_SAFE_INTEGER),bones,expressions,root:root.optional()});
