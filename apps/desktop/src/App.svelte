@@ -27,7 +27,7 @@
    } finally { polling = false; }
   };
   const timer = setInterval(() => { void poll(); }, 500);
-  void invoke<string>('app_version').then(value => { if (!disposed) version = value; });
+  void invoke<string>('app_version').then(value => { if (!disposed) version = value; }).catch(() => { if (!disposed) error = 'Version unavailable'; });
   void bootstrapDesktop(canvas).then(async value => {
    if (disposed) { await value.stop(); return; }
    session = value; connected = true; await poll();

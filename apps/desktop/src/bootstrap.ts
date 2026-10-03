@@ -20,7 +20,7 @@ export async function bootstrapDesktop(canvas: HTMLCanvasElement): Promise<{
  client: BrowserClient; outputUrl: string; assets: AssetRecord[]; stop(): Promise<void>;
 }> {
  const info = await invoke<NativeBootstrap>('bootstrap_session');
- const worker = new SessionWorker();
+ let worker: Worker | undefined;
  const clients: BrowserClient[] = [];
  let closePreview = () => {};
  let stopped = false;
@@ -29,11 +29,12 @@ export async function bootstrapDesktop(canvas: HTMLCanvasElement): Promise<{
   stopped = true;
   closePreview();
   for (const client of clients) client.close();
-  worker.postMessage({ kind: 'stop' });
-  worker.terminate();
+  worker?.postMessage({ kind: 'stop' });
+  worker?.terminate();
   await invoke('shutdown_session');
  };
  try {
+  worker = new SessionWorker();
   for (const descriptor of [info.publisher, info.operator, info.preview, info.output]) {
    ConnectionDescriptorSchema.parse(descriptor);
    if (descriptor.sessionId !== info.publisher.sessionId) throw new Error('Bootstrap session mismatch');

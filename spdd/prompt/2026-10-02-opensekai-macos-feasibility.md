@@ -138,3 +138,7 @@ Browser publisher state sends use the encoded frame size to limit queued state b
 The trusted desktop bootstrap result also exposes registered AssetRecord values to the editor composition. Embedded GLB images load through ImageBitmapLoader fetch requests to local blob URLs, so the desktop connect-src includes blob:. Remote network origins remain excluded.
 
 The projected two-frame byte bound applies to state only. Control payloads retain the ordinary 256 KiB or capture reply 3 MiB limit. A control send with more than 512 KiB already buffered closes the current socket; a legal capture reply can exceed 512 KiB.
+
+### Independent implementation after the source checkpoint
+
+Tasks 7 and 9 can implement their bounded editor and evaluation modules from the reviewed Task 6 source checkpoint. Their unit and process-boundary checks do not depend on final visual acceptance. Live integration and acceptance remain ordered after the Task 6 checks. Shared interfaces and dependencies remain with the integrator.
