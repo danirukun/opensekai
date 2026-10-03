@@ -9,6 +9,7 @@
     "allow-app-version",
     "allow-editor-connection",
     "allow-hide-editor",
+    "allow-show-scene",
     "allow-import-avatar",
     "core:event:allow-listen",
     "core:event:allow-unlisten",

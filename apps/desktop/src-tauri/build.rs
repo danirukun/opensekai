@@ -36,6 +36,7 @@ fn main() {
             "shutdown_session",
             "editor_connection",
             "show_editor",
+            "show_scene",
             "hide_editor",
             "import_avatar",
         ]),

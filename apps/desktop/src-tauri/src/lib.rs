@@ -101,6 +101,23 @@ fn show_editor(window: tauri::WebviewWindow) -> Result<(), AppError> {
     editor.show().map_err(window_error)?;
     editor.set_focus().map_err(window_error)
 }
+fn scene_window_unavailable() -> AppError {
+    AppError {
+        code: ErrorCode::Unavailable,
+        message: "Scene window is unavailable".into(),
+        ids: vec![],
+    }
+}
+#[tauri::command]
+fn show_scene(window: tauri::WebviewWindow) -> Result<(), AppError> {
+    require_window_label(window.label(), "editor")?;
+    let scene = window
+        .get_webview_window("main")
+        .ok_or_else(scene_window_unavailable)?;
+    scene.show().map_err(|_| scene_window_unavailable())?;
+    scene.unminimize().map_err(|_| scene_window_unavailable())?;
+    scene.set_focus().map_err(|_| scene_window_unavailable())
+}
 #[tauri::command]
 fn hide_editor(window: tauri::WebviewWindow) -> Result<(), AppError> {
     require_window_label(window.label(), "editor")?;
@@ -149,6 +166,7 @@ pub fn run() {
             shutdown_session,
             editor_connection,
             show_editor,
+            show_scene,
             hide_editor,
             import_avatar
         ])
@@ -164,6 +182,24 @@ pub fn run() {
 #[cfg(test)]
 mod command_boundary_tests {
     use super::*;
+    #[test]
+    fn scene_focus_permission_is_granted_only_to_editor() {
+        let editor: serde_json::Value =
+            serde_json::from_str(include_str!("../capabilities/editor.json")).unwrap();
+        let owner: serde_json::Value =
+            serde_json::from_str(include_str!("../capabilities/main.json")).unwrap();
+        assert_eq!(editor["windows"], serde_json::json!(["editor"]));
+        assert!(editor["permissions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|p| p == "allow-show-scene"));
+        assert!(!owner["permissions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|p| p == "allow-show-scene"));
+    }
     #[test]
     fn editor_commands_and_owner_commands_reject_other_window_labels() {
         assert!(require_window_label("main", "main").is_ok());
