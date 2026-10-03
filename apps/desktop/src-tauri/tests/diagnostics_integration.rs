@@ -220,6 +220,9 @@ async fn diagnostics_refuses_nonrenderer_and_scope_mismatch_but_keeps_disabled_o
             service.operator_descriptor()
         };
         let mut socket = auth(&descriptor).await;
+        if role == Role::Publisher {
+            assert_eq!(recv(&mut socket).await["kind"], "clock");
+        }
         send(&mut socket, diagnostics(&descriptor.session_id, 1)).await;
         assert!(matches!(
             tokio::time::timeout(Duration::from_secs(1), socket.next())

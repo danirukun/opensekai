@@ -161,3 +161,53 @@ async fn invalid_frame_cannot_release_clock_credit() {
         s.shutdown().await.unwrap();
     }
 }
+// A real publisher WebSocket and UDP socket prove inputs use the existing credited native clock.
+#[tokio::test]
+async fn accepted_source_revision_delivers_udp_sample_on_credited_clock() {
+    let (_dir, s) = service().await;
+    let pd = s.publisher_descriptor();
+    let mut publisher = auth(&pd).await;
+    recv(&mut publisher).await;
+    let probe = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
+    let port = probe.local_addr().unwrap().port();
+    drop(probe);
+    let mut sequence = 1;
+    let mut revision = 1;
+    let make = |sequence, revision| json!({"kind":"frame","frame":{"schemaVersion":1,"sessionId":pd.session_id,"sequence":sequence,"tick":sequence,"elapsedMs":sequence,"scene":{"schemaVersion":1,"sceneId":"scene_main","revision":revision,"outputs":[],"entities":[{"kind":"tracking","id":"face","name":"Phone","visible":true,"transform":{"position":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"generation":revision,"config":{"kind":"ifacialmocap","enabled":revision==1,"bindAddress":"127.0.0.1","port":port,"phoneAddress":null}}]}}});
+    send(&mut publisher, make(sequence, revision)).await;
+    let sender = tokio::net::UdpSocket::bind("127.0.0.1:0").await.unwrap();
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    sender
+        .send_to(b"jawOpen&50|", ("127.0.0.1", port))
+        .await
+        .unwrap();
+    let mut found = false;
+    for _ in 0..20 {
+        let clock = recv(&mut publisher).await;
+        assert_eq!(clock["kind"], "clock");
+        if clock["tracking"]["samples"][0]["expressions"]["jawOpen"] == json!(0.5) {
+            assert_eq!(clock["tracking"]["samples"][0]["generation"], 1);
+            found = true;
+            break;
+        }
+        sequence += 1;
+        send(&mut publisher, make(sequence, revision)).await;
+    }
+    assert!(found);
+    revision = 2;
+    sequence += 1;
+    send(&mut publisher, make(sequence, revision)).await;
+    let mut stopped = false;
+    for _ in 0..10 {
+        let clock = recv(&mut publisher).await;
+        if clock["tracking"]["statuses"][0]["state"] == "stopped" {
+            assert_eq!(clock["tracking"]["samples"], json!([]));
+            stopped = true;
+            break;
+        }
+        sequence += 1;
+        send(&mut publisher, make(sequence, revision)).await;
+    }
+    assert!(stopped);
+    s.shutdown().await.unwrap();
+}

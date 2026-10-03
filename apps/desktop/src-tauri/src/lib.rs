@@ -2,10 +2,12 @@ pub mod assets;
 mod bootstrap;
 pub mod evaluation;
 pub mod service;
+pub mod tracking;
 use bootstrap::{DesktopState, NativeBootstrap, NativeEditorConnection};
 use opensekai_contracts::{AppError, ErrorCode};
 use std::{path::PathBuf, sync::Arc};
 use tauri::Manager;
+use tauri_plugin_dialog::DialogExt;
 
 #[tauri::command]
 fn app_version() -> &'static str {
@@ -51,6 +53,33 @@ async fn editor_connection(
     require_window_label(window.label(), "editor")?;
     state.editor_connection().await
 }
+#[tauri::command]
+async fn import_avatar(
+    window: tauri::WebviewWindow,
+    state: tauri::State<'_, Arc<DesktopState>>,
+) -> Result<Option<crate::assets::ImportResult>, AppError> {
+    require_window_label(window.label(), "editor")?;
+    let app = window.app_handle().clone();
+    let path = tauri::async_runtime::spawn_blocking(move || {
+        app.dialog()
+            .file()
+            .add_filter("VRM avatar", &["vrm"])
+            .blocking_pick_file()
+    })
+    .await
+    .map_err(|_| AppError {
+        code: ErrorCode::Unavailable,
+        message: "File chooser unavailable".into(),
+        ids: vec![],
+    })?;
+    let Some(path) = path else { return Ok(None) };
+    let path = path.into_path().map_err(|_| AppError {
+        code: ErrorCode::InvalidInput,
+        message: "Local file required".into(),
+        ids: vec![],
+    })?;
+    state.import_avatar(path).await.map(Some)
+}
 fn window_error(_: tauri::Error) -> AppError {
     AppError {
         code: ErrorCode::Unavailable,
@@ -81,6 +110,7 @@ pub fn run() {
     let state = DesktopState::new();
     let startup = state.clone();
     let app = tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .manage(state.clone())
         .setup(move |app| {
             let data = app.path().app_local_data_dir()?;
@@ -89,15 +119,7 @@ pub fn run() {
             let asset_manifest = std::env::var_os("OPENSEKAI_FIXTURE_MANIFEST").map(PathBuf::from);
             let runtime = startup.clone();
             tauri::async_runtime::spawn(async move {
-                let Some(asset_manifest) = asset_manifest else {
-                    runtime.fail_startup(AppError {
-                        code: ErrorCode::NotFound,
-                        message: "Set OPENSEKAI_FIXTURE_MANIFEST to the local fixture manifest"
-                            .into(),
-                        ids: vec![],
-                    });
-                    return;
-                };
+                let asset_manifest = asset_manifest.unwrap_or_default();
                 runtime
                     .initialize(
                         service::ServiceConfig {
@@ -126,7 +148,8 @@ pub fn run() {
             shutdown_session,
             editor_connection,
             show_editor,
-            hide_editor
+            hide_editor,
+            import_avatar
         ])
         .build(tauri::generate_context!())
         .expect("OpenSekai failed to start");

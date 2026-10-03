@@ -37,6 +37,7 @@ fn main() {
             "editor_connection",
             "show_editor",
             "hide_editor",
+            "import_avatar",
         ]),
     ))
     .expect("OpenSekai build configuration failed");

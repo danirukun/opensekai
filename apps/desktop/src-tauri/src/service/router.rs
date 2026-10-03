@@ -171,7 +171,11 @@ impl Shared {
                 revision: inner.latest.as_ref().map(|f| f.scene.revision),
                 capabilities: capabilities.to_vec(),
                 warnings: vec![],
-                outputs
+                outputs,
+                tracking_status: inner
+                    .latest
+                    .as_ref()
+                    .and_then(|f| f.tracking_status.clone())
             }));
         }
         if matches!(

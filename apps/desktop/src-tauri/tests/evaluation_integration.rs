@@ -305,10 +305,12 @@ async fn capture_budgets_metadata_rollback_timeout_and_stale_output() {
         rpc(&mut busy, "benchmarkStart", run_params("busy")).await["error"]["code"],
         "BUSY"
     );
-    assert_eq!(
-        recv(&mut timeout).await["result"]["error"]["code"],
-        "TIMEOUT"
-    );
+    let session = service.publisher_descriptor().session_id;
+    let (timed_out, ()) = tokio::join!(recv(&mut timeout), async {
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        send(&mut publisher, frame(&session, 2)).await;
+    });
+    assert_eq!(timed_out["result"]["error"]["code"], "TIMEOUT");
     let mut stale = auth(&service.operator_descriptor()).await;
     assert_eq!(
         rpc(&mut stale, "captureFrame", capture_params()).await["error"]["code"],

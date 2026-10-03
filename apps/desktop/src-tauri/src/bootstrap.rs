@@ -23,6 +23,7 @@ pub struct NativeBootstrap {
     renderer_descriptor_file: String,
     assets: Vec<AssetRecord>,
     renderer_mode: RendererMode,
+    fixture_mode: bool,
 }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -72,6 +73,7 @@ impl DesktopState {
         if owned.stopped || owned.service.is_some() {
             return;
         }
+        let fixture_mode = !config.asset_manifest.as_os_str().is_empty();
         let evaluation_enabled = config.evaluation_enabled;
         let evidence_root = config.evidence_root.clone();
         let service = match start_service(config).await {
@@ -109,6 +111,7 @@ impl DesktopState {
         let info = (|| {
             let (operator, renderer) = service.write_descriptors(&descriptors, "output_main")?;
             Ok::<_, AppError>(NativeBootstrap {
+                fixture_mode,
                 publisher: service.publisher_descriptor(),
                 operator: service.operator_descriptor(),
                 preview: service.renderer_descriptor("preview_main")?,
@@ -145,12 +148,27 @@ impl DesktopState {
         Ok(NativeEditorConnection {
             operator: ready.operator,
             output: ready.output,
-            assets: ready.assets,
+            assets: self
+                .owned
+                .lock()
+                .await
+                .service
+                .as_ref()
+                .map(|s| s.asset_records())
+                .unwrap_or(ready.assets),
             renderer_mode: ready.renderer_mode,
         })
     }
-    pub fn fail_startup(&self, error: AppError) {
-        self.ready.send_replace(Some(Err(error)));
+    pub async fn import_avatar(
+        &self,
+        path: PathBuf,
+    ) -> Result<crate::assets::ImportResult, AppError> {
+        let owned = self.owned.lock().await;
+        let service = owned
+            .service
+            .as_ref()
+            .ok_or_else(|| error(ErrorCode::Unavailable, "Session unavailable"))?;
+        service.import_avatar(path).await
     }
     pub async fn wait_ready(&self) -> Result<NativeBootstrap, AppError> {
         let mut receiver = self.ready.subscribe();
@@ -436,5 +454,34 @@ mod tests {
         let owned = state.owned.lock().await;
         assert!(owned.service.is_none());
         assert!(owned.evaluation.is_none());
+    }
+}
+#[cfg(test)]
+mod normal_tests {
+    use super::*;
+    #[tokio::test]
+    async fn normal_bootstrap_needs_no_fixture_and_operator_can_edit() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = DesktopState::new();
+        state
+            .clone()
+            .initialize(
+                ServiceConfig {
+                    output_root: dir.path().into(),
+                    asset_manifest: PathBuf::new(),
+                    evidence_root: dir.path().join("evidence"),
+                    evaluation_enabled: false,
+                },
+                dir.path().join("descriptors"),
+            )
+            .await;
+        let owner = state.wait_ready().await.unwrap();
+        assert!(!owner.fixture_mode);
+        assert!(owner.assets.is_empty());
+        assert!(owner
+            .operator
+            .capabilities
+            .contains(&opensekai_contracts::Capability::Edit));
+        state.shutdown().await.unwrap();
     }
 }

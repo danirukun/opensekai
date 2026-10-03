@@ -29,3 +29,5 @@ tempfile.workspace = true
 opensekai-contracts = { path = "../../../crates/contracts" }
 opensekai-evaluation = { path = "../../../crates/evaluation" }
 chrono.workspace = true
+
+tauri-plugin-dialog = "=2.8.1"

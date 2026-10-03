@@ -188,11 +188,11 @@ async fn service_auth_denies_http_host_origin_and_null() {
     service.shutdown().await.unwrap();
 }
 #[tokio::test]
-async fn service_roles_reject_renderer_edits_and_default_operator_edits() {
+async fn service_roles_reject_renderer_edits_and_route_default_operator_edits() {
     let (_dir, service) = service(false).await;
     let mut renderer = auth(&service.renderer_descriptor("output_main").unwrap()).await;
     let mut operator = auth(&service.operator_descriptor()).await;
-    for socket in [&mut renderer, &mut operator] {
+    for (socket, expected) in [(&mut renderer, "FORBIDDEN"), (&mut operator, "UNAVAILABLE")] {
         send(
             socket,
             call(
@@ -202,7 +202,7 @@ async fn service_roles_reject_renderer_edits_and_default_operator_edits() {
             ),
         )
         .await;
-        assert_eq!(recv(socket).await["result"]["error"]["code"], "FORBIDDEN");
+        assert_eq!(recv(socket).await["result"]["error"]["code"], expected);
     }
     service.shutdown().await.unwrap();
 }

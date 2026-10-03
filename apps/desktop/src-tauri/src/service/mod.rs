@@ -52,8 +52,9 @@ struct Shared {
     operator_token: String,
     evaluation: bool,
     output_root: PathBuf,
-    registry: AssetRegistry,
+    registry: Mutex<AssetRegistry>,
     clock: Instant,
+    tracking: crate::tracking::TrackingManager,
     inner: Mutex<Inner>,
     stop: watch::Sender<bool>,
     connections: Notify,
@@ -128,6 +129,38 @@ fn err(code: ErrorCode, message: &str) -> AppError {
 fn failure(error: AppError) -> Value {
     json!(Reply::<Value>::failure(error))
 }
+fn tracking_clock(session_id: Id, elapsed_ms: u64, mut tracking: TrackingUpdate) -> Value {
+    loop {
+        let value = json!(WireMessage::Clock {
+            session_id: session_id.clone(),
+            elapsed_ms,
+            tracking: if tracking.statuses.is_empty() && tracking.samples.is_empty() {
+                None
+            } else {
+                Some(tracking.clone())
+            }
+        });
+        if value.to_string().len() <= MAX_TRACKING_CLOCK_BYTES {
+            return value;
+        }
+        if !tracking.samples.is_empty() {
+            let oldest = tracking
+                .samples
+                .iter()
+                .enumerate()
+                .min_by(|(_, a), (_, b)| a.received_at_ms.total_cmp(&b.received_at_ms))
+                .map(|(i, _)| i)
+                .unwrap();
+            tracking.samples.remove(oldest);
+        } else {
+            return json!(WireMessage::Clock {
+                session_id,
+                elapsed_ms,
+                tracking: None
+            });
+        }
+    }
+}
 impl Shared {
     fn now_ms(&self) -> u64 {
         self.clock.elapsed().as_millis().min(u64::MAX as u128) as u64
@@ -150,6 +183,8 @@ impl Shared {
                     Capability::Capture,
                     Capability::Benchmark,
                 ]
+            } else if role == Role::Operator {
+                vec![Capability::Read, Capability::Edit]
             } else {
                 vec![Capability::Read]
             },
@@ -208,7 +243,25 @@ impl Shared {
     }
 }
 pub async fn start_service(config: ServiceConfig) -> Result<ServiceHandle, AppError> {
-    let registry = AssetRegistry::load(&config.asset_manifest)?;
+    let mut registry = if config.asset_manifest.as_os_str().is_empty() {
+        AssetRegistry::empty(
+            &config
+                .evidence_root
+                .parent()
+                .unwrap_or(&config.evidence_root)
+                .join("assets"),
+        )?
+    } else {
+        AssetRegistry::load(&config.asset_manifest)?
+    };
+    registry.set_library(
+        &config
+            .evidence_root
+            .parent()
+            .unwrap_or(&config.evidence_root)
+            .join("assets")
+            .join("library"),
+    )?;
     let output_root = config
         .output_root
         .canonicalize()
@@ -220,6 +273,7 @@ pub async fn start_service(config: ServiceConfig) -> Result<ServiceHandle, AppEr
         .local_addr()
         .map_err(|_| err(ErrorCode::Unavailable, "Cannot read local address"))?;
     let (stop, _) = watch::channel(false);
+    let clock = Instant::now();
     let shared = Arc::new(Shared {
         origin: format!("http://{address}"),
         session: Uuid::new_v4().to_string(),
@@ -227,8 +281,9 @@ pub async fn start_service(config: ServiceConfig) -> Result<ServiceHandle, AppEr
         operator_token: Uuid::new_v4().to_string(),
         evaluation: config.evaluation_enabled,
         output_root,
-        registry,
-        clock: Instant::now(),
+        registry: Mutex::new(registry),
+        clock,
+        tracking: crate::tracking::TrackingManager::new(clock),
         inner: Mutex::new(Inner::default()),
         stop,
         connections: Notify::new(),
@@ -266,8 +321,17 @@ impl ServicePorts {
     pub fn now_ms(&self) -> u64 {
         self.shared.now_ms()
     }
+    pub async fn import_avatar(
+        &self,
+        path: PathBuf,
+    ) -> Result<crate::assets::ImportResult, AppError> {
+        let shared = self.shared.clone();
+        tokio::task::spawn_blocking(move || lock(&shared.registry).import_avatar(&path))
+            .await
+            .map_err(|_| err(ErrorCode::Unavailable, "Avatar import failed"))?
+    }
     pub fn asset_records(&self) -> Vec<AssetRecord> {
-        self.shared.registry.records()
+        lock(&self.shared.registry).records()
     }
     pub fn last_applied(&self, output: &str) -> Option<(FrameApplied, u64)> {
         lock(&self.shared.inner).acks.get(output)?.back().cloned()
@@ -332,7 +396,7 @@ impl ServicePorts {
             let mut expected: Vec<AssetRecord> = serde_json::from_value(manifest["assets"].clone())
                 .map_err(|_| invalid("Invalid smoke assets"))?;
             expected.sort_by(|a, b| a.id.cmp(&b.id));
-            let records = shared.registry.records();
+            let records = lock(&shared.registry).fixture_records();
             if records.len() != expected.len()
                 || records
                     .iter()
@@ -345,7 +409,7 @@ impl ServicePorts {
                 ));
             }
             for record in expected {
-                shared.registry.read(&record.id)?;
+                lock(&shared.registry).read(&record.id)?;
             }
             Ok(())
         })
@@ -399,8 +463,14 @@ impl ServiceHandle {
             .shared
             .descriptor(Role::Renderer, token, Some(output_id.into())))
     }
+    pub async fn import_avatar(
+        &self,
+        path: PathBuf,
+    ) -> Result<crate::assets::ImportResult, AppError> {
+        self.ports().import_avatar(path).await
+    }
     pub fn asset_records(&self) -> Vec<AssetRecord> {
-        self.shared.registry.records()
+        lock(&self.shared.registry).records()
     }
     pub fn now_ms(&self) -> u64 {
         self.shared.now_ms()
@@ -455,6 +525,7 @@ impl ServiceHandle {
                     .send(Err(err(ErrorCode::Unavailable, "Service stopped")));
             }
         }
+        self.shared.tracking.shutdown().await;
         let _ = self.shared.stop.send(true);
         self.server
             .take()
@@ -594,7 +665,7 @@ async fn asset(
         return StatusCode::UNAUTHORIZED.into_response();
     }
     let registry = shared.clone();
-    let result = tokio::task::spawn_blocking(move || registry.registry.read(&id)).await;
+    let result = tokio::task::spawn_blocking(move || lock(&registry.registry).read(&id)).await;
     let mut response = match result {
         Ok(Ok(bytes)) => (
             [
@@ -743,7 +814,8 @@ async fn connection_loop(mut socket: WebSocket, shared: &Arc<Shared>) {
                         if envelope.to_string().len() > MAX_MESSAGE_BYTES {
                             break;
                         }
-                        let mut inner = lock(&shared.inner);
+                        let scene = frame.scene.clone();
+                        { let mut inner = lock(&shared.inner);
                         if frame.session_id != shared.session
                             || inner.latest.as_ref().is_some_and(|last| frame.sequence <= last.sequence)
                         {
@@ -760,6 +832,8 @@ async fn connection_loop(mut socket: WebSocket, shared: &Arc<Shared>) {
                             lock(&renderer.state).push(envelope.clone());
                             renderer.notify.notify_one();
                         }
+                        }
+                        shared.tracking.reconcile(&scene).await;
                     },
                     WireMessage::Applied { frame } if role == Role::Renderer => {
                         let mut inner = lock(&shared.inner);
@@ -869,10 +943,11 @@ async fn write_connection(
             *lock(&connection.clock_credit.deadline) =
                 Some(tokio::time::Instant::now() + Duration::from_secs(2));
             clock_due = false;
-            Some(json!(WireMessage::Clock {
-                session_id: shared.session.clone(),
-                elapsed_ms
-            }))
+            Some(tracking_clock(
+                shared.session.clone(),
+                elapsed_ms,
+                shared.tracking.snapshot(),
+            ))
         } else if let Some(value) = ready_control.take().or_else(|| control.try_recv().ok()) {
             Some(value)
         } else {
@@ -1120,5 +1195,69 @@ mod tests {
         tokio::time::timeout(Duration::from_millis(100), connection.close.notified())
             .await
             .unwrap();
+    }
+}
+#[cfg(test)]
+mod tracking_budget_tests {
+    use super::*;
+    #[test]
+    fn outgoing_clock_never_exceeds_tracking_budget() {
+        let samples = (0..4)
+            .map(|i| TrackingSample {
+                source_id: format!("s{i}"),
+                generation: 1,
+                received_at_ms: 0.,
+                bones: ["left", "right"]
+                    .into_iter()
+                    .flat_map(|side| {
+                        [
+                            "ThumbMetacarpal",
+                            "ThumbProximal",
+                            "ThumbDistal",
+                            "IndexProximal",
+                            "IndexIntermediate",
+                            "IndexDistal",
+                            "MiddleProximal",
+                            "MiddleIntermediate",
+                            "MiddleDistal",
+                            "RingProximal",
+                            "RingIntermediate",
+                            "RingDistal",
+                            "LittleProximal",
+                            "LittleIntermediate",
+                            "LittleDistal",
+                        ]
+                        .into_iter()
+                        .map(move |finger| {
+                            (
+                                format!("{side}{finger}"),
+                                TrackingBone {
+                                    rotation: [
+                                        0.3333333333333333,
+                                        0.3333333333333333,
+                                        0.3333333333333333,
+                                        0.816496580927726,
+                                    ],
+                                    position: Some([1.7976931348623157e308; 3]),
+                                    weight: Some(0.3333333333333333),
+                                    space: BoneSpace::Raw,
+                                },
+                            )
+                        })
+                    })
+                    .collect(),
+                expressions: (0..64)
+                    .map(|n| (format!("{n}{}", "x".repeat(126)), 0.3333333333333333))
+                    .collect(),
+                root: None,
+            })
+            .collect();
+        let update = TrackingUpdate {
+            samples,
+            statuses: vec![],
+        };
+        assert!(
+            tracking_clock("s".into(), 1, update).to_string().len() <= MAX_TRACKING_CLOCK_BYTES
+        );
     }
 }
