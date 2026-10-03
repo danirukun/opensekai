@@ -97,3 +97,38 @@ it('uses spine for normalized chest on a valid chestless rig and composes explic
  a.binding.apply({avatarId:'a',bones:{chest:{rotation:torso.toArray(),space:'raw'}},expressions:{}});
  expect(a.bones.spine.node.quaternion.angleTo(new Quaternion())).toBeLessThan(1e-7);
 });
+
+it('seeds idle baseline and blends normalized tracking without accumulating across frames',()=>{
+ const {binding,head,hips,vrm}=fixture();const baseline=new Quaternion().setFromAxisAngle(new Vector3(0,1,0),.6),sample=new Quaternion().setFromAxisAngle(new Vector3(1,0,0),.8);
+ const baseBones={head:{rotation:baseline.toArray(),space:'normalized' as const},hips:{rotation:[0,0,0,1] as [number,number,number,number],position:[1,2,3] as [number,number,number],space:'normalized' as const}};
+ const update=vi.spyOn(vrm.humanoid,'update');
+ binding.apply({avatarId:'a',baseBones,bones:{},expressions:{}});
+ expect(head.quaternion.angleTo(baseline)).toBeLessThan(1e-7);expect(hips.position.toArray()).toEqual([1,2,3]);
+ for(const weight of [0,.5,1,.5]){
+  update.mockClear();binding.apply({avatarId:'a',baseBones,bones:{head:{rotation:sample.toArray(),space:'normalized',weight},hips:{rotation:[0,0,0,1],position:[3,4,5],space:'normalized',weight}},expressions:{}});
+  expect(head.quaternion.angleTo(baseline.clone().slerp(sample,weight))).toBeLessThan(1e-7);
+  expect(hips.position.toArray()).toEqual([1+2*weight,2+2*weight,3+2*weight]);expect(update).toHaveBeenCalledOnce();
+ }
+});
+it('blends raw absolute tracking from mapped idle and returns continuously to idle',()=>{
+ const rest=new Quaternion().setFromAxisAngle(new Vector3(0,0,1),.4),a=fixture(rest,new Vector3(1,2,3)),b=fixture();
+ const idle=new Quaternion().setFromAxisAngle(new Vector3(0,1,0),.6),sample=new Quaternion().setFromAxisAngle(new Vector3(1,0,0),.8);
+ const baseBones={head:{rotation:idle.toArray(),position:[2,1,0] as [number,number,number],space:'normalized' as const}};
+ a.binding.apply({avatarId:'a',baseBones,bones:{},expressions:{}});const mapped=a.head.quaternion.clone(),position=a.head.position.clone();
+ expect(mapped.angleTo(rest)).toBeGreaterThan(.1);
+ for(const weight of [1,.5,0]){
+  a.binding.apply({avatarId:'a',baseBones,bones:{head:{rotation:sample.toArray(),position:[5,6,7],space:'raw',weight}},expressions:{}});
+  expect(a.head.quaternion.angleTo(mapped.clone().slerp(sample,weight))).toBeLessThan(1e-7);
+  expect(a.head.position.distanceTo(position.clone().lerp(new Vector3(5,6,7),weight))).toBeLessThan(1e-7);
+ }
+ a.binding.apply({avatarId:'a',baseBones,bones:{},expressions:{}});expect(a.head.quaternion.angleTo(mapped)).toBeLessThan(1e-7);
+ expect(b.head.quaternion.angleTo(new Quaternion())).toBeLessThan(1e-7);
+});
+it('composes idle and tracking before one chestless fallback and retains sparse arm idle',()=>{
+ const a=fixture(),chested=fixture(new Quaternion(),new Vector3(0,1,0),true);
+ const idle=new Quaternion().setFromAxisAngle(new Vector3(1,0,0),.2),tracked=new Quaternion().setFromAxisAngle(new Vector3(0,1,0),.4),arm=new Quaternion().setFromAxisAngle(new Vector3(0,0,1),-.8);
+ const pose={avatarId:'a',baseBones:{chest:{rotation:idle.toArray(),space:'normalized' as const},leftUpperArm:{rotation:arm.toArray(),space:'normalized' as const}},bones:{chest:{rotation:tracked.toArray(),space:'normalized' as const,weight:.5}},expressions:{}};
+ a.binding.apply(pose);chested.binding.apply(pose);const expected=idle.clone().slerp(tracked,.5);
+ expect(a.bones.spine.node.quaternion.angleTo(expected)).toBeLessThan(1e-7);expect(a.bones.leftUpperArm.node.quaternion.angleTo(arm)).toBeLessThan(1e-7);
+ expect(chested.bones.chest!.node.quaternion.angleTo(expected)).toBeLessThan(1e-7);expect(chested.bones.spine.node.quaternion.angleTo(new Quaternion())).toBeLessThan(1e-7);
+});

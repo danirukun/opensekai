@@ -26,11 +26,15 @@ export function createAvatarBinding(vrm: VRM) {
         for (const [node, transform] of rest) {node.position.fromArray(transform.position);node.quaternion.fromArray(transform.rotation);}
         vrm.humanoid.resetNormalizedPose();
         const normalized: VRMPose = {};
+        for (const [name,bone] of Object.entries(pose?.baseBones ?? {})) {
+            normalized[name as VRMHumanBoneName]={rotation:[...bone.rotation],...(bone.position ? {position:[...bone.position]} : {})};
+        }
         for (const [name,bone] of Object.entries(pose?.bones ?? {})) {
             if (bone.space !== 'normalized') continue;
             const weight=bone.weight ?? 1;
-            const rotation=new Quaternion().slerp(new Quaternion().fromArray(bone.rotation),weight).toArray();
-            const position=bone.position ? new Vector3().fromArray(bone.position).multiplyScalar(weight).toArray() : undefined;
+            const baseline=normalized[name as VRMHumanBoneName];
+            const rotation=new Quaternion().fromArray(baseline?.rotation ?? [0,0,0,1]).slerp(new Quaternion().fromArray(bone.rotation),weight).toArray();
+            const position=bone.position ? new Vector3().fromArray(baseline?.position ?? [0,0,0]).lerp(new Vector3().fromArray(bone.position),weight).toArray() : baseline?.position;
             normalized[name as VRMHumanBoneName]={rotation,...(position ? {position} : {})};
         }
         if (normalized.chest && !vrm.humanoid.getNormalizedBoneNode('chest')) {
@@ -51,8 +55,12 @@ export function createAvatarBinding(vrm: VRM) {
             const transform=node ? rest.get(node) : undefined;
             if(node && transform) {
                 const weight=bone.weight ?? 1;
-                node.quaternion.fromArray(transform.rotation).slerp(new Quaternion().fromArray(bone.rotation),weight);
-                if(bone.position) node.position.fromArray(transform.position).lerp(new Vector3().fromArray(bone.position),weight);
+                if (!pose?.baseBones) {
+                    node.quaternion.fromArray(transform.rotation);
+                    if(bone.position) node.position.fromArray(transform.position);
+                }
+                node.quaternion.slerp(new Quaternion().fromArray(bone.rotation),weight);
+                if(bone.position) node.position.lerp(new Vector3().fromArray(bone.position),weight);
             }
         }
         motion.position.fromArray(pose?.root?.position ?? [0,0,0]);
