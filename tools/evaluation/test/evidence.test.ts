@@ -180,12 +180,16 @@ it('cancels benchmark on timing failure', async () => {
 import { summaryChecks } from '../src/run-smoke';
 it('uses measured CPU threshold and keeps unmeasured maximum stall unknown', () => {
     const checks = summaryChecks({
-        fixtureId: 'smoke_v1', profileId: 'webgl2_smoke_v1', count: 100, cpuMs: {
+        run: {
+            id: 'run'
+        }, fixtureId: 'smoke_v1', profileId: 'webgl2_smoke_v1', count: 100, cpuMs: {
             p95: 13
         }, intervalMs: {
             p99: 15
         }, gpuMs: null, staleOutputPeriods: 0
-    }, 'webgl2_smoke_v1');
+    }, 'webgl2_smoke_v1', {
+        runId: 'run', sessionId: 'session'
+    });
     expect(checks.find(c => c.name === 'cpu-p95')?.result).toBe('fail');
     expect(checks.find(c => c.name === 'maximum-stall')?.result).toBe('unknown');
 });
@@ -200,4 +204,103 @@ it('rejects wrong backend and session before timing', async () => {
         code: 'CONFLICT'
     });
     expect(f.api.benchmarkStart).not.toHaveBeenCalled();
+});
+it('rejects a summary URI for another run', async () => {
+    const f = driverFixture();
+    const status = vi.mocked(f.api.benchmarkStatus).getMockImplementation()!;
+    vi.spyOn(f.api, 'benchmarkStatus').mockImplementation(async (p) => {
+        const reply = await status(p);
+        if (reply.ok && reply.data.state === 'complete')
+            reply.data.summaryResourceUri = 'opensekai://evidence/other/summary.json';
+        return reply;
+    });
+    await expect(evaluateSmokeWithPorts(f.api, f.obs, f.options, f.ports)).rejects.toMatchObject({
+        code: 'CONFLICT'
+    });
+});
+it('rejects wrong manifest ID despite correct summary URI', async () => {
+    const f = driverFixture();
+    const status = vi.mocked(f.api.benchmarkStatus).getMockImplementation()!;
+    vi.spyOn(f.api, 'benchmarkStatus').mockImplementation(async (p) => {
+        const reply = await status(p);
+        if (reply.ok && reply.data.state === 'complete')
+            reply.data.summaryResourceUri = 'opensekai://evidence/run/summary.json';
+        return reply;
+    });
+    const evidence = vi.mocked(f.api.evidenceRead).getMockImplementation()!;
+    vi.spyOn(f.api, 'evidenceRead').mockImplementation(async (p) => p.evidenceId === 'run' ? {
+        ok: true, data: {
+            id: 'other', kind: 'benchmark', sessionId: 'session', fixtureId: 'smoke_v1', appCommit: 'abc', resources: [{
+                    uri: 'opensekai://evidence/run/summary.json', sha256: 'a'.repeat(64), bytes: 100, mimeType: 'application/json'
+                }]
+        }
+    } : evidence(p));
+    await expect(evaluateSmokeWithPorts(f.api, f.obs, f.options, f.ports)).rejects.toMatchObject({
+        code: 'CONFLICT'
+    });
+});
+it('rejects wrong byte-summary run and session identity', () => {
+    for (const summary of [{
+            run: {
+                id: 'other'
+            }, sessionId: 'session'
+        }, {
+            run: {
+                id: 'run'
+            }, sessionId: 'other'
+        }])
+        expect(() => summaryChecks({
+            ...summary, fixtureId: 'smoke_v1', profileId: 'webgl2_smoke_v1'
+        }, 'webgl2_smoke_v1', {
+            runId: 'run', sessionId: 'session'
+        })).toThrow();
+});
+import { decodeMarker } from '../src/marker';
+it('keeps matching composition freshness unknown and fails revision mismatch', async () => {
+    const f = driverFixture();
+    const screenshot = f.obs.screenshot;
+    f.obs.screenshot = async (name) => {
+        const bytes = await screenshot(name);
+        if (!name.endsWith('_dark'))
+            return bytes;
+        const decoded = decodeMarker(bytes);
+        if (!decoded.ok)
+            throw new Error('fixture marker');
+        const png = PNG.sync.read(Buffer.from(bytes));
+        encodeMarker({
+            ...decoded.data, revision: 99
+        }).forEach((bit, i) => {
+            for (let y = 0; y < 8; y++)
+                for (let x = 0; x < 2; x++) {
+                    const offset = (y * 336 + i * 2 + x) * 4;
+                    png.data.fill(bit * 255, offset, offset + 3);
+                    png.data[offset + 3] = 255;
+                }
+        });
+        return PNG.sync.write(png);
+    };
+    const report = await evaluateSmokeWithPorts(f.api, f.obs, f.options, f.ports);
+    expect(report.checks.find(c => c.name === 'composition-dark')?.result).toBe('fail');
+    expect(report.checks.find(c => c.name === 'composition-light')?.result).toBe('unknown');
+    expect(f.screenshots).toHaveLength(5);
+});
+it('accepts matching run metadata and rejects an oversized run ID', () => {
+    const value = {
+        run: {
+            id: 'run'
+        }, fixtureId: 'smoke_v1', profileId: 'webgl2_smoke_v1', count: 1, cpuMs: {
+            p95: 1
+        }, staleOutputPeriods: 0
+    };
+    expect(summaryChecks(value, 'webgl2_smoke_v1', {
+        runId: 'run', sessionId: 'session'
+    }).find(c => c.name === 'cpu-p95')?.result).toBe('pass');
+    const id = 'a'.repeat(129);
+    expect(() => summaryChecks({
+        ...value, run: {
+            id
+        }
+    }, 'webgl2_smoke_v1', {
+        runId: id, sessionId: 'session'
+    })).toThrow();
 });

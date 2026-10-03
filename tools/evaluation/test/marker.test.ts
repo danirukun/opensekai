@@ -47,3 +47,45 @@ it('rejects oversize dimensions before inflate', () => {
 it('rejects PNG above 2MiB', () => expect(decodeMarker(new Uint8Array(2 * 1024 * 1024 + 1))).toMatchObject({
     ok: false
 }));
+import { inspectPng } from '../src/marker';
+function crc(bytes: Uint8Array): number {
+    let value = 0xffffffff;
+    for (const byte of bytes) {
+        value ^= byte;
+        for (let bit = 0; bit < 8; bit++)
+            value = (value >>> 1) ^ ((value & 1) ? 0xedb88320 : 0);
+    }
+    return (value ^ 0xffffffff) >>> 0;
+}
+function headerChunk(width: number, height: number, interlace: number): Buffer {
+    const chunk = Buffer.alloc(25);
+    chunk.writeUInt32BE(13);
+    chunk.write('IHDR', 4);
+    chunk.writeUInt32BE(width, 8);
+    chunk.writeUInt32BE(height, 12);
+    chunk[16] = 8;
+    chunk[17] = 6;
+    chunk[20] = interlace;
+    chunk.writeUInt32BE(crc(chunk.subarray(4, 21)), 21);
+    return chunk;
+}
+it('rejects interlace before the PNG codec can inflate', () => {
+    const { bytes } = markerPng();
+    const interlaced = Buffer.concat([bytes.subarray(0, 8), headerChunk(336, 8, 1), bytes.subarray(33)]);
+    expect(() => inspectPng(interlaced)).toThrow();
+});
+it('rejects valid-CRC duplicate IHDR dimension and interlace overrides', () => {
+    const { bytes } = markerPng();
+    for (const override of [headerChunk(100000, 8, 0), headerChunk(336, 8, 1)]) {
+        const duplicate = Buffer.concat([bytes.subarray(0, 33), override, bytes.subarray(33)]);
+        expect(() => inspectPng(duplicate)).toThrow();
+    }
+});
+it('requires bounded chunks and terminal IEND at exact end', () => {
+    const { bytes } = markerPng();
+    expect(() => inspectPng(bytes.subarray(0, bytes.length - 12))).toThrow();
+    expect(() => inspectPng(Buffer.concat([bytes, Buffer.from([0])]))).toThrow();
+    const invalid = Buffer.from(bytes);
+    invalid.writeUInt32BE(0xffffffff, 33);
+    expect(() => inspectPng(invalid)).toThrow();
+});

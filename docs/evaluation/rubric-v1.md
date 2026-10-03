@@ -50,3 +50,11 @@ When a model client performs review, record model and prompt versions and the ru
 Set OPENSEKAI_CONNECTION_FILE to an operator descriptor and OPENSEKAI_RENDERER_CONNECTION_FILE to a renderer descriptor for the same session. Set OPENSEKAI_EVIDENCE_DIR and OPENSEKAI_PROFILE (`webgpu_smoke_v1` or `webgl2_smoke_v1`). OPENSEKAI_OBS_URL defaults to the local development endpoint. Run `pnpm evaluate:smoke --repeats 3` for three separate runs of one profile. Use `--repeats 1` for a scoped smoke run. The integrator owns live OBS execution. Unit tests use mocked OBS and a fake clock.
 
 Store large evidence under ignored artifacts. Commit only reviewed metadata and sanitized summaries. A prepared source, a mocked test, or an app preview does not prove OBS acceptance.
+
+## Review safeguards
+
+Before PNG decoding, walk the bounded chunk envelope. Require exactly one first IHDR of length 13, dimensions within the image budget, and interlace method 0. Require bounded chunk lengths and a zero-length terminal IEND at the exact end. Reject duplicate IHDR chunks before the codec can replace dimensions or interlace mode.
+
+Bind benchmark evidence to the requested run. Use exactly `opensekai://evidence/<run.id>/summary.json`, with an opaque ID of at most 128 ASCII letters, digits, underscores or hyphens. The manifest ID and parsed summary.run.id must equal that run ID. Check session metadata when supplied, and require the expected fixture/profile. A same-session summary for another run is invalid.
+
+Compare each composition marker with current native output state for camera, revision, tick and a 500 ms observation round trip. A mismatch fails. AppStatus has no native receive timestamp, so matching metadata remains unknown for freshness. Do not add captures to the timing window or infer freshness from a session tag. Actual OBS checks can supply separate freshness evidence.

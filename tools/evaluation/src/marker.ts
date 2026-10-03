@@ -7,11 +7,41 @@ export function inspectPng(bytes: Uint8Array): {
     if (bytes.length < 33 || bytes.length > 2 * 1024 * 1024)
         throw new Error('PNG size invalid');
     const buffer = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-    if (!buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) || buffer.toString('ascii', 12, 16) !== 'IHDR' || buffer.readUInt32BE(8) !== 13)
+    if (!buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) || buffer.toString('latin1', 12, 16) !== 'IHDR' || buffer.readUInt32BE(8) !== 13)
         throw new Error('PNG header invalid');
     const width = buffer.readUInt32BE(16), height = buffer.readUInt32BE(20);
     if (width < 1 || height < 1 || width > 1920 || height > 1080)
         throw new Error('PNG dimensions invalid');
+    if (buffer[26] !== 0 || buffer[27] !== 0 || buffer[28] !== 0)
+        throw new Error('PNG compression, filter or interlace unsupported');
+    let offset = 8, headers = 0, hasData = false, ended = false;
+    while (offset < buffer.length) {
+        if (buffer.length - offset < 12)
+            throw new Error('PNG chunk truncated');
+        const length = buffer.readUInt32BE(offset);
+        if (length > buffer.length - offset - 12)
+            throw new Error('PNG chunk length invalid');
+        const type = buffer.toString('latin1', offset + 4, offset + 8);
+        if (!/^[A-Za-z]{4}$/.test(type))
+            throw new Error('PNG chunk type invalid');
+        const next = offset + length + 12;
+        if (type === 'IHDR') {
+            if (offset !== 8 || length !== 13 || ++headers !== 1)
+                throw new Error('PNG duplicate or misplaced IHDR');
+        }
+        else if (headers !== 1)
+            throw new Error('PNG first chunk must be IHDR');
+        if (type === 'IDAT')
+            hasData = true;
+        if (type === 'IEND') {
+            if (length !== 0 || next !== buffer.length || !hasData)
+                throw new Error('PNG terminal IEND invalid');
+            ended = true;
+        }
+        offset = next;
+    }
+    if (!ended || headers !== 1)
+        throw new Error('PNG IEND absent');
     return {
         width, height
     };

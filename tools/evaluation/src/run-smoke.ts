@@ -122,16 +122,24 @@ export async function evaluateSmokeWithPorts(api: AppApi, obs: ObsAdapter, optio
             let run = unwrap(await api.benchmarkStart({
                 requestId: randomUUID(), fixtureId: 'smoke_v1', profileId: options.profileId
             }));
+            if (!/^[A-Za-z0-9_-]{1,128}$/.test(run.id))
+                throw evaluationError('INVALID_INPUT', 'Benchmark run ID invalid');
             report.runId = run.id;
             activeRun = run.id;
             const deadline = p.now() + 160000;
+            const readRun = async () => {
+                const next = unwrap(await api.benchmarkStatus({
+                    runId: report.runId
+                }));
+                if (next.id !== report.runId)
+                    throw evaluationError('CONFLICT', 'Benchmark status run ID differs');
+                return next;
+            };
             while (run.state === 'warming') {
                 if (p.now() >= deadline)
                     throw evaluationError('TIMEOUT', 'Benchmark warmup timed out');
                 await p.sleep(1000);
-                run = unwrap(await api.benchmarkStatus({
-                    runId: run.id
-                }));
+                run = await readRun();
             }
             if (run.state !== 'measuring')
                 throw evaluationError('UNAVAILABLE', 'Benchmark did not enter measurement');
@@ -141,9 +149,7 @@ export async function evaluateSmokeWithPorts(api: AppApi, obs: ObsAdapter, optio
                 if (p.now() >= deadline)
                     throw evaluationError('TIMEOUT', 'Benchmark measurement timed out');
                 await p.sleep(1000);
-                run = unwrap(await api.benchmarkStatus({
-                    runId: run.id
-                }));
+                run = await readRun();
             }
             const after = await obs.readStats();
             const measurementMs = p.now() - measurementStart;
@@ -168,18 +174,20 @@ export async function evaluateSmokeWithPorts(api: AppApi, obs: ObsAdapter, optio
                 name: 'alpha-visual-review', result: 'unknown', detail: 'Dark, light and checker captures require visual inspection'
             });
             if (run.summaryResourceUri) {
-                const match = /^opensekai:\/\/evidence\/([A-Za-z0-9_-]+)\/summary\.json$/.exec(run.summaryResourceUri);
-                if (!match)
-                    throw evaluationError('INVALID_INPUT', 'Summary resource URI invalid');
+                const expectedUri = `opensekai://evidence/${report.runId}/summary.json`;
+                if (run.summaryResourceUri !== expectedUri)
+                    throw evaluationError('CONFLICT', 'Summary resource belongs to another run');
                 const summary = unwrap(await api.evidenceRead({
-                    evidenceId: match[1]
+                    evidenceId: report.runId
                 }));
+                if (summary.id !== report.runId)
+                    throw evaluationError('CONFLICT', 'Summary manifest belongs to another run');
                 const resource = summary.resources.find(item => item.uri === run.summaryResourceUri);
-                const valid = summary.kind === 'benchmark' && summary.sessionId === descriptor.sessionId && summary.fixtureId === 'smoke_v1' && resource?.mimeType === 'application/json' && /^[a-f0-9]{64}$/.test(resource.sha256) && resource.bytes > 0;
+                const valid = summary.kind === 'benchmark' && summary.sessionId === descriptor.sessionId && summary.fixtureId === 'smoke_v1' && resource?.mimeType === 'application/json' && /^[a-f0-9]{64}$/.test(resource.sha256) && resource.bytes > 0 && resource.bytes <= 2 * 1024 * 1024;
                 report.checks.push({
                     name: 'benchmark-evidence', result: valid ? 'pass' : 'fail', detail: valid ? 'Registered benchmark summary present' : 'Benchmark evidence metadata differs'
                 });
-                report.appEvidenceIds.push(match[1]);
+                report.appEvidenceIds.push(report.runId);
             }
             else
                 report.checks.push({
@@ -194,11 +202,35 @@ export async function evaluateSmokeWithPorts(api: AppApi, obs: ObsAdapter, optio
                 });
             }
             for (const background of ['dark', 'light', 'checker']) {
+                const started = p.now();
+                let expected: Awaited<ReturnType<typeof getOutput>> | null = null;
+                let scopeConflict = false;
+                try {
+                    expected = await getOutput();
+                }
+                catch (error) {
+                    scopeConflict = (error as {
+                        code?: string;
+                    }).code === 'CONFLICT';
+                }
                 const png = await obs.screenshot(`${owned.sceneName}_${background}`);
                 const marker = decodeMarker(png);
-                const valid = marker.ok && marker.data.sessionTag === report.markers.at(-1)?.sessionTag;
+                const elapsed = p.now() - started;
+                const correlation = !marker.ok ? {
+                    result: 'fail' as const, detail: 'Composition has no valid marker'
+                } :
+                    scopeConflict ? {
+                        result: 'fail' as const, detail: 'Native output scope changed during composition'
+                    } :
+                        !expected ? {
+                            result: 'unknown' as const, detail: 'Native output state unavailable for composition'
+                        } :
+                            correlateMarker(marker.data, expected, elapsed);
+                const result = correlation.result === 'pass' ? 'unknown' : correlation.result;
+                const detail = correlation.result === 'pass' ? 'Current marker metadata matches, but AppStatus exposes no native receive age' : correlation.detail;
                 report.checks.push({
-                    name: `composition-${background}`, result: valid ? 'pass' : 'fail', detail: 'Composed OBS PNG collected; visual alpha review is pending'
+                    name: `composition-${background}`, result,
+                    detail: detail + '; visual alpha review remains pending'
                 });
                 const hash = createHash('sha256').update(png).digest('hex');
                 report.obsCaptureHashes.push(hash);
@@ -252,7 +284,7 @@ export async function runCli(env: NodeJS.ProcessEnv = process.env, args: string[
                 const manifest = unwrap(await client.api.evidenceRead({
                     evidenceId: id
                 }));
-                if (manifest.sessionId !== operator.sessionId || manifest.resources.length !== 1)
+                if (manifest.id !== id || manifest.sessionId !== operator.sessionId || manifest.fixtureId !== 'smoke_v1' || manifest.resources.length !== 1)
                     throw evaluationError('CONFLICT', 'Evidence scope differs');
                 for (const resource of manifest.resources) {
                     const match = /^opensekai:\/\/evidence\/([A-Za-z0-9_-]+)\/(capture\.png|summary\.json)$/.exec(resource.uri);
@@ -261,8 +293,13 @@ export async function runCli(env: NodeJS.ProcessEnv = process.env, args: string[
                     const bytes = await client.readResource(resource.uri);
                     if (bytes.length !== resource.bytes || bytes.length > 2 * 1024 * 1024 || createHash('sha256').update(bytes).digest('hex') !== resource.sha256)
                         throw evaluationError('INVALID_INPUT', 'Evidence byte hash differs');
-                    if (match[2] === 'summary.json')
-                        report.checks.push(...summaryChecks(JSON.parse(new TextDecoder().decode(bytes)), profileId));
+                    if (match[2] === 'summary.json') {
+                        if (id !== report.runId || manifest.kind !== 'benchmark')
+                            throw evaluationError('CONFLICT', 'Summary resource belongs to another run');
+                        report.checks.push(...summaryChecks(JSON.parse(new TextDecoder().decode(bytes)), profileId, {
+                            runId: report.runId, sessionId: operator.sessionId
+                        }));
+                    }
                     await ports.write(runDestination, id + '-' + match[2], bytes);
                 }
             }
@@ -276,10 +313,20 @@ export async function runCli(env: NodeJS.ProcessEnv = process.env, args: string[
         await obs?.disconnect();
     }
 }
-export function summaryChecks(value: unknown, profileId: SmokeOptions['profileId']): SmokeReport['checks'] {
+export function summaryChecks(value: unknown, profileId: SmokeOptions['profileId'], identity: {
+    runId: string;
+    sessionId: string;
+}): SmokeReport['checks'] {
     const summary = value as {
         fixtureId?: string;
         profileId?: string;
+        sessionId?: string;
+        run?: {
+            id?: string;
+            sessionId?: string;
+            fixtureId?: string;
+            profileId?: string;
+        };
         count?: number;
         cpuMs?: {
             p95?: number;
@@ -290,6 +337,12 @@ export function summaryChecks(value: unknown, profileId: SmokeOptions['profileId
     };
     if (!summary || summary.fixtureId !== 'smoke_v1' || summary.profileId !== profileId)
         throw evaluationError('CONFLICT', 'Benchmark summary fixture or profile differs');
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(identity.runId) || summary.run?.id !== identity.runId ||
+        (summary.sessionId !== undefined && summary.sessionId !== identity.sessionId) ||
+        (summary.run.sessionId !== undefined && summary.run.sessionId !== identity.sessionId) ||
+        (summary.run.fixtureId !== undefined && summary.run.fixtureId !== 'smoke_v1') ||
+        (summary.run.profileId !== undefined && summary.run.profileId !== profileId))
+        throw evaluationError('CONFLICT', 'Benchmark summary run or session differs');
     const p95 = summary.cpuMs?.p95;
     const cpuKnown = typeof p95 === 'number' && Number.isFinite(p95) && p95 >= 0 && typeof summary.count === 'number' && summary.count > 0;
     return [
