@@ -146,3 +146,13 @@ Tasks 7 and 9 can implement their bounded editor and evaluation modules from the
 ### Renderer camera lifetime correction
 
 The renderer must reuse one PerspectiveCamera for its output. Apply the selected camera transform and lens on each frame. Three.js render contexts and light lists use scene and camera identity. A new camera on each frame rebuilds those resources and invalidates the performance assumptions. Verify stable camera identity and changed lens/selection in a unit regression. Repeat the live output check before claiming performance.
+
+### Evaluation integration boundary
+
+Task 6 debug output has current motion, camera changes, correct textures, and transparent background pixels after the retained-camera correction. Source integration of the reviewed editor, MCP, and evaluation modules can proceed. Release launch and the timed minimized gate remain required before acceptance.
+
+Native evaluation uses a cloneable ServicePorts wrapper around service state. It does not own the server shutdown handle. Evaluation callbacks and the HTTP evidence reader capture Weak<NativeEvaluation>. DesktopState owns evaluation and shuts its timer down before service shutdown. One 100 ms timer reads all new validated ACKs from the bounded native ring in sequence order and passes each native receive time to RunManager. It then updates status with current native time. Sampling only the latest ACK would give false frame interval measurements.
+
+Evidence HTTP routes accept only the operator bearer credential, an exact registered opaque ID, and capture.png or summary.json. CORS uses the existing exact Origin allowlist. Public opensekai URIs map to these routes; relative paths, user information, ports, encoded IDs, queries, and fragments are rejected. Retention expiration removes resource access even if an old exported file remains. Native exports use an app-owned confined directory and atomic replacement.
+
+Benchmark start verifies the registered smoke fixture asset IDs, hashes, and bytes against fixtures/smoke/manifest.json and checks a connected current output_main ACK with matching backend/revision. Capture and benchmark timing cannot overlap. UTC formatting uses the already locked chrono 0.4.45 with a direct exact dependency. Build metadata must identify the Git source revision.

@@ -28,3 +28,4 @@ futures-util.workspace = true
 tempfile.workspace = true
 opensekai-contracts = { path = "../../../crates/contracts" }
 opensekai-evaluation = { path = "../../../crates/evaluation" }
+chrono.workspace = true
