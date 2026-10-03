@@ -61,10 +61,11 @@ async fn import_avatar(
     require_window_label(window.label(), "editor")?;
     let app = window.app_handle().clone();
     let path = tauri::async_runtime::spawn_blocking(move || {
-        app.dialog()
-            .file()
-            .add_filter("VRM avatar", &["vrm"])
-            .blocking_pick_file()
+        let dialog = app.dialog().file().set_title("Import VRM avatar");
+        // macOS can disable custom extensions through rfd's deprecated file-type filter.
+        #[cfg(not(target_os = "macos"))]
+        let dialog = dialog.add_filter("VRM avatar", &["vrm"]);
+        dialog.blocking_pick_file()
     })
     .await
     .map_err(|_| AppError {
