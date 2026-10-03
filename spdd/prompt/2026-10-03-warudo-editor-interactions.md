@@ -56,3 +56,7 @@ The local UI bridge accepts only bounded selection, tool, transform draft, refre
 ## Bound input refinement
 
 Initialize all nine input strings before component mount. Do not pass undefined to shared bindable inputs. Copy transform arrays at the Svelte boundary; do not structuredClone reactive proxies. Send plain scene snapshots to preview editor controls. These rules apply to scrubs, resets, menu actions and viewport gestures.
+
+## Diagnostic refinement
+
+The Resources panel combines service warnings and each output's last-frame warnings. Remove exact duplicate code/message/ID entries. Keep unsupported renderer feature warnings visible after the window split.

@@ -8,6 +8,7 @@
  import { createEditorModel, type EditorModel, type EditorView } from './editor/model';
  import { createEditorPoll } from './editor-poll';
  import { listenUI, sendUI } from './editor/ui-bridge';
+ import {collectWarnings} from './editor/warnings';
  import type { Draft, Tool } from './editor/ui-message';
  import type { AppStatus, AssetRecord } from '@opensekai/contracts';
  import Hierarchy from './components/Hierarchy.svelte';
@@ -19,7 +20,7 @@
  let status=$state<AppStatus|null>(null),assets=$state<AssetRecord[]>([]),outputUrl=$state(''),canEdit=$state(false),available=$state(false),error=$state<string|null>(null);
  let panel=$state<'assets'|'output'|'resources'>('assets'),width=$state(224),maxWidth=$state(360),shell:HTMLDivElement;
  let draft=$state<Draft>(null),tool=$state<Tool>('translate');
- const warnings=$derived(status?.warnings??[]);
+ const warnings=$derived(collectWarnings(status));
  function notify(message:Parameters<typeof sendUI>[1]){void sendUI('main',message).catch(()=>{error='Scene unavailable';});}
  function select(id:string){draft=null;notify({kind:'selection',entityId:id});}
  function setTool(next:Tool){tool=next;notify({kind:'tool',tool});}
