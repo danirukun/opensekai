@@ -12,5 +12,5 @@ it('accepts only normalized unweighted idle baseline bones',()=>{
  expect(AvatarPoseSchema.safeParse(pose).success).toBe(true);
  const bone={space:'normalized',rotation:[0,0,0,1]};
  expect(AvatarPoseSchema.safeParse({...pose,baseBones:{chest:bone}}).success).toBe(true);
- for(const bad of [{...bone,space:'raw'},{...bone,weight:.5},{...bone,rotation:[0,0,0,0]}])expect(AvatarPoseSchema.safeParse({...pose,baseBones:{chest:bad}}).success).toBe(false);
+ for(const bad of [{...bone,space:'raw'},{...bone,weight:.5},{...bone,weight:null},{...bone,rotation:[0,0,0,0]}])expect(AvatarPoseSchema.safeParse({...pose,baseBones:{chest:bad}}).success).toBe(false);
 });

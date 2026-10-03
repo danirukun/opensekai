@@ -16,4 +16,6 @@ fn baseline_is_normalized_and_unweighted() {
     v["baseBones"]["chest"]["space"] = json!("normalized");
     v["baseBones"]["chest"]["weight"] = json!(0.5);
     assert!(validate_value::<AvatarPose>(&v).is_err());
+    v["baseBones"]["chest"]["weight"] = json!(null);
+    assert!(validate_value::<AvatarPose>(&v).is_err());
 }

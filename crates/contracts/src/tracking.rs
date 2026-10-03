@@ -79,9 +79,17 @@ pub struct TrackingStatus {
 object!(TrackingUpdate {samples:Vec<TrackingSample>,statuses:Vec<TrackingStatus>});
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct IdleBone {
+    pub rotation: Quat,
+    pub space: BoneSpace,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub position: Option<Vec3>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AvatarPose {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub base_bones: Option<BTreeMap<String, TrackingBone>>,
+    pub base_bones: Option<BTreeMap<String, IdleBone>>,
     pub avatar_id: Id,
     pub bones: BTreeMap<String, TrackingBone>,
     pub expressions: BTreeMap<String, f64>,
@@ -241,12 +249,19 @@ impl Validate for AvatarPose {
         scalar_checks(&serde_json::to_value(self).map_err(|e| invalid(e.to_string()))?)?;
         channels(&self.bones, &self.expressions, &self.root)?;
         if let Some(base) = &self.base_bones {
-            channels(base, &BTreeMap::new(), &None)?;
-            require(
-                base.values()
-                    .all(|bone| bone.space == BoneSpace::Normalized && bone.weight.is_none()),
-                "invalid idle baseline",
-            )?;
+            require(base.len() <= 64, "too many idle channels")?;
+            for (name, bone) in base {
+                require(
+                    humanoid_bone(name) && bone.space == BoneSpace::Normalized,
+                    "invalid idle baseline",
+                )?;
+                rotation(&bone.rotation)?;
+                require(
+                    bone.position
+                        .is_none_or(|p| p.iter().all(|n| n.is_finite())),
+                    "invalid idle position",
+                )?;
+            }
         }
         Ok(())
     }
