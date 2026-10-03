@@ -13,7 +13,7 @@ use axum::{
     routing::get,
     Router,
 };
-use futures_util::{SinkExt, StreamExt};
+use futures_util::{FutureExt, SinkExt, StreamExt};
 use opensekai_contracts::*;
 use queues::{StateQueue, CONTROL_CAPACITY, PENDING_CAPACITY};
 pub use router::{RpcContext, RpcHandler};
@@ -74,12 +74,38 @@ struct Inner {
 }
 #[derive(Clone)]
 struct Connection {
+    clock_credit: Arc<ClockCredit>,
     id: String,
     control: mpsc::Sender<Value>,
     state: Arc<Mutex<StateQueue<Value>>>,
     notify: Arc<Notify>,
     close: Arc<Notify>,
     delivered: Arc<Mutex<VecDeque<RuntimeFrame>>>,
+}
+#[derive(Default)]
+struct ClockCredit {
+    deadline: Mutex<Option<tokio::time::Instant>>,
+    changed: Notify,
+}
+impl ClockCredit {
+    fn release(&self) {
+        if lock(&self.deadline).take().is_some() {
+            self.changed.notify_one();
+        }
+    }
+    async fn expired(&self) {
+        loop {
+            let changed = self.changed.notified();
+            let deadline = *lock(&self.deadline);
+            match deadline {
+                Some(deadline) => tokio::select! {
+                    _ = tokio::time::sleep_until(deadline) => return,
+                    _ = changed => {},
+                },
+                None => changed.await,
+            }
+        }
+    }
 }
 struct Pending {
     owner: String,
@@ -620,6 +646,7 @@ async fn connection_loop(mut socket: WebSocket, shared: &Arc<Shared>) {
     };
     let (tx, control) = mpsc::channel(CONTROL_CAPACITY);
     let connection = Connection {
+        clock_credit: Arc::new(ClockCredit::default()),
         id: Uuid::new_v4().to_string(),
         control: tx,
         state: Arc::new(Mutex::new(StateQueue::default())),
@@ -686,6 +713,7 @@ async fn connection_loop(mut socket: WebSocket, shared: &Arc<Shared>) {
     let (writer_stop, writer_stopped) = watch::channel(false);
     let writer_connection = connection.clone();
     let writer_shared = shared.clone();
+    let clock_enabled = role == Role::Publisher;
     let mut writer = tokio::spawn(async move {
         write_connection(
             sink,
@@ -693,6 +721,7 @@ async fn connection_loop(mut socket: WebSocket, shared: &Arc<Shared>) {
             writer_connection,
             writer_shared,
             writer_stopped,
+            clock_enabled,
         )
         .await;
     });
@@ -720,6 +749,8 @@ async fn connection_loop(mut socket: WebSocket, shared: &Arc<Shared>) {
                         {
                             break;
                         }
+                        connection.clock_credit.release();
+                        connection.notify.notify_one();
                         inner.latest = Some(frame.clone());
                         inner.frames.push_back(frame);
                         if inner.frames.len() > 32 {
@@ -814,15 +845,36 @@ async fn write_connection(
     connection: Connection,
     shared: Arc<Shared>,
     mut stopped: watch::Receiver<bool>,
+    clock_enabled: bool,
 ) {
     let mut shutdown = shared.stop.subscribe();
+    let mut interval = tokio::time::interval(Duration::from_nanos(1_000_000_000 / 60));
+    interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    let mut clock_due = false;
+    let mut ready_control = None;
     loop {
         if *stopped.borrow() || *shutdown.borrow() {
             break;
         }
-        let control_value = control.try_recv().ok();
-        let value = if control_value.is_some() {
-            control_value
+        let outstanding = lock(&connection.clock_credit.deadline).is_some();
+        if clock_enabled && !outstanding && interval.tick().now_or_never().is_some() {
+            clock_due = true;
+        }
+        // A due pulse gets one turn before controls. Credit bounds socket ingress too.
+        let value = if clock_enabled && !outstanding && clock_due {
+            let elapsed_ms = shared.now_ms();
+            if elapsed_ms > 9_007_199_254_740_991 {
+                break;
+            }
+            *lock(&connection.clock_credit.deadline) =
+                Some(tokio::time::Instant::now() + Duration::from_secs(2));
+            clock_due = false;
+            Some(json!(WireMessage::Clock {
+                session_id: shared.session.clone(),
+                elapsed_ms
+            }))
+        } else if let Some(value) = ready_control.take().or_else(|| control.try_recv().ok()) {
+            Some(value)
         } else {
             let mut delivered = lock(&connection.delivered);
             if delivered.len() < queues::STATE_CAPACITY {
@@ -841,9 +893,11 @@ async fn write_connection(
         };
         if let Some(value) = value {
             let result = tokio::select! {
-                result=sink.send(Message::Text(value.to_string().into()))=>result,
+                biased;
                 _=stopped.changed()=>break,
                 _=shutdown.changed()=>break,
+                _=connection.clock_credit.expired()=>break,
+                result=sink.send(Message::Text(value.to_string().into()))=>result,
             };
             if result.is_err() {
                 break;
@@ -854,14 +908,9 @@ async fn write_connection(
             biased;
             _=stopped.changed()=>break,
             _=shutdown.changed()=>break,
-            Some(value)=control.recv()=> {
-                let result=tokio::select! {
-                    result=sink.send(Message::Text(value.to_string().into()))=>result,
-                    _=stopped.changed()=>break,
-                    _=shutdown.changed()=>break,
-                };
-                if result.is_err() { break; }
-            },
+            _=connection.clock_credit.expired()=>break,
+            _=interval.tick(), if clock_enabled && !outstanding => { clock_due = true; },
+            Some(value)=control.recv()=> { ready_control = Some(value); },
             _=connection.notify.notified()=>{},
         }
     }
@@ -1043,6 +1092,7 @@ mod tests {
     async fn service_control_queue_cannot_be_displaced_by_state() {
         let (control, mut receiver) = mpsc::channel(CONTROL_CAPACITY);
         let connection = Connection {
+            clock_credit: Arc::new(ClockCredit::default()),
             id: "test".into(),
             control,
             state: Arc::new(Mutex::new(StateQueue::default())),

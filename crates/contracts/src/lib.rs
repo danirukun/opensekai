@@ -6,6 +6,7 @@ pub type Id = String;
 pub type Vec3 = [f64; 3];
 pub type Quat = [f64; 4];
 pub const MAX_DIAGNOSTICS_BYTES: usize = 2048;
+pub const MAX_CLOCK_BYTES: usize = 2048;
 pub const MAX_MESSAGE_BYTES: usize = 256 * 1024;
 pub const MAX_CAPTURE_MESSAGE_BYTES: usize = 3 * 1024 * 1024;
 macro_rules! object { ($name:ident { $($field:ident : $ty:ty),* $(,)? }) => {#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)] #[serde(rename_all="camelCase", deny_unknown_fields)] pub struct $name {$(pub $field: $ty),*}} }
@@ -224,6 +225,12 @@ object!(CaptureReplyData {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub enum WireMessage {
+    Clock {
+        #[serde(rename = "sessionId")]
+        session_id: Id,
+        #[serde(rename = "elapsedMs")]
+        elapsed_ms: u64,
+    },
     Auth {
         role: Role,
         token: String,
@@ -590,6 +597,10 @@ pub fn parse_wire(bytes: &[u8]) -> Result<WireMessage, AppError> {
         "oversized ordinary message",
     )?;
     match &msg {
+        WireMessage::Clock { elapsed_ms, .. } => {
+            require(bytes.len() <= MAX_CLOCK_BYTES, "oversized clock")?;
+            require(*elapsed_ms <= 9_007_199_254_740_991, "unsafe clock time")?;
+        }
         WireMessage::Auth {
             schema_version,
             token,

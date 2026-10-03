@@ -35,14 +35,17 @@ async fn send(socket: &mut Socket, value: Value) {
         .unwrap();
 }
 async fn recv(socket: &mut Socket) -> Value {
-    let text = tokio::time::timeout(Duration::from_secs(3), socket.next())
-        .await
-        .unwrap()
-        .unwrap()
-        .unwrap()
-        .into_text()
-        .unwrap();
-    serde_json::from_str(&text).unwrap()
+    tokio::time::timeout(Duration::from_secs(3), async {
+        loop {
+            let text = socket.next().await.unwrap().unwrap().into_text().unwrap();
+            let value: Value = serde_json::from_str(&text).unwrap();
+            if value["kind"] != "clock" {
+                return value;
+            }
+        }
+    })
+    .await
+    .unwrap()
 }
 async fn auth(descriptor: &ConnectionDescriptor) -> Socket {
     let (mut socket, _) = connect_async(&descriptor.ws_url).await.unwrap();
@@ -60,13 +63,24 @@ fn call(id: &str, method: &str, params: Value) -> Value {
     json!({"kind":"call","requestId":id,"method":method,"params":params})
 }
 async fn closed(socket: &mut Socket) {
-    let next = tokio::time::timeout(Duration::from_secs(3), socket.next())
-        .await
-        .unwrap();
-    assert!(matches!(
-        next,
-        None | Some(Err(_)) | Some(Ok(Message::Close(_)))
-    ));
+    tokio::time::timeout(Duration::from_secs(3), async {
+        loop {
+            let next = socket.next().await;
+            if let Some(Ok(Message::Text(text))) = &next {
+                let value: Value = serde_json::from_str(text).unwrap();
+                if value["kind"] == "clock" {
+                    continue;
+                }
+            }
+            assert!(matches!(
+                next,
+                None | Some(Err(_)) | Some(Ok(Message::Close(_)))
+            ));
+            return;
+        }
+    })
+    .await
+    .unwrap();
 }
 #[tokio::test]
 async fn service_real_loopback_relays_inspection_and_recovers_latest_frame() {
