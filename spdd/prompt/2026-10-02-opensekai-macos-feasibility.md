@@ -142,3 +142,7 @@ The projected two-frame byte bound applies to state only. Control payloads retai
 ### Independent implementation after the source checkpoint
 
 Tasks 7 and 9 can implement their bounded editor and evaluation modules from the reviewed Task 6 source checkpoint. Their unit and process-boundary checks do not depend on final visual acceptance. Live integration and acceptance remain ordered after the Task 6 checks. Shared interfaces and dependencies remain with the integrator.
+
+### Renderer camera lifetime correction
+
+The renderer must reuse one PerspectiveCamera for its output. Apply the selected camera transform and lens on each frame. Three.js render contexts and light lists use scene and camera identity. A new camera on each frame rebuilds those resources and invalidates the performance assumptions. Verify stable camera identity and changed lens/selection in a unit regression. Repeat the live output check before claiming performance.

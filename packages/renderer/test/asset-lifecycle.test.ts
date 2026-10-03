@@ -62,3 +62,31 @@ it("resizes only when physical canvas dimensions change", async () => {
     expect(canvas.height).toBe(1080);
     renderer.dispose();
 });
+
+
+it("keeps one render camera while applying live lens and camera selections", async () => {
+    rendererPorts.render.mockReset().mockResolvedValue(undefined);
+    const renderer = await createRenderer({canvas: {width: 1920, height: 1080} as HTMLCanvasElement, outputId: "output_main", mode: "force-webgl2", resources: {readAsset: vi.fn()}, diagnostics: false, resolutionScale: 1});
+    const frame = makeSmokeFrame({sequence: 1, tick: 1});
+    frame.scene.entities = frame.scene.entities.filter(entity => entity.kind === "camera");
+    await renderer.applyFrame(frame);
+    const camera = rendererPorts.render.mock.calls[0]![1];
+    const next = structuredClone(frame);
+    next.sequence = 2;
+    next.tick = 2;
+    next.scene.outputs.find(output => output.id === "output_main")!.cameraId = "camera_close";
+    const selected = next.scene.entities.find(entity => entity.id === "camera_close")!;
+    if (selected.kind !== "camera") throw new Error("Camera fixture required");
+    selected.lens.fovDegrees = 36;
+    selected.lens.near = 0.2;
+    selected.lens.far = 200;
+    selected.transform.position = [2, 3, 4];
+    const applied = await renderer.applyFrame(next);
+    expect(rendererPorts.render.mock.calls[1]![1]).toBe(camera);
+    expect(camera.fov).toBe(36);
+    expect(camera.near).toBe(0.2);
+    expect(camera.far).toBe(200);
+    expect(camera.position.toArray()).toEqual([2, 3, 4]);
+    expect(applied.cameraId).toBe("camera_close");
+    renderer.dispose();
+});

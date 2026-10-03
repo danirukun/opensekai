@@ -23,6 +23,7 @@ export interface RendererOptions {
 }
 export async function createRenderer(options: RendererOptions): Promise<RendererHandle> {
     const { renderer, backend } = await initializeBackend(options.canvas, options.mode);
+    const camera = new PerspectiveCamera();
     const scene = new Scene();
     scene.background = null;
     scene.add(new AmbientLight(0xffffff, 1));
@@ -122,7 +123,11 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         }
         const used = new Set([...objects.values()].flatMap(x => x.assetId ? [x.assetId] : []));
         assets.retainOnly(used);
-        const camera = new PerspectiveCamera(cameraEntity.lens.fovDegrees, width / height, cameraEntity.lens.near, cameraEntity.lens.far);
+        camera.fov = cameraEntity.lens.fovDegrees;
+        camera.aspect = width / height;
+        camera.near = cameraEntity.lens.near;
+        camera.far = cameraEntity.lens.far;
+        camera.updateProjectionMatrix();
         applyTransform(camera, cameraEntity);
         try {
             await renderer.renderAsync(scene, camera);
