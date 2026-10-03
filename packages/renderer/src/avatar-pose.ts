@@ -2,7 +2,7 @@ import {Object3D,Quaternion,Vector3} from 'three/webgpu';
 import type {VRM, VRMHumanBoneName} from '@pixiv/three-vrm';
 import type {AvatarPose} from '@opensekai/contracts';
 
-const aliases: Record<string,string> = {Joy:'happy',Angry:'angry',Sorrow:'sad',Fun:'relaxed',A:'aa',I:'ih',U:'ou',E:'ee',O:'oh',Blink:'blink',Blink_L:'blinkLeft',Blink_R:'blinkRight',eyeBlink_L:'blinkLeft',eyeBlink_R:'blinkRight',jawOpen:'aa',mouthSmile_L:'happy',mouthSmile_R:'happy'};
+const aliases: Record<string,string> = {Joy:'happy',Angry:'angry',Sorrow:'sad',Fun:'relaxed',A:'aa',I:'ih',U:'ou',E:'ee',O:'oh',Blink:'blink',Blink_L:'blinkLeft',Blink_R:'blinkRight',eyeBlink_L:'blinkLeft',eyeBlink_R:'blinkRight',eyeBlinkLeft:'blinkLeft',eyeBlinkRight:'blinkRight',jawOpen:'aa',mouthSmile_L:'happy',mouthSmile_R:'happy',mouthSmileLeft:'happy',mouthSmileRight:'happy'};
 export function expressionWeights(expressions: Record<string,number>, names: ReadonlySet<string>) {
     const result: Record<string,number> = Object.create(null);
     for (const [name, weight] of Object.entries(expressions)) {

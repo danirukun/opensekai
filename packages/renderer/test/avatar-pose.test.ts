@@ -60,3 +60,16 @@ it('fades raw pose to each instance rest rotation and position, with normalized 
  const normal=fixture();normal.binding.apply({avatarId:'n',bones:{head:{rotation:sample.toArray(),space:'normalized',weight:.5}},expressions:{}});
  expect(normal.head.quaternion.angleTo(new Quaternion().slerp(sample,.5))).toBeLessThan(1e-7);
 });
+it('applies official Tasks ARKit blink and smile category names through the VRM expression manager',()=>{
+ const {vrm,binding}=fixture();
+ vrm.expressionManager!.registerExpression(new VRMExpression('blinkRight'));
+ const bound=createAvatarBinding(vrm);
+ // The face retarget adapter preserves the official Tasks category names.
+ bound.apply({avatarId:'a',bones:{},expressions:{eyeBlinkLeft:.7,eyeBlinkRight:.4,mouthSmileLeft:.2,mouthSmileRight:.8,jawOpen:.5}});
+ expect(vrm.expressionManager!.getValue('blinkLeft')).toBe(.7);
+ expect(vrm.expressionManager!.getValue('blinkRight')).toBe(.4);
+ expect(vrm.expressionManager!.getValue('happy')).toBe(.8);
+ expect(vrm.expressionManager!.getValue('aa')).toBe(.5);
+ bound.apply();
+ for(const name of ['blinkLeft','blinkRight','happy','aa'])expect(vrm.expressionManager!.getValue(name)).toBe(0);
+});
