@@ -152,15 +152,18 @@ impl Shared {
                         .and_then(|q| q.back().map(|(f, _)| f.clone())),
                 })
                 .collect();
-            let current = inner.latest.as_ref().is_some_and(|latest| {
-                inner
-                    .acks
-                    .get("output_main")
-                    .and_then(|q| q.back())
-                    .is_some_and(|(ack, _)| {
-                        ack.revision == latest.scene.revision && ack.session_id == latest.session_id
-                    })
-            });
+            let current = inner.renderers.contains_key("output_main")
+                && inner.latest.as_ref().is_some_and(|latest| {
+                    inner
+                        .acks
+                        .get("output_main")
+                        .and_then(|q| q.back())
+                        .is_some_and(|(ack, received_at_ms)| {
+                            ack.revision == latest.scene.revision
+                                && ack.session_id == latest.session_id
+                                && self.now_ms().saturating_sub(*received_at_ms) <= 500
+                        })
+                });
             return Reply::success(json!(AppStatus {
                 schema_version: 1,
                 session_id: self.session.clone(),

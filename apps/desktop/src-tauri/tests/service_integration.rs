@@ -565,3 +565,41 @@ async fn service_ack_rejects_scope_future_and_retained_metadata_mismatch() {
         service.shutdown().await.unwrap();
     }
 }
+#[tokio::test]
+async fn service_readiness_expires_stale_ack_without_losing_diagnostics() {
+    let (_dir, service) = service(false).await;
+    let descriptor = service.publisher_descriptor();
+    let mut publisher = auth(&descriptor).await;
+    let mut renderer = auth(&service.renderer_descriptor("output_main").unwrap()).await;
+    let mut operator = auth(&service.operator_descriptor()).await;
+    send(&mut publisher, frame(&descriptor.session_id, 1)).await;
+    recv(&mut renderer).await;
+    send(&mut renderer, applied(&descriptor.session_id, 1)).await;
+    tokio::time::timeout(Duration::from_secs(1), async {
+        while service.applied_at("output_main", 1).is_none() {
+            tokio::time::sleep(Duration::from_millis(1)).await;
+        }
+    })
+    .await
+    .unwrap();
+    send(&mut operator, call("fresh", "appStatus", json!({}))).await;
+    assert_eq!(recv(&mut operator).await["result"]["data"]["ready"], true);
+    tokio::time::sleep(Duration::from_millis(550)).await;
+    send(&mut publisher, frame(&descriptor.session_id, 2)).await;
+    recv(&mut renderer).await;
+    send(&mut operator, call("stale", "appStatus", json!({}))).await;
+    let status = recv(&mut operator).await;
+    assert_eq!(status["result"]["data"]["ready"], false);
+    assert_eq!(status["result"]["data"]["outputs"][0]["connected"], true);
+    assert_eq!(
+        status["result"]["data"]["outputs"][0]["lastFrame"]["sequence"],
+        1
+    );
+    send(
+        &mut publisher,
+        json!({"kind":"ping","requestId":"publisher_connected"}),
+    )
+    .await;
+    assert_eq!(recv(&mut publisher).await["kind"], "pong");
+    service.shutdown().await.unwrap();
+}
