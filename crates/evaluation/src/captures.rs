@@ -2,10 +2,12 @@ use crate::error;
 use opensekai_contracts::*;
 use sha2::{Digest, Sha256};
 use std::{collections::VecDeque, io::Cursor};
+#[derive(Clone)]
 struct Stored {
     record: CaptureRecord,
     png: Vec<u8>,
 }
+#[derive(Clone)]
 pub struct CaptureStore {
     session: String,
     commit: String,
@@ -121,6 +123,9 @@ impl CaptureStore {
             self.records.pop_front();
         }
         Ok(record)
+    }
+    pub fn remove(&mut self, id: &str) {
+        self.records.retain(|stored| stored.record.id != id);
     }
     pub fn read(&self, evidence_id: &str) -> Result<&[u8], AppError> {
         self.records

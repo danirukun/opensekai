@@ -1,4 +1,5 @@
 pub mod assets;
+pub mod evaluation;
 mod bootstrap;
 pub mod service;
 use bootstrap::{DesktopState, NativeBootstrap};

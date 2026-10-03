@@ -8,7 +8,7 @@ use axum::{
         ws::{Message, WebSocket, WebSocketUpgrade},
         Path, State,
     },
-    http::{HeaderMap, StatusCode},
+    http::{HeaderMap, StatusCode, Uri},
     response::{IntoResponse, Response},
     routing::get,
     Router,
@@ -35,6 +35,12 @@ pub struct ServiceConfig {
     pub evidence_root: PathBuf,
     pub evaluation_enabled: bool,
 }
+#[derive(Clone)]
+pub struct ServicePorts {
+    shared: Arc<Shared>,
+}
+pub type EvidenceReader =
+    Arc<dyn Fn(&str, &str) -> Result<(Vec<u8>, &'static str), AppError> + Send + Sync>;
 pub struct ServiceHandle {
     shared: Arc<Shared>,
     server: Option<JoinHandle<Result<(), std::io::Error>>>,
@@ -62,6 +68,7 @@ struct Inner {
     frames: VecDeque<RuntimeFrame>,
     pending: HashMap<String, Pending>,
     handler: Option<RpcHandler>,
+    evidence: Option<EvidenceReader>,
     active: usize,
 }
 #[derive(Clone)]
@@ -202,6 +209,10 @@ pub async fn start_service(config: ServiceConfig) -> Result<ServiceHandle, AppEr
         .route("/renderer/", get(renderer_index))
         .route("/renderer/{*file}", get(renderer_file))
         .route("/assets/{id}", get(asset).options(asset_preflight))
+        .route(
+            "/evidence/{id}/{filename}",
+            get(evidence).options(asset_preflight),
+        )
         .with_state(shared.clone());
     let mut shutdown = shared.stop.subscribe();
     let server = tokio::spawn(async move {
@@ -218,7 +229,113 @@ pub async fn start_service(config: ServiceConfig) -> Result<ServiceHandle, AppEr
         server: Some(server),
     })
 }
+impl ServicePorts {
+    pub fn now_ms(&self) -> u64 {
+        self.shared.now_ms()
+    }
+    pub fn asset_records(&self) -> Vec<AssetRecord> {
+        self.shared.registry.records()
+    }
+    pub fn last_applied(&self, output: &str) -> Option<(FrameApplied, u64)> {
+        lock(&self.shared.inner).acks.get(output)?.back().cloned()
+    }
+    pub fn applied_at(&self, output: &str, sequence: u64) -> Option<(FrameApplied, u64)> {
+        lock(&self.shared.inner)
+            .acks
+            .get(output)?
+            .iter()
+            .find(|(f, _)| f.sequence == sequence)
+            .cloned()
+    }
+    pub fn applied_since(&self, output: &str, sequence: u64) -> Vec<(FrameApplied, u64)> {
+        lock(&self.shared.inner)
+            .acks
+            .get(output)
+            .map(|ring| {
+                ring.iter()
+                    .filter(|(f, _)| f.sequence > sequence)
+                    .cloned()
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+    pub fn current_output(&self, output: &str) -> Result<(FrameApplied, u64), AppError> {
+        let inner = lock(&self.shared.inner);
+        if *self.shared.stop.borrow() {
+            return Err(err(ErrorCode::Unavailable, "Service stopped"));
+        }
+        if inner.publisher.is_none() || !inner.renderers.contains_key(output) {
+            return Err(err(ErrorCode::Unavailable, "Output disconnected"));
+        }
+        let latest = inner
+            .latest
+            .as_ref()
+            .ok_or_else(|| err(ErrorCode::Unavailable, "Scene unavailable"))?;
+        let (ack, at) = inner
+            .acks
+            .get(output)
+            .and_then(|r| r.back())
+            .ok_or_else(|| err(ErrorCode::StaleFrame, "Output not acknowledged"))?;
+        if ack.session_id != latest.session_id
+            || ack.revision != latest.scene.revision
+            || !latest
+                .scene
+                .outputs
+                .iter()
+                .any(|o| o.id == output && o.camera_id == ack.camera_id)
+            || *at > self.now_ms()
+            || self.now_ms().saturating_sub(*at) > 500
+        {
+            return Err(err(ErrorCode::StaleFrame, "Output not current"));
+        }
+        Ok((ack.clone(), *at))
+    }
+    pub async fn validate_smoke_fixture(&self) -> Result<(), AppError> {
+        let shared = self.shared.clone();
+        tokio::task::spawn_blocking(move || {
+            let manifest: Value =
+                serde_json::from_str(include_str!("../../../../../fixtures/smoke/manifest.json"))
+                    .map_err(|_| invalid("Invalid smoke fixture"))?;
+            let mut expected: Vec<AssetRecord> = serde_json::from_value(manifest["assets"].clone())
+                .map_err(|_| invalid("Invalid smoke assets"))?;
+            expected.sort_by(|a, b| a.id.cmp(&b.id));
+            let records = shared.registry.records();
+            if records.len() != expected.len()
+                || records
+                    .iter()
+                    .zip(&expected)
+                    .any(|(a, b)| a.id != b.id || a.sha256 != b.sha256 || a.bytes != b.bytes)
+            {
+                return Err(err(
+                    ErrorCode::Conflict,
+                    "Smoke fixture registration mismatch",
+                ));
+            }
+            for record in expected {
+                shared.registry.read(&record.id)?;
+            }
+            Ok(())
+        })
+        .await
+        .map_err(|_| err(ErrorCode::Unavailable, "Fixture validation failed"))?
+    }
+    pub async fn request_capture(&self, params: CaptureParams) -> Result<CaptureBytes, AppError> {
+        self.shared.capture(params).await
+    }
+    pub async fn route_scene_call(&self, call: Call) -> Reply<Value> {
+        self.shared.route_scene_call(call, "native").await
+    }
+}
 impl ServiceHandle {
+    pub fn ports(&self) -> ServicePorts {
+        ServicePorts {
+            shared: self.shared.clone(),
+        }
+    }
+    pub fn install_evidence_reader(&self, reader: EvidenceReader) {
+        lock(&self.shared.inner).evidence = Some(reader);
+    }
+
     pub fn publisher_descriptor(&self) -> ConnectionDescriptor {
         self.shared
             .descriptor(Role::Publisher, self.shared.publisher_token.clone(), None)
@@ -298,6 +415,7 @@ impl ServiceHandle {
         {
             let mut inner = lock(&self.shared.inner);
             inner.handler = None;
+            inner.evidence = None;
             for (_, pending) in inner.pending.drain() {
                 let _ = pending
                     .reply
@@ -358,6 +476,13 @@ async fn upgrade(
 ) -> Response {
     if !headers_allowed(&headers, &shared) || *shared.stop.borrow() {
         return StatusCode::FORBIDDEN.into_response();
+    }
+    #[cfg(debug_assertions)]
+    if std::env::var("OPENSEKAI_TRACE_ORIGIN").as_deref() == Ok("1") {
+        match headers.get("origin").and_then(|h| h.to_str().ok()) {
+            Some(origin) => eprintln!("OpenSekai accepted WS Origin: {origin}"),
+            None => eprintln!("OpenSekai accepted WS Origin: absent"),
+        }
     }
     ws.max_message_size(MAX_CAPTURE_MESSAGE_BYTES)
         .max_frame_size(MAX_CAPTURE_MESSAGE_BYTES)
@@ -725,6 +850,7 @@ impl Drop for ServiceHandle {
         let _ = self.shared.stop.send(true);
         let mut inner = lock(&self.shared.inner);
         inner.handler = None;
+        inner.evidence = None;
         for (_, pending) in inner.pending.drain() {
             let _ = pending
                 .reply
@@ -763,6 +889,64 @@ async fn asset_preflight(State(shared): State<Arc<Shared>>, headers: HeaderMap) 
     }
     response
 }
+
+async fn evidence(
+    State(shared): State<Arc<Shared>>,
+    Path((id, filename)): Path<(String, String)>,
+    headers: HeaderMap,
+    uri: Uri,
+) -> Response {
+    if !headers_allowed(&headers, &shared) {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    let token = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "));
+    let mut response = if token != Some(shared.operator_token.as_str()) {
+        if token.is_some_and(|t| {
+            lock(&shared.inner).tickets.values().any(|known| known == t)
+                || t == shared.publisher_token
+        }) {
+            StatusCode::FORBIDDEN.into_response()
+        } else {
+            StatusCode::UNAUTHORIZED.into_response()
+        }
+    } else if uri.query().is_some()
+        || uri.path() != format!("/evidence/{id}/{filename}")
+        || uuid::Uuid::parse_str(&id).is_err()
+        || !matches!(filename.as_str(), "capture.png" | "summary.json")
+    {
+        StatusCode::BAD_REQUEST.into_response()
+    } else {
+        let reader = lock(&shared.inner).evidence.clone();
+        match reader.map(|read| read(&id, &filename)) {
+            Some(Ok((bytes, mime))) => (
+                [
+                    ("content-type", mime),
+                    ("x-content-type-options", "nosniff"),
+                    ("cache-control", "no-store"),
+                ],
+                bytes,
+            )
+                .into_response(),
+            Some(Err(error)) if error.code == ErrorCode::InvalidInput => {
+                StatusCode::BAD_REQUEST.into_response()
+            }
+            _ => StatusCode::NOT_FOUND.into_response(),
+        }
+    };
+    if let Some(origin) = headers.get("origin") {
+        response
+            .headers_mut()
+            .insert("access-control-allow-origin", origin.clone());
+        response
+            .headers_mut()
+            .insert("vary", axum::http::HeaderValue::from_static("Origin"));
+    }
+    response
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

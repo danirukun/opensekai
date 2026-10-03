@@ -29,6 +29,18 @@ impl RunManager {
     pub fn is_active(&self) -> bool {
         self.entries.iter().any(|e| active(&e.run.state))
     }
+    pub fn replay(&self, params: &BenchmarkParams) -> Option<Result<BenchmarkRun, AppError>> {
+        self.entries
+            .iter()
+            .find(|e| e.params.request_id == params.request_id)
+            .map(|e| {
+                if e.params == *params {
+                    Ok(e.run.clone())
+                } else {
+                    Err(error(ErrorCode::Conflict, "request parameters changed"))
+                }
+            })
+    }
     pub fn start(
         &mut self,
         params: BenchmarkParams,
@@ -37,16 +49,8 @@ impl RunManager {
     ) -> Result<BenchmarkRun, AppError> {
         params.validate()?;
         output.validate()?;
-        if let Some(e) = self
-            .entries
-            .iter()
-            .find(|e| e.params.request_id == params.request_id)
-        {
-            return if e.params == params {
-                Ok(e.run.clone())
-            } else {
-                Err(error(ErrorCode::Conflict, "request parameters changed"))
-            };
+        if let Some(result) = self.replay(&params) {
+            return result;
         }
         if self.is_active() {
             return Err(error(ErrorCode::Busy, "benchmark is active"));
@@ -202,7 +206,7 @@ fn percentiles(v: &mut [f64]) -> serde_json::Value {
         return serde_json::Value::Null;
     }
     v.sort_by(f64::total_cmp);
-    serde_json::json!({"p50":v[(v.len()-1)/2],"p95":v[(v.len()-1)*95/100],"p99":v[(v.len()-1)*99/100]})
+    serde_json::json!({"p50":v[(v.len()-1)/2],"p95":v[(v.len()-1)*95/100],"p99":v[(v.len()-1)*99/100],"max":v[v.len()-1]})
 }
 fn finish(e: &mut Entry) {
     e.run.summary_resource_uri = Some(format!("opensekai://evidence/{}/summary.json", e.run.id));

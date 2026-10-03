@@ -238,3 +238,51 @@ fn rate_limit_precedes_decode_and_failed_capture_does_not_reserve_rate() {
         ErrorCode::InvalidInput
     );
 }
+#[test]
+fn replay_preserves_terminal_identity_without_output_checks() {
+    let mut runs = RunManager::new();
+    assert!(runs.replay(&params("retry")).is_none());
+    let started = runs.start(params("retry"), 0, &output()).unwrap();
+    let terminal = runs.cancel(&started.id).unwrap();
+    assert_eq!(runs.replay(&params("retry")).unwrap().unwrap(), terminal);
+    let mut changed = params("retry");
+    changed.profile_id = ProfileId::Webgl2SmokeV1;
+    assert_eq!(
+        runs.replay(&changed).unwrap().unwrap_err().code,
+        ErrorCode::Conflict
+    );
+}
+#[test]
+fn summary_retains_maximum_interval() {
+    let mut runs = RunManager::new();
+    let run = runs.start(params("max"), 0, &output()).unwrap();
+    let mut f = output();
+    for t in (100..=30100).step_by(100) {
+        f.sequence += 1;
+        runs.observe(&f, t);
+    }
+    f.sequence += 1;
+    runs.observe(&f, 30250);
+    runs.cancel(&run.id).unwrap();
+    let summary: serde_json::Value =
+        serde_json::from_slice(runs.summary(&run.id).unwrap()).unwrap();
+    assert_eq!(summary["intervalMs"]["max"], 150.0);
+}
+#[test]
+fn removing_capture_revokes_bytes_metadata_and_manifest_but_preserves_rate() {
+    let mut s = store();
+    let record = insert(&mut s, capture(), output(), png(), 0, 0).unwrap();
+    s.remove(&record.id);
+    assert_eq!(s.read(&record.id).unwrap_err().code, ErrorCode::NotFound);
+    assert_eq!(s.record(&record.id).unwrap_err().code, ErrorCode::NotFound);
+    assert_eq!(
+        s.manifest(&record.id).unwrap_err().code,
+        ErrorCode::NotFound
+    );
+    assert_eq!(
+        insert(&mut s, capture(), output(), png(), 0, 0)
+            .unwrap_err()
+            .code,
+        ErrorCode::RateLimited
+    );
+}
