@@ -38,7 +38,7 @@ Source: [Character](https://docs.warudo.app/docs/assets/character).
 - [ ] CHR-01 — VRM import and humanoid rig validation. First.
 - [ ] CHR-02 — Prepared custom character packages. Later; Different API.
 - [ ] CHR-03 — Expressions, expression blending, and triggers. First for tracking; full controls Later.
-- [ ] CHR-04 — Idle animation and override clips. Later.
+- [ ] CHR-04 — Idle animation and override clips. Partial: built-in default idle verified on macOS; imported Mixamo/VRMA and override clips remain later. [Check](evaluation/default-avatar-idle.md).
 - [ ] CHR-05 — Animation layers, masks, transitions, and one-shot playback. Later.
 - [ ] CHR-06 — Manual posing, IK, and look-at. Later.
 - [ ] CHR-07 — Bone attachment points and visibility/material control. Later.
@@ -267,3 +267,5 @@ Final source checks at6d44c4a:297unit tests,9integration tests and workspace che
 
 
 Live editor controls verified on macOS source7084f4a: type groups, collapse/search, row visibility, sidebar output camera and direct transforms.310unit tests and workspace checks pass. Quaternion rounding and focus handoff regressions are fixed. See [actual UI and OBS evidence](evaluation/live-editor-controls.md).
+
+- [x] LIVE-09 — New VRM imports enable built-in idle; inspector toggle, VMC/iFacial takeover and stale return, clean OBS motion after minimize actions. Actual VRM0 and generated VRM1 rigs verified. Live MediaPipe takeover over idle still needs a detected person.
