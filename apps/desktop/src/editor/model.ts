@@ -6,10 +6,11 @@ export interface EditorView {
  selectedId: Id | null;
  error: ErrorCode | null;
  pending: boolean;
+ transformPending?: boolean;
 }
 const failure = (code: ErrorCode): Reply<never> => ({ ok: false, error: { code, message: code, ids: [] } });
 export function createEditorModel(api: AppApi) {
- let view: EditorView = { scene: null, selectedId: null, error: null, pending: false };
+ let view: EditorView = { scene: null, selectedId: null, error: null, pending: false, transformPending: false };
  let inspecting = false;
  const listeners = new Set<(view: EditorView) => void>();
  const read = (): EditorView => structuredClone(view);
@@ -24,10 +25,10 @@ export function createEditorModel(api: AppApi) {
   const selectedId = reply.data.entities.some(entity => entity.id === view.selectedId) ? view.selectedId : null;
   publish({ scene: structuredClone(reply.data), selectedId, error: view.error === 'CONFLICT' ? 'CONFLICT' : null });
  }
- async function execute(command: () => Promise<Reply<{ revision: number }>>, reinspectOnFailure = false): Promise<Reply<{ revision: number }>> {
+ async function execute(command: () => Promise<Reply<{ revision: number }>>, reinspectOnFailure = false, transformPending = false): Promise<Reply<{ revision: number }>> {
   if (view.pending) return failure('BUSY');
   if (!view.scene) { publish({ error: 'UNAVAILABLE' }); return failure('UNAVAILABLE'); }
-  publish({ pending: true, error: null });
+  publish({ pending: true, transformPending, error: null });
   try {
    const reply = await command();
    if (reply.ok || reply.error.code === 'CONFLICT' || reinspectOnFailure) {
@@ -39,14 +40,14 @@ export function createEditorModel(api: AppApi) {
    if (reinspectOnFailure) { try { await inspect(); } catch {} }
    publish({ error: 'UNAVAILABLE' }); return failure('UNAVAILABLE');
   }
-  finally { publish({ pending: false }); }
+  finally { publish({ pending: false, transformPending: false }); }
  }
- function patch(operation: PatchOp, expectedRevision?: number) {
+ function patch(operation: PatchOp, expectedRevision?: number, transformPending=false) {
   if (expectedRevision !== undefined && expectedRevision !== view.scene?.revision) {
    publish({ error: 'CONFLICT' }); return Promise.resolve(failure('CONFLICT'));
   }
   const revision = expectedRevision ?? view.scene?.revision;
-  return execute(() => api.scenePatch({ sceneId: view.scene!.sceneId, expectedRevision: revision!, operations: [operation] }));
+  return execute(() => api.scenePatch({ sceneId: view.scene!.sceneId, expectedRevision: revision!, operations: [operation] }),false,transformPending);
  }
  function invalid(code:ErrorCode='INVALID_INPUT') {publish({error:code});return Promise.resolve(failure(code));}
  function ofKind(entityId:Id,kind:SceneEntity['kind']) {return view.scene?.entities.some(entity=>entity.id===entityId&&entity.kind===kind);}
@@ -84,11 +85,11 @@ export function createEditorModel(api: AppApi) {
    if (view.scene?.entities.some(entity => entity.id === entityId)) publish({ selectedId: entityId });
   },
   clearSelection(): void { publish({ selectedId: null }); },
-  setTransform(entityId: Id, transform: Transform, expectedRevision?: number): Promise<Reply<{ revision: number }>> {
+  setTransform(entityId: Id, transform: Transform, expectedRevision?: number, live=false): Promise<Reply<{ revision: number }>> {
    const parsed = TransformSchema.safeParse(transform);
    if (!parsed.success) { publish({ error: 'INVALID_INPUT' }); return Promise.resolve(failure('INVALID_INPUT')); }
    if (!view.scene?.entities.some(entity => entity.id === entityId)) { publish({ error: 'NOT_FOUND' }); return Promise.resolve(failure('NOT_FOUND')); }
-   return patch({ kind: 'setTransform', entityId, transform: structuredClone(parsed.data) }, expectedRevision);
+   return patch({ kind: 'setTransform', entityId, transform: structuredClone(parsed.data) }, expectedRevision,live);
   },
   async setPosition(entityId: Id, position: Vec3): Promise<Reply<{ revision: number }>> {
    if (!position.every(Number.isFinite)) { publish({ error: 'INVALID_INPUT' }); return failure('INVALID_INPUT'); }

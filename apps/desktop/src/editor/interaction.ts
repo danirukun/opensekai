@@ -38,3 +38,11 @@ export function reconcileTransformFields(previousKey:string|null, source:{entity
 
 export function copyTransform(transform:Transform):Transform{return {position:[...transform.position],rotation:[...transform.rotation],scale:[...transform.scale]};}
 export function initialTransformFields(transform:Transform):TransformFieldValues{return {position:transform.position.map(String),rotation:quaternionToEuler(transform.rotation).map(v=>String(Math.round(v*1000)/1000)),scale:transform.scale.map(String)};}
+
+
+export function transformFromFields(values:TransformFieldValues):Transform|null {
+ const parsed=(row:TransformRow)=>values[row].map(value=>value.trim()===''?NaN:Number(value)) as Vec3;
+ const position=parsed('position'),rotation=parsed('rotation'),scale=parsed('scale');
+ if([...position,...rotation,...scale].some(value=>!Number.isFinite(value))||scale.some(value=>value<=0))return null;
+ return {position,rotation:eulerToQuaternion(rotation),scale};
+}

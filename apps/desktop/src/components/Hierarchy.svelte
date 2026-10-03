@@ -32,9 +32,9 @@
  <div class="entity-list" role="toolbar" aria-label="Scene assets" tabindex="0" onkeydown={navigate}>
   {#each groups as group (group.key)}
    <div class="asset-group">
-    <Button class="group-heading" variant="ghost" aria-expanded={searching||!collapsed[group.key]} onclick={()=>{collapsed={...collapsed,[group.key]:!collapsed[group.key]};}}>
+    <button type="button" class="group-heading" aria-expanded={searching||!collapsed[group.key]} onclick={()=>{collapsed={...collapsed,[group.key]:!collapsed[group.key]};}}>
      {#if searching||!collapsed[group.key]}<ChevronDown size={13}/>{:else}<ChevronRight size={13}/>{/if}<span>{group.label}</span>
-    </Button>
+    </button>
     {#if searching||!collapsed[group.key]}
      {#each group.entities as entity (entity.id)}
       <div class="asset-row" oncontextmenu={event=>context(event,entity.id)} role="presentation">
@@ -54,5 +54,5 @@
 </section>
 {#if menu}<ContextMenu {...menu} onclose={()=>{menu=null;}}/>{/if}
 <style>
- .asset-group{margin-bottom:8px}.asset-row{display:flex;align-items:center;gap:2px}.asset-row .entity-row{flex:1;min-width:0;padding:8px 6px;gap:7px}.asset-row .hidden-asset{color:#aaa3b5}.row-actions{display:flex;flex:none}.row-action{display:flex;align-items:center;justify-content:center;border:0;border-radius:4px;background:transparent;cursor:pointer}.row-action:hover{background:#e9e4f2}.row-action:disabled{opacity:.5;cursor:default}.row-action:focus-visible,.entity-row:focus-visible{outline:2px solid #8571ac;outline-offset:-2px}.row-actions .row-action{padding:5px;width:25px;height:28px;color:#9b95aa}.row-actions .active-camera{color:#6e5c94;background:#e9e4f2}.asset-group :global(.group-heading){display:flex;width:100%;justify-content:flex-start;gap:5px;padding:5px 6px;color:#85818f;font-size:11px;font-weight:500}
+ .asset-group{margin-bottom:8px}.asset-row{display:flex;align-items:center;gap:2px}.asset-row .entity-row{flex:1;min-width:0;padding:8px 6px;gap:7px}.asset-row .hidden-asset{color:#aaa3b5}.row-actions{display:flex;flex:none}.row-action{display:flex;align-items:center;justify-content:center;border:0;border-radius:4px;background:transparent;cursor:pointer}.row-action:hover{background:#e9e4f2}.row-action:disabled{opacity:.5;cursor:default}.row-action:focus-visible,.entity-row:focus-visible{outline:2px solid #8571ac;outline-offset:-2px}.row-actions .row-action{padding:5px;width:25px;height:28px;color:#9b95aa}.row-actions .active-camera{color:#6e5c94;background:#e9e4f2}.asset-group .group-heading{border:0;background:transparent;cursor:pointer;display:flex;width:100%;justify-content:flex-start;gap:5px;padding:5px 6px;color:#85818f;font-size:11px;font-weight:500}
 .asset-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.asset-heading h2{margin:0}.asset-actions{display:flex;gap:2px}.asset-actions :global(button){font-size:12px;padding:4px 7px}.asset-search{display:flex;gap:8px;align-items:center;padding-bottom:10px}.asset-search :global(input){min-width:0}.asset-row :global(svg){flex:none}.asset-search :global(label){position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}</style>

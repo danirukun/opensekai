@@ -34,3 +34,11 @@ it('initializes every bound input before mount and copies reactive transforms wi
  const copy=copyTransform(reactive);expect(structuredClone(copy)).toEqual(transform);copy.position[0]=9;expect(transform.position[0]).toBe(1);
  expect(transformFromRow(reactive,'position',[4,5,6])?.position).toEqual([4,5,6]);
 });
+
+it('parses a complete live transform and keeps partial or invalid values local',async()=>{
+ const {transformFromFields}=await import('../src/editor/interaction');
+ const fields={position:['1','2','3'],rotation:['0','90','0'],scale:['2','3','4']};
+ expect(transformFromFields(fields)).toEqual({position:[1,2,3],rotation:eulerToQuaternion([0,90,0]),scale:[2,3,4]});
+ for(const value of ['','-','1e','Infinity','NaN'])expect(transformFromFields({...fields,position:[value,'2','3']})).toBeNull();
+ for(const value of ['0','-1'])expect(transformFromFields({...fields,scale:[value,'3','4']})).toBeNull();
+});

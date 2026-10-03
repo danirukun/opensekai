@@ -262,3 +262,6 @@ These scoped checks do not complete the broader character, tracking, camera or p
 - [x] LIVE-08 — Physical iFacialMocap control, user verified as the final step. Native status corroborates accepted traffic from the configured phone; no automated motion or handshake capture.
 
 Final source checks at6d44c4a:297unit tests,9integration tests and workspace checks pass. Latest native change passed100Rust tests with1explicit fixture skip. Webcam finger/calibration quality, continuous background webcam capture, scene persistence, Windows, minimum hardware and concert performance remain open.
+
+
+Live editor control implementation: grouped asset rows with direct visibility and output-camera actions are integrated. Valid numeric/scrub/reset transforms use one active and one latest pending commit. Focused tests cover external conflicts, queued acknowledgements, selection and disposal.308unit tests and workspace checks pass. Actual packaged UI and OBS verification is next; no new parity box is marked from code alone.
