@@ -31,6 +31,7 @@ export const CapabilitySchema = z.enum([
     "capture",
     "benchmark"
 ]);
+export const CapabilitiesSchema = z.array(CapabilitySchema).refine(values => new Set(values).size === values.length, "Duplicate capabilities");
 export const ErrorCodeSchema = z.enum([
     "INVALID_INPUT",
     "CONFLICT",
@@ -149,15 +150,21 @@ export const AssetRecordSchema = z.strictObject({
 export const ConnectionDescriptorSchema = z.strictObject({
     schemaVersion: z.literal(1),
     sessionId: IdSchema,
-    httpOrigin: z.url().refine(v => { const x = new URL(v); return x.protocol === "http:" && x.hostname === "127.0.0.1" && x.pathname === "/" && !x.search && !x.hash && !x.username && !x.password; }),
-    wsUrl: z.url().refine(v => { const x = new URL(v); return x.protocol === "ws:" && x.pathname === "/ws" && x.hostname === "127.0.0.1" && !x.search && !x.hash && !x.username && !x.password; }),
+    httpOrigin: z.url().refine(v => {
+        const x = new URL(v);
+        return x.protocol === "http:" && x.hostname === "127.0.0.1" && x.pathname === "/" && !x.search && !x.hash && !x.username && !x.password;
+    }),
+    wsUrl: z.url().refine(v => {
+        const x = new URL(v);
+        return x.protocol === "ws:" && x.pathname === "/ws" && x.hostname === "127.0.0.1" && !x.search && !x.hash && !x.username && !x.password;
+    }),
     role: z.enum([
         "publisher",
         "operator",
         "renderer"
     ]),
     token: z.string().min(1),
-    capabilities: z.array(CapabilitySchema),
+    capabilities: CapabilitiesSchema,
     outputId: IdSchema.nullable()
 }).refine(d => new URL(d.wsUrl).host === new URL(d.httpOrigin).host).refine(d => d.role !== "renderer" || (d.outputId !== null && d.capabilities.every(c => c === "read")));
 export const RuntimeFrameSchema = z.strictObject({
@@ -185,7 +192,7 @@ export const AppStatusSchema = z.strictObject({
     sessionId: IdSchema,
     ready: z.boolean(),
     revision: u.nullable(),
-    capabilities: z.array(CapabilitySchema),
+    capabilities: CapabilitiesSchema,
     warnings: z.array(AppErrorSchema),
     outputs: z.array(z.strictObject({
         outputId: IdSchema,
@@ -314,28 +321,37 @@ export const MethodSchema = z.enum([
     "benchmarkCancel",
     "evidenceRead"
 ]);
-export function validateCall(method: unknown, params: unknown): Reply<ValidatedCall> { const m = MethodSchema.safeParse(method); if (m.success) {
-    const p = ParamSchemas[m.data].safeParse(params);
-    if (p.success)
-        return {
-            ok: true,
-            data: {
-                method: m.data,
-                params: p.data
-            } as ValidatedCall
-        };
-} return {
-    ok: false,
-    error: {
-        code: "INVALID_INPUT",
-        message: "Invalid method or parameters",
-        ids: []
+export function validateCall(method: unknown, params: unknown): Reply<ValidatedCall> {
+    const m = MethodSchema.safeParse(method);
+    if (m.success) {
+        const p = ParamSchemas[m.data].safeParse(params);
+        if (p.success)
+            return {
+                ok: true,
+                data: {
+                    method: m.data,
+                    params: p.data
+                } as ValidatedCall
+            };
     }
-}; }
-export function requiredCapability(method: keyof AppApi): Capability { if (method === "scenePatch" || method === "cameraSelect")
-    return "edit"; if (method === "captureFrame")
-    return "capture"; if (method.startsWith("benchmark"))
-    return "benchmark"; return "read"; }
+    return {
+        ok: false,
+        error: {
+            code: "INVALID_INPUT",
+            message: "Invalid method or parameters",
+            ids: []
+        }
+    };
+}
+export function requiredCapability(method: keyof AppApi): Capability {
+    if (method === "scenePatch" || method === "cameraSelect")
+        return "edit";
+    if (method === "captureFrame")
+        return "capture";
+    if (method.startsWith("benchmark"))
+        return "benchmark";
+    return "read";
+}
 export const CallSchema = z.strictObject({
     kind: z.literal("call"),
     requestId: IdSchema,
@@ -365,7 +381,7 @@ export const AuthReplySchema = z.strictObject({
     kind: z.literal("authReply"),
     sessionId: IdSchema,
     schemaVersion: z.literal(1),
-    capabilities: z.array(CapabilitySchema)
+    capabilities: CapabilitiesSchema
 });
 export const ReplyEnvelopeSchema = z.strictObject({
     kind: z.literal("reply"),
@@ -409,8 +425,13 @@ export const WireMessageSchema = z.union([
     PingPongSchema
 ]);
 export type WireMessage = z.infer<typeof WireMessageSchema>;
-export function parseWire(text: string): WireMessage { const value: unknown = JSON.parse(text); const capture = typeof value === "object" && value !== null && "kind" in value && value.kind === "captureReply"; if (new TextEncoder().encode(text).length > (capture ? LIMITS.captureEnvelopeBytes : LIMITS.jsonBytes))
-    throw new Error("Message too large"); return WireMessageSchema.parse(value); }
+export function parseWire(text: string): WireMessage {
+    const value: unknown = JSON.parse(text);
+    const capture = typeof value === "object" && value !== null && "kind" in value && value.kind === "captureReply";
+    if (new TextEncoder().encode(text).length > (capture ? LIMITS.captureEnvelopeBytes : LIMITS.jsonBytes))
+        throw new Error("Message too large");
+    return WireMessageSchema.parse(value);
+}
 export const publicJsonSchemas = Object.fromEntries(Object.entries({
     Id: IdSchema,
     Vec3: Vec3Schema,
@@ -440,7 +461,14 @@ export const publicJsonSchemas = Object.fromEntries(Object.entries({
     Call: CallSchema,
     CaptureReplyData: CaptureReplyDataSchema,
     WireMessage: WireMessageSchema,
-    Auth: AuthSchema, AuthReply: AuthReplySchema, ReplyEnvelope: ReplyEnvelopeSchema, FrameEnvelope: FrameEnvelopeSchema, AppliedEnvelope: AppliedEnvelopeSchema, CaptureRequest: CaptureRequestSchema, CaptureReply: CaptureReplySchema, PingPong: PingPongSchema
+    Auth: AuthSchema,
+    AuthReply: AuthReplySchema,
+    ReplyEnvelope: ReplyEnvelopeSchema,
+    FrameEnvelope: FrameEnvelopeSchema,
+    AppliedEnvelope: AppliedEnvelopeSchema,
+    CaptureRequest: CaptureRequestSchema,
+    CaptureReply: CaptureReplySchema,
+    PingPong: PingPongSchema
 }).map(([key, schema]) => [
     key,
     z.toJSONSchema(schema, {

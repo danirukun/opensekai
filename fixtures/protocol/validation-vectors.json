@@ -1991,5 +1991,90 @@
       },
       "pngBase64": ""
     }
+  },
+  {
+    "name": "invalid-source-url",
+    "target": "asset",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "id": "fixture_glb_1",
+      "format": "glb",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bytes": 1,
+      "sourceUrl": "garbage",
+      "licenseLabel": "CC0",
+      "importerVersion": 1
+    }
+  },
+  {
+    "name": "invalid-utc-fraction",
+    "target": "captureRecord",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "id": "capture_1",
+      "outputId": "output_main",
+      "revision": 0,
+      "tick": 0,
+      "sequence": 0,
+      "backend": "webgpu",
+      "cameraId": "camera_wide",
+      "width": 1920,
+      "height": 1080,
+      "mimeType": "image/png",
+      "bytes": 1,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "resourceUri": "/evidence/capture_1",
+      "createdAtUtc": "2026-10-03T10:00:00.Z"
+    }
+  },
+  {
+    "name": "duplicate-auth-grants",
+    "target": "wire",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "kind": "authReply",
+      "sessionId": "session_smoke",
+      "schemaVersion": 1,
+      "capabilities": [
+        "read",
+        "read"
+      ]
+    }
+  },
+  {
+    "name": "duplicate-descriptor-grants",
+    "target": "descriptor",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "schemaVersion": 1,
+      "sessionId": "session_smoke",
+      "httpOrigin": "http://127.0.0.1:1234",
+      "wsUrl": "ws://127.0.0.1:1234/ws",
+      "role": "operator",
+      "token": "test",
+      "capabilities": [
+        "read",
+        "read"
+      ],
+      "outputId": null
+    }
+  },
+  {
+    "name": "integral-decimal-exponent",
+    "target": "wireText",
+    "valid": true,
+    "errorCode": null,
+    "payload": "{\"kind\":\"call\",\"requestId\":\"decimal\",\"method\":\"cameraSelect\",\"params\":{\"outputId\":\"output_main\",\"cameraId\":\"camera_wide\",\"expectedRevision\":1.0}}"
+  },
+  {
+    "name": "integral-exponent",
+    "target": "wireText",
+    "valid": true,
+    "errorCode": null,
+    "payload": "{\"kind\":\"call\",\"requestId\":\"exponent\",\"method\":\"cameraSelect\",\"params\":{\"outputId\":\"output_main\",\"cameraId\":\"camera_wide\",\"expectedRevision\":1e0}}"
   }
 ]
