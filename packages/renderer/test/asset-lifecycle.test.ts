@@ -13,10 +13,10 @@ import { Group, Mesh, BoxGeometry, MeshStandardNodeMaterial, Texture } from "thr
 it("rejects external resource references before loading",()=>{const json=new TextEncoder().encode(JSON.stringify({asset:{version:"2.0"},images:[{uri:"https://example.invalid/image.png"}]}));const bytes=new ArrayBuffer(20+json.length);const view=new DataView(bytes);view.setUint32(0,0x46546c67,true);view.setUint32(4,2,true);view.setUint32(8,bytes.byteLength,true);view.setUint32(12,json.length,true);view.setUint32(16,0x4e4f534a,true);new Uint8Array(bytes,20).set(json);expect(()=>inspectContainer(bytes)).toThrow("resources are not supported");});
 it("disposes shared geometry material and texture once",()=>{const geometry=new BoxGeometry();const texture=new Texture();const material=new MeshStandardNodeMaterial({map:texture});const root=new Group();root.add(new Mesh(geometry,material),new Mesh(geometry,material));const a=vi.spyOn(geometry,"dispose"),b=vi.spyOn(material,"dispose"),c=vi.spyOn(texture,"dispose");disposeObject(root);expect(a).toHaveBeenCalledTimes(1);expect(b).toHaveBeenCalledTimes(1);expect(c).toHaveBeenCalledTimes(1);});
 
-const rendererPorts = vi.hoisted(() => ({ load: vi.fn(), render: vi.fn(), dispose: vi.fn() }));
-vi.mock("../src/backend", () => ({ initializeBackend: async () => ({
+const rendererPorts = vi.hoisted(() => ({ load: vi.fn(), render: vi.fn(), dispose: vi.fn(), setSize: vi.fn() }));
+vi.mock("../src/backend", () => ({ initializeBackend: async (canvas: HTMLCanvasElement) => ({
     backend: "webgl2",
-    renderer: { setSize: vi.fn(), renderAsync: rendererPorts.render, dispose: rendererPorts.dispose }
+    renderer: { setSize: rendererPorts.setSize.mockImplementation((width: number, height: number) => {canvas.width = width; canvas.height = height;}), renderAsync: rendererPorts.render, dispose: rendererPorts.dispose }
 }) }));
 vi.mock("../src/assets", async importOriginal => ({
     ...await importOriginal<typeof import("../src/assets")>(),
@@ -41,4 +41,24 @@ it("releases an asset removed after failed render submission", async () => {
     expect(disposeAsset).toHaveBeenCalledTimes(1);
     renderer.dispose();
     expect(disposeAsset).toHaveBeenCalledTimes(1);
+});
+
+it("resizes only when physical canvas dimensions change", async () => {
+    rendererPorts.setSize.mockClear();
+    rendererPorts.render.mockReset().mockResolvedValue(undefined);
+    const canvas = {width: 0, height: 0} as HTMLCanvasElement;
+    const renderer = await createRenderer({canvas, outputId: "output_main", mode: "force-webgl2", resources: {readAsset: vi.fn()}, diagnostics: false, resolutionScale: 1});
+    const frame = makeSmokeFrame({sequence: 1, tick: 1});
+    frame.scene.entities = frame.scene.entities.filter(entity => entity.kind === "camera");
+    await renderer.applyFrame(frame);
+    expect(rendererPorts.setSize).toHaveBeenCalledExactlyOnceWith(1920, 1080, false);
+    await renderer.applyFrame({...frame, sequence: 2, tick: 2});
+    expect(rendererPorts.setSize).toHaveBeenCalledTimes(1);
+    canvas.width = 960;
+    canvas.height = 540;
+    await renderer.applyFrame({...frame, sequence: 3, tick: 3});
+    expect(rendererPorts.setSize).toHaveBeenCalledTimes(2);
+    expect(canvas.width).toBe(1920);
+    expect(canvas.height).toBe(1080);
+    renderer.dispose();
 });

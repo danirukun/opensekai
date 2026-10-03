@@ -67,7 +67,8 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         if (!cameraEntity || cameraEntity.kind !== "camera")
             throw failure("NOT_FOUND", "Output camera not found", [output.cameraId]);
         const width = output.width * options.resolutionScale, height = output.height * options.resolutionScale;
-        renderer.setSize(width, height, false);
+        if (options.canvas.width !== width || options.canvas.height !== height)
+            renderer.setSize(width, height, false);
         const warnings: AppError[] = [];
         const wanted = new Set(frame.scene.entities.filter(x => x.kind !== "camera").map(x => x.id));
         for (const [id, value] of objects) {
