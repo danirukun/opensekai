@@ -96,3 +96,11 @@ The reply envelope has a method-specific result schema selected from the pending
 A successful captureReply carries the metadata and PNG bytes for one displayed frame. An error uses the same Reply error form as command replies. The separate encoded capture limit applies to this envelope only. Each diagnostic capture is serialized with applyFrame so its metadata matches its pixels.
 
 Native evaluation callbacks receive RpcContext { client_id: String } from the authenticated connection. It is internal metadata, never a wire field or caller-supplied parameter. Use it for per-client capture limits. ServiceHandle::now_ms returns the same monotonic clock origin used for acknowledgement timestamps. This prevents capture freshness checks from comparing unrelated clocks.
+
+## Local asset manifest contract
+
+The native configuration file is ignored local data. Its JSON shape is { schemaVersion: 1, fixtureId: "smoke_v1", assets: [{ record: AssetRecord, path: string }] }. Each path is an absolute file path below the configuration file's parent directory. Resolve and check canonical paths before access; reject an escaping symlink. The tracked smoke manifest contains schemaVersion, fixtureId, and an AssetRecord array without paths. Source terms and source revision belong in its source-policy.md. Native services and renderer tooling must use these exact shapes.
+
+For native lane testing, permit only pub mod service and pub mod assets declarations in lib.rs before Task 6. This exposes the actual modules to crate tests without starting or wiring the service into Tauri. Startup integration remains Task 6.
+
+Wire validators in both languages accept integral JSON numeric forms such as 1, 1.0, and 1e0 for safe nonnegative counters. Rust normalizes integral JSON values before typed decoding. Descriptor comparison uses normalized URL authority, not original string spelling. Capability lists must be unique and authentication grants must match the descriptor exactly.

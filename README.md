@@ -4,7 +4,7 @@ OpenSekai is the working name for an open-source 3D VTubing and live production 
 
 Start on macOS. Keep the core portable to Windows and leave a path to mobile. Use web technology for rendering, a Tauri v2 desktop host, and external tracking apps. The main performance target is a 3D concert hall with one or two performers at 1920 × 1080 and 60 FPS.
 
-**Status:** macOS feasibility implementation started on 2026-10-03. The desktop shell runs. Shared contracts, rendering, OBS output, and MCP are the next tasks. Feasibility acceptance is pending.
+**Status:** macOS feasibility implementation started on 2026-10-03. The desktop shell runs. Shared TypeScript/Rust contracts and the reconnecting client are tested. Native transport, the session runtime, and rendering are the next parallel tasks. OBS output and MCP remain pending. Feasibility acceptance is pending.
 
 - [macOS implementation plan](docs/superpowers/plans/2026-10-02-opensekai-macos-feasibility.md)
 - [macOS slice contract](spdd/prompt/2026-10-02-opensekai-macos-feasibility.md)

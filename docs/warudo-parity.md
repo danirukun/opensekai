@@ -196,11 +196,13 @@ These do not imply corresponding Warudo handbook features.
 
 ## Evidence ledger
 
-The desktop shell has limited implementation evidence. Production feature acceptance is pending.
+The desktop shell and shared contracts have limited implementation evidence. Production feature acceptance is pending.
 
 | Feature ID | Commit | Verified scope | Platform / backend | Evidence | Remaining gap |
 | --- | --- | --- | --- | --- | --- |
 | OSE-01, OSE-08 (partial) | 58b7955, b0cd4fb | Native desktop shell, shared Input/Button, version round trip | macOS / WKWebView; renderer absent | [Shell check](evaluation/macOS-feasibility/desktop-shell.md) | Production output, full editor, session, MCP, and timing pending; boxes remain unchecked |
+
+The [shared contract check](evaluation/macOS-feasibility/contracts.md) records validation and client lifecycle evidence. It does not establish an OBS or MCP production feature.
 
 ## Audit maintenance
 

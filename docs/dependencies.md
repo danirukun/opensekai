@@ -29,3 +29,5 @@ Metadata sources: https://registry.npmjs.org/<package>/<version> and https://cra
 The UI dependency is a generated local dist snapshot. Expected source commit: 25d5144d2ffaeed84d596c482a0e5424c1d9ea9e. Run OPENSEKAI_UI_SOURCE=/path/to/oshi-connect-ui node scripts/bootstrap-ui.ts before install in each worktree. The adapter does not build or modify its source. Snapshot hash and observed source commit are recorded in .local/ui-snapshot.json. The hash does not prove a clean source checkout. The UI kit has no observed license field or license file. Public distribution requires a licensing decision and a reproducible public package route.
 
 Only esbuild is approved for dependency lifecycle builds. The UI snapshot has no scripts. Generated output lives in apps/desktop/src-tauri/resources/output and is mapped to output in Tauri resources. Native code resolves this from the app resource directory.
+
+Task 2 uses url 2.5.8 as a direct Rust contract dependency. This version was already present in Cargo.lock through native dependencies. Use its WHATWG parser for source URLs and normalized loopback descriptors.

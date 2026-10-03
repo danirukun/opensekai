@@ -420,7 +420,7 @@ git commit -m "chore: establish macOS workspace and desktop shell"
 
 **Interfaces:** Consume the pinned schema tools. Produce the frozen types, makeSmokeScene(): SceneView, makeSmokeFrame(overrides: Partial<Pick<RuntimeFrame, "sequence" | "tick">>): RuntimeFrame, validateCall(method: unknown, params: unknown): Reply<ValidatedCall>, requiredCapability(method: keyof AppApi): Capability, tagId(id: Id): number, encodeMarker(marker: DiagnosticMarker): Uint8Array, connectClient(descriptor: ConnectionDescriptor): Promise<BrowserClient>, and connectPublisher(descriptor: ConnectionDescriptor): Promise<PublisherClient>. Rust exports matching wire types, RunState::{Warming, Measuring, Complete, Cancelled, Failed}, and parse_call(bytes: &[u8]) -> Result<Call, AppError>. Call.method remains a validated String; Call.params is validated serde_json::Value.
 
-- [ ] **Step 1: Write schema, role, and stream tests before implementation.**
+- [x] **Step 1: Write schema, role, and stream tests before implementation.**
 
 ~~~ts
 import { expect, it } from "vitest";
@@ -445,7 +445,7 @@ Add vectors for unknown fields, schema version 2, zero/non-unit quaternion, inva
 
 Client tests use a fake transport/clock: wrong session reply is rejected, disconnect rejects pending calls, a fresh snapshot replaces stale state, and out-of-order sequences are ignored. At most one reconnect timer is active.
 
-- [ ] **Step 2: Run the failing tests.**
+- [x] **Step 2: Run the failing tests.**
 
 ~~~sh
 pnpm exec vitest run packages/contracts/test/schema.test.ts --project unit
@@ -455,7 +455,7 @@ cargo test -p opensekai-contracts
 
 Expected initial failure: missing exports/validation behavior. Tool installation failure is not a valid red test.
 
-- [ ] **Step 3: Implement strict schemas and the bounded client.**
+- [x] **Step 3: Implement strict schemas and the bounded client.**
 
 ~~~ts
 const editMethods = new Set(["scenePatch", "cameraSelect"]);
@@ -471,7 +471,7 @@ Import Capability/AppApi from types.ts. Build Zod schemas for every frozen type.
 
 The client waits for a matching authReply first, buffers the latest full frame until a listener attaches, validates every reply/frame, pairs request IDs, rejects requests over the limits, and uses a 2-second timeout. Reconnect delays are 100, 250, 500, and 1000 ms, capped at 1000 ms. Never retry a mutation automatically. After reconnect, wait for an authoritative full frame before marking the output current. close() clears timers/listeners and rejects pending requests.
 
-- [ ] **Step 4: Run focused checks and type checks.**
+- [x] **Step 4: Run focused checks and type checks.**
 
 ~~~sh
 pnpm exec vitest run packages/contracts/test/schema.test.ts --project unit
@@ -482,7 +482,7 @@ pnpm check
 
 Expected: identical vectors accepted/rejected in TS and Rust; bounded cleanup tests pass. Export makeSmokeScene and its JSON from one source so agents share a fixture.
 
-- [ ] **Step 5: Freeze and checkpoint the interfaces.**
+- [x] **Step 5: Freeze and checkpoint the interfaces.**
 
 ~~~sh
 git add packages/contracts packages/browser-client crates/contracts fixtures/protocol Cargo.lock docs/dependencies.md
