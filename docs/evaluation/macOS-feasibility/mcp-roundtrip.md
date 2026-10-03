@@ -19,3 +19,9 @@ The official client exercised all nine tools in the packaged release at source 7
 A separate release launched with default read-only capability. Actual edit, capture, and benchmark calls returned FORBIDDEN. Evaluation must be explicitly enabled.
 
 Retained release capture and cancelled summary are indexed in [evidence-manifest.json](evidence-manifest.json). The summary identifies cancelled run ff44c283-661a-4d08-886a-3d6c0e719547 (456 bytes; SHA-256 5bf42b7c117e3abf6427f17453ce86f39831c08f960abd533489d7e958fe5934). The capture manifest was not retained in the artifact packet; no replacement was reconstructed. The source identity comes from the release observation ledger, not a field in the retained summary.
+
+## Native-clock release confirmation
+
+The fresh c5e107a4028f65b2e622384450f379363ba43d29 release again passed all nine tools. Capture f7ff8b55-a620-4a0e-8896-8b860be4125e identified output_main, revision 3, tick 97833, sequence 97817, camera_close and WebGPU. Its 169442 bytes matched SHA-256 df43017f2effcb4cc2a266b28f87e964d7cd6ee0a193959b660bef5fac0525f8. The retained manifest identifies smoke_v1 and the exact app source.
+
+Benchmark 0b52b1a7-0be8-41b6-95bf-580cd576b2dc passed start/status/cancel and registered summary retrieval. Its cancelled summary has 456 bytes and SHA-256 8d2d9c4d9c2763bd2eab940bad5438395ae8c3ec91185aeef4fe17845a3a71c5. Capture and summary manifests are retained in artifacts/evaluation/mcp-release-c5 and indexed. The camera was restored to Wide and owned test objects were removed. This is tool and resource evidence at c5e107a, not a performance result or acceptance of the later reload correction.

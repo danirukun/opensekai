@@ -1283,7 +1283,7 @@ git commit -m "feat: integrate editor MCP and evaluation services"
 
 **Interfaces:** Consume the real app, MCP client, and OBS adapter. Produce a reproducible result summary tied to commit, fixture hashes, backend, power mode, browser/webview, and OBS versions.
 
-- [ ] **Step 1: Freeze the smoke fixture and review expected behavior.**
+- [x] **Step 1: Freeze the smoke fixture and review expected behavior.**
 
 The fixture includes a transparent clear, reference GLB, real VRM1, procedural marker, camera_wide/camera_close, and separate output_main/preview_main outputs. Geometry/material/texture counts and active effects are recorded. Spring physics, tracking, hall lighting, graph UI, and guest code are disabled.
 
@@ -1305,7 +1305,7 @@ Open the local release .app with working directory outside the repo. Through the
 
 Use computer-use for the actual UI interactions. Use OBS WebSocket for source control and screenshots. Record which flows were exercised; screenshots alone are insufficient.
 
-- [ ] **Step 3: Run repeatable timing and minimized-window checks.**
+- [x] **Step 3: Run repeatable timing and minimized-window checks.**
 
 ~~~sh
 pnpm evaluate:smoke -- --profile webgl2_smoke_v1 --repeats 3
@@ -1320,7 +1320,7 @@ Proposed smoke gates: no reproducible steady stall over 100 ms; fewer than 0.1% 
 
 If WebGPU is unavailable in the actual runtime, record UNSUPPORTED for that profile and do not check WebGPU parity. Forced WebGL 2 must work for the portable feasibility path. If neither backend or the minimized session works, fail the slice and write a boundary-revision spec before adding concert scope.
 
-- [ ] **Step 4: Check alpha, source lifecycle, resource cleanup, and evidence review.**
+- [x] **Step 4: Check alpha, source lifecycle, resource cleanup, and evidence review.**
 
 Use dark/light/checker composites and full-resolution raw source PNG to verify clear alpha and silhouette. Exclude the fixed diagnostic-marker region when testing transparent background pixels. Record observed material/outline differences. Hide/restore the source with both shutdown disabled and enabled; distinguish configured source restart from a session failure.
 
@@ -1328,7 +1328,7 @@ Run a ten-minute smoke soak with repeated camera changes, renderer reconnect, fi
 
 Give the frontier reviewer the versioned rubric, real OBS images/recording, app captures, metrics, and manifest. Require capture IDs and reproducible defect descriptions. Numeric thresholds determine timing pass/fail. If no frontier client is available, save a ready evidence packet and mark model review pending; do not claim it occurred.
 
-- [ ] **Step 5: Update scoped parity and checkpoint the result.**
+- [x] **Step 5: Update scoped parity and checkpoint the result.**
 
 Keep large evidence under artifacts/evaluation/<run-id>/. Commit only sanitized summaries, hashes, and fixture metadata. Never include tickets, descriptor files, absolute private asset paths, or model credentials.
 
@@ -1396,12 +1396,12 @@ Self-review coverage:
 | F11 role/capability boundary | 2, 3, 8, 10 |
 | F12 concurrent workers/checkpoints | execution graph and each task |
 
-All five Review Focus classes have explicit owning tests. VRM0, unavailable WebGPU, absent frontier review, concert hardware, and broader parity have explicit pending/unsupported outcomes. Task 1 is complete with a reviewed desktop shell and recorded smoke checks. Later tasks remain pending; their test and runtime results above are expected checks.
+The original plan review assigned tests to all five Review Focus classes. It defined pending or unsupported outcomes for VRM0, unavailable WebGPU, absent model review, concert hardware and broader parity. The checkpoint status below records the actual implementation and evidence results.
 
 The user approved execution on 2026-10-03. Implementation is in progress. The selected method is concurrent agents at lower effort with separate worktrees; do not ask the user to choose that method again.
 
 ## Checkpoint status — 2026-10-03
 
-Tasks 6–10 have source, boundary, and release tool evidence in the macOS feasibility documents. Task 7 still has an incomplete clipboard check. Task 11 remains incomplete: two correctly minimized WebGPU runs failed the 100 ms gate. See [current results](../../evaluation/macOS-feasibility/results.md). The native wakeup correction in the slice contract takes precedence over the earlier worker-timer example. The next concert slice must wait for qualifying repeats, recording, source lifecycle, soak, and final review.
+Tasks 6–10 have source, boundary, and release tool evidence in the macOS feasibility documents. Task 7 still has an incomplete clipboard check. Task 11 remains incomplete. Two correctly minimized WebGPU failures remain evidence; six later c5e107a runs passed the timing gates. See [current results](../../evaluation/macOS-feasibility/results.md). The native wakeup correction in the slice contract takes precedence over the earlier worker-timer example. The next concert slice must wait for clipboard UI acceptance and the scoped acceptance checkpoint. Technical smoke checks do not establish concert or minimum-hardware performance.
 
-Timing checkpoint at c5e107a: three qualifying runs each on WebGPU and WebGL2 passed on the measured smoke host. Both earlier failures remain evidence. Task 11 Step 3 stays unchecked because the separate recording is pending; lifecycle, soak, final review and clipboard checks also remain pending. Exact results and action timestamps are indexed in the feasibility results.
+Timing checkpoint at c5e107a: three qualifying runs each on WebGPU and WebGL2 passed on the measured smoke host. Both earlier failures remain evidence. Task 11 Step 3 is now checked: the separate c5e107a recording passed 40 sampled session markers with 18 advancing minimized samples. Correlated hide/recreate lifecycle v2 also passed. At 1073130, in-document refresh and the 600002 ms/five-reload soak passed. Step 4 is checked with the stable scoped final model packet; GPU reclamation remains unknown. Step 2 remains unchecked for clipboard UI acceptance. Step 5 records the technical evidence checkpoint and the remaining UI exception. Clipboard testing still needs explicit authorization. Exact results and action timestamps are indexed in the feasibility results.

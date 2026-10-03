@@ -4,7 +4,7 @@ Baseline reviewed: 2026-10-02. Source: [Warudo handbook](https://docs.warudo.app
 
 Goal: broad functional parity, including documented Pro production features. OpenSekai uses a different engine and extension API. Unity pipeline internals, C# plugin binaries, bundled commercial content, and .warudo archive compatibility are not implied.
 
-This is an initial handbook-category inventory. Reviewed feature pages inform the entries below. It is not a completed audit of every setting, built-in node, tutorial, or Pro-only restriction. Expand each category into tested behaviors before claiming full parity for it. All boxes remain unchecked until the complete behavior in each item is verified. A desktop shell alone does not establish a production feature.
+This is an initial handbook-category inventory. Reviewed feature pages inform the entries below. It is not a completed audit of every setting, built-in node, tutorial, or Pro-only restriction. Expand each category into tested behaviors before claiming full parity for it. Check a box only for its stated verified scope. Broad items remain unchecked until their complete behavior is verified. A desktop shell alone does not establish a production feature.
 
 ## Status and evidence rules
 
@@ -95,7 +95,7 @@ Source: [Camera](https://docs.warudo.app/docs/assets/camera).
 - [ ] CAM-01 — Camera entities, lens controls, free/orbit navigation. First subset.
 - [ ] CAM-02 — Multiple cameras and camera selection. First.
 - [ ] CAM-03 — Independent camera outputs; audit the documented eight-camera workflow. Later.
-- [ ] CAM-04 — Transparent output. First; verify in OBS.
+- [x] CAM-04 — Transparent output. Verified for smoke_v1 on macOS OBS WebGPU/WebGL2; broader materials remain separate.
 - [ ] CAM-05 — Screenshots. First evaluation path; user-facing workflow Later.
 - [ ] CAM-06 — Color grading, LUTs, tone mapping, and bloom. Later.
 - [ ] CAM-07 — Ambient occlusion, flares, depth of field, and chromatic effects. Later.
@@ -187,28 +187,32 @@ These do not imply corresponding Warudo handbook features.
 - [ ] OSE-02 — Windows production path verified.
 - [ ] OSE-03 — Separate WebGPU and WebGL 2 support reports.
 - [ ] OSE-04 — Real concert hall at 1080p60 on proposed minimum hardware.
-- [ ] OSE-05 — Stable output while the editor is minimized.
-- [ ] OSE-06 — Early MCP scene queries, controlled edits, captures, and benchmark evidence.
-- [ ] OSE-07 — Frontier-model evaluation with reproducible evidence.
+- [x] OSE-05 — Stable output while the editor is minimized. Verified on the smoke host: both backend timing repeats and sampled WebGPU recording.
+- [x] OSE-06 — Early MCP scene queries, controlled edits, captures, and benchmark evidence. Verified for the scoped macOS release path.
+- [x] OSE-07 — Frontier-model evaluation with reproducible evidence. Scoped smoke packet reviewed; provider model ID is not exposed.
 - [ ] OSE-08 — Familiar hierarchy, inspector, viewport, assets, and output UI.
 - [ ] OSE-09 — Undo/redo, project repair, and saved layouts.
 - [ ] OSE-10 — Mobile feasibility investigation without replacing portable core.
 
 ## Evidence ledger
 
-The desktop shell, shared contracts, scene worker, renderer, editor, and MCP have implementation evidence. The macOS performance gate remains incomplete.
+The desktop shell, shared contracts, scene worker, renderer, editor, and MCP have implementation evidence. The technical macOS smoke gates passed on the measured host. Clipboard UI acceptance remains pending; minimum-hardware and concert performance are unknown.
 
 | Feature ID | Commit | Verified scope | Platform / backend | Evidence | Remaining gap |
 | --- | --- | --- | --- | --- | --- |
-| OSE-01, OSE-08 (partial) | 58b7955, b0cd4fb | Native desktop shell, shared Input/Button, version round trip | macOS / WKWebView; renderer absent | [Shell check](evaluation/macOS-feasibility/desktop-shell.md) | Later output/editor/MCP evidence below; timing and full editor acceptance pending; boxes remain unchecked |
+| OSE-01, OSE-08 (partial) | 58b7955, b0cd4fb | Native desktop shell, shared Input/Button, version round trip | macOS / WKWebView; renderer absent | [Shell check](evaluation/macOS-feasibility/desktop-shell.md) | Later output/editor/MCP evidence below; Later smoke timing evidence is below; clipboard and full editor acceptance remain pending; these boxes stay unchecked |
 
-| MAT-01, CAM-04, OSE-03 (partial) | 0009d97, 0f59ae0, 1848c85, 521468a | Controlled Chrome VRM1/MToon, GLB/PBR, both backends, alpha, marker, camera and reload; live OBS WebGL2 and release WebGPU image, current markers and camera changes | macOS / Chrome WebGPU and WebGL2; OBS WebGL2 and WebGPU | [First output check](evaluation/macOS-feasibility/first-output.md) | Timed performance, silhouette alpha, source lifecycle, and final evidence checks pending; boxes remain unchecked |
+| MAT-01, CAM-04, OSE-03 (partial) | 0009d97, 0f59ae0, 1848c85, 521468a | Controlled Chrome VRM1/MToon, GLB/PBR, both backends, alpha, marker, camera and reload; live OBS WebGL2 and release WebGPU image, current markers and camera changes | macOS / Chrome WebGPU and WebGL2; OBS WebGL2 and WebGPU | [First output check](evaluation/macOS-feasibility/first-output.md) | Historical partial scope; later smoke timing, alpha and lifecycle evidence is below. MAT-01 and OSE-03 remain unchecked; CAM-04 has a separate scoped verified row. |
 
 | OSE-08 (partial) | 7072861, cb87325, 79f0d02 | Hierarchy selection, finite position validation, persistent position/visibility edits, both output cameras | macOS release / WKWebView and OBS WebGPU | [First output check](evaluation/macOS-feasibility/first-output.md) | Panel resizing and keyboard controls checked; clipboard and full editor acceptance pending; box remains unchecked |
 
-| OSE-05 (incomplete) | 75de982, 953ab9b, c5e107a | Two formal failures retained; native clock passed three prescribed timing runs per backend on the smoke fixture | macOS release / OBS WebGPU and WebGL2 | [Current results](evaluation/macOS-feasibility/results.md) | Separate recording continuity, source lifecycle and full acceptance pending; box remains unchecked |
+| OSE-05 (scoped verified) | 75de982, 953ab9b, c5e107a | Two formal failures retained; native clock passed three prescribed timing runs per backend on the smoke fixture | macOS release / OBS WebGPU and WebGL2 | [Current results](evaluation/macOS-feasibility/results.md) | Sampled WebGPU recording and correlated hide/recreate recovery passed at c5e107a; five refreshes/ten-minute WebGPU soak passed at 1073130; clipboard UI acceptance, minimum hardware and concert scope remain separate |
 
-| OSE-06 (partial) | 75de982 | All nine official MCP tools, registered capture/resource integrity, benchmark start/status/cancel, default read-only rejection | macOS release / OBS WebGPU | [MCP round trip](evaluation/macOS-feasibility/mcp-roundtrip.md) | Final slice acceptance pending; no performance claim |
+| OSE-06 (scoped verified) | 75de982, c5e107a | All nine official MCP tools, registered capture/resource integrity, benchmark start/status/cancel, default read-only rejection | macOS release / OBS WebGPU | [MCP round trip](evaluation/macOS-feasibility/mcp-roundtrip.md) | All nine tools and registered resource integrity verified; no performance or broader production claim |
+
+| CAM-04 (scoped verified) | c5e107a, 1073130 | Raw alpha and dark/light/checker smoke output reviewed; fresh capture/OBS marker correlation | macOS / OBS WebGPU and WebGL2 | [Current results](evaluation/macOS-feasibility/results.md) | Default Wide shoe crop is minor; runtime reframing is separate; broader material compatibility remains unchecked |
+
+| OSE-07 (scoped verified) | c5e107a, 1073130 | Actual smoke images, recording samples, lifecycle and soak reviewed with capture hashes and reproducible crop defect | macOS / WebGPU and WebGL2 smoke evidence | [Final review scope](evaluation/macOS-feasibility/results.md) | Orchestration model label/effort recorded; provider ID not exposed; clipboard, GPU timing/reclamation, minimum hardware and concert remain separate |
 
 The [shared contract check](evaluation/macOS-feasibility/contracts.md) records validation and client lifecycle evidence. It does not establish an OBS or MCP production feature.
 

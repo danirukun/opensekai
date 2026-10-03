@@ -1,6 +1,6 @@
 # First macOS output check
 
-Date: 2026-10-03. Status: integration in progress. This is a partial checkpoint. It does not pass the performance gate.
+Date: 2026-10-03. Status: technical macOS smoke gates passed; clipboard UI acceptance pending. This is a partial checkpoint. Six timing runs passed at c5e107a; clipboard UI acceptance remains pending.
 
 The bundled desktop app starts the local service and one scene worker. The preview has a separate output ID. It consumes evaluated frames at a maximum of 15 FPS and half resolution. OBS uses the bundled output page and registered assets through local HTTP and WebSocket connections. No production image stream crosses Tauri IPC.
 
@@ -37,7 +37,7 @@ The combined checkpoint passed 62 JavaScript unit tests, workspace TypeScript/Sv
 
 ## Remaining work
 
-Packaged Origin, panel resize and keyboard checks, native evidence, and the release MCP round trip have evidence. Complete source lifecycle, minimized recording, soak, and final visual review. The qualifying timing repeats are recorded below. Clipboard testing is pending. Minimum-hardware and concert acceptance remain separate.
+Packaged Origin, panel resize and keyboard checks, native evidence, and the release MCP round trip have evidence. The c5e107a recording and correlated hide/recreate checks now have evidence. The corrected in-document refresh and repeated soak now passed at 1073130; the stable final model packet is indexed. The qualifying timing repeats are recorded below. Clipboard testing is pending. Minimum-hardware and concert acceptance remain separate.
 
 The packaged debug app at source 99aabef accepted three actual WebSocket connections with Origin tauri://localhost. The full official MCP client loop then exercised all nine tools. Capture 68f95685-74c3-46df-a859-d6b72413f0ef identified output_main, revision 4, camera_close, WebGPU, tick 4374, and sequence 3959. Its 173124 bytes matched SHA-256 6c723fbf0188c625607e635be02b75feaade9c0bd806ac49e1d4f27ac6f9bd49. The benchmark was started, inspected, cancelled, and read through its registered summary resource. The later packaged release also passed this loop; see [MCP round trip](mcp-roundtrip.md).
 
@@ -45,7 +45,7 @@ The first formal run at app source 75de982 used scheduled minimize at 60002 ms a
 
 The installed Tauri/Wry code supports an explicit background throttling policy. The main WebView now requests disabled throttling and the macOS minimum is 14.0, where that public WebKit policy is available. This was a targeted hypothesis; the subsequent policy retest below failed the minimized gate. Windows background scheduling remains pending because this option is unsupported there. Source: [Tauri configuration](https://v2.tauri.app/reference/config/#backgroundthrottling).
 
-The policy retest at source 953ab9b also failed: run 9338c8b1 had maximum interval 121 ms and p95 111 ms. CPU p95 was 3.9 ms, with 0/7228 OBS render skips and no stale periods. The worker emitted 9–10 frames per second while minimized, while ticks tracked elapsed time. A bounded read-only WebSocket wake experiment kept emission at 56–59 frames per second while minimized. The native clock correction was specified before implementation and is implemented at c5e107a; its timing checkpoint is recorded below while full feasibility acceptance remains pending. These experiments do not pass the formal gate.
+The policy retest at source 953ab9b also failed: run 9338c8b1 had maximum interval 121 ms and p95 111 ms. CPU p95 was 3.9 ms, with 0/7228 OBS render skips and no stale periods. The worker emitted 9–10 frames per second while minimized, while ticks tracked elapsed time. A bounded read-only WebSocket wake experiment kept emission at 56–59 frames per second while minimized. The native clock correction was specified before implementation and is implemented at c5e107a; its timing checkpoint is recorded below while clipboard UI acceptance remains pending. These experiments do not pass the formal gate.
 
 At source 953ab9b, 163 JavaScript tests and 66 Rust tests passed. One licensed-fixture Rust test was ignored in the standard suite. Workspace checks had no Svelte errors or warnings. Clippy passed with warnings denied.
 
@@ -55,4 +55,12 @@ Observed on 2026-10-03 in the packaged release: pointer and keyboard resizing ch
 
 ## Native-clock timing checkpoint
 
-At source c5e107a, three prescribed runs each on WebGPU and WebGL2 passed the timing thresholds. WebGPU maximum intervals were 39/30/33 ms and CPU p95 was 3.3/3.2/3.2 ms. WebGL2 maximum intervals were 28/28/28 ms and CPU p95 was 3.2/3.0/3.1 ms. The only skipped frames were 2/7229 in WebGPU run 71551038; all other runs had zero render skips. See [results](results.md) for exact action offsets and the artifact index for issued/completed timestamps. The two earlier formal failures remain retained. Separate recording, soak, source lifecycle, clipboard, and final visual review remain pending. The runtime Wide Y=1 framing probe is indexed; it does not correct or conceal the documented default-preset crop.
+At source c5e107a, three prescribed runs each on WebGPU and WebGL2 passed the timing thresholds. WebGPU maximum intervals were 39/30/33 ms and CPU p95 was 3.3/3.2/3.2 ms. WebGL2 maximum intervals were 28/28/28 ms and CPU p95 was 3.2/3.0/3.1 ms. The only skipped frames were 2/7229 in WebGPU run 71551038; all other runs had zero render skips. See [results](results.md) for exact action offsets and the artifact index for issued/completed timestamps. The two earlier formal failures remain retained. The separate WebGPU recording passed sampled minimized continuity, and lifecycle v2 passed correlated hide/recreate recovery. The corrected refresh and repeated soak later passed at 1073130; clipboard UI acceptance remains pending. The runtime Wide Y=1 framing probe is indexed; it does not correct or conceal the documented default-preset crop.
+
+## Recording, lifecycle and reload checkpoint
+
+At c5e107a, the separate 20.021-second recording yielded 40 decoded frames at 2 FPS. All 18 interior minimized samples advanced the marker sequence and tick. OBS reported 0/1188 skipped encoder frames. Lifecycle v1 retained a blank initial recreation screenshot. The corrected visual probe at the same source verified fresh nonblank output after 207.52 ms with shutdown disabled and 520.01 ms with shutdown enabled. These checks distinguish native ACK arrival from actual OBS pixels.
+
+The first soak failed its first in-document refresh because URL redaction removed the descriptor fragment. The private validated session cache correction at 1073130 passed actual refresh and the full repeated soak at 1073130. See [results](results.md) for exact artifact IDs, hashes and scope. The runtime Wide Y=1.0 edit gives full shoes in the reviewed samples; the default Y=1.2 crop remains a minor limitation. Clipboard copying remains blocked pending explicit authorization.
+
+At the later 1073130 release, a fresh five-pair framing packet and correlated lifecycle v2 again passed source checks. Current visible recovery took 213.66/516.43 ms with shutdown disabled/enabled. The separate 600002 ms soak passed five correlated reloads with recovery 479.88–503.95 ms and 0/36009 OBS render skips. Sampled settled counts returned to 17 geometries/27 textures/24 materials/two assets; GPU reclamation remains unknown.
