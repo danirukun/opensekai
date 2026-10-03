@@ -10,8 +10,8 @@ export interface ClientPorts {
 }
 const defaults: ClientPorts = {
     socket: url => new WebSocket(url),
-    setTimeout,
-    clearTimeout,
+    setTimeout: (callback, ms) => globalThis.setTimeout(callback, ms),
+    clearTimeout: timer => globalThis.clearTimeout(timer),
     fetch: (...args) => fetch(...args)
 };
 const error = (code: AppError["code"], message: string): Reply<never> => ({
