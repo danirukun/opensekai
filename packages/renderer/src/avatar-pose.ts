@@ -1,12 +1,12 @@
-import {Object3D} from 'three/webgpu';
+import {Object3D,Quaternion,Vector3} from 'three/webgpu';
 import type {VRM, VRMHumanBoneName} from '@pixiv/three-vrm';
 import type {AvatarPose} from '@opensekai/contracts';
 
 const aliases: Record<string,string> = {Joy:'happy',Angry:'angry',Sorrow:'sad',Fun:'relaxed',A:'aa',I:'ih',U:'ou',E:'ee',O:'oh',Blink:'blink',Blink_L:'blinkLeft',Blink_R:'blinkRight',eyeBlink_L:'blinkLeft',eyeBlink_R:'blinkRight',jawOpen:'aa',mouthSmile_L:'happy',mouthSmile_R:'happy'};
 export function expressionWeights(expressions: Record<string,number>, names: ReadonlySet<string>) {
-    const result: Record<string,number> = {};
+    const result: Record<string,number> = Object.create(null);
     for (const [name, weight] of Object.entries(expressions)) {
-        const target = names.has(name) ? name : aliases[name] ?? name;
+        const target = names.has(name) ? name : (Object.hasOwn(aliases,name) ? aliases[name] : name);
         if (names.has(target)) result[target] = Math.max(result[target] ?? 0, weight);
     }
     return result;
@@ -27,13 +27,21 @@ export function createAvatarBinding(vrm: VRM) {
         vrm.humanoid.resetNormalizedPose();
         for (const [name,bone] of Object.entries(pose?.bones ?? {})) {
             if (bone.space !== 'normalized') continue;
-            vrm.humanoid.setNormalizedPose({[name]:{rotation:bone.rotation,...(bone.position ? {position:bone.position} : {})}});
+            const weight=bone.weight ?? 1;
+            const rotation=new Quaternion().slerp(new Quaternion().fromArray(bone.rotation),weight).toArray();
+            const position=bone.position ? new Vector3().fromArray(bone.position).multiplyScalar(weight).toArray() : undefined;
+            vrm.humanoid.setNormalizedPose({[name]:{rotation,...(position ? {position} : {})}});
         }
         vrm.humanoid.update();
         for (const [name,bone] of Object.entries(pose?.bones ?? {})) {
             if (bone.space !== 'raw') continue;
             const node=vrm.humanoid.getRawBoneNode(name as VRMHumanBoneName);
-            if(node) {node.quaternion.fromArray(bone.rotation);if(bone.position) node.position.fromArray(bone.position);}
+            const transform=node ? rest.get(node) : undefined;
+            if(node && transform) {
+                const weight=bone.weight ?? 1;
+                node.quaternion.fromArray(transform.rotation).slerp(new Quaternion().fromArray(bone.rotation),weight);
+                if(bone.position) node.position.fromArray(transform.position).lerp(new Vector3().fromArray(bone.position),weight);
+            }
         }
         motion.position.fromArray(pose?.root?.position ?? [0,0,0]);
         motion.quaternion.fromArray(pose?.root?.rotation ?? [0,0,0,1]);
