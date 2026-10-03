@@ -23,8 +23,8 @@
 
 Files: packages/contracts/src/{types,schema,tracking}.ts and tests; crates/contracts/src/{lib,tracking}.rs and tests; shared vector fixtures.
 - [ ] Add RED tests: createEntity duplicate/reference validation, lens limits, config kinds, finite bounded tracking samples, backward-compatible no-pose frame/clock.
-- [ ] Add the exact types and operations from the slice contract. For example scenePatch operations [{kind:'createEntity',entity:camera}] return one revision; invalid far<=near fails before transport.
-- [ ] Mirror schema/validation in Rust. Test the serialized clock tracking object in both languages.
+- [x] Add the exact types and operations from the slice contract. For example scenePatch operations [{kind:'createEntity',entity:camera}] return one revision; invalid far<=near fails before transport.
+- [x] Mirror schema/validation in Rust. Test the serialized clock tracking object in both languages.
 - [ ] Run pnpm test:unit and cargo test -p opensekai-contracts; commit stable interfaces and release lanes.
 
 ## Task2: Native import and receiver runtime — native lane
@@ -32,37 +32,37 @@ Files: packages/contracts/src/{types,schema,tracking}.ts and tests; crates/contr
 Files: apps/desktop/src-tauri/src/assets/{import,registry}.rs; tracking/{manager,vmc,ifacial,mod}.rs; service/mod.rs; bootstrap.rs/lib.rs; scoped capabilities/build declarations; tests.
 Consumes: TrackingConfig/Sample/Status/Update and SceneEntity::Tracking; produces editor-only import_avatar -> Option<ImportResult>, dynamic asset registration and optional tracking on existing credited Clock.
 - [ ] RED GLB size/URI/metadata and native file-boundary tests; RED OSC truncation/depth/BlendApply and iFacial degree/delimiter/weight tests.
-- [ ] Implement off-thread streamed import, atomic managed registration and path-free return. Preserve explicit fixture mode; normal startup creates an empty library and succeeds without fixture env.
-- [ ] Implement latest-snapshot UDP manager with generation-safe rebind/stop and precise status. Test real loopback datagrams, stale state, bind conflict and shutdown; no arbitrary UDP command execution.
-- [ ] Reconcile persistent source configs and attach snapshots to Clock within its credit limit. Expose source status through latest evaluated frame.
-- [ ] Run focused Rust tests/strict Clippy, checkpoint, independent review.
+- [x] Implement off-thread streamed import, atomic managed registration and path-free return. Preserve explicit fixture mode; normal startup creates an empty library and succeeds without fixture env.
+- [x] Implement latest-snapshot UDP manager with generation-safe rebind/stop and precise status. Test real loopback datagrams, stale state, bind conflict and shutdown; no arbitrary UDP command execution.
+- [x] Reconcile persistent source configs and attach snapshots to Clock within its credit limit. Expose source status through latest evaluated frame.
+- [x] Run focused Rust tests/strict Clippy, checkpoint, independent review.
 
 ## Task3: Avatar renderer bindings — renderer lane
 
 Files: packages/renderer/src/{assets,renderer,avatar-pose}.ts and scoped tests.
 Consumes RuntimeFrame.avatarPoses and tagged TrackingBone; produces retained per-avatar rig/expression application.
 - [ ] RED known rotations, VRM0 orientation, expression alias/reset and two-instance isolation checks.
-- [ ] Retain each avatar's VRM rather than using a cached original rig on its scene clone. Keep mesh reuse separate. Example raw head [0,sin(a/2),0,cos(a/2)] must affect only the requested avatar; normalized identity must return to rest.
-- [ ] Apply normalized then raw pose and expressions; skip tracking source entities. Keep disposal and preview-only gizmo rules.
-- [ ] Run renderer checks/tests, checkpoint, independent review.
+- [x] Retain each avatar's VRM rather than using a cached original rig on its scene clone. Keep mesh reuse separate. Example raw head [0,sin(a/2),0,cos(a/2)] must affect only the requested avatar; normalized identity must return to rest.
+- [x] Apply normalized then raw pose and expressions; skip tracking source entities. Keep disposal and preview-only gizmo rules.
+- [x] Run renderer checks/tests, checkpoint, independent review.
 
 ## Task4: Asset and type-specific properties — UI lane
 
 Files: Hierarchy.svelte, Inspector.svelte, CameraLensFields.svelte, AvatarSourceFields.svelte, TrackingSourceFields.svelte, editor/live-fields.ts and tests.
 Consumes SceneEntity tracking union; callbacks onadd(kind), onimport(), onTrackingConfig/config changes and root model authoring methods.
 - [ ] RED pure finite lens/config/source-option and equal-revision draft tests.
-- [ ] Add compact Add menu and Import button. Source assets use one selection model, have no transform tools and show Start/Stop plus actual status. Receiver endpoint changes preserve drafts until Apply.
-- [ ] Add Body source/Face source selectors and camera FOV/Near/Far properties. No duplicate explanations or unsupported buttons.
+- [x] Add compact Add menu and Import button. Source assets use one selection model, have no transform tools and show Start/Stop plus actual status. Receiver endpoint changes preserve drafts until Apply.
+- [x] Add Body source/Face source selectors and camera FOV/Near/Far properties. No duplicate explanations or unsupported buttons.
 - [ ] Run UI checks/tests, checkpoint, independent review.
 
 ## Task5: Authoritative authoring and source composition — root
 
 Files: packages/session/src/{session,ecs,tracking,worker}.ts; browser-client/client.ts; editor/model.ts; bootstrap.ts; EditorApp/App.svelte; scoped tests.
 - [ ] RED atomic create/config/lens/assignment and dynamic ECS tests. Creating a source/avatar/camera must register its stable ID and emit an inspectable revision.
-- [ ] Implement scene patches against a validated candidate. Source references must point to compatible tracking kinds; failed transactions preserve the scene.
+- [x] Implement scene patches against a validated candidate. Source references must point to compatible tracking kinds; failed transactions preserve the scene.
 - [ ] RED body/face ownership, exact native time-domain freshness, stale fade, disabled/config replacement and revision-stable pose tests.
-- [ ] Implement latest-sample composition. Forward optional native tracking with onClock, and local MediaPipe messages to the same session. Root/pose never changes stored avatar transform.
-- [ ] Compose native import, Add/selection/status and default empty scene. Preserve smoke-mode scene only when explicit fixture mode is present. Run workspace and boundary checks, checkpoint.
+- [x] Implement latest-sample composition. Forward optional native tracking with onClock, and local MediaPipe messages to the same session. Root/pose never changes stored avatar transform.
+- [x] Compose native import, Add/selection/status and default empty scene. Preserve smoke-mode scene only when explicit fixture mode is present. Run workspace and boundary checks, checkpoint.
 
 ## Task6: MediaPipe local inference — tracker lane after contracts
 
