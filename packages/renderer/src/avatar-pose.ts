@@ -20,23 +20,7 @@ export function createAvatarBinding(vrm: VRM) {
         const node = bone.node;
         rest.set(node,{position:node.position.toArray(),rotation:node.quaternion.toArray()});
     }
-    const names = new Set(vrm.expressionManager?.expressions.map(expression=>expression.expressionName) ?? []);
-    return {root, apply(pose?: AvatarPose) {
-        // Reset raw state before normalized deltas so lost channels return to rest.
-        for (const [node, transform] of rest) {node.position.fromArray(transform.position);node.quaternion.fromArray(transform.rotation);}
-        vrm.humanoid.resetNormalizedPose();
-        const normalized: VRMPose = {};
-        for (const [name,bone] of Object.entries(pose?.baseBones ?? {})) {
-            normalized[name as VRMHumanBoneName]={rotation:[...bone.rotation],...(bone.position ? {position:[...bone.position]} : {})};
-        }
-        for (const [name,bone] of Object.entries(pose?.bones ?? {})) {
-            if (bone.space !== 'normalized') continue;
-            const weight=bone.weight ?? 1;
-            const baseline=normalized[name as VRMHumanBoneName];
-            const rotation=new Quaternion().fromArray(baseline?.rotation ?? [0,0,0,1]).slerp(new Quaternion().fromArray(bone.rotation),weight).toArray();
-            const position=bone.position ? new Vector3().fromArray(baseline?.position ?? [0,0,0]).lerp(new Vector3().fromArray(bone.position),weight).toArray() : baseline?.position;
-            normalized[name as VRMHumanBoneName]={rotation,...(position ? {position} : {})};
-        }
+    const resolveChest=(normalized:VRMPose) => {
         if (normalized.chest && !vrm.humanoid.getNormalizedBoneNode('chest')) {
             // A chestless humanoid uses the spine to carry the same torso delta.
             const spine=normalized.spine;
@@ -47,6 +31,28 @@ export function createAvatarBinding(vrm: VRM) {
             normalized.spine={rotation:rotation.toArray(),position:position.toArray()};
             delete normalized.chest;
         }
+    };
+    const names = new Set(vrm.expressionManager?.expressions.map(expression=>expression.expressionName) ?? []);
+    return {root, apply(pose?: AvatarPose) {
+        // Reset raw state before normalized deltas so lost channels return to rest.
+        for (const [node, transform] of rest) {node.position.fromArray(transform.position);node.quaternion.fromArray(transform.rotation);}
+        vrm.humanoid.resetNormalizedPose();
+        const normalized: VRMPose = {};
+        for (const [name,bone] of Object.entries(pose?.baseBones ?? {})) {
+            normalized[name as VRMHumanBoneName]={rotation:[...bone.rotation],...(bone.position ? {position:[...bone.position]} : {})};
+        }
+        resolveChest(normalized);
+        for (const [name,bone] of Object.entries(pose?.bones ?? {})) {
+            if (bone.space !== 'normalized') continue;
+            const weight=bone.weight ?? 1;
+            const target=name==='chest' && !vrm.humanoid.getNormalizedBoneNode('chest')
+                && pose?.bones.spine?.space!=='normalized' ? 'spine' : name;
+            const baseline=normalized[target as VRMHumanBoneName];
+            const rotation=new Quaternion().fromArray(baseline?.rotation ?? [0,0,0,1]).slerp(new Quaternion().fromArray(bone.rotation),weight).toArray();
+            const position=bone.position ? new Vector3().fromArray(baseline?.position ?? [0,0,0]).lerp(new Vector3().fromArray(bone.position),weight).toArray() : baseline?.position;
+            normalized[target as VRMHumanBoneName]={rotation,...(position ? {position} : {})};
+        }
+        resolveChest(normalized);
         vrm.humanoid.setNormalizedPose(normalized);
         vrm.humanoid.update();
         for (const [name,bone] of Object.entries(pose?.bones ?? {})) {

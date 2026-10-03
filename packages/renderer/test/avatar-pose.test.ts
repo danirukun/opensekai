@@ -132,3 +132,15 @@ it('composes idle and tracking before one chestless fallback and retains sparse 
  expect(a.bones.spine.node.quaternion.angleTo(expected)).toBeLessThan(1e-7);expect(a.bones.leftUpperArm.node.quaternion.angleTo(arm)).toBeLessThan(1e-7);
  expect(chested.bones.chest!.node.quaternion.angleTo(expected)).toBeLessThan(1e-7);expect(chested.bones.spine.node.quaternion.angleTo(new Quaternion())).toBeLessThan(1e-7);
 });
+it('lets normalized spine tracking replace the chestless effective idle baseline before composing tracked chest',()=>{
+ const a=fixture(),idle=new Quaternion().setFromAxisAngle(new Vector3(1,0,0),.3),spine=new Quaternion().setFromAxisAngle(new Vector3(0,1,0),.5),chest=new Quaternion().setFromAxisAngle(new Vector3(0,0,1),.2);
+ const baseBones={chest:{rotation:idle.toArray(),space:'normalized' as const}};
+ for(const weight of [0,.5,1]){
+  a.binding.apply({avatarId:'a',baseBones,bones:{spine:{rotation:spine.toArray(),space:'normalized',weight}},expressions:{}});
+  expect(a.bones.spine.node.quaternion.angleTo(idle.clone().slerp(spine,weight))).toBeLessThan(1e-7);
+ }
+ a.binding.apply({avatarId:'a',baseBones,bones:{spine:{rotation:spine.toArray(),space:'normalized'},chest:{rotation:chest.toArray(),space:'normalized'}},expressions:{}});
+ expect(a.bones.spine.node.quaternion.angleTo(spine.clone().multiply(chest))).toBeLessThan(1e-7);
+ a.binding.apply({avatarId:'a',baseBones,bones:{chest:{rotation:chest.toArray(),space:'normalized',weight:.5}},expressions:{}});
+ expect(a.bones.spine.node.quaternion.angleTo(idle.clone().slerp(chest,.5))).toBeLessThan(1e-7);
+});
