@@ -90,3 +90,22 @@ it('clears recovered inspection errors while preserving conflict indication', as
  session.applyPatch({ sceneId: 'scene_smoke', expectedRevision: 0, operations: [{ kind: 'setVisibility', entityId: 'marker', visible: false }] });
  await model.setVisibility('marker', true); await model.load(); expect(model.read().error).toBe('CONFLICT');
 });
+
+it('commits a complete validated transform and clears selection', async () => {
+ const { model, api } = fixture(); await model.load(); model.select('marker');
+ const transform = { position: [1, 2, 3] as [number, number, number], rotation: [0, 0, 0, 1] as [number, number, number, number], scale: [2, 2, 2] as [number, number, number] };
+ expect((await model.setTransform('marker', transform, 0)).ok).toBe(true);
+ expect(model.read().scene?.entities.find(e => e.id === 'marker')?.transform).toEqual(transform);
+ model.clearSelection(); expect(model.read().selectedId).toBeNull();
+ const count = vi.mocked(api.scenePatch).mock.calls.length;
+ expect(await model.setTransform('marker', { ...transform, scale: [0, 1, 1] })).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+ expect(api.scenePatch).toHaveBeenCalledTimes(count);
+});
+it('rejects a gesture revision after a refresh instead of replacing it with the latest revision', async () => {
+ const { model, api, session } = fixture(); await model.load();
+ const transform = model.read().scene!.entities.find(e => e.id === 'marker')!.transform;
+ session.applyPatch({ sceneId: 'scene_smoke', expectedRevision: 0, operations: [{ kind: 'setVisibility', entityId: 'marker', visible: false }] });
+ await model.load();
+ expect(await model.setTransform('marker', transform, 0)).toMatchObject({ ok: false, error: { code: 'CONFLICT' } });
+ expect(api.scenePatch).not.toHaveBeenCalled(); expect(model.read().error).toBe('CONFLICT');
+});

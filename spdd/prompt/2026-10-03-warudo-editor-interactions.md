@@ -18,7 +18,7 @@ RendererOptions.editor?: {onSelect(id: Id | null): void; onCommit(edit: EditorTr
 
 EditorModel gains setTransform(entityId, transform, expectedRevision?) and clearSelection(). Validate TransformSchema before transport. An explicit revision cannot be silently replaced by a newer model revision. Existing methods keep their signatures.
 
-NativeEditorConnection = {operator: ConnectionDescriptor; output: ConnectionDescriptor; assets: AssetRecord[]}. editor_connection returns this projection from the already-started service. Only main can bootstrap/shutdown. editor can call editor_connection/app_version. Both are local application windows.
+NativeEditorConnection = {operator: ConnectionDescriptor; output: ConnectionDescriptor; assets: AssetRecord[]}. editor_connection returns this projection from the already-started service. Only main can bootstrap/shutdown. editor can call editor_connection/app_version. Both are local application windows. Use fixed-target show_editor (main caller only) and hide_editor (editor caller only) commands. Do not grant generic window hide/show/focus commands to the editor. Enforce caller labels in native commands as well as generated ACL.
 
 UI event payloads contain selection, tool or transform drafts and a sync signal. Validate them, keep payloads small and coalesce draft notifications to at most20Hz. They never carry publisher descriptors or evaluated pose streams. Commits use the existing operator WebSocket API.
 
