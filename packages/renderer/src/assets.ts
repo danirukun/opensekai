@@ -35,7 +35,7 @@ export function createAssetCache<T extends {
             entries.set(id, entry);
             return entry.promise;
         },
-        release, dispose() { if (closed)
+        release, retainOnly(ids: ReadonlySet<string>) { for (const id of [...entries.keys()]) if (!ids.has(id)) release(id); }, dispose() { if (closed)
             return; closed = true; for (const id of [...entries.keys()])
             release(id); }
     };

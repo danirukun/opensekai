@@ -38,16 +38,24 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         owned: boolean;
         assetId?: string;
     }>();
-    let disposed = false, cleaned = false, previous: RuntimeFrame | null = null, accepted: RuntimeFrame | null = null, displayed: FrameApplied | null = null, displayFrame: RuntimeFrame | null = null;
-    const cleanup = () => { if (cleaned)
-        return; cleaned = true; for (const value of objects.values()) {
-        if (value.owned)
-            disposeObject(value.root);
+    let disposed = false, cleaned = false, accepted: RuntimeFrame | null = null, displayed: FrameApplied | null = null, displayFrame: RuntimeFrame | null = null;
+    const releaseObject = (value: {root: Object3D; owned: boolean}) => {
+        if (value.owned) disposeObject(value.root);
         else {
             disposeInstance(value.root);
             value.root.removeFromParent();
         }
-    } objects.clear(); assets.dispose(); marker?.dispose(); scene.clear(); renderer.dispose(); };
+    };
+    const cleanup = () => {
+        if (cleaned) return;
+        cleaned = true;
+        for (const value of objects.values()) releaseObject(value);
+        objects.clear();
+        assets.dispose();
+        marker?.dispose();
+        scene.clear();
+        renderer.dispose();
+    };
     const queue = createRenderQueue(() => { if (disposed)
         cleanup(); });
     const submit = async (frame: RuntimeFrame): Promise<FrameApplied> => {
@@ -64,12 +72,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         const wanted = new Set(frame.scene.entities.filter(x => x.kind !== "camera").map(x => x.id));
         for (const [id, value] of objects) {
             if (!wanted.has(id)) {
-                if (value.owned)
-                    disposeObject(value.root);
-                else {
-                    disposeInstance(value.root);
-                    value.root.removeFromParent();
-                }
+                releaseObject(value);
                 objects.delete(id);
             }
         }
@@ -81,12 +84,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             let value = objects.get(entity.id);
             if (value?.signature !== signature) {
                 if (value) {
-                    if (value.owned)
-                        disposeObject(value.root);
-                    else {
-                        disposeInstance(value.root);
-                        value.root.removeFromParent();
-                    }
+                    releaseObject(value);
                     objects.delete(entity.id);
                 }
                 value = undefined;
@@ -122,10 +120,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             applyTransform(value.root, entity);
         }
         const used = new Set([...objects.values()].flatMap(x => x.assetId ? [x.assetId] : []));
-        const priorAssets = new Set(previous?.scene.entities.flatMap(x => x.kind === "avatar" ? [x.assetId] : x.kind === "mesh" && x.source.kind === "asset" ? [x.source.assetId] : []) ?? []);
-        for (const id of priorAssets)
-            if (!used.has(id))
-                assets.release(id);
+        assets.retainOnly(used);
         const camera = new PerspectiveCamera(cameraEntity.lens.fovDegrees, width / height, cameraEntity.lens.near, cameraEntity.lens.far);
         applyTransform(camera, cameraEntity);
         try {
@@ -147,7 +142,6 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         }
         if (disposed)
             throw failure("CANCELLED", "Renderer disposed");
-        previous = frame;
         displayFrame = frame;
         displayed = { outputId: options.outputId, sessionId: frame.sessionId, sequence: frame.sequence, tick: frame.tick, revision: frame.scene.revision, cameraId: cameraEntity.id, backend, cpuMs: performance.now() - started, gpuMs: null, warnings };
         return structuredClone(displayed);
