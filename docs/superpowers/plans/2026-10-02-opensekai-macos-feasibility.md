@@ -525,7 +525,7 @@ AppError is the shared error object from Reply. ServiceHandle internally owns ta
 
 The router owns route_scene_call(call: Call) -> Reply<serde_json::Value> as an async method. Define RpcContext with client_id: String, assigned by the authenticated connection, and never read from call params. Define RpcHandler as an Arc callback from (Call, RpcContext) to a boxed Send future returning Reply<serde_json::Value>. ServiceHandle::install_evaluation_handler(handler: RpcHandler) installs the optional native evaluation handler. The router checks capabilities before invoking it. Clear the handler and pending requests during shutdown. Avoid strong service/handler reference cycles.
 
-- [ ] **Step 1: Write focused logic tests and real network tests.**
+- [x] **Step 1: Write focused logic tests and real network tests.**
 
 ~~~rust
 #[test]
@@ -539,7 +539,7 @@ The tests also cover an encoded traversal asset ID, unknown asset, symlink escap
 
 The real integration test starts the service on port zero, uses a temp asset manifest, and connects a publisher and renderer through real WebSockets. Publish a valid frame, request sceneInspect, return its reply, disconnect/reconnect the renderer, and check the latest full frame. This boundary test is required because queueing, auth, and disconnects cannot be proved with a mock alone.
 
-- [ ] **Step 2: Run failing tests.**
+- [x] **Step 2: Run failing tests.**
 
 ~~~sh
 cargo test -p opensekai-desktop service
@@ -548,7 +548,7 @@ cargo test -p opensekai-desktop --test service_integration
 
 Expected: required service/auth/queue behaviors fail before implementation.
 
-- [ ] **Step 3: Implement loopback binding, scoped routing, and bounded queues.**
+- [x] **Step 3: Implement loopback binding, scoped routing, and bounded queues.**
 
 ~~~rust
 let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0)).await?;
@@ -565,7 +565,7 @@ Read the initial manifest from OPENSEKAI_FIXTURE_MANIFEST, an explicit local app
 
 Status reports ready only after a publisher and current output acknowledgement exist. Evaluation calls return UNSUPPORTED until Task 10 installs the real evaluation handler. Do not return fabricated captures or successful runs.
 
-- [ ] **Step 4: Run boundary checks and cleanup tests.**
+- [x] **Step 4: Run boundary checks and cleanup tests.**
 
 ~~~sh
 cargo test -p opensekai-desktop service
@@ -575,7 +575,7 @@ cargo clippy -p opensekai-desktop --all-targets -- -D warnings
 
 Expected: successful reconnect, denied role violations, bounded queues, and no task leak after shutdown. Verify the operator descriptor is owner-only on macOS.
 
-- [ ] **Step 5: Commit owned files and hand off.**
+- [x] **Step 5: Commit owned files and hand off.**
 
 ~~~sh
 git add apps/desktop/src-tauri/src/service apps/desktop/src-tauri/src/assets apps/desktop/src-tauri/tests/service_integration.rs
@@ -607,7 +607,7 @@ export function markerRotation(elapsedMs: number): Quat;
 
 worker.ts accepts one initial message containing { descriptor, scene }. It owns connectPublisher and one 60 Hz timer. Stop messages close the connection and timer. No UI or Three.js imports belong here.
 
-- [ ] **Step 1: Write atomic edit and deterministic motion tests.**
+- [x] **Step 1: Write atomic edit and deterministic motion tests.**
 
 ~~~ts
 import { expect, it } from "vitest";
@@ -641,7 +641,7 @@ it("evaluates motion without rewriting persistent edits", () => {
 
 Also test stale revision, duplicate IDs, a missing/non-camera target, NaN/zero scale, clone isolation, identical replay output, backward elapsed time rejection, and worker stop/start without duplicate timers.
 
-- [ ] **Step 2: Run the failing tests.**
+- [x] **Step 2: Run the failing tests.**
 
 ~~~sh
 pnpm exec vitest run packages/session/test/session.test.ts packages/session/test/motion.test.ts packages/session/test/worker-lifecycle.test.ts --project unit
@@ -649,7 +649,7 @@ pnpm exec vitest run packages/session/test/session.test.ts packages/session/test
 
 Expected: missing behavior fails; contracts already pass.
 
-- [ ] **Step 3: Implement the session and a small bitECS adapter.**
+- [x] **Step 3: Implement the session and a small bitECS adapter.**
 
 ~~~ts
 export function markerRotation(elapsedMs: number): Quat {
@@ -675,7 +675,7 @@ pnpm --filter @opensekai/session check
 
 Use the output harness from Task 5 when merged to inspect emitted ticks. A real hidden-window check belongs to Task 11, not a fake-clock test.
 
-- [ ] **Step 5: Checkpoint owned files.**
+- [x] **Step 5: Checkpoint owned files.**
 
 ~~~sh
 git add packages/session/src packages/session/test
@@ -708,7 +708,7 @@ export function selectFrame(previous: RuntimeFrame | null, incoming: RuntimeFram
   Reply<RuntimeFrame>;
 ~~~
 
-- [ ] **Step 1: Write frame/resource/capture policy tests.**
+- [x] **Step 1: Write frame/resource/capture policy tests.**
 
 ~~~ts
 import { expect, it } from "vitest";
@@ -725,7 +725,7 @@ it("rejects a stale sequence within a session", () => {
 
 Add tests for a new session replacing old state, missing asset results, cancelled load disposal, duplicate resource release, oversize capture, and capture rate limiting. These test logic through injected loader/GPU ports. Actual GPU/material correctness requires the browser checks below.
 
-- [ ] **Step 2: Run the failing logic tests.**
+- [x] **Step 2: Run the failing logic tests.**
 
 ~~~sh
 pnpm exec vitest run packages/renderer/test/frame-state.test.ts packages/renderer/test/asset-lifecycle.test.ts packages/renderer/test/capture-policy.test.ts --project unit
@@ -733,7 +733,7 @@ pnpm exec vitest run packages/renderer/test/frame-state.test.ts packages/rendere
 
 Expected: policy/state/resource logic fails before implementation.
 
-- [ ] **Step 3: Implement renderer initialization and MToon loading.**
+- [x] **Step 3: Implement renderer initialization and MToon loading.**
 
 ~~~ts
 import { WebGPURenderer } from "three/webgpu";
@@ -762,7 +762,7 @@ For this slice, disable VRM spring simulation and avoid generic vrm.update(dt) i
 
 applyFrame returns an acknowledgement after render submission, including actual camera and backend. gpuMs is null unless a supported timer reports a valid value. capture performs one bounded PNG readback and labels the same displayed frame. Do not enable preserveDrawingBuffer or capture on each render. Draw the frozen diagnostic marker in the actual canvas when diagnostics is true; image capture and OBS must both see it. Draw nothing extra in normal output.
 
-- [ ] **Step 4: Register real fixture metadata and exercise both backends.**
+- [x] **Step 4: Register real fixture metadata and exercise both backends.**
 
 The official [three-vrm sample directory](https://github.com/pixiv/three-vrm/tree/release/packages/three-vrm/examples/models) contains VRM1_Constraint_Twist_Sample.vrm. Use the [VRM sample repository](https://github.com/vrm-c/vrm-specification/tree/master/samples) to review its source terms. Download only for local testing; store bytes under fixtures/local/. Record the exact source revision, SHA-256, embedded VRM terms, and permitted use. Do not infer asset redistribution rights from the loader's MIT license.
 
@@ -776,7 +776,7 @@ pnpm --filter @opensekai/output build
 pnpm check
 ~~~
 
-- [ ] **Step 5: Checkpoint the renderer and fixture policy.**
+- [x] **Step 5: Checkpoint the renderer and fixture policy.**
 
 ~~~sh
 git add packages/renderer/src packages/renderer/test apps/output fixtures/smoke
@@ -810,7 +810,7 @@ export async function bootstrapDesktop(): Promise<{
 
 The trusted desktop module owns NativeBootstrap; it is not an extension API. Output ticket is scoped to output_main; preview ticket is scoped to preview_main. The evaluation CLI uses OPENSEKAI_RENDERER_CONNECTION_FILE for the owner-only output descriptor. Main desktop Vite uses http://127.0.0.1:1420. Record actual packaged Tauri Origin; add only that exact local origin to the tested allowlist.
 
-- [ ] **Step 1: Merge each lane and run its focused checks.**
+- [x] **Step 1: Merge each lane and run its focused checks.**
 
 Use one worker commit at a time. Resolve dependency or contract changes through the integrator. Do not merge unverified implementation together and rely on a later smoke test.
 
@@ -820,7 +820,7 @@ cargo test --workspace
 pnpm check
 ~~~
 
-- [ ] **Step 2: Wire native startup and the worker.**
+- [x] **Step 2: Wire native startup and the worker.**
 
 ~~~ts
 import { invoke } from "@tauri-apps/api/core";
@@ -1030,7 +1030,7 @@ await client.close();
 Add test/stdio-fixture.ts to the owned files. Call status, inspect, a bounded patch, and an error path; verify EOF and stderr handling. This tests the stdio boundary. The real app-to-OBS path is tested in Task 11.
 
 ~~~sh
-pnpm exec vitest run apps/mcp/test/stdio-roundtrip.test.ts --project integration
+pnpm exec vitest run apps/mcp/test/stdio-roundtrip.integration.test.ts --project integration
 pnpm --filter @opensekai/mcp check
 ~~~
 

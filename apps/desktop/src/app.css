@@ -1,38 +1,16 @@
 @import "tailwindcss";
 @import "@oshi-connect/ui/theme.css";
 @source "../../../.local/ui/dist";
-
-:root {
-  font-family: system-ui, sans-serif;
-  background: var(--ds-color-bg);
-  color: var(--ds-color-text);
-}
-
-body {
-  margin: 0;
-}
-
-main {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 40px;
-}
-
-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  margin-bottom: 48px;
-}
-
-h1 {
-  font-size: 24px;
-  font-weight: 600;
-}
-
-section {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  max-width: 520px;
-}
+:root { font-family: system-ui, sans-serif; background: var(--ds-color-bg); color: var(--ds-color-text); }
+body { margin: 0; }
+main { padding: 16px; }
+header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px; }
+h1 { font-size: 18px; font-weight: 600; }
+header span, footer { font-size: 12px; }
+.toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.scene-name { margin-right: 16px; font-size: 13px; }
+.spacer { flex: 1; }
+.viewport { background-color: #242529; background-image: conic-gradient(#303136 25%, transparent 0 50%, #303136 0 75%, transparent 0); background-size: 24px 24px; }
+canvas { display: block; width: 100%; max-height: calc(100vh - 164px); aspect-ratio: 16 / 9; object-fit: contain; }
+footer { display: flex; justify-content: space-between; padding-top: 8px; }
+p[role="alert"] { font-size: 13px; color: var(--ds-color-text); }

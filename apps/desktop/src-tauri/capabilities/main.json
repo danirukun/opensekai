@@ -8,6 +8,8 @@
   "permissions": [
     "allow-app-version",
     "core:window:allow-minimize",
-    "core:window:allow-unminimize"
+    "core:window:allow-unminimize",
+    "allow-bootstrap-session",
+    "allow-shutdown-session"
   ]
 }

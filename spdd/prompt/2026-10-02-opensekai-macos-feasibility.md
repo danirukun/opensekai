@@ -104,3 +104,37 @@ The native configuration file is ignored local data. Its JSON shape is { schemaV
 For native lane testing, permit only pub mod service and pub mod assets declarations in lib.rs before Task 6. This exposes the actual modules to crate tests without starting or wiring the service into Tauri. Startup integration remains Task 6.
 
 Wire validators in both languages accept integral JSON numeric forms such as 1, 1.0, and 1e0 for safe nonnegative counters. Rust normalizes integral JSON values before typed decoding. Descriptor comparison uses normalized URL authority, not original string spelling. Capability lists must be unique and authentication grants must match the descriptor exactly.
+
+### Early MCP implementation order
+
+The MCP worker can implement Task 8 against the frozen AppApi, operator descriptor, and authenticated resource client before Task 6 is complete. Its unit tests and real stdio fixture use the frozen boundary. Merge and live application acceptance still depend on Task 6. This order lets the early MCP work run while native and renderer reviews finish. It does not grant extra capabilities.
+
+### Evidence resource URI mapping
+
+Capture resources use opensekai://evidence/<opaque-id>/capture.png. Benchmark summaries use opensekai://evidence/<opaque-id>/summary.json. BrowserClient.readResource maps these canonical URIs to authenticated service /evidence/<opaque-id>/<filename> requests. It rejects query, fragment, credentials, port, unknown authority, path traversal, and unsupported file names. The MCP server passes registered public URIs to this client. The native endpoint serves only registered records; it does not derive a filesystem path from an ID. Expired or unknown records return NOT_FOUND. The integrator adds the client mapping and native route in Task 10.
+
+### Slow renderer acknowledgement recovery
+
+A renderer can complete a delivered frame after its provenance leaves the bounded published-frame history. Ignore an acknowledgement whose sequence is older than the retained history after checking its session and output scope. Do not add it to the verified acknowledgement ring or mark the output ready. Future sequences and mismatches against retained provenance remain errors. This policy keeps asset initialization from causing a false disconnect. A network regression must verify recovery to fresh state on the same connection.
+
+### Continuous canvas presentation
+
+Do not assign canvas dimensions on every frame. Set the renderer size only when the requested physical width or height changes. A same-size frame must preserve the backing buffer configuration so the OBS compositor can sample rendered pixels. Verify continuous presentation separately from a one-frame PNG capture.
+
+### Readiness requires a fresh output
+
+AppStatus.ready requires a connected output_main with a verified acknowledgement received within 500 ms on the native clock. The acknowledgement must match the current session and edit revision. Retain lastFrame metadata for diagnostics after this deadline, but report ready false. Preview alone cannot make the app ready.
+
+### Desktop integration backend probe
+
+bootstrapDesktop accepts the preview canvas. Trusted NativeBootstrap includes rendererMode (auto or force-webgl2). OPENSEKAI_RENDERER_BACKEND=webgl2 selects the forced mode for preview and the copied OBS URL. Otherwise use auto. This local launch option allows separate macOS backend checks without changing public extension or wire contracts.
+
+### Frame delivery backpressure
+
+The native renderer connection keeps at most two unacknowledged state frames in flight, in addition to its latest-two pending state queue. Retain provenance for those delivered frames until an acknowledgement releases their slots. A verified acknowledgement for a newer delivered sequence releases all older slots, because the renderer can coalesce state. Do not send more state until a slot is free. Continue to receive control traffic while waiting. Keep control messages in their separate bounded queue. This bound extends to the TCP/browser ingress frontier; a bounded Rust queue alone is not sufficient. Obsolete ACKs with no retained delivered or published provenance are ignored after scope checks.
+
+Browser publisher state sends use the encoded frame size to limit queued state bytes to approximately two frames, within the global byte limit. A failed control or reply send must close the current socket so callers receive UNAVAILABLE and the existing authenticated reconnect path can recover. Do not silently discard a reply. Do not replay mutations.
+
+The trusted desktop bootstrap result also exposes registered AssetRecord values to the editor composition. Embedded GLB images load through ImageBitmapLoader fetch requests to local blob URLs, so the desktop connect-src includes blob:. Remote network origins remain excluded.
+
+The projected two-frame byte bound applies to state only. Control payloads retain the ordinary 256 KiB or capture reply 3 MiB limit. A control send with more than 512 KiB already buffered closes the current socket; a legal capture reply can exceed 512 KiB.
