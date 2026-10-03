@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {SceneEntitySchema,ScenePatchSchema,SceneViewSchema,TrackingSampleSchema,RuntimeFrameSchema,makeSmokeScene,ClockEnvelopeSchema} from '../src/index';
+import {SceneEntitySchema,ScenePatchSchema,SceneViewSchema,TrackingSampleSchema,RuntimeFrameSchema,makeSmokeScene,ClockEnvelopeSchema,AppStatusSchema,TrackingBoneSchema} from '../src/index';
 const base={id:'source',name:'VMC Receiver',visible:true,transform:{position:[0,0,0],rotation:[0,0,0,1],scale:[1,1,1]}};
 const receiver={...base,kind:'tracking',generation:1,config:{kind:'vmc',enabled:false,bindAddress:'127.0.0.1',port:39539,senderAddress:null}};
 describe('live authoring and tracking boundary',()=>{
@@ -25,4 +25,17 @@ describe('live authoring and tracking boundary',()=>{
   expect(RuntimeFrameSchema.safeParse({schemaVersion:1,sessionId:'session',sequence:0,tick:0,elapsedMs:0,scene:makeSmokeScene()}).success).toBe(true);
   expect(ClockEnvelopeSchema.safeParse({kind:'clock',sessionId:'session',elapsedMs:100,tracking:{samples:[sample],statuses:[]}}).success).toBe(true);
  });
+});
+
+it('bounds fade weights and rejects duplicate status sources in frames and app status',()=>{
+ const bone={space:'raw',rotation:[0,0,0,1]};
+ for(const weight of [0,.5,1])expect(TrackingBoneSchema.safeParse({...bone,weight}).success).toBe(true);
+ for(const weight of [-.01,1.01,Infinity])expect(TrackingBoneSchema.safeParse({...bone,weight}).success).toBe(false);
+ const status={sourceId:'source',generation:1,state:'waiting',packets:0,invalidPackets:0,lastReceivedAtMs:null,error:null};
+ const frame={schemaVersion:1,sessionId:'session',sequence:0,tick:0,elapsedMs:0,scene:makeSmokeScene()};
+ const app={schemaVersion:1,sessionId:'session',ready:true,revision:0,capabilities:[],warnings:[],outputs:[]};
+ expect(RuntimeFrameSchema.safeParse({...frame,trackingStatus:[status]}).success).toBe(true);
+ expect(AppStatusSchema.safeParse({...app,trackingStatus:[status]}).success).toBe(true);
+ expect(RuntimeFrameSchema.safeParse({...frame,trackingStatus:[status,status]}).success).toBe(false);
+ expect(AppStatusSchema.safeParse({...app,trackingStatus:[status,status]}).success).toBe(false);
 });

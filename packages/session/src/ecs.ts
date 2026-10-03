@@ -16,10 +16,10 @@ export function createTransformAdapter(scene: SceneView) {
             const evaluated = structuredClone(persistent);
             for (const entity of evaluated.entities) {
                 const eid = ids.get(entity.id);
-                if (eid === undefined)
-                    throw new Error("Unknown stable entity ID");
+                let current=eid;
+                if(current===undefined){current=addEntity(world);ids.set(entity.id,current);addComponent(world,current,packed);packed.values[current]=new Float64Array(10);}
                 const transform = evaluateSmokeTransform(entity.id, entity.transform, elapsedMs);
-                const data = packed.values[eid]!;
+                const data = packed.values[current]!;
                 data.set([...transform.position, ...transform.rotation, ...transform.scale]);
                 entity.transform = {
                     position: [data[0]!, data[1]!, data[2]!],

@@ -190,7 +190,7 @@ export const RuntimeFrameSchema = z.strictObject({
     elapsedMs: n.nonnegative(),
     scene: SceneViewSchema,
     avatarPoses:z.array(AvatarPoseSchema).max(2).optional(),
-    trackingStatus:z.array(TrackingStatusSchema).max(4).optional()
+    trackingStatus:z.array(TrackingStatusSchema).max(4).refine(values=>new Set(values.map(value=>value.sourceId)).size===values.length).optional()
 });
 export const FrameAppliedSchema = z.strictObject({
     outputId: IdSchema,
@@ -213,7 +213,7 @@ export const RendererDiagnosticsSchema = z.strictObject({
 });
 export const DiagnosticsEnvelopeSchema = z.strictObject({ kind: z.literal("diagnostics"), diagnostics: RendererDiagnosticsSchema });
 export const AppStatusSchema = z.strictObject({
-    trackingStatus:z.array(TrackingStatusSchema).max(4).optional(),
+    trackingStatus:z.array(TrackingStatusSchema).max(4).refine(values=>new Set(values.map(value=>value.sourceId)).size===values.length).optional(),
     schemaVersion: z.literal(1),
     sessionId: IdSchema,
     ready: z.boolean(),
