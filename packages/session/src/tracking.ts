@@ -7,6 +7,11 @@ function fadeQuaternion(q:Quat,weight:number):Quat {
  const factor=Math.sin(angle*weight)/Math.sin(angle);
  return [q[0]*sign*factor,q[1]*sign*factor,q[2]*sign*factor,Math.cos(angle*weight)];
 }
+function multiplyQuaternion(a:Quat,b:Quat):Quat {
+ const [ax,ay,az,aw]=a,[bx,by,bz,bw]=b;
+ const q:Quat=[ax*bw+aw*bx+ay*bz-az*by,ay*bw+aw*by+az*bx-ax*bz,az*bw+aw*bz+ax*by-ay*bx,aw*bw-ax*bx-ay*by-az*bz];
+ const length=Math.hypot(...q);return q.map(value=>value/length)as Quat;
+}
 export function createTrackingComposer(){
  const samples=new Map<string,TrackingSample>(),statuses=new Map<string,TrackingStatus>();
  function reconcile(scene:SceneView){const sources=scene.entities.filter(e=>e.kind==='tracking');for(const [id,sample]of samples){const source=sources.find(s=>s.id===id);if(!source||!source.config.enabled||source.generation!==sample.generation)samples.delete(id);}for(const[id,status]of statuses){const source=sources.find(s=>s.id===id);if(!source||source.generation!==status.generation)statuses.delete(id);}}
@@ -32,7 +37,11 @@ export function createTrackingComposer(){
    const body=input(entity.tracking.bodySourceId),face=input(entity.tracking.faceSourceId??entity.tracking.bodySourceId),ownsFace=entity.tracking.faceSourceId!==null;
    const boneEntries:[string,TrackingBone][]=[];
    if(body)for(const[name,bone]of Object.entries(body.sample.bones)){if(ownsFace&&faceBones.has(name))continue;boneEntries.push([name,{...copy(bone),weight:body.weight}]);}
-   if(face)for(const[name,bone]of Object.entries(face.sample.bones)){if(!faceBones.has(name))continue;const index=boneEntries.findIndex(([key])=>key===name);if(index>=0)boneEntries.splice(index,1);boneEntries.push([name,{...copy(bone),weight:face.weight}]);}
+   if(face)for(const[name,bone]of Object.entries(face.sample.bones)){if(!faceBones.has(name))continue;const index=boneEntries.findIndex(([key])=>key===name);if(index>=0)boneEntries.splice(index,1);const resolved=copy(bone);
+    const faceSource=scene.entities.find(source=>source.id===face.sample.sourceId);
+    const chest=face.sample.bones.chest;
+    if(name==='head'&&faceSource?.kind==='tracking'&&faceSource.config.kind==='mediapipe'&&body?.sample.sourceId!==face.sample.sourceId&&bone.space==='normalized'&&chest?.space==='normalized')resolved.rotation=multiplyQuaternion(chest.rotation,bone.rotation);
+    boneEntries.push([name,{...resolved,weight:face.weight}]);}
    const pose:AvatarPose={avatarId:entity.id,bones:Object.fromEntries(boneEntries),expressions:Object.fromEntries(face?Object.entries(face.sample.expressions).map(([name,value])=>[name,value*face.weight]):[])};
    if(body?.sample.root)pose.root={position:body.sample.root.position.map(value=>value*body.weight)as[number,number,number],rotation:fadeQuaternion(body.sample.root.rotation,body.weight)};
    avatarPoses.push(pose);

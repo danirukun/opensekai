@@ -1,5 +1,6 @@
-import { TransformSchema } from '@opensekai/contracts';
-import type { AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform } from '@opensekai/contracts';
+import { TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,TrackingConfigSchema } from '@opensekai/contracts';
+import type { AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, TrackingConfig } from '@opensekai/contracts';
+type CameraLens=Extract<SceneEntity,{kind:'camera'}>['lens'];
 export interface EditorView {
  scene: SceneView | null;
  selectedId: Id | null;
@@ -47,8 +48,29 @@ export function createEditorModel(api: AppApi) {
   const revision = expectedRevision ?? view.scene?.revision;
   return execute(() => api.scenePatch({ sceneId: view.scene!.sceneId, expectedRevision: revision!, operations: [operation] }));
  }
+ function invalid(code:ErrorCode='INVALID_INPUT') {publish({error:code});return Promise.resolve(failure(code));}
+ function ofKind(entityId:Id,kind:SceneEntity['kind']) {return view.scene?.entities.some(entity=>entity.id===entityId&&entity.kind===kind);}
  return {
   read,
+  async createEntity(entity:SceneEntity,expectedRevision?:number):Promise<Reply<{revision:number}>> {
+   const parsed=SceneEntitySchema.safeParse(entity);if(!parsed.success)return invalid();
+   const reply=await patch({kind:'createEntity',entity:parsed.data},expectedRevision);
+   if(reply.ok&&view.scene?.entities.some(item=>item.id===parsed.data.id))publish({selectedId:parsed.data.id});
+   return reply;
+  },
+  setCameraLens(entityId:Id,lens:CameraLens,expectedRevision?:number):Promise<Reply<{revision:number}>> {
+   const parsed=LensSchema.safeParse(lens);if(!ofKind(entityId,'camera')||!parsed.success)return invalid();
+   return patch({kind:'setCameraLens',entityId,lens:parsed.data},expectedRevision);
+  },
+  setAvatarTracking(entityId:Id,tracking:AvatarTracking,expectedRevision?:number):Promise<Reply<{revision:number}>> {
+   const parsed=AvatarTrackingSchema.safeParse(tracking);if(!ofKind(entityId,'avatar')||!parsed.success)return invalid();
+   return patch({kind:'setAvatarTracking',entityId,tracking:parsed.data},expectedRevision);
+  },
+  setTrackingConfig(entityId:Id,config:TrackingConfig,expectedRevision?:number):Promise<Reply<{revision:number}>> {
+   const parsed=TrackingConfigSchema.safeParse(config),entity=view.scene?.entities.find(e=>e.id===entityId);
+   if(entity?.kind!=='tracking'||!parsed.success||entity.config.kind!==parsed.data.kind)return invalid();
+   return patch({kind:'setTrackingConfig',entityId,config:parsed.data},expectedRevision);
+  },
   subscribe(listener: (view: EditorView) => void) { listeners.add(listener); listener(read()); return () => { listeners.delete(listener); }; },
   async load(): Promise<void> {
    if (view.pending || inspecting) return;

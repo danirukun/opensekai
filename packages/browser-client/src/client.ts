@@ -1,5 +1,5 @@
 import { ConnectionDescriptorSchema, CaptureBytesSchema, RuntimeFrameSchema, FrameAppliedSchema, RendererDiagnosticsSchema, ResultSchemas, LIMITS, validateCall, requiredCapability, replySchema, parseWire } from "@opensekai/contracts";
-import type { AppApi, AppError, BrowserClient, CaptureBytes, CaptureParams, ConnectionDescriptor, FrameApplied, PublisherClient, Reply, RuntimeFrame, ValidatedCall, WireMessage } from "@opensekai/contracts";
+import type { AppApi, AppError, BrowserClient, CaptureBytes, CaptureParams, ConnectionDescriptor, FrameApplied, PublisherClient, Reply, RuntimeFrame, ValidatedCall, WireMessage, TrackingUpdate } from "@opensekai/contracts";
 import { reconnectDelay } from "./reconnect";
 type Socket = Pick<WebSocket, "send" | "close" | "addEventListener" | "removeEventListener" | "bufferedAmount">;
 export interface ClientPorts {
@@ -28,8 +28,9 @@ export function connectWithPorts(raw: ConnectionDescriptor, ports: ClientPorts =
     return new Promise((resolve, reject) => {
         let socket: Socket, closed = false, authenticated = false, everReady = false, attempt = 0, nextId = 0, sequence = -1, latest: RuntimeFrame | undefined;
         let reconnectTimer: ReturnType<typeof setTimeout> | undefined, authTimer: ReturnType<typeof setTimeout> | undefined;
-        let pendingClock: number | undefined;
-        const clocks = new Set<(elapsedMs: number) => void>();
+        let pendingClock: {elapsedMs:number;tracking?:TrackingUpdate} | undefined;
+        const clocks = new Set<(elapsedMs: number,tracking?:TrackingUpdate) => void>();
+        const deliverClock=(listener:(elapsedMs:number,tracking?:TrackingUpdate)=>void,clock:{elapsedMs:number;tracking?:TrackingUpdate})=>clock.tracking===undefined?listener(clock.elapsedMs):listener(clock.elapsedMs,clock.tracking);
         const frames = new Set<(f: RuntimeFrame) => void>();
         let capture: ((p: CaptureParams) => Promise<Reply<CaptureBytes>>) | undefined;
         let callListener: ((c: ValidatedCall & {
@@ -220,7 +221,7 @@ export function connectWithPorts(raw: ConnectionDescriptor, ports: ClientPorts =
         const publisher: PublisherClient = {
             onClock(listener) {
                 clocks.add(listener);
-                if (pendingClock !== undefined) { const elapsedMs = pendingClock; pendingClock = undefined; listener(elapsedMs); }
+                if (pendingClock !== undefined) { const clock = pendingClock; pendingClock = undefined; deliverClock(listener,clock); }
                 return () => { clocks.delete(listener); };
             },
             onCall(listener) {
@@ -293,8 +294,8 @@ export function connectWithPorts(raw: ConnectionDescriptor, ports: ClientPorts =
             }
             if (message.kind === "clock") {
                 if (descriptor.role !== "publisher" || message.sessionId !== descriptor.sessionId) { disconnect(); return; }
-                if (clocks.size === 0) pendingClock = message.elapsedMs;
-                for (const listener of clocks) listener(message.elapsedMs);
+                if (clocks.size === 0) pendingClock = message;
+                for (const listener of clocks) deliverClock(listener,message);
                 return;
             }
             if (message.kind === "ping") {

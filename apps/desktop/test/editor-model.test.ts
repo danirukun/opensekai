@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import { makeSmokeScene, type AppApi, type Reply } from '@opensekai/contracts';
+import { makeSmokeScene, type AppApi, type Reply,defaultTrackingConfig,type SceneEntity } from '@opensekai/contracts';
 import { createSession } from '@opensekai/session';
 import { createEditorModel } from '../src/editor/model';
 function fixture() {
@@ -117,4 +117,28 @@ it('keeps an unchanged background inspection from disabling an edit, and ignores
  const before=session.inspect();const refresh=model.load();expect(model.read().pending).toBe(false);
  expect((await model.setVisibility('marker',false)).ok).toBe(true);resolve({ok:true,data:before});await refresh;
  expect(model.read().scene?.revision).toBe(1);expect(pendingStates.filter(Boolean)).toHaveLength(2);
+});
+
+it('authors camera and tracking assets, selects successful creates, and applies typed properties',async()=>{
+ const {model,api}=fixture();await model.load();
+ const base={id:'new-camera',name:'Camera',visible:true,transform:{position:[0,1,3],rotation:[0,0,0,1],scale:[1,1,1]}};
+ expect((await model.createEntity({...base,kind:'camera',lens:{fovDegrees:40,near:.01,far:100}} as SceneEntity,0)).ok).toBe(true);
+ expect(model.read().selectedId).toBe('new-camera');
+ expect((await model.setCameraLens('new-camera',{fovDegrees:60,near:.1,far:200},1)).ok).toBe(true);
+ expect((await model.createEntity({...base,id:'vmc',kind:'tracking',generation:0,config:defaultTrackingConfig('vmc')} as SceneEntity,2)).ok).toBe(true);
+ expect(model.read().selectedId).toBe('vmc');
+ expect((await model.setAvatarTracking('performer',{bodySourceId:'vmc',faceSourceId:'vmc'},3)).ok).toBe(true);
+ const config=defaultTrackingConfig('vmc');config.enabled=true;
+ expect((await model.setTrackingConfig('vmc',config,4)).ok).toBe(true);
+ expect(model.read().scene?.entities.find(e=>e.id==='vmc')).toMatchObject({generation:5,config:{enabled:true}});
+ expect(api.scenePatch).toHaveBeenCalledTimes(5);
+});
+it('rejects wrong-kind properties and invalid or stale config drafts without a network edit',async()=>{
+ const {model,api}=fixture();await model.load();
+ expect(await model.setCameraLens('performer',{fovDegrees:40,near:.01,far:100},0)).toMatchObject({ok:false,error:{code:'INVALID_INPUT'}});
+ expect(await model.setCameraLens('camera_wide',{fovDegrees:40,near:2,far:1},0)).toMatchObject({ok:false,error:{code:'INVALID_INPUT'}});
+ expect(await model.setAvatarTracking('camera_wide',{bodySourceId:null,faceSourceId:null},0)).toMatchObject({ok:false,error:{code:'INVALID_INPUT'}});
+ expect(await model.setTrackingConfig('camera_wide',defaultTrackingConfig('vmc'),0)).toMatchObject({ok:false,error:{code:'INVALID_INPUT'}});
+ expect(api.scenePatch).not.toHaveBeenCalled();
+ expect(await model.setCameraLens('camera_wide',{fovDegrees:40,near:.01,far:100},99)).toMatchObject({ok:false,error:{code:'CONFLICT'}});expect(api.scenePatch).not.toHaveBeenCalled();
 });

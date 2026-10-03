@@ -3,6 +3,7 @@
  import { invoke } from '@tauri-apps/api/core';
  import { Button } from '@oshi-connect/ui';
  import { Move, RotateCw, Scaling, PanelsTopLeft } from '@lucide/svelte';
+ import {createMediaPipeTracker} from './tracking/mediapipe';
  import { bootstrapDesktop } from './bootstrap';
  import { createEditorModel, type EditorModel, type EditorView } from './editor/model';
  import { createEditorPoll } from './editor-poll';
@@ -16,26 +17,32 @@
  let tool=$state<Tool>('translate'),canEdit=$state(false),available=$state(false),error=$state<string|null>(null),dragging=$state(false);
  let menu=$state<{x:number;y:number;actions:MenuAction[]}|null>(null);
  const selected=$derived(view.scene?.entities.find(e=>e.id===view.selectedId));
- function sync(){session?.editor?.sync({scene:model?.read().scene??null,selectedId:view.selectedId,tool,enabled:canEdit&&available&&!view.pending});}
+ function sync(){const state=model?.read();session?.editor?.sync({scene:state?.scene??null,selectedId:selected?.kind==='tracking'?null:view.selectedId,tool,enabled:canEdit&&available&&!view.pending&&selected?.kind!=='tracking'});}
  function notify(message:Parameters<typeof sendUI>[1]){void sendUI('editor',message).catch(()=>{error='Editor unavailable';});}
  function setTool(value:Tool){tool=value;sync();notify({kind:'tool',tool});}
  function showEditor(){void invoke('show_editor').catch(()=>{error='Could not open editor';});}
  function key(event:KeyboardEvent){if(event.defaultPrevented)return;if(event.target instanceof HTMLElement && (event.target.closest('input,textarea,select,[contenteditable="true"]')))return;if(event.ctrlKey||event.metaKey||event.altKey)return;
   const next=({w:'translate',e:'rotate',r:'scale'} as Record<string,Tool>)[event.key.toLowerCase()];if(next&&canEdit&&available){event.preventDefault();setTool(next);}else if(event.key==='Escape'){if(dragging){session?.editor?.cancel();dragging=false;}else if(!menu){showEditor();}}
  }
- function context(event:MouseEvent){event.preventDefault();const actions:MenuAction[]=[{label:'Open editor',run:showEditor}];if(selected)for(const [label,value] of [['Move','translate'],['Rotate','rotate'],['Scale','scale']] as const)actions.push({label,disabled:!canEdit||!available||view.pending,run:()=>setTool(value)});menu={x:event.clientX,y:event.clientY,actions};}
+ function context(event:MouseEvent){event.preventDefault();const actions:MenuAction[]=[{label:'Open editor',run:showEditor}];if(selected&&selected.kind!=='tracking')for(const [label,value] of [['Move','translate'],['Rotate','rotate'],['Scale','scale']] as const)actions.push({label,disabled:!canEdit||!available||view.pending,run:()=>setTool(value)});menu={x:event.clientX,y:event.clientY,actions};}
  onMount(()=>{
   let disposed=false,off=()=>{},offUI=()=>{};let poll:ReturnType<typeof createEditorPoll>|undefined;
+  let tracker:ReturnType<typeof createMediaPipeTracker>|undefined,offClock=()=>{};
+  let devices:{deviceId:string;label:string}[]=[];
+  const reconcileTracking=()=>{if(!session||session.tracking.now()===null)return;tracker?.reconcile(model?.read().scene?.entities.filter(entity=>entity.kind==='tracking')??[]);};
   const drafts=createDraftSender(message=>sendUI('editor',message),()=>{if(!disposed)error='Editor unavailable';});
   const resize=new ResizeObserver(()=>{const size=fitPreview(stage.clientWidth,stage.clientHeight);canvas.style.width=`${size.width}px`;canvas.style.height=`${size.height}px`;});resize.observe(stage);
   const timer=setInterval(()=>{void poll?.poll();},500);
-  void listenUI(message=>{if(message.kind==='selection'){if(message.entityId)model?.select(message.entityId);else model?.clearSelection();}else if(message.kind==='tool'){tool=message.tool;sync();}else if(message.kind==='refresh')void model?.load();else if(message.kind==='ready'){notify({kind:'selection',entityId:view.selectedId});notify({kind:'tool',tool});}}).then(stop=>{if(disposed)stop();else offUI=stop;}).catch(()=>{if(!disposed)error='Editor connection unavailable';});
+  void listenUI(message=>{if(message.kind==='selection'){if(message.entityId)model?.select(message.entityId);else model?.clearSelection();}else if(message.kind==='tool'){tool=message.tool;sync();}else if(message.kind==='refresh')void model?.load();else if(message.kind==='ready'){notify({kind:'trackingDevices',devices});notify({kind:'selection',entityId:view.selectedId});notify({kind:'tool',tool});}}).then(stop=>{if(disposed)stop();else offUI=stop;}).catch(()=>{if(!disposed)error='Editor connection unavailable';});
   void bootstrapDesktop(canvas,{
    onSelect(id){if(id)model?.select(id);else model?.clearSelection();notify({kind:'selection',entityId:id});},
    async onCommit(edit){const reply=await model!.setTransform(edit.entityId,edit.transform,edit.expectedRevision);notify({kind:'refresh'});return reply;},
    onDraft(draft){dragging=draft!==null;drafts.offer(draft);},
-  }).then(async value=>{if(disposed){await value.stop();return;}session=value;canEdit=value.canEdit;model=createEditorModel(value.client.api);off=model.subscribe(next=>{view=next;sync();});poll=createEditorPoll(value.client.api,model,status=>{available=status.revision!==null;error=null;if(!available){session?.editor?.cancel();dragging=false;drafts.offer(null);}sync();},code=>{available=false;error=code;session?.editor?.cancel();dragging=false;drafts.offer(null);sync();});await poll.poll();sync();}).catch(cause=>{if(!disposed)error=cause instanceof Error?cause.message:'Session startup failed';});
-  return()=>{disposed=true;clearInterval(timer);resize.disconnect();drafts.close();poll?.close();off();offUI();void session?.stop().catch(()=>{});};
+  }).then(async value=>{if(disposed){await value.stop();return;}session=value;canEdit=value.canEdit;model=createEditorModel(value.client.api);
+   tracker=createMediaPipeTracker({now:()=>value.tracking.now()??0,onSample:sample=>value.tracking.submit({samples:[sample],statuses:[]}),onStatus:status=>value.tracking.submit({samples:[],statuses:[status]}),onDevices:choices=>{devices=choices.slice(0,8).map(device=>({deviceId:device.deviceId.slice(0,512),label:device.label.slice(0,128)}));notify({kind:'trackingDevices',devices});}});
+   offClock=value.tracking.onClock(reconcileTracking);
+   off=model.subscribe(next=>{view=next;sync();reconcileTracking();});poll=createEditorPoll(value.client.api,model,status=>{available=status.revision!==null;error=null;if(!available){session?.editor?.cancel();dragging=false;drafts.offer(null);}sync();},code=>{available=false;error=code;session?.editor?.cancel();dragging=false;drafts.offer(null);sync();});await poll.poll();sync();}).catch(cause=>{if(!disposed)error=cause instanceof Error?cause.message:'Session startup failed';});
+  return()=>{disposed=true;clearInterval(timer);resize.disconnect();tracker?.shutdown();offClock();drafts.close();poll?.close();off();offUI();void session?.stop().catch(()=>{});};
  });
 </script>
 <svelte:window onkeydown={key}/>

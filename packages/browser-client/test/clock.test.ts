@@ -30,3 +30,13 @@ it("rejects wrong-session clocks",async()=>{
  socket.message({kind:"authReply",schemaVersion:1,sessionId:"test",capabilities:["read"]}); const client=await ready;
  socket.message({kind:"clock",sessionId:"other",elapsedMs:0}); expect(socket.close).toHaveBeenCalled(); client.close();
 });
+
+it('retains tracking with the latest pre-subscription pulse and forwards live updates',async()=>{
+ const socket=new Socket();const ready=connectWithPorts(descriptor,{socket:()=>socket,setTimeout,clearTimeout,fetch});
+ socket.message({kind:'authReply',schemaVersion:1,sessionId:'test',capabilities:['read']});
+ const client=await ready as PublisherClient;
+ const tracking={samples:[{sourceId:'source',generation:1,receivedAtMs:10000,bones:{},expressions:{jawOpen:.7}}],statuses:[]};
+ socket.message({kind:'clock',sessionId:'test',elapsedMs:9990});socket.message({kind:'clock',sessionId:'test',elapsedMs:10000,tracking});
+ const clock=vi.fn();client.onClock(clock);expect(clock).toHaveBeenLastCalledWith(10000,tracking);
+ socket.message({kind:'clock',sessionId:'test',elapsedMs:10010,tracking});expect(clock).toHaveBeenLastCalledWith(10010,tracking);client.close();
+});

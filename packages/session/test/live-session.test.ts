@@ -2,7 +2,7 @@ import {describe,it,expect} from 'vitest';
 import {makeSmokeScene,defaultTrackingConfig,type SceneEntity} from '@opensekai/contracts';
 import {createSession} from '../src/session';
 const base={name:'Source',visible:true,transform:{position:[0,0,0],rotation:[0,0,0,1],scale:[1,1,1]}};
-function setup(){const s=createSession(makeSmokeScene(),'test');for(const [id,kind] of [['body','vmc'],['face','ifacialmocap']] as const){const config=defaultTrackingConfig(kind);config.enabled=true;expect(s.applyPatch({sceneId:'scene_smoke',expectedRevision:s.inspect().revision,operations:[{kind:'createEntity',entity:{...base,id,kind:'tracking',generation:0,config} as SceneEntity}]}).ok).toBe(true);}expect(s.applyPatch({sceneId:'scene_smoke',expectedRevision:2,operations:[{kind:'setAvatarTracking',entityId:'performer',tracking:{bodySourceId:'body',faceSourceId:'face'}}]}).ok).toBe(true);return s;}
+function setup(faceKind:'ifacialmocap'|'mediapipe'='ifacialmocap'){const s=createSession(makeSmokeScene(),'test');for(const [id,kind] of [['body','vmc'],['face',faceKind]] as const){const config=defaultTrackingConfig(kind);config.enabled=true;expect(s.applyPatch({sceneId:'scene_smoke',expectedRevision:s.inspect().revision,operations:[{kind:'createEntity',entity:{...base,id,kind:'tracking',generation:0,config} as SceneEntity}]}).ok).toBe(true);}expect(s.applyPatch({sceneId:'scene_smoke',expectedRevision:2,operations:[{kind:'setAvatarTracking',entityId:'performer',tracking:{bodySourceId:'body',faceSourceId:'face'}}]}).ok).toBe(true);return s;}
 describe('live scene authoring',()=>{
  it('creates stable ECS entities and stamps generations with one atomic revision',()=>{const s=createSession(makeSmokeScene(),'test');const entity={...base,id:'newcam',kind:'camera',lens:{fovDegrees:40,near:.01,far:100}} as SceneEntity;
  expect(s.applyPatch({sceneId:'scene_smoke',expectedRevision:0,operations:[{kind:'createEntity',entity},{kind:'setCameraLens',entityId:'newcam',lens:{fovDegrees:55,near:.1,far:50}}]})).toEqual({ok:true,data:{revision:1}});
@@ -29,4 +29,20 @@ it('fades raw bones with a rest-relative weight and clears a stopped source imme
  expect(s.advance(0,10625).avatarPoses?.[0]?.bones.leftUpperArm).toMatchObject({...sample.bones.leftUpperArm,weight:.5});
  s.ingestTracking({samples:[],statuses:[{sourceId:'body',generation:1,state:'stopped',packets:1,invalidPackets:0,lastReceivedAtMs:null,error:null}]});
  expect(s.advance(1,10626).avatarPoses?.[0]?.bones.leftUpperArm).toBeUndefined();
+});
+
+const chestTurn=[0,.5,0,Math.sqrt(.75)] as [number,number,number,number];
+const compensatedHead=[0,-.5,0,Math.sqrt(.75)] as [number,number,number,number];
+const mpSample={sourceId:'face',generation:2,receivedAtMs:1000,bones:{chest:{space:'normalized' as const,rotation:chestTurn},head:{space:'normalized' as const,rotation:compensatedHead}},expressions:{}};
+it.each([null,'body'])('recovers MediaPipe face local rotation when its torso is discarded, body=%s',bodySourceId=>{
+ const s=setup('mediapipe');expect(s.applyPatch({sceneId:'scene_smoke',expectedRevision:3,operations:[{kind:'setAvatarTracking',entityId:'performer',tracking:{bodySourceId,faceSourceId:'face'}}]}).ok).toBe(true);
+ s.ingestTracking({samples:[mpSample,{sourceId:'body',generation:1,receivedAtMs:1000,bones:{chest:{space:'raw',rotation:chestTurn}},expressions:{}}],statuses:[]});
+ const pose=s.advance(0,1000).avatarPoses?.[0];expect(pose?.bones.head?.rotation).toEqual([0,0,0,1]);
+ if(bodySourceId)expect(pose?.bones.chest).toMatchObject({rotation:chestTurn,space:'raw'});else expect(pose?.bones.chest).toBeUndefined();
+});
+it('keeps MediaPipe head parent compensation for the same body source and preserves missing-chest fallback',()=>{
+ const s=setup('mediapipe');s.applyPatch({sceneId:'scene_smoke',expectedRevision:3,operations:[{kind:'setAvatarTracking',entityId:'performer',tracking:{bodySourceId:'face',faceSourceId:'face'}}]});s.ingestTracking({samples:[mpSample],statuses:[]});
+ expect(s.advance(0,1000).avatarPoses?.[0]?.bones.head?.rotation).toEqual(compensatedHead);
+ s.applyPatch({sceneId:'scene_smoke',expectedRevision:4,operations:[{kind:'setAvatarTracking',entityId:'performer',tracking:{bodySourceId:null,faceSourceId:'face'}}]});s.ingestTracking({samples:[{...mpSample,receivedAtMs:1001,bones:{head:mpSample.bones.head}}],statuses:[]});
+ expect(s.advance(1,1001).avatarPoses?.[0]?.bones.head?.rotation).toEqual(compensatedHead);
 });

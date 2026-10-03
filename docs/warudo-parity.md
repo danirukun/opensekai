@@ -231,3 +231,5 @@ Before a parity release, review all handbook categories and linked pages. Record
 The [minimum live VTubing plan](superpowers/plans/2026-10-03-minimum-live-vtubing.md) prioritizes VRM import, receiver assets, mixed external motion, camera authoring, OBS and MediaPipe. These remain unchecked until their actual flows and evidence pass. Mock data is permitted but must be identified.
 
 Minimum live slice checkpoint: atomic asset creation, camera lens edits, source assignment, generation checks, and stale pose fading pass focused session tests. Import, physical tracking, and packaged UI acceptance remain unchecked.
+
+Tracking/editor integration checkpoint: source clock forwarding, native receipt freshness, generation-filtered local MediaPipe input, empty-scene authoring, and connected type-specific controls pass282 unit tests and workspace type/Svelte checks. Model preparation verifies3 local task models and6 matching WASM files. Native contracts/import/UDP and renderer lanes passed scoped review. Packaged model execution, webcam permission, supplied-avatar motion, OBS, and phone acceptance are still pending.

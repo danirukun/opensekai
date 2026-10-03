@@ -11,7 +11,7 @@
     "check": "pnpm -r --if-present check && tsc --noEmit -p tsconfig.scripts.json",
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
-    "build": "pnpm --filter @opensekai/output build && tsx scripts/prepare-output.ts && pnpm --filter @opensekai/desktop build",
+    "build": "pnpm --filter @opensekai/output build && tsx scripts/prepare-output.ts && tsx scripts/prepare-tracking.ts && pnpm --filter @opensekai/desktop build",
     "dev:desktop": "pnpm build && pnpm --filter @opensekai/desktop tauri dev",
     "build:mac": "pnpm build && pnpm --filter @opensekai/desktop tauri build --bundles app",
     "mcp": "tsx apps/mcp/src/cli.ts",

@@ -23,3 +23,8 @@ it('preserves the selected output backend in copied URLs from either window',()=
  const forced=new URL(makeOutputUrl(descriptor,'force-webgl2'));expect(forced.searchParams.get('backend')).toBe('webgl2');expect(JSON.parse(decodeURIComponent(forced.hash.slice(1)))).toEqual(descriptor);
  expect(new URL(makeOutputUrl(descriptor,'auto')).searchParams.has('backend')).toBe(false);
 });
+
+it('passes only bounded device choices to the editor without camera frames or privileged fields',()=>{
+ const message={kind:'trackingDevices',devices:[{deviceId:'local-camera',label:'Camera'}]};expect(parseUIMessage(message)).toEqual(message);
+ for(const devices of [[{deviceId:'camera',label:'Camera',frame:[]}],[{deviceId:'a'.repeat(513),label:'Camera'}],Array.from({length:9},()=>({deviceId:'a',label:'a'}))])expect(parseUIMessage({kind:'trackingDevices',devices})).toBeNull();
+});
