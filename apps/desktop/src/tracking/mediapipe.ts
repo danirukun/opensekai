@@ -38,7 +38,7 @@ export function createMediaPipeTracker(options:MediaPipeTrackerOptions){
  };
  interface Run {source:MediaPipeSource&{config:MediaPipeConfig};signature:string;abort:AbortController;gate:ReturnType<typeof createStartGate>;token:number;stream:MediaStream|null;video:HTMLVideoElement|null;worker:WorkerPort|null;queue:ReturnType<typeof createLatestQueue<ImageBitmap>>|null;timer:ReturnType<typeof setTimeout>|null;disposed:boolean;status:TrackingStatus}
  const runs=new Map<string,Run>();let shutdown=false;
- const status=(run:Run,state:TrackingStatus['state'],error:string|null=null)=>{run.status={...run.status,state,error};options.onStatus({...run.status});};
+ const status=(run:Run,state:TrackingStatus['state'],error:string|null=null)=>{run.status={...run.status,state,error};if(state==='stopped'||state==='error')delete run.status.inferenceMs;options.onStatus({...run.status});};
  function dispose(run:Run){if(run.disposed)return;run.disposed=true;run.abort.abort();run.gate.stop();if(run.timer!==null)clearTimeout(run.timer);run.queue?.stop();run.stream?.getTracks().forEach(track=>track.stop());if(run.video){run.video.pause();run.video.srcObject=null;}if(run.worker){run.worker.postMessage({kind:'stop'});const worker=run.worker;setTimeout(()=>worker.terminate(),100);}run.worker=null;}
  function fail(run:Run,error:unknown){if(run.disposed)return;dispose(run);status(run,'error',errorText(error));}
  async function start(run:Run){const current=()=>!run.disposed&&run.gate.current(run.token);
@@ -54,10 +54,12 @@ export function createMediaPipeTracker(options:MediaPipeTrackerOptions){
     if(!current())return;
     const reply=await waitForReply(worker,{kind:'frame',image,timestamp:performance.now(),nativeEpochOffsetMs:options.now()-performance.timeOrigin-performance.now(),sourceId:run.source.id,generation:run.source.generation},'sample',15000,run.abort.signal);
     if(!current()||reply.kind!=='sample')return;
+    if(!Number.isFinite(reply.inferenceMs)||reply.inferenceMs<0||reply.inferenceMs>60000)throw new Error('Invalid MediaPipe inference duration');
+    run.status.inferenceMs=reply.inferenceMs;
     options.onInference?.(run.source.id,reply.inferenceMs);
     const sample=reply.sample;
     if(Object.keys(sample.bones).length||Object.keys(sample.expressions).length){run.status.packets++;run.status.lastReceivedAtMs=sample.receivedAtMs;options.onSample(sample);status(run,'receiving');}
-    else if(run.status.lastReceivedAtMs!==null&&options.now()-run.status.lastReceivedAtMs>500)status(run,'stale');
+    else status(run,run.status.lastReceivedAtMs!==null&&options.now()-run.status.lastReceivedAtMs>500?'stale':run.status.state);
    },error=>fail(run,error));
    let capturePending=false,lastVideoTime=-1,lastCapture=-Infinity;
    const tick=()=>{if(!current())return;run.timer=setTimeout(tick,Math.max(1,1000/30-(performance.now()-lastCapture)));
