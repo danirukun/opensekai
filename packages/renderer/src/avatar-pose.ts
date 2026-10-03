@@ -1,5 +1,5 @@
 import {Object3D,Quaternion,Vector3} from 'three/webgpu';
-import type {VRM, VRMHumanBoneName} from '@pixiv/three-vrm';
+import type {VRM, VRMHumanBoneName, VRMPose} from '@pixiv/three-vrm';
 import type {AvatarPose} from '@opensekai/contracts';
 
 const aliases: Record<string,string> = {Joy:'happy',Angry:'angry',Sorrow:'sad',Fun:'relaxed',A:'aa',I:'ih',U:'ou',E:'ee',O:'oh',Blink:'blink',Blink_L:'blinkLeft',Blink_R:'blinkRight',eyeBlink_L:'blinkLeft',eyeBlink_R:'blinkRight',eyeBlinkLeft:'blinkLeft',eyeBlinkRight:'blinkRight',jawOpen:'aa',mouthSmile_L:'happy',mouthSmile_R:'happy',mouthSmileLeft:'happy',mouthSmileRight:'happy'};
@@ -25,13 +25,25 @@ export function createAvatarBinding(vrm: VRM) {
         // Reset raw state before normalized deltas so lost channels return to rest.
         for (const [node, transform] of rest) {node.position.fromArray(transform.position);node.quaternion.fromArray(transform.rotation);}
         vrm.humanoid.resetNormalizedPose();
+        const normalized: VRMPose = {};
         for (const [name,bone] of Object.entries(pose?.bones ?? {})) {
             if (bone.space !== 'normalized') continue;
             const weight=bone.weight ?? 1;
             const rotation=new Quaternion().slerp(new Quaternion().fromArray(bone.rotation),weight).toArray();
             const position=bone.position ? new Vector3().fromArray(bone.position).multiplyScalar(weight).toArray() : undefined;
-            vrm.humanoid.setNormalizedPose({[name]:{rotation,...(position ? {position} : {})}});
+            normalized[name as VRMHumanBoneName]={rotation,...(position ? {position} : {})};
         }
+        if (normalized.chest && !vrm.humanoid.getNormalizedBoneNode('chest')) {
+            // A chestless humanoid uses the spine to carry the same torso delta.
+            const spine=normalized.spine;
+            const rotation=new Quaternion().fromArray(spine?.rotation ?? [0,0,0,1]);
+            const position=new Vector3().fromArray(normalized.chest.position ?? [0,0,0]).applyQuaternion(rotation)
+                .add(new Vector3().fromArray(spine?.position ?? [0,0,0]));
+            rotation.multiply(new Quaternion().fromArray(normalized.chest.rotation ?? [0,0,0,1]));
+            normalized.spine={rotation:rotation.toArray(),position:position.toArray()};
+            delete normalized.chest;
+        }
+        vrm.humanoid.setNormalizedPose(normalized);
         vrm.humanoid.update();
         for (const [name,bone] of Object.entries(pose?.bones ?? {})) {
             if (bone.space !== 'raw') continue;

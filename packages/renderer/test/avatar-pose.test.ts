@@ -2,14 +2,18 @@ import {expect,it,vi} from 'vitest';
 import {Object3D,Group,Quaternion,Vector3} from 'three';
 import {VRM,VRMHumanoid,VRMExpression,VRMExpressionManager,type VRMHumanBones} from '@pixiv/three-vrm';
 import {createAvatarBinding,expressionWeights} from '../src/avatar-pose';
-function fixture(restRotation = new Quaternion(), restPosition = new Vector3(0,1,0)) {
+function fixture(restRotation = new Quaternion(), restPosition = new Vector3(0,1,0), withChest=false) {
  const scene=new Group(),hips=new Object3D(),head=new Object3D();scene.add(hips);hips.add(head);head.position.copy(restPosition);head.quaternion.copy(restRotation);
  const bones={hips:{node:hips},head:{node:head}} as VRMHumanBones;
  for(const name of ['spine','leftUpperLeg','leftLowerLeg','leftFoot','rightUpperLeg','rightLowerLeg','rightFoot','leftUpperArm','leftLowerArm','leftHand','rightUpperArm','rightLowerArm','rightHand'] as const){const node=new Object3D();hips.add(node);bones[name]={node};}
+ const torso=bones.spine.node;
+ if(withChest){const chest=new Object3D();torso.add(chest);bones.chest={node:chest};}
+ const upperTorso=bones.chest?.node ?? torso;
+ upperTorso.add(head,bones.leftUpperArm.node,bones.rightUpperArm.node);
  const humanoid=new VRMHumanoid(bones);
  const expressionManager=new VRMExpressionManager();for(const name of ['happy','aa','blinkLeft','Custom'])expressionManager.registerExpression(new VRMExpression(name));
  const vrm=new VRM({scene,humanoid,expressionManager,meta:{metaVersion:'1',name:'generated',authors:['tests'],licenseUrl:'https://example.com'}});
- return {vrm,hips,head,binding:createAvatarBinding(vrm)};
+ return {vrm,hips,head,bones,binding:createAvatarBinding(vrm)};
 }
 it('applies a known normalized head delta then absolute raw overrides and resets absent channels',()=>{
  const {binding,head,hips}=fixture();const q=new Quaternion().setFromAxisAngle(new Vector3(0,1,0),Math.PI/2).toArray();
@@ -72,4 +76,24 @@ it('applies official Tasks ARKit blink and smile category names through the VRM 
  expect(vrm.expressionManager!.getValue('aa')).toBe(.5);
  bound.apply();
  for(const name of ['blinkLeft','blinkRight','happy','aa'])expect(vrm.expressionManager!.getValue(name)).toBe(0);
+});
+
+it('uses spine for normalized chest on a valid chestless rig and composes explicit spine delta',()=>{
+ const a=fixture(),b=fixture(),withChest=fixture(new Quaternion(),new Vector3(0,1,0),true);
+ const torso=new Quaternion().setFromAxisAngle(new Vector3(0,1,0),Math.PI/6);
+ const inverse=torso.clone().invert().toArray();
+ const pose={avatarId:'a',bones:{chest:{rotation:torso.toArray(),space:'normalized' as const},head:{rotation:inverse,space:'normalized' as const},leftUpperArm:{rotation:inverse,space:'normalized' as const}},expressions:{}};
+ a.binding.apply(pose);
+ expect(a.bones.spine.node.quaternion.angleTo(torso)).toBeLessThan(1e-7);
+ expect(a.head.getWorldQuaternion(new Quaternion()).angleTo(new Quaternion())).toBeLessThan(1e-7);
+ expect(a.bones.leftUpperArm.node.getWorldQuaternion(new Quaternion()).angleTo(new Quaternion())).toBeLessThan(1e-7);
+ expect(b.bones.spine.node.quaternion.angleTo(new Quaternion())).toBeLessThan(1e-7);
+ withChest.binding.apply(pose);
+ expect(withChest.bones.spine.node.quaternion.angleTo(new Quaternion())).toBeLessThan(1e-7);
+ expect(withChest.bones.chest!.node.quaternion.angleTo(torso)).toBeLessThan(1e-7);
+ const spine=new Quaternion().setFromAxisAngle(new Vector3(1,0,0),Math.PI/5);
+ a.binding.apply({...pose,bones:{...pose.bones,spine:{rotation:spine.toArray(),space:'normalized'}}});
+ expect(a.bones.spine.node.quaternion.angleTo(spine.clone().multiply(torso))).toBeLessThan(1e-7);
+ a.binding.apply({avatarId:'a',bones:{chest:{rotation:torso.toArray(),space:'raw'}},expressions:{}});
+ expect(a.bones.spine.node.quaternion.angleTo(new Quaternion())).toBeLessThan(1e-7);
 });
