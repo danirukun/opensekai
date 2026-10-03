@@ -38,3 +38,8 @@ The three-task CPU tracker published measured inference duration through existin
 The controlled editor restart then stayed waiting without any inference metric for20seconds. Activating Scene resumed camera tracking. WebKit can defer camera access until its document is visible. The fix presents Scene before editor MediaPipe Start or an enabled camera configuration change, with no private browser setting. Tests cover activation ordering and failure without enabling tracking. Packaged verification of this fix is pending. The default two-task timing probe from the failed restart is retained with zero measured samples; it is not a performance result.
 
 Changing iFacialMocap to the VMC port produced the visible Cannot bind receiver endpoint error. Restoring49983 removed the bind failure and returned to waiting. Source generations changed; the scene remained intact.
+
+
+Packaged20898ff camera-owner activation passed actual editor Start: Scene became active automatically and the tracker reached receiving without OBS or a manual window switch. Forty default face/pose inference samples over20seconds measured16ms minimum,17ms median and35ms p95/maximum. These are sampled durations on this host. Final checks at this checkpoint:296unit tests and100Rust tests passed, with1explicit fixture skip.
+
+The final custom-camera check found the Output selector still used Wide/Close smoke IDs. It now derives choices from current scene camera IDs/names. A regression failed with the old choices and passed with authored/renamed cameras. The packaged Camera2 selection check is next.

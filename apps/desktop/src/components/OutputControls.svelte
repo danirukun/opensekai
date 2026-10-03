@@ -2,9 +2,11 @@
  import { Button, Select } from '@oshi-connect/ui';
  import type { AppStatus } from '@opensekai/contracts';
  import type { EditorPanelProps } from '../editor/model';
+ import {cameraOptions} from '../editor/live-fields';
  export interface OutputControlsProps extends EditorPanelProps { status: AppStatus | null; outputUrl: string; disabled?:boolean }
  let { model, view, status, outputUrl, disabled=false }: OutputControlsProps = $props();
  let copied = $state(false); let copyError = $state(false);
+ const cameras=$derived(cameraOptions(view.scene?.entities??[]));
  const camera = $derived(view.scene?.outputs.find(output => output.id === 'output_main')?.cameraId ?? '');
  const output = $derived(status?.outputs.find(output => output.outputId === 'output_main'));
  const fresh = $derived(Boolean(status?.ready && output?.connected));
@@ -12,7 +14,7 @@
  $effect(() => { outputUrl; copied = false; copyError = false; });
 </script>
 <div class="output-controls" aria-label="Output controls">
- <Select label="Camera" value={camera} options={[{ value: 'camera_wide', label: 'Wide' }, { value: 'camera_close', label: 'Close' }]} disabled={disabled || !view.scene || view.pending} onchange={event => { void model.selectCamera(event.currentTarget.value); }} />
+ <Select label="Camera" value={camera} options={cameras} disabled={disabled || !view.scene || view.pending} onchange={event => { void model.selectCamera(event.currentTarget.value); }} />
  <span class="output-state" role="status">{fresh ? 'OBS ready' : output?.connected ? 'OBS waiting' : 'OBS disconnected'}</span>
  <div class="spacer"></div>
  <Button variant="secondary" disabled={!outputUrl} onclick={copy}>{copied ? 'Copied' : 'Copy OBS URL'}</Button>

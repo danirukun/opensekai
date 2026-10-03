@@ -244,3 +244,5 @@ Minimum live acceptance at72ace50: native chooser import of the supplied VRM0, a
 Inference measurement contract checkpoint: optional finite inferenceMs is available through the existing TrackingStatus/AppStatus shape. Legacy status omits it. TypeScript and Rust boundary tests cover limits. Actual worker publication and packaged measurement remain pending.
 
 Rebuilt f507cfc actual Add actions, import and copied helper-free OBS URL passed. Actual three-task inference samples measured median64ms/p9582ms, separate from render CPU; Stop cleared the metric. Receiver bind-conflict error and port restoration passed UI. Repeated editor-only camera Start remained waiting until Scene activation; a fixed editor-only Scene activation command and tested configuration ordering are integrated for packaged recheck.
+
+Packaged20898ff MediaPipe Start automatically activated Scene and reached receiving without OBS; default face/pose timing median17ms/p9535ms.296unit tests and100Rust tests passed,1fixture skip. The custom output camera selector was found to retain smoke-only IDs; a tested scene-derived selector is ready for packaged Camera2/OBS verification.
