@@ -18,18 +18,23 @@ export function createEditorModel(api: AppApi) {
   const reply = await api.sceneInspect({ sceneId: view.scene?.sceneId ?? 'scene_smoke' });
   if (!reply.ok) { publish({ error: reply.error.code }); return; }
   const selectedId = reply.data.entities.some(entity => entity.id === view.selectedId) ? view.selectedId : null;
-  publish({ scene: structuredClone(reply.data), selectedId });
+  publish({ scene: structuredClone(reply.data), selectedId, error: view.error === 'CONFLICT' ? 'CONFLICT' : null });
  }
- async function execute(command: () => Promise<Reply<{ revision: number }>>): Promise<Reply<{ revision: number }>> {
+ async function execute(command: () => Promise<Reply<{ revision: number }>>, reinspectOnFailure = false): Promise<Reply<{ revision: number }>> {
   if (view.pending) return failure('BUSY');
   if (!view.scene) { publish({ error: 'UNAVAILABLE' }); return failure('UNAVAILABLE'); }
   publish({ pending: true, error: null });
   try {
    const reply = await command();
-   if (reply.ok || reply.error.code === 'CONFLICT') await inspect();
+   if (reply.ok || reply.error.code === 'CONFLICT' || reinspectOnFailure) {
+    try { await inspect(); } catch { publish({ error: 'UNAVAILABLE' }); }
+   }
    if (!reply.ok) publish({ error: reply.error.code });
    return reply;
-  } catch { publish({ error: 'UNAVAILABLE' }); return failure('UNAVAILABLE'); }
+  } catch {
+   if (reinspectOnFailure) { try { await inspect(); } catch {} }
+   publish({ error: 'UNAVAILABLE' }); return failure('UNAVAILABLE');
+  }
   finally { publish({ pending: false }); }
  }
  function patch(operation: PatchOp) {
@@ -63,7 +68,7 @@ export function createEditorModel(api: AppApi) {
      revision = reply.data.revision;
     }
     return { ok: true, data: { revision } };
-   });
+   }, true);
   },
  };
 }

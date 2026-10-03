@@ -71,3 +71,22 @@ it('protects model state from listener and caller mutations', async () => {
  const copy = model.read(); copy.scene!.entities.length = 0;
  expect(model.read().scene?.entities.length).toBeGreaterThan(0);
 });
+it('reinspects partial camera success without replaying either mutation', async () => {
+ const { model, api, session } = fixture(); await model.load();
+ vi.mocked(api.cameraSelect).mockImplementationOnce(async params => session.selectCamera(params));
+ vi.mocked(api.cameraSelect).mockResolvedValueOnce({ ok: false, error: { code: 'UNAVAILABLE', message: 'Preview unavailable', ids: [] } });
+ expect(await model.selectCamera('camera_close')).toMatchObject({ ok: false, error: { code: 'UNAVAILABLE' } });
+ expect(api.cameraSelect).toHaveBeenCalledTimes(2);
+ expect(model.read()).toMatchObject({ error: 'UNAVAILABLE', pending: false, scene: { revision: 1 } });
+ expect(model.read().scene).toEqual(session.inspect());
+ expect((await model.setVisibility('marker', false)).ok).toBe(true);
+ expect(api.scenePatch).toHaveBeenLastCalledWith(expect.objectContaining({ expectedRevision: 1 }));
+});
+it('clears recovered inspection errors while preserving conflict indication', async () => {
+ const { model, api, session } = fixture(); await model.load();
+ vi.mocked(api.sceneInspect).mockResolvedValueOnce({ ok: false, error: { code: 'UNAVAILABLE', message: 'Disconnected', ids: [] } });
+ await model.load(); expect(model.read().error).toBe('UNAVAILABLE');
+ await model.load(); expect(model.read().error).toBeNull();
+ session.applyPatch({ sceneId: 'scene_smoke', expectedRevision: 0, operations: [{ kind: 'setVisibility', entityId: 'marker', visible: false }] });
+ await model.setVisibility('marker', true); await model.load(); expect(model.read().error).toBe('CONFLICT');
+});

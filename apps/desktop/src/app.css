@@ -43,4 +43,4 @@ canvas { display: block; width: 100%; max-height: calc(100vh - 164px); aspect-ra
 footer { display: flex; justify-content: space-between; padding-top: 8px; }
 p[role="alert"] { font-size: 12px; color: var(--ds-color-error, var(--ds-color-text)); }
 :focus-visible { outline: 2px solid var(--ds-color-primary); outline-offset: 2px; }
-@media (max-width: 900px) { .editor-grid { grid-template-columns: 160px minmax(180px, 1fr) 220px; } }
+@media (max-width: 900px) { .editor-grid { grid-template-columns: var(--hierarchy-width, 160px) minmax(180px, 1fr) var(--inspector-width, 220px); } }
