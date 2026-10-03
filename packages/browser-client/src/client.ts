@@ -76,12 +76,27 @@ export function connectWithPorts(raw: ConnectionDescriptor, ports: ClientPorts =
         const send = (message: WireMessage) => {
             if (!authenticated && message.kind !== "auth")
                 return false;
-            const text = JSON.stringify(message);
-            const limit = message.kind === "captureReply" ? LIMITS.captureEnvelopeBytes : LIMITS.jsonBytes;
-            if (new TextEncoder().encode(text).length > limit || socket.bufferedAmount > LIMITS.jsonBytes * LIMITS.queuedFrames)
+            const state = message.kind === "frame";
+            try {
+                const text = JSON.stringify(message);
+                const bytes = new TextEncoder().encode(text).length;
+                const limit = message.kind === "captureReply" ? LIMITS.captureEnvelopeBytes : LIMITS.jsonBytes;
+                const queueLimit = LIMITS.jsonBytes * LIMITS.queuedFrames;
+                const queueFull = state
+                    ? socket.bufferedAmount + bytes > Math.min(bytes * LIMITS.queuedFrames, queueLimit)
+                    : socket.bufferedAmount > queueLimit;
+                if (bytes > limit || queueFull) {
+                    if (!state)
+                        disconnect();
+                    return false;
+                }
+                socket.send(text);
+                return true;
+            }
+            catch {
+                disconnect();
                 return false;
-            socket.send(text);
-            return true;
+            }
         };
         const close = () => {
             if (closed)
@@ -143,7 +158,7 @@ export function connectWithPorts(raw: ConnectionDescriptor, ports: ClientPorts =
                 })) {
                     pending.delete(requestId);
                     clear(timer);
-                    resolveCall(error("BUSY", "Transport queue limit"));
+                    resolveCall(error("UNAVAILABLE", "Connection closed"));
                 }
             })
         ])) as unknown as AppApi;
