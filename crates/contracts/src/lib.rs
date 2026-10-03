@@ -1,16 +1,19 @@
 #![forbid(unsafe_code)]
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 pub type Id = String;
 pub type Vec3 = [f64; 3];
 pub type Quat = [f64; 4];
 pub const MAX_DIAGNOSTICS_BYTES: usize = 2048;
 pub const MAX_CLOCK_BYTES: usize = 2048;
+pub const MAX_TRACKING_CLOCK_BYTES: usize = 65536;
 pub const MAX_MESSAGE_BYTES: usize = 256 * 1024;
 pub const MAX_CAPTURE_MESSAGE_BYTES: usize = 3 * 1024 * 1024;
 macro_rules! object { ($name:ident { $($field:ident : $ty:ty),* $(,)? }) => {#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)] #[serde(rename_all="camelCase", deny_unknown_fields)] pub struct $name {$(pub $field: $ty),*}} }
 macro_rules! strings { ($name:ident { $($variant:ident => $wire:literal),* $(,)? }) => {#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)] pub enum $name {$(#[serde(rename=$wire)] $variant),*}} }
+mod tracking;
+pub use tracking::*;
 strings!(Backend { Webgpu=>"webgpu", Webgl2=>"webgl2" });
 strings!(Capability { Read=>"read", Edit=>"edit", Capture=>"capture", Benchmark=>"benchmark" });
 strings!(Role { Publisher=>"publisher", Operator=>"operator", Renderer=>"renderer" });
@@ -81,6 +84,16 @@ pub enum SceneEntity {
         transform: Transform,
         #[serde(rename = "assetId")]
         asset_id: Id,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        tracking: Option<AvatarTracking>,
+    },
+    Tracking {
+        id: Id,
+        name: String,
+        visible: bool,
+        transform: Transform,
+        config: TrackingConfig,
+        generation: u64,
     },
     Camera {
         id: Id,
@@ -93,14 +106,18 @@ pub enum SceneEntity {
 impl SceneEntity {
     pub fn id(&self) -> &str {
         match self {
-            Self::Mesh { id, .. } | Self::Avatar { id, .. } | Self::Camera { id, .. } => id,
+            Self::Mesh { id, .. }
+            | Self::Avatar { id, .. }
+            | Self::Camera { id, .. }
+            | Self::Tracking { id, .. } => id,
         }
     }
     pub fn transform(&self) -> &Transform {
         match self {
             Self::Mesh { transform, .. }
             | Self::Avatar { transform, .. }
-            | Self::Camera { transform, .. } => transform,
+            | Self::Camera { transform, .. }
+            | Self::Tracking { transform, .. } => transform,
         }
     }
 }
@@ -115,6 +132,24 @@ object!(SceneView {schema_version:u32,scene_id:Id,revision:u64,entities:Vec<Scen
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub enum PatchOp {
+    CreateEntity {
+        entity: SceneEntity,
+    },
+    SetCameraLens {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+        lens: Lens,
+    },
+    SetAvatarTracking {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+        tracking: AvatarTracking,
+    },
+    SetTrackingConfig {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+        config: TrackingConfig,
+    },
     SetTransform {
         #[serde(rename = "entityId")]
         entity_id: Id,
@@ -129,14 +164,20 @@ pub enum PatchOp {
 object!(ScenePatch {scene_id:Id,expected_revision:u64,operations:Vec<PatchOp>});
 object!(AssetRecord {id:Id,format:AssetFormat,sha256:String,bytes:u64,source_url:Option<String>,license_label:String,importer_version:u32});
 object!(ConnectionDescriptor {schema_version:u32,session_id:Id,http_origin:String,ws_url:String,role:Role,token:String,capabilities:Vec<Capability>,output_id:Option<Id>});
-object!(RuntimeFrame {
-    schema_version: u32,
-    session_id: Id,
-    sequence: u64,
-    tick: u64,
-    elapsed_ms: f64,
-    scene: SceneView
-});
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RuntimeFrame {
+    pub schema_version: u32,
+    pub session_id: Id,
+    pub sequence: u64,
+    pub tick: u64,
+    pub elapsed_ms: f64,
+    pub scene: SceneView,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub avatar_poses: Option<Vec<AvatarPose>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tracking_status: Option<Vec<TrackingStatus>>,
+}
 object!(FrameApplied {output_id:Id,session_id:Id,sequence:u64,tick:u64,revision:u64,camera_id:Id,backend:Backend,cpu_ms:f64,gpu_ms:Option<f64>,warnings:Vec<AppError>});
 object!(RendererDiagnostics {
     session_id: Id,
@@ -154,7 +195,19 @@ object!(RendererDiagnostics {
     queued_captures: u64
 });
 object!(OutputStatus {output_id:Id,connected:bool,last_frame:Option<FrameApplied>});
-object!(AppStatus {schema_version:u32,session_id:Id,ready:bool,revision:Option<u64>,capabilities:Vec<Capability>,warnings:Vec<AppError>,outputs:Vec<OutputStatus>});
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AppStatus {
+    pub schema_version: u32,
+    pub session_id: Id,
+    pub ready: bool,
+    pub revision: Option<u64>,
+    pub capabilities: Vec<Capability>,
+    pub warnings: Vec<AppError>,
+    pub outputs: Vec<OutputStatus>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tracking_status: Option<Vec<TrackingStatus>>,
+}
 object!(CaptureParams {
     output_id: Id,
     expected_revision: u64,
@@ -230,6 +283,8 @@ pub enum WireMessage {
         session_id: Id,
         #[serde(rename = "elapsedMs")]
         elapsed_ms: u64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        tracking: Option<TrackingUpdate>,
     },
     Auth {
         role: Role,
@@ -356,10 +411,44 @@ impl Validate for SceneView {
         let mut cameras = HashSet::new();
         for e in &self.entities {
             require(ids.insert(e.id()), "duplicate entity")?;
-            e.transform().validate()?;
+            e.validate()?;
             if let SceneEntity::Camera { id, lens, .. } = e {
                 lens.validate()?;
                 cameras.insert(id.as_str());
+            }
+        }
+        let sources: HashSet<_> = self
+            .entities
+            .iter()
+            .filter_map(|e| {
+                if matches!(e, SceneEntity::Tracking { .. }) {
+                    Some(e.id())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        require(
+            sources.len() <= 4
+                && self
+                    .entities
+                    .iter()
+                    .filter(|e| matches!(e, SceneEntity::Avatar { .. }))
+                    .count()
+                    <= 2,
+            "too many live entities",
+        )?;
+        for e in &self.entities {
+            if let SceneEntity::Avatar {
+                tracking: Some(t), ..
+            } = e
+            {
+                for id in [&t.body_source_id, &t.face_source_id].into_iter().flatten() {
+                    require(sources.contains(id.as_str()), "missing tracking source")?;
+                    if t.body_source_id.as_ref() == Some(id) {
+                        require(self.entities.iter().any(|e| matches!(e, SceneEntity::Tracking { id: source_id, config, .. } if source_id == id && !matches!(config, TrackingConfig::IFacialMocap { .. }))), "invalid body source")?;
+                    }
+                }
             }
         }
         let mut outputs = HashSet::new();
@@ -385,8 +474,12 @@ impl Validate for ScenePatch {
             "invalid operation count",
         )?;
         for o in &self.operations {
-            if let PatchOp::SetTransform { transform, .. } = o {
-                transform.validate()?;
+            match o {
+                PatchOp::SetTransform { transform, .. } => transform.validate()?,
+                PatchOp::CreateEntity { entity } => entity.validate()?,
+                PatchOp::SetCameraLens { lens, .. } => lens.validate()?,
+                PatchOp::SetTrackingConfig { config, .. } => config.validate()?,
+                _ => {}
             }
         }
         Ok(())
@@ -400,6 +493,15 @@ impl Validate for RuntimeFrame {
             self.elapsed_ms.is_finite() && self.elapsed_ms >= 0.,
             "invalid elapsed time",
         )?;
+        if let Some(poses) = &self.avatar_poses {
+            require(poses.len() <= 2, "too many avatar poses")?;
+            for pose in poses {
+                pose.validate()?;
+            }
+        }
+        if let Some(statuses) = &self.tracking_status {
+            validate_statuses(statuses)?;
+        }
         self.scene.validate()
     }
 }
@@ -481,6 +583,9 @@ impl Validate for AppStatus {
     fn validate(&self) -> Result<(), AppError> {
         scalar_checks(&serde_json::to_value(self).map_err(|e| invalid(e.to_string()))?)?;
         require(self.schema_version == 1, "unsupported schema version")?;
+        if let Some(statuses) = &self.tracking_status {
+            validate_statuses(statuses)?;
+        }
         for o in &self.outputs {
             if let Some(f) = &o.last_frame {
                 f.validate()?;
@@ -597,8 +702,23 @@ pub fn parse_wire(bytes: &[u8]) -> Result<WireMessage, AppError> {
         "oversized ordinary message",
     )?;
     match &msg {
-        WireMessage::Clock { elapsed_ms, .. } => {
-            require(bytes.len() <= MAX_CLOCK_BYTES, "oversized clock")?;
+        WireMessage::Clock {
+            elapsed_ms,
+            tracking,
+            ..
+        } => {
+            if let Some(update) = tracking {
+                update.validate()?;
+            }
+            require(
+                bytes.len()
+                    <= if tracking.is_some() {
+                        MAX_TRACKING_CLOCK_BYTES
+                    } else {
+                        MAX_CLOCK_BYTES
+                    },
+                "oversized clock",
+            )?;
             require(*elapsed_ms <= 9_007_199_254_740_991, "unsafe clock time")?;
         }
         WireMessage::Auth {
@@ -700,6 +820,10 @@ fn scalar_checks(v: &Value) -> Result<(), AppError> {
                         | "outputId"
                         | "runId"
                         | "evidenceId"
+                        | "sourceId"
+                        | "avatarId"
+                        | "bodySourceId"
+                        | "faceSourceId"
                 ) && !v.is_null()
                 {
                     require(
@@ -711,6 +835,9 @@ fn scalar_checks(v: &Value) -> Result<(), AppError> {
                 if matches!(
                     k.as_str(),
                     "revision"
+                        | "generation"
+                        | "packets"
+                        | "invalidPackets"
                         | "expectedRevision"
                         | "sequence"
                         | "tick"
@@ -901,6 +1028,9 @@ impl Validate for SceneEntity {
     fn validate(&self) -> Result<(), AppError> {
         scalar_checks(&serde_json::to_value(self).map_err(|e| invalid(e.to_string()))?)?;
         self.transform().validate()?;
+        if let Self::Tracking { config, .. } = self {
+            config.validate()?;
+        }
         if let Self::Camera { lens, .. } = self {
             lens.validate()?;
         }
