@@ -9,7 +9,7 @@
 <section class="editor-panel inspector" aria-labelledby="inspector-heading">
  <h2 id="inspector-heading">Properties</h2>
  {#if entity && view.scene}<h3>{entity.name}</h3><label class="visibility-control"><input type="checkbox" checked={entity.visible} disabled={view.pending||disabled} onchange={event=>{void model.setVisibility(entity.id,event.currentTarget.checked);}}/>Visible</label>
- <TransformFields entityId={entity.id} transform={draft?.entityId===entity.id?draft.transform:entity.transform} revision={view.scene.revision} disabled={view.pending||disabled} oncommit={(transform,revision)=>{void model.setTransform?.(entity.id,transform,revision);}} ondraft={transform=>ondraft?.(transform?{entityId:entity.id,transform}:null)}/>
+ <TransformFields entityId={entity.id} baseTransform={entity.transform} transform={draft?.entityId===entity.id?draft.transform:entity.transform} revision={view.scene.revision} disabled={view.pending||disabled} oncommit={(transform,revision)=>{void model.setTransform?.(entity.id,transform,revision);}} ondraft={transform=>ondraft?.(transform?{entityId:entity.id,transform}:null)}/>
  {/if}
  {#if view.error}<p role="alert">{view.error==='CONFLICT'?'Scene changed. Review values and retry.':view.error}</p>{/if}
 </section>
