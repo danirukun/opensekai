@@ -2,7 +2,7 @@
 
 Date: 2026-10-02
 State: approved; first-slice implementation started on 2026-10-03
-Implementation: desktop shell runs; feasibility acceptance pending
+Implementation: scoped macOS smoke and first Warudo-style UI verified; minimum live VTubing slice in progress
 
 ## Purpose and scope
 
@@ -19,7 +19,7 @@ This document defines the product architecture. It is not one implementation tas
 | Desktop shell | Tauri v2 with Rust native services | Selected |
 | Rendering | Three.js WebGPURenderer and TSL; WebGL 2 fallback | Selected direction; actual runtime support needs proof |
 | Production output | Render in OBS Browser Source; transparent background | Initial approach; performance gate required |
-| Editor | Familiar docked workspace; Svelte 5 with shared UI primitives | Proposed default from ecosystem rules |
+| Editor | Warudo-style separate Scene/Editor windows; Svelte5 shared UI | Selected and first slice verified |
 | Simulation | One authoritative session, independent of editor widgets | Required |
 | Simulation placement | Dedicated app worker initially | Candidate; background scheduling gate |
 | ECS | bitECS for session data; Koota is an alternative | Recommendation; benchmark before final selection |
@@ -193,3 +193,7 @@ Tracking, editor, and MCP implementation can overlap with renderer work after co
 A slice is complete only after its spec checks pass, the running path is verified, and the parity checklist cites evidence. Documentation does not mark a feature implemented. Integration tests must explain the real boundary they cover. Unit tests cover new logic. Visual changes need app and OBS checks as appropriate.
 
 This design records the selected directions and the unproven candidates. The [macOS implementation plan](../plans/2026-10-02-opensekai-macos-feasibility.md) defines the first slice. Review that plan before implementation.
+
+## User minimum update — 2026-10-03
+
+Prioritize local VRM import, receiver/tracker assets, mixed VMC/iFacial avatar control, camera authoring, OBS and MediaPipe before the concert foundation. See [minimum live VTubing plan](../plans/2026-10-03-minimum-live-vtubing.md). MediaPipe is now an early deliverable; the earlier external-only tracking sequence is historical. Full shaders, NDI, Windows and concert acceptance retain their separate scope.

@@ -1,0 +1,58 @@
+# REASONS: Minimum live VTubing
+
+## Requirements
+
+Import a local self-contained VRM0 or VRM1 from a native file chooser. Store a validated copy in the application library, return opaque metadata, and create/select an avatar through the common scene API. Launch a useful empty scene with one default camera without fixture environment variables. Preserve explicit smoke fixture mode for historical evaluation.
+
+The Warudo-style Assets list has Import and an Add menu for Camera, VMC Receiver, iFacialMocap Receiver and MediaPipe Tracker. Type-specific Properties expose editable camera lens, receiver endpoint/start-stop, MediaPipe device and face/upper-body/finger options, and avatar Body source/Face source choices. Receivers start stopped. Face source owns head/neck/eyes and expressions; Body owns other humanoid bones and root. If no Face source is assigned, Body can supply its face channels. Invalid or stale sources cannot win by packet arrival order.
+
+Support VMC OSC/UDP Root/Pos, Bone/Pos, Blend/Val, Blend/Apply, OK and T. Preserve staged blend Apply boundaries and raw local rotations. Convert Unity left-handed coordinates once: vector [x,y,-z], quaternion [-x,-y,z,w]. Use configurable bind address/port; default 127.0.0.1:39539. Optional sender address filters apply before parsing. Do not act on network model paths or other remote commands.
+
+Support iFacialMocap UDP v2 with optional legacy UDP delimiter acceptance. Default bind 0.0.0.0:49983. When a phone IP is configured, bind before sending the official v2 handshake to phone port 49983. Convert weights from 0..100 to 0..1; head/eye angles are degrees. No TCP/Bluetooth claim. Blank phone IP allows unsolicited/mock packets without a handshake. Configured sender IP filters packets.
+
+MediaPipe provides a local webcam tracker with face head/expression mapping, upper-body arms, and optional hands/fingers. No inferred locomotion, foot contact or absolute root motion. Use one face, one pose and two hands. Models/WASM are pinned and bundled locally with origin, hash and license notices. Inference is in a separate worker, maximum 30Hz, one active image and one latest pending image. Stop closes tracks, worker/models and images. Camera denial and missing device are errors; late startup after Stop cannot restart tracking. Camera access requires explicit Start and an accurate macOS usage description.
+
+OBS continues to render evaluated scene and pose with no helpers or per-frame image IPC. Verify the supplied avatar, mixed VMC body+iFacial face mock packets, camera settings, MediaPipe mapping and actual model loading. Real device inference/phone evidence is a separate stated check when connected. Keep unknown hardware/performance results unknown.
+
+## Entities
+
+TrackingConfig = {kind:'vmc';enabled:boolean;bindAddress:string;port:number;senderAddress:string|null} | {kind:'ifacialmocap';enabled:boolean;bindAddress:string;port:number;phoneAddress:string|null} | {kind:'mediapipe';enabled:boolean;deviceId:string;face:boolean;upperBody:boolean;hands:boolean;mirror:boolean}.
+
+SceneEntity gains kind:'tracking' with the existing base identity/name/visibility/transform, config:TrackingConfig and generation:number. The session stamps generation with the new revision at create/config change. Its transform is not a render object. Avatar gains optional tracking:{bodySourceId:Id|null;faceSourceId:Id|null}. Missing tracking means no source. ScenePatch adds createEntity(entity), setCameraLens(entityId,lens), setAvatarTracking(entityId,tracking), setTrackingConfig(entityId,config). Validate the whole candidate scene before one revision commit; reject duplicates, wrong kinds and invalid references. Limit64 entities,4 sources and2 avatars in this slice.
+
+TrackingBone = {rotation:Quat;space:'raw'|'normalized';position?:Vec3}. TrackingSample = {sourceId:Id;generation:number;receivedAtMs:number;bones:Record<string,TrackingBone>;expressions:Record<string,number>;root?:{position:Vec3;rotation:Quat}}. Native receipt time uses the native clock domain. MediaPipe receipt time is converted to that domain in the worker. Limit64 known humanoid bones and64 expression names, with finite normalized rotations and clamped weights. Record names remain case-sensitive until the explicit expression adapter.
+
+TrackingStatus = {sourceId:Id;generation:number;state:'stopped'|'waiting'|'receiving'|'stale'|'error';packets:number;invalidPackets:number;lastReceivedAtMs:number|null;error:string|null}. TrackingUpdate = {samples:TrackingSample[];statuses:TrackingStatus[]}. Native publisher Clock optionally contains tracking:TrackingUpdate, bounded to64KiB. Existing empty clock shape remains valid. PublisherClient.onClock(listener:(elapsedMs:number,tracking?:TrackingUpdate)=>void) forwards it once per credited clock. No per-packet ordinary RPC or Tauri UI events.
+
+RuntimeFrame gains optional avatarPoses:AvatarPose[] and trackingStatus:TrackingStatus[]. AvatarPose = {avatarId:Id;bones:Record<string,TrackingBone>;expressions:Record<string,number>;root?:{position:Vec3;rotation:Quat}}. AppStatus optionally exposes trackingStatus from the latest frame. Persistent scene inspection does not contain live pose.
+
+Native ImportResult = {record:AssetRecord;name:string}. A fixed editor-only import_avatar command opens a native chooser; no frontend path argument. Cancellation returns null. The native library import(path) helper exists for file-boundary tests and authorized local evaluation. Asset IDs are content-addressed opaque strings. Import budget128MiB, GLB JSON budget16MiB. Import validates VRM humanoid metadata and self-contained resource references off the async thread before atomic registration. Source bytes and paths never cross IPC.
+
+## Approach
+
+Keep one authoritative session worker and the native credit clock. Native source manager reconciles enabled UDP receiver configurations after accepted persistent revisions and stores one latest bounded sample per source. A clock snapshots native inputs. The session resolves ownership and stale decay at render cadence. Stale channels hold to500ms then fade over250ms to rest/zero; use native receipt time. Clear cached input when config/source generation changes; samples must match the current source generation. Tracking never changes persistent revision.
+
+Renderer retains a full VRM and bindings per avatar instance. A second avatar must not share animated bones or morph state. Apply normalized pose first, update humanoid, then raw VMC bone overrides according to already resolved ownership. Apply explicit expression aliases (VRM0 presets to VRM1, ARKit blink/jaw/smile approximations) and reset absent expressions. Use VRM0 orientation correction. Do not call VRM spring-bone simulation separately in each renderer. Runtime pose application is a pure per-frame assignment, not another simulation.
+
+MediaPipe runs only in the Scene owner, not the Editor or OBS. Its bounded inference result is passed to the local session worker. The Editor reads status through the existing API. No camera frames cross Tauri events. Webcam inference assets are local and no captured video is transmitted externally.
+
+## Structure
+
+Root owns shared TypeScript/Rust contracts, session mutation/tracking evaluation, browser clock forwarding, editor model/composition and main-worker wiring, dependency versions/lockfiles, specs/parity and final evidence. Native lane owns assets import/registry, native receiver modules/service integration/bootstrap commands/capabilities and their tests. Renderer lane owns VRM instance bindings and pose application with tests. UI lane owns Add/Import list controls and type-specific Properties with pure tests. MediaPipe lane follows renderer integration and owns inference adapter/worker/lifecycle with tests.
+
+## Operations
+
+1. Commit analysis/contract/plan and context checkpoint. Implement shared schema and tests sequentially; send the stable interface to isolated worktrees.
+2. Implement native managed import and UDP source lifecycle; implement renderer VRM bindings and property UI concurrently under fixed ownership. Review each lane before integration.
+3. Root implements atomic authoring commands, ECS entity registration, source ownership/loss rules and browser clock/worker forwarding. Compose Import/Add and status flow.
+4. Add MediaPipe local model packaging and inference worker. Prove worker model/WASM loading before webcam claims. Unit-test real retargeting and lifecycle boundaries.
+5. Run source checks, build with current metadata, import the user VRM through actual UI, add sources/camera and drive real UDP ports with repeatable mocks. Verify bone/expression motion and camera changes in app and OBS. Use a connected phone and webcam when available; record exact evidence scope.
+6. Run a focused performance/recovery check with the large avatar and active tracking. Update minimal-deliverable status and Warudo parity, preserve failures, clean owned OBS objects and checkpoint.
+
+## Norms
+
+Use Tauri2, functional TypeScript, Svelte5 and shared Oshi UI. Preserve the approved Warudo layout. Keep platform functions behind native/webcam adapters. Unit tests cover packet parsing, coordinate math, source mixing, stale/stop/rebind behavior and schema validation. Integration tests cover UDP sockets and native managed files because those are real network/file boundaries. Live UI/OBS checks cover critical user flows.
+
+## Safeguards
+
+Use8KiB UDP buffers, OSC depth4 and64 messages per datagram. Reject malformed/truncated/nonfinite input and unknown bones; count rejects. Receiver reconfiguration is serialized; report bind failure, clear superseded generations and close owned sockets. Enabled config is desired state, not proof a socket is receiving. Do not silently replace errors with a green state. Keep sample queues bounded and shutdown idempotent. Preserve frozen fixture identity. Never commit the user model, private connection files, paths, URL tokens or webcam frames. No live streaming or publication. Do not claim full tracking/Warudo/concert/Windows parity from this slice.

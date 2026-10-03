@@ -57,7 +57,7 @@ Sources: [Motion capture overview](https://docs.warudo.app/docs/mocap/overview),
 - [ ] TRK-04 — Face mapping, calibration, smoothing, and overrides. First subset.
 - [ ] TRK-05 — Pose calibration, retargeting, offsets, and source mixing. First subset.
 - [ ] TRK-06 — Pendulum motion behavior. Later.
-- [ ] TRK-07 — MediaPipe integration. Later.
+- [ ] TRK-07 — MediaPipe integration. First useful-build requirement; face, upper body and fingers; physical-camera evidence required.
 - [ ] TRK-08 — OpenSeeFace integration. Later.
 - [ ] TRK-09 — RhyLive integration. Later.
 - [ ] TRK-10 — SteamVR integration. Later.
@@ -225,3 +225,7 @@ The [shared contract check](evaluation/macOS-feasibility/contracts.md) records v
 ## Audit maintenance
 
 Before a parity release, review all handbook categories and linked pages. Record review date, relevant Warudo edition, behavior details, OpenSekai equivalents, and explicit gaps. The checklist baseline is broad; avoid publishing a parity percentage until denominator and partial-credit rules are fixed.
+
+## Current minimum delivery slice
+
+The [minimum live VTubing plan](superpowers/plans/2026-10-03-minimum-live-vtubing.md) prioritizes VRM import, receiver assets, mixed external motion, camera authoring, OBS and MediaPipe. These remain unchecked until their actual flows and evidence pass. Mock data is permitted but must be identified.
