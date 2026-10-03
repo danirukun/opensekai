@@ -423,7 +423,7 @@ mod boundary_tests {
 #[cfg(test)]
 mod import_tests {
     use super::*;
-    fn vrm(json: &str) -> Vec<u8> {
+    pub(super) fn vrm(json: &str) -> Vec<u8> {
         let mut j = json.as_bytes().to_vec();
         while !j.len().is_multiple_of(4) {
             j.push(b' ');
@@ -441,9 +441,7 @@ mod import_tests {
         let source = tempfile::tempdir().unwrap();
         let managed = tempfile::tempdir().unwrap();
         let path = source.path().join("avatar.vrm");
-        let bytes = vrm(
-            r#"{"asset":{"version":"2.0"},"nodes":[{}],"extensions":{"VRMC_vrm":{"specVersion":"1.0","humanoid":{"humanBones":{"hips":{"node":0}}}}}}"#,
-        );
+        let bytes = vrm(include_str!("../../tests/fixtures/minimal-vrm1.json"));
         std::fs::write(&path, &bytes).unwrap();
         let mut r = AssetRegistry::empty(managed.path()).unwrap();
         let a = r.import_avatar(&path).unwrap();
@@ -454,6 +452,17 @@ mod import_tests {
         assert!(r.read(&a.record.id).is_ok());
         let reopened = AssetRegistry::empty(managed.path()).unwrap();
         assert_eq!(reopened.read(&a.record.id).unwrap(), bytes);
+    }
+    #[test]
+    fn imports_vrm0_thumb_metadata() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("thumb.vrm");
+        let bytes = vrm(include_str!("../../tests/fixtures/minimal-vrm0.json"));
+        std::fs::write(&path, bytes).unwrap();
+        assert!(AssetRegistry::empty(dir.path())
+            .unwrap()
+            .import_avatar(&path)
+            .is_ok());
     }
     #[test]
     fn managed_import_rejects_non_vrm_and_external_resources() {
@@ -520,15 +529,22 @@ fn validate_import_file(file: &mut std::fs::File, len: u64) -> Result<Value, App
     let json = json.ok_or_else(|| invalid("Missing GLB JSON"))?;
     fn external(v: &Value) -> bool {
         match v {
-            Value::Object(o) => o.iter().any(|(k, v)| {
-                k == "uri" && !v.as_str().is_some_and(|s| s.starts_with("data:")) || external(v)
-            }),
+            Value::Object(o) => o.iter().any(|(k, v)| k == "uri" || external(v)),
             Value::Array(a) => a.iter().any(external),
             _ => false,
         }
     }
     if external(&json) {
         return Err(invalid("External GLB URI"));
+    }
+    let vrm1 = json.pointer("/extensions/VRMC_vrm");
+    let vrm0 = json.pointer("/extensions/VRM");
+    if json.pointer("/asset/version").and_then(Value::as_str) != Some("2.0")
+        || vrm1.is_some() == vrm0.is_some()
+        || vrm1.is_some_and(|v| v.get("specVersion").and_then(Value::as_str) != Some("1.0"))
+        || vrm0.is_some_and(|v| v.get("specVersion").and_then(Value::as_str) != Some("0.0"))
+    {
+        return Err(invalid("Unsupported VRM version"));
     }
     let nodes = json
         .get("nodes")
@@ -557,10 +573,41 @@ fn validate_import_file(file: &mut std::fs::File, len: u64) -> Result<Value, App
                 })
         });
     let bones = bones.ok_or_else(|| invalid("Missing VRM humanoid"))?;
+    let required = [
+        "hips",
+        "spine",
+        "head",
+        "leftUpperLeg",
+        "leftLowerLeg",
+        "leftFoot",
+        "rightUpperLeg",
+        "rightLowerLeg",
+        "rightFoot",
+        "leftUpperArm",
+        "leftLowerArm",
+        "leftHand",
+        "rightUpperArm",
+        "rightLowerArm",
+        "rightHand",
+    ];
+    let mut names = std::collections::HashSet::new();
+    let mut node_ids = std::collections::HashSet::new();
+    if required
+        .iter()
+        .any(|name| !bones.iter().any(|(n, _)| n == name))
+        || (vrm0.is_some() && !bones.iter().any(|(n, _)| *n == "chest"))
+        || bones.iter().any(|(name, node)| {
+            !names.insert(*name) || !node_ids.insert(node.and_then(Value::as_u64))
+        })
+    {
+        return Err(invalid("Missing or duplicate VRM humanoid bone"));
+    }
     if bones.is_empty()
         || !bones.iter().any(|(name, _)| *name == "hips")
         || bones.iter().any(|(name, node)| {
-            !opensekai_contracts::humanoid_bone(name)
+            !(opensekai_contracts::humanoid_bone(name)
+                || (vrm0.is_some()
+                    && ["leftThumbIntermediate", "rightThumbIntermediate"].contains(name)))
                 || node
                     .and_then(Value::as_u64)
                     .is_none_or(|n| n >= (nodes.len() as u64))
@@ -600,5 +647,46 @@ mod budget_tests {
         drop(f);
         let mut f = std::fs::File::open(p).unwrap();
         assert!(validate_import_file(&mut f, (size + 20) as u64).is_err());
+    }
+}
+#[cfg(test)]
+mod rig_validation_tests {
+    use super::*;
+    #[test]
+    fn rejects_incomplete_version_duplicate_and_data_uri() {
+        let valid: Value =
+            serde_json::from_str(include_str!("../../tests/fixtures/minimal-vrm1.json")).unwrap();
+        let mut cases = Vec::new();
+        let mut incomplete = valid.clone();
+        incomplete["extensions"]["VRMC_vrm"]["humanoid"]["humanBones"]
+            .as_object_mut()
+            .unwrap()
+            .remove("head");
+        cases.push(incomplete);
+        let mut version = valid.clone();
+        version["extensions"]["VRMC_vrm"]["specVersion"] = serde_json::json!("9.0");
+        cases.push(version);
+        let mut data = valid.clone();
+        data["images"] = serde_json::json!([{"uri":"data:image/png;base64,AA=="}]);
+        cases.push(data);
+        let mut duplicate = valid.clone();
+        duplicate["extensions"]["VRMC_vrm"]["humanoid"]["humanBones"]["head"]["node"] =
+            serde_json::json!(0);
+        cases.push(duplicate);
+        let mut duplicate_name: Value =
+            serde_json::from_str(include_str!("../../tests/fixtures/minimal-vrm0.json")).unwrap();
+        let bones = duplicate_name["extensions"]["VRM"]["humanoid"]["humanBones"]
+            .as_array_mut()
+            .unwrap();
+        bones.push(bones[0].clone());
+        cases.push(duplicate_name);
+        let dir = tempfile::tempdir().unwrap();
+        for json in cases {
+            let p = dir.path().join("invalid.vrm");
+            std::fs::write(&p, super::import_tests::vrm(&json.to_string())).unwrap();
+            let mut registry = AssetRegistry::empty(dir.path()).unwrap();
+            assert!(registry.import_avatar(&p).is_err());
+            assert!(registry.records().is_empty());
+        }
     }
 }

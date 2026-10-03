@@ -1,0 +1,246 @@
+{
+  "asset": {
+    "version": "2.0"
+  },
+  "scenes": [
+    {
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "scene": 0,
+  "nodes": [
+    {
+      "name": "hips",
+      "translation": [
+        0,
+        1,
+        0
+      ],
+      "children": [
+        1,
+        4,
+        7
+      ]
+    },
+    {
+      "name": "spine",
+      "translation": [
+        0,
+        0.2,
+        0
+      ],
+      "children": [
+        2
+      ]
+    },
+    {
+      "name": "chest",
+      "translation": [
+        0,
+        0.2,
+        0
+      ],
+      "children": [
+        3,
+        10,
+        13
+      ]
+    },
+    {
+      "name": "head",
+      "translation": [
+        0,
+        0.3,
+        0
+      ]
+    },
+    {
+      "name": "leftUpperLeg",
+      "translation": [
+        -0.1,
+        -0.1,
+        0
+      ],
+      "children": [
+        5
+      ]
+    },
+    {
+      "name": "leftLowerLeg",
+      "translation": [
+        0,
+        -0.4,
+        0
+      ],
+      "children": [
+        6
+      ]
+    },
+    {
+      "name": "leftFoot",
+      "translation": [
+        0,
+        -0.4,
+        0.1
+      ]
+    },
+    {
+      "name": "rightUpperLeg",
+      "translation": [
+        0.1,
+        -0.1,
+        0
+      ],
+      "children": [
+        8
+      ]
+    },
+    {
+      "name": "rightLowerLeg",
+      "translation": [
+        0,
+        -0.4,
+        0
+      ],
+      "children": [
+        9
+      ]
+    },
+    {
+      "name": "rightFoot",
+      "translation": [
+        0,
+        -0.4,
+        0.1
+      ]
+    },
+    {
+      "name": "leftUpperArm",
+      "translation": [
+        -0.2,
+        0.15,
+        0
+      ],
+      "children": [
+        11
+      ]
+    },
+    {
+      "name": "leftLowerArm",
+      "translation": [
+        -0.3,
+        0,
+        0
+      ],
+      "children": [
+        12
+      ]
+    },
+    {
+      "name": "leftHand",
+      "translation": [
+        -0.2,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "rightUpperArm",
+      "translation": [
+        0.2,
+        0.15,
+        0
+      ],
+      "children": [
+        14
+      ]
+    },
+    {
+      "name": "rightLowerArm",
+      "translation": [
+        0.3,
+        0,
+        0
+      ],
+      "children": [
+        15
+      ]
+    },
+    {
+      "name": "rightHand",
+      "translation": [
+        0.2,
+        0,
+        0
+      ]
+    }
+  ],
+  "extensions": {
+    "VRMC_vrm": {
+      "specVersion": "1.0",
+      "meta": {
+        "name": "Test avatar",
+        "title": "Test avatar",
+        "authors": [
+          "OpenSekai test fixture"
+        ],
+        "licenseUrl": "https://vrm.dev/licenses/1.0/",
+        "version": "1"
+      },
+      "humanoid": {
+        "humanBones": {
+          "hips": {
+            "node": 0
+          },
+          "spine": {
+            "node": 1
+          },
+          "chest": {
+            "node": 2
+          },
+          "head": {
+            "node": 3
+          },
+          "leftUpperLeg": {
+            "node": 4
+          },
+          "leftLowerLeg": {
+            "node": 5
+          },
+          "leftFoot": {
+            "node": 6
+          },
+          "rightUpperLeg": {
+            "node": 7
+          },
+          "rightLowerLeg": {
+            "node": 8
+          },
+          "rightFoot": {
+            "node": 9
+          },
+          "leftUpperArm": {
+            "node": 10
+          },
+          "leftLowerArm": {
+            "node": 11
+          },
+          "leftHand": {
+            "node": 12
+          },
+          "rightUpperArm": {
+            "node": 13
+          },
+          "rightLowerArm": {
+            "node": 14
+          },
+          "rightHand": {
+            "node": 15
+          }
+        }
+      }
+    }
+  }
+}
