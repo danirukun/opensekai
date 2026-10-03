@@ -16,7 +16,8 @@
         "label": "main",
         "title": "OpenSekai",
         "width": 1100,
-        "height": 720
+        "height": 720,
+        "backgroundThrottling": "disabled"
       }
     ],
     "security": {
@@ -34,6 +35,9 @@
     "resources": {
       "resources/output/": "output/"
     },
-    "icon": []
+    "icon": [],
+    "macOS": {
+      "minimumSystemVersion": "14.0"
+    }
   }
 }
