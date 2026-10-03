@@ -1,10 +1,10 @@
 <script lang="ts">
- import {untrack} from 'svelte';
+ import {untrack,onDestroy} from 'svelte';
  import {Button,Input} from '@oshi-connect/ui';
  import {RotateCcw} from '@lucide/svelte';
  import type {Transform,Vec3} from '@opensekai/contracts';
  import {quaternionToEuler,scrubValue,initialTransformFields,copyTransform,transformFromFields,type TransformRow} from '../editor/interaction';
- let {entityId,transform,revision,disabled=false,committing=false,cancelKey=null,oncommit,oncancel}: {entityId:string;transform:Transform;baseTransform?:Transform;revision:number;disabled?:boolean;committing?:boolean;cancelKey?:string|null;oncommit:(transform:Transform,revision:number)=>void;oncancel?:()=>void;ondraft?:(transform:Transform|null)=>void}=$props();
+ let {entityId,transform,revision,disabled=false,committing=false,cancelKey=null,oncommit,oncancel,onfinish}: {entityId:string;transform:Transform;baseTransform?:Transform;revision:number;disabled?:boolean;committing?:boolean;cancelKey?:string|null;oncommit:(transform:Transform,revision:number)=>void;oncancel?:()=>void;onfinish?:()=>void;ondraft?:(transform:Transform|null)=>void}=$props();
  const rows:TransformRow[]=['position','rotation','scale'];
  let values=$state(untrack(()=>initialTransformFields(transform))),invalid=$state(false),focused=$state(false);
  let gesture=$state.raw<{id:number;x:number;row:TransformRow;axis:number;value:number;transform:Transform;moved:boolean}|null>(null);
@@ -22,11 +22,12 @@
   gesture={id:event.pointerId,x:event.clientX,row,axis,value:number,transform:base,moved:false};(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
  }
  function move(event:PointerEvent){const g=gesture;if(!g||g.id!==event.pointerId)return;g.moved ||=event.clientX!==g.x;const numbers=(g.row==='rotation'?quaternionToEuler(g.transform.rotation):[...g.transform[g.row]]) as Vec3;numbers[g.axis]=scrubValue(g.value,event.clientX-g.x,g.row);values[g.row]=numbers.map(value=>String(Math.round(value*1000)/1000));submit();}
- function up(){if(!gesture)return;gesture=null;submit();}
+ function up(){if(!gesture)return;gesture=null;submit();if(!focused)onfinish?.();}
+ onDestroy(()=>onfinish?.());
  function reset(row:TransformRow){values[row]=(row==='scale'?[1,1,1]:[0,0,0]).map(String);submit();}
 </script>
 <svelte:window onblur={()=>{if(gesture)cancel();}} onkeydown={event=>{if(event.key==='Escape'){event.preventDefault();cancel();}}}/>
-<div class="transform-fields" role="group" aria-label="Transform" onfocusin={()=>{focused=true;}} onfocusout={event=>{if(!event.currentTarget.contains(event.relatedTarget as Node|null))focused=false;}}>
+<div class="transform-fields" role="group" aria-label="Transform" onfocusin={()=>{focused=true;}} onfocusout={event=>{if(!event.currentTarget.contains(event.relatedTarget as Node|null)){focused=false;onfinish?.();}}}>
  {#each rows as row}<form class="property-row" onsubmit={event=>{event.preventDefault();submit();}}><fieldset disabled={disabled}><legend>{row==='rotation'?'Rotation (°)':row[0].toUpperCase()+row.slice(1)}</legend><div class="transform-values">
   {#each ['X','Y','Z'] as axis,index}<div class="axis-field"><button class="scrub-label" type="button" aria-label="Scrub {row} {axis}" onpointerdown={event=>down(event,row,index)} onpointermove={move} onpointerup={up} onpointercancel={cancel} onlostpointercapture={()=>{if(gesture)cancel();}}>{axis}</button><Input label="{row} {axis}" bind:value={values[row][index]} inputClass="numeric-input" oninput={event=>input(event,row,index)}/></div>{/each}
   <Button type="button" variant="ghost" class="row-reset" title="Reset {row}" onclick={()=>reset(row)}><RotateCcw size={14}/></Button>

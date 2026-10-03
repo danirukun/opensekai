@@ -69,3 +69,10 @@ it('accepts authoritative normalized quaternion rounding and retains the next qu
  const last={...transform(2),rotation:eulerToQuaternion([0,40,0])};live.offer('marker',last);finish();await vi.advanceTimersByTimeAsync(16);
  expect(error).not.toHaveBeenCalled();expect(api.scenePatch).toHaveBeenCalledTimes(2);expect(session.inspect().entities.find(e=>e.id==='marker')?.transform.position[0]).toBe(2);live.close();
 });
+it('ending field focus drains the latest target and permits later sidebar mutations',async()=>{
+ const {api,model,session,live,error}=await fixture();let finish!:()=>void;
+ vi.mocked(api.scenePatch).mockImplementationOnce(p=>new Promise(resolve=>{finish=()=>resolve(session.applyPatch(p));}));
+ live.offer('marker',transform(1));await vi.advanceTimersByTimeAsync(16);live.offer('marker',transform(2));live.end();finish();await vi.advanceTimersByTimeAsync(16);
+ expect(session.inspect().entities.find(e=>e.id==='marker')?.transform.position[0]).toBe(2);
+ await model.setVisibility('marker',false);expect(error).not.toHaveBeenCalled();live.close();
+});

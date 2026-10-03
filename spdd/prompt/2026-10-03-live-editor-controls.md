@@ -8,7 +8,7 @@ Valid position, rotation and positive scale numeric input is applied as it chang
 
 ## E — Entities
 
-AssetGroup = {key:string;label:string;entities:SceneEntity[]}. EditorView has a transformPending boolean in addition to pending so live fields can remain enabled during their own commits. LiveTransform coordinator accepts {entityId,transform}, retains at most one pending edit and captures the expected revision. Its dependency is the existing EditorModel read/subscribe/setTransform API. It exposes offer, cancel and close, plus error and pending-state callbacks. Pending covers active and queued work so a field cannot reset to an earlier acknowledgement. Authoritative scene IDs and camera IDs remain unchanged.
+AssetGroup = {key:string;label:string;entities:SceneEntity[]}. EditorView has a transformPending boolean in addition to pending so live fields can remain enabled during their own commits. LiveTransform coordinator accepts {entityId,transform}, retains at most one pending edit and captures the expected revision. Its dependency is the existing EditorModel read/subscribe/setTransform API. It exposes offer, end, cancel and close, plus error and pending-state callbacks. Pending covers active and queued work so a field cannot reset to an earlier acknowledgement. End releases the focused edit revision anchor on field blur, gesture release without input focus, or component removal, while draining the latest valid target. Sidebar/output actions remain disabled until queued work drains. Authoritative scene IDs and camera IDs remain unchanged.
 
 ## A — Approach
 

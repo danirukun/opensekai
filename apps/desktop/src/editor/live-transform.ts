@@ -4,10 +4,10 @@ function sameTransform(actual:Transform|undefined,expected:Transform){return act
 type Edit={entityId:string;transform:Transform;revision:number;selection:string|null};
 export function createLiveTransform(model:EditorModel,onError:(code:ErrorCode)=>void=()=>{},onPending:(pending:boolean)=>void=()=>{}){
  let latest:Edit|null=null,active:Edit|null=null,closed=false,timer:ReturnType<typeof setTimeout>|undefined,lastSent=-Infinity;
- let pendingState=false;
+ let pendingState=false,editing=false;
  function pending(){const value=!closed&&(active!==null||latest!==null);if(value!==pendingState){pendingState=value;onPending(value);}}
  let anchor:{revision:number;selection:string|null}|null=null;
- function cancel(){anchor=null;latest=null;if(timer!==undefined)clearTimeout(timer);timer=undefined;pending();}
+ function cancel(){editing=false;anchor=null;latest=null;if(timer!==undefined)clearTimeout(timer);timer=undefined;pending();}
  function fail(code:ErrorCode){cancel();onError(code);}
  function schedule(){if(closed||active||timer!==undefined||!latest)return;timer=setTimeout(()=>{timer=undefined;void flush();},Math.max(16,16-(performance.now()-lastSent)));}
  async function flush(){
@@ -23,7 +23,7 @@ export function createLiveTransform(model:EditorModel,onError:(code:ErrorCode)=>
   const current=model.read(),entity=current.scene?.entities.find(e=>e.id===edit.entityId);
   if(current.selectedId!==edit.selection){cancel();return;}
   if(current.scene?.revision!==reply.data.revision||!sameTransform(entity?.transform,edit.transform)){fail(current.error??'CONFLICT');return;}
-  anchor={revision:reply.data.revision,selection:edit.selection};
+  anchor=editing?{revision:reply.data.revision,selection:edit.selection}:null;
   const queued=peek();
   if(queued){if(queued.revision!==edit.revision&&queued.revision!==reply.data.revision){fail('CONFLICT');return;}queued.revision=reply.data.revision;schedule();}
   pending();
@@ -42,9 +42,10 @@ export function createLiveTransform(model:EditorModel,onError:(code:ErrorCode)=>
    if(active&&active.selection!==view.selectedId)return false;
    if(closed||!parsed.success||!view.scene||view.selectedId!==entityId||view.pending&&!view.transformPending)return false;
    if(!view.scene.entities.some(e=>e.id===entityId&&e.kind!=='tracking'))return false;
-   anchor??={revision:view.scene.revision,selection:view.selectedId};
+   editing=true;anchor??={revision:view.scene.revision,selection:view.selectedId};
    latest={entityId,transform:structuredClone(parsed.data),revision:view.scene.revision,selection:view.selectedId};pending();schedule();return true;
   },
+  end(){editing=false;anchor=null;},
   cancel,
   close(){closed=true;cancel();unsubscribe();},
  };
