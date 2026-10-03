@@ -8,7 +8,7 @@ Select scene objects by clicking. Show preview-only move/rotate/scale gizmos and
 
 Expose position, Euler rotation in degrees, positive scale, per-row reset and visibility in property rows. Numeric labels support horizontal scrubbing; ordinary input stays available. Panel borders support pointer capture, keyboard adjustment, bounded sizes and cancellation. Right-click menus support object tools, visibility and transform reset; cameras can become the active output camera. Menus support Escape, arrow navigation, Enter, focus return and viewport-edge placement. Shared kit lacks a context-menu primitive; use shared Button/Input and a small local menu.
 
-The editor can close/hide and reopen from the scene window or Escape. Closing the scene owner exits the app. One worker remains in the scene owner. The editor window has only an operator connection and renderer output descriptor for clipboard copying. It cannot invoke bootstrap_session or shutdown_session. Production renderer output_main never enables interaction helpers. Read-only operator capabilities disable editing.
+The editor close button hides its window. The scene Editor button or Escape reopens it. Escape cancels an active scene gesture or editor interaction before it performs another action. Closing the scene owner exits the app. One worker remains in the scene owner. The editor window has only an operator connection and renderer output descriptor for clipboard copying. It cannot invoke bootstrap_session or shutdown_session. Production renderer output_main never enables interaction helpers. Read-only operator capabilities disable editing.
 
 ## Entities
 
@@ -18,7 +18,7 @@ RendererOptions.editor?: {onSelect(id: Id | null): void; onCommit(edit: EditorTr
 
 EditorModel gains setTransform(entityId, transform, expectedRevision?) and clearSelection(). Validate TransformSchema before transport. An explicit revision cannot be silently replaced by a newer model revision. Existing methods keep their signatures.
 
-NativeEditorConnection = {operator: ConnectionDescriptor; output: ConnectionDescriptor; assets: AssetRecord[]}. editor_connection returns this projection from the already-started service. Only main can bootstrap/shutdown. editor can call editor_connection/app_version. Both are local application windows. Use fixed-target show_editor (main caller only) and hide_editor (editor caller only) commands. Do not grant generic window hide/show/focus commands to the editor. Enforce caller labels in native commands as well as generated ACL.
+NativeEditorConnection = {operator: ConnectionDescriptor; output: ConnectionDescriptor; assets: AssetRecord[]; rendererMode: 'auto'|'force-webgl2'}. editor_connection returns this projection from the already-started service. Only main can bootstrap/shutdown. editor can call editor_connection/app_version. Both are local application windows. Use fixed-target show_editor (main caller only) and hide_editor (editor caller only) commands. Do not grant generic window hide/show/focus commands to the editor. Enforce caller labels in native commands as well as generated ACL.
 
 UI event payloads contain selection, tool or transform drafts and a sync signal. Validate them, keep payloads small and coalesce draft notifications to at most20Hz. They never carry publisher descriptors or evaluated pose streams. Commits use the existing operator WebSocket API.
 
@@ -46,3 +46,9 @@ Follow the product constitution and frontend-design skill. Use pnpm, Svelte5, fu
 ## Safeguards
 
 Keep renderer objects/camera retained; no new per-frame gizmo construction. Dispose controls/listeners/helpers before renderer resources. Cancel selection changes and external revisions. Validate finite transform values, normalized quaternions and positive scale. Limit one edit per gesture. Clear draft state on failure and disconnect. Clean owned OBS objects and restore the previous scene. Never log bearer URLs or clipboard contents. Do not claim minimum hardware, concert performance, graph support or full Warudo parity from this slice.
+
+## Refresh behavior refinement
+
+Background scene inspection uses a private loading flag. It does not disable active controls when a scene is already loaded. An older inspection reply cannot replace a newer revision. Equal identity, revision and authoritative transform snapshots preserve ordinary typed drafts. Displayed viewport drafts are separate from the authoritative base used to cancel property scrubs.
+
+The local UI bridge accepts only bounded selection, tool, transform draft, refresh and ready messages. Drafts have one active send and one latest pending value, at no more than20 sends per second. The preview canvas keeps a16:9 pointer rectangle inside the scene window.

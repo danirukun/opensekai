@@ -1,9 +1,11 @@
 import { invoke } from '@tauri-apps/api/core';
 import SessionWorker from '@opensekai/session/worker?worker';
 import { connectClient } from '@opensekai/browser-client';
+import type { EditorOptions, EditorHandle } from '@opensekai/renderer';
 import { createRenderer } from '@opensekai/renderer';
 import { makeSmokeScene, ConnectionDescriptorSchema } from '@opensekai/contracts';
 import type { AssetRecord, BrowserClient, ConnectionDescriptor, RuntimeFrame } from '@opensekai/contracts';
+import { makeOutputUrl } from './editor/output-url';
 import { createPreviewPump } from './preview-pump';
 
 export interface NativeBootstrap {
@@ -16,8 +18,8 @@ export interface NativeBootstrap {
  assets: AssetRecord[];
  rendererMode: 'auto' | 'force-webgl2';
 }
-export async function bootstrapDesktop(canvas: HTMLCanvasElement): Promise<{
- client: BrowserClient; outputUrl: string; assets: AssetRecord[]; stop(): Promise<void>;
+export async function bootstrapDesktop(canvas: HTMLCanvasElement, editorOptions?: EditorOptions): Promise<{
+ client: BrowserClient; outputUrl: string; assets: AssetRecord[]; canEdit:boolean; editor?:EditorHandle; stop(): Promise<void>;
 }> {
  const info = await invoke<NativeBootstrap>('bootstrap_session');
  let worker: Worker | undefined;
@@ -50,7 +52,8 @@ export async function bootstrapDesktop(canvas: HTMLCanvasElement): Promise<{
   for (const result of connected) if (result.status === 'rejected') throw result.reason;
   const [client, preview] = clients;
   const renderer = await createRenderer({ canvas, outputId: 'preview_main', mode: info.rendererMode,
-   resources: preview, diagnostics: false, resolutionScale: 0.5 });
+   resources: preview, diagnostics: false, resolutionScale: 0.5,
+   editor: info.operator.capabilities.includes('edit') ? editorOptions : undefined });
   const pump = createPreviewPump<RuntimeFrame>(async frame => {
    const applied = await renderer.applyFrame(frame);
    if (!stopped) preview.sendApplied(applied);
@@ -60,10 +63,20 @@ export async function bootstrapDesktop(canvas: HTMLCanvasElement): Promise<{
   });
   const off = preview.onFrame(frame => pump.offer(frame));
   closePreview = () => { off(); pump.stop(); renderer.dispose(); };
-  const outputUrl = `${new URL(info.output.httpOrigin).origin}/renderer/?diagnostics=1${info.rendererMode === 'force-webgl2' ? '&backend=webgl2' : ''}#${encodeURIComponent(JSON.stringify(info.output))}`;
-  return { client, outputUrl, assets: info.assets, stop };
+  const outputUrl = makeOutputUrl(info.output,info.rendererMode);
+  return { client, outputUrl, assets: info.assets, canEdit:info.operator.capabilities.includes('edit'), editor:renderer.editor, stop };
  } catch (error) {
   await stop().catch(() => {});
   throw error;
  }
+}
+
+export interface NativeEditorConnection { operator:ConnectionDescriptor;output:ConnectionDescriptor;assets:AssetRecord[];rendererMode:'auto'|'force-webgl2' }
+export async function bootstrapEditor(){
+ const info=await invoke<NativeEditorConnection>('editor_connection');
+ for(const descriptor of [info.operator,info.output])ConnectionDescriptorSchema.parse(descriptor);
+ if(info.operator.role!=='operator'||info.output.role!=='renderer'||info.output.outputId!=='output_main'||info.operator.sessionId!==info.output.sessionId)throw new Error('Editor connection scope mismatch');
+ const client=await connectClient(info.operator);
+ const outputUrl=makeOutputUrl(info.output,info.rendererMode);
+ return {client,assets:info.assets,outputUrl,canEdit:info.operator.capabilities.includes('edit'),stop(){client.close();}};
 }

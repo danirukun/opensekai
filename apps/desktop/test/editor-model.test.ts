@@ -109,3 +109,12 @@ it('rejects a gesture revision after a refresh instead of replacing it with the 
  expect(await model.setTransform('marker', transform, 0)).toMatchObject({ ok: false, error: { code: 'CONFLICT' } });
  expect(api.scenePatch).not.toHaveBeenCalled(); expect(model.read().error).toBe('CONFLICT');
 });
+
+it('keeps an unchanged background inspection from disabling an edit, and ignores older replies', async () => {
+ const {model,api,session}=fixture();await model.load();const pendingStates:boolean[]=[];model.subscribe(view=>pendingStates.push(view.pending));
+ let resolve!:(reply:Reply<ReturnType<typeof session.inspect>>)=>void;
+ vi.mocked(api.sceneInspect).mockImplementationOnce(()=>new Promise(done=>{resolve=done;}));
+ const before=session.inspect();const refresh=model.load();expect(model.read().pending).toBe(false);
+ expect((await model.setVisibility('marker',false)).ok).toBe(true);resolve({ok:true,data:before});await refresh;
+ expect(model.read().scene?.revision).toBe(1);expect(pendingStates.filter(Boolean)).toHaveLength(2);
+});

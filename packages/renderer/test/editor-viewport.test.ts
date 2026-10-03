@@ -16,3 +16,8 @@ it.each(['revision','selection','disabled','escape','blur','pointercancel','lost
 it('removes owned helper and listeners before release',()=>{const x=setup();const helper=mock.controls.helper;expect(helper.parent).toBe(x.scene);x.editor.dispose();expect(helper.parent).toBe(null);expect(mock.controls.dispose).toHaveBeenCalledOnce();expect(mock.controls.listeners.size).toBe(0);});
 
 it('cancels render-frame revision drift without model sync',()=>{const x=setup();mock.controls.emit('mouseDown');x.editor.frameRevision(x.state.scene.revision+1);mock.controls.emit('mouseUp');expect(x.onCommit).not.toHaveBeenCalled();expect(x.editor.frozen(x.id)).toBe(false);x.editor.dispose();});
+
+it('consumes gesture cancellation Escape while idle Escape can reopen the editor',()=>{
+ const x=setup();const idle=new Event('keydown',{cancelable:true});Object.defineProperty(idle,'key',{value:'Escape'});x.canvas.dispatchEvent(idle);expect(idle.defaultPrevented).toBe(false);
+ mock.controls.emit('mouseDown');const active=new Event('keydown',{cancelable:true});Object.defineProperty(active,'key',{value:'Escape'});x.canvas.dispatchEvent(active);expect(active.defaultPrevented).toBe(true);expect(x.editor.frozen(x.id)).toBe(false);mock.controls.emit('mouseUp');expect(x.onCommit).not.toHaveBeenCalled();x.editor.dispose();
+});

@@ -76,7 +76,7 @@ export function createEditorViewport(canvas: HTMLCanvasElement, camera: Perspect
         options.onSelect(null);
     };
     const abort = () => {down=null;cancel();};
-    const key = (event:KeyboardEvent) => {if(event.key==='Escape')abort();};
+    const key = (event:KeyboardEvent) => {if(event.key==='Escape' && (gesture || down || controls.dragging)){event.preventDefault();abort();}};
     controls.addEventListener('mouseDown',begin);
     controls.addEventListener('objectChange',draft);
     controls.addEventListener('mouseUp',release);
