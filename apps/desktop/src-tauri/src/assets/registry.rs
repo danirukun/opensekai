@@ -1,7 +1,8 @@
 use opensekai_contracts::{invalid, AppError, AssetRecord, ErrorCode, Validate};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -21,6 +22,7 @@ struct Entry {
 }
 pub struct AssetRegistry {
     root: PathBuf,
+    library: PathBuf,
     entries: HashMap<String, Entry>,
 }
 fn error(code: ErrorCode, id: &str) -> AppError {
@@ -41,7 +43,147 @@ fn opaque(id: &str) -> bool {
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'))
 }
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportResult {
+    pub record: AssetRecord,
+    pub name: String,
+}
+pub const MAX_IMPORT_BYTES: u64 = 128 * 1024 * 1024;
+pub const MAX_GLB_JSON_BYTES: usize = 16 * 1024 * 1024;
 impl AssetRegistry {
+    pub fn empty(root: &Path) -> Result<Self, AppError> {
+        std::fs::create_dir_all(root).map_err(|_| error(ErrorCode::Unavailable, ""))?;
+        let root = root
+            .canonicalize()
+            .map_err(|_| error(ErrorCode::Unavailable, ""))?;
+        let mut result = Self {
+            library: root.join("library"),
+            root,
+            entries: HashMap::new(),
+        };
+        result.load_library()?;
+        Ok(result)
+    }
+    pub fn set_library(&mut self, root: &Path) -> Result<(), AppError> {
+        std::fs::create_dir_all(root).map_err(|_| error(ErrorCode::Unavailable, ""))?;
+        self.library = root
+            .canonicalize()
+            .map_err(|_| error(ErrorCode::Unavailable, ""))?;
+        self.load_library()
+    }
+    fn load_library(&mut self) -> Result<(), AppError> {
+        let library = self.library.clone();
+        std::fs::create_dir_all(&library).map_err(|_| error(ErrorCode::Unavailable, ""))?;
+        for item in std::fs::read_dir(&library).map_err(|_| error(ErrorCode::Unavailable, ""))? {
+            let p = item.map_err(|_| error(ErrorCode::Unavailable, ""))?.path();
+            if p.extension().is_some_and(|s| s == "json") {
+                if let Ok(record) = std::fs::read(&p).and_then(|b| {
+                    serde_json::from_slice::<AssetRecord>(&b).map_err(std::io::Error::other)
+                }) {
+                    if record.validate().is_ok()
+                        && opaque(&record.id)
+                        && record.id == format!("avatar_{}", record.sha256)
+                    {
+                        self.entries.insert(
+                            record.id.clone(),
+                            Entry {
+                                path: library.join(format!("{}.vrm", record.id)),
+                                record,
+                            },
+                        );
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+    pub fn import_avatar(&mut self, path: &Path) -> Result<ImportResult, AppError> {
+        let mut source = std::fs::File::open(path).map_err(|_| error(ErrorCode::NotFound, ""))?;
+        let size = source
+            .metadata()
+            .map_err(|_| error(ErrorCode::Unavailable, ""))?
+            .len();
+        if size > MAX_IMPORT_BYTES {
+            return Err(invalid("Avatar exceeds import budget"));
+        }
+        let library = self.library.clone();
+        std::fs::create_dir_all(&library).map_err(|_| error(ErrorCode::Unavailable, ""))?;
+        let mut copy = tempfile::NamedTempFile::new_in(&library)
+            .map_err(|_| error(ErrorCode::Unavailable, ""))?;
+        let mut hash = Sha256::new();
+        let mut buffer = [0u8; 65536];
+        let mut count = 0u64;
+        loop {
+            let n = source
+                .read(&mut buffer)
+                .map_err(|_| error(ErrorCode::Unavailable, ""))?;
+            if n == 0 {
+                break;
+            }
+            count += n as u64;
+            if count > MAX_IMPORT_BYTES {
+                return Err(invalid("Avatar exceeds import budget"));
+            }
+            hash.update(&buffer[..n]);
+            copy.write_all(&buffer[..n])
+                .map_err(|_| error(ErrorCode::Unavailable, ""))?;
+        }
+        copy.as_file_mut()
+            .flush()
+            .map_err(|_| error(ErrorCode::Unavailable, ""))?;
+        let json = validate_import_file(copy.as_file_mut(), count)?;
+        let sha256 = hash
+            .finalize()
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect::<String>();
+        let id = format!("avatar_{sha256}");
+        let record = AssetRecord {
+            id: id.clone(),
+            format: opensekai_contracts::AssetFormat::Vrm,
+            sha256,
+            bytes: count,
+            source_url: None,
+            license_label: "User supplied".into(),
+            importer_version: 1,
+        };
+        let target = library.join(format!("{id}.vrm"));
+        copy.as_file()
+            .sync_all()
+            .map_err(|_| error(ErrorCode::Unavailable, ""))?;
+        copy.persist(&target)
+            .map_err(|_| error(ErrorCode::Unavailable, ""))?;
+        let mut metadata = tempfile::NamedTempFile::new_in(&library)
+            .map_err(|_| error(ErrorCode::Unavailable, ""))?;
+        metadata
+            .write_all(&serde_json::to_vec(&record).map_err(|_| invalid("Invalid avatar record"))?)
+            .map_err(|_| error(ErrorCode::Unavailable, ""))?;
+        metadata
+            .as_file()
+            .sync_all()
+            .map_err(|_| error(ErrorCode::Unavailable, ""))?;
+        metadata
+            .persist(library.join(format!("{id}.json")))
+            .map_err(|_| error(ErrorCode::Unavailable, ""))?;
+        self.entries.insert(
+            id,
+            Entry {
+                record: record.clone(),
+                path: target,
+            },
+        );
+        let name = json
+            .pointer("/extensions/VRMC_vrm/meta/name")
+            .or_else(|| json.pointer("/extensions/VRM/meta/title"))
+            .and_then(Value::as_str)
+            .filter(|n| !n.is_empty())
+            .unwrap_or("Avatar")
+            .chars()
+            .take(128)
+            .collect();
+        Ok(ImportResult { record, name })
+    }
     pub fn load(manifest: &Path) -> Result<Self, AppError> {
         let path = manifest
             .canonicalize()
@@ -68,7 +210,17 @@ impl AssetRegistry {
             entries.insert(entry.record.id.clone(), entry);
         }
         // Individual missing/corrupt fixtures must not prevent the local service from starting.
-        Ok(Self { root, entries })
+        Ok(Self {
+            library: root.join("library"),
+            root,
+            entries,
+        })
+    }
+    pub fn fixture_records(&self) -> Vec<AssetRecord> {
+        self.records()
+            .into_iter()
+            .filter(|r| !r.id.starts_with("avatar_"))
+            .collect()
     }
     pub fn records(&self) -> Vec<AssetRecord> {
         let mut records: Vec<_> = self.entries.values().map(|e| e.record.clone()).collect();
@@ -107,7 +259,9 @@ pub fn resolve_asset(id: &str, registry: &AssetRegistry) -> Result<PathBuf, AppE
         .path
         .canonicalize()
         .map_err(|_| error(ErrorCode::NotFound, id))?;
-    if !path.starts_with(&registry.root) || !path.is_file() {
+    if (!path.starts_with(&registry.root) && !path.starts_with(&registry.library))
+        || !path.is_file()
+    {
         return Err(error(ErrorCode::InvalidInput, id));
     }
     Ok(path)
@@ -263,5 +417,188 @@ mod boundary_tests {
             registry.read("fixture_asset").unwrap_err().code,
             ErrorCode::InvalidInput
         );
+    }
+}
+
+#[cfg(test)]
+mod import_tests {
+    use super::*;
+    fn vrm(json: &str) -> Vec<u8> {
+        let mut j = json.as_bytes().to_vec();
+        while !j.len().is_multiple_of(4) {
+            j.push(b' ');
+        }
+        let mut b = b"glTF".to_vec();
+        b.extend(2u32.to_le_bytes());
+        b.extend((20 + j.len() as u32).to_le_bytes());
+        b.extend((j.len() as u32).to_le_bytes());
+        b.extend(0x4e4f534au32.to_le_bytes());
+        b.extend(j);
+        b
+    }
+    #[test]
+    fn managed_import_copies_content_and_deduplicates() {
+        let source = tempfile::tempdir().unwrap();
+        let managed = tempfile::tempdir().unwrap();
+        let path = source.path().join("avatar.vrm");
+        let bytes = vrm(
+            r#"{"asset":{"version":"2.0"},"nodes":[{}],"extensions":{"VRMC_vrm":{"specVersion":"1.0","humanoid":{"humanBones":{"hips":{"node":0}}}}}}"#,
+        );
+        std::fs::write(&path, &bytes).unwrap();
+        let mut r = AssetRegistry::empty(managed.path()).unwrap();
+        let a = r.import_avatar(&path).unwrap();
+        assert_eq!(a.record.bytes, bytes.len() as u64);
+        assert_eq!(r.read(&a.record.id).unwrap(), bytes);
+        assert_eq!(r.import_avatar(&path).unwrap().record.id, a.record.id);
+        std::fs::remove_file(path).unwrap();
+        assert!(r.read(&a.record.id).is_ok());
+        let reopened = AssetRegistry::empty(managed.path()).unwrap();
+        assert_eq!(reopened.read(&a.record.id).unwrap(), bytes);
+    }
+    #[test]
+    fn managed_import_rejects_non_vrm_and_external_resources() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut r = AssetRegistry::empty(dir.path()).unwrap();
+        for json in [
+            r#"{"asset":{"version":"2.0"}}"#,
+            r#"{"extensions":{"VRM":{"humanoid":{"humanBones":[{"bone":"hips","node":0}]}}},"images":[{"uri":"secret.png"}]}"#,
+        ] {
+            let p = dir.path().join("bad.vrm");
+            std::fs::write(&p, vrm(json)).unwrap();
+            assert!(r.import_avatar(&p).is_err());
+        }
+        assert!(r.records().is_empty());
+    }
+}
+fn validate_import_file(file: &mut std::fs::File, len: u64) -> Result<Value, AppError> {
+    file.seek(SeekFrom::Start(0))
+        .map_err(|_| invalid("Invalid avatar file"))?;
+    let mut header = [0u8; 12];
+    file.read_exact(&mut header)
+        .map_err(|_| invalid("Truncated GLB"))?;
+    if &header[..4] != b"glTF"
+        || u32::from_le_bytes(header[4..8].try_into().unwrap()) != 2
+        || u32::from_le_bytes(header[8..].try_into().unwrap()) as u64 != len
+    {
+        return Err(invalid("Invalid GLB header"));
+    }
+    let mut offset = 12u64;
+    let mut json = None;
+    let mut binary = false;
+    while offset < len {
+        let mut h = [0u8; 8];
+        file.read_exact(&mut h)
+            .map_err(|_| invalid("Truncated GLB chunk"))?;
+        let size = u32::from_le_bytes(h[..4].try_into().unwrap()) as usize;
+        let kind = u32::from_le_bytes(h[4..].try_into().unwrap());
+        offset += 8;
+        if !size.is_multiple_of(4) || offset + size as u64 > len {
+            return Err(invalid("Invalid GLB chunk"));
+        }
+        match kind {
+            0x4e4f534a if json.is_none() && offset == 20 => {
+                if size > MAX_GLB_JSON_BYTES {
+                    return Err(invalid("GLB JSON exceeds budget"));
+                }
+                let mut data = vec![0; size];
+                file.read_exact(&mut data)
+                    .map_err(|_| invalid("Truncated GLB JSON"))?;
+                json = Some(
+                    serde_json::from_slice::<Value>(&data)
+                        .map_err(|_| invalid("Invalid GLB JSON"))?,
+                );
+            }
+            0x004e4942 if json.is_some() && !binary => {
+                binary = true;
+                file.seek(SeekFrom::Current(size as i64))
+                    .map_err(|_| invalid("Invalid GLB binary"))?;
+            }
+            _ => return Err(invalid("Invalid GLB chunks")),
+        }
+        offset += size as u64;
+    }
+    let json = json.ok_or_else(|| invalid("Missing GLB JSON"))?;
+    fn external(v: &Value) -> bool {
+        match v {
+            Value::Object(o) => o.iter().any(|(k, v)| {
+                k == "uri" && !v.as_str().is_some_and(|s| s.starts_with("data:")) || external(v)
+            }),
+            Value::Array(a) => a.iter().any(external),
+            _ => false,
+        }
+    }
+    if external(&json) {
+        return Err(invalid("External GLB URI"));
+    }
+    let nodes = json
+        .get("nodes")
+        .and_then(Value::as_array)
+        .ok_or_else(|| invalid("Missing VRM nodes"))?;
+    let bones = json
+        .pointer("/extensions/VRMC_vrm/humanoid/humanBones")
+        .and_then(Value::as_object)
+        .map(|b| {
+            b.iter()
+                .map(|(name, v)| (name.as_str(), v.get("node")))
+                .collect::<Vec<_>>()
+        })
+        .or_else(|| {
+            json.pointer("/extensions/VRM/humanoid/humanBones")
+                .and_then(Value::as_array)
+                .map(|b| {
+                    b.iter()
+                        .map(|v| {
+                            (
+                                v.get("bone").and_then(Value::as_str).unwrap_or(""),
+                                v.get("node"),
+                            )
+                        })
+                        .collect()
+                })
+        });
+    let bones = bones.ok_or_else(|| invalid("Missing VRM humanoid"))?;
+    if bones.is_empty()
+        || !bones.iter().any(|(name, _)| *name == "hips")
+        || bones.iter().any(|(name, node)| {
+            !opensekai_contracts::humanoid_bone(name)
+                || node
+                    .and_then(Value::as_u64)
+                    .is_none_or(|n| n >= (nodes.len() as u64))
+        })
+    {
+        return Err(invalid("Invalid VRM humanoid"));
+    }
+    Ok(json)
+}
+#[cfg(test)]
+mod budget_tests {
+    use super::*;
+    #[test]
+    fn import_rejects_sparse_oversized_file_without_reading_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("oversized.vrm");
+        std::fs::File::create(&p)
+            .unwrap()
+            .set_len(MAX_IMPORT_BYTES + 1)
+            .unwrap();
+        let mut r = AssetRegistry::empty(dir.path()).unwrap();
+        assert!(r.import_avatar(&p).is_err());
+        assert!(r.records().is_empty());
+    }
+    #[test]
+    fn json_budget_rejects_before_allocation() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("json.vrm");
+        let size = MAX_GLB_JSON_BYTES as u32 + 4;
+        let mut f = std::fs::File::create(&p).unwrap();
+        f.write_all(b"glTF").unwrap();
+        f.write_all(&2u32.to_le_bytes()).unwrap();
+        f.write_all(&(size + 20).to_le_bytes()).unwrap();
+        f.write_all(&size.to_le_bytes()).unwrap();
+        f.write_all(&0x4e4f534au32.to_le_bytes()).unwrap();
+        f.set_len((size + 20) as u64).unwrap();
+        drop(f);
+        let mut f = std::fs::File::open(p).unwrap();
+        assert!(validate_import_file(&mut f, (size + 20) as u64).is_err());
     }
 }
