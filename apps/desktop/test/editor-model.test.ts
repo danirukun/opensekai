@@ -142,3 +142,14 @@ it('rejects wrong-kind properties and invalid or stale config drafts without a n
  expect(api.scenePatch).not.toHaveBeenCalled();
  expect(await model.setCameraLens('camera_wide',{fovDegrees:40,near:.01,far:100},99)).toMatchObject({ok:false,error:{code:'CONFLICT'}});expect(api.scenePatch).not.toHaveBeenCalled();
 });
+
+it('changes avatar idle with current revision and rejects non-avatar or invalid settings',async()=>{
+ const {model,api}=fixture();await model.load();model.select('performer');
+ expect((await model.setAvatarIdle('performer',{kind:'builtin',enabled:true},0)).ok).toBe(true);
+ expect(model.read()).toMatchObject({selectedId:'performer',scene:{revision:1}});
+ expect(model.read().scene?.entities.find(e=>e.id==='performer')).toMatchObject({idleAnimation:{enabled:true}});
+ expect((await model.setAvatarIdle('marker',{kind:'builtin',enabled:true},1)).ok).toBe(false);
+ expect((await model.setAvatarIdle('performer',{kind:'mixamo',enabled:true} as any,1)).ok).toBe(false);
+ expect(api.scenePatch).toHaveBeenCalledTimes(1);
+ expect((await model.setAvatarIdle('performer',{kind:'builtin',enabled:false},1)).ok).toBe(true);
+});

@@ -1,7 +1,7 @@
 # Default avatar idle contract
 
 ## Requirements
-New VRM imports enable a subtle looping idle: relaxed arms, small chest breathing and sway. Add an Idle animation switch to avatar properties. Live tracking takes priority for each supplied bone. Sparse packets leave other idle bones active. Lost tracking fades back to idle. No default root movement, facial expression, leg motion or renderer clock. Existing avatars without a setting remain unchanged until enabled. Mixamo/VRMA clip import is later work.
+New VRM imports enable a subtle looping idle: relaxed arms, small chest breathing and sway. Add an Idle animation checkbox to avatar properties. Live tracking takes priority for each supplied bone. Sparse packets leave other idle bones active. Lost tracking fades back to idle. No default root movement, facial expression, leg motion or renderer clock. Existing avatars without a setting remain unchanged until enabled. Mixamo/VRMA clip import is later work.
 
 ## Entities
 AvatarIdle is {kind:'builtin',enabled:boolean}. SceneEntity avatar has optional idleAnimation. Add setAvatarIdle with entityId and idleAnimation to the existing validated scene patch API. AvatarPose has optional baseBones, a map of normalized TrackingBone values without per-bone weight. Preserve bones for tracking values and weights. TypeScript and Rust contracts agree and reject raw or weighted base bones.
@@ -23,7 +23,7 @@ Integrator owns packages/contracts and crates/contracts schemas and exports, ses
 6. Record source/backend/capture hashes and update parity. Commit verified checkpoint.
 
 ## Norms
-No new dependencies, external clip downloads or per-frame image IPC. Keep private avatar, phone and local tokens out of Git. Use shared UI and bounded frame queues. Keep phase numeric and bounded for long elapsed time. Two avatars remain within the existing scene budget.
+No new dependencies, external clip downloads or per-frame image IPC. Keep private avatar, phone and local tokens out of Git. Use shared UI where it provides the control. The frozen kit has no checkbox; use a native inspector checkbox. Keep bounded frame queues. Keep phase numeric and bounded for long elapsed time. Two avatars remain within the existing scene budget.
 
 ## Safeguards
 Missing/disabled idle gives no baseline and preserves frozen smoke fixture behavior. Validate finite animation time and normalized baseline bones. Required unit tests cover pure pose and composition logic; real protocol integration covers changed contracts. OBS evidence uses owned local source and restores prior settings. Actual arm direction must be checked on the supplied VRM before completion. Unknown timing remains unknown; one-avatar idle does not certify concert performance.

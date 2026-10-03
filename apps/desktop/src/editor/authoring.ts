@@ -13,3 +13,7 @@ export function makeEmptyScene():SceneView {
 }
 
 export function importFailure(cause:unknown):string {const parsed=AppErrorSchema.safeParse(cause);return parsed.success?parsed.data.message.slice(0,160):'Could not import avatar';}
+
+export function makeImportedAvatar(id:string,assetId:string,name:string):Extract<SceneEntity,{kind:'avatar'}> {
+ return {id,kind:'avatar',name,assetId,visible:true,transform:transform(),tracking:{bodySourceId:null,faceSourceId:null},idleAnimation:{kind:'builtin',enabled:true}};
+}

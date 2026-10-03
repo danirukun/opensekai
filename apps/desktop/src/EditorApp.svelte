@@ -12,7 +12,7 @@
  import {collectWarnings} from './editor/warnings';
  import type { Draft, Tool } from './editor/ui-message';
  import {AssetRecordSchema} from '@opensekai/contracts';
- import {makeAuthoringEntity,importFailure} from './editor/authoring';
+ import {makeAuthoringEntity,makeImportedAvatar,importFailure} from './editor/authoring';
  import {applyTrackingConfig} from './editor/tracking-activation';
  import type {AddKind} from './editor/live-fields';
  import type { AppStatus, AssetRecord, TrackingConfig,Transform } from '@opensekai/contracts';
@@ -38,7 +38,7 @@
   try{
    const result=await invoke<{record:AssetRecord;name:string}|null>('import_avatar');if(!result)return;
    const record=AssetRecordSchema.parse(result.record);assets=[...assets.filter(asset=>asset.id!==record.id),record];
-   const id=crypto.randomUUID();const reply=await model.createEntity({id,kind:'avatar',name:result.name,assetId:record.id,visible:true,transform:{position:[0,0,0],rotation:[0,0,0,1],scale:[1,1,1]},tracking:{bodySourceId:null,faceSourceId:null}},model.read().scene?.revision);
+   const id=crypto.randomUUID();const reply=await model.createEntity(makeImportedAvatar(id,record.id,result.name),model.read().scene?.revision);
    if(reply.ok)select(id);
   }catch(cause){importError=importFailure(cause);}finally{importing=false;}
  }
@@ -74,7 +74,7 @@
   <div bind:this={shell} class="editor-body">
    {#if panel==='assets'}<div class="assets-column" style:width="{width}px">{#if model}<Hierarchy {model} {view} onselect={select} ontool={setTool} disabled={!canEdit||!available||importing||livePending} onadd={add} onimport={importAvatar} ontrackingtoggle={toggleTracking}/>{/if}<div class="asset-list-footer">{view.scene?.entities.length??0} assets</div></div>
     <ResizeHandle value={width} min={160} max={maxWidth} onchange={value=>{width=value;}}/>
-    <div class="properties-column">{#if model}<Inspector {model} {view} {draft} {transformError} {livePending} onlivetransform={transformLive} oncanceltransform={()=>liveTransform?.cancel()} onfinishtransform={()=>liveTransform?.end()} disabled={!canEdit||!available||importing} {devices} trackingStatus={status?.trackingStatus??[]} onlens={async(id,lens,revision)=>{await model?.setCameraLens(id,lens,revision);}} onavatartracking={async(id,tracking,revision)=>{await model?.setAvatarTracking(id,tracking,revision);}} ontrackingconfig={configureTracking} ontrackingtoggle={toggleTracking}/>{/if}</div>
+    <div class="properties-column">{#if model}<Inspector {model} {view} {draft} {transformError} {livePending} onlivetransform={transformLive} oncanceltransform={()=>liveTransform?.cancel()} onfinishtransform={()=>liveTransform?.end()} disabled={!canEdit||!available||importing} {devices} trackingStatus={status?.trackingStatus??[]} onlens={async(id,lens,revision)=>{await model?.setCameraLens(id,lens,revision);}} onavataridle={async(id,idle,revision)=>{await model?.setAvatarIdle(id,idle,revision);}} onavatartracking={async(id,tracking,revision)=>{await model?.setAvatarTracking(id,tracking,revision);}} ontrackingconfig={configureTracking} ontrackingtoggle={toggleTracking}/>{/if}</div>
    {:else if panel==='output'}<section class="output-panel"><h2>Output</h2>{#if model}<OutputControls {model} {view} {status} {outputUrl} disabled={!canEdit||!available||livePending}/>{/if}</section>
    {:else}<AssetList {assets} {warnings}/>{/if}
   </div>
