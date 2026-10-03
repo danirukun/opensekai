@@ -113,12 +113,12 @@ export function connectWithPorts(raw: ConnectionDescriptor, ports: ClientPorts =
                     resolveCall(valid);
                     return;
                 }
-                if (!authenticatedGrants.has(requiredCapability(m))) {
-                    resolveCall(error("FORBIDDEN", "Capability denied"));
-                    return;
-                }
                 if (!authenticated) {
                     resolveCall(error("UNAVAILABLE", "Connection unavailable"));
+                    return;
+                }
+                if (!authenticatedGrants.has(requiredCapability(m))) {
+                    resolveCall(error("FORBIDDEN", "Capability denied"));
                     return;
                 }
                 if (pending.size >= LIMITS.pendingCalls) {

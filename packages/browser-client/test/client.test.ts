@@ -351,3 +351,4 @@ it("old handler completion cannot remove a new connection request with the same 
     client.close();
     vi.useRealTimers();
 });
+it('returns availability errors before grant errors while reconnecting',async()=>{vi.useFakeTimers();const {sockets,promise}=start();authenticate(sockets[0]);const client=await promise as BrowserClient;expect(await client.api.cameraSelect({outputId:'output_main',cameraId:'camera_wide',expectedRevision:0})).toMatchObject({ok:false,error:{code:'FORBIDDEN'}});sockets[0].dispatchEvent(new Event('close'));expect(await client.api.appStatus({})).toMatchObject({ok:false,error:{code:'UNAVAILABLE'}});client.close();vi.useRealTimers();});
