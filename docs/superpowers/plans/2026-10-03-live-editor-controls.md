@@ -39,8 +39,8 @@ Files: editor/live-transform.ts, editor/model.ts, components/TransformFields.sve
 ## Task3: Actual app and OBS
 
 Files: ignored private acceptance helpers; docs/evaluation/live-editor-controls.md; docs/warudo-parity.md.
-- [ ] Save current private scene, run focused/full required checks, checkpoint source and build the macOS release.
-- [ ] Restore exact user assets/transforms/receiver configs/camera output after restart through the common API.
-- [ ] Verify grouped search/collapse, row eye hide/show and camera activation by actual UI actions.
-- [ ] Verify numeric position/rotation/scale without Apply, rapid edits, scrubbing and reset. Match current revision/camera in preview and OBS; retain images and hashes.
-- [ ] Clean owned OBS resources, update parity/evidence/plan and commit the final checkpoint.
+- [x] Save current private scene, run focused/full required checks, checkpoint source and build the macOS release.
+- [x] Restore exact user assets/transforms/receiver configs/camera output after restart through the common API.
+- [x] Verify grouped search/collapse, row eye hide/show and camera activation by actual UI actions.
+- [x] Verify numeric position/rotation/scale without Apply, rapid edits, scrubbing and reset. Match current revision/camera in preview and OBS; retain images and hashes.
+- [x] Clean owned OBS resources, update parity/evidence/plan and commit the final checkpoint.

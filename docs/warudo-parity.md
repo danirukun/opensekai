@@ -204,6 +204,8 @@ These split the first editor slice from broad OSE-08 and SCN-02. The broad boxes
 - [x] UI-04 — Context-menu keyboard actions, menu Escape, panel resizing and editor hide/reopen on macOS.
 - [x] UI-05 — Actual OBS URL copy and private clipboard match on macOS.
 - [x] UI-06 — Renderer unsupported-feature warnings retained in Resources.
+- [x] UI-07 — Type groups, collapse/search, sidebar visibility and active output camera actions on macOS.
+- [x] UI-08 — Live numeric transforms, scrub/reset, bounded coalescing and focus handoff on macOS; verified with clean OBS. [Check](evaluation/live-editor-controls.md).
 
 ## Evidence ledger
 
