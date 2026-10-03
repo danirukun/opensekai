@@ -52,3 +52,7 @@ Keep renderer objects/camera retained; no new per-frame gizmo construction. Disp
 Background scene inspection uses a private loading flag. It does not disable active controls when a scene is already loaded. An older inspection reply cannot replace a newer revision. Equal identity, revision and authoritative transform snapshots preserve ordinary typed drafts. Displayed viewport drafts are separate from the authoritative base used to cancel property scrubs.
 
 The local UI bridge accepts only bounded selection, tool, transform draft, refresh and ready messages. Drafts have one active send and one latest pending value, at no more than20 sends per second. The preview canvas keeps a16:9 pointer rectangle inside the scene window.
+
+## Bound input refinement
+
+Initialize all nine input strings before component mount. Do not pass undefined to shared bindable inputs. Copy transform arrays at the Svelte boundary; do not structuredClone reactive proxies. Send plain scene snapshots to preview editor controls. These rules apply to scrubs, resets, menu actions and viewport gestures.

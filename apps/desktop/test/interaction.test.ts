@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { clamp, scrubValue, eulerToQuaternion, quaternionToEuler, menuPosition, transformFromRow, reconcileTransformFields } from '../src/editor/interaction';
+import type {Transform} from '@opensekai/contracts';
+import { copyTransform, initialTransformFields, clamp, scrubValue, eulerToQuaternion, quaternionToEuler, menuPosition, transformFromRow, reconcileTransformFields } from '../src/editor/interaction';
 describe('editor interaction math', () => {
  it('bounds resize and positive scale scrubs', () => { expect(clamp(450,160,360)).toBe(360); expect(scrubValue(1,-200,'scale')).toBe(0.001); expect(scrubValue(2,10,'position')).toBeCloseTo(2.1); });
  it('round trips Euler degrees with normalized rotation', () => { const q=eulerToQuaternion([20,30,40]); expect(Math.hypot(...q)).toBeCloseTo(1); quaternionToEuler(q).forEach((v,i)=>expect(v).toBeCloseTo([20,30,40][i])); });
@@ -23,4 +24,13 @@ describe('ordinary transform input reconciliation',()=>{
    expect(result.values).not.toBe(typed); expect(result.values.position[0]).toBe(String(changed.transform.position[0]));
   }
  });
+});
+
+it('initializes every bound input before mount and copies reactive transforms without structuredClone',()=>{
+ const transform={position:[1,2,3],rotation:[0,0,0,1],scale:[1,1,1]} as Transform;
+ const reactive=new Proxy(transform,{get:(target,key)=>Reflect.get(target,key)});
+ expect(()=>structuredClone(reactive)).toThrow();
+ expect(initialTransformFields(reactive)).toEqual({position:['1','2','3'],rotation:['0','0','0'],scale:['1','1','1']});
+ const copy=copyTransform(reactive);expect(structuredClone(copy)).toEqual(transform);copy.position[0]=9;expect(transform.position[0]).toBe(1);
+ expect(transformFromRow(reactive,'position',[4,5,6])?.position).toEqual([4,5,6]);
 });

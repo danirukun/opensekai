@@ -3,18 +3,18 @@
  import { Button, Input } from '@oshi-connect/ui';
  import { RotateCcw } from '@lucide/svelte';
  import type { Transform, Vec3 } from '@opensekai/contracts';
- import { eulerToQuaternion, quaternionToEuler, scrubValue, transformFromRow, reconcileTransformFields, type TransformRow } from '../editor/interaction';
+ import { eulerToQuaternion, quaternionToEuler, scrubValue, transformFromRow, reconcileTransformFields, initialTransformFields, copyTransform, type TransformRow } from '../editor/interaction';
  let {entityId,transform,baseTransform,revision,disabled=false,oncommit,ondraft}: {entityId:string;transform:Transform;baseTransform?:Transform;revision:number;disabled?:boolean;oncommit:(transform:Transform,revision:number)=>void;ondraft?:(transform:Transform|null)=>void}=$props();
  const rows:TransformRow[]=['position','rotation','scale'];
- let values=$state<Record<TransformRow,string[]>>({position:[],rotation:[],scale:[]});let invalid=$state(false);
+ let values=$state<Record<TransformRow,string[]>>(untrack(()=>initialTransformFields(transform)));let invalid=$state(false);
  let sourceKey:string|null=null;
  let gesture:{id:number;x:number;row:TransformRow;axis:number;value:number;revision:number;entityId:string;transform:Transform;draft:Transform;moved:boolean;baseKey:string}|null=null;
  function sync(force=false){const next=reconcileTransformFields(force?null:sourceKey,{entityId,revision,transform},untrack(()=>values));if(force||next.key!==sourceKey){values=next.values;invalid=false;}sourceKey=next.key;}
  function cancel(){gesture=null;ondraft?.(null);sync(true);}
  $effect(()=>{const current=revision,id=entityId,t=transform,blocked=disabled,baseKey=JSON.stringify(baseTransform??transform);if(gesture&&(current!==gesture.revision||id!==gesture.entityId||blocked||baseKey!==gesture.baseKey)){cancel();}else if(!gesture){void t;sync();}});
- function edited(row:TransformRow,numbers:Vec3,base=transform):Transform{return {...structuredClone(base),[row]:row==='rotation'?eulerToQuaternion(numbers):numbers};}
+ function edited(row:TransformRow,numbers:Vec3,base=transform):Transform{return {...copyTransform(base),[row]:row==='rotation'?eulerToQuaternion(numbers):numbers};}
  function apply(row:TransformRow){const n=values[row].map(v=>v.trim()===''?NaN:Number(v)) as Vec3;const next=transformFromRow(transform,row,n);if(!next){invalid=true;return;}invalid=false;oncommit(next,revision);}
- function down(event:PointerEvent,row:TransformRow,axis:number){if(disabled||event.button!==0)return;event.preventDefault();const number=Number(values[row][axis]);if(!Number.isFinite(number))return;gesture={id:event.pointerId,x:event.clientX,row,axis,value:number,revision,entityId,transform:structuredClone(transform),draft:structuredClone(transform),moved:false,baseKey:JSON.stringify(baseTransform??transform)};(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);}
+ function down(event:PointerEvent,row:TransformRow,axis:number){if(disabled||event.button!==0)return;event.preventDefault();const number=Number(values[row][axis]);if(!Number.isFinite(number))return;gesture={id:event.pointerId,x:event.clientX,row,axis,value:number,revision,entityId,transform:copyTransform(transform),draft:copyTransform(transform),moved:false,baseKey:JSON.stringify(baseTransform??transform)};(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);}
  function move(event:PointerEvent){const g=gesture;if(!g||g.id!==event.pointerId)return;g.moved ||= event.clientX!==g.x;const numbers=(g.row==='rotation'?quaternionToEuler(g.transform.rotation):[...g.transform[g.row]]) as Vec3;numbers[g.axis]=scrubValue(g.value,event.clientX-g.x,g.row);g.draft=edited(g.row,numbers,g.transform);values[g.row]=numbers.map(v=>String(Math.round(v*1000)/1000));ondraft?.(g.draft);}
  function up(){const g=gesture;if(!g)return;gesture=null;ondraft?.(null);if(g.moved&&g.revision===revision&&g.entityId===entityId)oncommit(g.draft,g.revision);else sync();}
 </script>

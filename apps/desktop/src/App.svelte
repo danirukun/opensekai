@@ -16,7 +16,7 @@
  let tool=$state<Tool>('translate'),canEdit=$state(false),available=$state(false),error=$state<string|null>(null),dragging=$state(false);
  let menu=$state<{x:number;y:number;actions:MenuAction[]}|null>(null);
  const selected=$derived(view.scene?.entities.find(e=>e.id===view.selectedId));
- function sync(){session?.editor?.sync({scene:view.scene,selectedId:view.selectedId,tool,enabled:canEdit&&available&&!view.pending});}
+ function sync(){session?.editor?.sync({scene:model?.read().scene??null,selectedId:view.selectedId,tool,enabled:canEdit&&available&&!view.pending});}
  function notify(message:Parameters<typeof sendUI>[1]){void sendUI('editor',message).catch(()=>{error='Editor unavailable';});}
  function setTool(value:Tool){tool=value;sync();notify({kind:'tool',tool});}
  function showEditor(){void invoke('show_editor').catch(()=>{error='Could not open editor';});}

@@ -26,12 +26,15 @@ export function menuPosition(x:number,y:number,width:number,height:number,viewpo
 
 export function transformFromRow(base:Transform,row:TransformRow,values:Vec3):Transform|null {
  if(values.some(v=>!Number.isFinite(v))||(row==='scale'&&values.some(v=>v<=0)))return null;
- return {...structuredClone(base),[row]:row==='rotation'?eulerToQuaternion(values):[...values]};
+ return {...copyTransform(base),[row]:row==='rotation'?eulerToQuaternion(values):[...values]};
 }
 
 export type TransformFieldValues = Record<TransformRow, string[]>;
 export function reconcileTransformFields(previousKey:string|null, source:{entityId:string;revision:number;transform:Transform}, values:TransformFieldValues):{key:string;values:TransformFieldValues} {
  const key=JSON.stringify([source.entityId,source.revision,source.transform.position,source.transform.rotation,source.transform.scale]);
  if(key===previousKey)return {key,values};
- return {key,values:{position:source.transform.position.map(String),rotation:quaternionToEuler(source.transform.rotation).map(v=>String(Math.round(v*1000)/1000)),scale:source.transform.scale.map(String)}};
+ return {key,values:initialTransformFields(source.transform)};
 }
+
+export function copyTransform(transform:Transform):Transform{return {position:[...transform.position],rotation:[...transform.rotation],scale:[...transform.scale]};}
+export function initialTransformFields(transform:Transform):TransformFieldValues{return {position:transform.position.map(String),rotation:quaternionToEuler(transform.rotation).map(v=>String(Math.round(v*1000)/1000)),scale:transform.scale.map(String)};}
