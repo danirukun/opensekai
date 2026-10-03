@@ -1,9 +1,11 @@
+import {TrackingConfigSchema,AvatarTrackingSchema,AvatarPoseSchema,TrackingStatusSchema,TrackingUpdateSchema} from './tracking';
 import { z } from "zod";
 import type { AppApi, Capability, Reply, ValidatedCall } from "./types";
 export const LIMITS = {
     jsonBytes: 262144,
     diagnosticsBytes: 2048,
     clockBytes: 2048,
+    trackingClockBytes: 65536,
     captureEnvelopeBytes: 3145728,
     pngBytes: 2097152,
     pendingCalls: 32,
@@ -98,8 +100,10 @@ export const SceneEntitySchema = z.discriminatedUnion("kind", [
     }),
     EntityBaseSchema.extend({
         kind: z.literal("avatar"),
-        assetId: IdSchema
+        assetId: IdSchema,
+        tracking: AvatarTrackingSchema.optional()
     }),
+    EntityBaseSchema.extend({kind:z.literal('tracking'),config:TrackingConfigSchema,generation:u}),
     EntityBaseSchema.extend({
         kind: z.literal("camera"),
         lens: LensSchema
@@ -118,8 +122,17 @@ export const SceneViewSchema = z.strictObject({
     revision: u,
     entities: z.array(SceneEntitySchema).max(64),
     outputs: z.array(OutputSpecSchema).max(64)
-}).refine(s => new Set(s.entities.map(e => e.id)).size === s.entities.length && new Set(s.outputs.map(o => o.id)).size === s.outputs.length && s.outputs.every(o => s.entities.some(e => e.id === o.cameraId && e.kind === "camera")), "Duplicate ID or invalid camera reference");
+}).refine(s => {
+ const sources=s.entities.filter(e=>e.kind==='tracking');
+ if(sources.length>4||s.entities.filter(e=>e.kind==='avatar').length>2)return false;
+ if(new Set(s.entities.map(e=>e.id)).size!==s.entities.length||new Set(s.outputs.map(o=>o.id)).size!==s.outputs.length||!s.outputs.every(o=>s.entities.some(e=>e.id===o.cameraId&&e.kind==='camera')))return false;
+ return s.entities.every(e=>e.kind!=='avatar'||!e.tracking||[e.tracking.bodySourceId,e.tracking.faceSourceId].every((id,index)=>id===null||sources.some(source=>source.id===id&&(index===1||source.config.kind!=='ifacialmocap'))));
+}, 'Duplicate ID, budget or invalid reference');
 export const PatchOpSchema = z.discriminatedUnion("kind", [
+    z.strictObject({kind:z.literal('createEntity'),entity:SceneEntitySchema}),
+    z.strictObject({kind:z.literal('setCameraLens'),entityId:IdSchema,lens:LensSchema}),
+    z.strictObject({kind:z.literal('setAvatarTracking'),entityId:IdSchema,tracking:AvatarTrackingSchema}),
+    z.strictObject({kind:z.literal('setTrackingConfig'),entityId:IdSchema,config:TrackingConfigSchema}),
     z.strictObject({
         kind: z.literal("setTransform"),
         entityId: IdSchema,
@@ -175,7 +188,9 @@ export const RuntimeFrameSchema = z.strictObject({
     sequence: u,
     tick: u,
     elapsedMs: n.nonnegative(),
-    scene: SceneViewSchema
+    scene: SceneViewSchema,
+    avatarPoses:z.array(AvatarPoseSchema).max(2).optional(),
+    trackingStatus:z.array(TrackingStatusSchema).max(4).optional()
 });
 export const FrameAppliedSchema = z.strictObject({
     outputId: IdSchema,
@@ -198,6 +213,7 @@ export const RendererDiagnosticsSchema = z.strictObject({
 });
 export const DiagnosticsEnvelopeSchema = z.strictObject({ kind: z.literal("diagnostics"), diagnostics: RendererDiagnosticsSchema });
 export const AppStatusSchema = z.strictObject({
+    trackingStatus:z.array(TrackingStatusSchema).max(4).optional(),
     schemaVersion: z.literal(1),
     sessionId: IdSchema,
     ready: z.boolean(),
@@ -423,7 +439,7 @@ export const PingPongSchema = z.strictObject({
     ]),
     requestId: IdSchema
 });
-export const ClockEnvelopeSchema = z.object({ kind: z.literal("clock"), sessionId: IdSchema, elapsedMs: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER) }).strict();
+export const ClockEnvelopeSchema = z.object({ kind: z.literal("clock"), sessionId: IdSchema, elapsedMs: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER), tracking:TrackingUpdateSchema.optional() }).strict();
 export const WireMessageSchema = z.union([
     ClockEnvelopeSchema,
     AuthSchema,
@@ -443,7 +459,7 @@ export function parseWire(text: string): WireMessage {
     const capture = typeof value === "object" && value !== null && "kind" in value && value.kind === "captureReply";
     const diagnostics = typeof value === "object" && value !== null && "kind" in value && value.kind === "diagnostics";
     const clock = typeof value === "object" && value !== null && "kind" in value && value.kind === "clock";
-    if (new TextEncoder().encode(text).length > (clock ? LIMITS.clockBytes : capture ? LIMITS.captureEnvelopeBytes : diagnostics ? LIMITS.diagnosticsBytes : LIMITS.jsonBytes))
+    if (new TextEncoder().encode(text).length > (clock ? (typeof value==='object' && value!==null && 'tracking' in value ? LIMITS.trackingClockBytes : LIMITS.clockBytes) : capture ? LIMITS.captureEnvelopeBytes : diagnostics ? LIMITS.diagnosticsBytes : LIMITS.jsonBytes))
         throw new Error("Message too large");
     return WireMessageSchema.parse(value);
 }

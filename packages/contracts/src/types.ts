@@ -1,3 +1,4 @@
+import type {AvatarTracking,TrackingConfig,AvatarPose,TrackingStatus,TrackingUpdate} from './tracking';
 export type Id = string;
 export type Vec3 = [
     number,
@@ -47,6 +48,11 @@ export type SceneEntity = (EntityBase & {
 }) | (EntityBase & {
     kind: "avatar";
     assetId: Id;
+    tracking?: AvatarTracking;
+}) | (EntityBase & {
+    kind: "tracking";
+    config: TrackingConfig;
+    generation: number;
 }) | (EntityBase & {
     kind: "camera";
     lens: {
@@ -69,7 +75,7 @@ export interface SceneView {
     entities: SceneEntity[];
     outputs: OutputSpec[];
 }
-export type PatchOp = {
+type ExistingPatchOp = {
     kind: "setTransform";
     entityId: Id;
     transform: Transform;
@@ -78,6 +84,8 @@ export type PatchOp = {
     entityId: Id;
     visible: boolean;
 };
+export type LivePatchOp = {kind:'createEntity';entity:SceneEntity}|{kind:'setCameraLens';entityId:Id;lens:Extract<SceneEntity,{kind:'camera'}>['lens']}|{kind:'setAvatarTracking';entityId:Id;tracking:AvatarTracking}|{kind:'setTrackingConfig';entityId:Id;config:TrackingConfig};
+export type PatchOp = ExistingPatchOp | LivePatchOp;
 export interface ScenePatch {
     sceneId: Id;
     expectedRevision: number;
@@ -109,6 +117,8 @@ export interface RuntimeFrame {
     tick: number;
     elapsedMs: number;
     scene: SceneView;
+    avatarPoses?: AvatarPose[];
+    trackingStatus?: TrackingStatus[];
 }
 export interface FrameApplied {
     outputId: Id;
@@ -128,6 +138,7 @@ export interface RendererDiagnostics {
  activeRenderJob: boolean; queuedFrames: number; queuedCaptures: number;
 }
 export interface AppStatus {
+    trackingStatus?: TrackingStatus[];
     schemaVersion: 1;
     sessionId: Id;
     ready: boolean;
@@ -240,7 +251,7 @@ export type ValidatedCall = {
     };
 }[keyof AppApi];
 export interface PublisherClient {
-    onClock(listener: (elapsedMs: number) => void): () => void;
+    onClock(listener: (elapsedMs: number, tracking?: TrackingUpdate) => void): () => void;
     onCall(listener: (call: ValidatedCall & {
         requestId: Id;
     }) => Promise<Reply<unknown>>): () => void;
