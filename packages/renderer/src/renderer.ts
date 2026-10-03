@@ -1,6 +1,7 @@
-import { Scene, Mesh, BoxGeometry, MeshStandardNodeMaterial, PerspectiveCamera, AmbientLight, DirectionalLight } from "three/webgpu";
+import { assertEditorScope, createEditorViewport } from './editor-viewport';
+import type { EditorOptions, EditorHandle } from './editor-viewport';
+import { Scene, Mesh, BoxGeometry, MeshStandardNodeMaterial, PerspectiveCamera, AmbientLight, DirectionalLight, Object3D } from "three/webgpu";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
-import type { Object3D } from "three/webgpu";
 import type { RuntimeFrame, FrameApplied, RendererDiagnostics, CaptureBytes, Id, ResourceHost, AppError, SceneEntity } from "@opensekai/contracts";
 import { RuntimeFrameSchema } from "@opensekai/contracts";
 import { selectFrame, failure, createRenderQueue } from "./apply-frame";
@@ -10,12 +11,14 @@ import { initializeBackend } from "./backend";
 import { createCapturePolicy, readPng } from "./capture";
 import { createDiagnosticMarker } from "./diagnostic-marker";
 export interface RendererHandle {
+    editor?: EditorHandle;
     applyFrame(frame: RuntimeFrame): Promise<FrameApplied>;
     capture(): Promise<CaptureBytes>;
     diagnostics?(rendererEpoch: string): RendererDiagnostics | null;
     dispose(): void;
 }
 export interface RendererOptions {
+    editor?: EditorOptions;
     canvas: HTMLCanvasElement;
     outputId: Id;
     mode: "auto" | "force-webgl2";
@@ -24,6 +27,7 @@ export interface RendererOptions {
     resolutionScale: 1 | 0.5;
 }
 export async function createRenderer(options: RendererOptions): Promise<RendererHandle> {
+    if (options.editor) assertEditorScope(options.outputId, options.diagnostics);
     const { renderer, backend } = await initializeBackend(options.canvas, options.mode);
     const camera = new PerspectiveCamera();
     const scene = new Scene();
@@ -41,6 +45,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         owned: boolean;
         assetId?: string;
     }>();
+    const editor = options.editor ? createEditorViewport(options.canvas, camera, scene, objects, options.editor) : null;
     let disposed = false, cleaned = false, accepted: RuntimeFrame | null = null, displayed: FrameApplied | null = null, displayFrame: RuntimeFrame | null = null;
     const releaseObject = (value: {root: Object3D; owned: boolean}) => {
         if (value.owned) disposeObject(value.root);
@@ -52,6 +57,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     const cleanup = () => {
         if (cleaned) return;
         cleaned = true;
+        editor?.dispose();
         for (const value of objects.values()) releaseObject(value);
         objects.clear();
         assets.dispose();
@@ -62,6 +68,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     const queue = createRenderQueue(() => { if (disposed)
         cleanup(); });
     const submit = async (frame: RuntimeFrame): Promise<FrameApplied> => {
+        editor?.frameRevision(frame.scene.revision);
         const started = performance.now();
         const output = frame.scene.outputs.find(x => x.id === options.outputId);
         if (!output)
@@ -73,7 +80,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         if (options.canvas.width !== width || options.canvas.height !== height)
             renderer.setSize(width, height, false);
         const warnings: AppError[] = [];
-        const wanted = new Set(frame.scene.entities.filter(x => x.kind !== "camera").map(x => x.id));
+        const wanted = new Set(frame.scene.entities.filter(x => editor || x.kind !== "camera").map(x => x.id));
         for (const [id, value] of objects) {
             if (!wanted.has(id)) {
                 releaseObject(value);
@@ -81,8 +88,18 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             }
         }
         for (const entity of frame.scene.entities) {
-            if (entity.kind === "camera")
+            if (entity.kind === "camera") {
+                if (editor) {
+                    let value = objects.get(entity.id);
+                    if (!value) {
+                        value = {signature: "camera", root: new Object3D(), owned: true};
+                        objects.set(entity.id, value);
+                        scene.add(value.root);
+                    }
+                    if (!editor.frozen(entity.id)) applyTransform(value.root, entity);
+                }
                 continue;
+            }
             const assetId = entity.kind === "avatar" ? entity.assetId : entity.source.kind === "asset" ? entity.source.assetId : undefined;
             const signature = assetId ?? "box";
             let value = objects.get(entity.id);
@@ -121,8 +138,9 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
                     if (!warnings.some(x => x.message === warning.message && x.ids[0] === assetId))
                         warnings.push(warning);
             }
-            applyTransform(value.root, entity);
+            if (!editor?.frozen(entity.id)) applyTransform(value.root, entity);
         }
+        editor?.refresh();
         const used = new Set([...objects.values()].flatMap(x => x.assetId ? [x.assetId] : []));
         assets.retainOnly(used);
         camera.fov = cameraEntity.lens.fovDegrees;
@@ -154,7 +172,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         displayed = { outputId: options.outputId, sessionId: frame.sessionId, sequence: frame.sequence, tick: frame.tick, revision: frame.scene.revision, cameraId: cameraEntity.id, backend, cpuMs: performance.now() - started, gpuMs: null, warnings };
         return structuredClone(displayed);
     };
-    return { diagnostics(rendererEpoch) {
+    return { ...(editor ? { editor: { sync: editor.sync, cancel: editor.cancel } } : {}), diagnostics(rendererEpoch) {
         if (!options.diagnostics || !displayed || disposed) return null;
         return {sessionId: displayed.sessionId, outputId: displayed.outputId, rendererEpoch, sequence: displayed.sequence, revision: displayed.revision, backend, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, liveMaterials: countLiveMaterials(marker ? [scene,marker.scene] : [scene]), assetCacheEntries: assets.size(), ...queue.snapshot()};
     }, applyFrame(raw) { const frame = RuntimeFrameSchema.parse(raw); const selected = selectFrame(accepted, frame); if (!selected.ok)
