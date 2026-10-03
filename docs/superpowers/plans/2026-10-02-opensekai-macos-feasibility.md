@@ -838,7 +838,7 @@ bootstrapDesktop starts one worker, one low-rate preview client, and one operato
 
 Build outputUrl from service origin + /renderer/ with the renderer descriptor encoded in the fragment. Only the user-facing copy action can expose that URL. Do not log it or include it in committed evidence. stop closes clients, terminates the worker, and invokes native service shutdown on app exit.
 
-- [ ] **Step 3: Set up an isolated OBS source and confirm moving alpha output.**
+- [x] **Step 3: Set up an isolated OBS source and confirm moving alpha output.**
 
 Use the existing local WebSocket endpoint. Read GetVersion/GetVideoSettings/GetStreamStatus before making a test scene. Save original scene selection. Create a uniquely named OpenSekai Feasibility scene and browser source owned by this run; do not replace an existing source.
 
@@ -846,7 +846,7 @@ Set the browser source to outputUrl, 1920 × 1080, custom 60 FPS, with transpare
 
 Expected: marker motion comes from session ticks; a real registered VRM is visible; camera changes use the session API; background alpha reaches OBS. Keep recording/streaming idle during this basic check. If streaming or recording is active, return BUSY without switching scenes; inspection can continue.
 
-- [ ] **Step 4: Check the release resource path and run cleanup.**
+- [x] **Step 4: Check the release resource path and run cleanup.**
 
 ~~~sh
 pnpm build:mac
@@ -856,7 +856,7 @@ Launch the resulting unsigned local app from Finder or a process launcher with a
 
 Close/reopen the app. Verify no stale service port, duplicate publisher, or hung client survives. If the backend/material probe fails, record the exact failure before continuing.
 
-- [ ] **Step 5: Commit the integration and evidence summary.**
+- [x] **Step 5: Commit the integration and evidence summary.**
 
 ~~~sh
 git add apps/desktop/src apps/desktop/src-tauri/src/lib.rs apps/desktop/src-tauri/src/main.rs apps/desktop/src-tauri/tauri.conf.json apps/desktop/src-tauri/capabilities/main.json scripts/prepare-output.ts docs/evaluation/macOS-feasibility/first-output.md
@@ -893,7 +893,7 @@ export function parseFiniteNumber(text: string): Reply<number>;
 
 Props are fixed: Hierarchy and Inspector receive { model, view }; OutputControls receives { model, view, status: AppStatus | null, outputUrl: string }; AssetList receives { assets: AssetRecord[], warnings: AppError[] }. Export EditorModel as ReturnType<typeof createEditorModel> for these props. Components receive the same model/view instances. Inspector edits persistent state, not evaluated live transforms. No native/Three.js import belongs in editor model code.
 
-- [ ] **Step 1: Write numeric and conflict tests.**
+- [x] **Step 1: Write numeric and conflict tests.**
 
 ~~~ts
 import { expect, it } from "vitest";
@@ -910,13 +910,13 @@ it("accepts a finite signed decimal", () => {
 
 Use a typed test AppApi to force CONFLICT on an edit. Assert no success state or automatic retry; inspect the current scene and preserve a visible conflict indication. Test selection persistence when an unrelated frame arrives and no renderer object enters model state.
 
-- [ ] **Step 2: Run the failing tests.**
+- [x] **Step 2: Run the failing tests.**
 
 ~~~sh
 pnpm exec vitest run apps/desktop/src/editor/numeric.test.ts apps/desktop/src/editor/model.test.ts --project unit
 ~~~
 
-- [ ] **Step 3: Implement the model and compact panels.**
+- [x] **Step 3: Implement the model and compact panels.**
 
 ~~~ts
 export function parseFiniteNumber(text: string): Reply<number> {
@@ -943,7 +943,7 @@ pnpm --filter @opensekai/desktop check
 
 Exercise selection, a position edit, invalid input, visibility, camera change, and output URL copy in the running app after Task 10 composes the panels. Verify the same edits in OBS. Check keyboard focus order and panel resizing.
 
-- [ ] **Step 5: Checkpoint owned files.**
+- [x] **Step 5: Checkpoint owned files.**
 
 ~~~sh
 git add apps/desktop/src/editor apps/desktop/src/components apps/desktop/src/app.css
@@ -961,7 +961,7 @@ Return interaction results separately from unit tests.
 
 **Interfaces:** Consume AppApi, connectClient, ConnectionDescriptor, and BrowserClient.readResource. Produce parseOperatorDescriptor(input: unknown): Reply<ConnectionDescriptor> and createMcpServer(api: AppApi, readResource: (uri: string) => Promise<Uint8Array>): McpServer. cli.ts reads OPENSEKAI_CONNECTION_FILE and serves stdio. Its stdout contains only MCP messages.
 
-- [ ] **Step 1: Write tool and descriptor logic tests.**
+- [x] **Step 1: Write tool and descriptor logic tests.**
 
 ~~~ts
 import { expect, it } from "vitest";
@@ -978,13 +978,13 @@ it("rejects renderer credentials for an operator server", () => {
 
 Test unknown tool fields, stale scene revision, capture rate limits, invalid evidence URI, and a timed-out app connection. Do not grant edit/capture/benchmark because the CLI happens to be launched by an agent.
 
-- [ ] **Step 2: Run the failing tests.**
+- [x] **Step 2: Run the failing tests.**
 
 ~~~sh
 pnpm exec vitest run apps/mcp/test/tool-validation.test.ts apps/mcp/test/descriptor.test.ts --project unit
 ~~~
 
-- [ ] **Step 3: Register the exact tool mapping and resource access.**
+- [x] **Step 3: Register the exact tool mapping and resource access.**
 
 ~~~ts
 import { McpServer } from "@modelcontextprotocol/server";
@@ -1008,7 +1008,7 @@ Expose scene/status JSON resources and opaque registered evidence resources. Cap
 
 Resources retain revision, tick, camera, backend, and hashes. Read-only sessions return FORBIDDEN on mutations and evaluation. On disconnect, return UNAVAILABLE rather than cached success.
 
-- [ ] **Step 4: Exercise a real stdio process using the official client.**
+- [x] **Step 4: Exercise a real stdio process using the official client.**
 
 Create a test entry using a fixed typed AppApi fixture and launch it as a child process through the SDK client. This integration test is required to detect stdout corruption, JSON-RPC initialization errors, and shutdown leaks.
 
@@ -1034,7 +1034,7 @@ pnpm exec vitest run apps/mcp/test/stdio-roundtrip.integration.test.ts --project
 pnpm --filter @opensekai/mcp check
 ~~~
 
-- [ ] **Step 5: Checkpoint and hand off client setup.**
+- [x] **Step 5: Checkpoint and hand off client setup.**
 
 ~~~sh
 git add apps/mcp/src apps/mcp/test docs/mcp-client-setup.md
@@ -1108,7 +1108,7 @@ export interface ObsAdapter {
 
 The CLI reads operator and renderer descriptors from explicit environment file paths, validates matching session IDs, and derives outputUrl without logging the ticket. It exports sanitized hashes and result fields only.
 
-- [ ] **Step 1: Write time, cancellation, eviction, and evidence tests.**
+- [x] **Step 1: Write time, cancellation, eviction, and evidence tests.**
 
 ~~~rust
 #[test]
@@ -1141,14 +1141,14 @@ They are test fixtures, not production exports. Test warmup exclusion, idempoten
 
 TypeScript tests cover missing OBS, unrelated source marker, malformed PNG, missing auth/request capability, cleanup on failure, and counter-reset detection. Counter resets produce unknown/error, not negative skipped percentages.
 
-- [ ] **Step 2: Run the failing tests.**
+- [x] **Step 2: Run the failing tests.**
 
 ~~~sh
 cargo test -p opensekai-evaluation
 pnpm exec vitest run tools/evaluation/test/obs-policy.test.ts tools/evaluation/test/marker.test.ts tools/evaluation/test/evidence.test.ts --project unit
 ~~~
 
-- [ ] **Step 3: Implement the fixed run state machine and capture budgets.**
+- [x] **Step 3: Implement the fixed run state machine and capture budgets.**
 
 ~~~rust
 // Transition decisions use the injected monotonic clock.
@@ -1168,7 +1168,7 @@ Observe capture-free renderer acknowledgements only during the measurement windo
 
 CaptureStore validates PNG signature, dimensions, bytes, freshness, output/session, and revision before acceptance. Dimensions must be positive and at most 1920 × 1080. Its stored native receive time validates the 500 ms age limit. Retain eight records, evict oldest bytes/references, and return NOT_FOUND for expired resources. Exports use opaque IDs and hashes. Do not keep PNG base64 in metrics logs.
 
-- [ ] **Step 4: Implement controlled OBS setup and evidence collection.**
+- [x] **Step 4: Implement controlled OBS setup and evidence collection.**
 
 ~~~ts
 import OBSWebSocket from "obs-websocket-js";
@@ -1184,7 +1184,7 @@ Use GetSourceScreenshot for the owned browser source and composed test scene. Co
 
 The run driver separates screenshots from timing. During a benchmark, sample OBS stats at start/end and collect a short recording only in a separate recording phase. Refuse to switch test scenes or start a recording if OBS is currently streaming or recording. Keep the report explicit about an unavailable encoder/GPU measurement.
 
-- [ ] **Step 5: Verify logic and checkpoint owned files.**
+- [x] **Step 5: Verify logic and checkpoint owned files.**
 
 ~~~sh
 cargo test -p opensekai-evaluation
@@ -1205,7 +1205,7 @@ The rubric requires capture IDs, defect locations, intended approximation differ
 
 **Interfaces:** Install native handlers for captureFrame, benchmarkStart/Status/Cancel, and evidenceRead. BrowserClient.readResource resolves only app-managed evidence URIs. Native evaluation exports evidence files atomically inside ServiceConfig.evidence_root.
 
-- [ ] **Step 1: Add real capture/run boundary tests before native wiring.**
+- [x] **Step 1: Add real capture/run boundary tests before native wiring.**
 
 The integration test uses the real local service with a controlled publisher/renderer test peer. It starts a benchmark, submits acknowledgements, cancels, and verifies terminal state. It submits a bounded PNG capture, reads the returned resource, then tests wrong output/revision, timeout, eviction, and unauthenticated resource access.
 
@@ -1217,7 +1217,7 @@ cargo test -p opensekai-desktop --test evaluation_integration
 
 Expected: evaluation routes are initially UNSUPPORTED; tests fail against the intended successful path.
 
-- [ ] **Step 2: Install the native evaluation bridge.**
+- [x] **Step 2: Install the native evaluation bridge.**
 
 ~~~rust
 match call.method.as_str() {
@@ -1239,7 +1239,7 @@ Runs use monotonic time and observe the selected output only. Fail a run if no c
 
 Evidence resources use opensekai://evidence/<id>/image.png or /summary.json. Map them to registered files/bytes internally. No relative or arbitrary path component is accepted. Keep appCommit and UTC metadata consistent with the build and source revision.
 
-- [ ] **Step 3: Compose the editor panels and lifecycle.**
+- [x] **Step 3: Compose the editor panels and lifecycle.**
 
 ~~~svelte
 <script lang="ts">
@@ -1252,7 +1252,7 @@ Evidence resources use opensekai://evidence/<id>/image.png or /summary.json. Map
 
 Pass the model/view and bootstrap values into these components. Keep viewport canvas lifecycle outside the model. Close subscriptions and worker/service handles on app exit. Disconnected output gets an explicit state and cannot satisfy a capture request.
 
-- [ ] **Step 4: Run tests and a real MCP-to-OBS edit/capture sequence.**
+- [x] **Step 4: Run tests and a real MCP-to-OBS edit/capture sequence.**
 
 ~~~sh
 pnpm test:unit
@@ -1267,7 +1267,7 @@ Expected: revision increments once for the edit; selected camera reaches output_
 
 Record the bounded first evaluation loop in mcp-roundtrip.md. Large images stay in artifacts/. A model client can read image resources and the rubric; no automated model API call is required to pass this loop.
 
-- [ ] **Step 5: Checkpoint the complete slice wiring.**
+- [x] **Step 5: Checkpoint the complete slice wiring.**
 
 ~~~sh
 git add apps/desktop/src/App.svelte apps/desktop/src/bootstrap.ts apps/desktop/src-tauri/src/lib.rs apps/desktop/src-tauri/src/service/router.rs apps/desktop/src-tauri/src/evaluation.rs apps/desktop/src-tauri/tests/evaluation_integration.rs docs/evaluation/macOS-feasibility/mcp-roundtrip.md Cargo.lock pnpm-lock.yaml
@@ -1399,3 +1399,7 @@ Self-review coverage:
 All five Review Focus classes have explicit owning tests. VRM0, unavailable WebGPU, absent frontier review, concert hardware, and broader parity have explicit pending/unsupported outcomes. Task 1 is complete with a reviewed desktop shell and recorded smoke checks. Later tasks remain pending; their test and runtime results above are expected checks.
 
 The user approved execution on 2026-10-03. Implementation is in progress. The selected method is concurrent agents at lower effort with separate worktrees; do not ask the user to choose that method again.
+
+## Checkpoint status — 2026-10-03
+
+Tasks 6–10 have source, boundary, and release tool evidence in the macOS feasibility documents. Task 7 still has an incomplete clipboard check. Task 11 remains incomplete: two correctly minimized WebGPU runs failed the 100 ms gate. See [current results](../../evaluation/macOS-feasibility/results.md). The native wakeup correction in the slice contract takes precedence over the earlier worker-timer example. The next concert slice must wait for qualifying repeats, recording, source lifecycle, soak, and final review.
