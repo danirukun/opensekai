@@ -86,6 +86,12 @@ pub enum SceneEntity {
         asset_id: Id,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         tracking: Option<AvatarTracking>,
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            rename = "idleAnimation"
+        )]
+        idle_animation: Option<AvatarIdle>,
     },
     Tracking {
         id: Id,
@@ -139,6 +145,12 @@ pub enum PatchOp {
         #[serde(rename = "entityId")]
         entity_id: Id,
         lens: Lens,
+    },
+    SetAvatarIdle {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+        #[serde(rename = "idleAnimation")]
+        idle_animation: AvatarIdle,
     },
     SetAvatarTracking {
         #[serde(rename = "entityId")]

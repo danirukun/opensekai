@@ -30,6 +30,11 @@ pub enum TrackingConfig {
         mirror: bool,
     },
 }
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
+pub enum AvatarIdle {
+    Builtin { enabled: bool },
+}
 object!(AvatarTracking {body_source_id:Option<Id>,face_source_id:Option<Id>});
 strings!(BoneSpace { Raw=>"raw",Normalized=>"normalized" });
 strings!(TrackingState { Stopped=>"stopped",Waiting=>"waiting",Receiving=>"receiving",Stale=>"stale",Error=>"error" });
@@ -75,6 +80,8 @@ object!(TrackingUpdate {samples:Vec<TrackingSample>,statuses:Vec<TrackingStatus>
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AvatarPose {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_bones: Option<BTreeMap<String, TrackingBone>>,
     pub avatar_id: Id,
     pub bones: BTreeMap<String, TrackingBone>,
     pub expressions: BTreeMap<String, f64>,
@@ -232,7 +239,16 @@ impl Validate for TrackingSample {
 impl Validate for AvatarPose {
     fn validate(&self) -> Result<(), AppError> {
         scalar_checks(&serde_json::to_value(self).map_err(|e| invalid(e.to_string()))?)?;
-        channels(&self.bones, &self.expressions, &self.root)
+        channels(&self.bones, &self.expressions, &self.root)?;
+        if let Some(base) = &self.base_bones {
+            channels(base, &BTreeMap::new(), &None)?;
+            require(
+                base.values()
+                    .all(|bone| bone.space == BoneSpace::Normalized && bone.weight.is_none()),
+                "invalid idle baseline",
+            )?;
+        }
+        Ok(())
     }
 }
 impl Validate for TrackingStatus {
