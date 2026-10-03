@@ -303,7 +303,7 @@ it("reads same-origin resources with trailing slash descriptor origin", async ()
     authenticate(sockets[0]);
     const client = await promise as BrowserClient;
     try {
-        expect(await client.readResource("/evidence/a")).toEqual(new Uint8Array([7]));
+        expect(await client.readResource("opensekai://evidence/a/capture.png")).toEqual(new Uint8Array([7]));
         expect(fetchMock).toHaveBeenCalledOnce();
     }
     finally {

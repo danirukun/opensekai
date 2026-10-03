@@ -24,7 +24,6 @@ const error = (code: AppError["code"], message: string): Reply<never> => ({
 });
 export function connectWithPorts(raw: ConnectionDescriptor, ports: ClientPorts = defaults): Promise<BrowserClient | PublisherClient> {
     const descriptor = ConnectionDescriptorSchema.parse(raw);
-    const httpOrigin = new URL(descriptor.httpOrigin).origin;
     let authenticatedGrants = new Set<ConnectionDescriptor["capabilities"][number]>();
     return new Promise((resolve, reject) => {
         let socket: Socket, closed = false, authenticated = false, everReady = false, attempt = 0, nextId = 0, sequence = -1, latest: RuntimeFrame | undefined;
@@ -201,10 +200,10 @@ export function connectWithPorts(raw: ConnectionDescriptor, ports: ClientPorts =
                 };
             },
             readResource(uri) {
-                const url = new URL(uri, descriptor.httpOrigin);
-                if (url.origin !== httpOrigin || url.username || url.password || url.search || url.hash)
+                const match = /^opensekai:\/\/evidence\/([A-Za-z0-9_-]{1,256})\/(capture\.png|summary\.json)$/.exec(uri);
+                if (!match || match[0] !== uri)
                     throw new Error("Invalid resource URI");
-                return read(url.pathname);
+                return read(`/evidence/${match[1]}/${match[2]}`);
             },
             readAsset: async (id) => (await read(`/assets/${encodeURIComponent(id)}`)).buffer as ArrayBuffer,
             close
