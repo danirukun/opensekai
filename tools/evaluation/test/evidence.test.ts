@@ -1,0 +1,203 @@
+import { it, expect } from 'vitest';
+import { tagId } from '@opensekai/contracts';
+import { counterDelta, correlateMarker, verifyCaptureEvidence, sanitizedFailure } from '../src/rubric';
+const counts = {
+    renderSkippedFrames: 2, renderTotalFrames: 100, outputSkippedFrames: 0, outputTotalFrames: 0
+};
+it('reports counter reset as unknown', () => {
+    expect(counterDelta(counts, {
+        ...counts, renderTotalFrames: 1
+    })).toBeNull();
+    expect(counterDelta(counts, {
+        ...counts, renderTotalFrames: 200
+    })).toEqual({
+        ...counts, renderSkippedFrames: 0, renderTotalFrames: 100
+    });
+});
+it('rejects unrelated and stale source marker', () => {
+    const expected = {
+        sessionId: 'session', cameraId: 'camera', revision: 2, tick: 100, sequence: 100
+    };
+    const marker = {
+        sessionTag: tagId('other'), cameraTag: tagId('camera'), revision: 2, tick: 100, sequence: 100
+    };
+    expect(correlateMarker(marker, expected, 100).result).toBe('fail');
+    expect(correlateMarker({
+        ...marker, sessionTag: tagId('session'), tick: 140, sequence: 140
+    }, expected, 100).result).toBe('fail');
+    expect(correlateMarker({
+        ...marker, sessionTag: tagId('session')
+    }, expected, 501).result).toBe('fail');
+});
+it('requires canonical matching capture evidence', () => {
+    expect(verifyCaptureEvidence({
+        id: 'cap', resourceUri: 'opensekai://evidence/cap/capture.png', sha256: 'a'.repeat(64), bytes: 100
+    }, {
+        id: 'cap', kind: 'capture', sessionId: 'session', fixtureId: 'smoke_v1', resources: [{
+                uri: 'opensekai://evidence/other/capture.png', sha256: 'a'.repeat(64), bytes: 100, mimeType: 'image/png'
+            }]
+    }, 'session').result).toBe('fail');
+});
+it('sanitizes arbitrary failure details', () => expect(sanitizedFailure(new Error('secret http://127.0.0.1/ticket#token'))).toEqual({
+    error: 'UNAVAILABLE'
+}));
+import { vi } from 'vitest';
+import { PNG } from 'pngjs';
+import { encodeMarker } from '@opensekai/contracts';
+import type { AppApi, AppStatus, FrameApplied, CaptureRecord } from '@opensekai/contracts';
+import { evaluateSmokeWithPorts } from '../src/run-smoke';
+import type { ObsAdapter as EvaluationObsAdapter } from '../src/types';
+function driverFixture(capabilities = ['read', 'capture', 'benchmark']) {
+    let now = 0, active = false;
+    const frame = () => ({
+        outputId: 'output_main', sessionId: 'session', sequence: Math.floor(now * 0.06) + 1, tick: Math.floor(now * 0.06) + 1, revision: 0, cameraId: 'camera', backend: 'webgl2', cpuMs: 1, gpuMs: null, warnings: []
+    } as FrameApplied);
+    const descriptor = {
+        schemaVersion: 1, sessionId: 'session', role: 'renderer', outputId: 'output_main', httpOrigin: 'http://127.0.0.1:9000', wsUrl: 'ws://127.0.0.1:9000/ws', token: 'never-log-this-ticket', capabilities: ['read']
+    };
+    const options = {
+        profileId: 'webgl2_smoke_v1' as const, outputUrl: 'http://127.0.0.1:9000/renderer/?diagnostics=1&backend=webgl2#' + encodeURIComponent(JSON.stringify(descriptor)), destinationDir: '/tmp/mock-only', sceneName: 'mock-scene', sourceName: 'mock-source'
+    };
+    const status = () => ({
+        schemaVersion: 1, sessionId: 'session', ready: true, revision: 0, capabilities, outputs: [{
+                outputId: 'output_main', connected: true, lastFrame: frame()
+            }]
+    } as AppStatus);
+    const api = {
+        appStatus: vi.fn(async () => ({
+            ok: true, data: status()
+        })), captureFrame: vi.fn(async () => ({
+            ok: true, data: {
+                id: 'cap_' + now, outputId: 'output_main', revision: 0, tick: frame().tick, sequence: frame().sequence, backend: 'webgl2', cameraId: 'camera', width: 1920, height: 1080, mimeType: 'image/png', bytes: 100, sha256: 'a'.repeat(64), resourceUri: `opensekai://evidence/cap_${now}/capture.png`, createdAtUtc: '2026-10-03T00:00:00Z'
+            }
+        })), evidenceRead: vi.fn(async ({ evidenceId }: {
+            evidenceId: string;
+        }) => ({
+            ok: true, data: {
+                id: evidenceId, kind: 'capture', sessionId: 'session', fixtureId: 'smoke_v1', appCommit: 'abc', resources: [{
+                        uri: `opensekai://evidence/${evidenceId}/capture.png`, mimeType: 'image/png', sha256: 'a'.repeat(64), bytes: 100
+                    }]
+            }
+        })), benchmarkStart: vi.fn(async () => {
+            active = true;
+            return {
+                ok: true, data: {
+                    id: 'run', state: 'warming', progress: 0, summaryResourceUri: null, error: null
+                }
+            };
+        }), benchmarkStatus: vi.fn(async () => {
+            const state = now < 30000 ? 'warming' : now < 150000 ? 'measuring' : 'complete';
+            if (state === 'complete')
+                active = false;
+            return {
+                ok: true, data: {
+                    id: 'run', state, progress: now / 150000, summaryResourceUri: null, error: null
+                }
+            };
+        }), benchmarkCancel: vi.fn(async () => {
+            active = false;
+            return {
+                ok: true, data: {
+                    id: 'run', state: 'cancelled', progress: 0, summaryResourceUri: null, error: null
+                }
+            };
+        })
+    } as unknown as AppApi;
+    const screenshots: number[] = [], stats: number[] = [], writes: string[] = [];
+    const obs: EvaluationObsAdapter = {
+        readVersions: async () => ({
+            obs: '32', websocket: '5', availableRequests: []
+        }), readVideo: async () => ({
+            width: 1920, height: 1080, fps: 60
+        }), readStats: async () => {
+            stats.push(now);
+            return {
+                renderSkippedFrames: 0, renderTotalFrames: Math.floor(now * .06), outputSkippedFrames: 0, outputTotalFrames: 0
+            };
+        }, screenshot: async () => {
+            screenshots.push(now);
+            const png = new PNG({
+                width: 336, height: 8
+            });
+            const current = frame();
+            encodeMarker({
+                sessionTag: tagId('session'), sequence: current.sequence, tick: current.tick, revision: 0, cameraTag: tagId('camera')
+            }).forEach((bit, i) => {
+                for (let y = 0; y < 8; y++)
+                    for (let x = 0; x < 2; x++) {
+                        const offset = (y * 336 + i * 2 + x) * 4;
+                        png.data.fill(bit * 255, offset, offset + 3);
+                        png.data[offset + 3] = 255;
+                    }
+            });
+            return PNG.sync.write(png);
+        }, withOwnedScene: async (options, action) => action({
+            sceneName: options.sceneName, sourceName: options.sourceName
+        }), disconnect: async () => {
+        }
+    };
+    const ports = {
+        now: () => now, sleep: async (ms: number) => {
+            now += ms;
+        }, write: async (_dir: string, name: string) => {
+            writes.push(name);
+        }
+    };
+    return {
+        api, obs, options, ports, screenshots, stats, writes, isActive: () => active
+    };
+}
+it('keeps screenshots outside 30s warmup plus 120s timing', async () => {
+    const f = driverFixture();
+    const report = await evaluateSmokeWithPorts(f.api, f.obs, f.options, f.ports);
+    expect(f.stats).toEqual([30000, 150000]);
+    expect(f.screenshots).toEqual([0, 151000, 151000, 151000, 151000]);
+    expect(report.markers).toHaveLength(2);
+    expect(report.checks.find(c => c.name === 'measurement-window')?.result).toBe('pass');
+    expect(report.checks.find(c => c.name === 'tick-progression')?.result).toBe('pass');
+    expect(JSON.stringify(report)).not.toContain('never-log-this-ticket');
+    expect(f.writes).toContain('smoke-report.json');
+});
+it('rejects missing app capabilities before OBS setup', async () => {
+    const f = driverFixture(['read']);
+    const setup = vi.spyOn(f.obs, "withOwnedScene");
+    await expect(evaluateSmokeWithPorts(f.api, f.obs, f.options, f.ports)).rejects.toMatchObject({
+        code: 'FORBIDDEN'
+    });
+    expect(setup).not.toHaveBeenCalled();
+});
+it('cancels benchmark on timing failure', async () => {
+    const f = driverFixture();
+    f.obs.readStats = async () => {
+        throw new Error('stats unavailable');
+    };
+    await expect(evaluateSmokeWithPorts(f.api, f.obs, f.options, f.ports)).rejects.toThrow('stats unavailable');
+    expect(f.api.benchmarkCancel).toHaveBeenCalledWith({
+        runId: 'run'
+    });
+    expect(f.isActive()).toBe(false);
+});
+import { summaryChecks } from '../src/run-smoke';
+it('uses measured CPU threshold and keeps unmeasured maximum stall unknown', () => {
+    const checks = summaryChecks({
+        fixtureId: 'smoke_v1', profileId: 'webgl2_smoke_v1', count: 100, cpuMs: {
+            p95: 13
+        }, intervalMs: {
+            p99: 15
+        }, gpuMs: null, staleOutputPeriods: 0
+    }, 'webgl2_smoke_v1');
+    expect(checks.find(c => c.name === 'cpu-p95')?.result).toBe('fail');
+    expect(checks.find(c => c.name === 'maximum-stall')?.result).toBe('unknown');
+});
+it('rejects wrong backend and session before timing', async () => {
+    const f = driverFixture();
+    const status = await f.api.appStatus({});
+    if (!status.ok)
+        throw new Error('fixture');
+    status.data.outputs[0].lastFrame!.backend = 'webgpu';
+    vi.spyOn(f.api, 'appStatus').mockResolvedValue(status);
+    await expect(evaluateSmokeWithPorts(f.api, f.obs, f.options, f.ports)).rejects.toMatchObject({
+        code: 'CONFLICT'
+    });
+    expect(f.api.benchmarkStart).not.toHaveBeenCalled();
+});
