@@ -92,7 +92,7 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
             const scene = adapter.evaluate(persistent, elapsedMs);
             elapsed = elapsedMs;
             sequence += 1;
-            const live=tracking.evaluate(persistent,trackingNowMs??elapsedMs);
+            const live=tracking.evaluate(persistent,trackingNowMs??elapsedMs,elapsedMs);
             return { schemaVersion: 1, sessionId, sequence, tick, elapsedMs, scene, ...(live.avatarPoses.length?{avatarPoses:live.avatarPoses}:{}),...(live.trackingStatus.length?{trackingStatus:live.trackingStatus}:{}) };
         },
     };
