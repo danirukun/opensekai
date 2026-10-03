@@ -11,7 +11,7 @@
  import {collectWarnings} from './editor/warnings';
  import type { Draft, Tool } from './editor/ui-message';
  import {AssetRecordSchema} from '@opensekai/contracts';
- import {makeAuthoringEntity} from './editor/authoring';
+ import {makeAuthoringEntity,importFailure} from './editor/authoring';
  import type {AddKind} from './editor/live-fields';
  import type { AppStatus, AssetRecord } from '@opensekai/contracts';
  import Hierarchy from './components/Hierarchy.svelte';
@@ -22,6 +22,7 @@
  let model=$state.raw<EditorModel>(),view=$state<EditorView>({scene:null,selectedId:null,error:null,pending:false});
  let status=$state<AppStatus|null>(null),assets=$state<AssetRecord[]>([]),outputUrl=$state(''),canEdit=$state(false),available=$state(false),error=$state<string|null>(null);
  let panel=$state<'assets'|'output'|'resources'>('assets'),width=$state(224),maxWidth=$state(360),shell:HTMLDivElement;
+ let importError=$state<string|null>(null);
  let importing=$state(false),devices=$state<{deviceId:string;label:string}[]>([]);
  let draft=$state<Draft>(null),tool=$state<Tool>('translate');
  const warnings=$derived(collectWarnings(status));
@@ -29,13 +30,13 @@
  function select(id:string){draft=null;notify({kind:'selection',entityId:id});}
  async function add(kind:AddKind,revision:number){if(!model||!view.scene)return;const entity=makeAuthoringEntity(kind,crypto.randomUUID(),model.read().scene!.entities);const reply=await model.createEntity(entity,revision);if(reply.ok)select(entity.id);}
  async function importAvatar(){
-  if(importing||!model||!view.scene)return;importing=true;error=null;
+  if(importing||!model||!view.scene)return;importing=true;importError=null;
   try{
    const result=await invoke<{record:AssetRecord;name:string}|null>('import_avatar');if(!result)return;
    const record=AssetRecordSchema.parse(result.record);assets=[...assets.filter(asset=>asset.id!==record.id),record];
    const id=crypto.randomUUID();const reply=await model.createEntity({id,kind:'avatar',name:result.name,assetId:record.id,visible:true,transform:{position:[0,0,0],rotation:[0,0,0,1],scale:[1,1,1]},tracking:{bodySourceId:null,faceSourceId:null}},model.read().scene?.revision);
    if(reply.ok)select(id);
-  }catch{error='Could not import avatar';}finally{importing=false;}
+  }catch(cause){importError=importFailure(cause);}finally{importing=false;}
  }
  async function toggleTracking(id:string,enabled:boolean,revision:number){const entity=model?.read().scene?.entities.find(item=>item.id===id);if(entity?.kind==='tracking')await model?.setTrackingConfig(id,{...entity.config,enabled},revision);}
  function setTool(next:Tool){tool=next;notify({kind:'tool',tool});}
@@ -68,6 +69,6 @@
    {:else if panel==='output'}<section class="output-panel"><h2>Output</h2>{#if model}<OutputControls {model} {view} {status} {outputUrl} disabled={!canEdit||!available}/>{/if}</section>
    {:else}<AssetList {assets} {warnings}/>{/if}
   </div>
-  <footer><span>{error??(view.scene?'Session connected':'Starting…')}</span><span>{canEdit ? (tool==='translate'?'Move':tool==='rotate'?'Rotate':'Scale'):'Read only'}</span></footer>
+  <footer><span>{importError??error??(view.scene?'Session connected':'Starting…')}</span><span>{canEdit ? (tool==='translate'?'Move':tool==='rotate'?'Rotate':'Scale'):'Read only'}</span></footer>
  </div>
 </main>
