@@ -352,3 +352,12 @@ it("old handler completion cannot remove a new connection request with the same 
     vi.useRealTimers();
 });
 it('returns availability errors before grant errors while reconnecting',async()=>{vi.useFakeTimers();const {sockets,promise}=start();authenticate(sockets[0]);const client=await promise as BrowserClient;expect(await client.api.cameraSelect({outputId:'output_main',cameraId:'camera_wide',expectedRevision:0})).toMatchObject({ok:false,error:{code:'FORBIDDEN'}});sockets[0].dispatchEvent(new Event('close'));expect(await client.api.appStatus({})).toMatchObject({ok:false,error:{code:'UNAVAILABLE'}});client.close();vi.useRealTimers();});
+it('publishes diagnostics only through a scoped renderer client',async()=>{
+ const socket=new FakeSocket();const renderer={...descriptor,role:'renderer' as const,outputId:'output_main'};
+ const promise=connectWithPorts(renderer,{socket:()=>socket,setTimeout,clearTimeout,fetch});authenticate(socket);
+ const client=await promise as BrowserClient;
+ const snapshot={sessionId:descriptor.sessionId,outputId:'output_main',rendererEpoch:'epoch_1',sequence:1,revision:0,backend:'webgl2' as const,geometries:1,textures:2,liveMaterials:1,assetCacheEntries:1,activeRenderJob:false,queuedFrames:0,queuedCaptures:0};
+ client.sendDiagnostics!(snapshot);expect(JSON.parse(socket.sent.at(-1)!)).toEqual({kind:'diagnostics',diagnostics:snapshot});
+ expect(()=>client.sendDiagnostics!({...snapshot,outputId:'preview_main'})).toThrow('scope');client.close();
+ const ordinary=start();authenticate(ordinary.sockets[0]);const operator=await ordinary.promise as BrowserClient;expect(()=>operator.sendDiagnostics!(snapshot)).toThrow('scope');operator.close();
+});

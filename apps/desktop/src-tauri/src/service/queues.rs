@@ -9,6 +9,9 @@ impl<T> Default for StateQueue<T> {
     }
 }
 impl<T> StateQueue<T> {
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
     pub fn push(&mut self, value: T) {
         if self.0.len() == STATE_CAPACITY {
             self.0.pop_front();

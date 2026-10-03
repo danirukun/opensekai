@@ -5,6 +5,7 @@ use std::collections::HashSet;
 pub type Id = String;
 pub type Vec3 = [f64; 3];
 pub type Quat = [f64; 4];
+pub const MAX_DIAGNOSTICS_BYTES: usize = 2048;
 pub const MAX_MESSAGE_BYTES: usize = 256 * 1024;
 pub const MAX_CAPTURE_MESSAGE_BYTES: usize = 3 * 1024 * 1024;
 macro_rules! object { ($name:ident { $($field:ident : $ty:ty),* $(,)? }) => {#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)] #[serde(rename_all="camelCase", deny_unknown_fields)] pub struct $name {$(pub $field: $ty),*}} }
@@ -136,6 +137,21 @@ object!(RuntimeFrame {
     scene: SceneView
 });
 object!(FrameApplied {output_id:Id,session_id:Id,sequence:u64,tick:u64,revision:u64,camera_id:Id,backend:Backend,cpu_ms:f64,gpu_ms:Option<f64>,warnings:Vec<AppError>});
+object!(RendererDiagnostics {
+    session_id: Id,
+    output_id: Id,
+    renderer_epoch: Id,
+    sequence: u64,
+    revision: u64,
+    backend: Backend,
+    geometries: u64,
+    textures: u64,
+    live_materials: u64,
+    asset_cache_entries: u64,
+    active_render_job: bool,
+    queued_frames: u64,
+    queued_captures: u64
+});
 object!(OutputStatus {output_id:Id,connected:bool,last_frame:Option<FrameApplied>});
 object!(AppStatus {schema_version:u32,session_id:Id,ready:bool,revision:Option<u64>,capabilities:Vec<Capability>,warnings:Vec<AppError>,outputs:Vec<OutputStatus>});
 object!(CaptureParams {
@@ -239,6 +255,9 @@ pub enum WireMessage {
     },
     Applied {
         frame: FrameApplied,
+    },
+    Diagnostics {
+        diagnostics: RendererDiagnostics,
     },
     CaptureRequest {
         #[serde(rename = "requestId")]
@@ -385,6 +404,28 @@ impl Validate for FrameApplied {
                 && self.cpu_ms >= 0.
                 && self.gpu_ms.is_none_or(|x| x.is_finite() && x >= 0.),
             "invalid timing",
+        )
+    }
+}
+impl Validate for RendererDiagnostics {
+    fn validate(&self) -> Result<(), AppError> {
+        scalar_checks(&serde_json::to_value(self).map_err(|e| invalid(e.to_string()))?)?;
+        require(
+            !self.renderer_epoch.is_empty() && self.renderer_epoch.encode_utf16().count() <= 256,
+            "invalid renderer epoch",
+        )?;
+        require(
+            [
+                self.geometries,
+                self.textures,
+                self.live_materials,
+                self.asset_cache_entries,
+                self.queued_frames,
+                self.queued_captures,
+            ]
+            .iter()
+            .all(|n| *n <= 1_000_000),
+            "diagnostic count exceeds budget",
         )
     }
 }
@@ -566,6 +607,13 @@ pub fn parse_wire(bytes: &[u8]) -> Result<WireMessage, AppError> {
         }
         WireMessage::Frame { frame } => frame.validate()?,
         WireMessage::Applied { frame } => frame.validate()?,
+        WireMessage::Diagnostics { diagnostics } => {
+            require(
+                bytes.len() <= MAX_DIAGNOSTICS_BYTES,
+                "oversized diagnostics",
+            )?;
+            diagnostics.validate()?;
+        }
         WireMessage::CaptureRequest { params, .. } => params.validate()?,
         WireMessage::CaptureReply { result, .. } => {
             if let Some(data) = reply_data(result)? {

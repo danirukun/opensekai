@@ -16,7 +16,7 @@ it("disposes shared geometry material and texture once",()=>{const geometry=new 
 const rendererPorts = vi.hoisted(() => ({ load: vi.fn(), render: vi.fn(), dispose: vi.fn(), setSize: vi.fn() }));
 vi.mock("../src/backend", () => ({ initializeBackend: async (canvas: HTMLCanvasElement) => ({
     backend: "webgl2",
-    renderer: { setSize: rendererPorts.setSize.mockImplementation((width: number, height: number) => {canvas.width = width; canvas.height = height;}), renderAsync: rendererPorts.render, dispose: rendererPorts.dispose }
+    renderer: { info: {memory: {geometries: 7, textures: 9}}, setSize: rendererPorts.setSize.mockImplementation((width: number, height: number) => {canvas.width = width; canvas.height = height;}), renderAsync: rendererPorts.render, dispose: rendererPorts.dispose }
 }) }));
 vi.mock("../src/assets", async importOriginal => ({
     ...await importOriginal<typeof import("../src/assets")>(),
@@ -89,4 +89,14 @@ it("keeps one render camera while applying live lens and camera selections", asy
     expect(camera.position.toArray()).toEqual([2, 3, 4]);
     expect(applied.cameraId).toBe("camera_close");
     renderer.dispose();
+});
+it('returns no diagnostics before display or when diagnostics are disabled',async()=>{
+ const renderer=await createRenderer({canvas:{width:1920,height:1080} as HTMLCanvasElement,outputId:'output_main',mode:'force-webgl2',resources:{readAsset:vi.fn()},diagnostics:false,resolutionScale:1});expect(renderer.diagnostics!('epoch')).toBeNull();renderer.dispose();expect(renderer.diagnostics!('epoch')).toBeNull();
+});
+
+it("reports renderer allocations with bounded queue/cache metadata after display",async()=>{
+ rendererPorts.render.mockReset().mockResolvedValue(undefined);
+ const renderer=await createRenderer({canvas:{width:1920,height:1080} as HTMLCanvasElement,outputId:"output_main",mode:"force-webgl2",resources:{readAsset:vi.fn()},diagnostics:true,resolutionScale:1});
+ expect(renderer.diagnostics!("epoch_1")).toBeNull();const frame=makeSmokeFrame({sequence:1,tick:1});frame.scene.entities=frame.scene.entities.filter(entity=>entity.kind==="camera");await renderer.applyFrame(frame);
+ expect(renderer.diagnostics!("epoch_1")).toMatchObject({sessionId:frame.sessionId,outputId:"output_main",rendererEpoch:"epoch_1",sequence:1,revision:0,backend:"webgl2",geometries:7,textures:9,assetCacheEntries:0,queuedFrames:0,queuedCaptures:0});renderer.dispose();expect(renderer.diagnostics!("epoch_1")).toBeNull();
 });

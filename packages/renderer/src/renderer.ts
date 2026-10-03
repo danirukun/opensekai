@@ -1,16 +1,18 @@
 import { Scene, Mesh, BoxGeometry, MeshStandardNodeMaterial, PerspectiveCamera, AmbientLight, DirectionalLight } from "three/webgpu";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
 import type { Object3D } from "three/webgpu";
-import type { RuntimeFrame, FrameApplied, CaptureBytes, Id, ResourceHost, AppError, SceneEntity } from "@opensekai/contracts";
+import type { RuntimeFrame, FrameApplied, RendererDiagnostics, CaptureBytes, Id, ResourceHost, AppError, SceneEntity } from "@opensekai/contracts";
 import { RuntimeFrameSchema } from "@opensekai/contracts";
 import { selectFrame, failure, createRenderQueue } from "./apply-frame";
 import { createAssetCache, createAssetLoader, disposeObject } from "./assets";
+import { countLiveMaterials } from "./diagnostics";
 import { initializeBackend } from "./backend";
 import { createCapturePolicy, readPng } from "./capture";
 import { createDiagnosticMarker } from "./diagnostic-marker";
 export interface RendererHandle {
     applyFrame(frame: RuntimeFrame): Promise<FrameApplied>;
     capture(): Promise<CaptureBytes>;
+    diagnostics?(rendererEpoch: string): RendererDiagnostics | null;
     dispose(): void;
 }
 export interface RendererOptions {
@@ -152,7 +154,10 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         displayed = { outputId: options.outputId, sessionId: frame.sessionId, sequence: frame.sequence, tick: frame.tick, revision: frame.scene.revision, cameraId: cameraEntity.id, backend, cpuMs: performance.now() - started, gpuMs: null, warnings };
         return structuredClone(displayed);
     };
-    return { applyFrame(raw) { const frame = RuntimeFrameSchema.parse(raw); const selected = selectFrame(accepted, frame); if (!selected.ok)
+    return { diagnostics(rendererEpoch) {
+        if (!options.diagnostics || !displayed || disposed) return null;
+        return {sessionId: displayed.sessionId, outputId: displayed.outputId, rendererEpoch, sequence: displayed.sequence, revision: displayed.revision, backend, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, liveMaterials: countLiveMaterials(marker ? [scene,marker.scene] : [scene]), assetCacheEntries: assets.size(), ...queue.snapshot()};
+    }, applyFrame(raw) { const frame = RuntimeFrameSchema.parse(raw); const selected = selectFrame(accepted, frame); if (!selected.ok)
             return Promise.reject(failure(selected.error.code, selected.error.message)); accepted = frame; return queue.enqueue("frame", () => submit(frame)); }, capture() { return queue.enqueue("capture", async () => { policy.reserve(performance.now()); if (!displayed || !displayFrame)
             throw failure("UNAVAILABLE", "No displayed frame"); const metadata = structuredClone(displayed); await submit(displayFrame); const png = await readPng(options.canvas); policy.checkBytes(png.byteLength); return { frame: metadata, png, width: options.canvas.width, height: options.canvas.height }; }); }, dispose() { if (disposed)
             return; disposed = true; queue.dispose(); } };

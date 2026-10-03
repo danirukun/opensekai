@@ -65,6 +65,7 @@ struct Inner {
     tickets: HashMap<String, String>,
     latest: Option<RuntimeFrame>,
     acks: HashMap<String, VecDeque<(FrameApplied, u64)>>,
+    diagnostics: HashMap<String, (RendererDiagnostics, u64)>,
     frames: VecDeque<RuntimeFrame>,
     pending: HashMap<String, Pending>,
     handler: Option<RpcHandler>,
@@ -138,6 +139,7 @@ impl Shared {
             inner.latest = None;
             inner.frames.clear();
             inner.acks.clear();
+            inner.diagnostics.clear();
             for renderer in inner.renderers.values() {
                 lock(&renderer.state).clear();
                 lock(&renderer.delivered).clear();
@@ -152,6 +154,7 @@ impl Shared {
         for output in outputs {
             inner.renderers.remove(&output);
             inner.acks.remove(&output);
+            inner.diagnostics.remove(&output);
         }
         let ids: Vec<_> = inner
             .pending
@@ -206,6 +209,10 @@ pub async fn start_service(config: ServiceConfig) -> Result<ServiceHandle, AppEr
     });
     let router = Router::new()
         .route("/ws", get(upgrade))
+        .route(
+            "/diagnostics/{id}",
+            get(diagnostics_snapshot).options(asset_preflight),
+        )
         .route("/renderer/", get(renderer_index))
         .route("/renderer/{*file}", get(renderer_file))
         .route("/assets/{id}", get(asset).options(asset_preflight))
@@ -639,6 +646,7 @@ async fn connection_loop(mut socket: WebSocket, shared: &Arc<Shared>) {
             {
                 if let Some(id) = &output_id {
                     inner.acks.remove(id);
+                    inner.diagnostics.remove(id);
                     inner.renderers.insert(id.clone(), connection.clone());
                     if let Some(frame) = &inner.latest {
                         lock(&connection.state).push(json!(WireMessage::Frame {
@@ -762,6 +770,21 @@ async fn connection_loop(mut socket: WebSocket, shared: &Arc<Shared>) {
                         if ring.len() > 32 {
                             ring.pop_front();
                         }
+                    },
+                    WireMessage::Diagnostics { diagnostics } if role == Role::Renderer => {
+                        if !shared.evaluation { continue; }
+                        let mut inner=lock(&shared.inner);
+                        if diagnostics.session_id != shared.session || output_id.as_deref() != Some(&diagnostics.output_id) || inner.renderers.get(&diagnostics.output_id).is_none_or(|current|current.id != connection.id) { break; }
+                        let now=shared.now_ms();
+                        let acknowledged=inner.acks.get(&diagnostics.output_id).and_then(|ring|ring.iter().find(|(ack,_)|ack.sequence == diagnostics.sequence));
+                        let Some((ack,received))=acknowledged else { break; };
+                        if ack.revision != diagnostics.revision || ack.backend != diagnostics.backend { break; }
+                        if now.saturating_sub(*received)>500 || inner.latest.as_ref().is_none_or(|latest|latest.scene.revision != diagnostics.revision) { continue; }
+                        if let Some((previous,at))=inner.diagnostics.get(&diagnostics.output_id) {
+                            if previous.renderer_epoch != diagnostics.renderer_epoch { break; }
+                            if now.saturating_sub(*at)<1000 || diagnostics.sequence<=previous.sequence { continue; }
+                        }
+                        inner.diagnostics.insert(diagnostics.output_id.clone(),(diagnostics,now));
                     },
                     WireMessage::Reply{request_id,result} if role==Role::Publisher=>shared.accept_reply(&connection.id,&request_id,result,false),
                     WireMessage::CaptureReply{request_id,result} if role==Role::Renderer=>shared.accept_reply(&connection.id,&request_id,result,true),
@@ -939,6 +962,66 @@ async fn evidence(
             Some(Err(error)) if error.code == ErrorCode::InvalidInput => {
                 StatusCode::BAD_REQUEST.into_response()
             }
+            _ => StatusCode::NOT_FOUND.into_response(),
+        }
+    };
+    if let Some(origin) = headers.get("origin") {
+        response
+            .headers_mut()
+            .insert("access-control-allow-origin", origin.clone());
+        response
+            .headers_mut()
+            .insert("vary", axum::http::HeaderValue::from_static("Origin"));
+    }
+    response
+}
+
+async fn diagnostics_snapshot(
+    State(shared): State<Arc<Shared>>,
+    Path(id): Path<String>,
+    headers: HeaderMap,
+    uri: Uri,
+) -> Response {
+    if !headers_allowed(&headers, &shared) {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    let mut response = if !shared.evaluation {
+        StatusCode::NOT_FOUND.into_response()
+    } else if headers.get("authorization").and_then(|v| v.to_str().ok())
+        != Some(format!("Bearer {}", shared.operator_token).as_str())
+    {
+        StatusCode::UNAUTHORIZED.into_response()
+    } else if uri.query().is_some()
+        || uri.path() != format!("/diagnostics/{id}")
+        || id.is_empty()
+        || id.len() > 256
+        || !id
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'))
+    {
+        StatusCode::BAD_REQUEST.into_response()
+    } else {
+        let reader = shared.clone();
+        let result=tokio::task::spawn_blocking(move || {
+            let inner=lock(&reader.inner);
+            let connection=inner.renderers.get(&id)?;
+            let (packet,received)=inner.diagnostics.get(&id)?;
+            let mut pending=HashMap::<&str,usize>::new();for call in inner.pending.values() { *pending.entry(&call.owner).or_default()+=1; }
+            let per_owner=pending.values().copied().max().unwrap_or(0);
+            let state_frames=lock(&connection.state).len();
+            let delivered_frames=lock(&connection.delivered).len();
+            Some(json!({"renderer":packet,"receivedAgeMs":reader.now_ms().saturating_sub(*received),"native":{"stateFrames":state_frames,"deliveredFrames":delivered_frames,"controls":connection.control.max_capacity()-connection.control.capacity(),"pendingCallsPerOwner":per_owner,"pendingOwnerCount":pending.len(),"ackHistory":inner.acks.get(&id).map_or(0,VecDeque::len)}}))
+        }).await;
+        match result {
+            Ok(Some(value)) => (
+                [
+                    ("content-type", "application/json"),
+                    ("cache-control", "no-store"),
+                    ("x-content-type-options", "nosniff"),
+                ],
+                value.to_string(),
+            )
+                .into_response(),
             _ => StatusCode::NOT_FOUND.into_response(),
         }
     };

@@ -25,6 +25,7 @@ export function createRenderQueue(onIdle: () => void = () => { }) {
         }
     } active = false; onIdle(); };
     return {
+        snapshot: () => ({activeRenderJob: active, queuedFrames: jobs.filter(job => job.kind === "frame").length, queuedCaptures: jobs.filter(job => job.kind === "capture").length}),
         enqueue<T>(kind: Job["kind"], run: () => Promise<T>): Promise<T> { return new Promise((resolve, reject) => { if (disposed) {
             reject(failure("CANCELLED", "Renderer disposed"));
             return;

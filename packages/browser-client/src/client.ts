@@ -1,4 +1,4 @@
-import { ConnectionDescriptorSchema, CaptureBytesSchema, RuntimeFrameSchema, FrameAppliedSchema, ResultSchemas, LIMITS, validateCall, requiredCapability, replySchema, parseWire } from "@opensekai/contracts";
+import { ConnectionDescriptorSchema, CaptureBytesSchema, RuntimeFrameSchema, FrameAppliedSchema, RendererDiagnosticsSchema, ResultSchemas, LIMITS, validateCall, requiredCapability, replySchema, parseWire } from "@opensekai/contracts";
 import type { AppApi, AppError, BrowserClient, CaptureBytes, CaptureParams, ConnectionDescriptor, FrameApplied, PublisherClient, Reply, RuntimeFrame, ValidatedCall, WireMessage } from "@opensekai/contracts";
 import { reconnectDelay } from "./reconnect";
 type Socket = Pick<WebSocket, "send" | "close" | "addEventListener" | "removeEventListener" | "bufferedAmount">;
@@ -79,7 +79,7 @@ export function connectWithPorts(raw: ConnectionDescriptor, ports: ClientPorts =
             try {
                 const text = JSON.stringify(message);
                 const bytes = new TextEncoder().encode(text).length;
-                const limit = message.kind === "captureReply" ? LIMITS.captureEnvelopeBytes : LIMITS.jsonBytes;
+                const limit = message.kind === "captureReply" ? LIMITS.captureEnvelopeBytes : message.kind === "diagnostics" ? LIMITS.diagnosticsBytes : LIMITS.jsonBytes;
                 const queueLimit = LIMITS.jsonBytes * LIMITS.queuedFrames;
                 const queueFull = state
                     ? socket.bufferedAmount + bytes > Math.min(bytes * LIMITS.queuedFrames, queueLimit)
@@ -191,6 +191,11 @@ export function connectWithPorts(raw: ConnectionDescriptor, ports: ClientPorts =
                     kind: "applied",
                     frame: parsed
                 });
+            },
+            sendDiagnostics(diagnostics) {
+                const parsed = RendererDiagnosticsSchema.parse(diagnostics);
+                if (descriptor.role !== "renderer" || parsed.sessionId !== descriptor.sessionId || parsed.outputId !== descriptor.outputId) throw new Error("Diagnostics scope mismatch");
+                send({kind: "diagnostics", diagnostics: parsed});
             },
             onCapture(listener) {
                 capture = listener;

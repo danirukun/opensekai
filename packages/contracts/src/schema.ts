@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { AppApi, Capability, Reply, ValidatedCall } from "./types";
 export const LIMITS = {
     jsonBytes: 262144,
+    diagnosticsBytes: 2048,
     captureEnvelopeBytes: 3145728,
     pngBytes: 2097152,
     pendingCalls: 32,
@@ -187,6 +188,14 @@ export const FrameAppliedSchema = z.strictObject({
     gpuMs: n.nonnegative().nullable(),
     warnings: z.array(AppErrorSchema)
 });
+const diagnosticCount = u.max(1_000_000);
+export const RendererDiagnosticsSchema = z.strictObject({
+ sessionId: IdSchema, outputId: IdSchema, rendererEpoch: IdSchema,
+ sequence: u, revision: u, backend: BackendSchema,
+ geometries: diagnosticCount, textures: diagnosticCount, liveMaterials: diagnosticCount,
+ assetCacheEntries: diagnosticCount, activeRenderJob: z.boolean(), queuedFrames: diagnosticCount, queuedCaptures: diagnosticCount,
+});
+export const DiagnosticsEnvelopeSchema = z.strictObject({ kind: z.literal("diagnostics"), diagnostics: RendererDiagnosticsSchema });
 export const AppStatusSchema = z.strictObject({
     schemaVersion: z.literal(1),
     sessionId: IdSchema,
@@ -420,6 +429,7 @@ export const WireMessageSchema = z.union([
     ReplyEnvelopeSchema,
     FrameEnvelopeSchema,
     AppliedEnvelopeSchema,
+    DiagnosticsEnvelopeSchema,
     CaptureRequestSchema,
     CaptureReplySchema,
     PingPongSchema
@@ -428,7 +438,8 @@ export type WireMessage = z.infer<typeof WireMessageSchema>;
 export function parseWire(text: string): WireMessage {
     const value: unknown = JSON.parse(text);
     const capture = typeof value === "object" && value !== null && "kind" in value && value.kind === "captureReply";
-    if (new TextEncoder().encode(text).length > (capture ? LIMITS.captureEnvelopeBytes : LIMITS.jsonBytes))
+    const diagnostics = typeof value === "object" && value !== null && "kind" in value && value.kind === "diagnostics";
+    if (new TextEncoder().encode(text).length > (capture ? LIMITS.captureEnvelopeBytes : diagnostics ? LIMITS.diagnosticsBytes : LIMITS.jsonBytes))
         throw new Error("Message too large");
     return WireMessageSchema.parse(value);
 }
@@ -451,6 +462,8 @@ export const publicJsonSchemas = Object.fromEntries(Object.entries({
     ConnectionDescriptor: ConnectionDescriptorSchema,
     RuntimeFrame: RuntimeFrameSchema,
     FrameApplied: FrameAppliedSchema,
+    RendererDiagnostics: RendererDiagnosticsSchema,
+    DiagnosticsEnvelope: DiagnosticsEnvelopeSchema,
     AppStatus: AppStatusSchema,
     CaptureParams: CaptureParamsSchema,
     CaptureRecord: CaptureRecordSchema,

@@ -122,6 +122,11 @@ export interface FrameApplied {
     gpuMs: number | null;
     warnings: AppError[];
 }
+export interface RendererDiagnostics {
+ sessionId: Id; outputId: Id; rendererEpoch: Id; sequence: number; revision: number; backend: Backend;
+ geometries: number; textures: number; liveMaterials: number; assetCacheEntries: number;
+ activeRenderJob: boolean; queuedFrames: number; queuedCaptures: number;
+}
 export interface AppStatus {
     schemaVersion: 1;
     sessionId: Id;
@@ -245,6 +250,7 @@ export interface BrowserClient extends ResourceHost {
     api: AppApi;
     onFrame(listener: (frame: RuntimeFrame) => void): () => void;
     sendApplied(frame: FrameApplied): void;
+    sendDiagnostics?(diagnostics: RendererDiagnostics): void;
     onCapture(listener: (params: CaptureParams) => Promise<Reply<CaptureBytes>>): () => void;
     readResource(uri: string): Promise<Uint8Array>;
     close(): void;

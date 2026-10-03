@@ -1,5 +1,5 @@
 import { connectClient } from "@opensekai/browser-client";
-import { createRenderer } from "@opensekai/renderer";
+import { createRenderer, createDiagnosticsSampler } from "@opensekai/renderer";
 import type { ConnectionDescriptor, AppError } from "@opensekai/contracts";
 async function start() {
     const fragment = location.hash.slice(1);
@@ -19,7 +19,16 @@ async function start() {
         throw error;
     }
     const handle = renderer;
-    const offFrame = client.onFrame(frame => { void handle.applyFrame(frame).then(applied => client.sendApplied(applied)).catch(error => { if (error?.code !== "CANCELLED")
+    const sample = createDiagnosticsSampler();
+    const epoch = crypto.randomUUID();
+    const diagnostics = new URLSearchParams(location.search).get("diagnostics") === "1";
+    const offFrame = client.onFrame(frame => { void handle.applyFrame(frame).then(applied => {
+        client.sendApplied(applied);
+        if (diagnostics && sample(performance.now())) {
+            const snapshot = handle.diagnostics?.(epoch);
+            if (snapshot) client.sendDiagnostics?.(snapshot);
+        }
+    }).catch(error => { if (error?.code !== "CANCELLED")
         console.error("Frame application failed", error?.code ?? "UNAVAILABLE"); }); });
     const offCapture = client.onCapture(async (params) => { try {
         const capture = await handle.capture();
