@@ -1,14 +1,14 @@
 import { connectClient } from "@opensekai/browser-client";
 import { createRenderer, createDiagnosticsSampler } from "@opensekai/renderer";
-import type { ConnectionDescriptor, AppError } from "@opensekai/contracts";
+import type { AppError } from "@opensekai/contracts";
+import { loadRendererDescriptor } from "./descriptor";
 async function start() {
-    const fragment = location.hash.slice(1);
-    history.replaceState(null, "", location.pathname + location.search);
-    if (!fragment)
-        throw new Error("Renderer descriptor missing");
-    const descriptor = JSON.parse(decodeURIComponent(fragment)) as ConnectionDescriptor;
-    if (descriptor.role !== "renderer" || !descriptor.outputId)
-        throw new Error("Renderer descriptor required");
+    const descriptor = loadRendererDescriptor({
+        hash: location.hash,
+        origin: location.origin,
+        redact: () => history.replaceState(null, "", location.pathname + location.search),
+        storage: () => sessionStorage
+    });
     const client = await connectClient(descriptor);
     let renderer;
     try {
@@ -42,4 +42,4 @@ async function start() {
     } });
     addEventListener("pagehide", () => { offFrame(); offCapture(); handle.dispose(); client.close(); }, { once: true });
 }
-void start().catch(error => console.error("Output initialization failed", error instanceof Error ? error.message : "Unknown failure"));
+void start().catch(() => console.error("Output initialization failed"));
