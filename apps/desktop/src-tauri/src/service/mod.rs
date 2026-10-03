@@ -920,7 +920,13 @@ async fn evidence(
         StatusCode::BAD_REQUEST.into_response()
     } else {
         let reader = lock(&shared.inner).evidence.clone();
-        match reader.map(|read| read(&id, &filename)) {
+        let result = match reader {
+            Some(read) => tokio::task::spawn_blocking(move || read(&id, &filename))
+                .await
+                .ok(),
+            None => None,
+        };
+        match result {
             Some(Ok((bytes, mime))) => (
                 [
                     ("content-type", mime),

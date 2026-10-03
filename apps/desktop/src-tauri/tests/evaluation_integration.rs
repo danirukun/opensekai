@@ -479,10 +479,11 @@ async fn pinned_fixture_benchmark_cancel_replay_stale_timer_summary_and_history(
         "CONFLICT"
     );
     fresh(&service, &mut publisher, &mut renderer, 2).await;
+    tokio::time::sleep(Duration::from_millis(150)).await;
     let second = rpc(&mut operator, "benchmarkStart", run_params("second")).await;
     assert_eq!(second["ok"], true, "{second}");
     let second_id = second["data"]["id"].as_str().unwrap();
-    tokio::time::sleep(Duration::from_millis(700)).await;
+    tokio::time::sleep(Duration::from_millis(470)).await;
     let timed_summary = reqwest::Client::new()
         .get(format!(
             "{}/evidence/{second_id}/summary.json",
@@ -625,4 +626,62 @@ async fn service_ports_retain_all_native_ack_times_and_reject_disconnected_outpu
         ports.current_output("output_main").unwrap_err().code,
         ErrorCode::Unavailable
     );
+}
+#[tokio::test(flavor = "current_thread")]
+async fn blocked_evidence_reader_does_not_block_status_ack_or_control() {
+    let (_dir, service) = service(true).await;
+    let od = service.operator_descriptor();
+    let mut publisher = auth(&service.publisher_descriptor()).await;
+    let mut renderer = auth(&service.renderer_descriptor("output_main").unwrap()).await;
+    let mut operator = auth(&od).await;
+    fresh(&service, &mut publisher, &mut renderer, 1).await;
+    let gate = Arc::new((std::sync::Mutex::new(false), std::sync::Condvar::new()));
+    let reader_gate = gate.clone();
+    let (entered, started) = tokio::sync::oneshot::channel();
+    let entered = std::sync::Mutex::new(Some(entered));
+    service.install_evidence_reader(Arc::new(move |_, _| {
+        let began = std::time::Instant::now();
+        if let Some(entered) = entered.lock().unwrap().take() {
+            entered.send(began).unwrap();
+        }
+        let (lock, condition) = &*reader_gate;
+        let mut ready = lock.lock().unwrap();
+        while !*ready {
+            ready = condition.wait(ready).unwrap();
+        }
+        Ok((vec![1], "image/png"))
+    }));
+    let release_gate = gate.clone();
+    let release = std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(700));
+        let (lock, condition) = &*release_gate;
+        *lock.lock().unwrap() = true;
+        condition.notify_all();
+    });
+    let url = format!(
+        "{}/evidence/{}/capture.png",
+        od.http_origin,
+        uuid::Uuid::new_v4()
+    );
+    let token = od.token.clone();
+    let request = tokio::spawn(async move {
+        reqwest::Client::new()
+            .get(url)
+            .bearer_auth(token)
+            .send()
+            .await
+            .unwrap()
+    });
+    let began = started.await.unwrap();
+    fresh(&service, &mut publisher, &mut renderer, 2).await;
+    let status = rpc(&mut operator, "appStatus", json!({})).await;
+    assert_eq!(status["data"]["outputs"][0]["lastFrame"]["sequence"], 2);
+    let elapsed = began.elapsed();
+    assert!(
+        elapsed < Duration::from_millis(300),
+        "evidence reader stalled native control for {elapsed:?}"
+    );
+    assert_eq!(request.await.unwrap().status(), 200);
+    release.join().unwrap();
+    service.shutdown().await.unwrap();
 }

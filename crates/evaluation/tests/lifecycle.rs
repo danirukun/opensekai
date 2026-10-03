@@ -286,3 +286,23 @@ fn removing_capture_revokes_bytes_metadata_and_manifest_but_preserves_rate() {
         ErrorCode::RateLimited
     );
 }
+#[test]
+fn initial_receive_age_is_independent_of_benchmark_start_clock() {
+    let mut runs = RunManager::new();
+    let started = runs.start_at(params("aged"), 400, 0, &output()).unwrap();
+    assert_eq!(
+        runs.status(&started.id, 500).unwrap().state,
+        RunState::Warming
+    );
+    let failed = runs.status(&started.id, 501).unwrap();
+    assert_eq!(failed.state, RunState::Failed);
+    assert_eq!(failed.error, Some(ErrorCode::StaleFrame));
+    assert!((failed.progress - 101.0 / 150000.0).abs() < 1e-9);
+    let mut runs = RunManager::new();
+    assert_eq!(
+        runs.start_at(params("future"), 400, 401, &output())
+            .unwrap_err()
+            .code,
+        ErrorCode::StaleFrame
+    );
+}

@@ -244,19 +244,21 @@ impl NativeEvaluation {
             .clone()
             .try_lock_owned()
             .map_err(|_| error(ErrorCode::Busy, "Capture or benchmark start in progress"))?;
-        {
-            let mut state = lock(&self.state);
+        let evaluation = self.clone();
+        let client_id = context.client_id.clone();
+        tokio::task::spawn_blocking(move || {
+            let mut state = lock(&evaluation.state);
             if state.runs.is_active() {
                 return Err(error(ErrorCode::Busy, "Benchmark is active"));
             }
-            let now = self.ports.now_ms();
+            let now = evaluation.ports.now_ms();
             state
                 .attempts
                 .retain(|(_, at)| now.saturating_sub(*at) < 1000);
             if state
                 .attempts
                 .iter()
-                .any(|(client, _)| client == &context.client_id)
+                .any(|(client, _)| client == &client_id)
             {
                 return Err(error(ErrorCode::RateLimited, "Capture rate exceeded"));
             }
@@ -264,8 +266,11 @@ impl NativeEvaluation {
                 return Err(error(ErrorCode::Busy, "Capture client budget exceeded"));
             }
             // Failed attempts consume the native per-client one-second budget too.
-            state.attempts.push_back((context.client_id.clone(), now));
-        }
+            state.attempts.push_back((client_id.clone(), now));
+            Ok(())
+        })
+        .await
+        .map_err(|_| error(ErrorCode::Unavailable, "Capture budget check failed"))??;
         let (current, _) = self.ports.current_output("output_main")?;
         if current.revision != params.expected_revision {
             return Err(error(ErrorCode::Conflict, "Capture revision changed"));
@@ -336,24 +341,44 @@ impl NativeEvaluation {
         if call.method == "benchmarkStart" {
             let params: BenchmarkParams = decode(call)?;
             params.validate()?;
-            if let Some(replay) = lock(&self.state).runs.replay(&params) {
+            let evaluation = self.clone();
+            let replay_params = params.clone();
+            let replay = tokio::task::spawn_blocking(move || {
+                lock(&evaluation.state).runs.replay(&replay_params)
+            })
+            .await
+            .map_err(|_| error(ErrorCode::Unavailable, "Benchmark replay failed"))?;
+            if let Some(replay) = replay {
                 return replay;
             }
-            let _flight = self
+            let flight = self
                 .flight
                 .clone()
                 .try_lock_owned()
                 .map_err(|_| error(ErrorCode::Busy, "Capture in progress"))?;
-            if lock(&self.state).runs.is_active() {
+            let evaluation = self.clone();
+            if tokio::task::spawn_blocking(move || lock(&evaluation.state).runs.is_active())
+                .await
+                .map_err(|_| error(ErrorCode::Unavailable, "Benchmark state unavailable"))?
+            {
                 return Err(error(ErrorCode::Busy, "Benchmark is active"));
             }
             self.ports.validate_smoke_fixture().await?;
-            let (output, _) = self.ports.current_output("output_main")?;
-            let mut state = lock(&self.state);
-            let run = state.runs.start(params, self.ports.now_ms(), &output)?;
-            state.active = Some((run.id.clone(), output.sequence));
-            self.prune_exports(&mut state);
-            return Ok(run);
+            let evaluation = self.clone();
+            return tokio::task::spawn_blocking(move || {
+                let _flight = flight;
+                let mut state = lock(&evaluation.state);
+                let (output, received) = evaluation.ports.current_output("output_main")?;
+                let run =
+                    state
+                        .runs
+                        .start_at(params, evaluation.ports.now_ms(), received, &output)?;
+                state.active = Some((run.id.clone(), output.sequence));
+                evaluation.prune_exports(&mut state);
+                Ok(run)
+            })
+            .await
+            .map_err(|_| error(ErrorCode::Unavailable, "Benchmark start failed"))?;
         }
         let run_id = call
             .params
@@ -397,18 +422,28 @@ impl NativeEvaluation {
             }],
         })
     }
-    pub async fn evidence(&self, call: Call, _context: RpcContext) -> Reply<Value> {
-        let Some(id) = call.params.get("evidenceId").and_then(Value::as_str) else {
+    pub async fn evidence(self: &Arc<Self>, call: Call, _context: RpcContext) -> Reply<Value> {
+        let Some(id) = call
+            .params
+            .get("evidenceId")
+            .and_then(Value::as_str)
+            .map(str::to_owned)
+        else {
             return Reply::failure(invalid("Missing evidence ID"));
         };
-        let state = lock(&self.state);
-        match state
-            .captures
-            .manifest(id)
-            .or_else(|_| self.summary_manifest(&state, id))
+        let evaluation = self.clone();
+        match tokio::task::spawn_blocking(move || {
+            let state = lock(&evaluation.state);
+            state
+                .captures
+                .manifest(&id)
+                .or_else(|_| evaluation.summary_manifest(&state, &id))
+        })
+        .await
         {
-            Ok(manifest) => Reply::success(json!(manifest)),
-            Err(error) => Reply::failure(error),
+            Ok(Ok(manifest)) => Reply::success(json!(manifest)),
+            Ok(Err(error)) => Reply::failure(error),
+            Err(_) => Reply::failure(error(ErrorCode::Unavailable, "Evidence lookup failed")),
         }
     }
     fn read(&self, id: &str, filename: &str) -> Result<(Vec<u8>, &'static str), AppError> {
@@ -423,5 +458,101 @@ impl NativeEvaluation {
 impl Drop for NativeEvaluation {
     fn drop(&mut self) {
         self.shutdown();
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::service::{start_service, ServiceConfig};
+    use futures_util::{SinkExt, StreamExt};
+    use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
+    type Socket = WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>;
+    async fn send(socket: &mut Socket, value: Value) {
+        socket
+            .send(Message::Text(value.to_string().into()))
+            .await
+            .unwrap();
+    }
+    async fn recv(socket: &mut Socket) -> Value {
+        serde_json::from_str(&socket.next().await.unwrap().unwrap().into_text().unwrap()).unwrap()
+    }
+    async fn auth(descriptor: &ConnectionDescriptor) -> Socket {
+        let (mut socket, _) = connect_async(&descriptor.ws_url).await.unwrap();
+        send(&mut socket,json!({"kind":"auth","role":descriptor.role,"token":descriptor.token,"schemaVersion":1,"outputId":descriptor.output_id})).await;
+        assert_eq!(recv(&mut socket).await["kind"], "authReply");
+        socket
+    }
+    #[tokio::test(flavor = "current_thread")]
+    async fn blocked_evaluation_state_does_not_block_native_status_rpc() {
+        let dir = tempfile::tempdir().unwrap();
+        let manifest = dir.path().join("manifest.json");
+        std::fs::write(
+            &manifest,
+            r#"{"schemaVersion":1,"fixtureId":"smoke_v1","assets":[]}"#,
+        )
+        .unwrap();
+        let service = start_service(ServiceConfig {
+            output_root: dir.path().into(),
+            asset_manifest: manifest,
+            evidence_root: dir.path().join("evidence"),
+            evaluation_enabled: true,
+        })
+        .await
+        .unwrap();
+        let evaluation = NativeEvaluation::install(
+            &service,
+            EvaluationIdentity {
+                session_id: service.operator_descriptor().session_id,
+                app_commit: "test".into(),
+                fixture_id: "smoke_v1".into(),
+                evidence_root: dir.path().join("evidence"),
+            },
+        )
+        .unwrap();
+        let mut blocked = auth(&service.operator_descriptor()).await;
+        let mut control = auth(&service.operator_descriptor()).await;
+        let held = evaluation.clone();
+        let (entered, started) = tokio::sync::oneshot::channel();
+        let thread = std::thread::spawn(move || {
+            let _state = lock(&held.state);
+            entered.send(std::time::Instant::now()).unwrap();
+            std::thread::sleep(Duration::from_millis(700));
+        });
+        let began = started.await.unwrap();
+        for (id, method, params) in [
+            (
+                "evidence",
+                "evidenceRead",
+                json!({"evidenceId":uuid::Uuid::new_v4().to_string()}),
+            ),
+            (
+                "start",
+                "benchmarkStart",
+                json!({"requestId":"blocked","fixtureId":"smoke_v1","profileId":"webgl2_smoke_v1"}),
+            ),
+        ] {
+            send(
+                &mut blocked,
+                json!({"kind":"call","requestId":id,"method":method,"params":params}),
+            )
+            .await;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        send(
+            &mut control,
+            json!({"kind":"call","requestId":"status","method":"appStatus","params":{}}),
+        )
+        .await;
+        assert_eq!(recv(&mut control).await["result"]["ok"], true);
+        let elapsed = began.elapsed();
+        assert!(
+            elapsed < Duration::from_millis(300),
+            "evaluation state stalled native status for {elapsed:?}"
+        );
+        recv(&mut blocked).await;
+        recv(&mut blocked).await;
+        thread.join().unwrap();
+        evaluation.shutdown();
+        service.shutdown().await.unwrap();
     }
 }

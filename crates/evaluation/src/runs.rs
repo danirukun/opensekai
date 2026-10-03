@@ -47,10 +47,22 @@ impl RunManager {
         now_ms: u64,
         output: &FrameApplied,
     ) -> Result<BenchmarkRun, AppError> {
+        self.start_at(params, now_ms, now_ms, output)
+    }
+    pub fn start_at(
+        &mut self,
+        params: BenchmarkParams,
+        now_ms: u64,
+        received_at_ms: u64,
+        output: &FrameApplied,
+    ) -> Result<BenchmarkRun, AppError> {
         params.validate()?;
         output.validate()?;
         if let Some(result) = self.replay(&params) {
             return result;
+        }
+        if received_at_ms > now_ms || now_ms.saturating_sub(received_at_ms) > 500 {
+            return Err(error(ErrorCode::StaleFrame, "initial output expired"));
         }
         if self.is_active() {
             return Err(error(ErrorCode::Busy, "benchmark is active"));
@@ -73,7 +85,7 @@ impl RunManager {
             params,
             run: run.clone(),
             started: now_ms,
-            last: now_ms,
+            last: received_at_ms,
             session: output.session_id.clone(),
             output: output.output_id.clone(),
             sequence: output.sequence,
