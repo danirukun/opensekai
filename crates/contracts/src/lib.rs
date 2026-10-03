@@ -711,7 +711,7 @@ fn validate_base64(s: &str) -> Result<(), AppError> {
         0
     };
     require(
-        bytes.len() % 4 == 0 && bytes.len() <= 2796204,
+        bytes.len().is_multiple_of(4) && bytes.len() <= 2796204,
         "invalid base64 length",
     )?;
     require(
@@ -878,7 +878,7 @@ fn normalize_numbers(value: &Value) -> Value {
     match value {
         Value::Number(n) => {
             if let Some(f) = n.as_f64() {
-                if f.is_finite() && f.fract() == 0. && f >= 0. && f <= 9_007_199_254_740_991. {
+                if f.is_finite() && f.fract() == 0. && (0. ..=9_007_199_254_740_991.).contains(&f) {
                     return Value::from(f as u64);
                 }
             }
