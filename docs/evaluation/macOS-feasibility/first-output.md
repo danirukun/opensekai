@@ -21,9 +21,15 @@ The renderer assigned canvas dimensions on each frame. A regression verified the
 
 The first OBS WebGPU capture had zero RGBA values in every pixel. A fresh WebGL2 source later displayed the fixture. WebGPU OBS presentation remains unverified.
 
-The desktop showed white avatar textures on both backends. Installed GLTFLoader code creates local blob URLs for embedded images. ImageBitmapLoader fetches those URLs. The desktop policy allowed blob images but did not allow blob connections. The policy now allows local blob fetches. The corrected desktop material check remains pending.
+The desktop showed white avatar textures on both backends. Installed GLTFLoader code creates local blob URLs for embedded images. ImageBitmapLoader fetches those URLs. The desktop policy allowed blob images but did not allow blob connections. The policy now allows local blob fetches. A later debug launch displayed the colored avatar textures correctly. The release WebGPU preview also displayed the correct texture colors.
 
-The live OBS image was far behind the scene worker. A camera command timed out and its revision changed later. The command was not replayed. A passive renderer connection received 103 frames in two seconds without GPU work. Publisher-routed inspection took about 1950 ms. Native status calls were fast. These results exposed state backlog beyond the logical queue and silently rejected browser control replies. Reviewed fixes bound client frame bytes and report failed control sends. The native delivery credit correction remains under review.
+The live OBS image was far behind the scene worker. A camera command timed out and its revision changed later. The command was not replayed. A passive renderer connection received 103 frames in two seconds without GPU work. Publisher-routed inspection took about 1950 ms. Native status calls were fast. These results exposed state backlog beyond the logical queue and silently rejected browser control replies. Reviewed fixes bound client frame bytes and report failed control sends. The delivery-credit correction passed independent review and 19 real network tests. It alone did not remove renderer stalls.
+
+The renderer also constructed a new PerspectiveCamera for every frame. Three.js render contexts and light lists use camera identity. A new unit regression failed because identity changed. The corrected renderer keeps one camera and applies the selected lens and transform. All 14 renderer tests passed. Live WebGL2 CPU work fell from about 800–2800 ms to about 1–3 ms for this small scene. Two OBS diagnostic ticks advanced from 3351 to 3447 over about 1.5 seconds. The camera command succeeded and the next image identified revision 1 and camera_close. These samples do not establish a percentile or performance gate.
+
+The release bundle launched outside the checkout. A new OBS WebGPU source displayed the colored fixture and transparent background pixels. Its ticks advanced from 4934 to 5029 over about 1.5 seconds. A camera command succeeded. The desktop inspector rejected NaN without a revision change, accepted persistent position [0.25, 0, 0], and changed visibility. OBS captures identified revisions 2 and 3; the second image contained the props and no avatar. The desktop camera selector then updated both output cameras to Wide at revision 6.
+
+A real minimize action was issued in the earlier debug WebGL2 smoke check. OBS ticks advanced from 14067 to 14163. The timed visible/minimized/restored checks and separate recording remain pending.
 
 ## Checks
 
@@ -31,4 +37,4 @@ The combined checkpoint passed 62 JavaScript unit tests, workspace TypeScript/Sv
 
 ## Remaining work
 
-Apply and review the transport correction. Repeat the live material, camera, alpha, reconnect, and tick checks. Check the release bundle outside the checkout. Then complete MCP integration, editor panels, bounded evidence, minimized motion, and the timed smoke gate. Minimum-hardware and concert acceptance remain separate.
+Complete packaged Origin observation, UI resizing and focus checks, bounded native evidence, the real MCP round trip, source lifecycle checks, timed minimized motion, and the smoke gate. Minimum-hardware and concert acceptance remain separate.
