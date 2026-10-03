@@ -159,7 +159,7 @@ export async function evaluateSmokeWithPorts(api: AppApi, obs: ObsAdapter, optio
             report.counterDelta = counterDelta(before, after);
             report.checks.push(skippedFrameCheck(report.counterDelta));
             report.checks.push({
-                name: 'measurement-window', result: measurementMs >= 120000 && measurementMs <= 121500 ? 'pass' : 'unknown', detail: `OBS counters sampled for ${Math.round(measurementMs)} ms without screenshots`
+                name: 'measurement-window', result: measurementMs >= 120000 && measurementMs <= 121500 ? 'pass' : 'unknown', detail: `OBS stats response timestamp delta ${Math.round(measurementMs)} ms without screenshots; native policy is 30000 ms warmup and 120000 ms measurement`
             });
             report.checks.push({
                 name: 'gpu-timing', result: 'unknown', detail: 'GPU timing requires native summary; unavailable values are not zero'
@@ -247,10 +247,39 @@ export async function evaluateSmokeWithPorts(api: AppApi, obs: ObsAdapter, optio
             }));
     }
 }
-export async function runCli(env: NodeJS.ProcessEnv = process.env, args: string[] = process.argv.slice(2)): Promise<SmokeReport[]> {
-    const repeats = args.length === 0 ? 1 : args.length === 2 && args[0] === '--repeats' && ['1', '3'].includes(args[1]) ? Number(args[1]) : null;
-    if (repeats === null)
+export function parseCliOptions(envProfile: string | undefined, args: string[]): {
+    profileId: SmokeOptions['profileId'];
+    repeats: 1 | 3;
+} {
+    const profiles = ['webgpu_smoke_v1', 'webgl2_smoke_v1'];
+    if (envProfile !== undefined && !profiles.includes(envProfile))
+        throw evaluationError('INVALID_INPUT', 'Environment smoke profile invalid');
+    if (args.length % 2 !== 0)
+        throw evaluationError('INVALID_INPUT', 'CLI flag value missing');
+    const flags = new Map<string, string>();
+    for (let i = 0; i < args.length; i += 2) {
+        const flag = args[i], value = args[i + 1];
+        if (!['--profile', '--repeats'].includes(flag) || flags.has(flag))
+            throw evaluationError('INVALID_INPUT', 'CLI flag unknown or duplicated');
+        flags.set(flag, value);
+    }
+    const profile = flags.get('--profile');
+    if (profile !== undefined && !profiles.includes(profile))
+        throw evaluationError('INVALID_INPUT', 'CLI smoke profile invalid');
+    if (profile !== undefined && envProfile !== undefined && profile !== envProfile)
+        throw evaluationError('INVALID_INPUT', 'CLI and environment profiles conflict');
+    const profileId = profile ?? envProfile;
+    if (!profileId)
+        throw evaluationError('INVALID_INPUT', 'Explicit smoke profile required');
+    const repeats = flags.get('--repeats') ?? '1';
+    if (!['1', '3'].includes(repeats))
         throw evaluationError('INVALID_INPUT', 'Use --repeats 1 or --repeats 3');
+    return {
+        profileId: profileId as SmokeOptions['profileId'], repeats: Number(repeats) as 1 | 3
+    };
+}
+export async function runCli(env: NodeJS.ProcessEnv = process.env, args: string[] = process.argv.slice(2)): Promise<SmokeReport[]> {
+    const { profileId, repeats } = parseCliOptions(env.OPENSEKAI_PROFILE, args);
     const operatorPath = env.OPENSEKAI_CONNECTION_FILE, rendererPath = env.OPENSEKAI_RENDERER_CONNECTION_FILE, destination = env.OPENSEKAI_EVIDENCE_DIR;
     if (!operatorPath || !rendererPath || !destination)
         throw evaluationError('INVALID_INPUT', 'Explicit descriptor and evidence paths required');
@@ -266,9 +295,6 @@ export async function runCli(env: NodeJS.ProcessEnv = process.env, args: string[
         throw evaluationError('CONFLICT', 'Descriptor roles or sessions differ');
     if (!['read', 'capture', 'benchmark'].every(capability => operator.capabilities.includes(capability as 'read' | 'capture' | 'benchmark')))
         throw evaluationError('FORBIDDEN', 'Operator evaluation capabilities required');
-    const profileId = env.OPENSEKAI_PROFILE === 'webgpu_smoke_v1' ? 'webgpu_smoke_v1' : env.OPENSEKAI_PROFILE === 'webgl2_smoke_v1' ? 'webgl2_smoke_v1' : null;
-    if (!profileId)
-        throw evaluationError('INVALID_INPUT', 'Explicit smoke profile required');
     const outputUrl = `${new URL(renderer.httpOrigin).origin}/renderer/?diagnostics=1${profileId === 'webgl2_smoke_v1' ? '&backend=webgl2' : ''}#${encodeURIComponent(JSON.stringify(renderer))}`;
     let obs: ObsAdapter | undefined;
     const client = await connectClient(operator);
@@ -332,6 +358,9 @@ export function summaryChecks(value: unknown, profileId: SmokeOptions['profileId
             p95?: number;
         } | null;
         gpuMs?: unknown;
+        intervalMs?: {
+            max?: number;
+        } | null;
         staleOutputPeriods?: number;
         resourceWarningCount?: number;
     };
@@ -345,6 +374,8 @@ export function summaryChecks(value: unknown, profileId: SmokeOptions['profileId
         throw evaluationError('CONFLICT', 'Benchmark summary run or session differs');
     const p95 = summary.cpuMs?.p95;
     const cpuKnown = typeof p95 === 'number' && Number.isFinite(p95) && p95 >= 0 && typeof summary.count === 'number' && summary.count > 0;
+    const maximum = summary.intervalMs?.max;
+    const maximumKnown = typeof maximum === 'number' && Number.isFinite(maximum) && maximum >= 0;
     return [
         {
             name: 'cpu-p95', result: cpuKnown ? (p95 < 12 ? 'pass' : 'fail') : 'unknown', detail: cpuKnown ? `Native ACK CPU p95 ${p95} ms` : 'CPU percentile unavailable'
@@ -353,7 +384,7 @@ export function summaryChecks(value: unknown, profileId: SmokeOptions['profileId
             name: 'stale-output', result: typeof summary.staleOutputPeriods === 'number' ? (summary.staleOutputPeriods === 0 ? 'pass' : 'fail') : 'unknown', detail: 'Native ACK freshness gate; actual OBS minimized continuity remains separate'
         },
         {
-            name: 'maximum-stall', result: 'unknown', detail: 'Interval p99 does not establish the maximum stall; maximum interval is not supplied'
+            name: 'maximum-stall', result: maximumKnown ? (maximum <= 100 ? 'pass' : 'fail') : 'unknown', detail: maximumKnown ? `Native ACK maximum interval ${maximum} ms` : 'Maximum interval absent or invalid; p99 is not a substitute'
         },
         {
             name: 'resource-warnings', result: 'unknown', detail: `Native warnings ${typeof summary.resourceWarningCount === 'number' ? summary.resourceWarningCount : 'unavailable'}; inspect documented unsupported features`

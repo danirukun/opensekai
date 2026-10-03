@@ -18,7 +18,7 @@ The source marker contains five unsigned 32-bit words: session tag, sequence, ti
 | Counter reset | Unknown result; never use a negative percentage |
 | Render CPU | Native ACK CPU p95 below 12 ms, when measured |
 | GPU | Unknown when the timer has no valid measurement; never substitute zero |
-| Maximum stall | Unknown until a maximum interval is supplied; p99 cannot prove a 100 ms maximum |
+| Maximum stall | Native intervalMs.max at most 100 ms; unknown when absent or invalid |
 | Tick progression | Actual source marker sequence and tick advance between labeled captures |
 | Minimized continuity | Separate real OBS recording/decoded-frame evidence; this CLI does not record |
 | Recovery | Current state returns within two seconds in a separate real reload check |
@@ -58,3 +58,9 @@ Before PNG decoding, walk the bounded chunk envelope. Require exactly one first 
 Bind benchmark evidence to the requested run. Use exactly `opensekai://evidence/<run.id>/summary.json`, with an opaque ID of at most 128 ASCII letters, digits, underscores or hyphens. The manifest ID and parsed summary.run.id must equal that run ID. Check session metadata when supplied, and require the expected fixture/profile. A same-session summary for another run is invalid.
 
 Compare each composition marker with current native output state for camera, revision, tick and a 500 ms observation round trip. A mismatch fails. AppStatus has no native receive timestamp, so matching metadata remains unknown for freshness. Do not add captures to the timing window or infer freshness from a session tag. Actual OBS checks can supply separate freshness evidence.
+
+## Task 11 driver refinements
+
+Use `--profile webgpu_smoke_v1` or `--profile webgl2_smoke_v1`, and `--repeats 1` or `--repeats 3`, in either order. OPENSEKAI_PROFILE remains an explicit alternative. CLI and environment profiles must agree when both are supplied. Reject duplicate flags, unknown fields, missing values and invalid profiles/repeat counts before descriptor or OBS access.
+
+Use finite nonnegative native intervalMs.max for the stall gate: at most 100 ms passes; greater than 100 ms fails. Missing or invalid maximum interval remains unknown. Keep OBS stats response timestamp delta separate from the fixed native 30-second warmup and 120-second measurement policy. An OBS interval shorter than 120 seconds remains unknown; do not widen a threshold to report a pass.

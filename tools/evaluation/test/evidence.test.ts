@@ -304,3 +304,61 @@ it('accepts matching run metadata and rejects an oversized run ID', () => {
         runId: id, sessionId: 'session'
     })).toThrow();
 });
+import * as driver from '../src/run-smoke';
+it('accepts explicit CLI profile and repeats before requesting descriptor paths', async () => {
+    await expect(driver.runCli({}, ['--profile', 'webgpu_smoke_v1', '--repeats', '3'])).rejects.toMatchObject({
+        code: 'INVALID_INPUT', message: 'Explicit descriptor and evidence paths required'
+    });
+});
+it('validates CLI/env profile agreement and rejects invalid fields', () => {
+    expect(driver.parseCliOptions(undefined, ['--profile', 'webgpu_smoke_v1', '--repeats', '3'])).toEqual({
+        profileId: 'webgpu_smoke_v1', repeats: 3
+    });
+    expect(driver.parseCliOptions('webgl2_smoke_v1', ['--repeats', '1', '--profile', 'webgl2_smoke_v1'])).toEqual({
+        profileId: 'webgl2_smoke_v1', repeats: 1
+    });
+    expect(driver.parseCliOptions('webgpu_smoke_v1', [])).toEqual({
+        profileId: 'webgpu_smoke_v1', repeats: 1
+    });
+    for (const [env, args] of [[undefined, []], ['webgpu_smoke_v1', ['--profile', 'webgl2_smoke_v1']], [undefined, ['--profile', 'invalid']], [undefined, ['--profile']], [undefined, ['--profile', 'webgpu_smoke_v1', '--repeats', '2']], [undefined, ['--profile', 'webgpu_smoke_v1', '--profile', 'webgpu_smoke_v1']], [undefined, ['--profile', 'webgpu_smoke_v1', '--unknown', '1']], ['invalid', ['--profile', 'webgpu_smoke_v1']]] as [
+        string | undefined,
+        string[]
+    ][])
+        expect(() => driver.parseCliOptions(env, args)).toThrow();
+});
+it('gates the measured native maximum interval without p99 substitution', () => {
+    const value = {
+        run: {
+            id: 'run'
+        }, fixtureId: 'smoke_v1', profileId: 'webgl2_smoke_v1'
+    };
+    for (const [maximum, result] of [[0, 'pass'], [100, 'pass'], [100.1, 'fail'], [undefined, 'unknown'], [-1, 'unknown'], [NaN, 'unknown'], [Infinity, 'unknown']] as [
+        number | undefined,
+        string
+    ][]) {
+        const checks = summaryChecks({
+            ...value, intervalMs: {
+                max: maximum, p99: 1
+            }
+        }, 'webgl2_smoke_v1', {
+            runId: 'run', sessionId: 'session'
+        });
+        expect(checks.find(c => c.name === 'maximum-stall')?.result).toBe(result);
+    }
+});
+it('reports delayed OBS window as unknown separately from native policy', async () => {
+    const f = driverFixture();
+    const status = vi.mocked(f.api.benchmarkStatus).getMockImplementation()!;
+    vi.spyOn(f.api, 'benchmarkStatus').mockImplementation(async (p) => {
+        const reply = await status(p);
+        if (reply.ok && reply.data.state === 'measuring' && reply.data.progress === 0.2)
+            reply.data.state = 'warming';
+        return reply;
+    });
+    const report = await evaluateSmokeWithPorts(f.api, f.obs, f.options, f.ports);
+    expect(f.stats).toEqual([31000, 150000]);
+    const window = report.checks.find(c => c.name === 'measurement-window')!;
+    expect(window.result).toBe('unknown');
+    expect(window.detail).toContain('119000');
+    expect(window.detail).toContain('native');
+});
