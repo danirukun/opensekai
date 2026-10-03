@@ -94,6 +94,6 @@ export function createEditorViewport(canvas: HTMLCanvasElement, camera: Perspect
         frameRevision(revision:number) {if(gesture && revision!==gesture.revision)cancel();},
         frozen(id:Id) {return gesture?.id===id;},
         refresh,
-        dispose() {disposed=true;abort();controls.removeEventListener('mouseDown',begin);controls.removeEventListener('objectChange',draft);controls.removeEventListener('mouseUp',release);canvas.removeEventListener('pointerdown',pointerDown);canvas.removeEventListener('pointerup',pointerUp);canvas.removeEventListener('pointercancel',abort);canvas.removeEventListener('lostpointercapture',abort);canvas.removeEventListener('blur',abort);canvas.removeEventListener('keydown',key);canvas.ownerDocument.defaultView?.removeEventListener('blur',abort);controls.detach();controls.dispose();helper.removeFromParent();}
+        dispose() {if(disposed)return;disposed=true;abort();controls.removeEventListener('mouseDown',begin);controls.removeEventListener('objectChange',draft);controls.removeEventListener('mouseUp',release);canvas.removeEventListener('pointerdown',pointerDown);canvas.removeEventListener('pointerup',pointerUp);canvas.removeEventListener('pointercancel',abort);canvas.removeEventListener('lostpointercapture',abort);canvas.removeEventListener('blur',abort);canvas.removeEventListener('keydown',key);canvas.ownerDocument.defaultView?.removeEventListener('blur',abort);controls.detach();controls.dispose();helper.removeFromParent();}
     };
 }
