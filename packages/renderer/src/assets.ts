@@ -1,5 +1,5 @@
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { MToonMaterialLoaderPlugin, VRMLoaderPlugin } from "@pixiv/three-vrm";
+import { MToonMaterialLoaderPlugin, VRMLoaderPlugin, VRMUtils, type VRM } from "@pixiv/three-vrm";
 import { MToonNodeMaterial } from "@pixiv/three-vrm/nodes";
 import type { ResourceHost, AppError } from "@opensekai/contracts";
 import type { Object3D, Mesh, SkinnedMesh, Material, Texture } from "three/webgpu";
@@ -94,13 +94,15 @@ export function createAssetLoader(resources: ResourceHost) {
         const bytes = await resources.readAsset(id);
         const extensions = inspectContainer(bytes);
         const gltf = await loader.parseAsync(bytes, "");
+        const vrm = gltf.userData.vrm as VRM | undefined;
+        if (vrm) VRMUtils.rotateVRM0(vrm);
         const warnings: AppError[] = [];
         for (const extension of extensions) {
             if (extension === "VRMC_node_constraint" || extension === "VRMC_springBone")
                 warnings.push({ code: "UNSUPPORTED", message: extension + " simulation is disabled in renderer", ids: [id] });
         }
         let disposed = false;
-        return { scene: gltf.scene, warnings, dispose() { if (disposed)
+        return { scene: gltf.scene, vrm, warnings, dispose() { if (disposed)
                 return; disposed = true; disposeObject(gltf.scene); } };
     };
 }

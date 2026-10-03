@@ -6,6 +6,7 @@ import type { RuntimeFrame, FrameApplied, RendererDiagnostics, CaptureBytes, Id,
 import { RuntimeFrameSchema } from "@opensekai/contracts";
 import { selectFrame, failure, createRenderQueue } from "./apply-frame";
 import { createAssetCache, createAssetLoader, disposeObject } from "./assets";
+import { createAvatarBinding } from "./avatar-pose";
 import { countLiveMaterials } from "./diagnostics";
 import { initializeBackend } from "./backend";
 import { createCapturePolicy, readPng } from "./capture";
@@ -36,7 +37,8 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     const light = new DirectionalLight(0xffffff, 3);
     light.position.set(2, 4, 3);
     scene.add(light);
-    const assets = createAssetCache(createAssetLoader(options.resources));
+    const loadAsset = createAssetLoader(options.resources);
+    const assets = createAssetCache(loadAsset);
     const marker = options.diagnostics ? createDiagnosticMarker() : null;
     const policy = createCapturePolicy();
     const objects = new Map<string, {
@@ -44,11 +46,15 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         root: Object3D;
         owned: boolean;
         assetId?: string;
+        avatar?: ReturnType<typeof createAvatarBinding>;
+        assetDispose?: () => void;
+        warnings?: AppError[];
     }>();
     const editor = options.editor ? createEditorViewport(options.canvas, camera, scene, objects, options.editor) : null;
     let disposed = false, cleaned = false, accepted: RuntimeFrame | null = null, displayed: FrameApplied | null = null, displayFrame: RuntimeFrame | null = null;
-    const releaseObject = (value: {root: Object3D; owned: boolean}) => {
-        if (value.owned) disposeObject(value.root);
+    const releaseObject = (value: {root: Object3D; owned: boolean; assetDispose?: () => void}) => {
+        if (value.assetDispose) {value.root.removeFromParent(); value.assetDispose();}
+        else if (value.owned) disposeObject(value.root);
         else {
             disposeInstance(value.root);
             value.root.removeFromParent();
@@ -80,7 +86,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         if (options.canvas.width !== width || options.canvas.height !== height)
             renderer.setSize(width, height, false);
         const warnings: AppError[] = [];
-        const wanted = new Set(frame.scene.entities.filter(x => editor || x.kind !== "camera").map(x => x.id));
+        const wanted = new Set(frame.scene.entities.filter(x => x.kind !== "tracking" && (editor || x.kind !== "camera")).map(x => x.id));
         for (const [id, value] of objects) {
             if (!wanted.has(id)) {
                 releaseObject(value);
@@ -88,6 +94,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             }
         }
         for (const entity of frame.scene.entities) {
+            if (entity.kind === "tracking") continue;
             if (entity.kind === "camera") {
                 if (editor) {
                     let value = objects.get(entity.id);
@@ -101,7 +108,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
                 continue;
             }
             const assetId = entity.kind === "avatar" ? entity.assetId : entity.source.kind === "asset" ? entity.source.assetId : undefined;
-            const signature = assetId ?? "box";
+            const signature = entity.kind + ":" + (assetId ?? "box");
             let value = objects.get(entity.id);
             if (value?.signature !== signature) {
                 if (value) {
@@ -113,11 +120,17 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             if (!value) {
                 try {
                     if (assetId) {
-                        const asset = await assets.get(assetId);
+                        const asset = entity.kind === "avatar" ? await loadAsset(assetId) : await assets.get(assetId);
+                        if (disposed) {if (entity.kind === "avatar") asset.dispose();}
                         if (disposed)
                             throw failure("CANCELLED", "Renderer disposed");
-                        const instance = clone(asset.scene);
-                        value = { signature, root: instance, owned: false, assetId };
+                        if (entity.kind === "avatar") {
+                            if (!asset.vrm) {asset.dispose(); throw failure("INVALID_INPUT", "Avatar asset has no VRM");}
+                            const avatar = createAvatarBinding(asset.vrm);
+                            value = {signature, root: avatar.root, owned: false, avatar, assetDispose: asset.dispose, warnings: asset.warnings};
+                        } else {
+                            value = { signature, root: clone(asset.scene), owned: false, assetId, warnings: asset.warnings };
+                        }
                         warnings.push(...asset.warnings);
                     }
                     else
@@ -132,12 +145,9 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
                     continue;
                 }
             }
-            if (assetId) {
-                const asset = await assets.get(assetId);
-                for (const warning of asset.warnings)
-                    if (!warnings.some(x => x.message === warning.message && x.ids[0] === assetId))
-                        warnings.push(warning);
-            }
+            for (const warning of value.warnings ?? [])
+                if (!warnings.some(x => x.message === warning.message && x.ids[0] === warning.ids[0])) warnings.push(warning);
+            value.avatar?.apply(frame.avatarPoses?.find(pose => pose.avatarId === entity.id));
             if (!editor?.frozen(entity.id)) applyTransform(value.root, entity);
         }
         editor?.refresh();
