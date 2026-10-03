@@ -274,8 +274,9 @@ fn require(condition: bool, message: &str) -> Result<(), AppError> {
     }
 }
 fn decode<T: serde::de::DeserializeOwned + Serialize>(value: &Value) -> Result<T, AppError> {
-    scalar_checks(value)?;
-    let typed: T = serde_json::from_value(value.clone()).map_err(|e| invalid(e.to_string()))?;
+    let normalized = normalize_numbers(value);
+    scalar_checks(&normalized)?;
+    let typed: T = serde_json::from_value(normalized).map_err(|e| invalid(e.to_string()))?;
     shape(
         value,
         &serde_json::to_value(&typed).map_err(|e| invalid(e.to_string()))?,
@@ -453,6 +454,12 @@ impl Validate for AssetRecord {
     fn validate(&self) -> Result<(), AppError> {
         scalar_checks(&serde_json::to_value(self).map_err(|e| invalid(e.to_string()))?)?;
         require(self.importer_version == 1, "unsupported importer version")?;
+        require(
+            self.source_url
+                .as_ref()
+                .is_none_or(|s| url::Url::parse(s).is_ok()),
+            "invalid source URL",
+        )?;
         hash(&self.sha256)
     }
 }
@@ -663,6 +670,16 @@ fn scalar_checks(v: &Value) -> Result<(), AppError> {
                 if k == "sha256" {
                     hash(v.as_str().ok_or_else(|| invalid("invalid SHA-256"))?)?;
                 }
+                if k == "capabilities" {
+                    let values = v
+                        .as_array()
+                        .ok_or_else(|| invalid("invalid capabilities"))?;
+                    let mut seen = HashSet::new();
+                    require(
+                        values.iter().all(|x| seen.insert(x.as_str())),
+                        "duplicate capabilities",
+                    )?;
+                }
                 if k == "ids" {
                     for id in v.as_array().ok_or_else(|| invalid("invalid IDs"))? {
                         require(
@@ -723,33 +740,32 @@ pub fn validate_value<T: serde::de::DeserializeOwned + Serialize + Validate>(
     typed.validate()?;
     Ok(typed)
 }
-fn loopback_authority<'a>(url: &'a str, prefix: &str, websocket: bool) -> Option<&'a str> {
-    let rest = url.strip_prefix(prefix)?;
-    let (authority, path) = rest.split_once('/').unwrap_or((rest, ""));
-    if websocket {
-        if path != "ws" {
-            return None;
-        }
-    } else if !path.is_empty() {
+fn loopback_authority(url: &str, prefix: &str, websocket: bool) -> Option<String> {
+    let parsed = url::Url::parse(url).ok()?;
+    if parsed.scheme() != prefix.trim_end_matches("://")
+        || parsed.host_str() != Some("127.0.0.1")
+        || !parsed.username().is_empty()
+        || parsed.password().is_some()
+        || parsed.query().is_some()
+        || parsed.fragment().is_some()
+        || parsed.path() != if websocket { "/ws" } else { "/" }
+    {
         return None;
     }
-    if authority != "127.0.0.1" {
-        let port = authority.strip_prefix("127.0.0.1:")?;
-        if port.is_empty()
-            || !port.bytes().all(|b| b.is_ascii_digit())
-            || port.parse::<u16>().is_err()
-        {
-            return None;
-        }
-    }
-    Some(authority)
+    Some(format!(
+        "{}:{}",
+        parsed.host_str()?,
+        parsed.port_or_known_default()?
+    ))
 }
 fn utc_datetime(s: &str) -> bool {
     let Some(s) = s.strip_suffix('Z') else {
         return false;
     };
     let (whole, fraction) = s.split_once('.').unwrap_or((s, ""));
-    if whole.len() != 19 || (!fraction.is_empty() && !fraction.bytes().all(|b| b.is_ascii_digit()))
+    if whole.len() != 19
+        || (s.contains('.') && fraction.is_empty())
+        || (!fraction.is_empty() && !fraction.bytes().all(|b| b.is_ascii_digit()))
     {
         return false;
     }
@@ -855,5 +871,25 @@ impl Validate for CaptureReplyData {
             "invalid capture dimensions",
         )?;
         validate_base64(&self.png_base64)
+    }
+}
+
+fn normalize_numbers(value: &Value) -> Value {
+    match value {
+        Value::Number(n) => {
+            if let Some(f) = n.as_f64() {
+                if f.is_finite() && f.fract() == 0. && f >= 0. && f <= 9_007_199_254_740_991. {
+                    return Value::from(f as u64);
+                }
+            }
+            value.clone()
+        }
+        Value::Array(a) => Value::Array(a.iter().map(normalize_numbers).collect()),
+        Value::Object(o) => Value::Object(
+            o.iter()
+                .map(|(k, v)| (k.clone(), normalize_numbers(v)))
+                .collect(),
+        ),
+        _ => value.clone(),
     }
 }

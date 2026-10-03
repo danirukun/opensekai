@@ -120,11 +120,13 @@ fn expanded_shared_vectors() {
         let p = &vector["payload"];
         let result = match vector["target"].as_str().unwrap() {
             "scene" => validate_value::<SceneView>(p).map(|_| ()),
+            "asset" => validate_value::<opensekai_contracts::AssetRecord>(p).map(|_| ()),
+            "captureRecord" => validate_value::<opensekai_contracts::CaptureRecord>(p).map(|_| ()),
             "descriptor" => validate_value::<ConnectionDescriptor>(p).map(|_| ()),
             "marker" => validate_value::<DiagnosticMarker>(p).map(|_| ()),
             "captureReplyData" => validate_value::<CaptureReplyData>(p).map(|_| ()),
             "wire" => parse_wire(&serde_json::to_vec(p).unwrap()).map(|_| ()),
-            "call" => parse_call(&serde_json::to_vec(p).unwrap()).map(|_| ()),
+            "call" => opensekai_contracts::validate_call(vector["method"].as_str().unwrap(), p),
             "wireText" => parse_wire(p.as_str().unwrap().as_bytes()).map(|_| ()),
             target => panic!("unknown target {target}"),
         };
@@ -138,4 +140,23 @@ fn expanded_shared_vectors() {
             assert_eq!(error.code, ErrorCode::InvalidInput, "{}", vector["name"]);
         }
     }
+}
+#[test]
+fn review_regressions() {
+    use opensekai_contracts::{validate_value, AssetRecord, CaptureRecord, ConnectionDescriptor};
+    let asset = json!({"id":"a","format":"glb","sha256":"a".repeat(64),"bytes":1,"sourceUrl":"not a url","licenseLabel":"test","importerVersion":1});
+    assert!(validate_value::<AssetRecord>(&asset).is_err());
+    let capture = json!({"id":"c","outputId":"o","revision":0,"tick":0,"sequence":0,"backend":"webgpu","cameraId":"cam","width":1,"height":1,"mimeType":"image/png","bytes":1,"sha256":"a".repeat(64),"resourceUri":"evidence:c","createdAtUtc":"2026-10-03T10:00:00.Z"});
+    assert!(validate_value::<CaptureRecord>(&capture).is_err());
+    assert!(validate_result(
+        "scenePatch",
+        &serde_json::from_str(r#"{"ok":true,"data":{"revision":1e0}}"#).unwrap()
+    )
+    .is_ok());
+    assert!(parse_wire(
+        br#"{"kind":"authReply","sessionId":"s","schemaVersion":1,"capabilities":["read","read"]}"#
+    )
+    .is_err());
+    let descriptor = json!({"schemaVersion":1,"sessionId":"s","httpOrigin":"http://127.0.0.1:80","wsUrl":"ws://127.0.0.1/ws","role":"operator","token":"t","capabilities":["read"],"outputId":null});
+    assert!(validate_value::<ConnectionDescriptor>(&descriptor).is_ok());
 }
