@@ -19,7 +19,7 @@ The first launch failed because shared client timers used the wrong Window recei
 
 The renderer assigned canvas dimensions on each frame. A regression verified the extra resize. The renderer now sets dimensions only when physical size changes. Its 13 tests pass.
 
-The first OBS WebGPU capture had zero RGBA values in every pixel. A fresh WebGL2 source later displayed the fixture. WebGPU OBS presentation remains unverified.
+The first OBS WebGPU capture had zero RGBA values in every pixel. A fresh WebGL2 source later displayed the fixture. After the camera-lifetime correction, a fresh release WebGPU source also displayed the colored fixture. The repeated timing gate remains pending.
 
 The desktop showed white avatar textures on both backends. Installed GLTFLoader code creates local blob URLs for embedded images. ImageBitmapLoader fetches those URLs. The desktop policy allowed blob images but did not allow blob connections. The policy now allows local blob fetches. A later debug launch displayed the colored avatar textures correctly. The release WebGPU preview also displayed the correct texture colors.
 
@@ -38,3 +38,5 @@ The combined checkpoint passed 62 JavaScript unit tests, workspace TypeScript/Sv
 ## Remaining work
 
 Complete packaged Origin observation, UI resizing and focus checks, bounded native evidence, the real MCP round trip, source lifecycle checks, timed minimized motion, and the smoke gate. Minimum-hardware and concert acceptance remain separate.
+
+The packaged debug app at source 99aabef accepted three actual WebSocket connections with Origin tauri://localhost. The full official MCP client loop then exercised all nine tools. Capture 68f95685-74c3-46df-a859-d6b72413f0ef identified output_main, revision 4, camera_close, WebGPU, tick 4374, and sequence 3959. Its 173124 bytes matched SHA-256 6c723fbf0188c625607e635be02b75feaade9c0bd806ac49e1d4f27ac6f9bd49. The benchmark was started, inspected, cancelled, and read through its registered summary resource. Release validation of this complete loop remains required.
