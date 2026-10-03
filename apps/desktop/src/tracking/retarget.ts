@@ -33,13 +33,14 @@ export function createRetargeter(){
   map(observation:Observation,config:Config,sourceId:string,generation:number,receivedAtMs:number):TrackingSample {
    const bones:Record<string,TrackingBone>={},expressions:Record<string,number>={},global:Record<string,Quat>={};
    const set=(name:string,q:Quat|null)=>{if(q)bones[name]={rotation:normalize(q),space:'normalized'};};
-   if(config.face&&observation.face){const q=faceRotation(observation.face.matrix);if(q){neutral??=q;set('head',mul(inverse(neutral),q));}
+   let faceWorld:Quat|null=null;
+   if(config.face&&observation.face){const q=faceRotation(observation.face.matrix);if(q){neutral??=q;faceWorld=mul(inverse(neutral),q);}
     for(const b of observation.face.blendshapes??[])if(b.categoryName!=='_neutral'&&/^[a-zA-Z][a-zA-Z0-9]{0,63}$/.test(b.categoryName)&&Number.isFinite(b.score)&&Object.keys(expressions).length<64)expressions[b.categoryName]=Math.max(0,Math.min(1,b.score));
    }
    if(config.upperBody&&observation.pose){const p=observation.pose.map(point),ls=p[11],rs=p[12],lh=p[23],rh=p[24];
     if(ls&&rs&&lh&&rh){const x=unit(sub(ls,rs)),up=unit(sub(ls.map((v,i)=>(v+rs[i])/2) as Vec3,lh.map((v,i)=>(v+rh[i])/2) as Vec3));
      const z=x&&up?unit(cross(x,up)):null;const chest=x&&z?fromBasis(x,cross(z,x),z):null;
-     if(chest){set('chest',chest);
+     if(chest){set('chest',chest);global.chest=chest;
       for(const [side,s,e,w,sign] of [['left',11,13,15,1],['right',12,14,16,-1]] as const){const shoulder=p[s],elbow=p[e],wrist=p[w];if(!shoulder||!elbow||!wrist)continue;
        // Solve each child in its parent's frame, so forearms do not repeat upper-arm rotation.
        const rest:Vec3=[sign,0,0],upper=fromTo(rest,rotate(inverse(chest),sub(elbow,shoulder)));if(!upper)continue;
@@ -48,6 +49,9 @@ export function createRetargeter(){
      }
     }
    }
+   // The renderer composes normalized local deltas through chest/neck/head.
+   // Remove the applied torso orientation so a world-space face is not turned twice.
+   if(faceWorld)set('head',mul(inverse(global.chest??I),faceWorld));
    if(config.hands)for(const hand of observation.hands??[]){if(hand.handedness!=='Left'&&hand.handedness!=='Right')continue;const side=hand.handedness==='Left'?'left':'right',sign=side==='left'?1:-1,p=hand.landmarks.map(point),w=p[0],middle=p[9],index=p[5],little=p[17];if(!w||!middle||!index||!little)continue;
     const x=unit(sub(middle,w).map(v=>v*sign) as Vec3),across=unit(sub(index,little)),z=x&&across?unit(cross(x,across)):null;if(!x||!z)continue;const palm=fromBasis(x,cross(z,x),z);set(side+'Hand',mul(inverse(global[side+'LowerArm']??I),palm));
     for(const [start,names] of [[1,['ThumbMetacarpal','ThumbProximal','ThumbDistal']],[5,['IndexProximal','IndexIntermediate','IndexDistal']],[9,['MiddleProximal','MiddleIntermediate','MiddleDistal']],[13,['RingProximal','RingIntermediate','RingDistal']],[17,['LittleProximal','LittleIntermediate','LittleDistal']]] as const){let parent=palm;for(let j=0;j<3;j++){const a=p[start+j],b=p[start+j+1];if(!a||!b)break;const q=fromTo([sign,0,0],rotate(inverse(parent),sub(b,a)));if(!q)break;set(side+names[j],q);parent=mul(parent,q);}}
