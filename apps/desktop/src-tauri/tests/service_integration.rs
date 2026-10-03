@@ -1,0 +1,509 @@
+use futures_util::{SinkExt, StreamExt};
+use opensekai_contracts::*;
+use opensekai_desktop_lib::service::{start_service, ServiceConfig, ServiceHandle};
+use serde_json::{json, Value};
+use std::time::Duration;
+use tokio_tungstenite::{
+    connect_async,
+    tungstenite::{client::IntoClientRequest, Message},
+    MaybeTlsStream, WebSocketStream,
+};
+type Socket = WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>;
+async fn service(evaluation: bool) -> (tempfile::TempDir, ServiceHandle) {
+    let dir = tempfile::tempdir().unwrap();
+    let manifest = dir.path().join("manifest.json");
+    std::fs::write(
+        &manifest,
+        r#"{"schemaVersion":1,"fixtureId":"smoke_v1","assets":[]}"#,
+    )
+    .unwrap();
+    std::fs::write(dir.path().join("index.html"), "shell").unwrap();
+    let service = start_service(ServiceConfig {
+        output_root: dir.path().into(),
+        asset_manifest: manifest,
+        evidence_root: dir.path().into(),
+        evaluation_enabled: evaluation,
+    })
+    .await
+    .unwrap();
+    (dir, service)
+}
+async fn send(socket: &mut Socket, value: Value) {
+    socket
+        .send(Message::Text(value.to_string().into()))
+        .await
+        .unwrap();
+}
+async fn recv(socket: &mut Socket) -> Value {
+    let text = tokio::time::timeout(Duration::from_secs(3), socket.next())
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap()
+        .into_text()
+        .unwrap();
+    serde_json::from_str(&text).unwrap()
+}
+async fn auth(descriptor: &ConnectionDescriptor) -> Socket {
+    let (mut socket, _) = connect_async(&descriptor.ws_url).await.unwrap();
+    send(&mut socket,json!({"kind":"auth","role":descriptor.role,"token":descriptor.token,"schemaVersion":1,"outputId":descriptor.output_id})).await;
+    assert_eq!(recv(&mut socket).await["kind"], "authReply");
+    socket
+}
+fn frame(session: &str, sequence: u64) -> Value {
+    json!({"kind":"frame","frame":{"schemaVersion":1,"sessionId":session,"sequence":sequence,"tick":sequence,"elapsedMs":sequence as f64,"scene":{"schemaVersion":1,"sceneId":"scene_main","revision":0,"entities":[{"kind":"camera","id":"camera_main","name":"Camera","visible":true,"transform":{"position":[0,0,5],"rotation":[0,0,0,1],"scale":[1,1,1]},"lens":{"fovDegrees":45,"near":0.1,"far":100}}],"outputs":[{"id":"output_main","cameraId":"camera_main","width":1920,"height":1080,"fps":60}]}}})
+}
+fn applied(session: &str, sequence: u64) -> Value {
+    json!({"kind":"applied","frame":{"sessionId":session,"outputId":"output_main","sequence":sequence,"tick":sequence,"revision":0,"cameraId":"camera_main","backend":"webgl2","cpuMs":1,"gpuMs":null,"warnings":[]}})
+}
+fn call(id: &str, method: &str, params: Value) -> Value {
+    json!({"kind":"call","requestId":id,"method":method,"params":params})
+}
+async fn closed(socket: &mut Socket) {
+    let next = tokio::time::timeout(Duration::from_secs(3), socket.next())
+        .await
+        .unwrap();
+    assert!(matches!(
+        next,
+        None | Some(Err(_)) | Some(Ok(Message::Close(_)))
+    ));
+}
+#[tokio::test]
+async fn service_real_loopback_relays_inspection_and_recovers_latest_frame() {
+    let (_dir, service) = service(false).await;
+    let publisher_descriptor = service.publisher_descriptor();
+    let renderer_descriptor = service.renderer_descriptor("output_main").unwrap();
+    let mut publisher = auth(&publisher_descriptor).await;
+    let mut renderer = auth(&renderer_descriptor).await;
+    let mut operator = auth(&service.operator_descriptor()).await;
+    send(&mut publisher, frame(&publisher_descriptor.session_id, 1)).await;
+    let delivered = recv(&mut renderer).await;
+    assert_eq!(delivered["frame"]["sequence"], 1);
+    send(&mut renderer, applied(&publisher_descriptor.session_id, 1)).await;
+    send(
+        &mut operator,
+        call("inspect", "sceneInspect", json!({"sceneId":"scene_main"})),
+    )
+    .await;
+    let relayed = recv(&mut publisher).await;
+    assert_ne!(relayed["requestId"], "inspect");
+    send(&mut publisher,json!({"kind":"reply","requestId":relayed["requestId"],"result":{"ok":true,"data":delivered["frame"]["scene"]}})).await;
+    assert_eq!(recv(&mut operator).await["requestId"], "inspect");
+    send(&mut operator, call("status", "appStatus", json!({}))).await;
+    assert_eq!(recv(&mut operator).await["result"]["data"]["ready"], true);
+    assert!(service.last_applied("output_main").is_some());
+    assert!(service.now_ms() >= service.last_applied("output_main").unwrap().1);
+    renderer.close(None).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(30)).await;
+    send(&mut publisher, frame(&publisher_descriptor.session_id, 2)).await;
+    tokio::time::sleep(Duration::from_millis(30)).await;
+    let mut renderer = auth(&renderer_descriptor).await;
+    assert_eq!(recv(&mut renderer).await["frame"]["sequence"], 2);
+    assert!(service.last_applied("output_main").is_none());
+    tokio::time::timeout(Duration::from_secs(3), service.shutdown())
+        .await
+        .unwrap()
+        .unwrap();
+    closed(&mut publisher).await;
+    closed(&mut operator).await;
+    closed(&mut renderer).await;
+}
+#[tokio::test]
+async fn service_auth_denies_stale_token_second_publisher_and_wrong_output() {
+    let (_dir, service) = service(false).await;
+    let descriptor = service.publisher_descriptor();
+    let mut publisher = auth(&descriptor).await;
+    for (role, token, output) in [
+        ("publisher", descriptor.token.clone(), None),
+        ("operator", "stale-session-token".into(), None),
+        (
+            "renderer",
+            service.renderer_descriptor("output_main").unwrap().token,
+            Some("wrong_output"),
+        ),
+    ] {
+        let (mut socket, _) = connect_async(&descriptor.ws_url).await.unwrap();
+        send(
+            &mut socket,
+            json!({"kind":"auth","role":role,"token":token,"schemaVersion":1,"outputId":output}),
+        )
+        .await;
+        closed(&mut socket).await;
+    }
+    service.shutdown().await.unwrap();
+    closed(&mut publisher).await;
+}
+#[tokio::test]
+async fn service_auth_denies_http_host_origin_and_null() {
+    let (_dir, service) = service(false).await;
+    let descriptor = service.operator_descriptor();
+    for origin in ["null", "https://example.test", "http://localhost:41000"] {
+        let mut request = descriptor.ws_url.clone().into_client_request().unwrap();
+        request
+            .headers_mut()
+            .insert("origin", origin.parse().unwrap());
+        assert!(connect_async(request).await.is_err());
+    }
+    let mut request = descriptor.ws_url.clone().into_client_request().unwrap();
+    request
+        .headers_mut()
+        .insert("host", "example.test".parse().unwrap());
+    assert!(connect_async(request).await.is_err());
+    let client = reqwest::Client::new();
+    assert_eq!(
+        client
+            .get(format!("{}/renderer/", descriptor.http_origin))
+            .header("Host", "example.test")
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        403
+    );
+    assert_eq!(
+        client
+            .get(format!("{}/renderer/", descriptor.http_origin))
+            .send()
+            .await
+            .unwrap()
+            .text()
+            .await
+            .unwrap(),
+        "shell"
+    );
+    service.shutdown().await.unwrap();
+}
+#[tokio::test]
+async fn service_roles_reject_renderer_edits_and_default_operator_edits() {
+    let (_dir, service) = service(false).await;
+    let mut renderer = auth(&service.renderer_descriptor("output_main").unwrap()).await;
+    let mut operator = auth(&service.operator_descriptor()).await;
+    for socket in [&mut renderer, &mut operator] {
+        send(
+            socket,
+            call(
+                "edit",
+                "cameraSelect",
+                json!({"outputId":"output_main","cameraId":"camera_main","expectedRevision":0}),
+            ),
+        )
+        .await;
+        assert_eq!(recv(socket).await["result"]["error"]["code"], "FORBIDDEN");
+    }
+    service.shutdown().await.unwrap();
+}
+#[tokio::test]
+async fn service_distinct_relay_ids_isolate_equal_caller_ids() {
+    let (_dir, service) = service(false).await;
+    let mut publisher = auth(&service.publisher_descriptor()).await;
+    let mut first = auth(&service.operator_descriptor()).await;
+    let mut second = auth(&service.operator_descriptor()).await;
+    send(
+        &mut first,
+        call("same", "sceneInspect", json!({"sceneId":"first"})),
+    )
+    .await;
+    let one = recv(&mut publisher).await;
+    send(
+        &mut second,
+        call("same", "sceneInspect", json!({"sceneId":"second"})),
+    )
+    .await;
+    let two = recv(&mut publisher).await;
+    assert_ne!(one["requestId"], two["requestId"]);
+    for (request, label) in [(two, "second"), (one, "first")] {
+        send(&mut publisher,json!({"kind":"reply","requestId":request["requestId"],"result":{"ok":false,"error":{"code":"NOT_FOUND","message":label,"ids":[]}}})).await;
+    }
+    assert_eq!(
+        recv(&mut first).await["result"]["error"]["message"],
+        "first"
+    );
+    assert_eq!(
+        recv(&mut second).await["result"]["error"]["message"],
+        "second"
+    );
+    service.shutdown().await.unwrap();
+}
+#[tokio::test]
+async fn service_pending_disconnect_and_rpc_timeout_are_explicit() {
+    let (_dir, service) = service(false).await;
+    let mut publisher = auth(&service.publisher_descriptor()).await;
+    let mut operator = auth(&service.operator_descriptor()).await;
+    send(
+        &mut operator,
+        call("lost", "sceneInspect", json!({"sceneId":"scene_main"})),
+    )
+    .await;
+    recv(&mut publisher).await;
+    publisher.close(None).await.unwrap();
+    assert_eq!(
+        recv(&mut operator).await["result"]["error"]["code"],
+        "UNAVAILABLE"
+    );
+    tokio::time::sleep(Duration::from_millis(30)).await;
+    let mut publisher = auth(&service.publisher_descriptor()).await;
+    send(
+        &mut operator,
+        call("timeout", "sceneInspect", json!({"sceneId":"scene_main"})),
+    )
+    .await;
+    recv(&mut publisher).await;
+    assert_eq!(
+        recv(&mut operator).await["result"]["error"]["code"],
+        "TIMEOUT"
+    );
+    service.shutdown().await.unwrap();
+}
+#[tokio::test]
+async fn service_evaluation_is_unsupported_and_context_is_native_owned() {
+    let (_dir, service) = service(true).await;
+    let mut operator = auth(&service.operator_descriptor()).await;
+    send(&mut operator,call("eval","captureFrame",json!({"outputId":"output_main","expectedRevision":0,"preset":"diagnostic_v1","maxAgeMs":500}))).await;
+    assert_eq!(
+        recv(&mut operator).await["result"]["error"]["code"],
+        "UNSUPPORTED"
+    );
+    let (tx, mut rx) = tokio::sync::mpsc::channel(1);
+    service.install_evaluation_handler(std::sync::Arc::new(move |_call, context| {
+        let tx = tx.clone();
+        Box::pin(async move {
+            tx.send(context.client_id).await.unwrap();
+            Reply::failure(AppError {
+                code: ErrorCode::Unsupported,
+                message: "gate".into(),
+                ids: vec![],
+            })
+        })
+    }));
+    send(&mut operator,call("eval2","captureFrame",json!({"outputId":"output_main","expectedRevision":0,"preset":"diagnostic_v1","maxAgeMs":500}))).await;
+    recv(&mut operator).await;
+    let id = rx.recv().await.unwrap();
+    assert!(uuid::Uuid::parse_str(&id).is_ok());
+    service.shutdown().await.unwrap();
+}
+#[tokio::test]
+async fn service_descriptor_files_are_owner_only() {
+    let (dir, service) = service(false).await;
+    let (operator, renderer) = service
+        .write_descriptors(dir.path(), "output_main")
+        .unwrap();
+    for path in [operator, renderer] {
+        let descriptor: ConnectionDescriptor =
+            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        descriptor.validate().unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                std::fs::metadata(path).unwrap().permissions().mode() & 0o777,
+                0o600
+            );
+        }
+    }
+    service.shutdown().await.unwrap();
+}
+#[tokio::test]
+async fn service_rejects_unauthenticated_timeout_and_oversize() {
+    let (_dir, service) = service(false).await;
+    let (mut socket, _) = connect_async(service.operator_descriptor().ws_url)
+        .await
+        .unwrap();
+    closed(&mut socket).await;
+    let mut operator = auth(&service.operator_descriptor()).await;
+    send(
+        &mut operator,
+        call(
+            "huge",
+            "sceneInspect",
+            json!({"sceneId":"x".repeat(MAX_MESSAGE_BYTES)}),
+        ),
+    )
+    .await;
+    closed(&mut operator).await;
+    service.shutdown().await.unwrap();
+}
+#[tokio::test]
+async fn service_exact_pending_limit_does_not_discard_commands() {
+    let (_dir, service) = service(false).await;
+    let mut publisher = auth(&service.publisher_descriptor()).await;
+    let mut operator = auth(&service.operator_descriptor()).await;
+    for n in 0..32 {
+        send(
+            &mut operator,
+            call(
+                &format!("call_{n}"),
+                "sceneInspect",
+                json!({"sceneId":"scene_main"}),
+            ),
+        )
+        .await;
+        recv(&mut publisher).await;
+    }
+    send(
+        &mut operator,
+        call("overflow", "sceneInspect", json!({"sceneId":"scene_main"})),
+    )
+    .await;
+    let result = recv(&mut operator).await;
+    assert_eq!(result["requestId"], "overflow");
+    assert_eq!(result["result"]["error"]["code"], "RATE_LIMITED");
+    publisher.close(None).await.unwrap();
+    for _ in 0..32 {
+        assert_eq!(
+            recv(&mut operator).await["result"]["error"]["code"],
+            "UNAVAILABLE"
+        );
+    }
+    service.shutdown().await.unwrap();
+}
+#[tokio::test]
+async fn service_native_capture_pairs_authenticated_renderer_reply() {
+    use base64::{engine::general_purpose::STANDARD, Engine};
+    let (_dir, service) = service(true).await;
+    let descriptor = service.publisher_descriptor();
+    let mut publisher = auth(&descriptor).await;
+    let mut renderer = auth(&service.renderer_descriptor("output_main").unwrap()).await;
+    send(&mut publisher, frame(&descriptor.session_id, 1)).await;
+    recv(&mut renderer).await;
+    let acknowledgement = applied(&descriptor.session_id, 1);
+    send(&mut renderer, acknowledgement.clone()).await;
+    tokio::time::timeout(Duration::from_secs(1), async {
+        while service.last_applied("output_main").is_none() {
+            tokio::time::sleep(Duration::from_millis(1)).await;
+        }
+    })
+    .await
+    .unwrap();
+    let mut png = Vec::new();
+    {
+        let mut encoder = png::Encoder::new(&mut png, 1, 1);
+        encoder.set_color(png::ColorType::Rgba);
+        encoder.set_depth(png::BitDepth::Eight);
+        let mut writer = encoder.write_header().unwrap();
+        writer.write_image_data(&[0, 0, 0, 0]).unwrap();
+    }
+    let params = CaptureParams {
+        output_id: "output_main".into(),
+        expected_revision: 0,
+        preset: CapturePreset::DiagnosticV1,
+        max_age_ms: 500,
+    };
+    let respond = async {
+        let request = recv(&mut renderer).await;
+        assert_eq!(request["kind"], "captureRequest");
+        send(&mut renderer,json!({"kind":"captureReply","requestId":request["requestId"],"result":{"ok":true,"data":{"metadata":{"frame":acknowledgement["frame"],"width":1,"height":1},"pngBase64":STANDARD.encode(&png)}}})).await;
+    };
+    let (capture, ()) = tokio::join!(service.request_capture(params), respond);
+    assert_eq!(capture.unwrap().png, png);
+    service.shutdown().await.unwrap();
+}
+#[tokio::test]
+async fn service_ack_history_is_exactly_32_and_clears_with_publisher() {
+    let (_dir, service) = service(false).await;
+    let descriptor = service.publisher_descriptor();
+    let mut publisher = auth(&descriptor).await;
+    let mut renderer = auth(&service.renderer_descriptor("output_main").unwrap()).await;
+    for sequence in 1..=40 {
+        send(&mut publisher, frame(&descriptor.session_id, sequence)).await;
+        recv(&mut renderer).await;
+        send(&mut renderer, applied(&descriptor.session_id, sequence)).await;
+        tokio::time::timeout(Duration::from_secs(1), async {
+            while service.applied_at("output_main", sequence).is_none() {
+                tokio::time::sleep(Duration::from_millis(1)).await;
+            }
+        })
+        .await
+        .unwrap();
+    }
+    assert!(service.applied_at("output_main", 8).is_none());
+    assert!(service.applied_at("output_main", 9).is_some());
+    assert_eq!(service.last_applied("output_main").unwrap().0.sequence, 40);
+    publisher.close(None).await.unwrap();
+    tokio::time::timeout(Duration::from_secs(1), async {
+        while service.last_applied("output_main").is_some() {
+            tokio::time::sleep(Duration::from_millis(1)).await;
+        }
+    })
+    .await
+    .unwrap();
+    service.shutdown().await.unwrap();
+}
+#[tokio::test]
+async fn service_asset_cors_preflight_is_exact() {
+    let (_dir, service) = service(false).await;
+    let descriptor = service.operator_descriptor();
+    let client = reqwest::Client::new();
+    let uri = format!("{}/assets/missing", descriptor.http_origin);
+    assert_eq!(client.get(&uri).send().await.unwrap().status(), 401);
+    let response = client
+        .get(&uri)
+        .header("Authorization", format!("Bearer {}", descriptor.token))
+        .header("Origin", &descriptor.http_origin)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 404);
+    assert_eq!(
+        response.headers()["access-control-allow-origin"],
+        descriptor.http_origin
+    );
+    for (origin, expected) in [
+        (descriptor.http_origin.as_str(), 204),
+        ("null", 403),
+        ("https://example.test", 403),
+    ] {
+        assert_eq!(
+            client
+                .request(reqwest::Method::OPTIONS, &uri)
+                .header("Origin", origin)
+                .header("Access-Control-Request-Method", "GET")
+                .header("Access-Control-Request-Headers", "authorization")
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            expected
+        );
+    }
+    service.shutdown().await.unwrap();
+}
+#[tokio::test]
+async fn service_cancelled_native_calls_release_pending_slots() {
+    let (_dir, service) = service(true).await;
+    let mut renderer = auth(&service.renderer_descriptor("output_main").unwrap()).await;
+    for _ in 0..40 {
+        let params = CaptureParams {
+            output_id: "output_main".into(),
+            expected_revision: 0,
+            preset: CapturePreset::DiagnosticV1,
+            max_age_ms: 500,
+        };
+        let request =
+            tokio::time::timeout(Duration::from_millis(10), service.request_capture(params));
+        let receive = async {
+            assert_eq!(recv(&mut renderer).await["kind"], "captureRequest");
+        };
+        let (result, ()) = tokio::join!(request, receive);
+        assert!(result.is_err());
+    }
+    service.shutdown().await.unwrap();
+}
+#[tokio::test]
+async fn service_shutdown_releases_installed_handler() {
+    let (_dir, service) = service(true).await;
+    let owner = std::sync::Arc::new(());
+    let weak = std::sync::Arc::downgrade(&owner);
+    service.install_evaluation_handler(std::sync::Arc::new(move |_, _| {
+        let _ = &owner;
+        Box::pin(async {
+            Reply::failure(AppError {
+                code: ErrorCode::Unsupported,
+                message: "gate".into(),
+                ids: vec![],
+            })
+        })
+    }));
+    assert!(weak.upgrade().is_some());
+    service.shutdown().await.unwrap();
+    assert!(weak.upgrade().is_none());
+}

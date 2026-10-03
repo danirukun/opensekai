@@ -1,3 +1,5 @@
+pub mod service;
+pub mod assets;
 use std::path::PathBuf;
 use tauri::Manager;
 
