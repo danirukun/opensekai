@@ -1,3 +1,4 @@
+use crate::evaluation::{EvaluationIdentity, NativeEvaluation};
 use crate::service::{start_service, ServiceConfig, ServiceHandle};
 use opensekai_contracts::{AppError, AssetRecord, ConnectionDescriptor, ErrorCode};
 use serde::Serialize;
@@ -19,6 +20,7 @@ pub struct NativeBootstrap {
 #[derive(Default)]
 struct Owned {
     service: Option<ServiceHandle>,
+    evaluation: Option<Arc<NativeEvaluation>>,
     stopped: bool,
 }
 pub struct DesktopState {
@@ -41,12 +43,34 @@ impl DesktopState {
         })
     }
     pub async fn initialize(self: Arc<Self>, config: ServiceConfig, descriptors: PathBuf) {
+        let evaluation_enabled = config.evaluation_enabled;
+        let evidence_root = config.evidence_root.clone();
         let service = match start_service(config).await {
             Ok(service) => service,
             Err(error) => {
                 self.ready.send_replace(Some(Err(error)));
                 return;
             }
+        };
+        let evaluation = if evaluation_enabled {
+            match NativeEvaluation::install(
+                &service,
+                EvaluationIdentity {
+                    session_id: service.operator_descriptor().session_id,
+                    app_commit: env!("OPENSEKAI_APP_COMMIT").into(),
+                    fixture_id: "smoke_v1".into(),
+                    evidence_root,
+                },
+            ) {
+                Ok(evaluation) => Some(evaluation),
+                Err(error) => {
+                    let _ = service.shutdown().await;
+                    self.ready.send_replace(Some(Err(error)));
+                    return;
+                }
+            }
+        } else {
+            None
         };
         let info = (|| {
             let (operator, renderer) = service.write_descriptors(&descriptors, "output_main")?;
@@ -72,13 +96,20 @@ impl DesktopState {
                 let mut owned = self.owned.lock().await;
                 if owned.stopped {
                     drop(owned);
+                    if let Some(evaluation) = evaluation {
+                        evaluation.shutdown();
+                    }
                     let _ = service.shutdown().await;
                     return;
                 }
                 owned.service = Some(service);
+                owned.evaluation = evaluation;
                 self.ready.send_replace(Some(Ok(info)));
             }
             Err(error) => {
+                if let Some(evaluation) = evaluation {
+                    evaluation.shutdown();
+                }
                 let _ = service.shutdown().await;
                 self.ready.send_replace(Some(Err(error)));
             }
@@ -104,14 +135,15 @@ impl DesktopState {
         .map_err(|_| error(ErrorCode::Timeout, "Session startup timed out"))?
     }
     pub async fn shutdown(&self) -> Result<(), AppError> {
-        let service = {
-            let mut owned = self.owned.lock().await;
-            owned.stopped = true;
-            self.ready
-                .send_replace(Some(Err(error(ErrorCode::Unavailable, "Session stopped"))));
-            owned.service.take()
-        };
-        if let Some(service) = service {
+        // Keep the lifecycle lock until teardown completes so all callers wait.
+        let mut owned = self.owned.lock().await;
+        owned.stopped = true;
+        self.ready
+            .send_replace(Some(Err(error(ErrorCode::Unavailable, "Session stopped"))));
+        if let Some(evaluation) = owned.evaluation.take() {
+            evaluation.shutdown();
+        }
+        if let Some(service) = owned.service.take() {
             service.shutdown().await?;
         }
         Ok(())
@@ -150,5 +182,122 @@ mod tests {
             state.wait_ready().await.err().unwrap().code,
             ErrorCode::NotFound
         );
+    }
+    // Real RPC boundary: bootstrap must install evaluation before readiness.
+    #[tokio::test]
+    async fn bootstrap_installs_evaluation_and_owns_shutdown() {
+        use futures_util::{SinkExt, StreamExt};
+        use serde_json::{json, Value};
+        use tokio_tungstenite::{connect_async, tungstenite::Message};
+        let dir = tempfile::tempdir().unwrap();
+        let manifest = dir.path().join("manifest.json");
+        std::fs::write(
+            &manifest,
+            r#"{"schemaVersion":1,"fixtureId":"smoke_v1","assets":[]}"#,
+        )
+        .unwrap();
+        let state = DesktopState::new();
+        state
+            .clone()
+            .initialize(
+                ServiceConfig {
+                    output_root: dir.path().into(),
+                    asset_manifest: manifest,
+                    evidence_root: dir.path().join("evidence"),
+                    evaluation_enabled: true,
+                },
+                dir.path().join("descriptors"),
+            )
+            .await;
+        let info = state.wait_ready().await.unwrap();
+        let (mut socket, _) = connect_async(&info.operator.ws_url).await.unwrap();
+        socket.send(Message::Text(json!({"kind":"auth","role":"operator","token":info.operator.token,"schemaVersion":1,"outputId":null}).to_string().into())).await.unwrap();
+        socket.next().await.unwrap().unwrap();
+        socket.send(Message::Text(json!({"kind":"call","requestId":"probe","method":"evidenceRead","params":{"evidenceId":"00000000-0000-4000-8000-000000000000"}}).to_string().into())).await.unwrap();
+        let response: Value =
+            serde_json::from_str(&socket.next().await.unwrap().unwrap().into_text().unwrap())
+                .unwrap();
+        assert_eq!(response["result"]["error"]["code"], "NOT_FOUND");
+        let (first, second) = tokio::join!(state.shutdown(), state.shutdown());
+        first.unwrap();
+        second.unwrap();
+        let owned = state.owned.lock().await;
+        assert!(owned.service.is_none());
+        assert!(owned.evaluation.is_none());
+        drop(owned);
+        assert_eq!(
+            state.wait_ready().await.err().unwrap().code,
+            ErrorCode::Unavailable
+        );
+        assert!(matches!(
+            tokio::time::timeout(Duration::from_secs(1), socket.next())
+                .await
+                .unwrap(),
+            None | Some(Err(_)) | Some(Ok(Message::Close(_)))
+        ));
+    }
+    #[tokio::test]
+    async fn bootstrap_stopped_before_start_discards_native_resources() {
+        let dir = tempfile::tempdir().unwrap();
+        let manifest = dir.path().join("manifest.json");
+        std::fs::write(
+            &manifest,
+            r#"{"schemaVersion":1,"fixtureId":"smoke_v1","assets":[]}"#,
+        )
+        .unwrap();
+        let state = DesktopState::new();
+        state.shutdown().await.unwrap();
+        state
+            .clone()
+            .initialize(
+                ServiceConfig {
+                    output_root: dir.path().into(),
+                    asset_manifest: manifest,
+                    evidence_root: dir.path().join("evidence"),
+                    evaluation_enabled: true,
+                },
+                dir.path().join("descriptors"),
+            )
+            .await;
+        let owned = state.owned.lock().await;
+        assert!(owned.service.is_none());
+        assert!(owned.evaluation.is_none());
+        drop(owned);
+        assert_eq!(
+            state.wait_ready().await.err().unwrap().code,
+            ErrorCode::Unavailable
+        );
+    }
+    #[tokio::test]
+    async fn bootstrap_evidence_install_failure_never_reports_ready() {
+        let dir = tempfile::tempdir().unwrap();
+        let manifest = dir.path().join("manifest.json");
+        std::fs::write(
+            &manifest,
+            r#"{"schemaVersion":1,"fixtureId":"smoke_v1","assets":[]}"#,
+        )
+        .unwrap();
+        let evidence_root = dir.path().join("file");
+        std::fs::write(&evidence_root, "occupied").unwrap();
+        let state = DesktopState::new();
+        state
+            .clone()
+            .initialize(
+                ServiceConfig {
+                    output_root: dir.path().into(),
+                    asset_manifest: manifest,
+                    evidence_root,
+                    evaluation_enabled: true,
+                },
+                dir.path().join("descriptors"),
+            )
+            .await;
+        assert_eq!(
+            state.wait_ready().await.err().unwrap().code,
+            ErrorCode::Unavailable
+        );
+        let owned = state.owned.lock().await;
+        assert!(owned.service.is_none());
+        assert!(owned.evaluation.is_none());
     }
 }

@@ -1,6 +1,6 @@
 pub mod assets;
-pub mod evaluation;
 mod bootstrap;
+pub mod evaluation;
 pub mod service;
 use bootstrap::{DesktopState, NativeBootstrap};
 use opensekai_contracts::{AppError, ErrorCode};
