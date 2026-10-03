@@ -13,7 +13,7 @@ use axum::{
     routing::get,
     Router,
 };
-use futures_util::SinkExt;
+use futures_util::{SinkExt, StreamExt};
 use opensekai_contracts::*;
 use queues::{StateQueue, CONTROL_CAPACITY, PENDING_CAPACITY};
 pub use router::{RpcContext, RpcHandler};
@@ -71,6 +71,7 @@ struct Connection {
     state: Arc<Mutex<StateQueue<Value>>>,
     notify: Arc<Notify>,
     close: Arc<Notify>,
+    delivered: Arc<Mutex<VecDeque<RuntimeFrame>>>,
 }
 struct Pending {
     owner: String,
@@ -132,6 +133,7 @@ impl Shared {
             inner.acks.clear();
             for renderer in inner.renderers.values() {
                 lock(&renderer.state).clear();
+                lock(&renderer.delivered).clear();
             }
         }
         let outputs: Vec<_> = inner
@@ -457,17 +459,16 @@ async fn asset(
     }
     response
 }
-async fn socket_connection(mut socket: WebSocket, shared: Arc<Shared>) {
+async fn socket_connection(socket: WebSocket, shared: Arc<Shared>) {
     {
         let mut inner = lock(&shared.inner);
         inner.active += 1;
     }
-    connection_loop(&mut socket, &shared).await;
-    let _ = tokio::time::timeout(Duration::from_millis(200), socket.close()).await;
+    connection_loop(socket, &shared).await;
     lock(&shared.inner).active -= 1;
     shared.connections.notify_one();
 }
-async fn connection_loop(socket: &mut WebSocket, shared: &Arc<Shared>) {
+async fn connection_loop(mut socket: WebSocket, shared: &Arc<Shared>) {
     let mut shutdown = shared.stop.subscribe();
     if *shutdown.borrow() {
         return;
@@ -485,13 +486,14 @@ async fn connection_loop(socket: &mut WebSocket, shared: &Arc<Shared>) {
     else {
         return;
     };
-    let (tx, mut control) = mpsc::channel(CONTROL_CAPACITY);
+    let (tx, control) = mpsc::channel(CONTROL_CAPACITY);
     let connection = Connection {
         id: Uuid::new_v4().to_string(),
         control: tx,
         state: Arc::new(Mutex::new(StateQueue::default())),
         notify: Arc::new(Notify::new()),
         close: Arc::new(Notify::new()),
+        delivered: Arc::new(Mutex::new(VecDeque::new())),
     };
     let registered = {
         let mut inner = lock(&shared.inner);
@@ -547,22 +549,29 @@ async fn connection_loop(socket: &mut WebSocket, shared: &Arc<Shared>) {
         shared.disconnect(&connection.id);
         return;
     }
+    let (sink, mut stream) = socket.split();
+    let (writer_stop, writer_stopped) = watch::channel(false);
+    let writer_connection = connection.clone();
+    let writer_shared = shared.clone();
+    let mut writer = tokio::spawn(async move {
+        write_connection(
+            sink,
+            control,
+            writer_connection,
+            writer_shared,
+            writer_stopped,
+        )
+        .await;
+    });
     let mut calls = tokio::task::JoinSet::new();
+    let mut writer_finished = false;
     loop {
-        let queued = { lock(&connection.state).pop() };
-        if let Some(frame) = queued {
-            let result = tokio::select! {r=socket.send(Message::Text(frame.to_string().into()))=>r,_=shutdown.changed()=>break};
-            if result.is_err() {
-                break;
-            }
-        }
         tokio::select! {
             _=shutdown.changed()=>break,
             _=connection.close.notified()=>break,
+            _=&mut writer=>{writer_finished=true;break;},
             Some(_)=calls.join_next(),if !calls.is_empty()=>{},
-            Some(value)=control.recv()=> {let result=tokio::select! {r=socket.send(Message::Text(value.to_string().into()))=>r,_=shutdown.changed()=>break};if result.is_err(){break;}},
-            _=connection.notify.notified()=>{},
-            message=socket.recv()=>{
+            message=stream.next()=>{
                 let Some(Ok(Message::Text(text)))=message else {break;};
                 let Ok(message)=parse_wire(text.as_bytes()) else {break;};
                 match message {
@@ -595,21 +604,31 @@ async fn connection_loop(socket: &mut WebSocket, shared: &Arc<Shared>) {
                         {
                             break;
                         }
-                        // Initial asset loads can outlast the bounded publication history.
-                        if inner.frames.front().is_some_and(|oldest| frame.sequence < oldest.sequence) {
-                            continue;
-                        }
-                        let valid = inner.frames.iter().any(|published| {
-                            published.sequence == frame.sequence
-                                && published.tick == frame.tick
-                                && published.scene.revision == frame.revision
-                                && published.scene.outputs.iter().any(|output| {
-                                    output.id == frame.output_id && output.camera_id == frame.camera_id
-                                })
-                        });
-                        if !valid {
+                        let mut delivered = lock(&connection.delivered);
+                        let provenance = delivered.iter().find(|published| published.sequence == frame.sequence);
+                        let Some(published) = provenance else {
+                            if let Some((ack, _)) = inner.acks.get(&frame.output_id).and_then(|ring|ring.iter().find(|(ack,_)|ack.sequence == frame.sequence)) {
+                                if ack.tick != frame.tick || ack.revision != frame.revision || ack.camera_id != frame.camera_id {
+                                    break;
+                                }
+                                continue;
+                            }
+                            if inner.frames.front().is_some_and(|oldest| frame.sequence < oldest.sequence) {
+                                continue;
+                            }
                             break;
+                        };
+                        let valid = published.tick == frame.tick
+                            && published.scene.revision == frame.revision
+                            && published.scene.outputs.iter().any(|output| {
+                                output.id == frame.output_id && output.camera_id == frame.camera_id
+                            });
+                        if !valid { break; }
+                        // A coalescing renderer can acknowledge the newer delivered frame only.
+                        while delivered.front().is_some_and(|sent|sent.sequence <= frame.sequence) {
+                            delivered.pop_front();
                         }
+                        connection.notify.notify_one();
                         let ring = inner.acks.entry(frame.output_id.clone()).or_default();
                         if ring.back().is_some_and(|(last, _)| frame.sequence <= last.sequence) {
                             break;
@@ -633,8 +652,72 @@ async fn connection_loop(socket: &mut WebSocket, shared: &Arc<Shared>) {
         }
     }
     shared.disconnect(&connection.id);
+    let _ = writer_stop.send(true);
+    if !writer_finished {
+        let _ = writer.await;
+    }
     calls.abort_all();
     while calls.join_next().await.is_some() {}
+}
+
+async fn write_connection(
+    mut sink: futures_util::stream::SplitSink<WebSocket, Message>,
+    mut control: mpsc::Receiver<Value>,
+    connection: Connection,
+    shared: Arc<Shared>,
+    mut stopped: watch::Receiver<bool>,
+) {
+    let mut shutdown = shared.stop.subscribe();
+    loop {
+        if *stopped.borrow() || *shutdown.borrow() {
+            break;
+        }
+        let control_value = control.try_recv().ok();
+        let value = if control_value.is_some() {
+            control_value
+        } else {
+            let mut delivered = lock(&connection.delivered);
+            if delivered.len() < queues::STATE_CAPACITY {
+                let value = lock(&connection.state).pop();
+                if let Some(value) = &value {
+                    let Ok(WireMessage::Frame { frame }) = serde_json::from_value(value.clone())
+                    else {
+                        break;
+                    };
+                    delivered.push_back(frame);
+                }
+                value
+            } else {
+                None
+            }
+        };
+        if let Some(value) = value {
+            let result = tokio::select! {
+                result=sink.send(Message::Text(value.to_string().into()))=>result,
+                _=stopped.changed()=>break,
+                _=shutdown.changed()=>break,
+            };
+            if result.is_err() {
+                break;
+            }
+            continue;
+        }
+        tokio::select! {
+            biased;
+            _=stopped.changed()=>break,
+            _=shutdown.changed()=>break,
+            Some(value)=control.recv()=> {
+                let result=tokio::select! {
+                    result=sink.send(Message::Text(value.to_string().into()))=>result,
+                    _=stopped.changed()=>break,
+                    _=shutdown.changed()=>break,
+                };
+                if result.is_err() { break; }
+            },
+            _=connection.notify.notified()=>{},
+        }
+    }
+    let _ = tokio::time::timeout(Duration::from_millis(200), sink.close()).await;
 }
 
 impl Drop for ServiceHandle {
@@ -692,6 +775,7 @@ mod tests {
             state: Arc::new(Mutex::new(StateQueue::default())),
             notify: Arc::new(Notify::new()),
             close: Arc::new(Notify::new()),
+            delivered: Arc::new(Mutex::new(VecDeque::new())),
         };
         for n in 0..CONTROL_CAPACITY {
             Shared::send(&connection, json!({"command": n})).unwrap();

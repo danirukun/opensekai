@@ -516,15 +516,16 @@ async fn service_obsolete_ack_preserves_renderer_for_fresh_state() {
     for sequence in 1..=40 {
         send(&mut publisher, frame(&descriptor.session_id, sequence)).await;
         assert_eq!(recv(&mut renderer).await["frame"]["sequence"], sequence);
+        send(&mut renderer, applied(&descriptor.session_id, sequence)).await;
     }
-    send(&mut renderer, applied(&descriptor.session_id, 1)).await;
+    send(&mut renderer, applied(&descriptor.session_id, 0)).await;
     send(
         &mut renderer,
         json!({"kind":"ping","requestId":"after_obsolete"}),
     )
     .await;
     assert_eq!(recv(&mut renderer).await["kind"], "pong");
-    assert!(service.last_applied("output_main").is_none());
+    assert!(service.applied_at("output_main", 0).is_none());
     send(&mut publisher, frame(&descriptor.session_id, 41)).await;
     assert_eq!(recv(&mut renderer).await["frame"]["sequence"], 41);
     send(&mut renderer, applied(&descriptor.session_id, 41)).await;
@@ -601,5 +602,123 @@ async fn service_readiness_expires_stale_ack_without_losing_diagnostics() {
     )
     .await;
     assert_eq!(recv(&mut publisher).await["kind"], "pong");
+    service.shutdown().await.unwrap();
+}
+#[tokio::test]
+async fn service_slow_renderer_bounds_inflight_and_coalesces_at_60hz() {
+    let (_dir, service) = service(false).await;
+    let descriptor = service.publisher_descriptor();
+    let mut publisher = auth(&descriptor).await;
+    let mut renderer = auth(&service.renderer_descriptor("output_main").unwrap()).await;
+    let mut operator = auth(&service.operator_descriptor()).await;
+    let mut delivered = Vec::new();
+    let mut pong = false;
+    let publish = async {
+        let mut interval = tokio::time::interval(Duration::from_secs_f64(1.0 / 60.0));
+        for sequence in 1..=180 {
+            interval.tick().await;
+            send(&mut publisher, frame(&descriptor.session_id, sequence)).await;
+            if let Ok(Some(Ok(message))) =
+                tokio::time::timeout(Duration::from_millis(1), publisher.next()).await
+            {
+                let value: Value = serde_json::from_str(&message.into_text().unwrap()).unwrap();
+                if value["kind"] == "call" {
+                    send(&mut publisher, json!({"kind":"reply","requestId":value["requestId"],"result":{"ok":false,"error":{"code":"NOT_FOUND","message":"synthetic scene","ids":[]}}})).await;
+                }
+            }
+        }
+    };
+    let controls = async {
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        send(
+            &mut renderer,
+            json!({"kind":"ping","requestId":"slow_ping"}),
+        )
+        .await;
+        send(&mut operator, call("slow_status", "appStatus", json!({}))).await;
+        send(
+            &mut operator,
+            call(
+                "slow_inspect",
+                "sceneInspect",
+                json!({"sceneId":"scene_main"}),
+            ),
+        )
+        .await;
+        let requests = tokio::time::timeout(Duration::from_millis(500), async {
+            let one = recv(&mut operator).await;
+            let two = recv(&mut operator).await;
+            [
+                one["requestId"].as_str().unwrap().to_owned(),
+                two["requestId"].as_str().unwrap().to_owned(),
+            ]
+        })
+        .await
+        .unwrap();
+        assert!(requests.contains(&"slow_status".into()));
+        assert!(requests.contains(&"slow_inspect".into()));
+        let params = CaptureParams {
+            output_id: "output_main".into(),
+            expected_revision: 0,
+            preset: CapturePreset::DiagnosticV1,
+            max_age_ms: 500,
+        };
+        let capture = service.request_capture(params);
+        let respond = async {
+            let mut answered = false;
+            while !pong || !answered {
+                let value = recv(&mut renderer).await;
+                match value["kind"].as_str() {
+                    Some("frame") => delivered.push(value["frame"]["sequence"].as_u64().unwrap()),
+                    Some("pong") => pong = true,
+                    Some("captureRequest") => {
+                        send(&mut renderer, json!({"kind":"captureReply","requestId":value["requestId"],"result":{"ok":false,"error":{"code":"UNSUPPORTED","message":"synthetic capture","ids":[]}}})).await;
+                        answered = true;
+                    }
+                    _ => panic!("Unexpected control envelope"),
+                }
+            }
+        };
+        let (result, ()) = tokio::time::timeout(Duration::from_millis(500), async {
+            tokio::join!(capture, respond)
+        })
+        .await
+        .unwrap();
+        assert_eq!(result.unwrap_err().code, ErrorCode::Unsupported);
+    };
+    tokio::join!(publish, controls);
+    while let Ok(Some(Ok(message))) =
+        tokio::time::timeout(Duration::from_millis(100), renderer.next()).await
+    {
+        let value: Value = serde_json::from_str(&message.into_text().unwrap()).unwrap();
+        if value["kind"] == "frame" {
+            delivered.push(value["frame"]["sequence"].as_u64().unwrap());
+        }
+        if value["kind"] == "pong" {
+            pong = true;
+        }
+    }
+    assert_eq!(
+        delivered.len(),
+        2,
+        "State frames were buffered past the delivery window"
+    );
+    assert!(pong, "ACK-window stall blocked renderer ping");
+    let acknowledged = *delivered.last().unwrap();
+    send(&mut renderer, applied(&descriptor.session_id, acknowledged)).await;
+    let fresh = recv(&mut renderer).await["frame"]["sequence"]
+        .as_u64()
+        .unwrap();
+    assert!(
+        fresh >= 179,
+        "Pending frames failed to coalesce to recent state"
+    );
+    tokio::time::timeout(Duration::from_secs(1), async {
+        while service.applied_at("output_main", acknowledged).is_none() {
+            tokio::time::sleep(Duration::from_millis(1)).await;
+        }
+    })
+    .await
+    .unwrap();
     service.shutdown().await.unwrap();
 }
