@@ -507,3 +507,61 @@ async fn service_shutdown_releases_installed_handler() {
     service.shutdown().await.unwrap();
     assert!(weak.upgrade().is_none());
 }
+#[tokio::test]
+async fn service_obsolete_ack_preserves_renderer_for_fresh_state() {
+    let (_dir, service) = service(false).await;
+    let descriptor = service.publisher_descriptor();
+    let mut publisher = auth(&descriptor).await;
+    let mut renderer = auth(&service.renderer_descriptor("output_main").unwrap()).await;
+    for sequence in 1..=40 {
+        send(&mut publisher, frame(&descriptor.session_id, sequence)).await;
+        assert_eq!(recv(&mut renderer).await["frame"]["sequence"], sequence);
+    }
+    send(&mut renderer, applied(&descriptor.session_id, 1)).await;
+    send(
+        &mut renderer,
+        json!({"kind":"ping","requestId":"after_obsolete"}),
+    )
+    .await;
+    assert_eq!(recv(&mut renderer).await["kind"], "pong");
+    assert!(service.last_applied("output_main").is_none());
+    send(&mut publisher, frame(&descriptor.session_id, 41)).await;
+    assert_eq!(recv(&mut renderer).await["frame"]["sequence"], 41);
+    send(&mut renderer, applied(&descriptor.session_id, 41)).await;
+    tokio::time::timeout(Duration::from_secs(1), async {
+        while service.applied_at("output_main", 41).is_none() {
+            tokio::time::sleep(Duration::from_millis(1)).await;
+        }
+    })
+    .await
+    .unwrap();
+    assert!(service.applied_at("output_main", 1).is_none());
+    service.shutdown().await.unwrap();
+}
+#[tokio::test]
+async fn service_ack_rejects_scope_future_and_retained_metadata_mismatch() {
+    for (field, value, obsolete) in [
+        ("sessionId", json!("wrong_session"), true),
+        ("outputId", json!("wrong_output"), true),
+        ("sequence", json!(2), false),
+        ("tick", json!(2), false),
+        ("revision", json!(1), false),
+        ("cameraId", json!("wrong_camera"), false),
+    ] {
+        let (_dir, service) = service(false).await;
+        let descriptor = service.publisher_descriptor();
+        let mut publisher = auth(&descriptor).await;
+        let mut renderer = auth(&service.renderer_descriptor("output_main").unwrap()).await;
+        send(&mut publisher, frame(&descriptor.session_id, 1)).await;
+        recv(&mut renderer).await;
+        let mut invalid = applied(&descriptor.session_id, 1);
+        if obsolete {
+            invalid["frame"]["sequence"] = json!(0);
+        }
+        invalid["frame"][field] = value;
+        send(&mut renderer, invalid).await;
+        closed(&mut renderer).await;
+        assert!(service.last_applied("output_main").is_none());
+        service.shutdown().await.unwrap();
+    }
+}

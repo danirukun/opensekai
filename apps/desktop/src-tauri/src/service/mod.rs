@@ -379,13 +379,17 @@ async fn static_file(shared: Arc<Shared>, headers: &HeaderMap, file: &str) -> Re
     if file.split('/').any(|s| s == ".." || s.is_empty()) || file.contains('\\') {
         return StatusCode::BAD_REQUEST.into_response();
     }
-    let Ok(path) = shared.output_root.join(file).canonicalize() else {
-        return StatusCode::NOT_FOUND.into_response();
-    };
-    if !path.starts_with(&shared.output_root) || !path.is_file() {
-        return StatusCode::NOT_FOUND.into_response();
-    }
-    let Ok(bytes) = std::fs::read(path) else {
+    let root = shared.output_root.clone();
+    let file_path = file.to_owned();
+    let result = tokio::task::spawn_blocking(move || {
+        let path = root.join(file_path).canonicalize().ok()?;
+        if !path.starts_with(&root) || !path.is_file() {
+            return None;
+        }
+        std::fs::read(path).ok()
+    })
+    .await;
+    let Ok(Some(bytes)) = result else {
         return StatusCode::NOT_FOUND.into_response();
     };
     let mime = if file.ends_with(".js") {
@@ -563,21 +567,57 @@ async fn connection_loop(socket: &mut WebSocket, shared: &Arc<Shared>) {
                 let Ok(message)=parse_wire(text.as_bytes()) else {break;};
                 match message {
                     WireMessage::Ping{request_id}=>{if Shared::send(&connection,json!(WireMessage::Pong{request_id})).is_err(){break;}},
-                    WireMessage::Frame{frame} if role==Role::Publisher=> {
-                        if json!(WireMessage::Frame{frame:frame.clone()}).to_string().len()>MAX_MESSAGE_BYTES {break;}
-                        let mut inner=lock(&shared.inner);
-                        if frame.session_id!=shared.session || inner.latest.as_ref().is_some_and(|f|frame.sequence<=f.sequence){break;}
-                        inner.latest=Some(frame.clone());inner.frames.push_back(frame.clone());if inner.frames.len()>32 {inner.frames.pop_front();}
-                        for renderer in inner.renderers.values() {lock(&renderer.state).push(json!(WireMessage::Frame{frame:frame.clone()}));renderer.notify.notify_one();}
+                    WireMessage::Frame { frame } if role == Role::Publisher => {
+                        let envelope = json!(WireMessage::Frame { frame: frame.clone() });
+                        if envelope.to_string().len() > MAX_MESSAGE_BYTES {
+                            break;
+                        }
+                        let mut inner = lock(&shared.inner);
+                        if frame.session_id != shared.session
+                            || inner.latest.as_ref().is_some_and(|last| frame.sequence <= last.sequence)
+                        {
+                            break;
+                        }
+                        inner.latest = Some(frame.clone());
+                        inner.frames.push_back(frame);
+                        if inner.frames.len() > 32 {
+                            inner.frames.pop_front();
+                        }
+                        for renderer in inner.renderers.values() {
+                            lock(&renderer.state).push(envelope.clone());
+                            renderer.notify.notify_one();
+                        }
                     },
-                    WireMessage::Applied{frame} if role==Role::Renderer=> {
-                        let mut inner=lock(&shared.inner);
-                        if output_id.as_deref()!=Some(&frame.output_id) || frame.session_id!=shared.session {break;}
-                        let valid=inner.frames.iter().any(|f|f.sequence==frame.sequence && f.tick==frame.tick && f.scene.revision==frame.revision && f.scene.outputs.iter().any(|o|o.id==frame.output_id && o.camera_id==frame.camera_id));
-                        if !valid {break;}
-                        let ring=inner.acks.entry(frame.output_id.clone()).or_default();
-                        if ring.back().is_some_and(|(last,_)|frame.sequence<=last.sequence){break;}
-                        ring.push_back((frame,shared.now_ms()));if ring.len()>32 {ring.pop_front();}
+                    WireMessage::Applied { frame } if role == Role::Renderer => {
+                        let mut inner = lock(&shared.inner);
+                        if output_id.as_deref() != Some(&frame.output_id)
+                            || frame.session_id != shared.session
+                        {
+                            break;
+                        }
+                        // Initial asset loads can outlast the bounded publication history.
+                        if inner.frames.front().is_some_and(|oldest| frame.sequence < oldest.sequence) {
+                            continue;
+                        }
+                        let valid = inner.frames.iter().any(|published| {
+                            published.sequence == frame.sequence
+                                && published.tick == frame.tick
+                                && published.scene.revision == frame.revision
+                                && published.scene.outputs.iter().any(|output| {
+                                    output.id == frame.output_id && output.camera_id == frame.camera_id
+                                })
+                        });
+                        if !valid {
+                            break;
+                        }
+                        let ring = inner.acks.entry(frame.output_id.clone()).or_default();
+                        if ring.back().is_some_and(|(last, _)| frame.sequence <= last.sequence) {
+                            break;
+                        }
+                        ring.push_back((frame, shared.now_ms()));
+                        if ring.len() > 32 {
+                            ring.pop_front();
+                        }
                     },
                     WireMessage::Reply{request_id,result} if role==Role::Publisher=>shared.accept_reply(&connection.id,&request_id,result,false),
                     WireMessage::CaptureReply{request_id,result} if role==Role::Renderer=>shared.accept_reply(&connection.id,&request_id,result,true),
