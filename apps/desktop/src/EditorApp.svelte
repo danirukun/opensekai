@@ -12,8 +12,9 @@
  import type { Draft, Tool } from './editor/ui-message';
  import {AssetRecordSchema} from '@opensekai/contracts';
  import {makeAuthoringEntity,importFailure} from './editor/authoring';
+ import {applyTrackingConfig} from './editor/tracking-activation';
  import type {AddKind} from './editor/live-fields';
- import type { AppStatus, AssetRecord } from '@opensekai/contracts';
+ import type { AppStatus, AssetRecord, TrackingConfig } from '@opensekai/contracts';
  import Hierarchy from './components/Hierarchy.svelte';
  import Inspector from './components/Inspector.svelte';
  import OutputControls from './components/OutputControls.svelte';
@@ -22,7 +23,7 @@
  let model=$state.raw<EditorModel>(),view=$state<EditorView>({scene:null,selectedId:null,error:null,pending:false});
  let status=$state<AppStatus|null>(null),assets=$state<AssetRecord[]>([]),outputUrl=$state(''),canEdit=$state(false),available=$state(false),error=$state<string|null>(null);
  let panel=$state<'assets'|'output'|'resources'>('assets'),width=$state(224),maxWidth=$state(360),shell:HTMLDivElement;
- let importError=$state<string|null>(null);
+ let importError=$state<string|null>(null),trackingError=$state<string|null>(null);
  let importing=$state(false),devices=$state<{deviceId:string;label:string}[]>([]);
  let draft=$state<Draft>(null),tool=$state<Tool>('translate');
  const warnings=$derived(collectWarnings(status));
@@ -38,7 +39,12 @@
    if(reply.ok)select(id);
   }catch(cause){importError=importFailure(cause);}finally{importing=false;}
  }
- async function toggleTracking(id:string,enabled:boolean,revision:number){const entity=model?.read().scene?.entities.find(item=>item.id===id);if(entity?.kind==='tracking')await model?.setTrackingConfig(id,{...entity.config,enabled},revision);}
+ async function configureTracking(id:string,config:TrackingConfig,revision:number){
+  if(!model)return;trackingError=null;
+  const reply=await applyTrackingConfig(id,config,revision,{activate:()=>invoke<void>('show_scene'),commit:(id,config,revision)=>model!.setTrackingConfig(id,config,revision)});
+  if(!reply.ok)trackingError=reply.error.message;
+ }
+ async function toggleTracking(id:string,enabled:boolean,revision:number){const entity=model?.read().scene?.entities.find(item=>item.id===id);if(entity?.kind==='tracking')await configureTracking(id,{...entity.config,enabled},revision);}
  function setTool(next:Tool){tool=next;notify({kind:'tool',tool});}
  onMount(()=>{
   let disposed=false,off=()=>{},offUI=()=>{},offClose=()=>{},connection:Awaited<ReturnType<typeof bootstrapEditor>>|undefined,poll:ReturnType<typeof createEditorPoll>|undefined;
@@ -65,10 +71,10 @@
   <div bind:this={shell} class="editor-body">
    {#if panel==='assets'}<div class="assets-column" style:width="{width}px">{#if model}<Hierarchy {model} {view} onselect={select} ontool={setTool} disabled={!canEdit||!available||importing} onadd={add} onimport={importAvatar} ontrackingtoggle={toggleTracking}/>{/if}<div class="asset-list-footer">{view.scene?.entities.length??0} assets</div></div>
     <ResizeHandle value={width} min={160} max={maxWidth} onchange={value=>{width=value;}}/>
-    <div class="properties-column">{#if model}<Inspector {model} {view} {draft} disabled={!canEdit||!available||importing} {devices} trackingStatus={status?.trackingStatus??[]} onlens={async(id,lens,revision)=>{await model?.setCameraLens(id,lens,revision);}} onavatartracking={async(id,tracking,revision)=>{await model?.setAvatarTracking(id,tracking,revision);}} ontrackingconfig={async(id,config,revision)=>{await model?.setTrackingConfig(id,config,revision);}} ontrackingtoggle={toggleTracking}/>{/if}</div>
+    <div class="properties-column">{#if model}<Inspector {model} {view} {draft} disabled={!canEdit||!available||importing} {devices} trackingStatus={status?.trackingStatus??[]} onlens={async(id,lens,revision)=>{await model?.setCameraLens(id,lens,revision);}} onavatartracking={async(id,tracking,revision)=>{await model?.setAvatarTracking(id,tracking,revision);}} ontrackingconfig={configureTracking} ontrackingtoggle={toggleTracking}/>{/if}</div>
    {:else if panel==='output'}<section class="output-panel"><h2>Output</h2>{#if model}<OutputControls {model} {view} {status} {outputUrl} disabled={!canEdit||!available}/>{/if}</section>
    {:else}<AssetList {assets} {warnings}/>{/if}
   </div>
-  <footer><span>{importError??error??(view.scene?'Session connected':'Starting…')}</span><span>{canEdit ? (tool==='translate'?'Move':tool==='rotate'?'Rotate':'Scale'):'Read only'}</span></footer>
+  <footer><span>{importError??trackingError??error??(view.scene?'Session connected':'Starting…')}</span><span>{canEdit ? (tool==='translate'?'Move':tool==='rotate'?'Rotate':'Scale'):'Read only'}</span></footer>
  </div>
 </main>

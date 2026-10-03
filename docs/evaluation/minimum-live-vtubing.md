@@ -27,3 +27,14 @@ Computer Use issued minimize for Editor and the remaining front OpenSekai window
 At3da91bb:284 unit tests in40files;9 integration tests in4files; workspace checks with0Svelte errors and0warnings; Rust workspace98passed and1explicit fixture-dependent skip; strict workspace Clippy passed. The copied-URL regression then failed with diagnostics enabled and passed after the fix:5focused tests.
 
 Private screenshots, state, capture hashes and continuity samples stay in ignored artifacts/evaluation/minimum-live/. The user VRM and webcam frames are not committed. Owned OBS sources are cleaned before rebuild; the adapter restores the prior scene. No stream was started.
+
+
+## Rebuilt output and inference timing
+
+Packaged source f507cfc8934430266d75acdd84c8c279dce63ad4 passed actual UI Add for VMC, iFacialMocap and MediaPipe. The supplied model was imported again. Copy OBS URL placed the actual URL on the clipboard; the private check confirmed a loopback renderer URL with diagnostics absent. An isolated source using that exact URL rendered the avatar with no barcode. The first immediate screenshot was blank before renderer loading; the settled capture is the evidence.
+
+The three-task CPU tracker published measured inference duration through existing status reads. Forty last-completed inference samples over20seconds measured34ms minimum,64ms median,82ms p95 and maximum. These are sampled values, not every inference. Stop cleared the metric. The explicit device menu includes FaceTime HD Camera; subsequent camera checks use that physical device.
+
+The controlled editor restart then stayed waiting without any inference metric for20seconds. Activating Scene resumed camera tracking. WebKit can defer camera access until its document is visible. The fix presents Scene before editor MediaPipe Start or an enabled camera configuration change, with no private browser setting. Tests cover activation ordering and failure without enabling tracking. Packaged verification of this fix is pending. The default two-task timing probe from the failed restart is retained with zero measured samples; it is not a performance result.
+
+Changing iFacialMocap to the VMC port produced the visible Cannot bind receiver endpoint error. Restoring49983 removed the bind failure and returned to waiting. Source generations changed; the scene remained intact.
