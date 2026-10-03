@@ -70,17 +70,31 @@ Files: desktop tracking/{mediapipe,mediapipe-worker,retarget,lifecycle}.ts; mode
 Produces normalized TrackingSample/TrackingStatus callbacks from an explicit webcam Start action. Root wires them to worker messages.
 - [x] RED known face yaw/blink/jaw, asymmetric upper-body/hand landmarks, mirroring and degenerate input math tests.
 - [x] RED one-active/one-latest disposal and Start/Stop generation tests; denial/missing-device must not become receiving.
-- [ ] Bundle pinned local WASM/task models with hashes and notices. Use CPU fallback when GPU unavailable. Verify release-origin worker model loading with actual binaries.
-- [ ] Implement bounded frame transfer/inference and close every owned image/track/model. Measure inference separately from render timing.
-- [ ] Run scoped checks/tests; verify actual camera only after permission and record limitations explicitly. Checkpoint and independent review.
+- [x] Bundle pinned local WASM/task models with hashes and notices. Use CPU fallback when GPU unavailable. Verify release-origin worker model loading with actual binaries.
+- [x] Implement bounded frame transfer/inference and close every owned image/track/model. Measure inference separately from render timing.
+- [x] Run scoped checks/tests; verify actual camera only after permission and record limitations explicitly. Checkpoint and independent review.
 
 ## Task7: Actual app and OBS acceptance — root
 
 - [x] Build current release with embedded source, launch without fixture env, import the user model in the native chooser, inspect actual avatar and type-specific UI.
-- [ ] Create both receivers and a custom camera through UI. Inject real loopback VMC+ifacial packets, select body/face sources, and compare changing bones/morphs and camera output in app/OBS.
-- [ ] Add and start MediaPipe; verify local binaries, lifecycle and normalized pose path. Test physical webcam/phone when available; ask for connection details if needed. Keep simulated and real evidence separate.
+- [x] Create both receivers and a custom camera through UI. Inject real loopback VMC+ifacial packets, select body/face sources, and compare changing bones/morphs and camera output in app/OBS.
+- [x] Add and start MediaPipe; verify local binaries, lifecycle and normalized pose path. Actual webcam checks passed within the stated scope. The user confirmed live iPhone control as the final step. Simulated and real evidence remain separate.
 - [ ] Check stale loss, stop/restart, invalid lens, port conflict and editor minimization. Run a focused large-avatar rendering check without claiming concert certification.
-- [ ] Save registered captures, hashes, source IDs and device/mock status; update minimum-deliverable table and Warudo parity, clean owned OBS sources and commit checkpoint.
+- [x] Save registered captures, hashes, source IDs and device/mock status; update minimum-deliverable table and Warudo parity, clean owned OBS sources and commit checkpoint.
 
 
-Acceptance update: see docs/evaluation/minimum-live-vtubing.md. Physical phone is last. The current camera/inference path works in the release, but separate inference duration and controlled finger/calibration checks remain open. The copied production URL fix needs packaged recheck. Do not mark the combined Task7 gates complete from subset evidence.
+Acceptance update: see docs/evaluation/minimum-live-vtubing.md. Final packaged6d44c4a passed camera creation/selection, clean copied OBS URL, mixed real UDP mocks, MediaPipe Start/Stop and registered MCP capture integrity. Separate inference duration is measured. Physical phone passed by user confirmation as the final step; controlled finger/calibration and background webcam quality remain open. Combined Task7 gates stay unchecked where their broader checks remain open.
+
+
+### Task7 scoped acceptance
+
+- [x] Actual UI Add for VMC, iFacialMocap and MediaPipe atf507cfc.
+- [x] Actual final-build custom camera creation, valid lens edit and Output selection at6d44c4a.
+- [x] Final-build real loopback mixed VMC-body/iFacial-face PoseA/PoseB in clean OBS output.
+- [x] Actual local camera inference, measured inference duration and UI Stop; bundled models loaded in release worker.
+- [x] Invalid lens and receiver bind conflict preserve the scene; UDP stale loss and tracker Stop return to rest.
+- [x] Registered MCP capture/resource hash verification for the current authored scene.
+- [x] Physical iPhone control. User confirmed it worked as the final step; native status corroborates accepted phone traffic. No automated handshake packet capture.
+- [ ] Controlled MediaPipe finger/calibration quality and continuous background webcam capture.
+
+The owned OBS source and mock sender are cleaned. MediaPipe is off. Keep the running app and the user's current scene changes available. Saved scene persistence, Windows and concert performance are outside this acceptance slice.

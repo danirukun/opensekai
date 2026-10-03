@@ -246,3 +246,19 @@ Inference measurement contract checkpoint: optional finite inferenceMs is availa
 Rebuilt f507cfc actual Add actions, import and copied helper-free OBS URL passed. Actual three-task inference samples measured median64ms/p9582ms, separate from render CPU; Stop cleared the metric. Receiver bind-conflict error and port restoration passed UI. Repeated editor-only camera Start remained waiting until Scene activation; a fixed editor-only Scene activation command and tested configuration ordering are integrated for packaged recheck.
 
 Packaged20898ff MediaPipe Start automatically activated Scene and reached receiving without OBS; default face/pose timing median17ms/p9535ms.296unit tests and100Rust tests passed,1fixture skip. The custom output camera selector was found to retain smoke-only IDs; a tested scene-derived selector is ready for packaged Camera2/OBS verification.
+
+
+## Verified minimum live subset
+
+These scoped checks do not complete the broader character, tracking, camera or production categories. See [minimum live acceptance](evaluation/minimum-live-vtubing.md).
+
+- [x] LIVE-01 — Native chooser imports the supplied VRM0 in normal macOS startup.
+- [x] LIVE-02 — Actual Add actions for VMC, iFacialMocap and MediaPipe assets.
+- [x] LIVE-03 — Mixed VMC Body and iFacial Face driven by real loopback UDP mocks; zero invalid packets and changed OBS pose.
+- [x] LIVE-04 — Actual custom camera creation, lens edit and scene-derived Output selection at6d44c4a.
+- [x] LIVE-05 — Actual copied production URL renders clean transparent avatar output in OBS.
+- [x] LIVE-06 — Bundled MediaPipe webcam inference, owner activation, assignment and Stop. Measured inference is separate from render CPU.
+- [x] LIVE-07 — Current authored-scene MCP capture has registered source metadata and verified resource hash.
+- [x] LIVE-08 — Physical iFacialMocap control, user verified as the final step. Native status corroborates accepted traffic from the configured phone; no automated motion or handshake capture.
+
+Final source checks at6d44c4a:297unit tests,9integration tests and workspace checks pass. Latest native change passed100Rust tests with1explicit fixture skip. Webcam finger/calibration quality, continuous background webcam capture, scene persistence, Windows, minimum hardware and concert performance remain open.
