@@ -58,7 +58,19 @@ pub struct TrackingSample {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub root: Option<TrackingRoot>,
 }
-object!(TrackingStatus {source_id:Id,generation:u64,state:TrackingState,packets:u64,invalid_packets:u64,last_received_at_ms:Option<f64>,error:Option<String>});
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct TrackingStatus {
+    pub source_id: Id,
+    pub generation: u64,
+    pub state: TrackingState,
+    pub packets: u64,
+    pub invalid_packets: u64,
+    pub last_received_at_ms: Option<f64>,
+    pub error: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inference_ms: Option<f64>,
+}
 object!(TrackingUpdate {samples:Vec<TrackingSample>,statuses:Vec<TrackingStatus>});
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -230,6 +242,9 @@ impl Validate for TrackingStatus {
             self.error
                 .as_ref()
                 .is_none_or(|s| s.encode_utf16().count() <= 512)
+                && self
+                    .inference_ms
+                    .is_none_or(|n| n.is_finite() && (0. ..=60_000.).contains(&n))
                 && self
                     .last_received_at_ms
                     .is_none_or(|n| n.is_finite() && (0. ..=9_007_199_254_740_991.).contains(&n)),

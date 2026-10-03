@@ -240,3 +240,5 @@ Live startup at7a286ad passed outside the checkout without fixture mode; Add Cam
 
 
 Minimum live acceptance at72ace50: native chooser import of the supplied VRM0, actual camera lens editing/validation, mixed VMC-body/iFacial-face UDP mocks, transparent OBS avatar output, and actual bundled MediaPipe webcam inference passed their scoped checks. The physical iPhone check remains the last step. The [minimum live check](evaluation/minimum-live-vtubing.md) records limits, source checks and sampled continuity. Full categories remain unchecked. Review found diagnostics enabled in the copied production URL; the helper-free URL regression now passes and packaged recheck is next.
+
+Inference measurement contract checkpoint: optional finite inferenceMs is available through the existing TrackingStatus/AppStatus shape. Legacy status omits it. TypeScript and Rust boundary tests cover limits. Actual worker publication and packaged measurement remain pending.

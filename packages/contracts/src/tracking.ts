@@ -5,7 +5,7 @@ export type TrackingConfig={kind:'vmc';enabled:boolean;bindAddress:string;port:n
 export interface AvatarTracking {bodySourceId:Id|null;faceSourceId:Id|null}
 export interface TrackingBone {rotation:Quat;space:'raw'|'normalized';position?:Vec3;weight?:number}
 export interface TrackingSample {sourceId:Id;generation:number;receivedAtMs:number;bones:Record<string,TrackingBone>;expressions:Record<string,number>;root?:{position:Vec3;rotation:Quat}}
-export interface TrackingStatus {sourceId:Id;generation:number;state:'stopped'|'waiting'|'receiving'|'stale'|'error';packets:number;invalidPackets:number;lastReceivedAtMs:number|null;error:string|null}
+export interface TrackingStatus {sourceId:Id;generation:number;state:'stopped'|'waiting'|'receiving'|'stale'|'error';packets:number;invalidPackets:number;lastReceivedAtMs:number|null;error:string|null;inferenceMs?:number}
 export interface TrackingUpdate {samples:TrackingSample[];statuses:TrackingStatus[]}
 export interface AvatarPose {avatarId:Id;bones:Record<string,TrackingBone>;expressions:Record<string,number>;root?:{position:Vec3;rotation:Quat}}
 const n=z.number().finite(),u=n.int().nonnegative().max(Number.MAX_SAFE_INTEGER),id=z.string().min(1).max(256);
@@ -22,7 +22,7 @@ const bones=z.record(z.string().refine(name=>HUMANOID_BONES.includes(name)),Trac
 const expressions=z.record(z.string().min(1).max(128),n.min(0).max(1)).refine(v=>Object.keys(v).length<=64);
 const root=z.strictObject({position:vec,rotation:quat});
 export const TrackingSampleSchema=z.strictObject({sourceId:id,generation:u,receivedAtMs:n.nonnegative().max(Number.MAX_SAFE_INTEGER),bones,expressions,root:root.optional()});
-export const TrackingStatusSchema=z.strictObject({sourceId:id,generation:u,state:z.enum(['stopped','waiting','receiving','stale','error']),packets:u,invalidPackets:u,lastReceivedAtMs:n.nonnegative().max(Number.MAX_SAFE_INTEGER).nullable(),error:z.string().max(512).nullable()});
+export const TrackingStatusSchema=z.strictObject({sourceId:id,generation:u,state:z.enum(['stopped','waiting','receiving','stale','error']),packets:u,invalidPackets:u,lastReceivedAtMs:n.nonnegative().max(Number.MAX_SAFE_INTEGER).nullable(),error:z.string().max(512).nullable(),inferenceMs:n.nonnegative().max(60000).optional()});
 export const TrackingUpdateSchema=z.strictObject({samples:z.array(TrackingSampleSchema).max(4),statuses:z.array(TrackingStatusSchema).max(4)}).refine(v=>new Set(v.samples.map(s=>s.sourceId)).size===v.samples.length&&new Set(v.statuses.map(s=>s.sourceId)).size===v.statuses.length);
 export const AvatarPoseSchema=z.strictObject({avatarId:id,bones,expressions,root:root.optional()});
 export function defaultTrackingConfig(kind:TrackingConfig['kind']):TrackingConfig {
