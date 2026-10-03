@@ -240,6 +240,7 @@ export type ValidatedCall = {
     };
 }[keyof AppApi];
 export interface PublisherClient {
+    onClock(listener: (elapsedMs: number) => void): () => void;
     onCall(listener: (call: ValidatedCall & {
         requestId: Id;
     }) => Promise<Reply<unknown>>): () => void;

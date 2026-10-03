@@ -28,6 +28,8 @@ export function connectWithPorts(raw: ConnectionDescriptor, ports: ClientPorts =
     return new Promise((resolve, reject) => {
         let socket: Socket, closed = false, authenticated = false, everReady = false, attempt = 0, nextId = 0, sequence = -1, latest: RuntimeFrame | undefined;
         let reconnectTimer: ReturnType<typeof setTimeout> | undefined, authTimer: ReturnType<typeof setTimeout> | undefined;
+        let pendingClock: number | undefined;
+        const clocks = new Set<(elapsedMs: number) => void>();
         const frames = new Set<(f: RuntimeFrame) => void>();
         let capture: ((p: CaptureParams) => Promise<Reply<CaptureBytes>>) | undefined;
         let callListener: ((c: ValidatedCall & {
@@ -111,6 +113,8 @@ export function connectWithPorts(raw: ConnectionDescriptor, ports: ClientPorts =
             socket?.close();
             failPending();
             frames.clear();
+            clocks.clear();
+            pendingClock = undefined;
             latest = undefined;
             capture = undefined;
             callListener = undefined;
@@ -214,6 +218,11 @@ export function connectWithPorts(raw: ConnectionDescriptor, ports: ClientPorts =
             close
         };
         const publisher: PublisherClient = {
+            onClock(listener) {
+                clocks.add(listener);
+                if (pendingClock !== undefined) { const elapsedMs = pendingClock; pendingClock = undefined; listener(elapsedMs); }
+                return () => { clocks.delete(listener); };
+            },
             onCall(listener) {
                 callListener = listener;
                 return () => {
@@ -240,6 +249,7 @@ export function connectWithPorts(raw: ConnectionDescriptor, ports: ClientPorts =
             cancelCallbacks();
             generation++;
             latest = undefined;
+            pendingClock = undefined;
             sequence = -1;
             active.clear();
             clear(authTimer);
@@ -279,6 +289,12 @@ export function connectWithPorts(raw: ConnectionDescriptor, ports: ClientPorts =
                     everReady = true;
                     resolve(descriptor.role === "publisher" ? publisher : browser);
                 }
+                return;
+            }
+            if (message.kind === "clock") {
+                if (descriptor.role !== "publisher" || message.sessionId !== descriptor.sessionId) { disconnect(); return; }
+                if (clocks.size === 0) pendingClock = message.elapsedMs;
+                for (const listener of clocks) listener(message.elapsedMs);
                 return;
             }
             if (message.kind === "ping") {

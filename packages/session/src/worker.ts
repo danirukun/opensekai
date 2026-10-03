@@ -3,9 +3,6 @@ import { ConnectionDescriptorSchema, SceneViewSchema, type ConnectionDescriptor,
 import { createSession } from "./session";
 export interface WorkerPorts {
     connect(descriptor: ConnectionDescriptor): Promise<PublisherClient>;
-    now(): number;
-    setInterval(callback: () => void, ms: number): unknown;
-    clearInterval(timer: unknown): void;
 }
 export type SessionWorkerMessage = {
     descriptor: ConnectionDescriptor;
@@ -48,8 +45,10 @@ export function createWorkerHost(ports: WorkerPorts) {
                 return;
             }
             let remove: (() => void) | undefined;
+            let removeClock: (() => void) | undefined;
             try {
-                const origin = ports.now();
+                let origin: number | undefined;
+                let last: number | undefined;
                 remove = client.onCall(async (call) => {
                     switch (call.method) {
                         case "sceneInspect":
@@ -61,14 +60,17 @@ export function createWorkerHost(ports: WorkerPorts) {
                         default: return { ok: false, error: { code: "UNSUPPORTED", message: "Method is not owned by the session", ids: [] } } satisfies Reply<never>;
                     }
                 });
-                const timer = ports.setInterval(() => {
-                    if (generation === current && active)
-                        client.publishFrame(session.advance(ports.now() - origin));
-                }, 1000 / 60);
-                const unsubscribe = remove;
-                cleanup = () => { ports.clearInterval(timer); unsubscribe(); client.close(); };
+                removeClock = client.onClock(elapsedMs => {
+                    if (generation !== current || !active || (last !== undefined && elapsedMs <= last)) return;
+                    origin ??= elapsedMs;
+                    last = elapsedMs;
+                    client.publishFrame(session.advance(elapsedMs - origin));
+                });
+                const unsubscribe = remove, unsubscribeClock = removeClock;
+                cleanup = () => { unsubscribeClock(); unsubscribe(); client.close(); };
             }
             catch (error) {
+                removeClock?.();
                 remove?.();
                 client.close();
                 if (generation === current)
@@ -84,9 +86,6 @@ const scope = globalThis as typeof globalThis & {
 if (typeof scope.importScripts === "function" && typeof document === "undefined") {
     const host = createWorkerHost({
         connect: connectPublisher,
-        now: () => performance.now(),
-        setInterval: (callback, ms) => globalThis.setInterval(callback, ms),
-        clearInterval: timer => globalThis.clearInterval(timer as ReturnType<typeof setInterval>),
     });
     globalThis.addEventListener("message", event => {
         void host.handle((event as MessageEvent<SessionWorkerMessage>).data).catch(error => {

@@ -422,7 +422,9 @@ export const PingPongSchema = z.strictObject({
     ]),
     requestId: IdSchema
 });
+export const ClockEnvelopeSchema = z.object({ kind: z.literal("clock"), sessionId: IdSchema, elapsedMs: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER) }).strict();
 export const WireMessageSchema = z.union([
+    ClockEnvelopeSchema,
     AuthSchema,
     AuthReplySchema,
     CallSchema,
