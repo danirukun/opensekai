@@ -2076,5 +2076,75 @@
     "valid": true,
     "errorCode": null,
     "payload": "{\"kind\":\"call\",\"requestId\":\"exponent\",\"method\":\"cameraSelect\",\"params\":{\"outputId\":\"output_main\",\"cameraId\":\"camera_wide\",\"expectedRevision\":1e0}}"
+  },
+  {
+    "name": "clock-zero",
+    "target": "wireText",
+    "valid": true,
+    "errorCode": "INVALID_INPUT",
+    "payload": "{\"kind\":\"clock\",\"sessionId\":\"clock-test\",\"elapsedMs\":0}"
+  },
+  {
+    "name": "clock-integral-json",
+    "target": "wireText",
+    "valid": true,
+    "errorCode": "INVALID_INPUT",
+    "payload": "{\"kind\":\"clock\",\"sessionId\":\"clock-test\",\"elapsedMs\":1.0}"
+  },
+  {
+    "name": "clock-safe-max",
+    "target": "wireText",
+    "valid": true,
+    "errorCode": "INVALID_INPUT",
+    "payload": "{\"kind\":\"clock\",\"sessionId\":\"clock-test\",\"elapsedMs\":9007199254740991}"
+  },
+  {
+    "name": "clock-unsafe-integer",
+    "target": "wireText",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": "{\"kind\":\"clock\",\"sessionId\":\"clock-test\",\"elapsedMs\":9007199254740992}"
+  },
+  {
+    "name": "clock-negative",
+    "target": "wireText",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": "{\"kind\":\"clock\",\"sessionId\":\"clock-test\",\"elapsedMs\":-1}"
+  },
+  {
+    "name": "clock-fraction",
+    "target": "wireText",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": "{\"kind\":\"clock\",\"sessionId\":\"clock-test\",\"elapsedMs\":0.5}"
+  },
+  {
+    "name": "clock-extra-field",
+    "target": "wireText",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": "{\"kind\":\"clock\",\"sessionId\":\"clock-test\",\"elapsedMs\":0,\"extra\":true}"
+  },
+  {
+    "name": "clock-empty-session",
+    "target": "wireText",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": "{\"kind\":\"clock\",\"sessionId\":\"\",\"elapsedMs\":0}"
+  },
+  {
+    "name": "clock-exact-byte-limit",
+    "target": "wireText",
+    "valid": true,
+    "errorCode": "INVALID_INPUT",
+    "payload": "{\"kind\":\"clock\",\"sessionId\":\"clock-test\",\"elapsedMs\":0}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         "
+  },
+  {
+    "name": "clock-oversize-bytes",
+    "target": "wireText",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": "{\"kind\":\"clock\",\"sessionId\":\"clock-test\",\"elapsedMs\":0}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          "
   }
 ]

@@ -3,6 +3,7 @@ import type { AppApi, Capability, Reply, ValidatedCall } from "./types";
 export const LIMITS = {
     jsonBytes: 262144,
     diagnosticsBytes: 2048,
+    clockBytes: 2048,
     captureEnvelopeBytes: 3145728,
     pngBytes: 2097152,
     pendingCalls: 32,
@@ -441,7 +442,8 @@ export function parseWire(text: string): WireMessage {
     const value: unknown = JSON.parse(text);
     const capture = typeof value === "object" && value !== null && "kind" in value && value.kind === "captureReply";
     const diagnostics = typeof value === "object" && value !== null && "kind" in value && value.kind === "diagnostics";
-    if (new TextEncoder().encode(text).length > (capture ? LIMITS.captureEnvelopeBytes : diagnostics ? LIMITS.diagnosticsBytes : LIMITS.jsonBytes))
+    const clock = typeof value === "object" && value !== null && "kind" in value && value.kind === "clock";
+    if (new TextEncoder().encode(text).length > (clock ? LIMITS.clockBytes : capture ? LIMITS.captureEnvelopeBytes : diagnostics ? LIMITS.diagnosticsBytes : LIMITS.jsonBytes))
         throw new Error("Message too large");
     return WireMessageSchema.parse(value);
 }
