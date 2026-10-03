@@ -23,9 +23,16 @@ struct Owned {
     evaluation: Option<Arc<NativeEvaluation>>,
     stopped: bool,
 }
+#[cfg(test)]
+type StartupGate = (
+    tokio::sync::oneshot::Sender<ConnectionDescriptor>,
+    tokio::sync::oneshot::Receiver<()>,
+);
 pub struct DesktopState {
     owned: Mutex<Owned>,
     ready: watch::Sender<Option<Result<NativeBootstrap, AppError>>>,
+    #[cfg(test)]
+    startup_gate: Mutex<Option<StartupGate>>,
 }
 fn error(code: ErrorCode, message: &str) -> AppError {
     AppError {
@@ -40,9 +47,16 @@ impl DesktopState {
         Arc::new(Self {
             owned: Mutex::new(Owned::default()),
             ready,
+            #[cfg(test)]
+            startup_gate: Mutex::new(None),
         })
     }
     pub async fn initialize(self: Arc<Self>, config: ServiceConfig, descriptors: PathBuf) {
+        // Initialization and shutdown share one lifecycle lock.
+        let mut owned = self.owned.lock().await;
+        if owned.stopped || owned.service.is_some() {
+            return;
+        }
         let evaluation_enabled = config.evaluation_enabled;
         let evidence_root = config.evidence_root.clone();
         let service = match start_service(config).await {
@@ -52,6 +66,11 @@ impl DesktopState {
                 return;
             }
         };
+        #[cfg(test)]
+        if let Some((acquired, release)) = self.startup_gate.lock().await.take() {
+            let _ = acquired.send(service.operator_descriptor());
+            let _ = release.await;
+        }
         let evaluation = if evaluation_enabled {
             match NativeEvaluation::install(
                 &service,
@@ -93,15 +112,6 @@ impl DesktopState {
         })();
         match info {
             Ok(info) => {
-                let mut owned = self.owned.lock().await;
-                if owned.stopped {
-                    drop(owned);
-                    if let Some(evaluation) = evaluation {
-                        evaluation.shutdown();
-                    }
-                    let _ = service.shutdown().await;
-                    return;
-                }
                 owned.service = Some(service);
                 owned.evaluation = evaluation;
                 self.ready.send_replace(Some(Ok(info)));
@@ -296,6 +306,53 @@ mod tests {
             state.wait_ready().await.err().unwrap().code,
             ErrorCode::Unavailable
         );
+        let owned = state.owned.lock().await;
+        assert!(owned.service.is_none());
+        assert!(owned.evaluation.is_none());
+    }
+    #[tokio::test]
+    async fn bootstrap_shutdown_waits_for_in_flight_startup() {
+        use futures_util::StreamExt;
+        use tokio_tungstenite::{connect_async, tungstenite::Message};
+        let dir = tempfile::tempdir().unwrap();
+        let manifest = dir.path().join("manifest.json");
+        std::fs::write(
+            &manifest,
+            r#"{"schemaVersion":1,"fixtureId":"smoke_v1","assets":[]}"#,
+        )
+        .unwrap();
+        let state = DesktopState::new();
+        let (acquired, receive) = tokio::sync::oneshot::channel();
+        let (release, gate) = tokio::sync::oneshot::channel();
+        *state.startup_gate.lock().await = Some((acquired, gate));
+        let init = tokio::spawn(state.clone().initialize(
+            ServiceConfig {
+                output_root: dir.path().into(),
+                asset_manifest: manifest,
+                evidence_root: dir.path().join("evidence"),
+                evaluation_enabled: true,
+            },
+            dir.path().join("descriptors"),
+        ));
+        let descriptor = receive.await.unwrap();
+        let (mut socket, _) = connect_async(&descriptor.ws_url).await.unwrap();
+        let stopping = state.clone();
+        let mut stop = tokio::spawn(async move { stopping.shutdown().await });
+        assert!(
+            tokio::time::timeout(Duration::from_millis(50), &mut stop)
+                .await
+                .is_err(),
+            "shutdown returned while startup held a live service"
+        );
+        release.send(()).unwrap();
+        init.await.unwrap();
+        stop.await.unwrap().unwrap();
+        assert!(matches!(
+            tokio::time::timeout(Duration::from_secs(1), socket.next())
+                .await
+                .unwrap(),
+            None | Some(Err(_)) | Some(Ok(Message::Close(_)))
+        ));
         let owned = state.owned.lock().await;
         assert!(owned.service.is_none());
         assert!(owned.evaluation.is_none());
