@@ -265,3 +265,5 @@ Final source checks at6d44c4a:297unit tests,9integration tests and workspace che
 
 
 Live editor control implementation: grouped asset rows with direct visibility and output-camera actions are integrated. Valid numeric/scrub/reset transforms use one active and one latest pending commit. Focused tests cover external conflicts, queued acknowledgements, selection and disposal.308unit tests and workspace checks pass. Actual packaged UI and OBS verification is next; no new parity box is marked from code alone.
+
+Actual live-input check found exact quaternion comparison rejected a correctly applied rotation after float rounding. A failing queued-rotation regression now passes with bounded numerical tolerance and exact revision checks. Packaged recheck follows; user scene is privately preserved.

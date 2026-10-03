@@ -1,5 +1,6 @@
 import {TransformSchema,type Transform,type ErrorCode} from '@opensekai/contracts';
 import type {EditorModel} from './model';
+function sameTransform(actual:Transform|undefined,expected:Transform){return actual!==undefined&&(['position','rotation','scale'] as const).every(row=>actual[row].every((value,index)=>Math.abs(value-expected[row][index]!)<=1e-9));}
 type Edit={entityId:string;transform:Transform;revision:number;selection:string|null};
 export function createLiveTransform(model:EditorModel,onError:(code:ErrorCode)=>void=()=>{},onPending:(pending:boolean)=>void=()=>{}){
  let latest:Edit|null=null,active:Edit|null=null,closed=false,timer:ReturnType<typeof setTimeout>|undefined,lastSent=-Infinity;
@@ -21,7 +22,7 @@ export function createLiveTransform(model:EditorModel,onError:(code:ErrorCode)=>
   if(!reply.ok){fail(reply.error.code);return;}
   const current=model.read(),entity=current.scene?.entities.find(e=>e.id===edit.entityId);
   if(current.selectedId!==edit.selection){cancel();return;}
-  if(current.scene?.revision!==reply.data.revision||JSON.stringify(entity?.transform)!==JSON.stringify(edit.transform)){fail(current.error??'CONFLICT');return;}
+  if(current.scene?.revision!==reply.data.revision||!sameTransform(entity?.transform,edit.transform)){fail(current.error??'CONFLICT');return;}
   anchor={revision:reply.data.revision,selection:edit.selection};
   const queued=peek();
   if(queued){if(queued.revision!==edit.revision&&queued.revision!==reply.data.revision){fail('CONFLICT');return;}queued.revision=reply.data.revision;schedule();}

@@ -61,3 +61,11 @@ it('keeps fields pending across an acknowledgement while a newer target waits to
  expect(pending.mock.calls.map(call=>call[0])).toEqual([true]);
  await vi.advanceTimersByTimeAsync(16);expect(pending.mock.calls.map(call=>call[0])).toEqual([true,false]);live.close();
 });
+it('accepts authoritative normalized quaternion rounding and retains the next queued rotation',async()=>{
+ const {api,session,live,error}=await fixture();let finish!:()=>void;
+ vi.mocked(api.scenePatch).mockImplementationOnce(p=>new Promise(resolve=>{finish=()=>{const op=p.operations[0];if(op.kind==='setTransform'){const q=op.transform.rotation,n=Math.hypot(...q);op.transform.rotation=q.map(value=>value/n) as Transform['rotation'];}resolve(session.applyPatch(p));};}));
+ const {eulerToQuaternion}=await import('../src/editor/interaction');
+ live.offer('marker',{...transform(0),rotation:eulerToQuaternion([0,30,0])});await vi.advanceTimersByTimeAsync(16);
+ const last={...transform(2),rotation:eulerToQuaternion([0,40,0])};live.offer('marker',last);finish();await vi.advanceTimersByTimeAsync(16);
+ expect(error).not.toHaveBeenCalled();expect(api.scenePatch).toHaveBeenCalledTimes(2);expect(session.inspect().entities.find(e=>e.id==='marker')?.transform.position[0]).toBe(2);live.close();
+});
