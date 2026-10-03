@@ -1,0 +1,25 @@
+import { it, expect } from "vitest";
+import { makeSmokeFrame } from "@opensekai/contracts";
+import { selectFrame } from "../src/apply-frame";
+it("rejects stale sequence", () => expect(selectFrame(makeSmokeFrame({ sequence: 20, tick: 20 }), makeSmokeFrame({ sequence: 19, tick: 19 }))).toMatchObject({ ok: false, error: { code: "STALE_FRAME" } }));
+it("replaces session", () => { const next = { ...makeSmokeFrame({ sequence: 1, tick: 1 }), sessionId: "new" }; expect(selectFrame(makeSmokeFrame({ sequence: 20, tick: 20 }), next)).toEqual({ ok: true, data: next }); });
+import { createRenderQueue } from "../src/apply-frame";
+it("bounds pending frames and serializes capture pixels with labels", async () => {
+    const queue = createRenderQueue();
+    let unblock!: () => void;
+    let pixels = 0;
+    const seen: number[] = [];
+    const first = queue.enqueue("frame", async () => { await new Promise<void>(r => unblock = r); pixels = 1; return 1; });
+    const replaced = queue.enqueue("frame", async () => { pixels = 2; return 2; });
+    const replacedResult = replaced.catch(e => e.code);
+    const capture = queue.enqueue("capture", async () => { seen.push(pixels); return { sequence: pixels, pixels }; });
+    const latest = queue.enqueue("frame", async () => { pixels = 3; return 3; });
+    unblock();
+    expect(await first).toBe(1);
+    expect(await replacedResult).toBe("CANCELLED");
+    expect(await capture).toEqual({ sequence: 1, pixels: 1 });
+    expect(await latest).toBe(3);
+    expect(seen).toEqual([1]);
+    queue.dispose();
+});
+it("cancels pending work on disposal", async () => { const queue = createRenderQueue(); let unblock!: () => void; const first = queue.enqueue("frame", () => new Promise<void>(r => unblock = r)); const pending = queue.enqueue("capture", async () => 0); const result = pending.catch(e => e.code); queue.dispose(); expect(await result).toBe("CANCELLED"); unblock(); await first; });

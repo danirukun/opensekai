@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "smoke_v1",
+  "assets": [
+    {
+      "id": "fixture_vrm_1",
+      "sha256": "12c2b97e95e700783a6a550dc0eee2d7880aeedccef9ae67bc4c5a2f0f2631a2",
+      "bytes": 10776032,
+      "sourceUrl": "https://raw.githubusercontent.com/pixiv/three-vrm/ff42fae4fcee1fcbca2cd262c7f5f8cbddeaf5ab/packages/three-vrm/examples/models/VRM1_Constraint_Twist_Sample.vrm",
+      "format": "vrm",
+      "licenseLabel": "VRM Public License 1.0; embedded model terms apply",
+      "importerVersion": 1
+    },
+    {
+      "id": "fixture_glb_1",
+      "sha256": "f7b2f45c6f516a8e6e74ed5c8c4f93de09dd558396b9b5faaf6be972b806586b",
+      "bytes": 1320,
+      "sourceUrl": null,
+      "format": "glb",
+      "licenseLabel": "Generated for OpenSekai; project license pending",
+      "importerVersion": 1
+    }
+  ]
+}
