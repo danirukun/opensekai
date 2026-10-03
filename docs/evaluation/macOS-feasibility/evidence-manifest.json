@@ -1,0 +1,335 @@
+{
+  "schemaVersion": 1,
+  "status": "acceptance pending",
+  "scope": "smoke_v1 on this macOS host only",
+  "runs": [
+    {
+      "runId": "44d0b1d6-69b8-4e1a-bfc8-ae1070d919b6",
+      "verdict": "preliminary: invalid minimized phase",
+      "artifactDirectory": "artifacts/evaluation/1791027960403-webgpu_smoke_v1",
+      "files": [
+        {
+          "name": "44d0b1d6-69b8-4e1a-bfc8-ae1070d919b6-manifest.json",
+          "bytes": 476,
+          "sha256": "76a6be704788412bb2befd1a7cb4f509ce212b00aa8d4687185eb5de906f8c87"
+        },
+        {
+          "name": "44d0b1d6-69b8-4e1a-bfc8-ae1070d919b6.json",
+          "bytes": 590,
+          "sha256": "047d87ef835d41a72c83a0beb675522b6542ff2336f103c552d5ffae3364c014"
+        },
+        {
+          "name": "766cf6854d8fef4ca06c9b36167925cdd90b9da6f726707cf50fa93aa8a567fb.png",
+          "bytes": 112671,
+          "sha256": "766cf6854d8fef4ca06c9b36167925cdd90b9da6f726707cf50fa93aa8a567fb"
+        },
+        {
+          "name": "76939b11227d4d724f533c3e5d614fe4f54ce21067576e66ff6775767dcc4726.png",
+          "bytes": 114386,
+          "sha256": "76939b11227d4d724f533c3e5d614fe4f54ce21067576e66ff6775767dcc4726"
+        },
+        {
+          "name": "7b37a6d4-e972-46f5-a487-c2bdcecbe090-manifest.json",
+          "bytes": 469,
+          "sha256": "c836f3aa01b0a4dc1e869a76a48dd952d81ba85a7e793c9853a72452923735b3"
+        },
+        {
+          "name": "7b37a6d4-e972-46f5-a487-c2bdcecbe090.png",
+          "bytes": 172296,
+          "sha256": "35dd6e1be844f1766e2f34158a2418c4e2919fa7e21fd0127901aaf328fbc7f8"
+        },
+        {
+          "name": "7f1add879b4823d847ead64ba38e2c45562323481d808dde6c94b1a24b298312.png",
+          "bytes": 111390,
+          "sha256": "7f1add879b4823d847ead64ba38e2c45562323481d808dde6c94b1a24b298312"
+        },
+        {
+          "name": "a3eda611-51c5-41a5-9931-fbff871bd0da-manifest.json",
+          "bytes": 469,
+          "sha256": "0dd97906e5a0f9d11ed15c05e5165072034315890e77616a6d8e86b8d177a3e9"
+        },
+        {
+          "name": "a3eda611-51c5-41a5-9931-fbff871bd0da.png",
+          "bytes": 173829,
+          "sha256": "9d9d7df3796240eca11d7c4b8c010ea403e3be888eeb4d62f8e1f5eefb397316"
+        },
+        {
+          "name": "d53680a7b4cd09858cef8b354b7757d1887b9ffa544f3c2bf528ef4abf36e6a2.png",
+          "bytes": 111674,
+          "sha256": "d53680a7b4cd09858cef8b354b7757d1887b9ffa544f3c2bf528ef4abf36e6a2"
+        },
+        {
+          "name": "e06260f3b723c7fca2d34e4f5212a53f29fe5c377793d5e70344ab9566ff8a90.png",
+          "bytes": 110412,
+          "sha256": "e06260f3b723c7fca2d34e4f5212a53f29fe5c377793d5e70344ab9566ff8a90"
+        },
+        {
+          "name": "smoke-report.json",
+          "bytes": 4107,
+          "sha256": "0243d7f257a3fbc750f250765aae886f16b449092e88a152885b5329e6a151b0"
+        }
+      ]
+    },
+    {
+      "runId": "2def92e0-142d-4af1-9b2e-14ec5944d6f1",
+      "verdict": "preliminary: invalid restored phase",
+      "artifactDirectory": "artifacts/evaluation/1791028232082-webgl2_smoke_v1",
+      "files": [
+        {
+          "name": "2def92e0-142d-4af1-9b2e-14ec5944d6f1-manifest.json",
+          "bytes": 476,
+          "sha256": "1483154e5d9003a3f156d36e8fa66a374db7bc40c9284f9b446980c592d815aa"
+        },
+        {
+          "name": "2def92e0-142d-4af1-9b2e-14ec5944d6f1.json",
+          "bytes": 589,
+          "sha256": "77b8a1ddda633a0dc3108c550378c45bb2986026cb69ffa25634afe4d0eb5297"
+        },
+        {
+          "name": "4a7c45cd-f3bd-4862-a40c-4e5e44165554-manifest.json",
+          "bytes": 469,
+          "sha256": "4ee495fbc993904b4d901ea45919a455a9a038720fd8c50b178f04a220ad90bc"
+        },
+        {
+          "name": "4a7c45cd-f3bd-4862-a40c-4e5e44165554.png",
+          "bytes": 166446,
+          "sha256": "917275602935318cbd509caa208173da4c6e5495198d2587f05f38e6a5f44504"
+        },
+        {
+          "name": "52940d53-e644-4377-8c86-02079fde9b93-manifest.json",
+          "bytes": 469,
+          "sha256": "ad502fba6948f93977e412d423caea0df4fbde47dc275a498136dc6af303febf"
+        },
+        {
+          "name": "52940d53-e644-4377-8c86-02079fde9b93.png",
+          "bytes": 170181,
+          "sha256": "30ac1458040b9b6cb4db1f39f187ec18a581ee74d87da525b7046707e2c393c9"
+        },
+        {
+          "name": "6146a6171011829602b4fed711aa63b40cac611a9eb019b69054494aa6bd5fc8.png",
+          "bytes": 110508,
+          "sha256": "6146a6171011829602b4fed711aa63b40cac611a9eb019b69054494aa6bd5fc8"
+        },
+        {
+          "name": "6ec67a037242b3240cb7c6a9699e7f96a0bd5ce87cf4522f783330f3b19f9f88.png",
+          "bytes": 112294,
+          "sha256": "6ec67a037242b3240cb7c6a9699e7f96a0bd5ce87cf4522f783330f3b19f9f88"
+        },
+        {
+          "name": "aac4fd3bc368897e20bb9f22bc3f61baffcbbbb0710fb61612d475a5e8b2f481.png",
+          "bytes": 111343,
+          "sha256": "aac4fd3bc368897e20bb9f22bc3f61baffcbbbb0710fb61612d475a5e8b2f481"
+        },
+        {
+          "name": "b24283cbcc42677595912f11958f3c938469a7fa1a846e8928972d8d650d5a01.png",
+          "bytes": 107106,
+          "sha256": "b24283cbcc42677595912f11958f3c938469a7fa1a846e8928972d8d650d5a01"
+        },
+        {
+          "name": "da723d13fc90387a91ed1fbe674726d94a1d19cdcbc148117be2f5ae8581980f.png",
+          "bytes": 116254,
+          "sha256": "da723d13fc90387a91ed1fbe674726d94a1d19cdcbc148117be2f5ae8581980f"
+        },
+        {
+          "name": "smoke-report.json",
+          "bytes": 4030,
+          "sha256": "fe2211a7184edb3274e029c2d23b2d4a2eca01985d48cfdb8acb06e66418a724"
+        }
+      ]
+    },
+    {
+      "runId": "05c0e0cc-4cd4-4d73-b810-d27b05dc8ee0",
+      "verdict": "fail: 122 ms maximum interval",
+      "artifactDirectory": "artifacts/evaluation/1791029338707-webgpu_smoke_v1",
+      "files": [
+        {
+          "name": "0373e3c8a14c77ce0c8797e279b8423ab60180aca08b39f55543d5c75c64eea4.png",
+          "bytes": 81189,
+          "sha256": "0373e3c8a14c77ce0c8797e279b8423ab60180aca08b39f55543d5c75c64eea4"
+        },
+        {
+          "name": "05c0e0cc-4cd4-4d73-b810-d27b05dc8ee0-manifest.json",
+          "bytes": 476,
+          "sha256": "7b96084047afe7730e0d0e698e93236024fa1de55e23ea1cf5376948a240eb74"
+        },
+        {
+          "name": "05c0e0cc-4cd4-4d73-b810-d27b05dc8ee0.json",
+          "bytes": 577,
+          "sha256": "847d3ac63464383e654f471a0c4e0595b192ed3eb64c2478c4d193bf125f1284"
+        },
+        {
+          "name": "20e19c1ea60f2434521fa1b474b5aefb796d1fa9b8fb143451b13d96f72f9d21.png",
+          "bytes": 79937,
+          "sha256": "20e19c1ea60f2434521fa1b474b5aefb796d1fa9b8fb143451b13d96f72f9d21"
+        },
+        {
+          "name": "52997315-1abd-44e1-9b61-31aab7cbfd2c-manifest.json",
+          "bytes": 469,
+          "sha256": "62ad40df932a97dadfca25228a369ed7a7250a4c2dcceab9438c8f691fe27bbf"
+        },
+        {
+          "name": "52997315-1abd-44e1-9b61-31aab7cbfd2c.png",
+          "bytes": 132697,
+          "sha256": "3943e8e05d1d72eaba309ea967fc275dca85912ca29818ee9a99fb712d35b69c"
+        },
+        {
+          "name": "56ff566f-44c8-4e88-b3ff-51a418cd1ee1-manifest.json",
+          "bytes": 469,
+          "sha256": "fc07640582d716138a53adef2558e51553633b45b4d25d63e5376bdd8dc5b2a7"
+        },
+        {
+          "name": "56ff566f-44c8-4e88-b3ff-51a418cd1ee1.png",
+          "bytes": 131932,
+          "sha256": "17f4b757285d5bdf38d9b07b353314b4bbf3798b798ad16021dc17046daebc53"
+        },
+        {
+          "name": "6709ca5a-7e98-41df-ba40-67401cac7d1e-manifest.json",
+          "bytes": 469,
+          "sha256": "d101b813fb4baed2c876b60acc533b5f240de07d283d25a9bcb468c3bdcd4562"
+        },
+        {
+          "name": "6709ca5a-7e98-41df-ba40-67401cac7d1e.png",
+          "bytes": 133803,
+          "sha256": "566cca3d0d38f190cc22b655fb139afaf4ab76d8340938239b611b49acb1bf68"
+        },
+        {
+          "name": "8ef9ebe56ed0fc1d5d23e5f2f1ecef60cbdf04b96109b972aabf639750b9fc2b.png",
+          "bytes": 85908,
+          "sha256": "8ef9ebe56ed0fc1d5d23e5f2f1ecef60cbdf04b96109b972aabf639750b9fc2b"
+        },
+        {
+          "name": "996e425e-f3b6-4ab6-b118-9517794d78ce-manifest.json",
+          "bytes": 469,
+          "sha256": "b14ba914a03a3dbb2f2c35928f7f567d4b0833edb9964e7d536740c913e4d0fd"
+        },
+        {
+          "name": "996e425e-f3b6-4ab6-b118-9517794d78ce.png",
+          "bytes": 134475,
+          "sha256": "47d31e65a0c7eda4deda5868d5cc8a27c810fe9aaa66c9dae5eaac46cd6eaa27"
+        },
+        {
+          "name": "99d4dae3-5e44-47ca-bcc9-0abebc3e3026-manifest.json",
+          "bytes": 469,
+          "sha256": "35ab9ed521178475a8dfc844f687a4a61bb787cc5c0fc5e36a6630f736978c44"
+        },
+        {
+          "name": "99d4dae3-5e44-47ca-bcc9-0abebc3e3026.png",
+          "bytes": 133917,
+          "sha256": "d1040b2739cfafaf6bb1edecc30885340db4f68e2a67719efe78f9814aedc74c"
+        },
+        {
+          "name": "cbde71b8623b10890d8df5bc5d1718b4c904c479720cea2564413c6a39419ab6.png",
+          "bytes": 80783,
+          "sha256": "cbde71b8623b10890d8df5bc5d1718b4c904c479720cea2564413c6a39419ab6"
+        },
+        {
+          "name": "ed45ef21b66859a56a0ac825283f45dfa8bbed558bd177b078b2239f825fb488.png",
+          "bytes": 82263,
+          "sha256": "ed45ef21b66859a56a0ac825283f45dfa8bbed558bd177b078b2239f825fb488"
+        },
+        {
+          "name": "smoke-report.json",
+          "bytes": 4548,
+          "sha256": "78057a427a75911e3fa5f90a88b5360489f1c6714750c10c12cdaa1a837a489d"
+        }
+      ]
+    },
+    {
+      "runId": "9338c8b1-6954-4be7-9fc2-d806fc3f2341",
+      "verdict": "fail: 121 ms maximum interval",
+      "artifactDirectory": "artifacts/evaluation/1791030466223-webgpu_smoke_v1",
+      "files": [
+        {
+          "name": "01adef2b735660246d98a399500f215fc95de12eea4982306279ad9a5a2608e5.png",
+          "bytes": 81930,
+          "sha256": "01adef2b735660246d98a399500f215fc95de12eea4982306279ad9a5a2608e5"
+        },
+        {
+          "name": "1b89f3bc-782f-4624-b07b-708c95eebf9c-manifest.json",
+          "bytes": 469,
+          "sha256": "9e16bbd312ab453483419b8f88ec90bdd149850fa843d6537239646da107cac2"
+        },
+        {
+          "name": "1b89f3bc-782f-4624-b07b-708c95eebf9c.png",
+          "bytes": 132164,
+          "sha256": "8093b138e92f43bf169f021c9affdced6cab9838415f3529356d66458f8d55b7"
+        },
+        {
+          "name": "21cec0cb1e12b68d2707b5ab1f4564b5c1c6a9cb412f7f23a5cca626dda3cd12.png",
+          "bytes": 79860,
+          "sha256": "21cec0cb1e12b68d2707b5ab1f4564b5c1c6a9cb412f7f23a5cca626dda3cd12"
+        },
+        {
+          "name": "27389ca0-e9fe-40fe-8a51-bc9c25b40844-manifest.json",
+          "bytes": 469,
+          "sha256": "4235fc826510bf16eff3987483e43efb75b8b6228822eda86e2cbc367dcc16c6"
+        },
+        {
+          "name": "27389ca0-e9fe-40fe-8a51-bc9c25b40844.png",
+          "bytes": 133928,
+          "sha256": "25f6dc4ae103f6035167bc9f0cfc68e550de0c49bb3c1d6c1936ef2928fbf6e0"
+        },
+        {
+          "name": "6362f1d8-0420-46b6-9445-d32b697e902a-manifest.json",
+          "bytes": 469,
+          "sha256": "e5a7179389f8aa74a1c9242b41fe40f438f4a04a2572e3274a45cbf9ce5b115f"
+        },
+        {
+          "name": "6362f1d8-0420-46b6-9445-d32b697e902a.png",
+          "bytes": 133566,
+          "sha256": "b14373f5cd2ba16f2ad3cdfc2c96af237d61e7c75699eeaff912d2ea2325e325"
+        },
+        {
+          "name": "6ef979d2-4aa0-4a2d-8743-8f1548c09a38-manifest.json",
+          "bytes": 469,
+          "sha256": "793e850fdd3445e5b9a5f8f84bed7678d90ef53fcbe5a334200da29320535ab1"
+        },
+        {
+          "name": "6ef979d2-4aa0-4a2d-8743-8f1548c09a38.png",
+          "bytes": 133758,
+          "sha256": "a3cc1345641396222e60462b3d734b9ba18d99f0dc77fcbe946d1d64a8e44695"
+        },
+        {
+          "name": "8ab7e66cdb6ef9007de73897aaa86ab4e1c93cbfb29800cdd810704ef6074a92.png",
+          "bytes": 80843,
+          "sha256": "8ab7e66cdb6ef9007de73897aaa86ab4e1c93cbfb29800cdd810704ef6074a92"
+        },
+        {
+          "name": "9338c8b1-6954-4be7-9fc2-d806fc3f2341-manifest.json",
+          "bytes": 476,
+          "sha256": "088f6ccbc28c995c70958baa54c9e049a444e4e4b77773b95dfb0527869cea67"
+        },
+        {
+          "name": "9338c8b1-6954-4be7-9fc2-d806fc3f2341.json",
+          "bytes": 590,
+          "sha256": "6c3dff0fb43d93a69546f60aae199d5f5461d144c168992b6ba087028a269835"
+        },
+        {
+          "name": "95a1c1585043a9d843e04ff8235727ef25717c4cd806fb12c0dfe92c8ea5d13a.png",
+          "bytes": 85552,
+          "sha256": "95a1c1585043a9d843e04ff8235727ef25717c4cd806fb12c0dfe92c8ea5d13a"
+        },
+        {
+          "name": "a6ed292d174be1c7ab7a443f4c781aced0cb90c058005fa639bf64d483488cc1.png",
+          "bytes": 80278,
+          "sha256": "a6ed292d174be1c7ab7a443f4c781aced0cb90c058005fa639bf64d483488cc1"
+        },
+        {
+          "name": "e995ac71-e1d7-4ae1-a4a3-a86126a1ac64-manifest.json",
+          "bytes": 469,
+          "sha256": "2fe3e13cd03221b9349f7d3b9cba1e6c5e3e0e5672ae30fc60a739f6525386b2"
+        },
+        {
+          "name": "e995ac71-e1d7-4ae1-a4a3-a86126a1ac64.png",
+          "bytes": 132547,
+          "sha256": "c1ad06293fe598a1c189ac874a33767fa638415f12fa9417d9a4afbda092f7c2"
+        },
+        {
+          "name": "smoke-report.json",
+          "bytes": 4544,
+          "sha256": "fef69499765227e899d3272cf6c391b3a352c3b1aade8ce6b14da5edec89e752"
+        }
+      ]
+    }
+  ]
+}

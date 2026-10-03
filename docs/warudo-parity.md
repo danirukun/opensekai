@@ -196,15 +196,19 @@ These do not imply corresponding Warudo handbook features.
 
 ## Evidence ledger
 
-The desktop shell, shared contracts, scene worker, and renderer have limited implementation evidence. Production feature acceptance is pending.
+The desktop shell, shared contracts, scene worker, renderer, editor, and MCP have implementation evidence. The macOS performance gate remains incomplete.
 
 | Feature ID | Commit | Verified scope | Platform / backend | Evidence | Remaining gap |
 | --- | --- | --- | --- | --- | --- |
-| OSE-01, OSE-08 (partial) | 58b7955, b0cd4fb | Native desktop shell, shared Input/Button, version round trip | macOS / WKWebView; renderer absent | [Shell check](evaluation/macOS-feasibility/desktop-shell.md) | Production output, full editor, session, MCP, and timing pending; boxes remain unchecked |
+| OSE-01, OSE-08 (partial) | 58b7955, b0cd4fb | Native desktop shell, shared Input/Button, version round trip | macOS / WKWebView; renderer absent | [Shell check](evaluation/macOS-feasibility/desktop-shell.md) | Later output/editor/MCP evidence below; timing and full editor acceptance pending; boxes remain unchecked |
 
 | MAT-01, CAM-04, OSE-03 (partial) | 0009d97, 0f59ae0, 1848c85, 521468a | Controlled Chrome VRM1/MToon, GLB/PBR, both backends, alpha, marker, camera and reload; live OBS WebGL2 and release WebGPU image, current markers and camera changes | macOS / Chrome WebGPU and WebGL2; OBS WebGL2 and WebGPU | [First output check](evaluation/macOS-feasibility/first-output.md) | Timed performance, silhouette alpha, source lifecycle, and final evidence checks pending; boxes remain unchecked |
 
-| OSE-08 (partial) | 7072861, cb87325, 79f0d02 | Hierarchy selection, finite position validation, persistent position/visibility edits, both output cameras | macOS release / WKWebView and OBS WebGPU | [First output check](evaluation/macOS-feasibility/first-output.md) | Panel resizing, keyboard focus, clipboard, and full editor acceptance pending; box remains unchecked |
+| OSE-08 (partial) | 7072861, cb87325, 79f0d02 | Hierarchy selection, finite position validation, persistent position/visibility edits, both output cameras | macOS release / WKWebView and OBS WebGPU | [First output check](evaluation/macOS-feasibility/first-output.md) | Panel resizing and keyboard controls checked; clipboard and full editor acceptance pending; box remains unchecked |
+
+| OSE-05 (incomplete) | 75de982, 953ab9b | Accurate minimized timing exposed worker stalls of 122 ms and 121 ms | macOS release / OBS WebGPU | [Current results](evaluation/macOS-feasibility/results.md) | Native clock correction and qualifying repeats pending; box remains unchecked |
+
+| OSE-06 (partial) | 75de982 | All nine official MCP tools, registered capture/resource integrity, benchmark start/status/cancel, default read-only rejection | macOS release / OBS WebGPU | [MCP round trip](evaluation/macOS-feasibility/mcp-roundtrip.md) | Final slice acceptance pending; no performance claim |
 
 The [shared contract check](evaluation/macOS-feasibility/contracts.md) records validation and client lifecycle evidence. It does not establish an OBS or MCP production feature.
 

@@ -1,6 +1,6 @@
 # MCP round trip
 
-Date: 2026-10-03. Debug source: 99aabef. Release confirmation pending.
+Date: 2026-10-03. Debug source: 99aabef. Release source: 75de982.
 
 The official MCP client connected through real stdio to the CLI and called all nine tools. Scene patch advanced the revision once. A stale patch returned CONFLICT. Camera selection advanced the revision once. The client waited for the matching OBS renderer ACK before requesting capture. A first immediate capture correctly returned CONFLICT while the new revision had not reached the renderer. It was not replayed.
 
@@ -11,3 +11,9 @@ Benchmark bfb4640b-e8f5-45cd-9915-f143e4228e58 started warming, returned status,
 Status, scene, capture, and benchmark resources were listed. Closing the official client closed the CLI process with no stderr. Real native boundary tests separately verify default read-only rejection, role and Origin scope, eviction, rate limits, timeout, stale frame, and export rollback.
 
 Connection descriptors and bearer URLs are not included. Large images remain local.
+
+## Release confirmation
+
+The official client exercised all nine tools in the packaged release at source 75de982eebe9506760a9ff2e8ae3845b93298809. Capture 2b23b7cd-8f2c-43d6-8fc2-4dcd1dc4b852 identified output_main, revision 2, tick 1127, sequence 1023, camera_close, WebGPU. Its 169889 bytes matched SHA-256 c4c522dac648bf2465c0ef5057671862947958f73204511228723bb4fd14ea98. The registered resource, manifest, and source identity matched. A benchmark was started, inspected, cancelled, and read as a 456-byte registered summary. This proves the tool loop, not the performance gate. The client closed without stderr.
+
+A separate release launched with default read-only capability. Actual edit, capture, and benchmark calls returned FORBIDDEN. Evaluation must be explicitly enabled.
