@@ -196,6 +196,9 @@ importers:
       '@lucide/svelte':
         specifier: 1.50.0
         version: 1.50.0(svelte@5.57.1)
+      '@mediapipe/tasks-vision':
+        specifier: 1.0.1
+        version: 1.0.1
       '@opensekai/browser-client':
         specifier: workspace:*
         version: link:../../packages/browser-client
@@ -508,6 +511,9 @@ packages:
     resolution: {integrity: sha512-0VGYwm1YgZd7UMv/DLZIUV0QXj9QbVds3b/ElkoTj9TwpI5GIHAV1Yk74TQ3dAzY0ShT4X/2xq7pihzBNVnvxQ==}
     peerDependencies:
       svelte: ^5
+
+  '@mediapipe/tasks-vision@1.0.1':
+    resolution: {integrity: sha512-rvRE2FmAZ6ZxKSw7wq+e+jQDpN3t1B/tD2mJz9SmAzb1msoDkd4dMoE4wAh8Z30Um0PQwLiHr9QtomhmXk3aUQ==}
 
   '@modelcontextprotocol/client@2.3.0':
     resolution: {integrity: sha512-pbHtGj6EeFCHngFE8gtNPaKrsj8Mb1IMw45BLcaPML/m2WTxI7pyYmeNQvaux88Lw8BSO5r7nyRbUyIkICmGrg==}
@@ -1574,6 +1580,8 @@ snapshots:
   '@lucide/svelte@1.50.0(svelte@5.57.1)':
     dependencies:
       svelte: 5.57.1
+
+  '@mediapipe/tasks-vision@1.0.1': {}
 
   '@modelcontextprotocol/client@2.3.0':
     dependencies:
