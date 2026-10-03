@@ -13,7 +13,11 @@
     "@oshi-connect/ui": "file:../../.local/ui",
     "@tauri-apps/api": "2.12.1",
     "svelte": "5.57.1",
-    "@lucide/svelte": "1.50.0"
+    "@lucide/svelte": "1.50.0",
+    "@opensekai/contracts": "workspace:*",
+    "@opensekai/browser-client": "workspace:*",
+    "@opensekai/session": "workspace:*",
+    "@opensekai/renderer": "workspace:*"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "7.3.1",

@@ -196,6 +196,18 @@ importers:
       '@lucide/svelte':
         specifier: 1.50.0
         version: 1.50.0(svelte@5.57.1)
+      '@opensekai/browser-client':
+        specifier: workspace:*
+        version: link:../../packages/browser-client
+      '@opensekai/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@opensekai/renderer':
+        specifier: workspace:*
+        version: link:../../packages/renderer
+      '@opensekai/session':
+        specifier: workspace:*
+        version: link:../../packages/session
       '@oshi-connect/ui':
         specifier: file:../../.local/ui
         version: file:.local/ui(@lucide/svelte@1.50.0(svelte@5.57.1))(svelte@5.57.1)
@@ -251,6 +263,9 @@ importers:
       '@opensekai/browser-client':
         specifier: workspace:*
         version: link:../../packages/browser-client
+      '@opensekai/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@opensekai/renderer':
         specifier: workspace:*
         version: link:../../packages/renderer
@@ -284,6 +299,9 @@ importers:
 
   packages/session:
     dependencies:
+      '@opensekai/browser-client':
+        specifier: workspace:*
+        version: link:../browser-client
       '@opensekai/contracts':
         specifier: workspace:*
         version: link:../contracts

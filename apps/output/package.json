@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@opensekai/renderer": "workspace:*",
-    "@opensekai/browser-client": "workspace:*"
+    "@opensekai/browser-client": "workspace:*",
+    "@opensekai/contracts": "workspace:*"
   }
 }
