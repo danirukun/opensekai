@@ -1,4 +1,5 @@
 import type {AvatarIdle,AvatarTracking,TrackingConfig,TrackingSmoothing,AvatarPose,TrackingStatus,TrackingUpdate} from './tracking';
+import type { BlueprintGraph } from './blueprint';
 export type Id = string;
 export type Vec3 = [
     number,
@@ -216,6 +217,7 @@ export interface AppApi {
     }): Promise<Reply<{
         revision: number;
     }>>;
+    blueprintRun(params: { graph: BlueprintGraph; triggerNodeId: Id }): Promise<Reply<{ revision: number }>>;
     captureFrame(params: CaptureParams): Promise<Reply<CaptureRecord>>;
     benchmarkStart(params: BenchmarkParams): Promise<Reply<BenchmarkRun>>;
     benchmarkStatus(params: {

@@ -1,4 +1,5 @@
 import {TrackingConfigSchema,TrackingSmoothingSchema,AvatarIdleSchema,AvatarTrackingSchema,AvatarPoseSchema,TrackingStatusSchema,TrackingUpdateSchema} from './tracking';
+import { BlueprintGraphSchema } from './blueprint';
 import { z } from "zod";
 import type { AppApi, Capability, Reply, ValidatedCall } from "./types";
 export const LIMITS = {
@@ -315,6 +316,7 @@ export const ParamSchemas = {
         cameraId: IdSchema,
         expectedRevision: u
     }),
+    blueprintRun: z.strictObject({ graph: BlueprintGraphSchema, triggerNodeId: IdSchema }),
     captureFrame: CaptureParamsSchema,
     benchmarkStart: BenchmarkParamsSchema,
     benchmarkStatus: z.strictObject({
@@ -336,6 +338,7 @@ export const ResultSchemas = {
     cameraSelect: z.strictObject({
         revision: u
     }),
+    blueprintRun: z.strictObject({ revision: u }),
     captureFrame: CaptureRecordSchema,
     benchmarkStart: BenchmarkRunSchema,
     benchmarkStatus: BenchmarkRunSchema,
@@ -347,6 +350,7 @@ export const MethodSchema = z.enum([
     "sceneInspect",
     "scenePatch",
     "cameraSelect",
+    "blueprintRun",
     "captureFrame",
     "benchmarkStart",
     "benchmarkStatus",
@@ -376,7 +380,7 @@ export function validateCall(method: unknown, params: unknown): Reply<ValidatedC
     };
 }
 export function requiredCapability(method: keyof AppApi): Capability {
-    if (method === "scenePatch" || method === "cameraSelect")
+    if (method === "scenePatch" || method === "cameraSelect" || method === "blueprintRun")
         return "edit";
     if (method === "captureFrame")
         return "capture";
@@ -484,6 +488,7 @@ export const publicJsonSchemas = Object.fromEntries(Object.entries({
     SceneView: SceneViewSchema,
     PatchOp: PatchOpSchema,
     ScenePatch: ScenePatchSchema,
+    BlueprintGraph: BlueprintGraphSchema,
     AssetRecord: AssetRecordSchema,
     ConnectionDescriptor: ConnectionDescriptorSchema,
     RuntimeFrame: RuntimeFrameSchema,

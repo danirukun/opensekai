@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { IdSchema } from './schema';
+const IdSchema = z.string().min(1).max(256);
 
 const finite = z.number().finite();
 const base = {

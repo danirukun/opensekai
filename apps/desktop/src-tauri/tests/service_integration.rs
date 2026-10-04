@@ -122,6 +122,31 @@ async fn service_real_loopback_relays_inspection_and_recovers_latest_frame() {
     closed(&mut operator).await;
     closed(&mut renderer).await;
 }
+
+#[tokio::test]
+async fn blueprint_run_reaches_the_session_publisher_and_returns_revision() {
+    let (_dir, service) = service(false).await;
+    let mut publisher = auth(&service.publisher_descriptor()).await;
+    let mut operator = auth(&service.operator_descriptor()).await;
+    let graph = json!({"schemaVersion":1,"id":"draft","name":"Draft","nodes":[{"id":"start","version":1,"type":"event.manual","settings":{},"position":{"x":0,"y":0}}],"connections":[]});
+    send(
+        &mut operator,
+        call(
+            "run",
+            "blueprintRun",
+            json!({"graph":graph,"triggerNodeId":"start"}),
+        ),
+    )
+    .await;
+    let relayed = recv(&mut publisher).await;
+    assert_eq!(relayed["method"], "blueprintRun");
+    assert_eq!(relayed["params"]["triggerNodeId"], "start");
+    send(&mut publisher, json!({"kind":"reply","requestId":relayed["requestId"],"result":{"ok":true,"data":{"revision":1}}})).await;
+    let response = recv(&mut operator).await;
+    assert_eq!(response["requestId"], "run");
+    assert_eq!(response["result"]["data"]["revision"], 1);
+    service.shutdown().await.unwrap();
+}
 #[tokio::test]
 async fn service_auth_denies_stale_token_second_publisher_and_wrong_output() {
     let (_dir, service) = service(false).await;

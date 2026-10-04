@@ -18,6 +18,12 @@
     "@opensekai/session": "workspace:*",
     "@oshi-connect/ui": "file:../../.local/ui",
     "@tauri-apps/api": "2.12.1",
+    "rete": "2.0.6",
+    "rete-area-plugin": "2.3.2",
+    "rete-connection-plugin": "2.0.5",
+    "rete-render-utils": "2.0.3",
+    "rete-svelte-plugin": "2.1.2",
+    "sass": "1.93.2",
     "svelte": "5.57.1"
   },
   "devDependencies": {
