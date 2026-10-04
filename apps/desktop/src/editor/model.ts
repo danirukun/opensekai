@@ -12,17 +12,18 @@ export interface EditorView {
 const failure = (code: ErrorCode): Reply<never> => ({ ok: false, error: { code, message: code, ids: [] } });
 export function createEditorModel(api: AppApi) {
  let view: EditorView = { scene: null, selectedId: null, error: null, pending: false, transformPending: false };
- let inspecting = false;
+ let inspecting = false, inspectionEpoch = 0;
  const listeners = new Set<(view: EditorView) => void>();
  const read = (): EditorView => structuredClone(view);
  function publish(next: Partial<EditorView>) {
   view = { ...view, ...next };
   for (const listener of listeners) listener(read());
  }
- async function inspect(): Promise<void> {
+ async function inspect(allowRevisionReset=false,epoch=inspectionEpoch): Promise<void> {
   const reply = await api.sceneInspect({ sceneId: view.scene?.sceneId ?? 'scene_smoke' });
+  if (epoch !== inspectionEpoch) return;
   if (!reply.ok) { publish({ error: reply.error.code }); return; }
-  if (view.scene && reply.data.revision < view.scene.revision) return;
+  if (!allowRevisionReset && view.scene && reply.data.revision < view.scene.revision) return;
   const selectedId = reply.data.entities.some(entity => entity.id === view.selectedId) ? view.selectedId : null;
   publish({ scene: structuredClone(reply.data), selectedId, error: view.error === 'CONFLICT' ? 'CONFLICT' : null });
  }
@@ -96,13 +97,15 @@ export function createEditorModel(api: AppApi) {
    return patch({kind:'setTrackingConfig',entityId,config:parsed.data},expectedRevision);
   },
   subscribe(listener: (view: EditorView) => void) { listeners.add(listener); listener(read()); return () => { listeners.delete(listener); }; },
-  async load(): Promise<void> {
-   if (view.pending || inspecting) return;
+  async load(allowRevisionReset=false): Promise<void> {
+   if (view.pending || inspecting&&!allowRevisionReset) return;
+   if(allowRevisionReset)inspectionEpoch+=1;
+   const epoch=inspectionEpoch;
    inspecting = true;
    const initial = view.scene === null;
    if (initial) publish({ pending: true });
-   try { await inspect(); } catch { publish({ error: 'UNAVAILABLE' }); }
-   finally { inspecting = false; if (initial) publish({ pending: false }); }
+   try { await inspect(allowRevisionReset,epoch); } catch { if(epoch===inspectionEpoch)publish({ error: 'UNAVAILABLE' }); }
+   finally { if(epoch===inspectionEpoch){inspecting = false; if (initial) publish({ pending: false });} }
   },
   select(entityId: Id): void {
    if (view.scene?.entities.some(entity => entity.id === entityId)) publish({ selectedId: entityId });

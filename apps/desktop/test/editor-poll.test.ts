@@ -26,3 +26,10 @@ it('reports unavailable status and suppresses late completions after close', asy
  const late=poll.poll(); poll.close(); finish({ok:true,data:status(0)}); await late;
  expect(publish).not.toHaveBeenCalled(); await poll.poll(); expect(readStatus).toHaveBeenCalledTimes(2);
 });
+it('recovers lower authoritative owner revisions and clears removed selection',async()=>{
+ const before=makeSmokeScene();before.revision=7;const after=makeSmokeScene();after.entities=after.entities.filter(e=>e.id!=='marker');
+ const api={sceneInspect:vi.fn().mockResolvedValueOnce({ok:true,data:before}).mockResolvedValueOnce({ok:true,data:after}),appStatus:vi.fn().mockResolvedValue({ok:true,data:status(0)})} as unknown as AppApi;
+ const model=createEditorModel(api);await model.load();model.select('marker');
+ const poll=createEditorPoll(api,model,vi.fn(),vi.fn());await poll.poll();
+ expect(model.read()).toMatchObject({scene:{revision:0},selectedId:null});
+});

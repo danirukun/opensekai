@@ -12,7 +12,7 @@ export function createEditorPoll(api: AppApi, model: EditorModel, publish: (stat
     if (!reply.ok) { fail(reply.error.code); return; }
     publish(reply.data);
     const view = model.read();
-    if (!view.pending && (view.scene === null || reply.data.revision !== null && reply.data.revision !== view.scene.revision)) await model.load();
+    if (!view.pending && (view.scene === null || reply.data.revision !== null && reply.data.revision !== view.scene.revision)) await model.load(reply.data.revision!==null&&view.scene!==null&&reply.data.revision<view.scene.revision);
    } catch { if (!closed) fail('UNAVAILABLE'); }
    finally { active = false; }
   },

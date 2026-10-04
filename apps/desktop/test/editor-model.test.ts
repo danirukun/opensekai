@@ -186,3 +186,23 @@ it('does not change selection or scene when copying exceeds performer budget or 
  const before=model.read();expect((await model.duplicateEntity('performer','third',1)).ok).toBe(false);expect(model.read().scene).toEqual(before.scene);expect(model.read().selectedId).toBe('second');
  expect((await model.removeEntity('camera_wide',1)).ok).toBe(false);expect(model.read().scene).toEqual(before.scene);
 });
+
+it('accepts an authorized owner reset and fences inspection replies from the previous owner',async()=>{
+ const {model,api}=fixture();await model.load();await model.setVisibility('marker',false);model.select('marker');
+ const old=model.read().scene!;let finish!:(reply:Reply<typeof old>)=>void;
+ vi.mocked(api.sceneInspect).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
+ const stale=model.load();
+ const fresh=makeSmokeScene();fresh.entities=fresh.entities.filter(entity=>entity.id!=='marker');
+ vi.mocked(api.sceneInspect).mockResolvedValueOnce({ok:true,data:fresh});
+ await model.load(true);
+ expect(model.read()).toMatchObject({scene:{revision:0},selectedId:null});
+ finish({ok:true,data:old});await stale;
+ expect(model.read()).toMatchObject({scene:{revision:0},selectedId:null});
+ expect(model.read().scene!.entities.some(entity=>entity.id==='marker')).toBe(false);
+});
+it('keeps normal lower-revision inspections from replacing current state',async()=>{
+ const {model,api}=fixture();await model.load();await model.setVisibility('marker',false);
+ vi.mocked(api.sceneInspect).mockResolvedValueOnce({ok:true,data:makeSmokeScene()});
+ await model.load();expect(model.read().scene?.revision).toBe(1);
+ expect(model.read().scene?.entities.find(e=>e.id==='marker')?.visible).toBe(false);
+});
