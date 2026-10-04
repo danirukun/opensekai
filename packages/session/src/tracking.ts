@@ -1,5 +1,6 @@
 import {TrackingUpdateSchema,type TrackingUpdate,type TrackingSample,type TrackingStatus,type TrackingBone,type AvatarPose,type SceneView,type Quat,type Reply} from '@opensekai/contracts';
 import {evaluateAvatarIdle} from './idle';
+import {createTrackingSampleFilter} from './tracking-filter';
 const faceBones=new Set(['head','neck','leftEye','rightEye','jaw']);
 const copy=<T>(value:T):T=>structuredClone(value);
 function fadeQuaternion(q:Quat,weight:number):Quat {
@@ -15,14 +16,16 @@ function multiplyQuaternion(a:Quat,b:Quat):Quat {
 }
 export function createTrackingComposer(){
  const samples=new Map<string,TrackingSample>(),statuses=new Map<string,TrackingStatus>();
- function reconcile(scene:SceneView){const sources=scene.entities.filter(e=>e.kind==='tracking');for(const [id,sample]of samples){const source=sources.find(s=>s.id===id);if(!source||!source.config.enabled||source.generation!==sample.generation)samples.delete(id);}for(const[id,status]of statuses){const source=sources.find(s=>s.id===id);if(!source||source.generation!==status.generation)statuses.delete(id);}}
+ const filters=new Map<string,ReturnType<typeof createTrackingSampleFilter>>();
+ function dropSample(id:string){samples.delete(id);filters.delete(id);}
+ function reconcile(scene:SceneView){const sources=scene.entities.filter(e=>e.kind==='tracking');for(const [id,sample]of samples){const source=sources.find(s=>s.id===id);if(!source||!source.config.enabled||source.generation!==sample.generation)dropSample(id);}for(const[id,status]of statuses){const source=sources.find(s=>s.id===id);if(!source||source.generation!==status.generation)statuses.delete(id);}}
  return {
  ingest(update:TrackingUpdate,scene:SceneView):Reply<null>{
   const parsed=TrackingUpdateSchema.safeParse(update);if(!parsed.success)return{ok:false,error:{code:'INVALID_INPUT',message:'Invalid tracking input',ids:[]}};
   reconcile(scene);
   for(const sample of parsed.data.samples){const source=scene.entities.find(e=>e.kind==='tracking'&&e.id===sample.sourceId);if(source?.kind!=='tracking'||!source.config.enabled||source.generation!==sample.generation)continue;
-   const previous=samples.get(sample.sourceId);if(previous&&previous.receivedAtMs>sample.receivedAtMs)continue;samples.set(sample.sourceId,copy(sample));}
-  for(const status of parsed.data.statuses){const source=scene.entities.find(e=>e.kind==='tracking'&&e.id===status.sourceId);if(source?.kind!=='tracking'||source.generation!==status.generation)continue;statuses.set(status.sourceId,copy(status));if(status.state==='error'||status.state==='stopped')samples.delete(status.sourceId);}
+   const previous=samples.get(sample.sourceId);if(previous&&previous.receivedAtMs>=sample.receivedAtMs)continue;let filter=filters.get(sample.sourceId);if(!filter){filter=createTrackingSampleFilter();filters.set(sample.sourceId,filter);}samples.set(sample.sourceId,filter.filter(sample));}
+  for(const status of parsed.data.statuses){const source=scene.entities.find(e=>e.kind==='tracking'&&e.id===status.sourceId);if(source?.kind!=='tracking'||source.generation!==status.generation)continue;statuses.set(status.sourceId,copy(status));if(status.state==='error'||status.state==='stopped')dropSample(status.sourceId);}
   return{ok:true,data:null};
  },
  evaluate(scene:SceneView,nowMs:number,animationElapsedMs=nowMs):{avatarPoses:AvatarPose[];trackingStatus:TrackingStatus[]}{
