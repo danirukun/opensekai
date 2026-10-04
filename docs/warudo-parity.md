@@ -2,6 +2,8 @@
 
 Baseline reviewed: 2026-10-02. Source: [Warudo handbook](https://docs.warudo.app/docs).
 
+[GitHub roadmap index #139](https://github.com/danirukun/opensekai/issues/139) tracks all checklist issues by area and status.
+
 Goal: broad functional parity, including documented Pro production features. OpenSekai uses a different engine and extension API. Unity pipeline internals, C# plugin binaries, bundled commercial content, and .warudo archive compatibility are not implied.
 
 This is an initial handbook-category inventory. Reviewed feature pages inform the entries below. It is not a completed audit of every setting, built-in node, tutorial, or Pro-only restriction. Expand each category into tested behaviors before claiming full parity for it. Check a box only for its stated verified scope. Broad items remain unchecked until their complete behavior is verified. A desktop shell alone does not establish a production feature.
@@ -18,114 +20,116 @@ This is an initial handbook-category inventory. Reviewed feature pages inform th
 
 An unchecked box means not verified. A checked box requires an evidence row with the commit, feature scope, platform, renderer backend, test or capture, and remaining gaps. Do not use a macOS check to claim Windows support. Do not count partial or approximate behavior as full coverage. Split a large item when only part is ready.
 
-During implementation, update this file in the same checkpoint as the feature. Recheck the source page when the feature starts. Add new handbook items rather than silently reducing scope.
+During implementation, update this file and its linked issue in the same feature checkpoint. Recheck the source page when the feature starts. Add new handbook items rather than silently reducing scope. Close an issue only when its stated scope is checked and has evidence. Keep partial and deferred issues open.
+
+GitHub issues use `parity`, one `area:*` label, one `status:*` label, and a `phase:*` label for foundation or later work. Deferred items use `status:deferred`. `scope:approximate` and `scope:different-api` record explicit scope differences. An issue is a roadmap record; write a bounded slice contract before assigning implementation.
 
 ## Scene and asset management
 
 Source: [Assets overview](https://docs.warudo.app/docs/assets/overview).
 
-- [ ] SCN-01 — Create, remove, duplicate, and rename scene entities. Partial: current camera/avatar/tracker UI verified on macOS; additional asset types remain. [Check](evaluation/asset-management.md).
-- [ ] SCN-02 — Groups, hierarchy, references, and property inspection. First.
-- [ ] SCN-03 — Asset export/import and copy between shows. Later.
-- [ ] SCN-04 — Merge imported settings into a selected entity. Later.
-- [ ] SCN-05 — Save/load shows and preserve missing references. First; OpenSekai persistence requirement.
-- [ ] SCN-06 — Portable prepared packages and migration diagnostics. First; OpenSekai persistence requirement.
+- [ ] SCN-01 — Create, remove, duplicate, and rename scene entities. Partial: current camera/avatar/tracker UI verified on macOS; additional asset types remain. [Check](evaluation/asset-management.md). [GitHub #1](https://github.com/danirukun/opensekai/issues/1)
+- [ ] SCN-02 — Groups, hierarchy, references, and property inspection. First. [GitHub #2](https://github.com/danirukun/opensekai/issues/2)
+- [ ] SCN-03 — Asset export/import and copy between shows. Later. [GitHub #3](https://github.com/danirukun/opensekai/issues/3)
+- [ ] SCN-04 — Merge imported settings into a selected entity. Later. [GitHub #4](https://github.com/danirukun/opensekai/issues/4)
+- [ ] SCN-05 — Save/load shows and preserve missing references. First; OpenSekai persistence requirement. [GitHub #5](https://github.com/danirukun/opensekai/issues/5)
+- [ ] SCN-06 — Portable prepared packages and migration diagnostics. First; OpenSekai persistence requirement. [GitHub #6](https://github.com/danirukun/opensekai/issues/6)
 
 ## Characters and performance control
 
 Source: [Character](https://docs.warudo.app/docs/assets/character).
 
-- [ ] CHR-01 — VRM import and humanoid rig validation. First.
-- [ ] CHR-02 — Prepared custom character packages. Later; Different API.
-- [ ] CHR-03 — Expressions, expression blending, and triggers. First for tracking; full controls Later.
-- [ ] CHR-04 — Idle animation and override clips. Partial: built-in default idle verified on macOS; imported Mixamo/VRMA and override clips remain later. [Check](evaluation/default-avatar-idle.md).
-- [ ] CHR-05 — Animation layers, masks, transitions, and one-shot playback. Later.
-- [ ] CHR-06 — Manual posing, IK, and look-at. Later.
-- [ ] CHR-07 — Bone attachment points and visibility/material control. Later.
-- [ ] CHR-08 — Hair and spring-bone simulation. First benchmark subset; full controls Later.
-- [ ] CHR-09 — Character collision and interaction behaviors. Later.
-- [ ] CHR-10 — Multiple characters with independent source assignments. First, for two performers.
-- [ ] CHR-11 — Animation library workflow. Later; licensed content requires separate sourcing.
+- [ ] CHR-01 — VRM import and humanoid rig validation. First. [GitHub #7](https://github.com/danirukun/opensekai/issues/7)
+- [ ] CHR-02 — Prepared custom character packages. Later; Different API. [GitHub #8](https://github.com/danirukun/opensekai/issues/8)
+- [ ] CHR-03 — Expressions, expression blending, and triggers. First for tracking; full controls Later. [GitHub #9](https://github.com/danirukun/opensekai/issues/9)
+- [ ] CHR-04 — Idle animation and override clips. Partial: built-in default idle verified on macOS; imported Mixamo/VRMA and override clips remain later. [Check](evaluation/default-avatar-idle.md). [GitHub #10](https://github.com/danirukun/opensekai/issues/10)
+- [ ] CHR-05 — Animation layers, masks, transitions, and one-shot playback. Later. [GitHub #11](https://github.com/danirukun/opensekai/issues/11)
+- [ ] CHR-06 — Manual posing, IK, and look-at. Later. [GitHub #12](https://github.com/danirukun/opensekai/issues/12)
+- [ ] CHR-07 — Bone attachment points and visibility/material control. Later. [GitHub #13](https://github.com/danirukun/opensekai/issues/13)
+- [ ] CHR-08 — Hair and spring-bone simulation. First benchmark subset; full controls Later. [GitHub #14](https://github.com/danirukun/opensekai/issues/14)
+- [ ] CHR-09 — Character collision and interaction behaviors. Later. [GitHub #15](https://github.com/danirukun/opensekai/issues/15)
+- [ ] CHR-10 — Multiple characters with independent source assignments. First, for two performers. [GitHub #16](https://github.com/danirukun/opensekai/issues/16)
+- [ ] CHR-11 — Animation library workflow. Later; licensed content requires separate sourcing. [GitHub #17](https://github.com/danirukun/opensekai/issues/17)
 
 ## Motion capture
 
 Sources: [Motion capture overview](https://docs.warudo.app/docs/mocap/overview), [VMC](https://docs.warudo.app/docs/mocap/vmc), [iFacialMocap](https://docs.warudo.app/docs/mocap/ifacialmocap). Later adapters need a fresh review of their specific handbook pages.
 
-- [ ] TRK-01 — External VMC receive. First.
-- [ ] TRK-02 — External iFacialMocap receive. First.
-- [ ] TRK-03 — FaceMotion3D compatibility. Later; do not infer it from iFacialMocap alone.
-- [ ] TRK-04 — Face mapping, calibration, smoothing, and overrides. Partial: shared One Euro smoothing, per-source tuning/bypass/reset and named 52-channel ARKit mapping verified; calibration and overrides remain. [Check](evaluation/one-euro-filter.md).
-- [ ] TRK-05 — Pose calibration, retargeting, offsets, and source mixing. First subset.
-- [ ] TRK-06 — Pendulum motion behavior. Later.
-- [ ] TRK-07 — MediaPipe integration. First useful-build requirement; face, upper body and fingers; physical-camera evidence required.
-- [ ] TRK-08 — OpenSeeFace integration. Later.
-- [ ] TRK-09 — RhyLive integration. Later.
-- [ ] TRK-10 — SteamVR integration. Later.
-- [ ] TRK-11 — Leap Motion integration. Later.
-- [ ] TRK-12 — Sony Mocopi integration. Later.
-- [ ] TRK-13 — Rokoko integration. Later.
-- [ ] TRK-14 — Xsens MVN integration. Later.
-- [ ] TRK-15 — Virdyn Studio integration. Later.
-- [ ] TRK-16 — Noitom Axis integration. Later.
-- [ ] TRK-17 — StretchSense glove integration. Later.
-- [ ] TRK-18 — Autodesk MotionBuilder integration. Later.
-- [ ] TRK-19 — Vicon Shogun integration. Later.
-- [ ] TRK-20 — OptiTrack Motive integration. Later.
-- [ ] TRK-21 — Chingmu Avatar integration. Later.
+- [ ] TRK-01 — External VMC receive. First. [GitHub #18](https://github.com/danirukun/opensekai/issues/18)
+- [ ] TRK-02 — External iFacialMocap receive. First. [GitHub #19](https://github.com/danirukun/opensekai/issues/19)
+- [ ] TRK-03 — FaceMotion3D compatibility. Later; do not infer it from iFacialMocap alone. [GitHub #20](https://github.com/danirukun/opensekai/issues/20)
+- [ ] TRK-04 — Face mapping, calibration, smoothing, and overrides. Partial: shared One Euro smoothing, per-source tuning/bypass/reset and named 52-channel ARKit mapping verified; calibration and overrides remain. [Check](evaluation/one-euro-filter.md). [GitHub #21](https://github.com/danirukun/opensekai/issues/21)
+- [ ] TRK-05 — Pose calibration, retargeting, offsets, and source mixing. First subset. [GitHub #22](https://github.com/danirukun/opensekai/issues/22)
+- [ ] TRK-06 — Pendulum motion behavior. Later. [GitHub #23](https://github.com/danirukun/opensekai/issues/23)
+- [ ] TRK-07 — MediaPipe integration. First useful-build requirement; face, upper body and fingers; physical-camera evidence required. [GitHub #24](https://github.com/danirukun/opensekai/issues/24)
+- [ ] TRK-08 — OpenSeeFace integration. Later. [GitHub #25](https://github.com/danirukun/opensekai/issues/25)
+- [ ] TRK-09 — RhyLive integration. Later. [GitHub #26](https://github.com/danirukun/opensekai/issues/26)
+- [ ] TRK-10 — SteamVR integration. Later. [GitHub #27](https://github.com/danirukun/opensekai/issues/27)
+- [ ] TRK-11 — Leap Motion integration. Later. [GitHub #28](https://github.com/danirukun/opensekai/issues/28)
+- [ ] TRK-12 — Sony Mocopi integration. Later. [GitHub #29](https://github.com/danirukun/opensekai/issues/29)
+- [ ] TRK-13 — Rokoko integration. Later. [GitHub #30](https://github.com/danirukun/opensekai/issues/30)
+- [ ] TRK-14 — Xsens MVN integration. Later. [GitHub #31](https://github.com/danirukun/opensekai/issues/31)
+- [ ] TRK-15 — Virdyn Studio integration. Later. [GitHub #32](https://github.com/danirukun/opensekai/issues/32)
+- [ ] TRK-16 — Noitom Axis integration. Later. [GitHub #33](https://github.com/danirukun/opensekai/issues/33)
+- [ ] TRK-17 — StretchSense glove integration. Later. [GitHub #34](https://github.com/danirukun/opensekai/issues/34)
+- [ ] TRK-18 — Autodesk MotionBuilder integration. Later. [GitHub #35](https://github.com/danirukun/opensekai/issues/35)
+- [ ] TRK-19 — Vicon Shogun integration. Later. [GitHub #36](https://github.com/danirukun/opensekai/issues/36)
+- [ ] TRK-20 — OptiTrack Motive integration. Later. [GitHub #37](https://github.com/danirukun/opensekai/issues/37)
+- [ ] TRK-21 — Chingmu Avatar integration. Later. [GitHub #38](https://github.com/danirukun/opensekai/issues/38)
 
 ## Environment, props, and lighting
 
 Sources: [Asset categories](https://docs.warudo.app/docs/assets/overview), [Environment](https://docs.warudo.app/docs/assets/environment), [Lights](https://docs.warudo.app/docs/assets/lights).
 
-- [ ] ENV-01 — Environment import and placement. First.
-- [ ] ENV-02 — Environment settings and sky/background controls. Later.
-- [ ] ENV-03 — Prop import, transforms, attachments, and reuse. First subset.
-- [ ] ENV-04 — Tail asset and tail interaction. Later.
-- [ ] ENV-05 — Keyboard/trackpad visualization. Later.
-- [ ] ENV-06 — Anchors and shared placement references. Later.
-- [ ] ENV-07 — Directional and point lights. First.
-- [ ] ENV-08 — Volumetric light and stage beam behavior. First benchmark subset; Approximate.
-- [ ] ENV-09 — Wind controls. Later.
-- [ ] ENV-10 — Particle effects and triggers. Later; benchmark includes a bounded sample.
+- [ ] ENV-01 — Environment import and placement. First. [GitHub #39](https://github.com/danirukun/opensekai/issues/39)
+- [ ] ENV-02 — Environment settings and sky/background controls. Later. [GitHub #40](https://github.com/danirukun/opensekai/issues/40)
+- [ ] ENV-03 — Prop import, transforms, attachments, and reuse. First subset. [GitHub #41](https://github.com/danirukun/opensekai/issues/41)
+- [ ] ENV-04 — Tail asset and tail interaction. Later. [GitHub #42](https://github.com/danirukun/opensekai/issues/42)
+- [ ] ENV-05 — Keyboard/trackpad visualization. Later. [GitHub #43](https://github.com/danirukun/opensekai/issues/43)
+- [ ] ENV-06 — Anchors and shared placement references. Later. [GitHub #44](https://github.com/danirukun/opensekai/issues/44)
+- [ ] ENV-07 — Directional and point lights. First. [GitHub #45](https://github.com/danirukun/opensekai/issues/45)
+- [ ] ENV-08 — Volumetric light and stage beam behavior. First benchmark subset; Approximate. [GitHub #46](https://github.com/danirukun/opensekai/issues/46)
+- [ ] ENV-09 — Wind controls. Later. [GitHub #47](https://github.com/danirukun/opensekai/issues/47)
+- [ ] ENV-10 — Particle effects and triggers. Later; benchmark includes a bounded sample. [GitHub #48](https://github.com/danirukun/opensekai/issues/48)
 
 ## Cameras and output
 
 Source: [Camera](https://docs.warudo.app/docs/assets/camera).
 
-- [ ] CAM-01 — Camera entities, lens controls, free/orbit navigation. First subset.
-- [ ] CAM-02 — Multiple cameras and camera selection. First.
-- [ ] CAM-03 — Independent camera outputs; audit the documented eight-camera workflow. Later.
-- [x] CAM-04 — Transparent output. Verified for smoke_v1 on macOS OBS WebGPU/WebGL2; broader materials remain separate.
-- [ ] CAM-05 — Screenshots. First evaluation path; user-facing workflow Later.
-- [ ] CAM-06 — Color grading, LUTs, tone mapping, and bloom. Later.
-- [ ] CAM-07 — Ambient occlusion, flares, depth of field, and chromatic effects. Later.
-- [ ] CAM-08 — Anti-aliasing and post-processing quality controls. First subset.
-- [ ] CAM-09 — Spout/native output behavior. Later; platform adapter investigation.
-- [ ] CAM-10 — NDI output. Deferred.
+- [ ] CAM-01 — Camera entities, lens controls, free/orbit navigation. First subset. [GitHub #49](https://github.com/danirukun/opensekai/issues/49)
+- [ ] CAM-02 — Multiple cameras and camera selection. First. [GitHub #50](https://github.com/danirukun/opensekai/issues/50)
+- [ ] CAM-03 — Independent camera outputs; audit the documented eight-camera workflow. Later. [GitHub #51](https://github.com/danirukun/opensekai/issues/51)
+- [x] CAM-04 — Transparent output. Verified for smoke_v1 on macOS OBS WebGPU/WebGL2; broader materials remain separate. [GitHub #52](https://github.com/danirukun/opensekai/issues/52)
+- [ ] CAM-05 — Screenshots. First evaluation path; user-facing workflow Later. [GitHub #53](https://github.com/danirukun/opensekai/issues/53)
+- [ ] CAM-06 — Color grading, LUTs, tone mapping, and bloom. Later. [GitHub #54](https://github.com/danirukun/opensekai/issues/54)
+- [ ] CAM-07 — Ambient occlusion, flares, depth of field, and chromatic effects. Later. [GitHub #55](https://github.com/danirukun/opensekai/issues/55)
+- [ ] CAM-08 — Anti-aliasing and post-processing quality controls. First subset. [GitHub #56](https://github.com/danirukun/opensekai/issues/56)
+- [ ] CAM-09 — Spout/native output behavior. Later; platform adapter investigation. [GitHub #57](https://github.com/danirukun/opensekai/issues/57)
+- [ ] CAM-10 — NDI output. Deferred. [GitHub #58](https://github.com/danirukun/opensekai/issues/58)
 
 ## Media and screens
 
 Source: [Screen](https://docs.warudo.app/docs/assets/screen). Music and sender entries also appear in [the asset inventory](https://docs.warudo.app/docs/assets/overview).
 
-- [ ] MED-01 — Image screens and transparency. Later.
-- [ ] MED-02 — Video screens, playback, and supported codec diagnostics. First benchmark subset.
-- [ ] MED-03 — Webpage screens and interactive content. Later; web pages need a separate capture design.
-- [ ] MED-04 — Desktop and window capture into the scene. Later; native platform adapters.
-- [ ] MED-05 — Curvature, crop, corners, tint, and chroma key. Later.
-- [ ] MED-06 — Spout input to screens. Later; Windows adapter.
-- [ ] MED-07 — NDI input to screens. Deferred.
-- [ ] MED-08 — Music player and show playback controls. Later.
-- [ ] MED-09 — VMC sender. Later.
+- [ ] MED-01 — Image screens and transparency. Later. [GitHub #59](https://github.com/danirukun/opensekai/issues/59)
+- [ ] MED-02 — Video screens, playback, and supported codec diagnostics. First benchmark subset. [GitHub #60](https://github.com/danirukun/opensekai/issues/60)
+- [ ] MED-03 — Webpage screens and interactive content. Later; web pages need a separate capture design. [GitHub #61](https://github.com/danirukun/opensekai/issues/61)
+- [ ] MED-04 — Desktop and window capture into the scene. Later; native platform adapters. [GitHub #62](https://github.com/danirukun/opensekai/issues/62)
+- [ ] MED-05 — Curvature, crop, corners, tint, and chroma key. Later. [GitHub #63](https://github.com/danirukun/opensekai/issues/63)
+- [ ] MED-06 — Spout input to screens. Later; Windows adapter. [GitHub #64](https://github.com/danirukun/opensekai/issues/64)
+- [ ] MED-07 — NDI input to screens. Deferred. [GitHub #65](https://github.com/danirukun/opensekai/issues/65)
+- [ ] MED-08 — Music player and show playback controls. Later. [GitHub #66](https://github.com/danirukun/opensekai/issues/66)
+- [ ] MED-09 — VMC sender. Later. [GitHub #67](https://github.com/danirukun/opensekai/issues/67)
 
 ## Show production and Pro capabilities
 
 Sources: [Director](https://docs.warudo.app/docs/assets/director), [Motion recorder](https://docs.warudo.app/docs/assets/motion-recorder), [Motion player](https://docs.warudo.app/docs/assets/motion-player), [Warudo Pro](https://docs.warudo.app/docs/pro).
 
-- [ ] SHOW-01 — Director camera control and transitions. Later.
-- [ ] SHOW-02 — Record motion and expression data. Later.
-- [ ] SHOW-03 — Replay recorded motion with show timing. Later.
-- [ ] SHOW-04 — Studio motion-capture workflows. Later; depends on TRK-18 through TRK-21.
-- [ ] SHOW-05 — Live production quality profiles. First benchmark; full Pro-like controls Later.
+- [ ] SHOW-01 — Director camera control and transitions. Later. [GitHub #68](https://github.com/danirukun/opensekai/issues/68)
+- [ ] SHOW-02 — Record motion and expression data. Later. [GitHub #69](https://github.com/danirukun/opensekai/issues/69)
+- [ ] SHOW-03 — Replay recorded motion with show timing. Later. [GitHub #70](https://github.com/danirukun/opensekai/issues/70)
+- [ ] SHOW-04 — Studio motion-capture workflows. Later; depends on TRK-18 through TRK-21. [GitHub #71](https://github.com/danirukun/opensekai/issues/71)
+- [ ] SHOW-05 — Live production quality profiles. First benchmark; full Pro-like controls Later. [GitHub #72](https://github.com/danirukun/opensekai/issues/72)
 
 Unity URP is an engine implementation, not a portable feature. Track the resulting appearance and production controls in the renderer items below.
 
@@ -133,79 +137,82 @@ Unity URP is an engine implementation, not a portable feature. Track the resulti
 
 Sources: [Warudo Pro](https://docs.warudo.app/docs/pro), [Character](https://docs.warudo.app/docs/assets/character), and handbook asset entries for NiloToon controllers and post-processing. lilToon import behavior is an additional OpenSekai goal.
 
-- [ ] MAT-01 — VRM MToon and glTF PBR. First.
-- [ ] MAT-02 — Selected lilToon conversion profiles. Later; Approximate.
-- [ ] MAT-03 — Full lilToon effect coverage. Later.
-- [ ] MAT-04 — Selected NiloToon appearance profiles. Later; Approximate.
-- [ ] MAT-05 — NiloToon volume and character control equivalents. Later; Different API.
-- [ ] MAT-06 — Full NiloToon appearance coverage. Later; dependencies and rights require review.
-- [ ] MAT-07 — Post-processing volumes and blending. Later.
-- [ ] MAT-08 — Material parameter control from graphs. Later.
+- [ ] MAT-01 — VRM MToon and glTF PBR. First. [GitHub #73](https://github.com/danirukun/opensekai/issues/73)
+- [ ] MAT-02 — Selected lilToon conversion profiles. Later; Approximate. [GitHub #74](https://github.com/danirukun/opensekai/issues/74)
+- [ ] MAT-03 — Full lilToon effect coverage. Later. [GitHub #75](https://github.com/danirukun/opensekai/issues/75)
+- [ ] MAT-04 — Selected NiloToon appearance profiles. Later; Approximate. [GitHub #76](https://github.com/danirukun/opensekai/issues/76)
+- [ ] MAT-05 — NiloToon volume and character control equivalents. Later; Different API. [GitHub #77](https://github.com/danirukun/opensekai/issues/77)
+- [ ] MAT-06 — Full NiloToon appearance coverage. Later; dependencies and rights require review. [GitHub #78](https://github.com/danirukun/opensekai/issues/78)
+- [ ] MAT-07 — Post-processing volumes and blending. Later. [GitHub #79](https://github.com/danirukun/opensekai/issues/79)
+- [ ] MAT-08 — Material parameter control from graphs. Later. [GitHub #80](https://github.com/danirukun/opensekai/issues/80)
 
 ## Blueprints and interaction
 
 Sources: [Blueprint overview](https://docs.warudo.app/docs/blueprints/overview) and the tutorial/preset categories in its navigation.
 
-- [ ] BP-01 — Typed node runtime and data/flow ports. Early core; full node set Later.
-- [ ] BP-02 — Visual editing, connections, palette, and validation. Later.
-- [ ] BP-03 — Create, duplicate, rename, group, and arrange graphs. Later.
-- [ ] BP-04 — Versioned graph import/export. Later; Different API.
-- [ ] BP-05 — Tracking, character, scene, camera, and animation operations. Later.
-- [ ] BP-06 — Keyboard, pointer, gamepad, MIDI, and event triggers. Later; audit each input route.
-- [ ] BP-07 — Streaming events, chat, and redeems. Later; audit provider behavior.
-- [ ] BP-08 — Clothes, accessory toggles, and prop interactions. Later.
-- [ ] BP-09 — Karaoke, dance, and camera animation examples. Later.
-- [ ] BP-10 — Deformation, plushie, physics, spark, and tail examples. Later.
-- [ ] BP-11 — Pen hand sync, upper-body rotation, and sway presets. Later.
-- [ ] BP-12 — Eye-motion presets. Later.
-- [ ] BP-13 — Node-by-node handbook and runtime inventory audit. Later; required before a full blueprint parity claim.
+- [ ] BP-01 — Typed node runtime and data/flow ports. Early core; full node set Later. [GitHub #81](https://github.com/danirukun/opensekai/issues/81)
+- [ ] BP-02 — Visual editing, connections, palette, and validation. Later. [GitHub #82](https://github.com/danirukun/opensekai/issues/82)
+- [ ] BP-03 — Create, duplicate, rename, group, and arrange graphs. Later. [GitHub #83](https://github.com/danirukun/opensekai/issues/83)
+- [ ] BP-04 — Versioned graph import/export. Later; Different API. [GitHub #84](https://github.com/danirukun/opensekai/issues/84)
+- [ ] BP-05 — Tracking, character, scene, camera, and animation operations. Later. [GitHub #85](https://github.com/danirukun/opensekai/issues/85)
+- [ ] BP-06 — Keyboard, pointer, gamepad, MIDI, and event triggers. Later; audit each input route. [GitHub #86](https://github.com/danirukun/opensekai/issues/86)
+- [ ] BP-07 — Streaming events, chat, and redeems. Later; audit provider behavior. [GitHub #87](https://github.com/danirukun/opensekai/issues/87)
+- [ ] BP-08 — Clothes, accessory toggles, and prop interactions. Later. [GitHub #88](https://github.com/danirukun/opensekai/issues/88)
+- [ ] BP-09 — Karaoke, dance, and camera animation examples. Later. [GitHub #89](https://github.com/danirukun/opensekai/issues/89)
+- [ ] BP-10 — Deformation, plushie, physics, spark, and tail examples. Later. [GitHub #90](https://github.com/danirukun/opensekai/issues/90)
+- [ ] BP-11 — Pen hand sync, upper-body rotation, and sway presets. Later. [GitHub #91](https://github.com/danirukun/opensekai/issues/91)
+- [ ] BP-12 — Eye-motion presets. Later. [GitHub #92](https://github.com/danirukun/opensekai/issues/92)
+- [ ] BP-13 — Node-by-node handbook and runtime inventory audit. Later; required before a full blueprint parity claim. [GitHub #93](https://github.com/danirukun/opensekai/issues/93)
 
 ## Authoring and extensions
 
 Sources: [Mod SDK](https://docs.warudo.app/docs/modding/mod-sdk), [SDK installation](https://docs.warudo.app/docs/modding/sdk-installation), [Scripting overview](https://docs.warudo.app/docs/scripting/overview), and [DMX API](https://docs.warudo.app/docs/scripting/dmx-api).
 
-- [ ] EXT-01 — Character, animation, environment, prop, and particle packages. Later.
-- [ ] EXT-02 — Unity export adapter. Later; Different API.
-- [ ] EXT-03 — Blender export adapter. Later; additional OpenSekai goal.
-- [ ] EXT-04 — Package sharing, metadata, versions, and dependency checks. Later.
-- [ ] EXT-05 — JS/TS custom nodes and asset types. Boundary early; guest delivery Later.
-- [ ] EXT-06 — Scene queries, ports, triggers, events, and data watchers. Later; Different API.
-- [ ] EXT-07 — Editor controls and validated property definitions. Later; Different API.
-- [ ] EXT-08 — Persistence, graph generation, and temporary controls. Later; Different API.
-- [ ] EXT-09 — External callbacks, resource resolvers, and localization. Later; Different API.
-- [ ] EXT-10 — Plugin interoperability and debugging tools. Later.
-- [ ] EXT-11 — Stream Deck integration. Later.
-- [ ] EXT-12 — DMX lighting control. Later.
-- [ ] EXT-13 — Sandbox resource limits and failure recovery. Required before guest plugins ship; additional OpenSekai goal.
-- [ ] EXT-14 — Scripting API behavior audit. Later; required before extension parity claims.
+- [ ] EXT-01 — Character, animation, environment, prop, and particle packages. Later. [GitHub #94](https://github.com/danirukun/opensekai/issues/94)
+- [ ] EXT-02 — Unity export adapter. Later; Different API. [GitHub #95](https://github.com/danirukun/opensekai/issues/95)
+- [ ] EXT-03 — Blender export adapter. Later; additional OpenSekai goal. [GitHub #96](https://github.com/danirukun/opensekai/issues/96)
+- [ ] EXT-04 — Package sharing, metadata, versions, and dependency checks. Later. [GitHub #97](https://github.com/danirukun/opensekai/issues/97)
+- [ ] EXT-05 — JS/TS custom nodes and asset types. Boundary early; guest delivery Later. [GitHub #98](https://github.com/danirukun/opensekai/issues/98)
+- [ ] EXT-06 — Scene queries, ports, triggers, events, and data watchers. Later; Different API. [GitHub #99](https://github.com/danirukun/opensekai/issues/99)
+- [ ] EXT-07 — Editor controls and validated property definitions. Later; Different API. [GitHub #100](https://github.com/danirukun/opensekai/issues/100)
+- [ ] EXT-08 — Persistence, graph generation, and temporary controls. Later; Different API. [GitHub #101](https://github.com/danirukun/opensekai/issues/101)
+- [ ] EXT-09 — External callbacks, resource resolvers, and localization. Later; Different API. [GitHub #102](https://github.com/danirukun/opensekai/issues/102)
+- [ ] EXT-10 — Plugin interoperability and debugging tools. Later. [GitHub #103](https://github.com/danirukun/opensekai/issues/103)
+- [ ] EXT-11 — Stream Deck integration. Later. [GitHub #104](https://github.com/danirukun/opensekai/issues/104)
+- [ ] EXT-12 — DMX lighting control. Later. [GitHub #105](https://github.com/danirukun/opensekai/issues/105)
+- [ ] EXT-13 — Sandbox resource limits and failure recovery. Required before guest plugins ship; additional OpenSekai goal. [GitHub #106](https://github.com/danirukun/opensekai/issues/106)
+- [ ] EXT-14 — Scripting API behavior audit. Later; required before extension parity claims. [GitHub #107](https://github.com/danirukun/opensekai/issues/107)
 
 ## Additional OpenSekai acceptance requirements
 
 These do not imply corresponding Warudo handbook features.
 
-- [ ] OSE-01 — macOS production path verified.
-- [ ] OSE-02 — Windows production path verified.
-- [ ] OSE-03 — Separate WebGPU and WebGL 2 support reports.
-- [ ] OSE-04 — Real concert hall at 1080p60 on proposed minimum hardware.
-- [x] OSE-05 — Stable output while the editor is minimized. Verified on the smoke host: both backend timing repeats and sampled WebGPU recording.
-- [x] OSE-06 — Early MCP scene queries, controlled edits, captures, and benchmark evidence. Verified for the scoped macOS release path.
-- [x] OSE-07 — Frontier-model evaluation with reproducible evidence. Scoped smoke packet reviewed; provider model ID is not exposed.
-- [ ] OSE-08 — Familiar hierarchy, inspector, viewport, assets, and output UI.
-- [ ] OSE-09 — Undo/redo, project repair, and saved layouts.
-- [ ] OSE-10 — Mobile feasibility investigation without replacing portable core.
+- [ ] OSE-01 — macOS production path verified. [GitHub #108](https://github.com/danirukun/opensekai/issues/108)
+- [ ] OSE-02 — Windows production path verified. [GitHub #109](https://github.com/danirukun/opensekai/issues/109)
+- [ ] OSE-03 — Separate WebGPU and WebGL 2 support reports. [GitHub #110](https://github.com/danirukun/opensekai/issues/110)
+- [ ] OSE-04 — Real concert hall at 1080p60 on proposed minimum hardware. [GitHub #111](https://github.com/danirukun/opensekai/issues/111)
+- [x] OSE-05 — Stable output while the editor is minimized. Verified on the smoke host: both backend timing repeats and sampled WebGPU recording. [GitHub #112](https://github.com/danirukun/opensekai/issues/112)
+- [x] OSE-06 — Early MCP scene queries, controlled edits, captures, and benchmark evidence. Verified for the scoped macOS release path. [GitHub #113](https://github.com/danirukun/opensekai/issues/113)
+- [x] OSE-07 — Frontier-model evaluation with reproducible evidence. Scoped smoke packet reviewed; provider model ID is not exposed. [GitHub #114](https://github.com/danirukun/opensekai/issues/114)
+- [ ] OSE-08 — Familiar hierarchy, inspector, viewport, assets, and output UI. [GitHub #115](https://github.com/danirukun/opensekai/issues/115)
+- [ ] OSE-09 — Undo/redo, project repair, and saved layouts. [GitHub #116](https://github.com/danirukun/opensekai/issues/116)
+- [ ] OSE-10 — Mobile feasibility investigation without replacing portable core. [GitHub #117](https://github.com/danirukun/opensekai/issues/117)
 
 ## Verified editor subset
 
 These split the first editor slice from broad OSE-08 and SCN-02. The broad boxes remain unchecked.
 
-- [x] UI-01 — Separate Scene/Editor windows, light asset/property layout and 620-pixel property view on macOS.
-- [x] UI-02 — Numeric transform input, label scrubbing, reset and invalid-scale rejection on macOS.
-- [x] UI-03 — Preview selection and released Move/Rotate/Scale gestures; production output has no gizmo. Scene-only evaluation harness used for pointer targeting.
-- [x] UI-04 — Context-menu keyboard actions, menu Escape, panel resizing and editor hide/reopen on macOS.
-- [x] UI-05 — Actual OBS URL copy and private clipboard match on macOS.
-- [x] UI-06 — Renderer unsupported-feature warnings retained in Resources.
-- [x] UI-07 — Type groups, collapse/search, sidebar visibility and active output camera actions on macOS.
-- [x] UI-08 — Live numeric transforms, scrub/reset, bounded coalescing and focus handoff on macOS; verified with clean OBS. [Check](evaluation/live-editor-controls.md).
+- [x] UI-01 — Separate Scene/Editor windows, light asset/property layout and 620-pixel property view on macOS. [GitHub #118](https://github.com/danirukun/opensekai/issues/118)
+- [x] UI-02 — Numeric transform input, label scrubbing, reset and invalid-scale rejection on macOS. [GitHub #119](https://github.com/danirukun/opensekai/issues/119)
+- [x] UI-03 — Preview selection and released Move/Rotate/Scale gestures; production output has no gizmo. Scene-only evaluation harness used for pointer targeting. [GitHub #120](https://github.com/danirukun/opensekai/issues/120)
+- [x] UI-04 — Context-menu keyboard actions, menu Escape, panel resizing and editor hide/reopen on macOS. [GitHub #121](https://github.com/danirukun/opensekai/issues/121)
+- [x] UI-05 — Actual OBS URL copy and private clipboard match on macOS. [GitHub #122](https://github.com/danirukun/opensekai/issues/122)
+- [x] UI-06 — Renderer unsupported-feature warnings retained in Resources. [GitHub #123](https://github.com/danirukun/opensekai/issues/123)
+- [x] UI-07 — Type groups, collapse/search, sidebar visibility and active output camera actions on macOS. [GitHub #124](https://github.com/danirukun/opensekai/issues/124)
+- [x] UI-08 — Live numeric transforms, scrub/reset, bounded coalescing and focus handoff on macOS; verified with clean OBS. [Check](evaluation/live-editor-controls.md). [GitHub #125](https://github.com/danirukun/opensekai/issues/125)
+
+- [x] UI-09 — Asset Rename/Duplicate/Remove menu, inline name editing, safe stopped/unassigned copies, camera guard and source cleanup on macOS. Duplicate-VRM memory failure reproduced and corrected with bounded textures. [Check](evaluation/asset-management.md). [GitHub #137](https://github.com/danirukun/opensekai/issues/137)
+- [x] UI-10 — Exact Scene preview camera frame, responsive fit, and editor-only output boundary. [GitHub #138](https://github.com/danirukun/opensekai/issues/138)
 
 ## Evidence ledger
 
@@ -221,8 +228,9 @@ The desktop shell, shared contracts, scene worker, renderer, editor, and MCP hav
 | CAM-04 (scoped verified) | c5e107a, 1073130 | Raw alpha and dark/light/checker smoke output reviewed; fresh capture/OBS marker correlation | macOS / OBS WebGPU and WebGL2 | [Current results](evaluation/macOS-feasibility/results.md) | Default Wide shoe crop is minor; runtime reframing is separate; broader material compatibility remains unchecked |
 | OSE-07 (scoped verified) | c5e107a, 1073130 | Actual smoke images, recording samples, lifecycle and soak reviewed with capture hashes and reproducible crop defect | macOS / WebGPU and WebGL2 smoke evidence | [Final review scope](evaluation/macOS-feasibility/results.md) | Orchestration model label/effort recorded; provider ID not exposed; clipboard, GPU timing/reclamation, minimum hardware and concert remain separate |
 | UI-01 through UI-06; OSE-08 and SCN-02 (partial) | 36d8519, 68b9293, ce6bccb | Separate windows, property edits, gizmos, menus, resizing, clipboard and warnings | macOS release / WKWebView and OBS WebGPU | [Editor interaction check](evaluation/warudo-editor-interactions.md) | Full hierarchy/CRUD/property coverage and active pointer Escape live verification remain open; scene-only and compact harnesses identified separately |
-
 | SCN-01 (partial), UI-09 (scoped verified) | dca1d16 | Current camera/avatar/tracker create, rename, duplicate and remove; source cleanup, camera guard and bounded duplicate-VRM memory | macOS / WKWebView and clean OBS WebGPU | [Asset management check](evaluation/asset-management.md) | Additional asset types, texture-quality overrides, full memory reclamation, WebGL and Windows remain separate |
+
+| UI-10 (scoped verified), MAT-01 (partial) | 47b7fd0 | Exact preview frame, resize, pointer selection, clean VRM output; official VRM node material path confirmed | macOS / WKWebView and OBS WebGPU | [Camera frame check](evaluation/camera-frame.md) | Independent editor camera, overscan, broader material parity, Windows, and concert benchmark remain separate |
 
 The [shared contract check](evaluation/macOS-feasibility/contracts.md) records validation and client lifecycle evidence. It does not establish an OBS or MCP production feature.
 
@@ -256,30 +264,22 @@ Packaged20898ff MediaPipe Start automatically activated Scene and reached receiv
 
 These scoped checks do not complete the broader character, tracking, camera or production categories. See [minimum live acceptance](evaluation/minimum-live-vtubing.md).
 
-- [x] LIVE-01 — Native chooser imports the supplied VRM0 in normal macOS startup.
-- [x] LIVE-02 — Actual Add actions for VMC, iFacialMocap and MediaPipe assets.
-- [x] LIVE-03 — Mixed VMC Body and iFacial Face driven by real loopback UDP mocks; zero invalid packets and changed OBS pose.
-- [x] LIVE-04 — Actual custom camera creation, lens edit and scene-derived Output selection at6d44c4a.
-- [x] LIVE-05 — Actual copied production URL renders clean transparent avatar output in OBS.
-- [x] LIVE-06 — Bundled MediaPipe webcam inference, owner activation, assignment and Stop. Measured inference is separate from render CPU.
-- [x] LIVE-07 — Current authored-scene MCP capture has registered source metadata and verified resource hash.
-- [x] LIVE-08 — Physical iFacialMocap control, user verified as the final step. Native status corroborates accepted traffic from the configured phone; no automated motion or handshake capture.
+- [x] LIVE-01 — Native chooser imports the supplied VRM0 in normal macOS startup. [GitHub #126](https://github.com/danirukun/opensekai/issues/126)
+- [x] LIVE-02 — Actual Add actions for VMC, iFacialMocap and MediaPipe assets. [GitHub #127](https://github.com/danirukun/opensekai/issues/127)
+- [x] LIVE-03 — Mixed VMC Body and iFacial Face driven by real loopback UDP mocks; zero invalid packets and changed OBS pose. [GitHub #128](https://github.com/danirukun/opensekai/issues/128)
+- [x] LIVE-04 — Actual custom camera creation, lens edit and scene-derived Output selection at6d44c4a. [GitHub #129](https://github.com/danirukun/opensekai/issues/129)
+- [x] LIVE-05 — Actual copied production URL renders clean transparent avatar output in OBS. [GitHub #130](https://github.com/danirukun/opensekai/issues/130)
+- [x] LIVE-06 — Bundled MediaPipe webcam inference, owner activation, assignment and Stop. Measured inference is separate from render CPU. [GitHub #131](https://github.com/danirukun/opensekai/issues/131)
+- [x] LIVE-07 — Current authored-scene MCP capture has registered source metadata and verified resource hash. [GitHub #132](https://github.com/danirukun/opensekai/issues/132)
+- [x] LIVE-08 — Physical iFacialMocap control, user verified as the final step. Native status corroborates accepted traffic from the configured phone; no automated motion or handshake capture. [GitHub #133](https://github.com/danirukun/opensekai/issues/133)
 
 Final source checks at6d44c4a:297unit tests,9integration tests and workspace checks pass. Latest native change passed100Rust tests with1explicit fixture skip. Webcam finger/calibration quality, continuous background webcam capture, scene persistence, Windows, minimum hardware and concert performance remain open.
 
 
 Live editor controls verified on macOS source7084f4a: type groups, collapse/search, row visibility, sidebar output camera and direct transforms.310unit tests and workspace checks pass. Quaternion rounding and focus handoff regressions are fixed. See [actual UI and OBS evidence](evaluation/live-editor-controls.md).
 
-- [x] LIVE-09 — New VRM imports enable built-in idle; inspector toggle, VMC/iFacial takeover and stale return, clean OBS motion after minimize actions. Actual VRM0 and generated VRM1 rigs verified. Live MediaPipe takeover over idle still needs a detected person.
+- [x] LIVE-09 — New VRM imports enable built-in idle; inspector toggle, VMC/iFacial takeover and stale return, clean OBS motion after minimize actions. Actual VRM0 and generated VRM1 rigs verified. Live MediaPipe takeover over idle still needs a detected person. [GitHub #134](https://github.com/danirukun/opensekai/issues/134)
 
-- [x] LIVE-10 — Shared One Euro filtering for VMC, iFacialMocap and MediaPipe; reusable TS API. All 52 named ARKit morph channels supported where present. Selected actual VRM0 facial poses and filtered VMC/iFacial OBS motion checked; MediaPipe smoothing covered by deterministic session tests.
+- [x] LIVE-10 — Shared One Euro filtering for VMC, iFacialMocap and MediaPipe; reusable TS API. All 52 named ARKit morph channels supported where present. Selected actual VRM0 facial poses and filtered VMC/iFacial OBS motion checked; MediaPipe smoothing covered by deterministic session tests. [GitHub #135](https://github.com/danirukun/opensekai/issues/135)
 
-- [x] LIVE-11 — Lighter tracking defaults and per-source smoothing inspector. Actual VMC/iFacial tuning under loopback traffic preserves generation and packet counters; bypass, Reset and invalid draft checked. MediaPipe controls checked with camera stopped; sample behavior covered by session tests. [Check](evaluation/tracking-smoothing-controls.md).
-
-- [x] UI-09 — Asset Rename/Duplicate/Remove menu, inline name editing, safe stopped/unassigned copies, camera guard and source cleanup on macOS. Duplicate-VRM memory failure reproduced and corrected with bounded textures. [Check](evaluation/asset-management.md).
-
-- [x] UI-10 — Exact Scene preview camera frame, responsive fit, and editor-only output boundary.
-
-| Feature ID | Commit | Verified scope | Platform / backend | Evidence | Remaining gap |
-| --- | --- | --- | --- | --- | --- |
-| UI-10 (scoped verified), MAT-01 (partial) | 47b7fd0 | Exact preview frame, resize, pointer selection, clean VRM output; official VRM node material path confirmed | macOS / WKWebView and OBS WebGPU | [Camera frame check](evaluation/camera-frame.md) | Independent editor camera, overscan, broader material parity, Windows, and concert benchmark remain separate |
+- [x] LIVE-11 — Lighter tracking defaults and per-source smoothing inspector. Actual VMC/iFacial tuning under loopback traffic preserves generation and packet counters; bypass, Reset and invalid draft checked. MediaPipe controls checked with camera stopped; sample behavior covered by session tests. [Check](evaluation/tracking-smoothing-controls.md). [GitHub #136](https://github.com/danirukun/opensekai/issues/136)
