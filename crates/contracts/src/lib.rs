@@ -143,6 +143,15 @@ pub enum PatchOp {
     CreateEntity {
         entity: SceneEntity,
     },
+    RenameEntity {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+        name: String,
+    },
+    RemoveEntity {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+    },
     SetCameraLens {
         #[serde(rename = "entityId")]
         entity_id: Id,
@@ -494,6 +503,10 @@ impl Validate for ScenePatch {
         )?;
         for o in &self.operations {
             match o {
+                PatchOp::RenameEntity { name, .. } => require(
+                    !name.trim().is_empty() && name.trim().encode_utf16().count() <= 128,
+                    "invalid entity name",
+                )?,
                 PatchOp::SetTransform { transform, .. } => transform.validate()?,
                 PatchOp::CreateEntity { entity } => entity.validate()?,
                 PatchOp::SetCameraLens { lens, .. } => lens.validate()?,
