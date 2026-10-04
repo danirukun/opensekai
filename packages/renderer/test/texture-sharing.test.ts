@@ -140,3 +140,21 @@ it('cancelled owner does not close a pending decode needed by another instance',
     second.release();
     expect(value.image.close).toHaveBeenCalledTimes(1);
 });
+
+it('caps a real GLTF embedded image before sharing and rejects resize failure without a blank asset', async () => {
+    class Bitmap { close=vi.fn(); width:number; height:number; constructor(width:number, height:number) {this.width=width;this.height=height;} }
+    const original = new Bitmap(8192,4096), resized = new Bitmap(1024,512);
+    const decode = vi.fn(async (_source: unknown, options?: ImageBitmapOptions) => options?.resizeWidth ? resized : original);
+    vi.stubGlobal('self',globalThis);vi.stubGlobal('ImageBitmap',Bitmap);vi.stubGlobal('createImageBitmap',decode);
+    const load = createAssetLoader({readAsset:async()=>texturedGlb()},{maxTextureSize:1024});
+    const [first,second]=await Promise.all([load('same'),load('same')]);
+    expect(decode).toHaveBeenCalledTimes(2);
+    expect(original.close).toHaveBeenCalledTimes(1);
+    const material=(first.scene.children[0] as Mesh).material as MeshStandardMaterial;
+    expect(material.map!.image).toBe(resized);
+    first.dispose();expect(resized.close).not.toHaveBeenCalled();second.dispose();expect(resized.close).toHaveBeenCalledTimes(1);
+    const failingOriginal=new Bitmap(8192,4096);
+    decode.mockImplementation(async (_source, options)=>{if(options?.resizeWidth)throw new Error('resize failed');return failingOriginal;});
+    await expect(load('same')).rejects.toMatchObject({code:'UNSUPPORTED'});
+    expect(failingOriginal.close).toHaveBeenCalledTimes(1);
+});

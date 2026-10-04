@@ -5,6 +5,7 @@ import type { ResourceHost, AppError } from "@opensekai/contracts";
 import type { Object3D, Mesh, SkinnedMesh, Material, Texture } from "three/webgpu";
 import { failure } from "./apply-frame";
 import { createTexturePool } from "./texture-sharing";
+import { createImageResizePolicy } from "./image-resize";
 export function createAssetCache<T extends {
     dispose(): void;
 }>(load: (id: string) => Promise<T>) {
@@ -88,15 +89,17 @@ export function inspectContainer(bytes: ArrayBuffer): string[] {
         throw failure("UNSUPPORTED", "External or URI resources are not supported");
     return json.extensionsUsed ?? [];
 }
-export function createAssetLoader(resources: ResourceHost) {
+export function createAssetLoader(resources: ResourceHost, options: { maxTextureSize?: 1024 | 2048 } = {}) {
     const textures = createTexturePool();
+    const images = createImageResizePolicy(options.maxTextureSize);
     return async (id: string) => {
         const lease = textures.acquire(id);
         const loader = new GLTFLoader();
+        let imageFailure: unknown;
         loader.register(parser => {
             // Share decoding before GLTFLoader allocates another bitmap; keep each parser and texture wrapper independent.
             const decode = parser.loadImageSource.bind(parser);
-            parser.loadImageSource = (index, imageLoader) => lease.load(index, () => decode(index, imageLoader));
+            parser.loadImageSource = (index, imageLoader) => lease.load(index, () => images.decode(() => decode(index, imageLoader))).catch(error => { imageFailure = error; throw error; });
             return { name: "OPENSEKAI_shared_images" };
         });
         loader.register(parser => new VRMLoaderPlugin(parser, { mtoonMaterialPlugin: new MToonMaterialLoaderPlugin(parser, { materialType: MToonNodeMaterial }) }));
@@ -104,6 +107,8 @@ export function createAssetLoader(resources: ResourceHost) {
             const bytes = await resources.readAsset(id);
             const extensions = inspectContainer(bytes);
             const gltf = await loader.parseAsync(bytes, "");
+            // GLTFLoader converts image failures to null maps; reject the asset instead.
+            if (imageFailure) { disposeObject(gltf.scene, lease); throw imageFailure; }
             const vrm = gltf.userData.vrm as VRM | undefined;
             if (vrm) VRMUtils.rotateVRM0(vrm);
             const warnings: AppError[] = [];
