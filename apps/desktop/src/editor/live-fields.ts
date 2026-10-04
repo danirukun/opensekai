@@ -14,4 +14,4 @@ export function initialTrackingDraft(config:TrackingConfig){return {config:{...c
 
 export function cameraOptions(entities:readonly SceneEntity[]){return entities.filter(entity=>entity.kind==='camera').map(entity=>({value:entity.id,label:entity.name}));}
 
-export function parseTrackingSmoothing(enabled:boolean,values:Record<'minCutoff'|'beta'|'derivativeCutoff',string>):TrackingSmoothing|null {const parsed=TrackingSmoothingSchema.safeParse({enabled,...Object.fromEntries(Object.entries(values).map(([key,value])=>[key,value.trim()===''?NaN:Number(value)]))});return parsed.success?parsed.data:null;}
+export function parseTrackingSmoothing(enabled:boolean,values:Record<'minCutoff'|'beta'|'derivativeCutoff',string|number|undefined>):TrackingSmoothing|null {const parsed=TrackingSmoothingSchema.safeParse({enabled,...Object.fromEntries(Object.entries(values).map(([key,value])=>[key,typeof value==='number'?value:typeof value==='string'&&value.trim()!==''?Number(value):NaN]))});return parsed.success?parsed.data:null;}
