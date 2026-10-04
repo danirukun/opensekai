@@ -1,6 +1,6 @@
 # Rete Blueprint editor evidence
 
-Date: 2026-10-04. Scope: BP-01 and BP-02 partial. Platform: macOS development host. Renderer backend: not applicable to the editor canvas; the existing scene renderer was not changed.
+Date: 2026-10-04. Source commit: `ce70579`. Scope: BP-01 and BP-02 partial. Platform: macOS development host. Renderer backend: not applicable to the editor canvas; the existing scene renderer was not changed.
 
 The editor has a Blueprints rail view with a Rete 2 canvas. It shows three connected draft nodes at first open. The palette adds six built-in node types. The inspector edits Number, Boolean, and Set Visibility settings. The panel validates a draft before calling the common `blueprintRun` edit command. The session worker executes the graph and commits its effects through the existing scene patch path. The graph stays in memory when the user switches editor panels.
 
