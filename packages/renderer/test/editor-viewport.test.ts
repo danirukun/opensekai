@@ -1,0 +1,23 @@
+import { beforeEach, expect, it, vi } from 'vitest';
+import { Scene, PerspectiveCamera, Object3D } from 'three/webgpu';
+import { makeSmokeScene } from '@opensekai/contracts';
+import { assertEditorScope, createEditorViewport } from '../src/editor-viewport';
+const mock=vi.hoisted(()=>({controls:null as any}));
+vi.mock('three/addons/controls/TransformControls.js',()=>({TransformControls:class {
+ listeners=new Map<string,()=>void>(); dragging=false;enabled=false;axis=null;helper=new Object3D();
+ constructor(){mock.controls=this;} getHelper(){return this.helper;} attach=vi.fn();detach=vi.fn();dispose=vi.fn();setMode=vi.fn();
+ addEventListener(name:string,fn:()=>void){this.listeners.set(name,fn);} removeEventListener(name:string){this.listeners.delete(name);} emit(name:string){this.listeners.get(name)?.();}
+}}));
+beforeEach(()=>{mock.controls=null;});
+function setup(){const canvas=new EventTarget() as HTMLCanvasElement;Object.assign(canvas,{focus:vi.fn(),ownerDocument:{defaultView:new EventTarget()}});const scene=new Scene();const root=new Object3D();root.position.x=20;scene.add(root);const view=makeSmokeScene();const entity=view.entities.find(x=>x.kind!=='camera')!;entity.transform.position=[2,0,0];entity.transform.scale=[1,1,1];const onCommit=vi.fn(async (_edit: unknown)=>({ok:true as const,data:{revision:view.revision+1}}));const onDraft=vi.fn();const editor=createEditorViewport(canvas,new PerspectiveCamera(),scene,new Map([[entity.id,{root}]]),{onSelect:vi.fn(),onCommit,onDraft});const state={scene:view,selectedId:entity.id,tool:'translate' as const,enabled:true};editor.sync(state);return {editor,canvas,scene,root,state,onCommit,onDraft,id:entity.id};}
+it('rejects production output and diagnostic editor helpers',()=>{expect(()=>assertEditorScope('output_main',false)).toThrow();expect(()=>assertEditorScope('preview_main',true)).toThrow();expect(()=>assertEditorScope('preview_main',false)).not.toThrow();});
+it('freezes active roots and commits only one persistent delta at captured revision',async()=>{const x=setup();mock.controls.emit('mouseDown');expect(x.editor.frozen(x.id)).toBe(true);x.root.position.x=23;mock.controls.emit('objectChange');expect(x.onDraft).toHaveBeenLastCalledWith({entityId:x.id,transform:{position:[5,0,0],rotation:[0,0,0,1],scale:[1,1,1]}});mock.controls.emit('mouseUp');mock.controls.emit('mouseUp');await Promise.resolve();expect(x.onCommit).toHaveBeenCalledTimes(1);expect(x.onCommit.mock.calls[0]![0]).toMatchObject({expectedRevision:x.state.scene.revision,transform:{position:[5,0,0]}});expect(x.editor.frozen(x.id)).toBe(false);x.editor.dispose();});
+it.each(['revision','selection','disabled','escape','blur','pointercancel','lostpointercapture'])('cancels %s without commit',async(reason)=>{const x=setup();mock.controls.emit('mouseDown');x.root.position.x=24;if(reason==='revision')x.editor.sync({...x.state,scene:{...x.state.scene,revision:x.state.scene.revision+1}});else if(reason==='selection')x.editor.sync({...x.state,selectedId:null});else if(reason==='disabled')x.editor.sync({...x.state,enabled:false});else {const event=new Event(reason==='escape'?'keydown':reason);if(reason==='escape')Object.defineProperty(event,'key',{value:'Escape'});x.canvas.dispatchEvent(event);}mock.controls.emit('mouseUp');await Promise.resolve();expect(x.onCommit).not.toHaveBeenCalled();expect(x.root.position.x).toBe(20);expect(x.onDraft).toHaveBeenLastCalledWith(null);x.editor.dispose();});
+it('removes owned helper and listeners before release',()=>{const x=setup();const helper=mock.controls.helper;expect(helper.parent).toBe(x.scene);x.editor.dispose();expect(helper.parent).toBe(null);expect(mock.controls.dispose).toHaveBeenCalledOnce();expect(mock.controls.listeners.size).toBe(0);});
+
+it('cancels render-frame revision drift without model sync',()=>{const x=setup();mock.controls.emit('mouseDown');x.editor.frameRevision(x.state.scene.revision+1);mock.controls.emit('mouseUp');expect(x.onCommit).not.toHaveBeenCalled();expect(x.editor.frozen(x.id)).toBe(false);x.editor.dispose();});
+
+it('consumes gesture cancellation Escape while idle Escape can reopen the editor',()=>{
+ const x=setup();const idle=new Event('keydown',{cancelable:true});Object.defineProperty(idle,'key',{value:'Escape'});x.canvas.dispatchEvent(idle);expect(idle.defaultPrevented).toBe(false);
+ mock.controls.emit('mouseDown');const active=new Event('keydown',{cancelable:true});Object.defineProperty(active,'key',{value:'Escape'});x.canvas.dispatchEvent(active);expect(active.defaultPrevented).toBe(true);expect(x.editor.frozen(x.id)).toBe(false);mock.controls.emit('mouseUp');expect(x.onCommit).not.toHaveBeenCalled();x.editor.dispose();
+});

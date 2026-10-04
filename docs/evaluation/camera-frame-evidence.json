@@ -1,0 +1,48 @@
+{
+  "date": "2026-10-04",
+  "baseCommit": "bbe8e00",
+  "platform": "macOS",
+  "fixture": "user VRM0, six restored assets, revision 10",
+  "quality": {
+    "previewResolutionScale": 0.5,
+    "previewTextureCap": 1024,
+    "outputTextureCap": 2048
+  },
+  "backends": {
+    "preview_main": "webgpu",
+    "output_main": "webgpu"
+  },
+  "renderWarnings": [],
+  "checks": {
+    "unitTests": 69,
+    "typeErrors": 0,
+    "svelteWarnings": 0,
+    "macBuild": "pass",
+    "canvasSelection": "pass",
+    "normalAndZoomedFrame": "pass",
+    "cleanObsOutput": "pass",
+    "sceneRestoreExceptSourceGenerations": "pass",
+    "obsCleanup": "pass"
+  },
+  "captures": [
+    {
+      "path": "/private/tmp/opensekai-frame-wide.png",
+      "sha256": "394707989237f8d965303e9ce968a2d474049dba152402b34908f70f0c387353"
+    },
+    {
+      "path": "/private/tmp/opensekai-frame-zoomed.png",
+      "sha256": "3a1da4b12570656866ff1a8044de349b9ad2095e1cda1c33a6eb1e7c9ca9b784"
+    },
+    {
+      "path": "/private/tmp/opensekai-frame-obs.png",
+      "sha256": "89dfaa22659a0940297390c8017f2b0e6e8f00dbd7d26e543e1a6433126ee836"
+    }
+  ],
+  "limits": [
+    "No independent free camera or overscan",
+    "No new full material parity claim",
+    "Tall fitting checked by unit test; normal and zoomed layouts checked visually",
+    "GPU timing and concert performance remain unknown"
+  ],
+  "sourceCommit": "47b7fd0"
+}

@@ -1,0 +1,354 @@
+{
+  "appCommit": "43b1d84e80849cb20553cee12b9569966e32da13",
+  "platform": "macOS WKWebView / OBS WebGPU",
+  "scope": "Authored one-avatar scene; no concert or minimum-hardware certification",
+  "captures": [
+    {
+      "label": "final-idle-settled",
+      "sha256": "4d51435520a4cb3e67f7cd9febb6428a0cf6491a5d7bc5359fb10fe66eb2aa7a",
+      "bytes": 278593,
+      "revision": 5,
+      "idleEnabled": true,
+      "outputs": [
+        {
+          "id": "output_main",
+          "revision": 5,
+          "camera": "camera_main",
+          "backend": "webgpu"
+        },
+        {
+          "id": "preview_main",
+          "revision": 5,
+          "camera": "camera_main",
+          "backend": "webgpu"
+        }
+      ],
+      "tracking": [
+        {
+          "kind": "vmc",
+          "state": "waiting",
+          "packets": 0,
+          "invalid": 0
+        },
+        {
+          "kind": "ifacialmocap",
+          "state": "waiting",
+          "packets": 0,
+          "invalid": 0
+        },
+        {
+          "kind": "mediapipe",
+          "state": "stopped",
+          "packets": 0,
+          "invalid": 0
+        }
+      ]
+    },
+    {
+      "label": "final-idle-off",
+      "sha256": "d4dfa066e3529f5e238d5a8fcca6b7bbbb3ba6229cf0be99040f450829b122a2",
+      "bytes": 284496,
+      "revision": 6,
+      "idleEnabled": false,
+      "outputs": [
+        {
+          "id": "output_main",
+          "revision": 6,
+          "camera": "camera_main",
+          "backend": "webgpu"
+        },
+        {
+          "id": "preview_main",
+          "revision": 5,
+          "camera": "camera_main",
+          "backend": "webgpu"
+        }
+      ],
+      "tracking": [
+        {
+          "kind": "vmc",
+          "state": "waiting",
+          "packets": 0,
+          "invalid": 0
+        },
+        {
+          "kind": "ifacialmocap",
+          "state": "waiting",
+          "packets": 0,
+          "invalid": 0
+        },
+        {
+          "kind": "mediapipe",
+          "state": "stopped",
+          "packets": 0,
+          "invalid": 0
+        }
+      ]
+    },
+    {
+      "label": "final-idle-on",
+      "sha256": "8752b61502d49a00f08f80371883453eea517a121571b7540be3e5517005f8b9",
+      "bytes": 300625,
+      "revision": 7,
+      "idleEnabled": true,
+      "outputs": [
+        {
+          "id": "output_main",
+          "revision": 7,
+          "camera": "camera_main",
+          "backend": "webgpu"
+        },
+        {
+          "id": "preview_main",
+          "revision": 7,
+          "camera": "camera_main",
+          "backend": "webgpu"
+        }
+      ],
+      "tracking": [
+        {
+          "kind": "vmc",
+          "state": "receiving",
+          "packets": 10,
+          "invalid": 0
+        },
+        {
+          "kind": "ifacialmocap",
+          "state": "receiving",
+          "packets": 10,
+          "invalid": 0
+        },
+        {
+          "kind": "mediapipe",
+          "state": "stopped",
+          "packets": 0,
+          "invalid": 0
+        }
+      ]
+    },
+    {
+      "label": "final-mocap-takeover",
+      "sha256": "8752b61502d49a00f08f80371883453eea517a121571b7540be3e5517005f8b9",
+      "bytes": 300625,
+      "revision": 7,
+      "idleEnabled": true,
+      "outputs": [
+        {
+          "id": "output_main",
+          "revision": 7,
+          "camera": "camera_main",
+          "backend": "webgpu"
+        },
+        {
+          "id": "preview_main",
+          "revision": 7,
+          "camera": "camera_main",
+          "backend": "webgpu"
+        }
+      ],
+      "tracking": [
+        {
+          "kind": "vmc",
+          "state": "receiving",
+          "packets": 640,
+          "invalid": 0
+        },
+        {
+          "kind": "ifacialmocap",
+          "state": "receiving",
+          "packets": 641,
+          "invalid": 0
+        },
+        {
+          "kind": "mediapipe",
+          "state": "stopped",
+          "packets": 0,
+          "invalid": 0
+        }
+      ]
+    },
+    {
+      "label": "final-return-idle-settled",
+      "sha256": "7ee8f8f70c88be9c1dc891175e4ad3607d9dde692b628d60083ddb1d5c96da02",
+      "bytes": 279066,
+      "revision": 7,
+      "idleEnabled": true,
+      "outputs": [
+        {
+          "id": "output_main",
+          "revision": 7,
+          "camera": "camera_main",
+          "backend": "webgpu"
+        },
+        {
+          "id": "preview_main",
+          "revision": 7,
+          "camera": "camera_main",
+          "backend": "webgpu"
+        }
+      ],
+      "tracking": [
+        {
+          "kind": "vmc",
+          "state": "stale",
+          "packets": 1500,
+          "invalid": 0
+        },
+        {
+          "kind": "ifacialmocap",
+          "state": "stale",
+          "packets": 1500,
+          "invalid": 0
+        },
+        {
+          "kind": "mediapipe",
+          "state": "stopped",
+          "packets": 0,
+          "invalid": 0
+        }
+      ]
+    },
+    {
+      "label": "final-mediapipe-takeover-settled",
+      "sha256": "bd6852ca1137b03b89c4d42c78d4d9519e30b3e3588767f5a175c1648b1a01f7",
+      "bytes": 278705,
+      "revision": 9,
+      "idleEnabled": true,
+      "outputs": [
+        {
+          "id": "output_main",
+          "revision": 9,
+          "camera": "camera_main",
+          "backend": "webgpu"
+        },
+        {
+          "id": "preview_main",
+          "revision": 9,
+          "camera": "camera_main",
+          "backend": "webgpu"
+        }
+      ],
+      "tracking": [
+        {
+          "kind": "vmc",
+          "state": "stale",
+          "packets": 1500,
+          "invalid": 0
+        },
+        {
+          "kind": "ifacialmocap",
+          "state": "stale",
+          "packets": 1500,
+          "invalid": 0
+        },
+        {
+          "kind": "mediapipe",
+          "state": "waiting",
+          "packets": 0,
+          "invalid": 0
+        }
+      ]
+    },
+    {
+      "label": "final-mediapipe-stopped-idle",
+      "sha256": "a341d9d31bdfa9af0e2c0d82cb8914c5b38c5587e405a30959681af6f3da7bf1",
+      "bytes": 278920,
+      "revision": 10,
+      "idleEnabled": true,
+      "outputs": [
+        {
+          "id": "output_main",
+          "revision": 10,
+          "camera": "camera_main",
+          "backend": "webgpu"
+        },
+        {
+          "id": "preview_main",
+          "revision": 9,
+          "camera": "camera_main",
+          "backend": "webgpu"
+        }
+      ],
+      "tracking": [
+        {
+          "kind": "vmc",
+          "state": "stale",
+          "packets": 1500,
+          "invalid": 0
+        },
+        {
+          "kind": "ifacialmocap",
+          "state": "stale",
+          "packets": 1500,
+          "invalid": 0
+        },
+        {
+          "kind": "mediapipe",
+          "state": "stopped",
+          "packets": 0,
+          "invalid": 0
+        }
+      ]
+    }
+  ],
+  "continuity": {
+    "samples": 45,
+    "firstSequence": 18396,
+    "lastSequence": 19063,
+    "revision": 7,
+    "sampledCpuP95Ms": 3,
+    "sampledCpuMaxMs": 3.5,
+    "gpuMs": null,
+    "obsDelta": {
+      "renderSkippedFrames": 0,
+      "renderTotalFrames": 727,
+      "outputSkippedFrames": 0,
+      "outputTotalFrames": 0
+    },
+    "captures": [
+      {
+        "label": "idle-continuity-0",
+        "sha256": "6156491002b633cdd6f136fe2836b8254f95042b687bb723073e563bb79202c0",
+        "bytes": 278802,
+        "elapsedMs": 0
+      },
+      {
+        "label": "idle-continuity-2",
+        "sha256": "676b7e5b963df7ece03e6fa8be16f5f07526991bbe26ad7d7e18cfc31796f60c",
+        "bytes": 278241,
+        "elapsedMs": 2148
+      },
+      {
+        "label": "idle-continuity-4",
+        "sha256": "3ec4f11c4b582f6d8a34b7fe438eb9a096bf38e84f03f10eaa65c7717450b94b",
+        "bytes": 278438,
+        "elapsedMs": 4035
+      },
+      {
+        "label": "idle-continuity-6",
+        "sha256": "e022cd87079ea4f70e4238143015c3df979d2767eb4199641be7ad2a0fcc04e3",
+        "bytes": 278726,
+        "elapsedMs": 6171
+      },
+      {
+        "label": "idle-continuity-8",
+        "sha256": "6b40b3ae908ca9b671d0ca35f5e86ebbe4f656779549180c408c269d85398bf5",
+        "bytes": 278856,
+        "elapsedMs": 8055
+      },
+      {
+        "label": "idle-continuity-10",
+        "sha256": "d8f9e54271af3f39289558081a21192f12bec810f386bfadded97aa30ba69770",
+        "bytes": 278182,
+        "elapsedMs": 10195
+      }
+    ],
+    "changedPixelsBetweenFirstTwo": 72791
+  },
+  "mcpIntegrity": {
+    "bytes": 364172,
+    "sha256": "ef538498025f079a0279eaf2aa53f2a641dd32f76cc3b5d8a5783729e14b1c63",
+    "verified": true
+  },
+  "liveMediaPipeIdleTakeover": "Pending detected person; inference ran, zero observations"
+}

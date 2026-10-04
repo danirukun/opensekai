@@ -1,0 +1,161 @@
+{
+  "schemaVersion": 1,
+  "sceneId": "scene_smoke",
+  "revision": 0,
+  "entities": [
+    {
+      "id": "marker",
+      "name": "marker",
+      "visible": true,
+      "transform": {
+        "position": [
+          -0.9,
+          1,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          0.25,
+          0.25,
+          0.25
+        ]
+      },
+      "kind": "mesh",
+      "source": {
+        "kind": "box"
+      }
+    },
+    {
+      "id": "performer",
+      "name": "performer",
+      "visible": true,
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "kind": "avatar",
+      "assetId": "fixture_vrm_1"
+    },
+    {
+      "id": "reference",
+      "name": "reference",
+      "visible": true,
+      "transform": {
+        "position": [
+          0.9,
+          0.7,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "kind": "mesh",
+      "source": {
+        "kind": "asset",
+        "assetId": "fixture_glb_1"
+      }
+    },
+    {
+      "id": "camera_wide",
+      "name": "camera_wide",
+      "visible": true,
+      "transform": {
+        "position": [
+          0,
+          1.2,
+          3
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "kind": "camera",
+      "lens": {
+        "fovDegrees": 45,
+        "near": 0.01,
+        "far": 100
+      }
+    },
+    {
+      "id": "camera_close",
+      "name": "camera_close",
+      "visible": true,
+      "transform": {
+        "position": [
+          0,
+          1.4,
+          1.6
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "kind": "camera",
+      "lens": {
+        "fovDegrees": 45,
+        "near": 0.01,
+        "far": 100
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "id": "output_main",
+      "cameraId": "camera_wide",
+      "width": 1920,
+      "height": 1080,
+      "fps": 60
+    },
+    {
+      "id": "preview_main",
+      "cameraId": "camera_wide",
+      "width": 1920,
+      "height": 1080,
+      "fps": 60
+    }
+  ]
+}

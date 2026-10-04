@@ -4,7 +4,7 @@ OpenSekai is the working name for an open-source 3D VTubing and live production 
 
 Start on macOS. Keep the core portable to Windows and leave a path to mobile. Use web technology for rendering, a Tauri v2 desktop host, and external tracking apps. The main performance target is a 3D concert hall with one or two performers at 1920 × 1080 and 60 FPS.
 
-**Status:** architecture approved for planning on 2026-10-02. The macOS feasibility implementation plan is written and awaits review. No app code exists yet.
+**Status:** the macOS release app has a scene worker, VRM/glTF renderer, editor, OBS output, and MCP tools. Source checks pass. The formal minimized-window test found a worker timer stall. The native clock correction at c5e107a passed three prescribed timing runs per backend on this host and smoke fixture. A separate WebGPU recording and correlated hide/recreate checks passed at c5e107a. The first soak failed on in-document refresh; the correction at 1073130 passed five correlated reloads during a ten-minute WebGPU soak. Technical macOS smoke gates passed; clipboard UI acceptance remains pending. GPU memory reclamation, minimum hardware and concert acceptance remain unknown.
 
 - [macOS implementation plan](docs/superpowers/plans/2026-10-02-opensekai-macos-feasibility.md)
 - [macOS slice contract](spdd/prompt/2026-10-02-opensekai-macos-feasibility.md)
@@ -12,6 +12,8 @@ Start on macOS. Keep the core portable to Windows and leave a path to mobile. Us
 - [Warudo feature parity checklist](docs/warudo-parity.md)
 - [Performance contract](docs/evaluation/benchmark-contract.md)
 - [MCP and model evaluation](docs/evaluation/mcp-evaluation-design.md)
+- [Current feasibility results](docs/evaluation/macOS-feasibility/results.md)
+- [Desktop shell verification](docs/evaluation/macOS-feasibility/desktop-shell.md)
 - [Observed macOS and OBS baseline](docs/evaluation/2026-10-02-local-baseline.md)
 - [Development and checkpoints](docs/development-workflow.md)
 - [SPDD analysis](spdd/analysis/2026-10-02-opensekai-foundation.md)

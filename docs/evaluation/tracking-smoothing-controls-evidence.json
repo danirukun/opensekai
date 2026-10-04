@@ -1,0 +1,369 @@
+{
+  "appCommit": "171997a",
+  "platform": "macOS",
+  "scope": "One private VRM0; clean OBS WebGPU 1920x1080/60; actual inspector actions; loopback VMC and 52-channel iFacial mocks; MediaPipe controls checked while camera stopped",
+  "defaultSmoothing": {
+    "enabled": true,
+    "minCutoff": 5,
+    "beta": 0.5,
+    "derivativeCutoff": 1
+  },
+  "checks": {
+    "unitTests": 367,
+    "integrationTests": 9,
+    "nativeTests": 105,
+    "nativeIgnored": 1,
+    "workspaceErrors": 0,
+    "workspaceWarnings": 0,
+    "fmt": "passed",
+    "strictClippy": "passed",
+    "macReleaseBuild": "passed",
+    "independentReview": "clean"
+  },
+  "uiChecks": [
+    {
+      "label": "ui-ifacial-tuned",
+      "revision": 6,
+      "sources": [
+        {
+          "kind": "vmc",
+          "generation": 5,
+          "enabled": true,
+          "smoothing": null,
+          "state": "receiving",
+          "packets": 3802,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "ifacialmocap",
+          "generation": 5,
+          "enabled": true,
+          "smoothing": {
+            "enabled": true,
+            "minCutoff": 12,
+            "beta": 0.8,
+            "derivativeCutoff": 2
+          },
+          "state": "receiving",
+          "packets": 3802,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "mediapipe",
+          "generation": 2,
+          "enabled": false,
+          "smoothing": null,
+          "state": "stopped",
+          "packets": 0,
+          "invalidPackets": 0
+        }
+      ]
+    },
+    {
+      "label": "ui-ifacial-bypass",
+      "revision": 7,
+      "sources": [
+        {
+          "kind": "vmc",
+          "generation": 5,
+          "enabled": true,
+          "smoothing": null,
+          "state": "receiving",
+          "packets": 5290,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "ifacialmocap",
+          "generation": 5,
+          "enabled": true,
+          "smoothing": {
+            "enabled": false,
+            "minCutoff": 12,
+            "beta": 0.8,
+            "derivativeCutoff": 2
+          },
+          "state": "receiving",
+          "packets": 5290,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "mediapipe",
+          "generation": 2,
+          "enabled": false,
+          "smoothing": null,
+          "state": "stopped",
+          "packets": 0,
+          "invalidPackets": 0
+        }
+      ]
+    },
+    {
+      "label": "ui-ifacial-reset",
+      "revision": 8,
+      "sources": [
+        {
+          "kind": "vmc",
+          "generation": 5,
+          "enabled": true,
+          "smoothing": null,
+          "state": "receiving",
+          "packets": 6598,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "ifacialmocap",
+          "generation": 5,
+          "enabled": true,
+          "smoothing": {
+            "enabled": true,
+            "minCutoff": 5,
+            "beta": 0.5,
+            "derivativeCutoff": 1
+          },
+          "state": "receiving",
+          "packets": 6598,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "mediapipe",
+          "generation": 2,
+          "enabled": false,
+          "smoothing": null,
+          "state": "stopped",
+          "packets": 0,
+          "invalidPackets": 0
+        }
+      ]
+    },
+    {
+      "label": "ui-empty-rejected",
+      "revision": 8,
+      "sources": [
+        {
+          "kind": "vmc",
+          "generation": 5,
+          "enabled": true,
+          "smoothing": null,
+          "state": "receiving",
+          "packets": 8001,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "ifacialmocap",
+          "generation": 5,
+          "enabled": true,
+          "smoothing": {
+            "enabled": true,
+            "minCutoff": 5,
+            "beta": 0.5,
+            "derivativeCutoff": 1
+          },
+          "state": "receiving",
+          "packets": 8001,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "mediapipe",
+          "generation": 2,
+          "enabled": false,
+          "smoothing": null,
+          "state": "stopped",
+          "packets": 0,
+          "invalidPackets": 0
+        }
+      ]
+    },
+    {
+      "label": "ui-vmc-tuned",
+      "revision": 10,
+      "sources": [
+        {
+          "kind": "vmc",
+          "generation": 5,
+          "enabled": true,
+          "smoothing": {
+            "enabled": true,
+            "minCutoff": 20,
+            "beta": 1.2,
+            "derivativeCutoff": 1
+          },
+          "state": "receiving",
+          "packets": 11323,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "ifacialmocap",
+          "generation": 5,
+          "enabled": true,
+          "smoothing": {
+            "enabled": true,
+            "minCutoff": 5,
+            "beta": 0.5,
+            "derivativeCutoff": 1
+          },
+          "state": "receiving",
+          "packets": 11323,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "mediapipe",
+          "generation": 2,
+          "enabled": false,
+          "smoothing": null,
+          "state": "stopped",
+          "packets": 0,
+          "invalidPackets": 0
+        }
+      ]
+    },
+    {
+      "label": "ui-mediapipe-tuned",
+      "revision": 12,
+      "sources": [
+        {
+          "kind": "vmc",
+          "generation": 5,
+          "enabled": true,
+          "smoothing": {
+            "enabled": true,
+            "minCutoff": 5,
+            "beta": 0.5,
+            "derivativeCutoff": 1
+          },
+          "state": "receiving",
+          "packets": 15195,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "ifacialmocap",
+          "generation": 5,
+          "enabled": true,
+          "smoothing": {
+            "enabled": true,
+            "minCutoff": 5,
+            "beta": 0.5,
+            "derivativeCutoff": 1
+          },
+          "state": "receiving",
+          "packets": 15195,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "mediapipe",
+          "generation": 2,
+          "enabled": false,
+          "smoothing": {
+            "enabled": true,
+            "minCutoff": 9,
+            "beta": 0.9,
+            "derivativeCutoff": 1
+          },
+          "state": "stopped",
+          "packets": 0,
+          "invalidPackets": 0
+        }
+      ]
+    }
+  ],
+  "captures": [
+    {
+      "label": "responsive-default",
+      "sha256": "22dcdac652ca1b341716d1e2b7328e011b32e8a6e1a202b0e3108c6391f6db5f",
+      "bytes": 593664,
+      "revision": 5,
+      "frame": {
+        "sequence": 5606,
+        "tick": 6279,
+        "revision": 5,
+        "backend": "webgpu",
+        "cpuMs": 1.2999999821186066,
+        "gpuMs": null,
+        "warnings": []
+      }
+    },
+    {
+      "label": "ifacial-tuned",
+      "sha256": "b9fa6efaad3cb89bd7176fc91a11b1855a1f775d87222b5878f1fb3580a2a38d",
+      "bytes": 578538,
+      "revision": 6,
+      "frame": {
+        "sequence": 8469,
+        "tick": 9177,
+        "revision": 6,
+        "backend": "webgpu",
+        "cpuMs": 1.4000000059604645,
+        "gpuMs": null,
+        "warnings": []
+      }
+    },
+    {
+      "label": "ifacial-bypass",
+      "sha256": "15c58ca96f6a142872cb8b5fb83c81e4237a61d0ce10b448fad194eb3b413680",
+      "bytes": 593224,
+      "revision": 7,
+      "frame": {
+        "sequence": 10297,
+        "tick": 11011,
+        "revision": 7,
+        "backend": "webgpu",
+        "cpuMs": 1.0999999940395355,
+        "gpuMs": null,
+        "warnings": []
+      }
+    },
+    {
+      "label": "ifacial-reset",
+      "sha256": "0a621a32e212546cc80cfa403030bf6545930ebb169b2fb4a602e33f299f9130",
+      "bytes": 583498,
+      "revision": 8,
+      "frame": {
+        "sequence": 11894,
+        "tick": 12627,
+        "revision": 8,
+        "backend": "webgpu",
+        "cpuMs": 1.5999999940395355,
+        "gpuMs": null,
+        "warnings": []
+      }
+    },
+    {
+      "label": "vmc-tuned",
+      "sha256": "e6571b60d866308e942b929caffb4d86df2e1dbb655c73bbbdc62dc225e78af2",
+      "bytes": 587155,
+      "revision": 10,
+      "frame": {
+        "sequence": 17687,
+        "tick": 18483,
+        "revision": 10,
+        "backend": "webgpu",
+        "cpuMs": 1.5,
+        "gpuMs": null,
+        "warnings": []
+      }
+    },
+    {
+      "label": "tuning-return-idle",
+      "sha256": "df42cfe29ba00bf0b3e607f9d4efe19e9b26001fc3696bd131e8a205886b0baf",
+      "bytes": 528337,
+      "revision": 14,
+      "frame": {
+        "sequence": 27399,
+        "tick": 28400,
+        "revision": 14,
+        "backend": "webgpu",
+        "cpuMs": 1.199999988079071,
+        "gpuMs": null,
+        "warnings": []
+      }
+    }
+  ],
+  "restoration": {
+    "allOriginalFieldsPreserved": true,
+    "newSmoothingDefaultsEnabledOnAllSources": true,
+    "generationCountersDiffer": true,
+    "revision": 18,
+    "entities": 6,
+    "mockStopped": true,
+    "ownedObsSourceRemoved": true
+  }
+}

@@ -1,0 +1,15 @@
+import {afterEach,beforeEach,it,expect,vi} from 'vitest';
+import {mkdtemp,mkdir,copyFile,readFile,writeFile,rm,symlink} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {prepareTracking} from './prepare-tracking';
+import manifest from '../apps/desktop/src/tracking/models.json';
+const source=fileURLToPath(new URL('../',import.meta.url));
+let root:string;
+beforeEach(async()=>{root=await mkdtemp(join(tmpdir(),'opensekai-tracking-'));await mkdir(join(root,'artifacts/models'),{recursive:true});await mkdir(join(root,'apps/desktop/node_modules/@mediapipe'),{recursive:true});await mkdir(join(root,'apps/desktop/src/tracking'),{recursive:true});await symlink(join(source,'apps/desktop/node_modules/@mediapipe/tasks-vision'),join(root,'apps/desktop/node_modules/@mediapipe/tasks-vision'));for(const model of manifest.models)await copyFile(join(source,'artifacts/models',model.file),join(root,'artifacts/models',model.file));for(const file of ['NOTICES.md','LICENSE.Apache-2.0.txt'])await copyFile(join(source,'apps/desktop/src/tracking',file),join(root,'apps/desktop/src/tracking',file));});
+afterEach(async()=>{vi.unstubAllGlobals();await rm(root,{recursive:true,force:true});});
+it('prepares verified local models and package WASM while offline',async()=>{const fetch=vi.fn().mockRejectedValue(new Error('network forbidden'));vi.stubGlobal('fetch',fetch);expect(await prepareTracking({root})).toEqual({models:3,wasmFiles:6,version:'1.0.1'});expect(fetch).not.toHaveBeenCalled();const copied=JSON.parse(await readFile(join(root,'apps/desktop/public/tracking/manifest.json'),'utf8'));expect(copied).toEqual(manifest);expect((await readFile(join(root,'apps/desktop/public/tracking/face_landmarker.task'))).byteLength).toBe(manifest.models[0].bytes);});
+it('rejects a corrupt cached model before publication',async()=>{await writeFile(join(root,'artifacts/models',manifest.models[0].file),'corrupt');await expect(prepareTracking({root})).rejects.toThrow('integrity check');await expect(readFile(join(root,'apps/desktop/public/tracking',manifest.models[0].file))).rejects.toThrow();});
+it('does not download a missing model without explicit download mode',async()=>{await rm(join(root,'artifacts/models',manifest.models[0].file));const fetch=vi.fn();vi.stubGlobal('fetch',fetch);await expect(prepareTracking({root})).rejects.toThrow('Missing cached tracking model');expect(fetch).not.toHaveBeenCalled();});
+it('rejects a mismatched package version',async()=>{const pkg=join(root,'apps/desktop/node_modules/@mediapipe/tasks-vision');await rm(pkg);await mkdir(pkg);await writeFile(join(pkg,'package.json'),JSON.stringify({name:manifest.package,version:'wrong'}));await expect(prepareTracking({root})).rejects.toThrow('package version');});

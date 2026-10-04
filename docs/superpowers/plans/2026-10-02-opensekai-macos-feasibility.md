@@ -112,7 +112,7 @@ Verified metadata on 2026-10-02:
 | @pixiv/three-vrm | 3.5.5 |
 | bitecs | 0.4.0 |
 | svelte / @sveltejs/vite-plugin-svelte | 5.57.1 / 7.3.1 |
-| vite / vitest / typescript | 8.3.2 / 5.0.3 / 7.0.2 |
+| vite / vitest / typescript | 8.3.2 / 5.0.3 / 6.0.3 |
 | svelte-check / @types/node / @types/ws | 4.7.6 / 26.6.4 / 8.18.2 |
 | @modelcontextprotocol/server, client, core | 2.3.0 each |
 | zod / tsx / ws / obs-websocket-js | 4.6.5 / 4.23.15 / 8.22.0 / 5.0.8 |
@@ -296,7 +296,7 @@ pnpm check runs workspace TypeScript checks and svelte-check. test:unit runs the
 
 **Interfaces:** Produce the command scripts above, desktop window label main, and a native app_version() command returning package version. Build output is copied into resources/output/ before Tauri packaging.
 
-- [ ] **Step 1: Verify the installed tools and pin dependencies.**
+- [x] **Step 1: Verify the installed tools and pin dependencies.**
 
 ~~~sh
 node --version
@@ -307,7 +307,7 @@ xcode-select -p
 
 Use the exact pins above. Resolve remaining helper versions, including Tailwind, PNG decoders for Rust/TypeScript, Rust random/UUID/HTTP test helpers, serde, and serde_json, through published metadata and record them. Fail on incompatible engine constraints instead of ignoring peer errors.
 
-- [ ] **Step 2: Create the workspace configuration and shells.**
+- [x] **Step 2: Create the workspace configuration and shells.**
 
 ~~~json
 {
@@ -342,7 +342,7 @@ fn app_version() -> &'static str {
 
 Use Vite for the Svelte SPA. Set Tauri beforeDevCommand to run Vite for @opensekai/desktop, beforeBuildCommand to build that frontend, devUrl to its loopback port, and frontendDist to ../dist. Keep global Tauri injection disabled. Window main receives only the native/window permissions needed by this plan. No remote page receives a native bridge.
 
-- [ ] **Step 3: Add the reproducible local UI adapter and output preparation.**
+- [x] **Step 3: Add the reproducible local UI adapter and output preparation.**
 
 ~~~ts
 export async function snapshotUi(sourceDir: string, targetDir: string):
@@ -394,7 +394,7 @@ OPENSEKAI_UI_SOURCE=/Users/danirukun/ghq/github.com/oshi-connect/oshi-connect-ui
 
 For the initial bootstrap before workspace dependencies exist, use the installed Node 26 native TypeScript support to run the erasable script: node scripts/bootstrap-ui.ts. Subsequent calls can use tsx after install. Run pnpm exec vitest run scripts/bootstrap-ui.test.ts scripts/prepare-output.test.ts --project integration after install. Add the Tailwind Vite plugin and scan .local/ui/dist so shared component utilities are generated.
 
-- [ ] **Step 4: Run the shell and verify the native version round trip.**
+- [x] **Step 4: Run the shell and verify the native version round trip.**
 
 ~~~sh
 pnpm install
@@ -404,7 +404,7 @@ pnpm --filter @opensekai/desktop tauri dev
 
 Expected: one OpenSekai window; app_version resolves to 0.1.0; shared Button/Input render; no console errors. Exercise minimize/restore once. This is a smoke check, not a static-label unit test.
 
-- [ ] **Step 5: Checkpoint.**
+- [x] **Step 5: Checkpoint.**
 
 ~~~sh
 git add package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json vitest.config.ts Cargo.toml Cargo.lock rust-toolchain.toml .node-version .npmrc .gitignore scripts apps packages crates tools docs/dependencies.md
@@ -420,7 +420,7 @@ git commit -m "chore: establish macOS workspace and desktop shell"
 
 **Interfaces:** Consume the pinned schema tools. Produce the frozen types, makeSmokeScene(): SceneView, makeSmokeFrame(overrides: Partial<Pick<RuntimeFrame, "sequence" | "tick">>): RuntimeFrame, validateCall(method: unknown, params: unknown): Reply<ValidatedCall>, requiredCapability(method: keyof AppApi): Capability, tagId(id: Id): number, encodeMarker(marker: DiagnosticMarker): Uint8Array, connectClient(descriptor: ConnectionDescriptor): Promise<BrowserClient>, and connectPublisher(descriptor: ConnectionDescriptor): Promise<PublisherClient>. Rust exports matching wire types, RunState::{Warming, Measuring, Complete, Cancelled, Failed}, and parse_call(bytes: &[u8]) -> Result<Call, AppError>. Call.method remains a validated String; Call.params is validated serde_json::Value.
 
-- [ ] **Step 1: Write schema, role, and stream tests before implementation.**
+- [x] **Step 1: Write schema, role, and stream tests before implementation.**
 
 ~~~ts
 import { expect, it } from "vitest";
@@ -445,7 +445,7 @@ Add vectors for unknown fields, schema version 2, zero/non-unit quaternion, inva
 
 Client tests use a fake transport/clock: wrong session reply is rejected, disconnect rejects pending calls, a fresh snapshot replaces stale state, and out-of-order sequences are ignored. At most one reconnect timer is active.
 
-- [ ] **Step 2: Run the failing tests.**
+- [x] **Step 2: Run the failing tests.**
 
 ~~~sh
 pnpm exec vitest run packages/contracts/test/schema.test.ts --project unit
@@ -455,7 +455,7 @@ cargo test -p opensekai-contracts
 
 Expected initial failure: missing exports/validation behavior. Tool installation failure is not a valid red test.
 
-- [ ] **Step 3: Implement strict schemas and the bounded client.**
+- [x] **Step 3: Implement strict schemas and the bounded client.**
 
 ~~~ts
 const editMethods = new Set(["scenePatch", "cameraSelect"]);
@@ -471,7 +471,7 @@ Import Capability/AppApi from types.ts. Build Zod schemas for every frozen type.
 
 The client waits for a matching authReply first, buffers the latest full frame until a listener attaches, validates every reply/frame, pairs request IDs, rejects requests over the limits, and uses a 2-second timeout. Reconnect delays are 100, 250, 500, and 1000 ms, capped at 1000 ms. Never retry a mutation automatically. After reconnect, wait for an authoritative full frame before marking the output current. close() clears timers/listeners and rejects pending requests.
 
-- [ ] **Step 4: Run focused checks and type checks.**
+- [x] **Step 4: Run focused checks and type checks.**
 
 ~~~sh
 pnpm exec vitest run packages/contracts/test/schema.test.ts --project unit
@@ -482,7 +482,7 @@ pnpm check
 
 Expected: identical vectors accepted/rejected in TS and Rust; bounded cleanup tests pass. Export makeSmokeScene and its JSON from one source so agents share a fixture.
 
-- [ ] **Step 5: Freeze and checkpoint the interfaces.**
+- [x] **Step 5: Freeze and checkpoint the interfaces.**
 
 ~~~sh
 git add packages/contracts packages/browser-client crates/contracts fixtures/protocol Cargo.lock docs/dependencies.md
@@ -521,11 +521,11 @@ pub fn resolve_asset(id: &str, registry: &AssetRegistry)
     -> Result<std::path::PathBuf, AppError>;
 ~~~
 
-AppError is the shared error object from Reply. ServiceHandle internally owns task cancellation, pending requests, tokens, and current publisher/output connections. Add a descriptor-writing helper that atomically replaces owner-readable operator and output renderer descriptor files; return their paths only to trusted app bootstrap. Add ServiceHandle::last_applied(output_id: &str) -> Option<(FrameApplied, u64)>, applied_at(output_id: &str, sequence: u64) -> Option<(FrameApplied, u64)>, and request_capture(params: CaptureParams) -> Result<CaptureBytes, AppError> for the native evaluation bridge. The timestamp is the native monotonic receive time. Keep a bounded ring of the last 32 validated acknowledgements per output for capture correlation. Clear it on reconnect/session change. The request_capture helper forwards to the authenticated renderer and pairs its reply; public capture RPC stays UNSUPPORTED until Task 10 enforces the budgets.
+AppError is the shared error object from Reply. ServiceHandle internally owns task cancellation, pending requests, tokens, and current publisher/output connections. Add a descriptor-writing helper that atomically replaces owner-readable operator and output renderer descriptor files; return their paths only to trusted app bootstrap. Add ServiceHandle::last_applied(output_id: &str) -> Option<(FrameApplied, u64)>, applied_at(output_id: &str, sequence: u64) -> Option<(FrameApplied, u64)>, and request_capture(params: CaptureParams) -> Result<CaptureBytes, AppError> for the native evaluation bridge. The timestamp is the native monotonic receive time. Export ServiceHandle::now_ms(&self) -> u64 from the same clock origin, and use it for evaluation age checks. Keep a bounded ring of the last 32 validated acknowledgements per output for capture correlation. Clear it on reconnect/session change. The request_capture helper forwards to the authenticated renderer and pairs its reply; public capture RPC stays UNSUPPORTED until Task 10 enforces the budgets.
 
-The router owns route_scene_call(call: Call) -> Reply<serde_json::Value> as an async method. Define RpcHandler as an Arc callback from Call to a boxed Send future returning Reply<serde_json::Value>. ServiceHandle::install_evaluation_handler(handler: RpcHandler) installs the optional native evaluation handler. The router checks capabilities before invoking it. Clear the handler and pending requests during shutdown. Avoid strong service/handler reference cycles.
+The router owns route_scene_call(call: Call) -> Reply<serde_json::Value> as an async method. Define RpcContext with client_id: String, assigned by the authenticated connection, and never read from call params. Define RpcHandler as an Arc callback from (Call, RpcContext) to a boxed Send future returning Reply<serde_json::Value>. ServiceHandle::install_evaluation_handler(handler: RpcHandler) installs the optional native evaluation handler. The router checks capabilities before invoking it. Clear the handler and pending requests during shutdown. Avoid strong service/handler reference cycles.
 
-- [ ] **Step 1: Write focused logic tests and real network tests.**
+- [x] **Step 1: Write focused logic tests and real network tests.**
 
 ~~~rust
 #[test]
@@ -539,7 +539,7 @@ The tests also cover an encoded traversal asset ID, unknown asset, symlink escap
 
 The real integration test starts the service on port zero, uses a temp asset manifest, and connects a publisher and renderer through real WebSockets. Publish a valid frame, request sceneInspect, return its reply, disconnect/reconnect the renderer, and check the latest full frame. This boundary test is required because queueing, auth, and disconnects cannot be proved with a mock alone.
 
-- [ ] **Step 2: Run failing tests.**
+- [x] **Step 2: Run failing tests.**
 
 ~~~sh
 cargo test -p opensekai-desktop service
@@ -548,7 +548,7 @@ cargo test -p opensekai-desktop --test service_integration
 
 Expected: required service/auth/queue behaviors fail before implementation.
 
-- [ ] **Step 3: Implement loopback binding, scoped routing, and bounded queues.**
+- [x] **Step 3: Implement loopback binding, scoped routing, and bounded queues.**
 
 ~~~rust
 let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0)).await?;
@@ -565,7 +565,7 @@ Read the initial manifest from OPENSEKAI_FIXTURE_MANIFEST, an explicit local app
 
 Status reports ready only after a publisher and current output acknowledgement exist. Evaluation calls return UNSUPPORTED until Task 10 installs the real evaluation handler. Do not return fabricated captures or successful runs.
 
-- [ ] **Step 4: Run boundary checks and cleanup tests.**
+- [x] **Step 4: Run boundary checks and cleanup tests.**
 
 ~~~sh
 cargo test -p opensekai-desktop service
@@ -575,7 +575,7 @@ cargo clippy -p opensekai-desktop --all-targets -- -D warnings
 
 Expected: successful reconnect, denied role violations, bounded queues, and no task leak after shutdown. Verify the operator descriptor is owner-only on macOS.
 
-- [ ] **Step 5: Commit owned files and hand off.**
+- [x] **Step 5: Commit owned files and hand off.**
 
 ~~~sh
 git add apps/desktop/src-tauri/src/service apps/desktop/src-tauri/src/assets apps/desktop/src-tauri/tests/service_integration.rs
@@ -607,7 +607,7 @@ export function markerRotation(elapsedMs: number): Quat;
 
 worker.ts accepts one initial message containing { descriptor, scene }. It owns connectPublisher and one 60 Hz timer. Stop messages close the connection and timer. No UI or Three.js imports belong here.
 
-- [ ] **Step 1: Write atomic edit and deterministic motion tests.**
+- [x] **Step 1: Write atomic edit and deterministic motion tests.**
 
 ~~~ts
 import { expect, it } from "vitest";
@@ -641,7 +641,7 @@ it("evaluates motion without rewriting persistent edits", () => {
 
 Also test stale revision, duplicate IDs, a missing/non-camera target, NaN/zero scale, clone isolation, identical replay output, backward elapsed time rejection, and worker stop/start without duplicate timers.
 
-- [ ] **Step 2: Run the failing tests.**
+- [x] **Step 2: Run the failing tests.**
 
 ~~~sh
 pnpm exec vitest run packages/session/test/session.test.ts packages/session/test/motion.test.ts packages/session/test/worker-lifecycle.test.ts --project unit
@@ -649,7 +649,7 @@ pnpm exec vitest run packages/session/test/session.test.ts packages/session/test
 
 Expected: missing behavior fails; contracts already pass.
 
-- [ ] **Step 3: Implement the session and a small bitECS adapter.**
+- [x] **Step 3: Implement the session and a small bitECS adapter.**
 
 ~~~ts
 export function markerRotation(elapsedMs: number): Quat {
@@ -675,7 +675,7 @@ pnpm --filter @opensekai/session check
 
 Use the output harness from Task 5 when merged to inspect emitted ticks. A real hidden-window check belongs to Task 11, not a fake-clock test.
 
-- [ ] **Step 5: Checkpoint owned files.**
+- [x] **Step 5: Checkpoint owned files.**
 
 ~~~sh
 git add packages/session/src packages/session/test
@@ -708,7 +708,7 @@ export function selectFrame(previous: RuntimeFrame | null, incoming: RuntimeFram
   Reply<RuntimeFrame>;
 ~~~
 
-- [ ] **Step 1: Write frame/resource/capture policy tests.**
+- [x] **Step 1: Write frame/resource/capture policy tests.**
 
 ~~~ts
 import { expect, it } from "vitest";
@@ -725,7 +725,7 @@ it("rejects a stale sequence within a session", () => {
 
 Add tests for a new session replacing old state, missing asset results, cancelled load disposal, duplicate resource release, oversize capture, and capture rate limiting. These test logic through injected loader/GPU ports. Actual GPU/material correctness requires the browser checks below.
 
-- [ ] **Step 2: Run the failing logic tests.**
+- [x] **Step 2: Run the failing logic tests.**
 
 ~~~sh
 pnpm exec vitest run packages/renderer/test/frame-state.test.ts packages/renderer/test/asset-lifecycle.test.ts packages/renderer/test/capture-policy.test.ts --project unit
@@ -733,7 +733,7 @@ pnpm exec vitest run packages/renderer/test/frame-state.test.ts packages/rendere
 
 Expected: policy/state/resource logic fails before implementation.
 
-- [ ] **Step 3: Implement renderer initialization and MToon loading.**
+- [x] **Step 3: Implement renderer initialization and MToon loading.**
 
 ~~~ts
 import { WebGPURenderer } from "three/webgpu";
@@ -762,7 +762,7 @@ For this slice, disable VRM spring simulation and avoid generic vrm.update(dt) i
 
 applyFrame returns an acknowledgement after render submission, including actual camera and backend. gpuMs is null unless a supported timer reports a valid value. capture performs one bounded PNG readback and labels the same displayed frame. Do not enable preserveDrawingBuffer or capture on each render. Draw the frozen diagnostic marker in the actual canvas when diagnostics is true; image capture and OBS must both see it. Draw nothing extra in normal output.
 
-- [ ] **Step 4: Register real fixture metadata and exercise both backends.**
+- [x] **Step 4: Register real fixture metadata and exercise both backends.**
 
 The official [three-vrm sample directory](https://github.com/pixiv/three-vrm/tree/release/packages/three-vrm/examples/models) contains VRM1_Constraint_Twist_Sample.vrm. Use the [VRM sample repository](https://github.com/vrm-c/vrm-specification/tree/master/samples) to review its source terms. Download only for local testing; store bytes under fixtures/local/. Record the exact source revision, SHA-256, embedded VRM terms, and permitted use. Do not infer asset redistribution rights from the loader's MIT license.
 
@@ -776,7 +776,7 @@ pnpm --filter @opensekai/output build
 pnpm check
 ~~~
 
-- [ ] **Step 5: Checkpoint the renderer and fixture policy.**
+- [x] **Step 5: Checkpoint the renderer and fixture policy.**
 
 ~~~sh
 git add packages/renderer/src packages/renderer/test apps/output fixtures/smoke
@@ -810,7 +810,7 @@ export async function bootstrapDesktop(): Promise<{
 
 The trusted desktop module owns NativeBootstrap; it is not an extension API. Output ticket is scoped to output_main; preview ticket is scoped to preview_main. The evaluation CLI uses OPENSEKAI_RENDERER_CONNECTION_FILE for the owner-only output descriptor. Main desktop Vite uses http://127.0.0.1:1420. Record actual packaged Tauri Origin; add only that exact local origin to the tested allowlist.
 
-- [ ] **Step 1: Merge each lane and run its focused checks.**
+- [x] **Step 1: Merge each lane and run its focused checks.**
 
 Use one worker commit at a time. Resolve dependency or contract changes through the integrator. Do not merge unverified implementation together and rely on a later smoke test.
 
@@ -820,7 +820,7 @@ cargo test --workspace
 pnpm check
 ~~~
 
-- [ ] **Step 2: Wire native startup and the worker.**
+- [x] **Step 2: Wire native startup and the worker.**
 
 ~~~ts
 import { invoke } from "@tauri-apps/api/core";
@@ -838,7 +838,7 @@ bootstrapDesktop starts one worker, one low-rate preview client, and one operato
 
 Build outputUrl from service origin + /renderer/ with the renderer descriptor encoded in the fragment. Only the user-facing copy action can expose that URL. Do not log it or include it in committed evidence. stop closes clients, terminates the worker, and invokes native service shutdown on app exit.
 
-- [ ] **Step 3: Set up an isolated OBS source and confirm moving alpha output.**
+- [x] **Step 3: Set up an isolated OBS source and confirm moving alpha output.**
 
 Use the existing local WebSocket endpoint. Read GetVersion/GetVideoSettings/GetStreamStatus before making a test scene. Save original scene selection. Create a uniquely named OpenSekai Feasibility scene and browser source owned by this run; do not replace an existing source.
 
@@ -846,7 +846,7 @@ Set the browser source to outputUrl, 1920 × 1080, custom 60 FPS, with transpare
 
 Expected: marker motion comes from session ticks; a real registered VRM is visible; camera changes use the session API; background alpha reaches OBS. Keep recording/streaming idle during this basic check. If streaming or recording is active, return BUSY without switching scenes; inspection can continue.
 
-- [ ] **Step 4: Check the release resource path and run cleanup.**
+- [x] **Step 4: Check the release resource path and run cleanup.**
 
 ~~~sh
 pnpm build:mac
@@ -856,7 +856,7 @@ Launch the resulting unsigned local app from Finder or a process launcher with a
 
 Close/reopen the app. Verify no stale service port, duplicate publisher, or hung client survives. If the backend/material probe fails, record the exact failure before continuing.
 
-- [ ] **Step 5: Commit the integration and evidence summary.**
+- [x] **Step 5: Commit the integration and evidence summary.**
 
 ~~~sh
 git add apps/desktop/src apps/desktop/src-tauri/src/lib.rs apps/desktop/src-tauri/src/main.rs apps/desktop/src-tauri/tauri.conf.json apps/desktop/src-tauri/capabilities/main.json scripts/prepare-output.ts docs/evaluation/macOS-feasibility/first-output.md
@@ -893,7 +893,7 @@ export function parseFiniteNumber(text: string): Reply<number>;
 
 Props are fixed: Hierarchy and Inspector receive { model, view }; OutputControls receives { model, view, status: AppStatus | null, outputUrl: string }; AssetList receives { assets: AssetRecord[], warnings: AppError[] }. Export EditorModel as ReturnType<typeof createEditorModel> for these props. Components receive the same model/view instances. Inspector edits persistent state, not evaluated live transforms. No native/Three.js import belongs in editor model code.
 
-- [ ] **Step 1: Write numeric and conflict tests.**
+- [x] **Step 1: Write numeric and conflict tests.**
 
 ~~~ts
 import { expect, it } from "vitest";
@@ -910,13 +910,13 @@ it("accepts a finite signed decimal", () => {
 
 Use a typed test AppApi to force CONFLICT on an edit. Assert no success state or automatic retry; inspect the current scene and preserve a visible conflict indication. Test selection persistence when an unrelated frame arrives and no renderer object enters model state.
 
-- [ ] **Step 2: Run the failing tests.**
+- [x] **Step 2: Run the failing tests.**
 
 ~~~sh
 pnpm exec vitest run apps/desktop/src/editor/numeric.test.ts apps/desktop/src/editor/model.test.ts --project unit
 ~~~
 
-- [ ] **Step 3: Implement the model and compact panels.**
+- [x] **Step 3: Implement the model and compact panels.**
 
 ~~~ts
 export function parseFiniteNumber(text: string): Reply<number> {
@@ -943,7 +943,7 @@ pnpm --filter @opensekai/desktop check
 
 Exercise selection, a position edit, invalid input, visibility, camera change, and output URL copy in the running app after Task 10 composes the panels. Verify the same edits in OBS. Check keyboard focus order and panel resizing.
 
-- [ ] **Step 5: Checkpoint owned files.**
+- [x] **Step 5: Checkpoint owned files.**
 
 ~~~sh
 git add apps/desktop/src/editor apps/desktop/src/components apps/desktop/src/app.css
@@ -961,7 +961,7 @@ Return interaction results separately from unit tests.
 
 **Interfaces:** Consume AppApi, connectClient, ConnectionDescriptor, and BrowserClient.readResource. Produce parseOperatorDescriptor(input: unknown): Reply<ConnectionDescriptor> and createMcpServer(api: AppApi, readResource: (uri: string) => Promise<Uint8Array>): McpServer. cli.ts reads OPENSEKAI_CONNECTION_FILE and serves stdio. Its stdout contains only MCP messages.
 
-- [ ] **Step 1: Write tool and descriptor logic tests.**
+- [x] **Step 1: Write tool and descriptor logic tests.**
 
 ~~~ts
 import { expect, it } from "vitest";
@@ -978,13 +978,13 @@ it("rejects renderer credentials for an operator server", () => {
 
 Test unknown tool fields, stale scene revision, capture rate limits, invalid evidence URI, and a timed-out app connection. Do not grant edit/capture/benchmark because the CLI happens to be launched by an agent.
 
-- [ ] **Step 2: Run the failing tests.**
+- [x] **Step 2: Run the failing tests.**
 
 ~~~sh
 pnpm exec vitest run apps/mcp/test/tool-validation.test.ts apps/mcp/test/descriptor.test.ts --project unit
 ~~~
 
-- [ ] **Step 3: Register the exact tool mapping and resource access.**
+- [x] **Step 3: Register the exact tool mapping and resource access.**
 
 ~~~ts
 import { McpServer } from "@modelcontextprotocol/server";
@@ -1008,7 +1008,7 @@ Expose scene/status JSON resources and opaque registered evidence resources. Cap
 
 Resources retain revision, tick, camera, backend, and hashes. Read-only sessions return FORBIDDEN on mutations and evaluation. On disconnect, return UNAVAILABLE rather than cached success.
 
-- [ ] **Step 4: Exercise a real stdio process using the official client.**
+- [x] **Step 4: Exercise a real stdio process using the official client.**
 
 Create a test entry using a fixed typed AppApi fixture and launch it as a child process through the SDK client. This integration test is required to detect stdout corruption, JSON-RPC initialization errors, and shutdown leaks.
 
@@ -1030,11 +1030,11 @@ await client.close();
 Add test/stdio-fixture.ts to the owned files. Call status, inspect, a bounded patch, and an error path; verify EOF and stderr handling. This tests the stdio boundary. The real app-to-OBS path is tested in Task 11.
 
 ~~~sh
-pnpm exec vitest run apps/mcp/test/stdio-roundtrip.test.ts --project integration
+pnpm exec vitest run apps/mcp/test/stdio-roundtrip.integration.test.ts --project integration
 pnpm --filter @opensekai/mcp check
 ~~~
 
-- [ ] **Step 5: Checkpoint and hand off client setup.**
+- [x] **Step 5: Checkpoint and hand off client setup.**
 
 ~~~sh
 git add apps/mcp/src apps/mcp/test docs/mcp-client-setup.md
@@ -1108,7 +1108,7 @@ export interface ObsAdapter {
 
 The CLI reads operator and renderer descriptors from explicit environment file paths, validates matching session IDs, and derives outputUrl without logging the ticket. It exports sanitized hashes and result fields only.
 
-- [ ] **Step 1: Write time, cancellation, eviction, and evidence tests.**
+- [x] **Step 1: Write time, cancellation, eviction, and evidence tests.**
 
 ~~~rust
 #[test]
@@ -1141,14 +1141,14 @@ They are test fixtures, not production exports. Test warmup exclusion, idempoten
 
 TypeScript tests cover missing OBS, unrelated source marker, malformed PNG, missing auth/request capability, cleanup on failure, and counter-reset detection. Counter resets produce unknown/error, not negative skipped percentages.
 
-- [ ] **Step 2: Run the failing tests.**
+- [x] **Step 2: Run the failing tests.**
 
 ~~~sh
 cargo test -p opensekai-evaluation
 pnpm exec vitest run tools/evaluation/test/obs-policy.test.ts tools/evaluation/test/marker.test.ts tools/evaluation/test/evidence.test.ts --project unit
 ~~~
 
-- [ ] **Step 3: Implement the fixed run state machine and capture budgets.**
+- [x] **Step 3: Implement the fixed run state machine and capture budgets.**
 
 ~~~rust
 // Transition decisions use the injected monotonic clock.
@@ -1168,7 +1168,7 @@ Observe capture-free renderer acknowledgements only during the measurement windo
 
 CaptureStore validates PNG signature, dimensions, bytes, freshness, output/session, and revision before acceptance. Dimensions must be positive and at most 1920 × 1080. Its stored native receive time validates the 500 ms age limit. Retain eight records, evict oldest bytes/references, and return NOT_FOUND for expired resources. Exports use opaque IDs and hashes. Do not keep PNG base64 in metrics logs.
 
-- [ ] **Step 4: Implement controlled OBS setup and evidence collection.**
+- [x] **Step 4: Implement controlled OBS setup and evidence collection.**
 
 ~~~ts
 import OBSWebSocket from "obs-websocket-js";
@@ -1184,7 +1184,7 @@ Use GetSourceScreenshot for the owned browser source and composed test scene. Co
 
 The run driver separates screenshots from timing. During a benchmark, sample OBS stats at start/end and collect a short recording only in a separate recording phase. Refuse to switch test scenes or start a recording if OBS is currently streaming or recording. Keep the report explicit about an unavailable encoder/GPU measurement.
 
-- [ ] **Step 5: Verify logic and checkpoint owned files.**
+- [x] **Step 5: Verify logic and checkpoint owned files.**
 
 ~~~sh
 cargo test -p opensekai-evaluation
@@ -1205,7 +1205,7 @@ The rubric requires capture IDs, defect locations, intended approximation differ
 
 **Interfaces:** Install native handlers for captureFrame, benchmarkStart/Status/Cancel, and evidenceRead. BrowserClient.readResource resolves only app-managed evidence URIs. Native evaluation exports evidence files atomically inside ServiceConfig.evidence_root.
 
-- [ ] **Step 1: Add real capture/run boundary tests before native wiring.**
+- [x] **Step 1: Add real capture/run boundary tests before native wiring.**
 
 The integration test uses the real local service with a controlled publisher/renderer test peer. It starts a benchmark, submits acknowledgements, cancels, and verifies terminal state. It submits a bounded PNG capture, reads the returned resource, then tests wrong output/revision, timeout, eviction, and unauthenticated resource access.
 
@@ -1217,19 +1217,19 @@ cargo test -p opensekai-desktop --test evaluation_integration
 
 Expected: evaluation routes are initially UNSUPPORTED; tests fail against the intended successful path.
 
-- [ ] **Step 2: Install the native evaluation bridge.**
+- [x] **Step 2: Install the native evaluation bridge.**
 
 ~~~rust
 match call.method.as_str() {
-    "captureFrame" => evaluation.capture(call).await,
+    "captureFrame" => evaluation.capture(call, context).await,
     "benchmarkStart" | "benchmarkStatus" | "benchmarkCancel" =>
-        evaluation.run(call).await,
-    "evidenceRead" => evaluation.evidence(call).await,
+        evaluation.run(call, context).await,
+    "evidenceRead" => evaluation.evidence(call, context).await,
     _ => route_scene_call(call).await,
 }
 ~~~
 
-Define NativeEvaluation::new with the service ports, RunManager, CaptureStore, and native clock/commit/evidence context. Its capture/run/evidence methods each accept Call and return Reply<serde_json::Value>. Register their dispatch closure through ServiceHandle::install_evaluation_handler.
+Define NativeEvaluation::new with the service ports, RunManager, CaptureStore, and native clock/commit/evidence context. Its capture/run/evidence methods each accept Call and RpcContext and return Reply<serde_json::Value>. Use RpcContext.client_id for per-client capture budgets and ServiceHandle::now_ms for the shared native clock. Register their dispatch closure through ServiceHandle::install_evaluation_handler.
 
 The native module defines these exact bridge methods using the shared Call/Reply wire types and existing service ports. Keep scope checks ahead of dispatch. Status remains native-owned.
 
@@ -1239,7 +1239,7 @@ Runs use monotonic time and observe the selected output only. Fail a run if no c
 
 Evidence resources use opensekai://evidence/<id>/image.png or /summary.json. Map them to registered files/bytes internally. No relative or arbitrary path component is accepted. Keep appCommit and UTC metadata consistent with the build and source revision.
 
-- [ ] **Step 3: Compose the editor panels and lifecycle.**
+- [x] **Step 3: Compose the editor panels and lifecycle.**
 
 ~~~svelte
 <script lang="ts">
@@ -1252,7 +1252,7 @@ Evidence resources use opensekai://evidence/<id>/image.png or /summary.json. Map
 
 Pass the model/view and bootstrap values into these components. Keep viewport canvas lifecycle outside the model. Close subscriptions and worker/service handles on app exit. Disconnected output gets an explicit state and cannot satisfy a capture request.
 
-- [ ] **Step 4: Run tests and a real MCP-to-OBS edit/capture sequence.**
+- [x] **Step 4: Run tests and a real MCP-to-OBS edit/capture sequence.**
 
 ~~~sh
 pnpm test:unit
@@ -1267,7 +1267,7 @@ Expected: revision increments once for the edit; selected camera reaches output_
 
 Record the bounded first evaluation loop in mcp-roundtrip.md. Large images stay in artifacts/. A model client can read image resources and the rubric; no automated model API call is required to pass this loop.
 
-- [ ] **Step 5: Checkpoint the complete slice wiring.**
+- [x] **Step 5: Checkpoint the complete slice wiring.**
 
 ~~~sh
 git add apps/desktop/src/App.svelte apps/desktop/src/bootstrap.ts apps/desktop/src-tauri/src/lib.rs apps/desktop/src-tauri/src/service/router.rs apps/desktop/src-tauri/src/evaluation.rs apps/desktop/src-tauri/tests/evaluation_integration.rs docs/evaluation/macOS-feasibility/mcp-roundtrip.md Cargo.lock pnpm-lock.yaml
@@ -1283,7 +1283,7 @@ git commit -m "feat: integrate editor MCP and evaluation services"
 
 **Interfaces:** Consume the real app, MCP client, and OBS adapter. Produce a reproducible result summary tied to commit, fixture hashes, backend, power mode, browser/webview, and OBS versions.
 
-- [ ] **Step 1: Freeze the smoke fixture and review expected behavior.**
+- [x] **Step 1: Freeze the smoke fixture and review expected behavior.**
 
 The fixture includes a transparent clear, reference GLB, real VRM1, procedural marker, camera_wide/camera_close, and separate output_main/preview_main outputs. Geometry/material/texture counts and active effects are recorded. Spring physics, tracking, hall lighting, graph UI, and guest code are disabled.
 
@@ -1305,7 +1305,7 @@ Open the local release .app with working directory outside the repo. Through the
 
 Use computer-use for the actual UI interactions. Use OBS WebSocket for source control and screenshots. Record which flows were exercised; screenshots alone are insufficient.
 
-- [ ] **Step 3: Run repeatable timing and minimized-window checks.**
+- [x] **Step 3: Run repeatable timing and minimized-window checks.**
 
 ~~~sh
 pnpm evaluate:smoke -- --profile webgl2_smoke_v1 --repeats 3
@@ -1320,7 +1320,7 @@ Proposed smoke gates: no reproducible steady stall over 100 ms; fewer than 0.1% 
 
 If WebGPU is unavailable in the actual runtime, record UNSUPPORTED for that profile and do not check WebGPU parity. Forced WebGL 2 must work for the portable feasibility path. If neither backend or the minimized session works, fail the slice and write a boundary-revision spec before adding concert scope.
 
-- [ ] **Step 4: Check alpha, source lifecycle, resource cleanup, and evidence review.**
+- [x] **Step 4: Check alpha, source lifecycle, resource cleanup, and evidence review.**
 
 Use dark/light/checker composites and full-resolution raw source PNG to verify clear alpha and silhouette. Exclude the fixed diagnostic-marker region when testing transparent background pixels. Record observed material/outline differences. Hide/restore the source with both shutdown disabled and enabled; distinguish configured source restart from a session failure.
 
@@ -1328,7 +1328,7 @@ Run a ten-minute smoke soak with repeated camera changes, renderer reconnect, fi
 
 Give the frontier reviewer the versioned rubric, real OBS images/recording, app captures, metrics, and manifest. Require capture IDs and reproducible defect descriptions. Numeric thresholds determine timing pass/fail. If no frontier client is available, save a ready evidence packet and mark model review pending; do not claim it occurred.
 
-- [ ] **Step 5: Update scoped parity and checkpoint the result.**
+- [x] **Step 5: Update scoped parity and checkpoint the result.**
 
 Keep large evidence under artifacts/evaluation/<run-id>/. Commit only sanitized summaries, hashes, and fixture metadata. Never include tickets, descriptor files, absolute private asset paths, or model credentials.
 
@@ -1396,6 +1396,16 @@ Self-review coverage:
 | F11 role/capability boundary | 2, 3, 8, 10 |
 | F12 concurrent workers/checkpoints | execution graph and each task |
 
-All five Review Focus classes have explicit owning tests. VRM0, unavailable WebGPU, absent frontier review, concert hardware, and broader parity have explicit pending/unsupported outcomes. Implementation source is still absent; tests and runtime results above are expected checks, not performed results.
+The original plan review assigned tests to all five Review Focus classes. It defined pending or unsupported outcomes for VRM0, unavailable WebGPU, absent model review, concert hardware and broader parity. The checkpoint status below records the actual implementation and evidence results.
 
-Implementation starts after the user reviews this plan. The selected method is concurrent agents at lower effort with separate worktrees; do not ask the user to choose that method again.
+The user approved execution on 2026-10-03. Implementation is in progress. The selected method is concurrent agents at lower effort with separate worktrees; do not ask the user to choose that method again.
+
+## Historical checkpoint status — through 1073130
+
+Tasks 6–10 have source, boundary, and release tool evidence in the macOS feasibility documents. Task 7 still has an incomplete clipboard check. Task 11 remains incomplete. Two correctly minimized WebGPU failures remain evidence; six later c5e107a runs passed the timing gates. See [current results](../../evaluation/macOS-feasibility/results.md). The native wakeup correction in the slice contract takes precedence over the earlier worker-timer example. The next concert slice must wait for clipboard UI acceptance and the scoped acceptance checkpoint. Technical smoke checks do not establish concert or minimum-hardware performance.
+
+Timing checkpoint at c5e107a: three qualifying runs each on WebGPU and WebGL2 passed on the measured smoke host. Both earlier failures remain evidence. Task 11 Step 3 is now checked: the separate c5e107a recording passed 40 sampled session markers with 18 advancing minimized samples. Correlated hide/recreate lifecycle v2 also passed. At 1073130, in-document refresh and the 600002 ms/five-reload soak passed. Step 4 is checked with the stable scoped final model packet; GPU reclamation remains unknown. Step 2 remains unchecked for clipboard UI acceptance. Step 5 records the technical evidence checkpoint and the remaining UI exception. Clipboard testing still needs explicit authorization. Exact results and action timestamps are indexed in the feasibility results.
+
+## Later UI acceptance checkpoint — ce6bccb
+
+The user explicitly authorized OBS URL copying. The actual control and private clipboard comparison passed at 68b9293 and ce6bccb. The [Warudo editor interaction report](../../evaluation/warudo-editor-interactions.md) records the completed first UI slice, final targeted minimized WebGPU check, retained unsuccessful attempts and remaining live cancellation limit. Earlier clipboard-pending statements describe the historical checkpoint. This later check does not establish concert or minimum-hardware performance.

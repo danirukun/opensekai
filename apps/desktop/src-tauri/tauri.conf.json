@@ -1,0 +1,55 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "OpenSekai",
+  "version": "0.1.0",
+  "identifier": "com.oshi-connect.opensekai",
+  "build": {
+    "beforeDevCommand": "pnpm --filter @opensekai/desktop dev",
+    "beforeBuildCommand": "pnpm --filter @opensekai/desktop build",
+    "devUrl": "http://127.0.0.1:1420",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "label": "main",
+        "title": "OpenSekai \u2014 Scene",
+        "width": 760,
+        "height": 640,
+        "minWidth": 480,
+        "backgroundThrottling": "disabled"
+      },
+      {
+        "label": "editor",
+        "title": "OpenSekai Editor",
+        "url": "index.html?view=editor",
+        "width": 900,
+        "height": 720,
+        "minWidth": 620,
+        "backgroundThrottling": "disabled"
+      }
+    ],
+    "security": {
+      "capabilities": [
+        "main",
+        "editor"
+      ],
+      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; img-src 'self' blob: data:; connect-src 'self' blob: ipc: http://ipc.localhost http://127.0.0.1:* ws://127.0.0.1:*"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "app"
+    ],
+    "resources": {
+      "resources/output/": "output/"
+    },
+    "icon": [],
+    "macOS": {
+      "minimumSystemVersion": "14.0",
+      "infoPlist": "Info.plist"
+    }
+  }
+}

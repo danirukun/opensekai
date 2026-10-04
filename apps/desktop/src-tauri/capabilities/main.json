@@ -1,0 +1,19 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main",
+  "description": "Local scene owner and fixed editor window control",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "allow-app-version",
+    "core:window:allow-minimize",
+    "core:window:allow-unminimize",
+    "allow-bootstrap-session",
+    "allow-shutdown-session",
+    "allow-show-editor",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "core:event:allow-emit-to"
+  ]
+}

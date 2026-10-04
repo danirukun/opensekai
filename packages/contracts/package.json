@@ -1,0 +1,13 @@
+{
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "name": "@opensekai/contracts",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "zod": "4.6.5"
+  }
+}

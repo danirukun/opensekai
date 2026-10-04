@@ -1,0 +1,18 @@
+{
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "name": "@opensekai/session",
+  "exports": {
+    ".": "./src/index.ts",
+    "./worker": "./src/worker.ts"
+  },
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@opensekai/contracts": "workspace:*",
+    "bitecs": "0.4.0",
+    "@opensekai/browser-client": "workspace:*"
+  }
+}

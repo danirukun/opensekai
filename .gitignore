@@ -19,3 +19,9 @@ fixtures/local/
 .env
 .env.*
 !.env.example
+
+.local/
+apps/desktop/src-tauri/resources/output/
+apps/desktop/src-tauri/gen/
+
+apps/desktop/public/tracking/

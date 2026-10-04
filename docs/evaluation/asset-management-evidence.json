@@ -1,0 +1,112 @@
+{
+  "appCommit": "dca1d16",
+  "date": "2026-10-04",
+  "platform": "macOS",
+  "renderer": "WKWebView preview WebGPU / OBS clean WebGPU 1920x1080",
+  "scope": "Current camera, avatar and tracking asset actions; two copies of one private VRM0",
+  "checks": {
+    "unitPassed": 391,
+    "integrationPassed": 9,
+    "nativePassed": 108,
+    "nativeIgnored": 1,
+    "workspaceErrors": 0,
+    "workspaceWarnings": 0,
+    "format": "passed",
+    "clippy": "passed",
+    "macRelease": "passed",
+    "independentReview": "clean"
+  },
+  "memory": {
+    "metric": "WebKit WebContent reported footprint MB, not whole-app or GPU total",
+    "beforeSharingTwoAvatarsMB": 6689,
+    "decodeSharingOnlyTwoAvatarsMB": 5954,
+    "inactiveKillLimitMB": 4096,
+    "finalOneAvatarSampleMB": 635,
+    "finalTwoAvatarStableSamplesMB": [
+      1031,
+      1031,
+      1031
+    ],
+    "laterSameProcessSamplesMB": [
+      1074,
+      1078,
+      1079,
+      1079
+    ],
+    "finalOwnerResetObserved": false,
+    "postRemovalFullMemoryReclamation": "unknown"
+  },
+  "texturePolicy": {
+    "previewMaxPixels": 1024,
+    "outputMaxPixels": 2048,
+    "concurrentDecodes": 2,
+    "sourceFilesChanged": false,
+    "userOverride": "later"
+  },
+  "ui": {
+    "enterRename": "trimmed name committed on earlier source954739d; same UI implementation",
+    "escapeRename": "revision unchanged",
+    "blurRename": "draft cancelled",
+    "blankRename": "INVALID_INPUT, revision16 unchanged",
+    "cameraProtection": "active camera Remove disabled",
+    "trackerCopy": "stopped, generation15, settings retained",
+    "avatarCopy": "unassigned sources and separate position",
+    "sourceRemoval": "both avatar references cleared at revision17",
+    "avatarRemoval": "original retained at revision14"
+  },
+  "captures": [
+    {
+      "label": "capped-two-avatars",
+      "sha256": "e8e804472aa2a3668db97b8488ad447ad717615e084ce0b69e8997b7a4a40313",
+      "bytes": 800966,
+      "revision": 13,
+      "frame": {
+        "sequence": 9421,
+        "tick": 9911,
+        "revision": 13,
+        "backend": "webgpu",
+        "cpuMs": 2,
+        "gpuMs": null,
+        "warnings": []
+      }
+    },
+    {
+      "label": "capped-original-after-remove",
+      "sha256": "af694e97e38c23bed6b8a4ffd15fa7f09d66f8feee3a082bc02870b94d19039a",
+      "bytes": 513120,
+      "revision": 14,
+      "frame": {
+        "sequence": 11943,
+        "tick": 12433,
+        "revision": 14,
+        "backend": "webgpu",
+        "cpuMs": 1.199999988079071,
+        "gpuMs": null,
+        "warnings": []
+      }
+    },
+    {
+      "label": "capped-restored-scene",
+      "sha256": "0affa40cc5e587c204c1f7474bc539d3d3733efededa70affe9b9a8ba19f8486",
+      "bytes": 512800,
+      "revision": 23,
+      "frame": {
+        "sequence": 22914,
+        "tick": 23449,
+        "revision": 23,
+        "backend": "webgpu",
+        "cpuMs": 1,
+        "gpuMs": null,
+        "warnings": []
+      }
+    }
+  ],
+  "restoration": {
+    "exactSceneMatchExceptGenerations": true,
+    "revision": 23,
+    "entities": 6,
+    "sourceFilesDeleted": false,
+    "ownedCopiesRemoved": true,
+    "obsCleanup": "owned source removed, previous OBS scene restored"
+  }
+}

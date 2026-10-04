@@ -1,0 +1,12 @@
+{
+  "outputId": "output_main",
+  "sessionId": "session_smoke",
+  "sequence": 0,
+  "tick": 0,
+  "revision": 0,
+  "cameraId": "camera_wide",
+  "backend": "webgpu",
+  "cpuMs": 0,
+  "gpuMs": null,
+  "warnings": []
+}

@@ -1,0 +1,30 @@
+{
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "name": "@opensekai/desktop",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 1420 --strictPort",
+    "build": "vite build",
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@lucide/svelte": "1.50.0",
+    "@mediapipe/tasks-vision": "1.0.1",
+    "@opensekai/browser-client": "workspace:*",
+    "@opensekai/contracts": "workspace:*",
+    "@opensekai/renderer": "workspace:*",
+    "@opensekai/session": "workspace:*",
+    "@oshi-connect/ui": "file:../../.local/ui",
+    "@tauri-apps/api": "2.12.1",
+    "svelte": "5.57.1"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "7.3.1",
+    "@tailwindcss/vite": "4.3.3",
+    "@tauri-apps/cli": "2.12.1",
+    "svelte-check": "4.7.6",
+    "tailwindcss": "4.3.3"
+  }
+}

@@ -1,0 +1,11 @@
+packages:
+  - apps/*
+  - packages/*
+  - tools/*
+allowBuilds:
+  esbuild: true
+minimumReleaseAgeExclude:
+  - '@lucide/svelte@1.50.0'
+  - '@modelcontextprotocol/client@2.3.0'
+  - '@modelcontextprotocol/core@2.3.0'
+  - '@modelcontextprotocol/server@2.3.0'

@@ -1,0 +1,13 @@
+[package]
+name = "opensekai-evaluation"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+png.workspace = true
+sha2.workspace = true
+uuid.workspace = true
+opensekai-contracts = { path = "../contracts" }

@@ -1,0 +1,176 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-10-03",
+  "scope": "Private local one-avatar acceptance, real UDP mocks and local webcam; not a concert or minimum-hardware benchmark. Images remain ignored. Physical phone control user verified, corroborated by native receiver status; no automated motion comparison.",
+  "appCommit": "6d44c4a23a42f8db31459c1b50b1c03e8be18cd7",
+  "captures": [
+    {
+      "name": "final-camera2-settled-obs.png",
+      "bytes": 202189,
+      "sha256": "1f43844667549b2d5ee377f93572b09aba16112d68d868ef7625415c5d09e343",
+      "revision": 8,
+      "cameraId": "68d43ef1-156a-4626-bcec-78feeed0d563",
+      "backend": "webgpu",
+      "sequence": 11164,
+      "tracking": [
+        {
+          "kind": "vmc",
+          "state": "stopped",
+          "packets": 0,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "ifacialmocap",
+          "state": "stopped",
+          "packets": 0,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "mediapipe",
+          "state": "stopped",
+          "packets": 0,
+          "invalidPackets": 0
+        }
+      ]
+    },
+    {
+      "name": "final-mediapipe-camera2-obs.png",
+      "bytes": 202123,
+      "sha256": "8b0dd4795ed09f1954da2c43a1ba3689cd3a10164494561a938f7d48d7782166",
+      "revision": 10,
+      "cameraId": "68d43ef1-156a-4626-bcec-78feeed0d563",
+      "backend": "webgpu",
+      "sequence": 31967,
+      "tracking": [
+        {
+          "kind": "vmc",
+          "state": "stopped",
+          "packets": 0,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "ifacialmocap",
+          "state": "stopped",
+          "packets": 0,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "mediapipe",
+          "state": "receiving",
+          "packets": 289,
+          "invalidPackets": 0,
+          "inferenceMs": 26
+        }
+      ]
+    },
+    {
+      "name": "final-mixed-pose-a-obs.png",
+      "bytes": 212319,
+      "sha256": "d04a980d78bd059a10ac644d37be3a10c9082187ccabb436a3f8a31e8f85574f",
+      "revision": 13,
+      "cameraId": "68d43ef1-156a-4626-bcec-78feeed0d563",
+      "backend": "webgpu",
+      "sequence": 41700,
+      "tracking": [
+        {
+          "kind": "vmc",
+          "state": "receiving",
+          "packets": 1145,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "ifacialmocap",
+          "state": "receiving",
+          "packets": 1145,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "mediapipe",
+          "state": "stopped",
+          "packets": 0,
+          "invalidPackets": 0
+        }
+      ]
+    },
+    {
+      "name": "final-mixed-pose-b-settled-obs.png",
+      "bytes": 207164,
+      "sha256": "d25e3852a3e2a948a70c25a2c89169c0ec2ff8b091469b6e003310786a789352",
+      "revision": 13,
+      "cameraId": "68d43ef1-156a-4626-bcec-78feeed0d563",
+      "backend": "webgpu",
+      "sequence": 47137,
+      "tracking": [
+        {
+          "kind": "vmc",
+          "state": "receiving",
+          "packets": 5626,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "ifacialmocap",
+          "state": "receiving",
+          "packets": 5626,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "mediapipe",
+          "state": "stopped",
+          "packets": 0,
+          "invalidPackets": 0
+        }
+      ]
+    },
+    {
+      "name": "final-mock-stopped-rest-obs.png",
+      "bytes": 202189,
+      "sha256": "1f43844667549b2d5ee377f93572b09aba16112d68d868ef7625415c5d09e343",
+      "revision": 13,
+      "cameraId": "68d43ef1-156a-4626-bcec-78feeed0d563",
+      "backend": "webgpu",
+      "sequence": 50071,
+      "tracking": [
+        {
+          "kind": "vmc",
+          "state": "stale",
+          "packets": 7039,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "ifacialmocap",
+          "state": "stale",
+          "packets": 7039,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "mediapipe",
+          "state": "stopped",
+          "packets": 0,
+          "invalidPackets": 0
+        }
+      ]
+    },
+    {
+      "name": "final-mcp-capture.png",
+      "bytes": 256985,
+      "sha256": "8db1c575e28b9d6e6183325c7cf4b00523703b28e17f2f7300a984f62acc2f95",
+      "revision": 10,
+      "appCommit": "6d44c4a23a42f8db31459c1b50b1c03e8be18cd7",
+      "registeredEvidenceId": "ba652f1e-9459-450f-a4f1-7cd87e9dcf85"
+    }
+  ],
+  "physicalPhone": {
+    "result": "user-verified",
+    "userReport": "live iphone check worked",
+    "sourceId": "c357344d-0361-4855-98dd-8bf0a0aeeb33",
+    "phoneAddressConfigured": true,
+    "generation": 14,
+    "stateAtSubsequentRead": "stale",
+    "packets": 21066,
+    "invalidPackets": 0,
+    "mockGeneration": 13,
+    "mockStopped": true,
+    "automatedMotionComparison": false,
+    "handshakePacketCapture": false
+  }
+}

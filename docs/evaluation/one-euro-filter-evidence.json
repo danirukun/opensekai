@@ -1,0 +1,399 @@
+{
+  "appCommit": "9686ac3",
+  "platform": "macOS",
+  "scope": "One private VRM0; clean OBS WebGPU 1920x1080/60; loopback VMC and iFacialMocap mocks; generated MediaPipe session inputs",
+  "defaultFilter": {
+    "minCutoff": 1,
+    "beta": 0.1,
+    "derivativeCutoff": 1,
+    "resetAfterMs": 500
+  },
+  "checks": {
+    "unitTests": 356,
+    "integrationTests": 9,
+    "workspaceErrors": 0,
+    "workspaceWarnings": 0,
+    "macReleaseBuild": "passed",
+    "physicalPhoneRetest": "not performed in this slice",
+    "liveMediaPipeRetest": "not performed in this slice"
+  },
+  "captures": [
+    {
+      "label": "jaw-open",
+      "sha256": "71fd99d1f5a7e4abb991dd2c4fedffa460f9be107ff69f2dcfe258b552afe67e",
+      "bytes": 590723,
+      "revision": 5,
+      "outputFrame": {
+        "sequence": 4641,
+        "tick": 5290,
+        "revision": 5,
+        "backend": "webgpu",
+        "cpuMs": 1.199999988079071,
+        "gpuMs": null,
+        "warnings": []
+      },
+      "tracking": [
+        {
+          "kind": "vmc",
+          "state": "receiving",
+          "packets": 431,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "ifacialmocap",
+          "state": "receiving",
+          "packets": 431,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "mediapipe",
+          "state": "stopped",
+          "packets": 0,
+          "invalidPackets": 0
+        }
+      ]
+    },
+    {
+      "label": "arkit-neutral",
+      "sha256": "6e3cd0fa6de7139126e9cf85fbf544eed88231775415460e5a6294e5fedecaf7",
+      "bytes": 543172,
+      "revision": 5,
+      "outputFrame": {
+        "sequence": 9346,
+        "tick": 10025,
+        "revision": 5,
+        "backend": "webgpu",
+        "cpuMs": 1.2999999821186066,
+        "gpuMs": null,
+        "warnings": []
+      },
+      "tracking": [
+        {
+          "kind": "vmc",
+          "state": "receiving",
+          "packets": 4057,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "ifacialmocap",
+          "state": "receiving",
+          "packets": 4057,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "mediapipe",
+          "state": "stopped",
+          "packets": 0,
+          "invalidPackets": 0
+        }
+      ]
+    },
+    {
+      "label": "arkit-jaw-open",
+      "sha256": "4b35b2cfdde91356d62ffae763502eda6ca38c56c2c99928815ec3251581d250",
+      "bytes": 543755,
+      "revision": 5,
+      "outputFrame": {
+        "sequence": 9526,
+        "tick": 10205,
+        "revision": 5,
+        "backend": "webgpu",
+        "cpuMs": 1.300000011920929,
+        "gpuMs": null,
+        "warnings": []
+      },
+      "tracking": [
+        {
+          "kind": "vmc",
+          "state": "receiving",
+          "packets": 4201,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "ifacialmocap",
+          "state": "receiving",
+          "packets": 4201,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "mediapipe",
+          "state": "stopped",
+          "packets": 0,
+          "invalidPackets": 0
+        }
+      ]
+    },
+    {
+      "label": "arkit-blink",
+      "sha256": "d9e97f4ed879c117d247bc4266337d9929a944418ecd818a7a30223e8ddf4736",
+      "bytes": 537230,
+      "revision": 5,
+      "outputFrame": {
+        "sequence": 9717,
+        "tick": 10396,
+        "revision": 5,
+        "backend": "webgpu",
+        "cpuMs": 1.5,
+        "gpuMs": null,
+        "warnings": []
+      },
+      "tracking": [
+        {
+          "kind": "vmc",
+          "state": "receiving",
+          "packets": 4354,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "ifacialmocap",
+          "state": "receiving",
+          "packets": 4354,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "mediapipe",
+          "state": "stopped",
+          "packets": 0,
+          "invalidPackets": 0
+        }
+      ]
+    },
+    {
+      "label": "arkit-pucker",
+      "sha256": "5490a374c507cb53013bc394890f86eb71fcbafd3cc5bf31ad6f02d9c71436b0",
+      "bytes": 543120,
+      "revision": 5,
+      "outputFrame": {
+        "sequence": 9896,
+        "tick": 10575,
+        "revision": 5,
+        "backend": "webgpu",
+        "cpuMs": 1.5,
+        "gpuMs": null,
+        "warnings": []
+      },
+      "tracking": [
+        {
+          "kind": "vmc",
+          "state": "receiving",
+          "packets": 4496,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "ifacialmocap",
+          "state": "receiving",
+          "packets": 4496,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "mediapipe",
+          "state": "stopped",
+          "packets": 0,
+          "invalidPackets": 0
+        }
+      ]
+    },
+    {
+      "label": "arkit-brows",
+      "sha256": "0fdc52b2302381cf3e57ef52ed70580a753b4a4925ce12c02b710ea6205ec53c",
+      "bytes": 543160,
+      "revision": 5,
+      "outputFrame": {
+        "sequence": 10066,
+        "tick": 10754,
+        "revision": 5,
+        "backend": "webgpu",
+        "cpuMs": 1.300000011920929,
+        "gpuMs": null,
+        "warnings": []
+      },
+      "tracking": [
+        {
+          "kind": "vmc",
+          "state": "receiving",
+          "packets": 4637,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "ifacialmocap",
+          "state": "receiving",
+          "packets": 4637,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "mediapipe",
+          "state": "stopped",
+          "packets": 0,
+          "invalidPackets": 0
+        }
+      ]
+    },
+    {
+      "label": "arkit-tongue",
+      "sha256": "774a4fabbc409fdb5e817d70799232d096563fac359b04faad6a657bb31cb0b5",
+      "bytes": 543884,
+      "revision": 5,
+      "outputFrame": {
+        "sequence": 10244,
+        "tick": 10932,
+        "revision": 5,
+        "backend": "webgpu",
+        "cpuMs": 1.5,
+        "gpuMs": null,
+        "warnings": []
+      },
+      "tracking": [
+        {
+          "kind": "vmc",
+          "state": "receiving",
+          "packets": 4779,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "ifacialmocap",
+          "state": "receiving",
+          "packets": 4779,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "mediapipe",
+          "state": "stopped",
+          "packets": 0,
+          "invalidPackets": 0
+        }
+      ]
+    },
+    {
+      "label": "filtered-motion",
+      "sha256": "7ed292f73a1e3d32178a04e2615edb8a7f980b21bc2bb22f9cbaf84ec7871db3",
+      "bytes": 592222,
+      "revision": 5,
+      "outputFrame": {
+        "sequence": 16359,
+        "tick": 17095,
+        "revision": 5,
+        "backend": "webgpu",
+        "cpuMs": 1.5999999940395355,
+        "gpuMs": null,
+        "warnings": []
+      },
+      "tracking": [
+        {
+          "kind": "vmc",
+          "state": "receiving",
+          "packets": 9692,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "ifacialmocap",
+          "state": "receiving",
+          "packets": 9692,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "mediapipe",
+          "state": "stopped",
+          "packets": 0,
+          "invalidPackets": 0
+        }
+      ]
+    },
+    {
+      "label": "settled-return-idle",
+      "sha256": "7df73b8becd33502fe86b815e1ca3ef5484d4cca61e9e9433e7be39656eeb214",
+      "bytes": 529018,
+      "revision": 5,
+      "outputFrame": {
+        "sequence": 24868,
+        "tick": 25666,
+        "revision": 5,
+        "backend": "webgpu",
+        "cpuMs": 1.4000000059604645,
+        "gpuMs": null,
+        "warnings": []
+      },
+      "tracking": [
+        {
+          "kind": "vmc",
+          "state": "stale",
+          "packets": 16112,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "ifacialmocap",
+          "state": "stale",
+          "packets": 16112,
+          "invalidPackets": 0
+        },
+        {
+          "kind": "mediapipe",
+          "state": "stopped",
+          "packets": 0,
+          "invalidPackets": 0
+        }
+      ]
+    }
+  ],
+  "continuity": {
+    "scope": "One private VRM, One Euro filtered VMC+iFacialMocap loopback mocks; minimized window action issued; sampled CPU only; no concert certification",
+    "sampleCount": 44,
+    "firstSequence": 20366,
+    "lastSequence": 21066,
+    "revision": 5,
+    "sampledRenderCpuP95Ms": 2.9000000059604645,
+    "sampledRenderCpuMaxMs": 3.0999999940395355,
+    "gpuMs": null,
+    "obsDelta": {
+      "renderSkippedFrames": 0,
+      "renderTotalFrames": 733,
+      "outputSkippedFrames": 0,
+      "outputTotalFrames": 0
+    },
+    "captures": [
+      {
+        "label": "filtered-continuity-0",
+        "elapsedMs": 0,
+        "sha256": "5518af2d44f30a43dd5f407b187a1312f285f2c5de50b4cae0e641df2142e1a7",
+        "bytes": 579683
+      },
+      {
+        "label": "filtered-continuity-2",
+        "elapsedMs": 2208,
+        "sha256": "452b3c20db92a9617b81a082b71cfae4ec2fcd2662d42a97888781352ca5ba24",
+        "bytes": 589824
+      },
+      {
+        "label": "filtered-continuity-4",
+        "elapsedMs": 4160,
+        "sha256": "15d9575f8a8c8087b183e37589643f7cd1ccd5cda97fc8835984379f7a569bf8",
+        "bytes": 593786
+      },
+      {
+        "label": "filtered-continuity-6",
+        "elapsedMs": 6109,
+        "sha256": "81ce0ce584f88598cff5fc62283722a6812644ed7d5b7e61e3378febd6d3815a",
+        "bytes": 578022
+      },
+      {
+        "label": "filtered-continuity-8",
+        "elapsedMs": 8055,
+        "sha256": "204fd1717beb8a85442ca383c60e118e58fe1747f12339dc1611d76de0d9d144",
+        "bytes": 593214
+      },
+      {
+        "label": "filtered-continuity-10",
+        "elapsedMs": 10246,
+        "sha256": "9dc34586e34ade9cb4da6165b9bdaaeff681ed46db24745f4ba58a824c223430",
+        "bytes": 594202
+      }
+    ]
+  },
+  "restoration": {
+    "exactSceneMatchExceptGenerations": true,
+    "entities": 6,
+    "revision": 9,
+    "idleEnabled": true,
+    "ownedObsSourceRemoved": true,
+    "ownedMockStopped": true
+  }
+}

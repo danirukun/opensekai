@@ -1,0 +1,236 @@
+{
+  "scope": "macOS authored one-avatar scene; no performance certification",
+  "captures": [
+    {
+      "label": "fixed-position-focused",
+      "source": "b8bfefb",
+      "revision": 5,
+      "bytes": 570642,
+      "sha256": "e72dca6e33e4eb44ad7f6c3631c02d6ddc58687716658a6652d2ad7594fb36b5",
+      "outputs": [
+        {
+          "id": "output_main",
+          "revision": 5,
+          "backend": "webgpu",
+          "cameraId": "68d43ef1-156a-4626-bcec-78feeed0d563"
+        },
+        {
+          "id": "preview_main",
+          "revision": 4,
+          "backend": "webgpu",
+          "cameraId": "68d43ef1-156a-4626-bcec-78feeed0d563"
+        }
+      ]
+    },
+    {
+      "label": "fixed-rotation-focused",
+      "source": "b8bfefb",
+      "revision": 6,
+      "bytes": 540089,
+      "sha256": "2c8e73172f786f77d26cc22c6ef44929477385d7fbcd019bf19238c0f8b6b812",
+      "outputs": [
+        {
+          "id": "output_main",
+          "revision": 6,
+          "backend": "webgpu",
+          "cameraId": "68d43ef1-156a-4626-bcec-78feeed0d563"
+        },
+        {
+          "id": "preview_main",
+          "revision": 5,
+          "backend": "webgpu",
+          "cameraId": "68d43ef1-156a-4626-bcec-78feeed0d563"
+        }
+      ]
+    },
+    {
+      "label": "fixed-scale-focused",
+      "source": "b8bfefb",
+      "revision": 7,
+      "bytes": 508739,
+      "sha256": "d0d68cc51269ab0a3402f979ca1469e8ab4febb87e26f6b76214cf70211bd313",
+      "outputs": [
+        {
+          "id": "output_main",
+          "revision": 7,
+          "backend": "webgpu",
+          "cameraId": "68d43ef1-156a-4626-bcec-78feeed0d563"
+        },
+        {
+          "id": "preview_main",
+          "revision": 6,
+          "backend": "webgpu",
+          "cameraId": "68d43ef1-156a-4626-bcec-78feeed0d563"
+        }
+      ]
+    },
+    {
+      "label": "fixed-position-scrubbed",
+      "source": "b8bfefb",
+      "revision": 9,
+      "bytes": 460543,
+      "sha256": "e2ffc33d15435a47108c085d5e28a198319a3e14f06427c453c10fe303262613",
+      "outputs": [
+        {
+          "id": "output_main",
+          "revision": 9,
+          "backend": "webgpu",
+          "cameraId": "68d43ef1-156a-4626-bcec-78feeed0d563"
+        },
+        {
+          "id": "preview_main",
+          "revision": 8,
+          "backend": "webgpu",
+          "cameraId": "68d43ef1-156a-4626-bcec-78feeed0d563"
+        }
+      ]
+    },
+    {
+      "label": "fixed-transform-reset",
+      "source": "b8bfefb",
+      "revision": 12,
+      "bytes": 543172,
+      "sha256": "6e3cd0fa6de7139126e9cf85fbf544eed88231775415460e5a6294e5fedecaf7",
+      "outputs": [
+        {
+          "id": "output_main",
+          "revision": 12,
+          "backend": "webgpu",
+          "cameraId": "68d43ef1-156a-4626-bcec-78feeed0d563"
+        },
+        {
+          "id": "preview_main",
+          "revision": 10,
+          "backend": "webgpu",
+          "cameraId": "68d43ef1-156a-4626-bcec-78feeed0d563"
+        }
+      ]
+    },
+    {
+      "label": "final-valid-baseline-settled",
+      "source": "7084f4a",
+      "revision": 7,
+      "bytes": 557312,
+      "sha256": "59c68f5a881ed03a34a24776d25b2e170ceac41b6d30c98e886255509b38ee38",
+      "outputs": [
+        {
+          "id": "output_main",
+          "revision": 7,
+          "backend": "webgpu",
+          "cameraId": "68d43ef1-156a-4626-bcec-78feeed0d563"
+        },
+        {
+          "id": "preview_main",
+          "revision": 7,
+          "backend": "webgpu",
+          "cameraId": "68d43ef1-156a-4626-bcec-78feeed0d563"
+        }
+      ]
+    },
+    {
+      "label": "final-avatar-hidden",
+      "source": "7084f4a",
+      "revision": 8,
+      "bytes": 8151,
+      "sha256": "97f453c78db42895e33e158fbd6d9f622dcbf3044a1c161ff614a2017980f270",
+      "outputs": [
+        {
+          "id": "output_main",
+          "revision": 8,
+          "backend": "webgpu",
+          "cameraId": "68d43ef1-156a-4626-bcec-78feeed0d563"
+        },
+        {
+          "id": "preview_main",
+          "revision": 7,
+          "backend": "webgpu",
+          "cameraId": "68d43ef1-156a-4626-bcec-78feeed0d563"
+        }
+      ]
+    },
+    {
+      "label": "final-avatar-shown",
+      "source": "7084f4a",
+      "revision": 9,
+      "bytes": 557312,
+      "sha256": "59c68f5a881ed03a34a24776d25b2e170ceac41b6d30c98e886255509b38ee38",
+      "outputs": [
+        {
+          "id": "output_main",
+          "revision": 9,
+          "backend": "webgpu",
+          "cameraId": "68d43ef1-156a-4626-bcec-78feeed0d563"
+        },
+        {
+          "id": "preview_main",
+          "revision": 8,
+          "backend": "webgpu",
+          "cameraId": "68d43ef1-156a-4626-bcec-78feeed0d563"
+        }
+      ]
+    },
+    {
+      "label": "final-sidebar-camera-main",
+      "source": "7084f4a",
+      "revision": 11,
+      "bytes": 8151,
+      "sha256": "97f453c78db42895e33e158fbd6d9f622dcbf3044a1c161ff614a2017980f270",
+      "outputs": [
+        {
+          "id": "output_main",
+          "revision": 11,
+          "backend": "webgpu",
+          "cameraId": "camera_main"
+        },
+        {
+          "id": "preview_main",
+          "revision": 9,
+          "backend": "webgpu",
+          "cameraId": "68d43ef1-156a-4626-bcec-78feeed0d563"
+        }
+      ]
+    },
+    {
+      "label": "final-sidebar-camera2",
+      "source": "7084f4a",
+      "revision": 13,
+      "bytes": 557312,
+      "sha256": "59c68f5a881ed03a34a24776d25b2e170ceac41b6d30c98e886255509b38ee38",
+      "outputs": [
+        {
+          "id": "output_main",
+          "revision": 13,
+          "backend": "webgpu",
+          "cameraId": "68d43ef1-156a-4626-bcec-78feeed0d563"
+        },
+        {
+          "id": "preview_main",
+          "revision": 11,
+          "backend": "webgpu",
+          "cameraId": "camera_main"
+        }
+      ]
+    },
+    {
+      "label": "final-restored-scene",
+      "source": "7084f4a",
+      "revision": 19,
+      "bytes": 543172,
+      "sha256": "6e3cd0fa6de7139126e9cf85fbf544eed88231775415460e5a6294e5fedecaf7",
+      "outputs": [
+        {
+          "id": "output_main",
+          "revision": 19,
+          "backend": "webgpu",
+          "cameraId": "68d43ef1-156a-4626-bcec-78feeed0d563"
+        },
+        {
+          "id": "preview_main",
+          "revision": 15,
+          "backend": "webgpu",
+          "cameraId": "68d43ef1-156a-4626-bcec-78feeed0d563"
+        }
+      ]
+    }
+  ]
+}
