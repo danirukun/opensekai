@@ -291,6 +291,10 @@ object!(CameraSelectParams {
     camera_id: Id,
     expected_revision: u64
 });
+object!(BlueprintRunParams {
+    graph: Value,
+    trigger_node_id: Id
+});
 object!(RunParams { run_id: Id });
 object!(EvidenceReadParams { evidence_id: Id });
 object!(RevisionResult { revision: u64 });
@@ -658,6 +662,29 @@ pub fn validate_call(method: &str, params: &Value) -> Result<(), AppError> {
         "sceneInspect" => decode::<SceneInspectParams>(params).map(|_| ()),
         "scenePatch" => decode::<ScenePatch>(params)?.validate(),
         "cameraSelect" => decode::<CameraSelectParams>(params).map(|_| ()),
+        "blueprintRun" => {
+            let input = decode::<BlueprintRunParams>(params)?;
+            require(
+                input.graph.get("schemaVersion").and_then(Value::as_u64) == Some(1),
+                "unsupported Blueprint version",
+            )?;
+            require(
+                input
+                    .graph
+                    .get("nodes")
+                    .and_then(Value::as_array)
+                    .is_some_and(|items| items.len() <= 128),
+                "invalid Blueprint nodes",
+            )?;
+            require(
+                input
+                    .graph
+                    .get("connections")
+                    .and_then(Value::as_array)
+                    .is_some_and(|items| items.len() <= 256),
+                "invalid Blueprint connections",
+            )
+        }
         "captureFrame" => decode::<CaptureParams>(params)?.validate(),
         "benchmarkStart" => decode::<BenchmarkParams>(params).map(|_| ()),
         "benchmarkStatus" | "benchmarkCancel" => decode::<RunParams>(params).map(|_| ()),
@@ -701,6 +728,7 @@ pub fn validate_result(method: &str, result: &Value) -> Result<(), AppError> {
             | "sceneInspect"
             | "scenePatch"
             | "cameraSelect"
+            | "blueprintRun"
             | "captureFrame"
             | "benchmarkStart"
             | "benchmarkStatus"
@@ -714,7 +742,9 @@ pub fn validate_result(method: &str, result: &Value) -> Result<(), AppError> {
     match method {
         "appStatus" => decode::<AppStatus>(data)?.validate(),
         "sceneInspect" => decode::<SceneView>(data)?.validate(),
-        "scenePatch" | "cameraSelect" => decode::<RevisionResult>(data).map(|_| ()),
+        "scenePatch" | "cameraSelect" | "blueprintRun" => {
+            decode::<RevisionResult>(data).map(|_| ())
+        }
         "captureFrame" => decode::<CaptureRecord>(data)?.validate(),
         "benchmarkStart" | "benchmarkStatus" | "benchmarkCancel" => {
             decode::<BenchmarkRun>(data)?.validate()

@@ -7,7 +7,7 @@ const transform=(x:number):Transform=>({position:[x,0,0],rotation:[0,0,0,1],scal
 async function fixture(){
  vi.useFakeTimers();const session=createSession(makeSmokeScene(),'live-test');
  const unsupported=async():Promise<Reply<never>>=>({ok:false,error:{code:'UNSUPPORTED',message:'Unsupported',ids:[]}});
- const api:AppApi={appStatus:unsupported,sceneInspect:async()=>({ok:true,data:session.inspect()}),scenePatch:vi.fn(async p=>session.applyPatch(p)),cameraSelect:unsupported,captureFrame:unsupported,benchmarkStart:unsupported,benchmarkStatus:unsupported,benchmarkCancel:unsupported,evidenceRead:unsupported};
+ const api:AppApi={appStatus:unsupported,sceneInspect:async()=>({ok:true,data:session.inspect()}),scenePatch:vi.fn(async p=>session.applyPatch(p)),cameraSelect:unsupported,blueprintRun:unsupported,captureFrame:unsupported,benchmarkStart:unsupported,benchmarkStatus:unsupported,benchmarkCancel:unsupported,evidenceRead:unsupported};
  const model=createEditorModel(api);await model.load();model.select('marker');const error=vi.fn(),pending=vi.fn();const live=createLiveTransform(model,error,pending);return{api,model,session,live,error,pending};
 }
 afterEach(()=>vi.useRealTimers());

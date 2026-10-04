@@ -150,8 +150,8 @@ Sources: [Warudo Pro](https://docs.warudo.app/docs/pro), [Character](https://doc
 
 Sources: [Blueprint overview](https://docs.warudo.app/docs/blueprints/overview) and the tutorial/preset categories in its navigation.
 
-- [ ] BP-01 — Typed node runtime and data/flow ports. Early core; full node set Later. [GitHub #81](https://github.com/danirukun/opensekai/issues/81)
-- [ ] BP-02 — Visual editing, connections, palette, and validation. Later. [GitHub #82](https://github.com/danirukun/opensekai/issues/82)
+- [ ] BP-01 — Typed node runtime and data/flow ports. Partial: versioned graph, six typed built-in nodes, validation, bounded manual execution, scene visibility effect, and public edit command route tested. Scheduler, persistent graphs, and full node set remain. [Checks](evaluation/blueprint-foundation.md), [Rete editor](evaluation/rete-blueprint-editor.md). [GitHub #81](https://github.com/danirukun/opensekai/issues/81)
+- [ ] BP-02 — Visual editing, connections, palette, and validation. Partial: Rete draft canvas, typed sockets, node palette, selection, property edits, node deletion, draft retention across panels, and pre-run validation tested in the editor browser. Saved graph workflow, live Tauri Run check, search, grouping, undo, and broader node UI remain. [Check](evaluation/rete-blueprint-editor.md). [GitHub #82](https://github.com/danirukun/opensekai/issues/82)
 - [ ] BP-03 — Create, duplicate, rename, group, and arrange graphs. Later. [GitHub #83](https://github.com/danirukun/opensekai/issues/83)
 - [ ] BP-04 — Versioned graph import/export. Later; Different API. [GitHub #84](https://github.com/danirukun/opensekai/issues/84)
 - [ ] BP-05 — Tracking, character, scene, camera, and animation operations. Later. [GitHub #85](https://github.com/danirukun/opensekai/issues/85)

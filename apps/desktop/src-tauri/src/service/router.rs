@@ -92,7 +92,7 @@ impl Shared {
         }
         if !matches!(
             call.method.as_str(),
-            "sceneInspect" | "scenePatch" | "cameraSelect"
+            "sceneInspect" | "scenePatch" | "cameraSelect" | "blueprintRun"
         ) {
             return Reply::failure(err(ErrorCode::Unsupported, "Not a scene command"));
         }
@@ -130,7 +130,7 @@ impl Shared {
             return Reply::failure(err(ErrorCode::Forbidden, "Role cannot call methods"));
         }
         let required = match call.method.as_str() {
-            "scenePatch" | "cameraSelect" => Capability::Edit,
+            "scenePatch" | "cameraSelect" | "blueprintRun" => Capability::Edit,
             "captureFrame" => Capability::Capture,
             "benchmarkStart" | "benchmarkCancel" => Capability::Benchmark,
             _ => Capability::Read,
@@ -180,7 +180,7 @@ impl Shared {
         }
         if matches!(
             call.method.as_str(),
-            "sceneInspect" | "scenePatch" | "cameraSelect"
+            "sceneInspect" | "scenePatch" | "cameraSelect" | "blueprintRun"
         ) {
             return self.route_scene_call(call, client_id).await;
         }

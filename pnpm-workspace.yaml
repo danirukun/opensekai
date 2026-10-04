@@ -4,6 +4,8 @@ packages:
   - tools/*
 allowBuilds:
   esbuild: true
+  rete: false
+  '@parcel/watcher': false
 minimumReleaseAgeExclude:
   - '@lucide/svelte@1.50.0'
   - '@modelcontextprotocol/client@2.3.0'

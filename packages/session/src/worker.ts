@@ -74,6 +74,7 @@ export function createWorkerHost(ports: WorkerPorts) {
                                 : { ok: false, error: { code: "NOT_FOUND", message: "Scene not found", ids: [call.params.sceneId] } };
                         case "scenePatch": return session.applyPatch(call.params);
                         case "cameraSelect": return session.selectCamera(call.params);
+                        case "blueprintRun": return session.runBlueprint(call.params.graph, call.params.triggerNodeId);
                         default: return { ok: false, error: { code: "UNSUPPORTED", message: "Method is not owned by the session", ids: [] } } satisfies Reply<never>;
                     }
                 });

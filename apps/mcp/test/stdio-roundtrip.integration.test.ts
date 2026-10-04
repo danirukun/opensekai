@@ -7,7 +7,8 @@ it('initializes and calls a real stdio process, then closes it',async()=>{
  const client=new Client({name:'opensekai-test',version:'0.1.0'});
  try {
   await client.connect(transport);
-  expect((await client.listTools()).tools.map(t=>t.name)).toEqual(['app_status','scene_inspect','scene_patch','camera_select','capture_frame','benchmark_start','benchmark_status','benchmark_cancel','evidence_read']);
+  expect((await client.listTools()).tools.map(t=>t.name)).toEqual(['app_status','scene_inspect','scene_patch','camera_select','blueprint_run','capture_frame','benchmark_start','benchmark_status','benchmark_cancel','evidence_read']);
+  expect((await client.callTool({name:'blueprint_run',arguments:{graph:{schemaVersion:1,id:'draft',name:'Draft',nodes:[{id:'start',version:1,type:'event.manual',settings:{},position:{x:0,y:0}}],connections:[]},triggerNodeId:'start'}})).isError).toBe(true);
   expect((await client.callTool({name:'app_status',arguments:{}})).isError).toBe(false);
   expect((await client.callTool({name:'scene_inspect',arguments:{sceneId:'scene_smoke'}})).isError).toBe(false);
   expect((await client.callTool({name:'scene_patch',arguments:{sceneId:'scene_smoke',expectedRevision:0,operations:[{kind:'setVisibility',entityId:'marker',visible:false}]}})).isError).toBe(false);
