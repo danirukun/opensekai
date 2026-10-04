@@ -4,7 +4,7 @@
 
 Add Rename, Duplicate and Remove to each asset context menu. Rename uses an inline input, Enter commits, Escape cancels, and blur cancels. Names are trimmed, nonempty and at most 128 UTF-16 code units. Invalid names leave the scene unchanged. Existing names are not migrated.
 
-Duplicate creates a new ID and a unique name using “Copy” then “Copy 2”, “Copy 3”. Copy persistent type settings and transforms without shared references. Tracking copies start disabled with generation zero before session creation assigns a new generation. Avatar copies have null body and face assignments. Copying a camera does not change output selection. Existing two-avatar, four-source and 64-entity limits apply.
+Duplicate creates a new ID and a unique name using “Copy” then “Copy 2”, “Copy 3”. Copy persistent type settings and transforms without shared references. Tracking copies start disabled with generation zero before session creation assigns a new generation. Avatar copies have null body and face assignments. Copying a camera does not change output selection. Multiple instances of the same VRM must share immutable decoded texture resources within each renderer while rig, expression and material state remain independent. Reference-count shared resources so removal cannot damage another instance. Existing two-avatar, four-source and 64-entity limits apply.
 
 Remove deletes one entity. Removing a tracking source clears all matching avatar body and face references atomically. Reject removal of any camera referenced by an output. UI disables that action with a title that says to choose another output camera. Prepared assets and files are retained. Reconciliation releases removed ECS IDs and packed transform storage. Selection clears after deletion; duplication selects the new entity. All operations use expectedRevision and common scenePatch. Read-only, pending and live transform states disable actions.
 
@@ -18,7 +18,7 @@ Extend TypeScript and Rust patch contracts. Keep copy preparation in a pure desk
 
 ## S — Structure
 
-contracts types/schema and Rust enum/validation; session applyPatch; desktop editor asset-management.ts and model.ts; Hierarchy.svelte and EditorApp.svelte; focused unit tests; native contract tests; actual packaged UI and OBS checks.
+contracts types/schema and Rust enum/validation; session applyPatch; desktop editor asset-management.ts and model.ts; Hierarchy.svelte and EditorApp.svelte; focused unit tests; native contract tests; renderer texture lifetime tests; actual packaged UI and OBS checks.
 
 ## O — Operations
 
@@ -26,7 +26,8 @@ contracts types/schema and Rust enum/validation; session applyPatch; desktop edi
 2. Add session rename/remove tests, then implementation. Verify atomic failure and tracking reference cleanup.
 3. Add copy helper and model tests, then implementation.
 4. Add sidebar menu actions and inline input. Handle selection bridge and local error display.
-5. Run checks, native tests, format, Clippy and macOS build. Check actual UI and OBS, restore original scene, update parity and checkpoint.
+5. Fix the measured duplicate-VRM memory limit through bounded shared resource lifetimes and verify surviving instances after removal.
+6. Run checks, native tests, format, Clippy and macOS build. Check actual UI and OBS, restore original scene, update parity and checkpoint.
 
 ## N — Norms
 
