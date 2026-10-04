@@ -6,7 +6,7 @@ Add Rename, Duplicate and Remove to each asset context menu. Rename uses an inli
 
 Duplicate creates a new ID and a unique name using “Copy” then “Copy 2”, “Copy 3”. Copy persistent type settings and transforms without shared references. Tracking copies start disabled with generation zero before session creation assigns a new generation. Avatar copies have null body and face assignments. Copying a camera does not change output selection. Existing two-avatar, four-source and 64-entity limits apply.
 
-Remove deletes one entity. Removing a tracking source clears all matching avatar body and face references atomically. Reject removal of any camera referenced by an output. UI disables that action with a title that says to choose another output camera. Prepared assets and files are retained. Selection clears after deletion; duplication selects the new entity. All operations use expectedRevision and common scenePatch. Read-only, pending and live transform states disable actions.
+Remove deletes one entity. Removing a tracking source clears all matching avatar body and face references atomically. Reject removal of any camera referenced by an output. UI disables that action with a title that says to choose another output camera. Prepared assets and files are retained. Reconciliation releases removed ECS IDs and packed transform storage. Selection clears after deletion; duplication selects the new entity. All operations use expectedRevision and common scenePatch. Read-only, pending and live transform states disable actions.
 
 ## E — Entities
 

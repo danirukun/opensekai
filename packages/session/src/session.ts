@@ -53,6 +53,12 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
                 const entity = next.entities.find(entity => entity.id === operation.entityId);
                 if (!entity)return failure("NOT_FOUND", "Entity not found", [operation.entityId]);
                 switch(operation.kind){
+                 case 'renameEntity':entity.name=operation.name;break;
+                 case 'removeEntity':
+                  if(next.outputs.some(output=>output.cameraId===entity.id))return failure('INVALID_INPUT','Choose another output camera before removal',[entity.id]);
+                  next.entities=next.entities.filter(item=>item.id!==entity.id);
+                  if(entity.kind==='tracking')for(const avatar of next.entities){if(avatar.kind!=='avatar'||!avatar.tracking)continue;if(avatar.tracking.bodySourceId===entity.id)avatar.tracking.bodySourceId=null;if(avatar.tracking.faceSourceId===entity.id)avatar.tracking.faceSourceId=null;}
+                  break;
                  case 'setVisibility':entity.visible=operation.visible;break;
                  case 'setTransform':if(entity.kind==='tracking')return failure('INVALID_INPUT','Tracking assets have no scene transform',[entity.id]);entity.transform=structuredClone(operation.transform);break;
                  case 'setCameraLens':if(entity.kind!=='camera')return failure('INVALID_INPUT','Entity is not a camera',[entity.id]);entity.lens=structuredClone(operation.lens);break;

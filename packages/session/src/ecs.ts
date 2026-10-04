@@ -1,4 +1,4 @@
-import { addComponent, addEntity, createWorld } from "bitecs";
+import { addComponent, addEntity, createWorld, removeEntity } from "bitecs";
 import type { Id, SceneView, Transform } from "@opensekai/contracts";
 import { evaluateSmokeTransform } from "./smoke-motion";
 export function createTransformAdapter(scene: SceneView) {
@@ -13,6 +13,8 @@ export function createTransformAdapter(scene: SceneView) {
     }
     return {
         evaluate(persistent: SceneView, elapsedMs: number): SceneView {
+            const liveIds=new Set(persistent.entities.map(entity=>entity.id));
+            for(const [id,eid] of ids){if(liveIds.has(id))continue;removeEntity(world,eid);ids.delete(id);delete packed.values[eid];}
             const evaluated = structuredClone(persistent);
             for (const entity of evaluated.entities) {
                 const eid = ids.get(entity.id);
