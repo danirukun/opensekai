@@ -129,7 +129,7 @@ export const SceneViewSchema = z.strictObject({
  if(new Set(s.entities.map(e=>e.id)).size!==s.entities.length||new Set(s.outputs.map(o=>o.id)).size!==s.outputs.length||!s.outputs.every(o=>s.entities.some(e=>e.id===o.cameraId&&e.kind==='camera')))return false;
  return s.entities.every(e=>e.kind!=='avatar'||!e.tracking||[e.tracking.bodySourceId,e.tracking.faceSourceId].every((id,index)=>id===null||sources.some(source=>source.id===id&&(index===1||source.config.kind!=='ifacialmocap'))));
 }, 'Duplicate ID, budget or invalid reference');
-export const EntityNameSchema = z.string().trim().min(1).max(128);
+export const EntityNameSchema = z.string().trim().min(1).refine(name=>name.length<=128, 'Name is too long');
 export const PatchOpSchema = z.discriminatedUnion("kind", [
     z.strictObject({kind:z.literal('renameEntity'),entityId:IdSchema,name:EntityNameSchema}),
     z.strictObject({kind:z.literal('removeEntity'),entityId:IdSchema}),
