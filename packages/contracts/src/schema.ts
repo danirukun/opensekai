@@ -1,4 +1,4 @@
-import {TrackingConfigSchema,AvatarIdleSchema,AvatarTrackingSchema,AvatarPoseSchema,TrackingStatusSchema,TrackingUpdateSchema} from './tracking';
+import {TrackingConfigSchema,TrackingSmoothingSchema,AvatarIdleSchema,AvatarTrackingSchema,AvatarPoseSchema,TrackingStatusSchema,TrackingUpdateSchema} from './tracking';
 import { z } from "zod";
 import type { AppApi, Capability, Reply, ValidatedCall } from "./types";
 export const LIMITS = {
@@ -104,7 +104,7 @@ export const SceneEntitySchema = z.discriminatedUnion("kind", [
         tracking: AvatarTrackingSchema.optional(),
         idleAnimation: AvatarIdleSchema.optional()
     }),
-    EntityBaseSchema.extend({kind:z.literal('tracking'),config:TrackingConfigSchema,generation:u}),
+    EntityBaseSchema.extend({kind:z.literal('tracking'),config:TrackingConfigSchema,generation:u,smoothing:TrackingSmoothingSchema.optional()}),
     EntityBaseSchema.extend({
         kind: z.literal("camera"),
         lens: LensSchema
@@ -130,6 +130,7 @@ export const SceneViewSchema = z.strictObject({
  return s.entities.every(e=>e.kind!=='avatar'||!e.tracking||[e.tracking.bodySourceId,e.tracking.faceSourceId].every((id,index)=>id===null||sources.some(source=>source.id===id&&(index===1||source.config.kind!=='ifacialmocap'))));
 }, 'Duplicate ID, budget or invalid reference');
 export const PatchOpSchema = z.discriminatedUnion("kind", [
+    z.strictObject({kind:z.literal('setTrackingSmoothing'),entityId:IdSchema,smoothing:TrackingSmoothingSchema}),
     z.strictObject({kind:z.literal('createEntity'),entity:SceneEntitySchema}),
     z.strictObject({kind:z.literal('setCameraLens'),entityId:IdSchema,lens:LensSchema}),
     z.strictObject({kind:z.literal('setAvatarIdle'),entityId:IdSchema,idleAnimation:AvatarIdleSchema}),

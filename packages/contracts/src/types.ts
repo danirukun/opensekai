@@ -1,4 +1,4 @@
-import type {AvatarIdle,AvatarTracking,TrackingConfig,AvatarPose,TrackingStatus,TrackingUpdate} from './tracking';
+import type {AvatarIdle,AvatarTracking,TrackingConfig,TrackingSmoothing,AvatarPose,TrackingStatus,TrackingUpdate} from './tracking';
 export type Id = string;
 export type Vec3 = [
     number,
@@ -53,6 +53,7 @@ export type SceneEntity = (EntityBase & {
 }) | (EntityBase & {
     kind: "tracking";
     config: TrackingConfig;
+    smoothing?: TrackingSmoothing;
     generation: number;
 }) | (EntityBase & {
     kind: "camera";
@@ -85,7 +86,7 @@ type ExistingPatchOp = {
     entityId: Id;
     visible: boolean;
 };
-export type LivePatchOp = {kind:'setAvatarIdle';entityId:Id;idleAnimation:AvatarIdle}|{kind:'createEntity';entity:SceneEntity}|{kind:'setCameraLens';entityId:Id;lens:Extract<SceneEntity,{kind:'camera'}>['lens']}|{kind:'setAvatarTracking';entityId:Id;tracking:AvatarTracking}|{kind:'setTrackingConfig';entityId:Id;config:TrackingConfig};
+export type LivePatchOp = {kind:'setTrackingSmoothing';entityId:Id;smoothing:TrackingSmoothing}| {kind:'setAvatarIdle';entityId:Id;idleAnimation:AvatarIdle}|{kind:'createEntity';entity:SceneEntity}|{kind:'setCameraLens';entityId:Id;lens:Extract<SceneEntity,{kind:'camera'}>['lens']}|{kind:'setAvatarTracking';entityId:Id;tracking:AvatarTracking}|{kind:'setTrackingConfig';entityId:Id;config:TrackingConfig};
 export type PatchOp = ExistingPatchOp | LivePatchOp;
 export interface ScenePatch {
     sceneId: Id;

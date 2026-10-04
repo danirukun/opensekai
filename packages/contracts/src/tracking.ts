@@ -2,6 +2,8 @@ import {z} from 'zod';
 import type {Id,Quat,Vec3} from './types';
 export const HUMANOID_BONES=['hips','spine','chest','upperChest','neck','head','leftEye','rightEye','jaw','leftUpperLeg','leftLowerLeg','leftFoot','leftToes','rightUpperLeg','rightLowerLeg','rightFoot','rightToes','leftShoulder','leftUpperArm','leftLowerArm','leftHand','rightShoulder','rightUpperArm','rightLowerArm','rightHand',...(['left','right'] as const).flatMap(side=>['ThumbMetacarpal','ThumbProximal','ThumbDistal','IndexProximal','IndexIntermediate','IndexDistal','MiddleProximal','MiddleIntermediate','MiddleDistal','RingProximal','RingIntermediate','RingDistal','LittleProximal','LittleIntermediate','LittleDistal'].map(finger=>side+finger))] as [string,...string[]];
 export type TrackingConfig={kind:'vmc';enabled:boolean;bindAddress:string;port:number;senderAddress:string|null}|{kind:'ifacialmocap';enabled:boolean;bindAddress:string;port:number;phoneAddress:string|null}|{kind:'mediapipe';enabled:boolean;deviceId:string;face:boolean;upperBody:boolean;hands:boolean;mirror:boolean};
+export interface TrackingSmoothing {enabled:boolean;minCutoff:number;beta:number;derivativeCutoff:number}
+export const DEFAULT_TRACKING_SMOOTHING:Readonly<TrackingSmoothing>=Object.freeze({enabled:true,minCutoff:5,beta:.5,derivativeCutoff:1});
 export interface AvatarIdle {kind:'builtin';enabled:boolean}
 export interface IdleBone {rotation:Quat;space:'normalized';position?:Vec3}
 export interface AvatarTracking {bodySourceId:Id|null;faceSourceId:Id|null}
@@ -13,6 +15,7 @@ export interface AvatarPose {avatarId:Id;baseBones?:Record<string,IdleBone>;bone
 const n=z.number().finite(),u=n.int().nonnegative().max(Number.MAX_SAFE_INTEGER),id=z.string().min(1).max(256);
 const ip=z.union([z.ipv4(),z.ipv6()]);
 const vec=z.tuple([n,n,n]),quat=z.tuple([n,n,n,n]).refine(q=>Math.abs(Math.hypot(...q)-1)<=.001);
+export const TrackingSmoothingSchema=z.strictObject({enabled:z.boolean(),minCutoff:n.min(.01).max(120),beta:n.min(0).max(100),derivativeCutoff:n.min(.01).max(120)});
 export const TrackingConfigSchema=z.discriminatedUnion('kind',[
  z.strictObject({kind:z.literal('vmc'),enabled:z.boolean(),bindAddress:ip,port:n.int().min(1).max(65535),senderAddress:ip.nullable()}),
  z.strictObject({kind:z.literal('ifacialmocap'),enabled:z.boolean(),bindAddress:ip,port:n.int().min(1).max(65535),phoneAddress:ip.nullable()}),
