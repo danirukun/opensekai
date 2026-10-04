@@ -277,3 +277,9 @@ Live editor controls verified on macOS source7084f4a: type groups, collapse/sear
 - [x] LIVE-11 — Lighter tracking defaults and per-source smoothing inspector. Actual VMC/iFacial tuning under loopback traffic preserves generation and packet counters; bypass, Reset and invalid draft checked. MediaPipe controls checked with camera stopped; sample behavior covered by session tests. [Check](evaluation/tracking-smoothing-controls.md).
 
 - [x] UI-09 — Asset Rename/Duplicate/Remove menu, inline name editing, safe stopped/unassigned copies, camera guard and source cleanup on macOS. Duplicate-VRM memory failure reproduced and corrected with bounded textures. [Check](evaluation/asset-management.md).
+
+- [x] UI-10 — Exact Scene preview camera frame, responsive fit, and editor-only output boundary.
+
+| Feature ID | Commit | Verified scope | Platform / backend | Evidence | Remaining gap |
+| --- | --- | --- | --- | --- | --- |
+| UI-10 (scoped verified), MAT-01 (partial) | camera-frame checkpoint | Exact preview frame, resize, pointer selection, clean VRM output; official VRM node material path confirmed | macOS / WKWebView and OBS WebGPU | [Camera frame check](evaluation/camera-frame.md) | Independent editor camera, overscan, broader material parity, Windows, and concert benchmark remain separate |

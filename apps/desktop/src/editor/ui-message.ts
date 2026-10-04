@@ -31,4 +31,4 @@ export function createDraftSender(send:(message:UIMessage)=>Promise<void>,fail:(
  async function flush(){if(closed||active||!latest)return;const message=latest;latest=null;active=true;try{await send(message);}catch{fail();}finally{active=false;schedule();}}
  return {offer(draft:Draft){if(closed)return;latest={kind:'draft',draft:structuredClone(draft)};schedule();},close(){closed=true;latest=null;if(timer)clearTimeout(timer);}};
 }
-export function fitPreview(width:number,height:number){const w=Math.max(0,Math.min(width,height*16/9));return {width:w,height:w*9/16};}
+export function fitPreview(width:number,height:number,inset=0){const w=Math.max(0,Math.min(width-inset*2,(height-inset*2)*16/9));return {width:w,height:w*9/16};}

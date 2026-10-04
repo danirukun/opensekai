@@ -28,3 +28,5 @@ it('passes only bounded device choices to the editor without camera frames or pr
  const message={kind:'trackingDevices',devices:[{deviceId:'local-camera',label:'Camera'}]};expect(parseUIMessage(message)).toEqual(message);
  for(const devices of [[{deviceId:'camera',label:'Camera',frame:[]}],[{deviceId:'a'.repeat(513),label:'Camera'}],Array.from({length:9},()=>({deviceId:'a',label:'a'}))])expect(parseUIMessage({kind:'trackingDevices',devices})).toBeNull();
 });
+
+it('fits the camera frame inside its margin and clamps collapsed stages',()=>{expect(fitPreview(800,300,24)).toEqual({width:448,height:252});expect(fitPreview(320,600,24)).toEqual({width:272,height:153});expect(fitPreview(20,20,24)).toEqual({width:0,height:0});expect(fitPreview(800,0,24)).toEqual({width:0,height:0});});

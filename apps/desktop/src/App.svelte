@@ -11,6 +11,7 @@
  import { createDraftSender, fitPreview, type Tool } from './editor/ui-message';
  import ContextMenu, {type MenuAction} from './components/ContextMenu.svelte';
  let canvas:HTMLCanvasElement,stage:HTMLDivElement;
+ let previewSize=$state({width:0,height:0});
  let session:Awaited<ReturnType<typeof bootstrapDesktop>>|undefined;
  let model=$state.raw<EditorModel>();
  let view=$state<EditorView>({scene:null,selectedId:null,error:null,pending:false});
@@ -31,7 +32,7 @@
   let devices:{deviceId:string;label:string}[]=[];
   const reconcileTracking=()=>{if(!session||session.tracking.now()===null)return;tracker?.reconcile(model?.read().scene?.entities.filter(entity=>entity.kind==='tracking')??[]);};
   const drafts=createDraftSender(message=>sendUI('editor',message),()=>{if(!disposed)error='Editor unavailable';});
-  const resize=new ResizeObserver(()=>{const size=fitPreview(stage.clientWidth,stage.clientHeight);canvas.style.width=`${size.width}px`;canvas.style.height=`${size.height}px`;});resize.observe(stage);
+  const resize=new ResizeObserver(()=>{previewSize=fitPreview(stage.clientWidth,stage.clientHeight,24);});resize.observe(stage);
   const timer=setInterval(()=>{void poll?.poll();},500);
   void listenUI(message=>{if(message.kind==='selection'){if(message.entityId)model?.select(message.entityId);else model?.clearSelection();}else if(message.kind==='tool'){tool=message.tool;sync();}else if(message.kind==='refresh')void model?.load();else if(message.kind==='ready'){notify({kind:'trackingDevices',devices});notify({kind:'selection',entityId:view.selectedId});notify({kind:'tool',tool});}}).then(stop=>{if(disposed)stop();else offUI=stop;}).catch(()=>{if(!disposed)error='Editor connection unavailable';});
   void bootstrapDesktop(canvas,{
@@ -52,7 +53,7 @@
   <Button variant="ghost" class={tool==='rotate'?'active-tool':''} title="Rotate (E)" disabled={!canEdit||!available} onclick={()=>setTool('rotate')}><RotateCw size={17}/><span class="sr-only">Rotate</span></Button>
   <Button variant="ghost" class={tool==='scale'?'active-tool':''} title="Scale (R)" disabled={!canEdit||!available} onclick={()=>setTool('scale')}><Scaling size={17}/><span class="sr-only">Scale</span></Button>
  </div><span class="selection-name">{selected?.name??''}</span><div class="spacer"></div><Button variant="secondary" onclick={showEditor}><PanelsTopLeft size={15}/>Editor</Button></header>
- <div bind:this={stage} class="viewport" oncontextmenu={context} role="presentation"><canvas bind:this={canvas} id="preview" tabindex="0" aria-label="Scene preview"></canvas></div>
+ <div bind:this={stage} class="viewport" oncontextmenu={context} role="presentation"><div class="preview-surface" style:width={`${previewSize.width}px`} style:height={`${previewSize.height}px`}><canvas bind:this={canvas} id="preview" tabindex="0" aria-label="Scene preview"></canvas><div class="camera-frame" aria-hidden="true"></div></div></div>
  <footer><span>{view.scene?'Session connected':'Starting…'}</span><span>{canEdit?'W Move · E Rotate · R Scale':'Read only'}</span></footer>
  {#if error||view.error}<p class="window-error" role="alert">{error??view.error}</p>{/if}
 </main>
