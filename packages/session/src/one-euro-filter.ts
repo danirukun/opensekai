@@ -13,22 +13,30 @@ function finite(value:number){if(!Number.isFinite(value))throw new RangeError('I
 const alpha=(cutoff:number,dt:number)=>1/(1+1/(2*Math.PI*cutoff*dt));
 const mix=(a:number,b:number,weight:number)=>(1-weight)*a+weight*b;
 
+interface ScalarState {timeMs:number;raw:number;filtered:number;derivative:number}
+function seconds(timeMs:number,lastTime:number):number {
+ const dt=(timeMs-lastTime)/1000;if(!Number.isFinite(dt)||dt<=0)throw new RangeError('Unusable filter interval');return dt;
+}
+function scalarStep(state:ScalarState|null,value:number,timeMs:number,o:OneEuroOptions):ScalarState {
+ finite(value);time(timeMs);
+ if(state&&timeMs<=state.timeMs)return state;
+ if(!state||timeMs-state.timeMs>o.resetAfterMs)return {timeMs,raw:value,filtered:value,derivative:0};
+ const dt=seconds(timeMs,state.timeMs),rawDerivative=(value-state.raw)/dt;
+ finite(rawDerivative);
+ const derivative=mix(state.derivative,rawDerivative,alpha(o.derivativeCutoff,dt)),cutoff=o.minCutoff+o.beta*Math.abs(derivative);
+ finite(derivative);finite(cutoff);
+ const filtered=mix(state.filtered,value,alpha(cutoff,dt));finite(filtered);
+ return {timeMs,raw:value,filtered,derivative};
+}
 export function createOneEuroFilter(overrides:Partial<OneEuroOptions>={}):SignalFilter<number>{
- const o=options(overrides);let lastTime:number|null=null,raw=0,filtered=0,derivative=0;
- return {
- filter(value,timeMs){finite(value);time(timeMs);
-  if(lastTime!==null&&timeMs<=lastTime)return filtered;
-  if(lastTime===null||timeMs-lastTime>o.resetAfterMs){lastTime=timeMs;raw=filtered=value;derivative=0;return value;}
-  const dt=(timeMs-lastTime)/1000;
-  derivative=mix(derivative,(value-raw)/dt,alpha(o.derivativeCutoff,dt));
-  filtered=mix(filtered,value,alpha(o.minCutoff+o.beta*Math.abs(derivative),dt));
-  raw=value;lastTime=timeMs;return filtered;
- },reset(){lastTime=null;raw=filtered=derivative=0;}
- };
+ const o=options(overrides);let state:ScalarState|null=null;
+ return {filter(value,timeMs){state=scalarStep(state,value,timeMs,o);return state.filtered;},reset(){state=null;}};
 }
 export function createOneEuroVec3Filter(overrides:Partial<OneEuroOptions>={}):SignalFilter<Vec3>{
- const axes=[createOneEuroFilter(overrides),createOneEuroFilter(overrides),createOneEuroFilter(overrides)];
- return {filter(value,timeMs){if(value.length!==3)throw new RangeError('Invalid vector');value.forEach(finite);time(timeMs);return axes.map((axis,i)=>axis.filter(value[i],timeMs)) as Vec3;},reset(){axes.forEach(axis=>axis.reset());}};
+ const o=options(overrides);let states:(ScalarState|null)[]=[null,null,null];
+ return {filter(value,timeMs){if(value.length!==3)throw new RangeError('Invalid vector');
+  const next=value.map((v,i)=>scalarStep(states[i],v,timeMs,o));states=next;return next.map(state=>state.filtered) as Vec3;
+ },reset(){states=[null,null,null];}};
 }
 function normalize(value:Quat):Quat {
  if(value.length!==4)throw new RangeError('Invalid quaternion');value.forEach(finite);const length=Math.hypot(...value);
@@ -47,8 +55,9 @@ export function createOneEuroQuaternionFilter(overrides:Partial<OneEuroOptions>=
  return {filter(value,timeMs){const q=normalize(value);time(timeMs);
   if(lastTime!==null&&timeMs<=lastTime)return [...filtered];
   if(lastTime===null||timeMs-lastTime>o.resetAfterMs){lastTime=timeMs;raw=filtered=q;speed=0;return [...filtered];}
-  const dt=(timeMs-lastTime)/1000,angularSpeed=2*Math.acos(Math.min(1,Math.abs(dot(raw,q))))/dt;
-  speed=mix(speed,angularSpeed,alpha(o.derivativeCutoff,dt));
-  filtered=slerp(filtered,q,alpha(o.minCutoff+o.beta*speed,dt));raw=q;lastTime=timeMs;return [...filtered];
+  const dt=seconds(timeMs,lastTime),angularSpeed=2*Math.acos(Math.min(1,Math.abs(dot(raw,q))))/dt;
+  finite(angularSpeed);const nextSpeed=mix(speed,angularSpeed,alpha(o.derivativeCutoff,dt)),cutoff=o.minCutoff+o.beta*nextSpeed;
+  finite(nextSpeed);finite(cutoff);const nextFiltered=slerp(filtered,q,alpha(cutoff,dt));
+  speed=nextSpeed;filtered=nextFiltered;raw=q;lastTime=timeMs;return [...filtered];
  },reset(){lastTime=null;raw=filtered=[0,0,0,1];speed=0;}};
 }
