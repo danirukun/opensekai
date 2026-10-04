@@ -24,7 +24,7 @@ During implementation, update this file in the same checkpoint as the feature. R
 
 Source: [Assets overview](https://docs.warudo.app/docs/assets/overview).
 
-- [ ] SCN-01 — Create, remove, duplicate, and rename scene entities. First.
+- [ ] SCN-01 — Create, remove, duplicate, and rename scene entities. Partial: current camera/avatar/tracker UI verified on macOS; additional asset types remain. [Check](evaluation/asset-management.md).
 - [ ] SCN-02 — Groups, hierarchy, references, and property inspection. First.
 - [ ] SCN-03 — Asset export/import and copy between shows. Later.
 - [ ] SCN-04 — Merge imported settings into a selected entity. Later.
@@ -222,6 +222,8 @@ The desktop shell, shared contracts, scene worker, renderer, editor, and MCP hav
 | OSE-07 (scoped verified) | c5e107a, 1073130 | Actual smoke images, recording samples, lifecycle and soak reviewed with capture hashes and reproducible crop defect | macOS / WebGPU and WebGL2 smoke evidence | [Final review scope](evaluation/macOS-feasibility/results.md) | Orchestration model label/effort recorded; provider ID not exposed; clipboard, GPU timing/reclamation, minimum hardware and concert remain separate |
 | UI-01 through UI-06; OSE-08 and SCN-02 (partial) | 36d8519, 68b9293, ce6bccb | Separate windows, property edits, gizmos, menus, resizing, clipboard and warnings | macOS release / WKWebView and OBS WebGPU | [Editor interaction check](evaluation/warudo-editor-interactions.md) | Full hierarchy/CRUD/property coverage and active pointer Escape live verification remain open; scene-only and compact harnesses identified separately |
 
+| SCN-01 (partial), UI-09 (scoped verified) | dca1d16 | Current camera/avatar/tracker create, rename, duplicate and remove; source cleanup, camera guard and bounded duplicate-VRM memory | macOS / WKWebView and clean OBS WebGPU | [Asset management check](evaluation/asset-management.md) | Additional asset types, texture-quality overrides, full memory reclamation, WebGL and Windows remain separate |
+
 The [shared contract check](evaluation/macOS-feasibility/contracts.md) records validation and client lifecycle evidence. It does not establish an OBS or MCP production feature.
 
 ## Audit maintenance
@@ -273,3 +275,5 @@ Live editor controls verified on macOS source7084f4a: type groups, collapse/sear
 - [x] LIVE-10 — Shared One Euro filtering for VMC, iFacialMocap and MediaPipe; reusable TS API. All 52 named ARKit morph channels supported where present. Selected actual VRM0 facial poses and filtered VMC/iFacial OBS motion checked; MediaPipe smoothing covered by deterministic session tests.
 
 - [x] LIVE-11 — Lighter tracking defaults and per-source smoothing inspector. Actual VMC/iFacial tuning under loopback traffic preserves generation and packet counters; bypass, Reset and invalid draft checked. MediaPipe controls checked with camera stopped; sample behavior covered by session tests. [Check](evaluation/tracking-smoothing-controls.md).
+
+- [x] UI-09 — Asset Rename/Duplicate/Remove menu, inline name editing, safe stopped/unassigned copies, camera guard and source cleanup on macOS. Duplicate-VRM memory failure reproduced and corrected with bounded textures. [Check](evaluation/asset-management.md).
