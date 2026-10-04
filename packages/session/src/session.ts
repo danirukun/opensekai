@@ -1,6 +1,7 @@
 import { IdSchema, ParamSchemas, ScenePatchSchema, SceneViewSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate } from "@opensekai/contracts";
 import { createTransformAdapter } from "./ecs";
 import {createTrackingComposer} from "./tracking";
+import { compileBlueprint, executeBlueprint } from './blueprint';
 export interface Session {
     inspect(): SceneView;
     applyPatch(patch: ScenePatch): Reply<{
@@ -15,6 +16,7 @@ export interface Session {
     }>;
     ingestTracking(update:TrackingUpdate):Reply<null>;
     advance(elapsedMs: number, trackingNowMs?:number): RuntimeFrame;
+    runBlueprint(graph: unknown, triggerNodeId: Id): Reply<{revision: number}>;
 }
 const failure = (code: ErrorCode, message: string, ids: Id[] = []): Reply<never> => ({ ok: false, error: { code, message, ids } });
 export function createSession(scene: SceneView, sessionId: Id): Session {
@@ -33,8 +35,16 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
         persistent = next;
         return { ok: true, data: { revision: persistent.revision } };
     }
-    return {
+    const api: Session = {
         inspect: () => structuredClone(persistent),
+        runBlueprint(graph, triggerNodeId) {
+            const compiled = compileBlueprint(graph);
+            if (!compiled.ok) return compiled;
+            const run = executeBlueprint(compiled.data, triggerNodeId);
+            if (!run.ok) return run;
+            if (run.data.length === 0) return { ok: true, data: { revision: persistent.revision } };
+            return api.applyPatch({ sceneId: persistent.sceneId, expectedRevision: persistent.revision, operations: run.data });
+        },
         applyPatch(patch) {
             const parsed = ScenePatchSchema.safeParse(patch);
             if (!parsed.success)
@@ -103,4 +113,5 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
             return { schemaVersion: 1, sessionId, sequence, tick, elapsedMs, scene, ...(live.avatarPoses.length?{avatarPoses:live.avatarPoses}:{}),...(live.trackingStatus.length?{trackingStatus:live.trackingStatus}:{}) };
         },
     };
+    return api;
 }

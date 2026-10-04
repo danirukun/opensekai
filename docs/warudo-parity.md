@@ -150,7 +150,7 @@ Sources: [Warudo Pro](https://docs.warudo.app/docs/pro), [Character](https://doc
 
 Sources: [Blueprint overview](https://docs.warudo.app/docs/blueprints/overview) and the tutorial/preset categories in its navigation.
 
-- [ ] BP-01 — Typed node runtime and data/flow ports. Early core; full node set Later. [GitHub #81](https://github.com/danirukun/opensekai/issues/81)
+- [ ] BP-01 — Typed node runtime and data/flow ports. Partial: versioned graph, six typed built-in nodes, validation, bounded manual execution, and scene visibility effect tested in the session. Scheduler, persistent graphs, public command route, and full node set remain. [Check](evaluation/blueprint-foundation.md). [GitHub #81](https://github.com/danirukun/opensekai/issues/81)
 - [ ] BP-02 — Visual editing, connections, palette, and validation. Later. [GitHub #82](https://github.com/danirukun/opensekai/issues/82)
 - [ ] BP-03 — Create, duplicate, rename, group, and arrange graphs. Later. [GitHub #83](https://github.com/danirukun/opensekai/issues/83)
 - [ ] BP-04 — Versioned graph import/export. Later; Different API. [GitHub #84](https://github.com/danirukun/opensekai/issues/84)

@@ -4,3 +4,4 @@ export * from "./fixtures";
 export * from "./marker";
 
 export * from './tracking';
+export * from './blueprint';
