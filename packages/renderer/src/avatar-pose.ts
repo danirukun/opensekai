@@ -1,12 +1,14 @@
 import {Object3D,Quaternion,Vector3} from 'three/webgpu';
 import type {VRM, VRMHumanBoneName, VRMPose} from '@pixiv/three-vrm';
 import type {AvatarPose} from '@opensekai/contracts';
+import {canonicalArkitName,createArkitMorphBinding} from './arkit-expressions';
 
 const aliases: Record<string,string> = {Joy:'happy',Angry:'angry',Sorrow:'sad',Fun:'relaxed',A:'aa',I:'ih',U:'ou',E:'ee',O:'oh',Blink:'blink',Blink_L:'blinkLeft',Blink_R:'blinkRight',eyeBlink_L:'blinkLeft',eyeBlink_R:'blinkRight',eyeBlinkLeft:'blinkLeft',eyeBlinkRight:'blinkRight',jawOpen:'aa',mouthSmile_L:'happy',mouthSmile_R:'happy',mouthSmileLeft:'happy',mouthSmileRight:'happy'};
 export function expressionWeights(expressions: Record<string,number>, names: ReadonlySet<string>) {
     const result: Record<string,number> = Object.create(null);
     for (const [name, weight] of Object.entries(expressions)) {
-        const target = names.has(name) ? name : (Object.hasOwn(aliases,name) ? aliases[name] : name);
+        const canonical=canonicalArkitName(name);
+        const target = names.has(name) ? name : canonical && names.has(canonical) ? canonical : (Object.hasOwn(aliases,name) ? aliases[name] : canonical && Object.hasOwn(aliases,canonical) ? aliases[canonical] : name);
         if (names.has(target)) result[target] = Math.max(result[target] ?? 0, weight);
     }
     return result;
@@ -33,6 +35,7 @@ export function createAvatarBinding(vrm: VRM) {
         }
     };
     const names = new Set(vrm.expressionManager?.expressions.map(expression=>expression.expressionName) ?? []);
+    const morphs=createArkitMorphBinding(vrm.scene);
     return {root, apply(pose?: AvatarPose) {
         // Reset raw state before normalized deltas so lost channels return to rest.
         for (const [node, transform] of rest) {node.position.fromArray(transform.position);node.quaternion.fromArray(transform.rotation);}
@@ -74,9 +77,17 @@ export function createAvatarBinding(vrm: VRM) {
         }
         motion.position.fromArray(pose?.root?.position ?? [0,0,0]);
         motion.quaternion.fromArray(pose?.root?.rotation ?? [0,0,0,1]);
-        const weights=expressionWeights(pose?.expressions ?? {},names);
+        const direct:Record<string,number>=Object.create(null),remaining:Record<string,number>=Object.create(null);
+        for(const [name,weight] of Object.entries(pose?.expressions ?? {})) {
+            const canonical=canonicalArkitName(name);
+            if(!names.has(name) && !(canonical && names.has(canonical)) && canonical && morphs.has(canonical))direct[canonical]=Math.max(direct[canonical] ?? 0,weight);
+            else remaining[name]=weight;
+        }
+        morphs.clear();
+        const weights=expressionWeights(remaining,names);
         for (const name of names) vrm.expressionManager?.setValue(name,weights[name] ?? 0);
         vrm.expressionManager?.update();
+        morphs.apply(direct);
         root.updateMatrixWorld(true);
     }};
 }

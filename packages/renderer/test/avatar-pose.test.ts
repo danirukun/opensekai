@@ -1,6 +1,7 @@
 import {expect,it,vi} from 'vitest';
-import {Object3D,Group,Quaternion,Vector3} from 'three';
-import {VRM,VRMHumanoid,VRMExpression,VRMExpressionManager,VRMUtils,type VRMHumanBones} from '@pixiv/three-vrm';
+import {Object3D,Group,Quaternion,Vector3,Mesh} from 'three';
+import {VRM,VRMHumanoid,VRMExpression,VRMExpressionManager,VRMExpressionMorphTargetBind,VRMUtils,type VRMHumanBones} from '@pixiv/three-vrm';
+import {arkitNames,canonicalArkitName} from '../src/arkit-expressions';
 import {createAvatarBinding,expressionWeights} from '../src/avatar-pose';
 function fixture(restRotation = new Quaternion(), restPosition = new Vector3(0,1,0), withChest=false) {
  const scene=new Group(),hips=new Object3D(),head=new Object3D();scene.add(hips);hips.add(head);head.position.copy(restPosition);head.quaternion.copy(restRotation);
@@ -178,4 +179,35 @@ it('adapts canonical baseline X/Z quaternion and position components only for VR
   const sign=version==='0'?-1:1;
   expect(set).toHaveBeenLastCalledWith({hips:{rotation:[q.x*sign,q.y,q.z*sign,q.w],position:[sign,2,3*sign]}});
  }
+});
+
+function morphMesh(names:string[]) {
+ const mesh=new Mesh();mesh.morphTargetDictionary=Object.fromEntries(names.map((name,index)=>[name,index]));mesh.morphTargetInfluences=names.map(()=>0);return mesh;
+}
+it('drives all 52 named ARKit morphs on every mesh and resets sparse channels only',()=>{
+ expect(arkitNames).toHaveLength(52);
+ const {vrm}=fixture(),a=morphMesh([...arkitNames,'unrelated']),b=morphMesh([...arkitNames]);
+ vrm.scene.add(a,b);a.morphTargetInfluences![52]=.3;const binding=createAvatarBinding(vrm);
+ binding.apply({avatarId:'a',bones:{},expressions:Object.fromEntries(arkitNames.map(name=>[name,.6]))});
+ expect(a.morphTargetInfluences!.slice(0,52)).toEqual(arkitNames.map(()=>.6));expect(b.morphTargetInfluences).toEqual(arkitNames.map(()=>.6));
+ expect(vrm.expressionManager!.getValue('aa')).toBe(0);expect(vrm.expressionManager!.getValue('happy')).toBe(0);
+ binding.apply({avatarId:'a',bones:{},expressions:{jawOpen:.2}});
+ expect(a.morphTargetInfluences![arkitNames.indexOf('jawOpen')]).toBe(.2);expect(a.morphTargetInfluences![0]).toBe(0);
+ binding.apply();expect(a.morphTargetInfluences!.slice(0,52)).toEqual(arkitNames.map(()=>0));expect(a.morphTargetInfluences![52]).toBe(.3);
+});
+it('canonicalizes side aliases and prefers registered canonical or exact custom expressions',()=>{
+ const {vrm}=fixture(),mesh=morphMesh(['eyeBlink_L','jawOpen']);vrm.scene.add(mesh);
+ for(const name of ['jawOpen','eyeBlinkLeft'])vrm.expressionManager!.registerExpression(new VRMExpression(name));
+ const binding=createAvatarBinding(vrm);binding.apply({avatarId:'a',bones:{},expressions:{eyeBlink_L:.7,jawOpen:.4}});
+ expect(vrm.expressionManager!.getValue('eyeBlinkLeft')).toBe(.7);expect(vrm.expressionManager!.getValue('jawOpen')).toBe(.4);expect(vrm.expressionManager!.getValue('aa')).toBe(0);expect(mesh.morphTargetInfluences).toEqual([0,0]);
+ for(const name of arkitNames)expect(canonicalArkitName(name.replace(/Left$/,'_L').replace(/Right$/,'_R'))).toBe(name);
+ expect(canonicalArkitName('notArkit')).toBeUndefined();
+});
+it('applies direct morphs after real VRM binds and preserves their writes after direct input disappears',()=>{
+ const {vrm}=fixture(),mesh=morphMesh(['jawOpen','unrelated']);vrm.scene.add(mesh);
+ vrm.expressionManager!.getExpression('aa')!.addBind(new VRMExpressionMorphTargetBind({primitives:[mesh],index:0,weight:1}));
+ const binding=createAvatarBinding(vrm);
+ binding.apply({avatarId:'a',bones:{},expressions:{jawOpen:.8}});expect(mesh.morphTargetInfluences![0]).toBe(.8);expect(vrm.expressionManager!.getValue('aa')).toBe(0);
+ binding.apply({avatarId:'a',bones:{},expressions:{A:.4}});expect(mesh.morphTargetInfluences![0]).toBe(.4);
+ binding.apply();expect(mesh.morphTargetInfluences![0]).toBe(0);
 });
