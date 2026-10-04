@@ -4,6 +4,7 @@ import { MToonNodeMaterial } from "@pixiv/three-vrm/nodes";
 import type { ResourceHost, AppError } from "@opensekai/contracts";
 import type { Object3D, Mesh, SkinnedMesh, Material, Texture } from "three/webgpu";
 import { failure } from "./apply-frame";
+import { createTexturePool } from "./texture-sharing";
 export function createAssetCache<T extends {
     dispose(): void;
 }>(load: (id: string) => Promise<T>) {
@@ -41,7 +42,7 @@ export function createAssetCache<T extends {
             release(id); }
     };
 }
-export function disposeObject(root: Object3D) {
+export function disposeObject(root: Object3D, shared?: { textures: ReadonlySet<Texture>; ownsImage(image: unknown): boolean }) {
     const resources = new Set<{
         dispose(): void;
     }>();
@@ -55,8 +56,8 @@ export function disposeObject(root: Object3D) {
         for (const value of Object.values(material as Material)) {
             const texture = value as Texture | undefined;
             if (texture?.isTexture) {
-                resources.add(texture);
-                if (typeof ImageBitmap !== "undefined" && texture.image instanceof ImageBitmap)
+                if (!shared?.textures.has(texture)) resources.add(texture);
+                if (!shared?.ownsImage(texture.image) && typeof ImageBitmap !== "undefined" && texture.image instanceof ImageBitmap)
                     images.add(texture.image);
             }
         }
@@ -88,21 +89,34 @@ export function inspectContainer(bytes: ArrayBuffer): string[] {
     return json.extensionsUsed ?? [];
 }
 export function createAssetLoader(resources: ResourceHost) {
-    const loader = new GLTFLoader();
-    loader.register(parser => new VRMLoaderPlugin(parser, { mtoonMaterialPlugin: new MToonMaterialLoaderPlugin(parser, { materialType: MToonNodeMaterial }) }));
+    const textures = createTexturePool();
     return async (id: string) => {
-        const bytes = await resources.readAsset(id);
-        const extensions = inspectContainer(bytes);
-        const gltf = await loader.parseAsync(bytes, "");
-        const vrm = gltf.userData.vrm as VRM | undefined;
-        if (vrm) VRMUtils.rotateVRM0(vrm);
-        const warnings: AppError[] = [];
-        for (const extension of extensions) {
-            if (extension === "VRMC_node_constraint" || extension === "VRMC_springBone")
-                warnings.push({ code: "UNSUPPORTED", message: extension + " simulation is disabled in renderer", ids: [id] });
+        const lease = textures.acquire(id);
+        const loader = new GLTFLoader();
+        loader.register(parser => {
+            // Share decoding before GLTFLoader allocates another bitmap; keep each parser and texture wrapper independent.
+            const decode = parser.loadImageSource.bind(parser);
+            parser.loadImageSource = (index, imageLoader) => lease.load(index, () => decode(index, imageLoader));
+            return { name: "OPENSEKAI_shared_images" };
+        });
+        loader.register(parser => new VRMLoaderPlugin(parser, { mtoonMaterialPlugin: new MToonMaterialLoaderPlugin(parser, { materialType: MToonNodeMaterial }) }));
+        try {
+            const bytes = await resources.readAsset(id);
+            const extensions = inspectContainer(bytes);
+            const gltf = await loader.parseAsync(bytes, "");
+            const vrm = gltf.userData.vrm as VRM | undefined;
+            if (vrm) VRMUtils.rotateVRM0(vrm);
+            const warnings: AppError[] = [];
+            for (const extension of extensions) {
+                if (extension === "VRMC_node_constraint" || extension === "VRMC_springBone")
+                    warnings.push({ code: "UNSUPPORTED", message: extension + " simulation is disabled in renderer", ids: [id] });
+            }
+            let disposed = false;
+            return { scene: gltf.scene, vrm, warnings, dispose() { if (disposed)
+                    return; disposed = true; disposeObject(gltf.scene, lease); lease.release(); } };
+        } catch (error) {
+            lease.release();
+            throw error;
         }
-        let disposed = false;
-        return { scene: gltf.scene, vrm, warnings, dispose() { if (disposed)
-                return; disposed = true; disposeObject(gltf.scene); } };
     };
 }
