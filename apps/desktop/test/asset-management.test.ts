@@ -17,3 +17,10 @@ it('stops copied trackers and clears copied performer assignments without changi
  expect(makeEntityCopy(avatar,'copy',[avatar])).toMatchObject({tracking:{bodySourceId:null,faceSourceId:null}});
  expect(avatar).toMatchObject({tracking:{bodySourceId:'source',faceSourceId:'source'}});
 });
+
+it('bounds long copy names without splitting Unicode pairs',()=>{
+ const original=makeSmokeScene().entities.find(e=>e.id==='camera_wide')!;original.name='X'+'😀'.repeat(64);
+ const copy=makeEntityCopy(original,'new',[original]);
+ expect(copy.name.length).toBeLessThanOrEqual(128);
+ expect(new TextDecoder().decode(new TextEncoder().encode(copy.name))).toBe(copy.name);
+});
