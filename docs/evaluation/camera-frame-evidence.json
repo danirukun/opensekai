@@ -43,5 +43,6 @@
     "No new full material parity claim",
     "Tall fitting checked by unit test; normal and zoomed layouts checked visually",
     "GPU timing and concert performance remain unknown"
-  ]
+  ],
+  "sourceCommit": "47b7fd0"
 }

@@ -282,4 +282,4 @@ Live editor controls verified on macOS source7084f4a: type groups, collapse/sear
 
 | Feature ID | Commit | Verified scope | Platform / backend | Evidence | Remaining gap |
 | --- | --- | --- | --- | --- | --- |
-| UI-10 (scoped verified), MAT-01 (partial) | camera-frame checkpoint | Exact preview frame, resize, pointer selection, clean VRM output; official VRM node material path confirmed | macOS / WKWebView and OBS WebGPU | [Camera frame check](evaluation/camera-frame.md) | Independent editor camera, overscan, broader material parity, Windows, and concert benchmark remain separate |
+| UI-10 (scoped verified), MAT-01 (partial) | 47b7fd0 | Exact preview frame, resize, pointer selection, clean VRM output; official VRM node material path confirmed | macOS / WKWebView and OBS WebGPU | [Camera frame check](evaluation/camera-frame.md) | Independent editor camera, overscan, broader material parity, Windows, and concert benchmark remain separate |
