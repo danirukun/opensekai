@@ -37,7 +37,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     const light = new DirectionalLight(0xffffff, 3);
     light.position.set(2, 4, 3);
     scene.add(light);
-    const loadAsset = createAssetLoader(options.resources);
+    const loadAsset = createAssetLoader(options.resources, {maxTextureSize: options.resolutionScale === 0.5 ? 1024 : 2048});
     const assets = createAssetCache(loadAsset);
     const marker = options.diagnostics ? createDiagnosticMarker() : null;
     const policy = createCapturePolicy();
