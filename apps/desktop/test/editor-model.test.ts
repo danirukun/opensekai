@@ -169,3 +169,20 @@ it('validates smoothing kind and revision and sends only its dedicated patch',as
  expect(api.scenePatch).toHaveBeenCalledExactlyOnceWith({sceneId:'scene_smoke',expectedRevision:1,operations:[{kind:'setTrackingSmoothing',entityId:'smooth-source',smoothing}]});
  expect(api.cameraSelect).not.toHaveBeenCalled();
 });
+
+it('renames, duplicates and removes with revision checks and selection updates',async()=>{
+ const {model,api}=fixture();await model.load();model.select('marker');
+ expect((await model.renameEntity('marker',' Stage ',0)).ok).toBe(true);expect(model.read().scene?.entities.find(e=>e.id==='marker')?.name).toBe('Stage');
+ expect((await model.duplicateEntity('marker','copy',1)).ok).toBe(true);expect(model.read().selectedId).toBe('copy');
+ expect(model.read().scene?.entities.find(e=>e.id==='copy')?.name).toBe('Stage Copy');
+ expect((await model.removeEntity('copy',2)).ok).toBe(true);expect(model.read().selectedId).toBeNull();
+ const count=vi.mocked(api.scenePatch).mock.calls.length;
+ expect((await model.renameEntity('marker',' ',3)).ok).toBe(false);
+ expect((await model.duplicateEntity('missing','copy',3)).ok).toBe(false);
+ expect((await model.removeEntity('marker',1)).ok).toBe(false);expect(api.scenePatch).toHaveBeenCalledTimes(count);
+});
+it('does not change selection or scene when copying exceeds performer budget or removing an output camera',async()=>{
+ const {model}=fixture();await model.load();expect((await model.duplicateEntity('performer','second',0)).ok).toBe(true);
+ const before=model.read();expect((await model.duplicateEntity('performer','third',1)).ok).toBe(false);expect(model.read().scene).toEqual(before.scene);expect(model.read().selectedId).toBe('second');
+ expect((await model.removeEntity('camera_wide',1)).ok).toBe(false);expect(model.read().scene).toEqual(before.scene);
+});

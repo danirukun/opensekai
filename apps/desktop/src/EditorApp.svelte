@@ -31,7 +31,7 @@
  let draft=$state<Draft>(null),tool=$state<Tool>('translate');
  const warnings=$derived(collectWarnings(status));
  function notify(message:Parameters<typeof sendUI>[1]){void sendUI('main',message).catch(()=>{error='Scene unavailable';});}
- function select(id:string){liveTransform?.cancel();transformError=null;draft=null;notify({kind:'selection',entityId:id});}
+ function select(id:string|null){liveTransform?.cancel();transformError=null;draft=null;notify({kind:'selection',entityId:id});}
  async function add(kind:AddKind,revision:number){if(!model||!view.scene)return;const entity=makeAuthoringEntity(kind,crypto.randomUUID(),model.read().scene!.entities);const reply=await model.createEntity(entity,revision);if(reply.ok)select(entity.id);}
  async function importAvatar(){
   if(importing||!model||!view.scene)return;importing=true;importError=null;
@@ -78,6 +78,6 @@
    {:else if panel==='output'}<section class="output-panel"><h2>Output</h2>{#if model}<OutputControls {model} {view} {status} {outputUrl} disabled={!canEdit||!available||livePending}/>{/if}</section>
    {:else}<AssetList {assets} {warnings}/>{/if}
   </div>
-  <footer><span>{importError??trackingError??transformError??error??(view.scene?'Session connected':'Starting…')}</span><span>{canEdit ? (tool==='translate'?'Move':tool==='rotate'?'Rotate':'Scale'):'Read only'}</span></footer>
+  <footer><span>{importError??trackingError??transformError??error??view.error??(view.scene?'Session connected':'Starting…')}</span><span>{canEdit ? (tool==='translate'?'Move':tool==='rotate'?'Rotate':'Scale'):'Read only'}</span></footer>
  </div>
 </main>

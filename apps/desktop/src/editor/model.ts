@@ -1,5 +1,6 @@
-import { TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,TrackingSmoothingSchema } from '@opensekai/contracts';
+import { TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,TrackingSmoothingSchema,EntityNameSchema } from '@opensekai/contracts';
 import type { AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing } from '@opensekai/contracts';
+import {makeEntityCopy} from './asset-management';
 type CameraLens=Extract<SceneEntity,{kind:'camera'}>['lens'];
 export interface EditorView {
  scene: SceneView | null;
@@ -57,6 +58,20 @@ export function createEditorModel(api: AppApi) {
    const parsed=SceneEntitySchema.safeParse(entity);if(!parsed.success)return invalid();
    const reply=await patch({kind:'createEntity',entity:parsed.data},expectedRevision);
    if(reply.ok&&view.scene?.entities.some(item=>item.id===parsed.data.id))publish({selectedId:parsed.data.id});
+   return reply;
+  },
+  renameEntity(entityId:Id,name:string,expectedRevision?:number):Promise<Reply<{revision:number}>> {
+   const parsed=EntityNameSchema.safeParse(name);if(!parsed.success)return invalid();
+   return patch({kind:'renameEntity',entityId,name:parsed.data},expectedRevision);
+  },
+  removeEntity(entityId:Id,expectedRevision?:number):Promise<Reply<{revision:number}>> {
+   return patch({kind:'removeEntity',entityId},expectedRevision);
+  },
+  async duplicateEntity(entityId:Id,id:Id,expectedRevision?:number):Promise<Reply<{revision:number}>> {
+   const entity=view.scene?.entities.find(item=>item.id===entityId);if(!entity)return invalid('NOT_FOUND');
+   const parsed=SceneEntitySchema.safeParse(makeEntityCopy(entity,id,view.scene!.entities));if(!parsed.success)return invalid();
+   const reply=await patch({kind:'createEntity',entity:parsed.data},expectedRevision);
+   if(reply.ok&&view.scene?.entities.some(item=>item.id===id))publish({selectedId:id});
    return reply;
   },
   setCameraLens(entityId:Id,lens:CameraLens,expectedRevision?:number):Promise<Reply<{revision:number}>> {
