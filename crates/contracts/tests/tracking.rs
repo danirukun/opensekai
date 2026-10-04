@@ -47,3 +47,86 @@ fn optional_inference_duration_is_bounded_and_legacy_compatible() {
         assert!(opensekai_contracts::Validate::validate(&parsed).is_err());
     }
 }
+
+fn smoothing() -> serde_json::Value {
+    json!({"enabled":true,"minCutoff":5.,"beta":0.5,"derivativeCutoff":1.})
+}
+fn smoothing_patch(settings: serde_json::Value) -> serde_json::Value {
+    json!({"sceneId":"s","expectedRevision":1,"operations":[{"kind":"setTrackingSmoothing","entityId":"s","smoothing":settings}]})
+}
+#[test]
+fn smoothing_round_trips_on_entity_and_patch_and_preserves_legacy() {
+    let legacy = validate_value::<SceneEntity>(&source()).unwrap();
+    assert!(serde_json::to_value(legacy)
+        .unwrap()
+        .get("smoothing")
+        .is_none());
+    let mut entity = source();
+    entity["smoothing"] = smoothing();
+    let parsed = validate_value::<SceneEntity>(&entity).unwrap();
+    let serialized = serde_json::to_value(parsed).unwrap();
+    assert_eq!(serialized["smoothing"], entity["smoothing"]);
+    assert_eq!(serialized["config"], entity["config"]);
+    assert_eq!(serialized["generation"], entity["generation"]);
+    let patch = smoothing_patch(smoothing());
+    let parsed = validate_value::<ScenePatch>(&patch).unwrap();
+    assert_eq!(serde_json::to_value(parsed).unwrap(), patch);
+}
+#[test]
+fn smoothing_bounds_and_unknown_fields_are_checked_on_entity_and_patch() {
+    for (field, values) in [
+        ("minCutoff", vec![0.01, 120.]),
+        ("beta", vec![0., 100.]),
+        ("derivativeCutoff", vec![0.01, 120.]),
+    ] {
+        for value in values {
+            let mut settings = smoothing();
+            settings[field] = json!(value);
+            let mut entity = source();
+            entity["smoothing"] = settings.clone();
+            assert!(validate_value::<SceneEntity>(&entity).is_ok());
+            assert!(validate_value::<ScenePatch>(&smoothing_patch(settings)).is_ok());
+        }
+    }
+    for (field, values) in [
+        ("minCutoff", vec![0., 120.01]),
+        ("beta", vec![-0.01, 100.01]),
+        ("derivativeCutoff", vec![0., 120.01]),
+    ] {
+        for value in values {
+            let mut settings = smoothing();
+            settings[field] = json!(value);
+            let mut entity = source();
+            entity["smoothing"] = settings.clone();
+            assert!(validate_value::<SceneEntity>(&entity).is_err());
+            assert!(validate_value::<ScenePatch>(&smoothing_patch(settings)).is_err());
+        }
+    }
+    let mut settings = smoothing();
+    settings["extra"] = json!(true);
+    let mut entity = source();
+    entity["smoothing"] = settings.clone();
+    assert!(validate_value::<SceneEntity>(&entity).is_err());
+    assert!(validate_value::<ScenePatch>(&smoothing_patch(settings)).is_err());
+}
+
+#[test]
+fn smoothing_rejects_nonfinite_native_values() {
+    use opensekai_contracts::{TrackingSmoothing, Validate};
+    for value in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        for field in 0..3 {
+            let mut settings = TrackingSmoothing {
+                enabled: false,
+                min_cutoff: 5.,
+                beta: 0.5,
+                derivative_cutoff: 1.,
+            };
+            match field {
+                0 => settings.min_cutoff = value,
+                1 => settings.beta = value,
+                _ => settings.derivative_cutoff = value,
+            }
+            assert!(settings.validate().is_err());
+        }
+    }
+}

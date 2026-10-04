@@ -347,6 +347,7 @@ mod tests {
             revision: generation,
             outputs: vec![],
             entities: vec![SceneEntity::Tracking {
+                smoothing: None,
                 id: "source".into(),
                 name: "Face".into(),
                 visible: true,
@@ -457,6 +458,7 @@ mod status_tests {
             revision: 1,
             outputs: vec![],
             entities: vec![SceneEntity::Tracking {
+                smoothing: None,
                 id: "filtered".into(),
                 name: "Filtered".into(),
                 visible: true,

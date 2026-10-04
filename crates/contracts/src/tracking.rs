@@ -304,3 +304,26 @@ impl Validate for TrackingUpdate {
         Ok(())
     }
 }
+
+object!(TrackingSmoothing {
+    enabled: bool,
+    min_cutoff: f64,
+    beta: f64,
+    derivative_cutoff: f64
+});
+impl Validate for TrackingSmoothing {
+    fn validate(&self) -> Result<(), AppError> {
+        require(
+            self.min_cutoff.is_finite() && (0.01..=120.).contains(&self.min_cutoff),
+            "invalid smoothing min cutoff",
+        )?;
+        require(
+            self.beta.is_finite() && (0. ..=100.).contains(&self.beta),
+            "invalid smoothing beta",
+        )?;
+        require(
+            self.derivative_cutoff.is_finite() && (0.01..=120.).contains(&self.derivative_cutoff),
+            "invalid smoothing derivative cutoff",
+        )
+    }
+}

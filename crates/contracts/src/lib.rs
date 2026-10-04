@@ -99,6 +99,8 @@ pub enum SceneEntity {
         visible: bool,
         transform: Transform,
         config: TrackingConfig,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        smoothing: Option<TrackingSmoothing>,
         generation: u64,
     },
     Camera {
@@ -156,6 +158,11 @@ pub enum PatchOp {
         #[serde(rename = "entityId")]
         entity_id: Id,
         tracking: AvatarTracking,
+    },
+    SetTrackingSmoothing {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+        smoothing: TrackingSmoothing,
     },
     SetTrackingConfig {
         #[serde(rename = "entityId")]
@@ -491,6 +498,7 @@ impl Validate for ScenePatch {
                 PatchOp::CreateEntity { entity } => entity.validate()?,
                 PatchOp::SetCameraLens { lens, .. } => lens.validate()?,
                 PatchOp::SetTrackingConfig { config, .. } => config.validate()?,
+                PatchOp::SetTrackingSmoothing { smoothing, .. } => smoothing.validate()?,
                 _ => {}
             }
         }
@@ -1042,8 +1050,14 @@ impl Validate for SceneEntity {
     fn validate(&self) -> Result<(), AppError> {
         scalar_checks(&serde_json::to_value(self).map_err(|e| invalid(e.to_string()))?)?;
         self.transform().validate()?;
-        if let Self::Tracking { config, .. } = self {
+        if let Self::Tracking {
+            config, smoothing, ..
+        } = self
+        {
             config.validate()?;
+            if let Some(smoothing) = smoothing {
+                smoothing.validate()?;
+            }
         }
         if let Self::Camera { lens, .. } = self {
             lens.validate()?;
