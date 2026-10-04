@@ -54,7 +54,7 @@ Sources: [Motion capture overview](https://docs.warudo.app/docs/mocap/overview),
 - [ ] TRK-01 — External VMC receive. First.
 - [ ] TRK-02 — External iFacialMocap receive. First.
 - [ ] TRK-03 — FaceMotion3D compatibility. Later; do not infer it from iFacialMocap alone.
-- [ ] TRK-04 — Face mapping, calibration, smoothing, and overrides. Partial: shared One Euro smoothing and named 52-channel ARKit mapping verified; calibration, tuning UI and overrides remain. [Check](evaluation/one-euro-filter.md).
+- [ ] TRK-04 — Face mapping, calibration, smoothing, and overrides. Partial: shared One Euro smoothing, per-source tuning/bypass/reset and named 52-channel ARKit mapping verified; calibration and overrides remain. [Check](evaluation/one-euro-filter.md).
 - [ ] TRK-05 — Pose calibration, retargeting, offsets, and source mixing. First subset.
 - [ ] TRK-06 — Pendulum motion behavior. Later.
 - [ ] TRK-07 — MediaPipe integration. First useful-build requirement; face, upper body and fingers; physical-camera evidence required.
@@ -271,3 +271,5 @@ Live editor controls verified on macOS source7084f4a: type groups, collapse/sear
 - [x] LIVE-09 — New VRM imports enable built-in idle; inspector toggle, VMC/iFacial takeover and stale return, clean OBS motion after minimize actions. Actual VRM0 and generated VRM1 rigs verified. Live MediaPipe takeover over idle still needs a detected person.
 
 - [x] LIVE-10 — Shared One Euro filtering for VMC, iFacialMocap and MediaPipe; reusable TS API. All 52 named ARKit morph channels supported where present. Selected actual VRM0 facial poses and filtered VMC/iFacial OBS motion checked; MediaPipe smoothing covered by deterministic session tests.
+
+- [x] LIVE-11 — Lighter tracking defaults and per-source smoothing inspector. Actual VMC/iFacial tuning under loopback traffic preserves generation and packet counters; bypass, Reset and invalid draft checked. MediaPipe controls checked with camera stopped; sample behavior covered by session tests. [Check](evaluation/tracking-smoothing-controls.md).
