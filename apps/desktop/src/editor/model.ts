@@ -1,5 +1,5 @@
-import { TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema } from '@opensekai/contracts';
-import type { AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig } from '@opensekai/contracts';
+import { TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,TrackingSmoothingSchema } from '@opensekai/contracts';
+import type { AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing } from '@opensekai/contracts';
 type CameraLens=Extract<SceneEntity,{kind:'camera'}>['lens'];
 export interface EditorView {
  scene: SceneView | null;
@@ -70,6 +70,10 @@ export function createEditorModel(api: AppApi) {
   setAvatarTracking(entityId:Id,tracking:AvatarTracking,expectedRevision?:number):Promise<Reply<{revision:number}>> {
    const parsed=AvatarTrackingSchema.safeParse(tracking);if(!ofKind(entityId,'avatar')||!parsed.success)return invalid();
    return patch({kind:'setAvatarTracking',entityId,tracking:parsed.data},expectedRevision);
+  },
+  setTrackingSmoothing(entityId:Id,smoothing:TrackingSmoothing,expectedRevision?:number):Promise<Reply<{revision:number}>> {
+   const parsed=TrackingSmoothingSchema.safeParse(smoothing);if(!ofKind(entityId,'tracking')||!parsed.success)return invalid();
+   return patch({kind:'setTrackingSmoothing',entityId,smoothing:parsed.data},expectedRevision);
   },
   setTrackingConfig(entityId:Id,config:TrackingConfig,expectedRevision?:number):Promise<Reply<{revision:number}>> {
    const parsed=TrackingConfigSchema.safeParse(config),entity=view.scene?.entities.find(e=>e.id===entityId);

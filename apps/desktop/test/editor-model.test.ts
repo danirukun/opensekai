@@ -153,3 +153,19 @@ it('changes avatar idle with current revision and rejects non-avatar or invalid 
  expect(api.scenePatch).toHaveBeenCalledTimes(1);
  expect((await model.setAvatarIdle('performer',{kind:'builtin',enabled:false},1)).ok).toBe(true);
 });
+
+it('validates smoothing kind and revision and sends only its dedicated patch',async()=>{
+ const {model,api}=fixture();await model.load();
+ const smoothing={enabled:false,minCutoff:5,beta:.5,derivativeCutoff:1};
+ expect(await model.setTrackingSmoothing('performer',smoothing,0)).toMatchObject({ok:false,error:{code:'INVALID_INPUT'}});
+ const base={id:'smooth-source',name:'Source',visible:true,transform:{position:[0,0,0],rotation:[0,0,0,1],scale:[1,1,1]}};
+ await model.createEntity({...base,kind:'tracking',generation:0,config:defaultTrackingConfig('vmc')} as SceneEntity,0);
+ vi.mocked(api.scenePatch).mockClear();
+ expect(await model.setTrackingSmoothing('smooth-source',{...smoothing,minCutoff:NaN},1)).toMatchObject({ok:false,error:{code:'INVALID_INPUT'}});
+ expect(await model.setTrackingSmoothing('smooth-source',smoothing,0)).toMatchObject({ok:false,error:{code:'CONFLICT'}});
+ expect(api.scenePatch).not.toHaveBeenCalled();
+ vi.mocked(api.scenePatch).mockResolvedValueOnce({ok:true,data:{revision:2}});
+ expect((await model.setTrackingSmoothing('smooth-source',smoothing,1)).ok).toBe(true);
+ expect(api.scenePatch).toHaveBeenCalledExactlyOnceWith({sceneId:'scene_smoke',expectedRevision:1,operations:[{kind:'setTrackingSmoothing',entityId:'smooth-source',smoothing}]});
+ expect(api.cameraSelect).not.toHaveBeenCalled();
+});
