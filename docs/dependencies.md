@@ -31,3 +31,5 @@ The UI dependency is a generated local dist snapshot. Expected source commit: 25
 Only esbuild is approved for dependency lifecycle builds. The UI snapshot has no scripts. Generated output lives in apps/desktop/src-tauri/resources/output and is mapped to output in Tauri resources. Native code resolves this from the app resource directory.
 
 Task 2 uses url 2.5.8 as a direct Rust contract dependency. This version was already present in Cargo.lock through native dependencies. Use its WHATWG parser for source URLs and normalized loopback descriptors.
+
+Task 6 uses tauri-plugin-global-shortcut 2.4.0 for native global keystrokes. It is the newest stable 2.x release (crates.io, checked on 2026-10-07). It depends on tauri 2 and works with the pinned tauri 2.12.1. The 3.0.0-alpha releases are pre-release and are not used.

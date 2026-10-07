@@ -231,6 +231,25 @@ async fn service_roles_reject_renderer_edits_and_route_default_operator_edits() 
     service.shutdown().await.unwrap();
 }
 #[tokio::test]
+async fn service_renderer_cannot_call_blueprint_edit() {
+    let (_dir, service) = service(false).await;
+    let mut renderer = auth(&service.renderer_descriptor("output_main").unwrap()).await;
+    send(
+        &mut renderer,
+        call(
+            "edit",
+            "blueprintEdit",
+            json!({"clientId":"c","batchId":"b","ops":[{"kind":"removeGraph","graphId":"g"}]}),
+        ),
+    )
+    .await;
+    assert_eq!(
+        recv(&mut renderer).await["result"]["error"]["code"],
+        "FORBIDDEN"
+    );
+    service.shutdown().await.unwrap();
+}
+#[tokio::test]
 async fn service_distinct_relay_ids_isolate_equal_caller_ids() {
     let (_dir, service) = service(false).await;
     let mut publisher = auth(&service.publisher_descriptor()).await;

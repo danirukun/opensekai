@@ -92,7 +92,13 @@ impl Shared {
         }
         if !matches!(
             call.method.as_str(),
-            "sceneInspect" | "scenePatch" | "sceneReplace" | "cameraSelect" | "blueprintRun"
+            "sceneInspect"
+                | "scenePatch"
+                | "sceneReplace"
+                | "cameraSelect"
+                | "blueprintRun"
+                | "blueprintEdit"
+                | "blueprintInspect"
         ) {
             return Reply::failure(err(ErrorCode::Unsupported, "Not a scene command"));
         }
@@ -111,8 +117,18 @@ impl Shared {
             })
             .await
         {
-            Ok(result) => serde_json::from_value(result)
-                .unwrap_or_else(|_| Reply::failure(invalid("Invalid publisher reply"))),
+            Ok(result) => {
+                if method == "blueprintEdit" {
+                    if let Some(data) = result
+                        .get("data")
+                        .and_then(|d| serde_json::from_value::<BlueprintEditResult>(d.clone()).ok())
+                    {
+                        self.reconcile_keystrokes(&data.keystrokes.into_iter().collect());
+                    }
+                }
+                serde_json::from_value(result)
+                    .unwrap_or_else(|_| Reply::failure(invalid("Invalid publisher reply")))
+            }
             Err(error) => Reply::failure(error),
         }
     }
@@ -130,7 +146,9 @@ impl Shared {
             return Reply::failure(err(ErrorCode::Forbidden, "Role cannot call methods"));
         }
         let required = match call.method.as_str() {
-            "scenePatch" | "sceneReplace" | "cameraSelect" | "blueprintRun" => Capability::Edit,
+            "scenePatch" | "sceneReplace" | "cameraSelect" | "blueprintRun" | "blueprintEdit" => {
+                Capability::Edit
+            }
             "captureFrame" => Capability::Capture,
             "benchmarkStart" | "benchmarkCancel" => Capability::Benchmark,
             _ => Capability::Read,
@@ -170,18 +188,31 @@ impl Shared {
                 ready: inner.publisher.is_some() && current,
                 revision: inner.latest.as_ref().map(|f| f.scene.revision),
                 capabilities: capabilities.to_vec(),
-                warnings: vec![],
+                warnings: lock(&self.keystroke_warnings)
+                    .iter()
+                    .map(|accelerator| AppError {
+                        code: ErrorCode::Unavailable,
+                        message: "Keystroke unavailable".into(),
+                        ids: vec![accelerator.clone()],
+                    })
+                    .collect(),
                 outputs,
                 tracking_status: inner
                     .latest
                     .as_ref()
                     .and_then(|f| f.tracking_status.clone()),
-                blueprint_revision: None
+                blueprint_revision: inner.latest.as_ref().and_then(|f| f.blueprint_revision)
             }));
         }
         if matches!(
             call.method.as_str(),
-            "sceneInspect" | "scenePatch" | "sceneReplace" | "cameraSelect" | "blueprintRun"
+            "sceneInspect"
+                | "scenePatch"
+                | "sceneReplace"
+                | "cameraSelect"
+                | "blueprintRun"
+                | "blueprintEdit"
+                | "blueprintInspect"
         ) {
             return self.route_scene_call(call, client_id).await;
         }

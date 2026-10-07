@@ -1,6 +1,7 @@
 pub mod assets;
 mod bootstrap;
 pub mod evaluation;
+pub mod input;
 pub mod service;
 mod show;
 pub mod tracking;
@@ -192,12 +193,23 @@ pub fn run() {
     let startup = state.clone();
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(|app, shortcut, event| {
+                    app.state::<Arc<DesktopState>>().keystroke(
+                        shortcut.id(),
+                        event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed,
+                    );
+                })
+                .build(),
+        )
         .manage(state.clone())
         .setup(move |app| {
             let data = app.path().app_local_data_dir()?;
             std::fs::create_dir_all(&data)?;
             let output_root = output_resource_dir(app.handle())?;
             let asset_manifest = std::env::var_os("OPENSEKAI_FIXTURE_MANIFEST").map(PathBuf::from);
+            startup.set_keystrokes(Arc::new(input::GlobalKeystrokes::new(app.handle().clone())));
             let runtime = startup.clone();
             tauri::async_runtime::spawn(async move {
                 let asset_manifest = asset_manifest.unwrap_or_default();

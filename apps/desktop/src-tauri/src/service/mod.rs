@@ -19,7 +19,7 @@ use queues::{StateQueue, CONTROL_CAPACITY, PENDING_CAPACITY};
 pub use router::{RpcContext, RpcHandler};
 use serde_json::{json, Value};
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::{BTreeSet, HashMap, VecDeque},
     path::{Path as FsPath, PathBuf},
     sync::{Arc, Mutex, MutexGuard},
     time::{Duration, Instant},
@@ -56,6 +56,9 @@ struct Shared {
     clock: Instant,
     tracking: crate::tracking::TrackingManager,
     inner: Mutex<Inner>,
+    input: Mutex<crate::input::InputQueue>,
+    keystrokes: Mutex<Arc<dyn crate::input::KeystrokeRegistrar>>,
+    keystroke_warnings: Mutex<Vec<String>>,
     stop: watch::Sender<bool>,
     connections: Notify,
 }
@@ -129,7 +132,12 @@ fn err(code: ErrorCode, message: &str) -> AppError {
 fn failure(error: AppError) -> Value {
     json!(Reply::<Value>::failure(error))
 }
-fn tracking_clock(session_id: Id, elapsed_ms: u64, mut tracking: TrackingUpdate) -> Value {
+fn clock_message(
+    session_id: Id,
+    elapsed_ms: u64,
+    mut tracking: TrackingUpdate,
+    input: Option<InputUpdate>,
+) -> Value {
     loop {
         let value = json!(WireMessage::Clock {
             session_id: session_id.clone(),
@@ -139,7 +147,7 @@ fn tracking_clock(session_id: Id, elapsed_ms: u64, mut tracking: TrackingUpdate)
             } else {
                 Some(tracking.clone())
             },
-            input: None
+            input: input.clone()
         });
         if value.to_string().len() <= MAX_TRACKING_CLOCK_BYTES {
             return value;
@@ -158,7 +166,7 @@ fn tracking_clock(session_id: Id, elapsed_ms: u64, mut tracking: TrackingUpdate)
                 session_id,
                 elapsed_ms,
                 tracking: None,
-                input: None
+                input
             });
         }
     }
@@ -195,7 +203,20 @@ impl Shared {
             output_id,
         }
     }
+    fn reconcile_keystrokes(&self, wanted: &BTreeSet<String>) {
+        let registrar = lock(&self.keystrokes).clone();
+        *lock(&self.keystroke_warnings) = registrar.reconcile(wanted);
+    }
     fn disconnect(&self, id: &str) {
+        let lost_publisher = lock(&self.inner)
+            .publisher
+            .as_ref()
+            .is_some_and(|p| p.id == id);
+        if lost_publisher {
+            // A new publisher session starts with no Blueprints.
+            self.reconcile_keystrokes(&BTreeSet::new());
+            *lock(&self.input) = crate::input::InputQueue::default();
+        }
         let mut inner = lock(&self.inner);
         if inner.publisher.as_ref().is_some_and(|p| p.id == id) {
             inner.publisher = None;
@@ -287,6 +308,9 @@ pub async fn start_service(config: ServiceConfig) -> Result<ServiceHandle, AppEr
         clock,
         tracking: crate::tracking::TrackingManager::new(clock),
         inner: Mutex::new(Inner::default()),
+        input: Mutex::default(),
+        keystrokes: Mutex::new(Arc::new(crate::input::NoKeystrokes)),
+        keystroke_warnings: Mutex::default(),
         stop,
         connections: Notify::new(),
     });
@@ -322,6 +346,12 @@ pub async fn start_service(config: ServiceConfig) -> Result<ServiceHandle, AppEr
 impl ServicePorts {
     pub fn now_ms(&self) -> u64 {
         self.shared.now_ms()
+    }
+    pub fn set_keystroke_registrar(&self, registrar: Arc<dyn crate::input::KeystrokeRegistrar>) {
+        *lock(&self.shared.keystrokes) = registrar;
+    }
+    pub fn push_keystroke(&self, accelerator: String) {
+        lock(&self.shared.input).push(accelerator);
     }
     pub async fn import_avatar(
         &self,
@@ -517,6 +547,7 @@ impl ServiceHandle {
         Ok((operator, renderer))
     }
     pub async fn shutdown(mut self) -> Result<(), AppError> {
+        self.shared.reconcile_keystrokes(&BTreeSet::new());
         {
             let mut inner = lock(&self.shared.inner);
             inner.handler = None;
@@ -945,10 +976,11 @@ async fn write_connection(
             *lock(&connection.clock_credit.deadline) =
                 Some(tokio::time::Instant::now() + Duration::from_secs(2));
             clock_due = false;
-            Some(tracking_clock(
+            Some(clock_message(
                 shared.session.clone(),
                 elapsed_ms,
                 shared.tracking.snapshot(),
+                lock(&shared.input).drain(),
             ))
         } else if let Some(value) = ready_control.take().or_else(|| control.try_recv().ok()) {
             Some(value)
@@ -1259,7 +1291,8 @@ mod tracking_budget_tests {
             statuses: vec![],
         };
         assert!(
-            tracking_clock("s".into(), 1, update).to_string().len() <= MAX_TRACKING_CLOCK_BYTES
+            clock_message("s".into(), 1, update, None).to_string().len()
+                <= MAX_TRACKING_CLOCK_BYTES
         );
     }
 }
