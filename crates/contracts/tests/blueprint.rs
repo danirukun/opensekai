@@ -37,6 +37,19 @@ fn blueprint_edit_validates_operation_structure_only() {
         &edit(json!([{"kind":"moveNode","graphId":"g","nodeId":"n","position":{"x":0,"y":0}}]))
     )
     .is_ok());
+    let upd = |extra: Value| {
+        let mut o = json!({"kind":"updateGraph","graphId":"g"});
+        o.as_object_mut()
+            .unwrap()
+            .extend(extra.as_object().unwrap().clone());
+        edit(json!([o]))
+    };
+    assert!(validate_call("blueprintEdit", &upd(json!({"enabled":false}))).is_ok());
+    assert!(validate_call("blueprintEdit", &upd(json!({"name":123}))).is_err());
+    assert!(validate_call("blueprintEdit", &upd(json!({"name":""}))).is_err());
+    assert!(validate_call("blueprintEdit", &upd(json!({"name":"   "}))).is_err());
+    assert!(validate_call("blueprintEdit", &upd(json!({"name":"x".repeat(129)}))).is_err());
+    assert!(validate_call("blueprintEdit", &upd(json!({"enabled":"x"}))).is_err());
     let mut nine = vec![];
     for i in 0..9 {
         let mut g = set()[0].clone();

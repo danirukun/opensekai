@@ -484,7 +484,13 @@ pub fn validate_blueprint_ops(ops: &[Value]) -> Result<(), AppError> {
             }
             Some("removeGraph") => keys_within(op, &["kind", "graphId"]) && id_ok(&op["graphId"]),
             Some("updateGraph") => {
-                keys_within(op, &["kind", "graphId", "name", "enabled"]) && id_ok(&op["graphId"])
+                keys_within(op, &["kind", "graphId", "name", "enabled"])
+                    && id_ok(&op["graphId"])
+                    && op.get("name").is_none_or(|n| {
+                        n.as_str()
+                            .is_some_and(|n| !n.trim().is_empty() && n.chars().count() <= 128)
+                    })
+                    && op.get("enabled").is_none_or(Value::is_boolean)
             }
             Some("addNode") => {
                 keys_within(op, &["kind", "graphId", "node"])
