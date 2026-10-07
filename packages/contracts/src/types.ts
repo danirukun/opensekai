@@ -145,6 +145,7 @@ export interface RendererDiagnostics {
  activeRenderJob: boolean; queuedFrames: number; queuedCaptures: number;
 }
 export interface AppStatus {
+    blueprintRevision?: number;
     trackingStatus?: TrackingStatus[];
     schemaVersion: 1;
     sessionId: Id;
