@@ -88,3 +88,10 @@ it('carries bounded keystroke input on the clock and the Blueprint revision on f
  const full = Array.from({ length: 16 }, () => ({ kind: 'keystroke', accelerator: 'x'.repeat(64) }));
  expect(() => parseWire(JSON.stringify({ kind: 'clock', sessionId: 'test', elapsedMs: 1, input: { events: full } }))).not.toThrow();
 });
+
+it('forbids replaceAll and createGraph in a delta but not a snapshot', () => {
+ const delta = (op: object) => ({ kind: 'delta', revision: 2, batches: [{ revision: 2, clientId: 'c', batchId: 'b', ops: [op] }], errors: [] });
+ expect(ResultSchemas.blueprintInspect.safeParse(delta({ kind: 'replaceAll', graphs: [] })).success).toBe(false);
+ expect(ResultSchemas.blueprintInspect.safeParse(delta({ kind: 'createGraph', graph: graphWith([]) })).success).toBe(false);
+ expect(ResultSchemas.blueprintInspect.safeParse({ kind: 'snapshot', revision: 2, blueprints: fixture.blueprints, errors: [] }).success).toBe(true);
+});

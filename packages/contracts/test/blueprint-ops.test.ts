@@ -61,3 +61,9 @@ it('enforces graph and set limits after the batch', () => {
  expect(applyBlueprintOps([], Array.from({ length: 9 }, (_, i) => create(i)))).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
  expect(applyBlueprintOps(base(), [{ kind: 'createGraph', graph: { schemaVersion: 1, id: 'flash-marker', name: 'Dup', enabled: true, nodes: [], connections: [] } }])).toMatchObject({ ok: false });
 });
+
+it('rejects prototype-named ports', () => {
+ const input = base(); const before = structuredClone(input);
+ expect(applyBlueprintOps(input, [{ kind: 'connect', graphId: 'flash-marker', connection: { id: 'p', sourceNodeId: 'key', sourcePort: 'toString', targetNodeId: 'wait', targetPort: 'toString' } }])).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+ expect(input).toEqual(before);
+});

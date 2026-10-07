@@ -323,7 +323,7 @@ export const InputUpdateSchema = z.strictObject({
 export const BlueprintStatusSchema = z.strictObject({ graphId: IdSchema, kind: z.enum(['compile', 'runtime']), error: AppErrorSchema });
 export const BlueprintInspectSchema = z.discriminatedUnion('kind', [
     z.strictObject({ kind: z.literal('snapshot'), revision: u, blueprints: BlueprintSetSchema, errors: z.array(BlueprintStatusSchema).max(16) }),
-    z.strictObject({ kind: z.literal('delta'), revision: u, batches: z.array(BlueprintBatchSchema.extend({ revision: u })).max(32), errors: z.array(BlueprintStatusSchema).max(16) }),
+    z.strictObject({ kind: z.literal('delta'), revision: u, batches: z.array(BlueprintBatchSchema.extend({ revision: u })).max(32).refine(batches => batches.every(b => b.ops.every(op => op.kind !== 'replaceAll' && op.kind !== 'createGraph')), 'A delta cannot carry replaceAll or createGraph'), errors: z.array(BlueprintStatusSchema).max(16) }),
 ]);
 export type InputUpdate = z.infer<typeof InputUpdateSchema>;
 export type BlueprintStatus = z.infer<typeof BlueprintStatusSchema>;

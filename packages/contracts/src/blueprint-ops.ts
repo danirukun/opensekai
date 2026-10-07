@@ -20,6 +20,7 @@ export const BlueprintBatchSchema = z.strictObject({ clientId: IdSchema, batchId
 export type BlueprintOp = z.infer<typeof BlueprintOpSchema>;
 export type BlueprintBatch = z.infer<typeof BlueprintBatchSchema>;
 
+const own = <T>(record: Record<string, T>, name: string): T | undefined => Object.hasOwn(record, name) ? record[name] : undefined;
 const reject = (code: 'NOT_FOUND' | 'INVALID_INPUT', message: string, ids: string[]): Reply<never> => ({ ok: false, error: { code, message, ids } });
 
 export function applyBlueprintOps(graphs: readonly BlueprintGraph[], ops: readonly BlueprintOp[]): Reply<BlueprintGraph[]> {
@@ -60,14 +61,14 @@ export function applyBlueprintOps(graphs: readonly BlueprintGraph[], ops: readon
     graph.nodes[i] = parsed.data;
     const ports = blueprintPorts(parsed.data);
     graph.connections = graph.connections.filter(c =>
-     (c.sourceNodeId !== op.nodeId || c.sourcePort in ports.outputs) && (c.targetNodeId !== op.nodeId || c.targetPort in ports.inputs));
+     (c.sourceNodeId !== op.nodeId || Object.hasOwn(ports.outputs, c.sourcePort)) && (c.targetNodeId !== op.nodeId || Object.hasOwn(ports.inputs, c.targetPort)));
     break;
    }
    case 'connect': {
     const wire = op.connection;
     const source = graph.nodes[nodeAt(wire.sourceNodeId)], target = graph.nodes[nodeAt(wire.targetNodeId)];
     if (!source || !target) return reject('NOT_FOUND', 'Node not found', [wire.sourceNodeId, wire.targetNodeId]);
-    const out = blueprintPorts(source).outputs[wire.sourcePort], input = blueprintPorts(target).inputs[wire.targetPort];
+    const out = own(blueprintPorts(source).outputs, wire.sourcePort), input = own(blueprintPorts(target).inputs, wire.targetPort);
     if (!out || !input || out !== input) return reject('INVALID_INPUT', 'Blueprint ports do not match', [source.id, target.id]);
     if (graph.connections.some(c => c.id === wire.id)) return reject('INVALID_INPUT', 'Duplicate connection ID', [wire.id]);
     graph.connections = graph.connections.filter(c => out === 'flow'
