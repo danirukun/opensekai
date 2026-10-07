@@ -65,4 +65,4 @@
 - [x] Verify Save As/Open orchestration in the native editor: a graph and scene round-trip, cancel leaves state intact, and failed replacement does not adopt a new graph. Contract, model, and native tests cover the separate boundaries.
 - [x] Add compact Open and Save As controls. Validate before native save and before scene replacement. Show concise errors. Preserve the graph if Open fails.
 - [x] Run sequential package checks, unit/integration tests, desktop build, Rust workspace tests, formatting, and strict Clippy. In macOS Tauri, save a scene with an entity and Blueprint, reopen it, run the Blueprint, and verify the restored entity and an unresolved avatar reference. Record remaining gaps in SCN-05/BP-01/BP-02 evidence.
-- [ ] Produce a release macOS bundle. The debug bundle passed; the release build currently fails to load generated Rust proc-macro dylibs during compilation.
+- [x] Produce and launch a release macOS bundle with `CARGO_PROFILE_RELEASE_STRIP=none`. The app reached Session connected and an enabled Save As dialog. The default release build still fails to load malformed generated Rust proc-macro dylibs.
