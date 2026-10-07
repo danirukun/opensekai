@@ -1,5 +1,5 @@
 <script lang="ts">
- import { Button } from '@oshi-connect/ui';
+ import { Button, Input } from '@oshi-connect/ui';
  import { Eye, EyeOff, Plus, Trash2 } from '@lucide/svelte';
  import type { BlueprintGraph, BlueprintOp } from '@opensekai/contracts';
 
@@ -14,7 +14,7 @@
   if (name && name !== graph.name) onops([{ kind: 'updateGraph', graphId: graph.id, name }]);
  }
  function start(graph: BlueprintGraph) { if (disabled) return; draft = graph.name; renaming = graph.id; }
- function focus(node: HTMLInputElement) { node.focus(); node.select(); }
+ function focus(node: HTMLElement) { const input = node.querySelector('input'); input?.focus(); input?.select(); node.addEventListener('focusout', () => { if (renaming) { const graph = graphs.find(item => item.id === renaming); if (graph) commit(graph); } }); }
 </script>
 
 <aside class="blueprint-list" aria-label="Blueprints">
@@ -23,7 +23,7 @@
   {#each graphs as graph (graph.id)}
    <li class:selected={graph.id === selectedId} class:off={!graph.enabled}>
     {#if renaming === graph.id}
-     <input aria-label="Blueprint name" maxlength="128" bind:value={draft} use:focus onblur={() => commit(graph)} onkeydown={event => { if (event.key === 'Enter') commit(graph); else if (event.key === 'Escape') renaming = null; }} />
+     <div class="rename" use:focus><Input label="Blueprint name" bind:value={draft} onkeydown={event => { if (event.key === 'Enter') commit(graph); else if (event.key === 'Escape') renaming = null; }} /></div>
     {:else}
      <button type="button" class="blueprint-name" aria-current={graph.id === selectedId} onclick={() => onselect(graph.id)} ondblclick={() => start(graph)}>{graph.name}</button>
     {/if}

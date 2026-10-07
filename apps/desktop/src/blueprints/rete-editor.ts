@@ -55,46 +55,59 @@ export async function mountReteBlueprint(container: HTMLElement, initial: Bluepr
  area.use(connections);
  const selectable = AreaExtensions.selectableNodes(area, AreaExtensions.selector(), { accumulating: AreaExtensions.accumulateOnCtrl() });
  let shown: BlueprintGraph = { ...initial, nodes: [], connections: [] };
- let suppress = 0, queue: Promise<void> = Promise.resolve(), destroyed = false;
+ let queue: Promise<void> = Promise.resolve(), destroyed = false, applying = false, silent = false, dirty = false;
+ // Events that apply() itself causes are named here only while its own awaited call runs, so a user gesture during a patch still counts.
+ const ownNodes = new Set<string>(), ownWires = new Set<string>();
+ let log: ((graph: BlueprintGraph) => BlueprintGraph)[] = [];
  const graphId = initial.id;
+ const track = (change: (graph: BlueprintGraph) => BlueprintGraph) => { shown = change(shown); if (applying) log.push(change); };
 
  area.addPipe(context => {
   if (context.type === 'nodepicked') handlers.onSelect(context.data.id);
-  if (context.type === 'nodetranslated' && !suppress) {
+  if (context.type === 'nodetranslated' && !silent && !ownNodes.has(context.data.id)) {
    const { id, position } = context.data;
-   shown = { ...shown, nodes: shown.nodes.map(node => node.id === id ? { ...node, position: { ...position } } : node) };
+   track(graph => ({ ...graph, nodes: graph.nodes.map(node => node.id === id ? { ...node, position: { ...position } } : node) }));
    handlers.onOps([{ kind: 'moveNode', graphId, nodeId: id, position: { ...position } }]);
   }
   return context;
  });
  editor.addPipe(context => {
-  if (suppress) return context;
-  if (context.type === 'connectioncreated') {
+  if (silent) return context;
+  if (context.type === 'connectioncreated' && !ownWires.has(context.data.id)) {
    const c = context.data;
    const wire: BlueprintConnection = { id: c.id, sourceNodeId: c.source, sourcePort: String(c.sourceOutput), targetNodeId: c.target, targetPort: String(c.targetInput) };
-   shown = { ...shown, connections: [...shown.connections.filter(item => item.id !== wire.id), wire] };
+   track(graph => ({ ...graph, connections: [...graph.connections.filter(item => item.id !== wire.id), wire] }));
    handlers.onOps([{ kind: 'connect', graphId, connection: wire }]);
   }
-  if (context.type === 'connectionremoved') {
+  if (context.type === 'connectionremoved' && !ownWires.has(context.data.id)) {
    const id = context.data.id;
-   shown = { ...shown, connections: shown.connections.filter(item => item.id !== id) };
+   track(graph => ({ ...graph, connections: graph.connections.filter(item => item.id !== id) }));
    handlers.onOps([{ kind: 'disconnect', graphId, connectionId: id }]);
   }
   return context;
  });
 
+ const place = async (id: string, position: BlueprintNode['position']) => {
+  ownNodes.add(id);
+  try { await area.translate(id, position); } finally { ownNodes.delete(id); }
+ };
  const addNode = async (data: BlueprintNode) => {
   await editor.addNode(new GraphNode(data));
-  await area.translate(data.id, data.position);
+  await place(data.id, data.position);
  };
  const addWire = async (wire: BlueprintConnection) => {
   const source = editor.getNode(wire.sourceNodeId), target = editor.getNode(wire.targetNodeId);
   if (!source || !target || !Object.hasOwn(source.outputs, wire.sourcePort) || !Object.hasOwn(target.inputs, wire.targetPort)) return;
   const connection = new ClassicPreset.Connection(source, wire.sourcePort, target, wire.targetPort);
   connection.id = wire.id;
-  await editor.addConnection(connection);
+  ownWires.add(wire.id);
+  try { await editor.addConnection(connection); } finally { ownWires.delete(wire.id); }
  };
- const removeWire = async (id: string) => { if (editor.getConnection(id)) await editor.removeConnection(id); };
+ const removeWire = async (id: string) => {
+  if (!editor.getConnection(id)) return;
+  ownWires.add(id);
+  try { await editor.removeConnection(id); } finally { ownWires.delete(id); }
+ };
  const updateNode = async (data: BlueprintNode) => {
   const node = editor.getNode(data.id) as GraphNode | undefined;
   if (!node) return;
@@ -107,12 +120,18 @@ export async function mountReteBlueprint(container: HTMLElement, initial: Bluepr
   node.syncPorts();
   await area.update('node', data.id);
  };
+ const rebuild = async (graph: BlueprintGraph) => {
+  await editor.clear();
+  for (const node of graph.nodes) await addNode(node);
+  for (const wire of graph.connections) await addWire(wire);
+ };
  const apply = async (graph: BlueprintGraph) => {
   if (destroyed) return;
   const patch = graphPatch(shown, graph);
   const oldTypes = new Map(shown.nodes.map(node => [node.id, node.type] as const));
-  suppress++;
+  applying = true; log = [];
   try {
+   if (dirty) throw new Error('canvas out of sync');
    for (const id of patch.removeConnections) await removeWire(id);
    for (const id of patch.removeNodes) if (editor.getNode(id)) await editor.removeNode(id);
    const retyped = new Set<string>();
@@ -124,12 +143,17 @@ export async function mountReteBlueprint(container: HTMLElement, initial: Bluepr
     await editor.removeNode(node.id);
     await addNode(node);
    }
-   for (const move of patch.moveNodes) await area.translate(move.id, move.position);
+   for (const move of patch.moveNodes) await place(move.id, move.position);
    const added = new Set(patch.addConnections.map(wire => wire.id));
    const again = graph.connections.filter(wire => !added.has(wire.id) && (retyped.has(wire.sourceNodeId) || retyped.has(wire.targetNodeId)));
    for (const wire of [...patch.addConnections, ...again]) await addWire(wire);
-   shown = graph;
-  } finally { suppress--; }
+  } catch {
+   // A partial patch leaves the canvas unknown, so rebuild it from the target graph.
+   silent = true; log = [];
+   try { await rebuild(graph); dirty = false; } catch { dirty = true; } finally { silent = false; }
+  } finally { applying = false; }
+  shown = log.reduce((current, change) => change(current), graph);
+  log = [];
  };
  const show = (graph: BlueprintGraph) => (queue = queue.then(() => apply(graph)).catch(() => undefined));
 

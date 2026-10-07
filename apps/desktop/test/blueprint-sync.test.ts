@@ -60,3 +60,24 @@ it('reports a compile error from the session without blocking the edit', async (
  await a.idle();
  expect(a.errors()).toEqual([expect.objectContaining({ graphId: 'flash-marker', kind: 'compile' })]);
 });
+
+it('recovers from an outage on a later poll without applying the batch twice', async () => {
+ const { session, a, b } = await setup();
+ const real = apiFor(session);
+ let fail = true;
+ const flaky = createBlueprintSync({
+  blueprintInspect: real.blueprintInspect,
+  blueprintEdit: async batch => { const reply = session.editBlueprints(batch); if (fail) { fail = false; throw new Error('down'); } return reply; },
+ }, 'f');
+ await flaky.load();
+ const before = session.inspectBlueprints().revision;
+ flaky.edit([{ kind: 'moveNode', graphId: 'flash-marker', nodeId: 'wait', position: { x: 7, y: 7 } }]);
+ await flaky.idle();
+ expect(flaky.issue()).toEqual({ kind: 'unavailable' });
+ await flaky.poll(); await flaky.idle();
+ expect(flaky.issue()).toBeNull();
+ expect(session.inspectBlueprints().revision - before).toBe(1);
+ await b.pull(); await a.pull();
+ expect(flaky.view()).toEqual(b.view());
+ expect(wait(flaky.view(), 'wait')!.position).toEqual({ x: 7, y: 7 });
+});

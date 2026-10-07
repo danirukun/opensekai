@@ -41,3 +41,12 @@ it('rejects a batch that names a missing node and does not advance the revision'
  expect(store.edit(batch('x', [{ kind: 'removeNode', graphId: 'flash-marker', nodeId: 'nope' }]))).toMatchObject({ ok: false, error: { code: 'NOT_FOUND' } });
  expect(store.revision()).toBe(1);
 });
+
+it('answers a resent batch from the journal without applying it twice', () => {
+ const store = loaded();
+ const move = batch('same', [{ kind: 'moveNode', graphId: 'flash-marker', nodeId: 'wait', position: { x: 4, y: 4 } }]);
+ const first = store.edit(move);
+ const again = store.edit(move);
+ expect(again).toEqual(first);
+ expect(store.revision()).toBe(2);
+});

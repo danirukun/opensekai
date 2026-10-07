@@ -33,3 +33,13 @@ it('recovers lower authoritative owner revisions and clears removed selection',a
  const poll=createEditorPoll(api,model,vi.fn(),vi.fn());await poll.poll();
  expect(model.read()).toMatchObject({scene:{revision:0},selectedId:null});
 });
+it('polls Blueprints on a revision change, on every tick while visible, and while unavailable',async()=>{
+ const readStatus=vi.fn(async()=>({ok:true,data:{...status(0),blueprintRevision:3}}));
+ const api={appStatus:readStatus,sceneInspect:vi.fn(async()=>({ok:true,data:makeSmokeScene()}))} as unknown as AppApi;
+ let revision=3,issue:{kind:'unavailable'}|null=null,visible=false;const poll=vi.fn(async()=>{});
+ const p=createEditorPoll(api,createEditorModel(api),vi.fn(),vi.fn(),{revision:()=>revision,issue:()=>issue,poll},()=>visible);
+ await p.poll();expect(poll).not.toHaveBeenCalled();
+ revision=2;await p.poll();expect(poll).toHaveBeenCalledTimes(1);
+ revision=3;visible=true;await p.poll();expect(poll).toHaveBeenCalledTimes(2);
+ visible=false;issue={kind:'unavailable'};await p.poll();expect(poll).toHaveBeenCalledTimes(3);
+});

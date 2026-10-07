@@ -1,6 +1,6 @@
 <script lang="ts">
  import { onMount } from 'svelte';
- import { Button } from '@oshi-connect/ui';
+ import { Button, Select } from '@oshi-connect/ui';
  import { Play, Plus, Trash2 } from '@lucide/svelte';
  import { BLUEPRINT_LABELS, defaultBlueprintSettings, keystrokeAccelerator, type AppApi, type AppStatus, type BlueprintGraph, type BlueprintNode, type BlueprintStatus, type SceneView } from '@opensekai/contracts';
  import type { BlueprintSync, SyncIssue } from '../blueprints/blueprint-sync';
@@ -20,7 +20,7 @@
  let issue = $state.raw<SyncIssue>(null);
  let selectedId = $state<string | null>(null);
  let nodeId = $state<string | null>(null);
- let addKind = $state<BlueprintKind>('flow.branch');
+ let addKind = $state<string>('flow.branch');
  let runError = $state<string | null>(null), busy = $state(false);
  let mountedFor: string | null = null, generation = 0, announced = '';
  const kinds = Object.entries(BLUEPRINT_LABELS) as [BlueprintKind, string][];
@@ -88,8 +88,8 @@
   if (!graph || !editor) return;
   const { x, y } = editor.center(), offset = (graph.nodes.length % 5) * 24;
   const id = crypto.randomUUID();
-  const settings = defaultBlueprintSettings(addKind, { entityId: targets[0]?.id ?? 'marker', cameraId: cameras[0]?.id ?? 'camera', keystroke: defaultKeystroke(platform) });
-  const result = edit([{ kind: 'addNode', graphId: graph.id, node: { id, version: 1, type: addKind, settings, position: { x: x + offset, y: y + offset } } as BlueprintNode }]);
+  const settings = defaultBlueprintSettings(addKind as BlueprintKind, { entityId: targets[0]?.id ?? 'marker', cameraId: cameras[0]?.id ?? 'camera', keystroke: defaultKeystroke(platform) });
+  const result = edit([{ kind: 'addNode', graphId: graph.id, node: { id, version: 1, type: addKind as BlueprintKind, settings, position: { x: x + offset, y: y + offset } } as BlueprintNode }]);
   if (!result.ok) return;
   nodeId = id;
   const latest = sync.view().find(item => item.id === graph!.id);
@@ -119,7 +119,7 @@
  <header class="blueprint-toolbar"><h2>Blueprints</h2><span class="blueprint-state" role="status">{problem}</span><div class="spacer"></div>{#if trigger}<Button variant="secondary" disabled={disabled || busy || !graph} onclick={run}><Play size={14}/>Run</Button>{/if}</header>
  <div class="blueprint-workspace">
   <BlueprintList {graphs} {selectedId} {disabled} onselect={choose} onops={edit} oncreate={create} />
-  <aside class="blueprint-palette" aria-label="Node palette"><select aria-label="Node kind" bind:value={addKind}>{#each kinds as [kind, label]}<option value={kind}>{label}</option>{/each}</select><Button variant="secondary" disabled={disabled || !graph} onclick={add}><Plus size={14}/>Add node</Button></aside>
+  <aside class="blueprint-palette" aria-label="Node palette"><Select label="Node kind" bind:value={addKind} options={kinds.map(([value, label]) => ({ value, label }))} /><Button variant="secondary" disabled={disabled || !graph} onclick={add}><Plus size={14}/>Add node</Button></aside>
   <div class="blueprint-canvas" bind:this={canvas} aria-label="Blueprint canvas"></div>
   <aside class="blueprint-inspector" aria-label="Node properties">
    {#if node}

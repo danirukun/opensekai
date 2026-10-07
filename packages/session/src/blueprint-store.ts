@@ -20,6 +20,8 @@ export function createBlueprintStore(runtime: BlueprintRuntime): BlueprintStore 
   edit(input) {
    const batch = BlueprintBatchSchema.safeParse(input);
    if (!batch.success) return fail('Invalid Blueprint batch');
+   const seen = journal.find(entry => entry.clientId === batch.data.clientId && entry.batchId === batch.data.batchId);
+   if (seen) return { ok: true, data: { revision: seen.revision, keystrokes: runtime.keystrokes() } };
    if (!Number.isSafeInteger(revision + 1)) return fail('Revision limit reached');
    const next = applyBlueprintOps(documents, batch.data.ops);
    if (!next.ok) return next;

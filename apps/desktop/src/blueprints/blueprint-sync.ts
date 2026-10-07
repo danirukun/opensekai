@@ -3,7 +3,7 @@ import { applyBlueprintOps, type AppApi, type BlueprintGraph, type BlueprintInsp
 export type SyncIssue = { kind: 'rejected'; message: string } | { kind: 'unavailable' } | null;
 export interface BlueprintSync {
  view(): BlueprintGraph[]; revision(): number; errors(): BlueprintStatus[]; issue(): SyncIssue;
- load(): Promise<void>; pull(): Promise<void>; edit(ops: BlueprintOp[]): Reply<BlueprintGraph[]>; idle(): Promise<void>;
+ load(): Promise<void>; pull(): Promise<void>; poll(): Promise<void>; edit(ops: BlueprintOp[]): Reply<BlueprintGraph[]>; idle(): Promise<void>;
  subscribe(fn: (next: BlueprintGraph[], previous: BlueprintGraph[]) => void): () => void;
 }
 interface Pending { batchId: Id; ops: BlueprintOp[]; sent: boolean; revision?: number }
@@ -38,7 +38,7 @@ export function createBlueprintSync(api: Pick<AppApi, 'blueprintEdit' | 'bluepri
   try {
    const reply = await api.blueprintInspect(sinceRevision === undefined ? {} : { sinceRevision });
    if (!reply.ok) { issue = { kind: 'unavailable' }; return; }
-   if (issue?.kind === 'unavailable') issue = null;
+   if (issue?.kind === 'unavailable' && !pending.some(p => !p.sent)) issue = null;
    await adopt(reply.data);
   } catch { issue = { kind: 'unavailable' }; }
  };
@@ -79,6 +79,8 @@ export function createBlueprintSync(api: Pick<AppApi, 'blueprintEdit' | 'bluepri
  return {
   view: () => view, revision: () => revision, errors: () => errors, issue: () => issue,
   load, pull,
+  // One poll tick: resend unsent batches (for example after an outage), then pull the journal.
+  poll: () => pending.some(p => !p.sent) ? flush() : pull(),
   edit(ops) {
    const result = applyBlueprintOps(view, ops);
    if (!result.ok) return result;
