@@ -60,6 +60,7 @@ struct Shared {
     keystrokes: Mutex<Arc<dyn crate::input::KeystrokeRegistrar>>,
     keystroke_warnings: Mutex<Vec<String>>,
     keystroke_gate: tokio::sync::Mutex<()>,
+    keystrokes_stopped: watch::Sender<bool>,
     stop: watch::Sender<bool>,
     connections: Notify,
 }
@@ -207,12 +208,23 @@ impl Shared {
     /// Runs the registrar off the async runtime: it blocks on the main thread.
     /// Calls are serialized so a later Blueprint state is never overwritten by an earlier one.
     async fn reconcile_keystrokes(&self, wanted: BTreeSet<String>) {
-        let _gate = self.keystroke_gate.lock().await;
-        let registrar = lock(&self.keystrokes).clone();
-        let failed = tokio::task::spawn_blocking(move || registrar.reconcile(&wanted))
-            .await
-            .unwrap_or_default();
-        *lock(&self.keystroke_warnings) = failed;
+        // Shutdown never waits on the gate or on a plugin call that may need the main thread.
+        let mut stopped = self.keystrokes_stopped.subscribe();
+        if *stopped.borrow() {
+            return;
+        }
+        let work = async {
+            let _gate = self.keystroke_gate.lock().await;
+            let registrar = lock(&self.keystrokes).clone();
+            let failed = tokio::task::spawn_blocking(move || registrar.reconcile(&wanted))
+                .await
+                .unwrap_or_default();
+            *lock(&self.keystroke_warnings) = failed;
+        };
+        tokio::select! {
+            _ = work => {},
+            _ = stopped.wait_for(|stopped| *stopped) => {},
+        }
     }
     async fn disconnect_session(&self, id: &str) {
         if self.disconnect(id) {
@@ -320,6 +332,7 @@ pub async fn start_service(config: ServiceConfig) -> Result<ServiceHandle, AppEr
         keystrokes: Mutex::new(Arc::new(crate::input::NoKeystrokes)),
         keystroke_warnings: Mutex::default(),
         keystroke_gate: tokio::sync::Mutex::new(()),
+        keystrokes_stopped: watch::channel(false).0,
         stop,
         connections: Notify::new(),
     });
@@ -556,7 +569,8 @@ impl ServiceHandle {
         Ok((operator, renderer))
     }
     pub async fn shutdown(mut self) -> Result<(), AppError> {
-        self.shared.reconcile_keystrokes(BTreeSet::new()).await;
+        // Exit may run on the main thread, so shutdown unregisters nothing; the OS drops hotkeys at exit.
+        self.shared.keystrokes_stopped.send_replace(true);
         {
             let mut inner = lock(&self.shared.inner);
             inner.handler = None;

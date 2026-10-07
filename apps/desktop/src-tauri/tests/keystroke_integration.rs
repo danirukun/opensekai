@@ -135,3 +135,45 @@ async fn blueprint_edit_reply_drives_registration_warnings_and_publisher_loss_cl
     assert!(fake.0.lock().unwrap().last().unwrap().is_empty());
     s.shutdown().await.unwrap();
 }
+
+struct Blocking(
+    std::sync::Mutex<std::sync::mpsc::Receiver<()>>,
+    std::sync::mpsc::Sender<()>,
+);
+impl opensekai_desktop_lib::input::KeystrokeRegistrar for Blocking {
+    fn reconcile(&self, _: &std::collections::BTreeSet<String>) -> Vec<String> {
+        let _ = self.1.send(());
+        let _ = self.0.lock().unwrap().recv();
+        vec![]
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn shutdown_completes_while_a_reconcile_is_blocked() {
+    let (_d, s) = service().await;
+    let (release, gate) = std::sync::mpsc::channel();
+    let (started, entered) = std::sync::mpsc::channel();
+    s.ports()
+        .set_keystroke_registrar(std::sync::Arc::new(Blocking(
+            std::sync::Mutex::new(gate),
+            started,
+        )));
+    let mut p = auth(&s.publisher_descriptor()).await;
+    let mut o = auth(&s.operator_descriptor()).await;
+    send(
+        &mut o,
+        json!({"kind":"call","requestId":"edit","method":"blueprintEdit","params":{"clientId":"c","batchId":"b","ops":[{"kind":"removeGraph","graphId":"g"}]}}),
+    )
+    .await;
+    let relayed = recv_non_clock(&mut p).await;
+    send(
+        &mut p,
+        json!({"kind":"reply","requestId":relayed["requestId"],"result":{"ok":true,"data":{"revision":1,"keystrokes":["Control+Alt+KeyH"]}}}),
+    )
+    .await;
+    entered.recv_timeout(Duration::from_secs(2)).unwrap();
+    let done = tokio::time::timeout(Duration::from_secs(2), s.shutdown()).await;
+    let _ = release.send(());
+    done.expect("shutdown hung behind a blocked reconcile")
+        .unwrap();
+}
