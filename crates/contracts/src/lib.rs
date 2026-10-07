@@ -205,6 +205,8 @@ pub struct RuntimeFrame {
     pub avatar_poses: Option<Vec<AvatarPose>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tracking_status: Option<Vec<TrackingStatus>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub blueprint_revision: Option<u64>,
 }
 object!(FrameApplied {output_id:Id,session_id:Id,sequence:u64,tick:u64,revision:u64,camera_id:Id,backend:Backend,cpu_ms:f64,gpu_ms:Option<f64>,warnings:Vec<AppError>});
 object!(RendererDiagnostics {
@@ -235,6 +237,8 @@ pub struct AppStatus {
     pub outputs: Vec<OutputStatus>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tracking_status: Option<Vec<TrackingStatus>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub blueprint_revision: Option<u64>,
 }
 object!(CaptureParams {
     output_id: Id,
@@ -296,9 +300,296 @@ object!(CameraSelectParams {
     expected_revision: u64
 });
 object!(BlueprintRunParams {
-    graph: Value,
+    graph_id: Id,
     trigger_node_id: Id
 });
+object!(BlueprintEditParams { client_id: Id, batch_id: Id, ops: Vec<Value> });
+object!(BlueprintEditResult { revision: u64, keystrokes: Vec<String> });
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BlueprintInspectParams {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub since_revision: Option<u64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
+pub enum InputEvent {
+    Keystroke { accelerator: String },
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct InputUpdate {
+    pub events: Vec<InputEvent>,
+}
+impl InputUpdate {
+    pub fn validate(&self) -> Result<(), AppError> {
+        require(
+            (1..=16).contains(&self.events.len()),
+            "invalid input event count",
+        )?;
+        for InputEvent::Keystroke { accelerator } in &self.events {
+            require(
+                !accelerator.is_empty() && accelerator.chars().count() <= 64,
+                "invalid accelerator",
+            )?;
+        }
+        Ok(())
+    }
+}
+
+fn id_ok(value: &Value) -> bool {
+    value
+        .as_str()
+        .is_some_and(|s| !s.is_empty() && s.chars().count() <= 256)
+}
+fn port_ok(value: &Value) -> bool {
+    value
+        .as_str()
+        .is_some_and(|s| !s.is_empty() && s.chars().count() <= 64)
+}
+fn node_type_ok(value: &str) -> bool {
+    let part = |p: Option<&str>| {
+        p.is_some_and(|p| {
+            p.starts_with(|c: char| c.is_ascii_lowercase())
+                && p.chars().all(|c| c.is_ascii_alphanumeric())
+        })
+    };
+    let mut parts = value.split('.');
+    value.len() <= 64 && part(parts.next()) && part(parts.next()) && parts.next().is_none()
+}
+fn keys_within(value: &Value, allowed: &[&str]) -> bool {
+    value
+        .as_object()
+        .is_some_and(|o| o.keys().all(|k| allowed.contains(&k.as_str())))
+}
+fn position_ok(value: &Value) -> bool {
+    keys_within(value, &["x", "y"])
+        && ["x", "y"]
+            .iter()
+            .all(|a| value[*a].as_f64().is_some_and(f64::is_finite))
+}
+
+pub fn validate_blueprint_node(node: &Value) -> Result<(), AppError> {
+    require(
+        keys_within(node, &["id", "version", "type", "settings", "position"])
+            && id_ok(&node["id"])
+            && node["version"].as_u64() == Some(1)
+            && position_ok(&node["position"])
+            && node["type"].as_str().is_some_and(node_type_ok)
+            && node["settings"].as_object().is_some_and(|s| s.len() <= 16),
+        "Invalid Blueprint node",
+    )
+}
+pub fn validate_blueprint_connection(c: &Value) -> Result<(), AppError> {
+    require(
+        keys_within(
+            c,
+            &[
+                "id",
+                "sourceNodeId",
+                "sourcePort",
+                "targetNodeId",
+                "targetPort",
+            ],
+        ) && id_ok(&c["id"])
+            && id_ok(&c["sourceNodeId"])
+            && id_ok(&c["targetNodeId"])
+            && port_ok(&c["sourcePort"])
+            && port_ok(&c["targetPort"]),
+        "Invalid Blueprint connection",
+    )
+}
+pub fn validate_blueprint_graph(graph: &Value) -> Result<(), AppError> {
+    require(
+        keys_within(
+            graph,
+            &[
+                "schemaVersion",
+                "id",
+                "name",
+                "enabled",
+                "nodes",
+                "connections",
+            ],
+        ),
+        "Invalid Blueprint graph",
+    )?;
+    require(
+        graph["schemaVersion"].as_u64() == Some(1),
+        "unsupported Blueprint version",
+    )?;
+    require(
+        id_ok(&graph["id"])
+            && graph["name"]
+                .as_str()
+                .is_some_and(|n| !n.trim().is_empty() && n.chars().count() <= 128)
+            && (graph.get("enabled").is_none() || graph["enabled"].is_boolean()),
+        "Invalid Blueprint graph",
+    )?;
+    let nodes = graph["nodes"]
+        .as_array()
+        .filter(|n| n.len() <= 128)
+        .ok_or_else(|| invalid("invalid Blueprint nodes"))?;
+    let connections = graph["connections"]
+        .as_array()
+        .filter(|c| c.len() <= 256)
+        .ok_or_else(|| invalid("invalid Blueprint connections"))?;
+    let mut ids = std::collections::HashSet::new();
+    for node in nodes {
+        validate_blueprint_node(node)?;
+        require(
+            ids.insert(node["id"].as_str().unwrap_or_default()),
+            "Duplicate node ID",
+        )?;
+    }
+    let mut wires = std::collections::HashSet::new();
+    for c in connections {
+        validate_blueprint_connection(c)?;
+        require(
+            wires.insert(c["id"].as_str().unwrap_or_default()),
+            "Duplicate connection ID",
+        )?;
+    }
+    Ok(())
+}
+pub fn validate_blueprint_set(values: &[Value]) -> Result<(), AppError> {
+    require(values.len() <= 8, "too many Blueprints")?;
+    let mut ids = std::collections::HashSet::new();
+    for graph in values {
+        validate_blueprint_graph(graph)?;
+        require(
+            ids.insert(graph["id"].as_str().unwrap_or_default()),
+            "duplicate Blueprint ID",
+        )?;
+    }
+    Ok(())
+}
+pub fn validate_blueprint_ops(ops: &[Value]) -> Result<(), AppError> {
+    require(
+        (1..=64).contains(&ops.len()),
+        "invalid Blueprint batch size",
+    )?;
+    for op in ops {
+        let ok = match op["kind"].as_str() {
+            Some("replaceAll") => {
+                keys_within(op, &["kind", "graphs"])
+                    && op["graphs"]
+                        .as_array()
+                        .is_some_and(|g| validate_blueprint_set(g).is_ok())
+            }
+            Some("createGraph") => {
+                keys_within(op, &["kind", "graph"])
+                    && validate_blueprint_graph(&op["graph"]).is_ok()
+            }
+            Some("removeGraph") => keys_within(op, &["kind", "graphId"]) && id_ok(&op["graphId"]),
+            Some("updateGraph") => {
+                keys_within(op, &["kind", "graphId", "name", "enabled"]) && id_ok(&op["graphId"])
+            }
+            Some("addNode") => {
+                keys_within(op, &["kind", "graphId", "node"])
+                    && id_ok(&op["graphId"])
+                    && validate_blueprint_node(&op["node"]).is_ok()
+            }
+            Some("removeNode") => {
+                keys_within(op, &["kind", "graphId", "nodeId"])
+                    && id_ok(&op["graphId"])
+                    && id_ok(&op["nodeId"])
+            }
+            Some("moveNode") => {
+                keys_within(op, &["kind", "graphId", "nodeId", "position"])
+                    && id_ok(&op["graphId"])
+                    && id_ok(&op["nodeId"])
+                    && position_ok(&op["position"])
+            }
+            Some("setNodeSettings") => {
+                keys_within(op, &["kind", "graphId", "nodeId", "settings"])
+                    && id_ok(&op["graphId"])
+                    && id_ok(&op["nodeId"])
+                    && op["settings"].as_object().is_some_and(|s| s.len() <= 16)
+            }
+            Some("connect") => {
+                keys_within(op, &["kind", "graphId", "connection"])
+                    && id_ok(&op["graphId"])
+                    && validate_blueprint_connection(&op["connection"]).is_ok()
+            }
+            Some("disconnect") => {
+                keys_within(op, &["kind", "graphId", "connectionId"])
+                    && id_ok(&op["graphId"])
+                    && id_ok(&op["connectionId"])
+            }
+            _ => false,
+        };
+        require(ok, "Invalid Blueprint operation")?;
+    }
+    Ok(())
+}
+
+fn validate_blueprint_errors(data: &Value) -> Result<(), AppError> {
+    let errors = data["errors"]
+        .as_array()
+        .filter(|e| e.len() <= 16)
+        .ok_or_else(|| invalid("invalid Blueprint errors"))?;
+    for e in errors {
+        require(
+            keys_within(e, &["graphId", "kind", "error"])
+                && id_ok(&e["graphId"])
+                && matches!(e["kind"].as_str(), Some("compile" | "runtime")),
+            "invalid Blueprint error",
+        )?;
+        decode::<AppError>(&e["error"])?;
+    }
+    Ok(())
+}
+fn validate_blueprint_inspect(data: &Value) -> Result<(), AppError> {
+    require(
+        data["revision"].as_u64().is_some(),
+        "invalid Blueprint revision",
+    )?;
+    match data["kind"].as_str() {
+        Some("snapshot") => {
+            require(
+                keys_within(data, &["kind", "revision", "blueprints", "errors"]),
+                "invalid Blueprint snapshot",
+            )?;
+            validate_blueprint_set(
+                data["blueprints"]
+                    .as_array()
+                    .ok_or_else(|| invalid("invalid Blueprints"))?,
+            )?;
+        }
+        Some("delta") => {
+            require(
+                keys_within(data, &["kind", "revision", "batches", "errors"]),
+                "invalid Blueprint delta",
+            )?;
+            let batches = data["batches"]
+                .as_array()
+                .filter(|b| b.len() <= 32)
+                .ok_or_else(|| invalid("invalid Blueprint batches"))?;
+            for b in batches {
+                require(
+                    keys_within(b, &["revision", "clientId", "batchId", "ops"])
+                        && b["revision"].as_u64().is_some()
+                        && id_ok(&b["clientId"])
+                        && id_ok(&b["batchId"]),
+                    "invalid Blueprint batch",
+                )?;
+                let ops = b["ops"]
+                    .as_array()
+                    .ok_or_else(|| invalid("invalid Blueprint ops"))?;
+                validate_blueprint_ops(ops)?;
+                require(
+                    ops.iter()
+                        .all(|o| !matches!(o["kind"].as_str(), Some("replaceAll" | "createGraph"))),
+                    "delta cannot carry replaceAll or createGraph",
+                )?;
+            }
+        }
+        _ => return Err(invalid("invalid Blueprint inspect kind")),
+    }
+    validate_blueprint_errors(data)
+}
 object!(RunParams { run_id: Id });
 object!(EvidenceReadParams { evidence_id: Id });
 object!(RevisionResult { revision: u64 });
@@ -321,6 +612,8 @@ pub enum WireMessage {
         elapsed_ms: u64,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         tracking: Option<TrackingUpdate>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        input: Option<InputUpdate>,
     },
     Auth {
         role: Role,
@@ -688,29 +981,9 @@ pub fn validate_call(method: &str, params: &Value) -> Result<(), AppError> {
         "scenePatch" => decode::<ScenePatch>(params)?.validate(),
         "sceneReplace" => decode::<SceneReplaceParams>(params)?.validate(),
         "cameraSelect" => decode::<CameraSelectParams>(params).map(|_| ()),
-        "blueprintRun" => {
-            let input = decode::<BlueprintRunParams>(params)?;
-            require(
-                input.graph.get("schemaVersion").and_then(Value::as_u64) == Some(1),
-                "unsupported Blueprint version",
-            )?;
-            require(
-                input
-                    .graph
-                    .get("nodes")
-                    .and_then(Value::as_array)
-                    .is_some_and(|items| items.len() <= 128),
-                "invalid Blueprint nodes",
-            )?;
-            require(
-                input
-                    .graph
-                    .get("connections")
-                    .and_then(Value::as_array)
-                    .is_some_and(|items| items.len() <= 256),
-                "invalid Blueprint connections",
-            )
-        }
+        "blueprintRun" => decode::<BlueprintRunParams>(params).map(|_| ()),
+        "blueprintEdit" => validate_blueprint_ops(&decode::<BlueprintEditParams>(params)?.ops),
+        "blueprintInspect" => decode::<BlueprintInspectParams>(params).map(|_| ()),
         "captureFrame" => decode::<CaptureParams>(params)?.validate(),
         "benchmarkStart" => decode::<BenchmarkParams>(params).map(|_| ()),
         "benchmarkStatus" | "benchmarkCancel" => decode::<RunParams>(params).map(|_| ()),
@@ -756,6 +1029,8 @@ pub fn validate_result(method: &str, result: &Value) -> Result<(), AppError> {
             | "sceneReplace"
             | "cameraSelect"
             | "blueprintRun"
+            | "blueprintEdit"
+            | "blueprintInspect"
             | "captureFrame"
             | "benchmarkStart"
             | "benchmarkStatus"
@@ -773,6 +1048,17 @@ pub fn validate_result(method: &str, result: &Value) -> Result<(), AppError> {
         "scenePatch" | "cameraSelect" | "blueprintRun" => {
             decode::<RevisionResult>(data).map(|_| ())
         }
+        "blueprintEdit" => {
+            let r = decode::<BlueprintEditResult>(data)?;
+            require(
+                r.keystrokes.len() <= 64
+                    && r.keystrokes
+                        .iter()
+                        .all(|k| (1..=64).contains(&k.chars().count())),
+                "invalid keystrokes",
+            )
+        }
+        "blueprintInspect" => validate_blueprint_inspect(data),
         "captureFrame" => decode::<CaptureRecord>(data)?.validate(),
         "benchmarkStart" | "benchmarkStatus" | "benchmarkCancel" => {
             decode::<BenchmarkRun>(data)?.validate()
@@ -796,9 +1082,13 @@ pub fn parse_wire(bytes: &[u8]) -> Result<WireMessage, AppError> {
         WireMessage::Clock {
             elapsed_ms,
             tracking,
+            input,
             ..
         } => {
             if let Some(update) = tracking {
+                update.validate()?;
+            }
+            if let Some(update) = input {
                 update.validate()?;
             }
             require(

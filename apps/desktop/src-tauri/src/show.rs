@@ -2,7 +2,6 @@ use opensekai_contracts::{AppError, ErrorCode, SceneView, Validate, MAX_MESSAGE_
 use serde::Deserialize;
 use serde_json::Value;
 use std::{
-    collections::HashSet,
     fs::File,
     io::{Read, Write},
     path::Path,
@@ -30,117 +29,11 @@ struct ShowDocument {
     schema_version: u32,
     name: String,
     scene: SceneView,
-    blueprints: Vec<BlueprintGraph>,
+    blueprints: Vec<Value>,
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct BlueprintGraph {
-    schema_version: u32,
-    id: String,
-    name: String,
-    nodes: Vec<BlueprintNode>,
-    connections: Vec<BlueprintConnection>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct BlueprintNode {
-    id: String,
-    version: u32,
-    position: Position,
-    #[serde(rename = "type")]
-    node_type: String,
-    settings: Value,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Position {
-    x: f64,
-    y: f64,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct BlueprintConnection {
-    id: String,
-    source_node_id: String,
-    source_port: String,
-    target_node_id: String,
-    target_port: String,
-}
-
-fn valid_id(id: &str) -> bool {
-    !id.is_empty() && id.chars().count() <= 256
-}
 fn valid_name(name: &str) -> bool {
     !name.trim().is_empty() && name.chars().count() <= 128
-}
-
-fn validate_graph(graph: &BlueprintGraph) -> Result<(), AppError> {
-    if graph.schema_version != 1
-        || !valid_id(&graph.id)
-        || !valid_name(&graph.name)
-        || graph.nodes.len() > 128
-        || graph.connections.len() > 256
-    {
-        return Err(invalid("Invalid Blueprint graph"));
-    }
-    let mut nodes = HashSet::new();
-    for node in &graph.nodes {
-        if !valid_id(&node.id)
-            || !nodes.insert(node.id.as_str())
-            || node.version != 1
-            || !node.position.x.is_finite()
-            || !node.position.y.is_finite()
-        {
-            return Err(invalid("Invalid Blueprint node"));
-        }
-        let settings = node
-            .settings
-            .as_object()
-            .ok_or_else(|| invalid("Invalid Blueprint settings"))?;
-        let valid = match node.node_type.as_str() {
-            "event.manual" | "math.add" | "logic.greater" => settings.is_empty(),
-            "value.number" => {
-                settings.len() == 1
-                    && settings
-                        .get("value")
-                        .and_then(Value::as_f64)
-                        .is_some_and(f64::is_finite)
-            }
-            "value.boolean" => {
-                settings.len() == 1 && settings.get("value").and_then(Value::as_bool).is_some()
-            }
-            "scene.setVisibility" => {
-                settings.len() == 1
-                    && settings
-                        .get("entityId")
-                        .and_then(Value::as_str)
-                        .is_some_and(valid_id)
-            }
-            _ => false,
-        };
-        if !valid {
-            return Err(invalid("Invalid Blueprint node settings"));
-        }
-    }
-    let mut connections = HashSet::new();
-    for connection in &graph.connections {
-        if !valid_id(&connection.id)
-            || !connections.insert(connection.id.as_str())
-            || !valid_id(&connection.source_node_id)
-            || !valid_id(&connection.target_node_id)
-            || connection.source_port.is_empty()
-            || connection.source_port.chars().count() > 64
-            || connection.target_port.is_empty()
-            || connection.target_port.chars().count() > 64
-        {
-            return Err(invalid("Invalid Blueprint connection"));
-        }
-    }
-    Ok(())
 }
 
 pub fn validate_show(value: &Value) -> Result<(), AppError> {
@@ -150,7 +43,7 @@ pub fn validate_show(value: &Value) -> Result<(), AppError> {
     }
     let show: ShowDocument =
         serde_json::from_value(value.clone()).map_err(|_| invalid("Invalid show document"))?;
-    if show.schema_version != 1 || !valid_name(&show.name) || show.blueprints.len() > 1 {
+    if show.schema_version != 1 || !valid_name(&show.name) {
         return Err(invalid("Unsupported show document"));
     }
     show.scene.validate()?;
@@ -160,9 +53,7 @@ pub fn validate_show(value: &Value) -> Result<(), AppError> {
     {
         return Err(invalid("Show requires main and preview outputs"));
     }
-    for graph in &show.blueprints {
-        validate_graph(graph)?;
-    }
+    opensekai_contracts::validate_blueprint_set(&show.blueprints)?;
     Ok(())
 }
 
@@ -242,10 +133,31 @@ mod tests {
     }
 
     #[test]
-    fn rejects_bad_graph_and_missing_output() {
+    fn show_accepts_unknown_settings_and_leaves_semantics_to_typescript() {
         let mut document = show();
         document["blueprints"][0]["nodes"] = json!([{"id":"n","version":1,"position":{"x":0,"y":0},"type":"value.number","settings":{"value":1,"extra":true}}]);
+        assert!(validate_show(&document).is_ok());
+    }
+
+    #[test]
+    fn rejects_bad_graph_too_many_graphs_and_missing_output() {
+        let mut document = show();
+        document["blueprints"][0]["schemaVersion"] = json!(2);
         assert!(validate_show(&document).is_err());
+        let graph = show()["blueprints"][0].clone();
+        let nine: Vec<Value> = (0..9)
+            .map(|i| {
+                let mut g = graph.clone();
+                g["id"] = json!(format!("g{i}"));
+                g
+            })
+            .collect();
+        document = show();
+        document["blueprints"] = json!(nine);
+        assert!(validate_show(&document).is_err());
+        document["blueprints"] =
+            json!([{"schemaVersion":1,"id":"no_enabled","name":"N","nodes":[],"connections":[]}]);
+        assert!(validate_show(&document).is_ok());
         document["blueprints"] = json!([]);
         document["scene"]["outputs"] = json!([]);
         assert!(validate_show(&document).is_err());

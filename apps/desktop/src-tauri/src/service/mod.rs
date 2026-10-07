@@ -138,7 +138,8 @@ fn tracking_clock(session_id: Id, elapsed_ms: u64, mut tracking: TrackingUpdate)
                 None
             } else {
                 Some(tracking.clone())
-            }
+            },
+            input: None
         });
         if value.to_string().len() <= MAX_TRACKING_CLOCK_BYTES {
             return value;
@@ -156,7 +157,8 @@ fn tracking_clock(session_id: Id, elapsed_ms: u64, mut tracking: TrackingUpdate)
             return json!(WireMessage::Clock {
                 session_id,
                 elapsed_ms,
-                tracking: None
+                tracking: None,
+                input: None
             });
         }
     }

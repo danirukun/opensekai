@@ -175,7 +175,8 @@ impl Shared {
                 tracking_status: inner
                     .latest
                     .as_ref()
-                    .and_then(|f| f.tracking_status.clone())
+                    .and_then(|f| f.tracking_status.clone()),
+                blueprint_revision: None
             }));
         }
         if matches!(
