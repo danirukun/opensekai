@@ -123,7 +123,8 @@ impl Shared {
                         .get("data")
                         .and_then(|d| serde_json::from_value::<BlueprintEditResult>(d.clone()).ok())
                     {
-                        self.reconcile_keystrokes(&data.keystrokes.into_iter().collect());
+                        self.reconcile_keystrokes(data.keystrokes.into_iter().collect())
+                            .await;
                     }
                 }
                 serde_json::from_value(result)

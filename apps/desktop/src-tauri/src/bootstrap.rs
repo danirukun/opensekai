@@ -223,6 +223,10 @@ impl DesktopState {
             evaluation.shutdown();
         }
         if let Some(service) = owned.service.take() {
+            // Exit runs on the main thread; unregistering blocks on it. The OS drops hotkeys at process exit.
+            service
+                .ports()
+                .set_keystroke_registrar(Arc::new(crate::input::NoKeystrokes));
             service.shutdown().await?;
         }
         Ok(())

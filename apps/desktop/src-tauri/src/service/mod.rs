@@ -59,6 +59,7 @@ struct Shared {
     input: Mutex<crate::input::InputQueue>,
     keystrokes: Mutex<Arc<dyn crate::input::KeystrokeRegistrar>>,
     keystroke_warnings: Mutex<Vec<String>>,
+    keystroke_gate: tokio::sync::Mutex<()>,
     stop: watch::Sender<bool>,
     connections: Notify,
 }
@@ -203,22 +204,28 @@ impl Shared {
             output_id,
         }
     }
-    fn reconcile_keystrokes(&self, wanted: &BTreeSet<String>) {
+    /// Runs the registrar off the async runtime: it blocks on the main thread.
+    /// Calls are serialized so a later Blueprint state is never overwritten by an earlier one.
+    async fn reconcile_keystrokes(&self, wanted: BTreeSet<String>) {
+        let _gate = self.keystroke_gate.lock().await;
         let registrar = lock(&self.keystrokes).clone();
-        *lock(&self.keystroke_warnings) = registrar.reconcile(wanted);
+        let failed = tokio::task::spawn_blocking(move || registrar.reconcile(&wanted))
+            .await
+            .unwrap_or_default();
+        *lock(&self.keystroke_warnings) = failed;
     }
-    fn disconnect(&self, id: &str) {
-        let lost_publisher = lock(&self.inner)
-            .publisher
-            .as_ref()
-            .is_some_and(|p| p.id == id);
-        if lost_publisher {
+    async fn disconnect_session(&self, id: &str) {
+        if self.disconnect(id) {
             // A new publisher session starts with no Blueprints.
-            self.reconcile_keystrokes(&BTreeSet::new());
-            *lock(&self.input) = crate::input::InputQueue::default();
+            self.reconcile_keystrokes(BTreeSet::new()).await;
         }
+    }
+    /// Returns true when the connection was the publisher.
+    fn disconnect(&self, id: &str) -> bool {
         let mut inner = lock(&self.inner);
-        if inner.publisher.as_ref().is_some_and(|p| p.id == id) {
+        let lost_publisher = inner.publisher.as_ref().is_some_and(|p| p.id == id);
+        if lost_publisher {
+            *lock(&self.input) = crate::input::InputQueue::default();
             inner.publisher = None;
             inner.latest = None;
             inner.frames.clear();
@@ -253,6 +260,7 @@ impl Shared {
                     .send(Err(err(ErrorCode::Unavailable, "Connection closed")));
             }
         }
+        lost_publisher
     }
     fn send(connection: &Connection, value: Value) -> Result<(), AppError> {
         if value.to_string().len() > MAX_MESSAGE_BYTES {
@@ -311,6 +319,7 @@ pub async fn start_service(config: ServiceConfig) -> Result<ServiceHandle, AppEr
         input: Mutex::default(),
         keystrokes: Mutex::new(Arc::new(crate::input::NoKeystrokes)),
         keystroke_warnings: Mutex::default(),
+        keystroke_gate: tokio::sync::Mutex::new(()),
         stop,
         connections: Notify::new(),
     });
@@ -547,7 +556,7 @@ impl ServiceHandle {
         Ok((operator, renderer))
     }
     pub async fn shutdown(mut self) -> Result<(), AppError> {
-        self.shared.reconcile_keystrokes(&BTreeSet::new());
+        self.shared.reconcile_keystrokes(BTreeSet::new()).await;
         {
             let mut inner = lock(&self.shared.inner);
             inner.handler = None;
@@ -810,7 +819,7 @@ async fn connection_loop(mut socket: WebSocket, shared: &Arc<Shared>) {
         .await
         .is_err()
     {
-        shared.disconnect(&connection.id);
+        shared.disconnect_session(&connection.id).await;
         return;
     }
     let (sink, mut stream) = socket.split();
@@ -937,7 +946,7 @@ async fn connection_loop(mut socket: WebSocket, shared: &Arc<Shared>) {
             }
         }
     }
-    shared.disconnect(&connection.id);
+    shared.disconnect_session(&connection.id).await;
     let _ = writer_stop.send(true);
     if !writer_finished {
         let _ = writer.await;

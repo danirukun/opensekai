@@ -51,61 +51,92 @@ fn locked<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
     m.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
+/// Accelerator bookkeeping that never touches the plugin, so no lock is held across it.
+#[derive(Default)]
+pub struct Bookkeeping {
+    registered: HashMap<u32, String>,
+    latch: KeyLatch,
+}
+impl Bookkeeping {
+    /// The accelerator for a new physical press; None for a repeat or a release.
+    pub fn event(&mut self, id: u32, pressed: bool) -> Option<String> {
+        if !pressed {
+            self.latch.release(id);
+            return None;
+        }
+        if !self.latch.press(id) {
+            return None;
+        }
+        self.registered.get(&id).cloned()
+    }
+    /// Accelerators to unregister. Their ids leave the map and the latch, because a key
+    /// held while unregistered never reports its release.
+    pub fn take_stale(&mut self, wanted: &BTreeSet<String>) -> Vec<(u32, String)> {
+        let stale: Vec<_> = self
+            .registered
+            .iter()
+            .filter(|(_, a)| !wanted.contains(*a))
+            .map(|(id, a)| (*id, a.clone()))
+            .collect();
+        for (id, _) in &stale {
+            self.registered.remove(id);
+            self.latch.release(*id);
+        }
+        stale
+    }
+    pub fn missing(&self, wanted: &BTreeSet<String>) -> Vec<String> {
+        wanted
+            .iter()
+            .filter(|a| !self.registered.values().any(|r| r == *a))
+            .cloned()
+            .collect()
+    }
+    pub fn insert(&mut self, id: u32, accelerator: String) {
+        self.registered.insert(id, accelerator);
+    }
+}
+
 pub struct GlobalKeystrokes<R: tauri::Runtime> {
     app: tauri::AppHandle<R>,
-    registered: Mutex<HashMap<u32, String>>,
-    latch: Mutex<KeyLatch>,
+    state: Mutex<Bookkeeping>,
 }
 impl<R: tauri::Runtime> GlobalKeystrokes<R> {
     pub fn new(app: tauri::AppHandle<R>) -> Self {
         Self {
             app,
-            registered: Mutex::default(),
-            latch: Mutex::default(),
+            state: Mutex::default(),
         }
     }
-    /// The accelerator for a new physical press; None for a repeat or a release.
+    /// Called from the main-thread shortcut handler; the lock is never held across plugin calls.
     pub fn event(&self, id: u32, pressed: bool) -> Option<String> {
-        let mut latch = locked(&self.latch);
-        if !pressed {
-            latch.release(id);
-            return None;
-        }
-        if !latch.press(id) {
-            return None;
-        }
-        locked(&self.registered).get(&id).cloned()
+        locked(&self.state).event(id, pressed)
     }
 }
 impl<R: tauri::Runtime> KeystrokeRegistrar for GlobalKeystrokes<R> {
     fn reconcile(&self, wanted: &BTreeSet<String>) -> Vec<String> {
         use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
         let shortcuts = self.app.global_shortcut();
-        let mut registered = locked(&self.registered);
-        registered.retain(|_, accelerator| {
-            let keep = wanted.contains(accelerator);
-            if !keep {
-                if let Ok(s) = accelerator.parse::<Shortcut>() {
-                    let _ = shortcuts.unregister(s);
-                }
+        let (stale, missing) = {
+            let mut state = locked(&self.state);
+            (state.take_stale(wanted), state.missing(wanted))
+        };
+        for (_, accelerator) in stale {
+            if let Ok(s) = accelerator.parse::<Shortcut>() {
+                let _ = shortcuts.unregister(s);
             }
-            keep
-        });
+        }
         let mut failed = vec![];
-        for accelerator in wanted {
-            if registered.values().any(|a| a == accelerator) {
-                continue;
-            }
+        for accelerator in missing {
             match accelerator.parse::<Shortcut>() {
                 Ok(s) => {
                     let id = s.id();
                     if shortcuts.register(s).is_ok() {
-                        registered.insert(id, accelerator.clone());
+                        locked(&self.state).insert(id, accelerator);
                     } else {
-                        failed.push(accelerator.clone());
+                        failed.push(accelerator);
                     }
                 }
-                Err(_) => failed.push(accelerator.clone()),
+                Err(_) => failed.push(accelerator),
             }
         }
         failed
@@ -158,5 +189,24 @@ mod tests {
                 "{accelerator}"
             );
         }
+    }
+    #[test]
+    fn unregistering_releases_a_held_key_so_the_next_press_fires() {
+        let mut b = Bookkeeping::default();
+        b.insert(7, "Control+Alt+KeyH".into());
+        assert_eq!(b.event(7, true).as_deref(), Some("Control+Alt+KeyH"));
+        assert!(b.event(7, true).is_none());
+        let stale = b.take_stale(&BTreeSet::new());
+        assert_eq!(stale, vec![(7, "Control+Alt+KeyH".to_string())]);
+        b.insert(7, "Control+Alt+KeyH".into());
+        assert_eq!(b.event(7, true).as_deref(), Some("Control+Alt+KeyH"));
+    }
+    #[test]
+    fn diff_lists_only_missing_accelerators() {
+        let mut b = Bookkeeping::default();
+        b.insert(1, "A".into());
+        let wanted: BTreeSet<String> = ["A".to_string(), "B".to_string()].into();
+        assert_eq!(b.missing(&wanted), vec!["B".to_string()]);
+        assert!(b.take_stale(&wanted).is_empty());
     }
 }
