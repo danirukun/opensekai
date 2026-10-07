@@ -77,15 +77,19 @@ it('switches an output camera and rejects a run on a missing graph', () => {
  expect(session.runBlueprint('nope', 'go')).toMatchObject({ ok: false, error: { code: 'NOT_FOUND' } });
 });
 
-it('does not clone the scene for the Blueprint step on a tick without input or due delays', () => {
- const session = createSession(makeSmokeScene(), 's');
- load(session, fixture.blueprints);
- session.advance(0);
- const spy = vi.spyOn(globalThis, 'structuredClone');
- try {
-  session.advance(16);
-  // Other per-tick clones are not whole scenes; the only whole-scene clone is the ECS evaluation, so the Blueprint step must add none.
-  const wholeScenes = spy.mock.calls.filter(([value]) => typeof value === 'object' && value !== null && 'entities' in value && 'outputs' in value);
-  expect(wholeScenes).toHaveLength(1);
- } finally { spy.mockRestore(); }
+it('adds no whole-scene clone for the Blueprint step on a tick without input or due delays', () => {
+ const wholeSceneClones = (blueprints: boolean) => {
+  const session = createSession(makeSmokeScene(), 's');
+  if (blueprints) load(session, fixture.blueprints);
+  session.advance(0);
+  const revision = session.inspect().revision;
+  const spy = vi.spyOn(globalThis, 'structuredClone');
+  try {
+   session.advance(16);
+   expect(session.inspect().revision).toBe(revision);
+   expect(session.inspectBlueprints().errors).toEqual([]);
+   return spy.mock.calls.filter(([value]) => typeof value === 'object' && value !== null && 'entities' in value && 'outputs' in value).length;
+  } finally { spy.mockRestore(); }
+ };
+ expect(wholeSceneClones(true)).toBe(wholeSceneClones(false));
 });
