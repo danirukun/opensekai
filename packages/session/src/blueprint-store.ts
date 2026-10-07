@@ -49,8 +49,8 @@ export function createBlueprintStore(runtime: BlueprintRuntime): BlueprintStore 
    const delta = since !== undefined && since <= revision && since >= oldest - 1 && range.length <= DELTA
     && !range.some(entry => entry.ops.some(op => op.kind === 'replaceAll' || op.kind === 'createGraph'));
    return delta
-    ? { kind: 'delta', revision, batches: structuredClone(range), errors }
-    : { kind: 'snapshot', revision, blueprints: structuredClone(documents), errors };
+    ? { kind: 'delta', revision, batches: structuredClone(range), errors, keystrokes: runtime.keystrokes() }
+    : { kind: 'snapshot', revision, blueprints: structuredClone(documents), errors, keystrokes: runtime.keystrokes() };
   },
   revision: () => revision,
   active: graphId => { const doc = documents.find(item => item.id === graphId); const last = valid.get(graphId); return doc && last ? { ...last, enabled: doc.enabled } : undefined; },

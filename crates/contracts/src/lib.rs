@@ -555,7 +555,10 @@ fn validate_blueprint_inspect(data: &Value) -> Result<(), AppError> {
     match data["kind"].as_str() {
         Some("snapshot") => {
             require(
-                keys_within(data, &["kind", "revision", "blueprints", "errors"]),
+                keys_within(
+                    data,
+                    &["kind", "revision", "blueprints", "errors", "keystrokes"],
+                ),
                 "invalid Blueprint snapshot",
             )?;
             validate_blueprint_set(
@@ -566,7 +569,10 @@ fn validate_blueprint_inspect(data: &Value) -> Result<(), AppError> {
         }
         Some("delta") => {
             require(
-                keys_within(data, &["kind", "revision", "batches", "errors"]),
+                keys_within(
+                    data,
+                    &["kind", "revision", "batches", "errors", "keystrokes"],
+                ),
                 "invalid Blueprint delta",
             )?;
             let batches = data["batches"]
@@ -593,6 +599,18 @@ fn validate_blueprint_inspect(data: &Value) -> Result<(), AppError> {
             }
         }
         _ => return Err(invalid("invalid Blueprint inspect kind")),
+    }
+    if let Some(list) = data.get("keystrokes") {
+        require(
+            list.as_array().is_some_and(|k| {
+                k.len() <= 64
+                    && k.iter().all(|k| {
+                        k.as_str()
+                            .is_some_and(|k| (1..=64).contains(&k.chars().count()))
+                    })
+            }),
+            "invalid keystrokes",
+        )?;
     }
     validate_blueprint_errors(data)
 }

@@ -58,6 +58,8 @@ struct Shared {
     inner: Mutex<Inner>,
     input: Mutex<crate::input::InputQueue>,
     keystrokes: Mutex<Arc<dyn crate::input::KeystrokeRegistrar>>,
+    /// The accelerator set the session last reported, with a counter that moves on every report.
+    keystrokes_known: Mutex<(u64, BTreeSet<String>)>,
     keystroke_warnings: Mutex<Vec<String>>,
     keystroke_gate: tokio::sync::Mutex<()>,
     keystrokes_stopped: watch::Sender<bool>,
@@ -205,9 +207,18 @@ impl Shared {
             output_id,
         }
     }
+    /// Records the set the session reported. Returns the new counter value.
+    fn learn_keystrokes(&self, reported: BTreeSet<String>) -> u64 {
+        let mut known = lock(&self.keystrokes_known);
+        known.0 += 1;
+        known.1 = reported;
+        known.0
+    }
+    /// Makes the OS registrations match the current authoritative set: the last reported
+    /// set while a publisher is connected, and nothing otherwise. The set is read inside the
+    /// gate, so the order of events that ask for a sync never decides the outcome.
     /// Runs the registrar off the async runtime: it blocks on the main thread.
-    /// Calls are serialized so a later Blueprint state is never overwritten by an earlier one.
-    async fn reconcile_keystrokes(&self, wanted: BTreeSet<String>) {
+    async fn sync_keystrokes(&self) {
         // Shutdown never waits on the gate or on a plugin call that may need the main thread.
         let mut stopped = self.keystrokes_stopped.subscribe();
         if *stopped.borrow() {
@@ -215,6 +226,11 @@ impl Shared {
         }
         let work = async {
             let _gate = self.keystroke_gate.lock().await;
+            let wanted = if lock(&self.inner).publisher.is_some() {
+                lock(&self.keystrokes_known).1.clone()
+            } else {
+                BTreeSet::new()
+            };
             let registrar = lock(&self.keystrokes).clone();
             let failed = tokio::task::spawn_blocking(move || registrar.reconcile(&wanted))
                 .await
@@ -226,10 +242,53 @@ impl Shared {
             _ = stopped.wait_for(|stopped| *stopped) => {},
         }
     }
+    /// A publisher can connect with graphs the host has not seen reported (a reconnect of
+    /// the same worker session, or a new session). When the host knows a set, it asks the
+    /// publisher and syncs to the answer.
+    async fn relearn_keystrokes(self: &Arc<Self>) {
+        let seen = lock(&self.keystrokes_known).0;
+        // Nothing was ever reported, so nothing is registered and nothing is stale.
+        if seen == 0 {
+            return;
+        }
+        // Restore the remembered set at once; the question must not wait behind a slow plugin call.
+        let restore = self.clone();
+        tokio::spawn(async move { restore.sync_keystrokes().await });
+        let target = lock(&self.inner).publisher.clone();
+        let Some(target) = target else { return };
+        let relayed = self
+            .relay("host", target, "blueprintInspect", |request_id| {
+                json!(WireMessage::Call {
+                    request_id,
+                    method: "blueprintInspect".into(),
+                    params: json!({})
+                })
+            })
+            .await;
+        let reported = relayed
+            .ok()
+            .and_then(|result| result.get("data")?.get("keystrokes").cloned())
+            .and_then(|list| serde_json::from_value::<Vec<String>>(list).ok());
+        if let Some(reported) = reported {
+            let fresh = {
+                let mut known = lock(&self.keystrokes_known);
+                // An edit that finished while the question was open is newer than the answer.
+                let fresh = known.0 == seen;
+                if fresh {
+                    known.0 += 1;
+                    known.1 = reported.into_iter().collect();
+                }
+                fresh
+            };
+            if fresh {
+                self.sync_keystrokes().await;
+            }
+        }
+    }
     async fn disconnect_session(&self, id: &str) {
         if self.disconnect(id) {
-            // A new publisher session starts with no Blueprints.
-            self.reconcile_keystrokes(BTreeSet::new()).await;
+            // No publisher: nothing is registered. The reported set is kept for a reconnect.
+            self.sync_keystrokes().await;
         }
     }
     /// Returns true when the connection was the publisher.
@@ -330,6 +389,7 @@ pub async fn start_service(config: ServiceConfig) -> Result<ServiceHandle, AppEr
         inner: Mutex::new(Inner::default()),
         input: Mutex::default(),
         keystrokes: Mutex::new(Arc::new(crate::input::NoKeystrokes)),
+        keystrokes_known: Mutex::default(),
         keystroke_warnings: Mutex::default(),
         keystroke_gate: tokio::sync::Mutex::new(()),
         keystrokes_stopped: watch::channel(false).0,
@@ -371,6 +431,11 @@ impl ServicePorts {
     }
     pub fn set_keystroke_registrar(&self, registrar: Arc<dyn crate::input::KeystrokeRegistrar>) {
         *lock(&self.shared.keystrokes) = registrar;
+        // The session may have reported its set before the registrar existed.
+        if let Ok(runtime) = tokio::runtime::Handle::try_current() {
+            let shared = self.shared.clone();
+            runtime.spawn(async move { shared.sync_keystrokes().await });
+        }
     }
     pub fn push_keystroke(&self, accelerator: String) {
         lock(&self.shared.input).push(accelerator);
@@ -816,6 +881,10 @@ async fn connection_loop(mut socket: WebSocket, shared: &Arc<Shared>) {
     };
     if !registered {
         return;
+    }
+    if role == Role::Publisher {
+        let shared = shared.clone();
+        tokio::spawn(async move { shared.relearn_keystrokes().await });
     }
     let capabilities = shared
         .descriptor(role.clone(), token, output_id.clone())

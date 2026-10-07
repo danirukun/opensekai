@@ -177,3 +177,89 @@ async fn shutdown_completes_while_a_reconcile_is_blocked() {
     done.expect("shutdown hung behind a blocked reconcile")
         .unwrap();
 }
+
+type Sets = std::sync::Arc<Fake>;
+fn last_set(fake: &Sets) -> Vec<String> {
+    fake.0
+        .lock()
+        .unwrap()
+        .last()
+        .map(|s| s.iter().cloned().collect())
+        .unwrap_or_default()
+}
+async fn edit_reply(o: &mut Socket, p: &mut Socket, keystrokes: Value) {
+    send(
+        o,
+        json!({"kind":"call","requestId":"edit","method":"blueprintEdit","params":{"clientId":"c","batchId":"b","ops":[{"kind":"removeGraph","graphId":"g"}]}}),
+    )
+    .await;
+    let relayed = recv_non_clock(p).await;
+    send(
+        p,
+        json!({"kind":"reply","requestId":relayed["requestId"],"result":{"ok":true,"data":{"revision":1,"keystrokes":keystrokes}}}),
+    )
+    .await;
+    assert_eq!(recv_non_clock(o).await["requestId"], "edit");
+}
+/// A publisher that connects after the host learned a set gets asked for its own set.
+async fn reconnected_publisher(s: &ServiceHandle, keystrokes: Value) -> Socket {
+    let mut p = auth(&s.publisher_descriptor()).await;
+    answer_inspect(&mut p, keystrokes).await;
+    p
+}
+async fn answer_inspect(p: &mut Socket, keystrokes: Value) {
+    let relayed = recv_non_clock(p).await;
+    assert_eq!(relayed["method"], "blueprintInspect");
+    send(
+        p,
+        json!({"kind":"reply","requestId":relayed["requestId"],"result":{"ok":true,"data":{"kind":"snapshot","revision":1,"blueprints":[],"errors":[],"keystrokes":keystrokes}}}),
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn attaching_the_registrar_after_an_edit_reply_registers_the_reported_set() {
+    let (_d, s) = service().await;
+    let mut p = auth(&s.publisher_descriptor()).await;
+    let mut o = auth(&s.operator_descriptor()).await;
+    edit_reply(&mut o, &mut p, json!(["Control+Alt+KeyH"])).await;
+    let fake: Sets = std::sync::Arc::new(Fake(Default::default()));
+    s.ports().set_keystroke_registrar(fake.clone());
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert_eq!(last_set(&fake), vec!["Control+Alt+KeyH".to_string()]);
+    s.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn a_publisher_that_reconnects_with_its_graphs_gets_its_hotkeys_back() {
+    let (_d, s) = service().await;
+    let fake: Sets = std::sync::Arc::new(Fake(Default::default()));
+    s.ports().set_keystroke_registrar(fake.clone());
+    let mut p = auth(&s.publisher_descriptor()).await;
+    let mut o = auth(&s.operator_descriptor()).await;
+    edit_reply(&mut o, &mut p, json!(["Control+Alt+KeyH"])).await;
+    assert_eq!(last_set(&fake), vec!["Control+Alt+KeyH".to_string()]);
+    drop(p);
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert!(last_set(&fake).is_empty());
+    let _p2 = reconnected_publisher(&s, json!(["Control+Alt+KeyH"])).await;
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert_eq!(last_set(&fake), vec!["Control+Alt+KeyH".to_string()]);
+    s.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn a_publisher_that_starts_with_an_empty_session_keeps_hotkeys_cleared() {
+    let (_d, s) = service().await;
+    let fake: Sets = std::sync::Arc::new(Fake(Default::default()));
+    s.ports().set_keystroke_registrar(fake.clone());
+    let mut p = auth(&s.publisher_descriptor()).await;
+    let mut o = auth(&s.operator_descriptor()).await;
+    edit_reply(&mut o, &mut p, json!(["Control+Alt+KeyH"])).await;
+    drop(p);
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    let _p2 = reconnected_publisher(&s, json!([])).await;
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert!(last_set(&fake).is_empty());
+    s.shutdown().await.unwrap();
+}

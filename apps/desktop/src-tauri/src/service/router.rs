@@ -18,7 +18,7 @@ impl Drop for PendingGuard<'_> {
     }
 }
 impl Shared {
-    async fn relay(
+    pub(super) async fn relay(
         &self,
         owner: &str,
         target: Connection,
@@ -123,8 +123,8 @@ impl Shared {
                         .get("data")
                         .and_then(|d| serde_json::from_value::<BlueprintEditResult>(d.clone()).ok())
                     {
-                        self.reconcile_keystrokes(data.keystrokes.into_iter().collect())
-                            .await;
+                        self.learn_keystrokes(data.keystrokes.into_iter().collect());
+                        self.sync_keystrokes().await;
                     }
                 }
                 serde_json::from_value(result)

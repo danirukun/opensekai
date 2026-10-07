@@ -86,6 +86,16 @@ fn blueprint_inspect_run_and_results_validate() {
         &json!({"ok":true,"data":{"kind":"snapshot","revision":1,"blueprints":set(),"errors":[]}})
     )
     .is_ok());
+    assert!(validate_result(
+        "blueprintInspect",
+        &json!({"ok":true,"data":{"kind":"snapshot","revision":1,"blueprints":set(),"errors":[],"keystrokes":["Control+Alt+KeyH"]}})
+    )
+    .is_ok());
+    assert!(validate_result(
+        "blueprintInspect",
+        &json!({"ok":true,"data":{"kind":"snapshot","revision":1,"blueprints":set(),"errors":[],"keystrokes":[""]}})
+    )
+    .is_err());
     assert!(validate_result("blueprintInspect", &json!({"ok":true,"data":{"kind":"delta","revision":2,"batches":[{"revision":2,"clientId":"c","batchId":"b","ops":[{"kind":"removeGraph","graphId":"g"}]}],"errors":[]}})).is_ok());
     let delta = |op: Value| json!({"ok":true,"data":{"kind":"delta","revision":2,"batches":[{"revision":2,"clientId":"c","batchId":"b","ops":[op]}],"errors":[]}});
     assert!(validate_result(

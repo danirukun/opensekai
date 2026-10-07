@@ -19,6 +19,14 @@ it('applies a hotkey on the next tick and reports the Blueprint revision on fram
  expect(session.inspect().revision).toBe(1);
 });
 
+it('reports its accelerator set on inspect, so a host that lost it can learn it again', () => {
+ const session = createSession(makeSmokeScene(), 's');
+ expect(session.inspectBlueprints().keystrokes).toEqual([]);
+ load(session, fixture.blueprints);
+ expect(session.inspectBlueprints().keystrokes).toEqual(fixture.expectedAccelerators);
+ expect(session.inspectBlueprints(0).keystrokes).toEqual(fixture.expectedAccelerators);
+});
+
 it('applies a delayed effect from session time', () => {
  const session = createSession(makeSmokeScene(), 's');
  load(session, fixture.blueprints);

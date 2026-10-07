@@ -321,9 +321,10 @@ export const InputUpdateSchema = z.strictObject({
     events: z.array(z.strictObject({ kind: z.literal('keystroke'), accelerator: z.string().min(1).max(64) })).min(1).max(16)
 });
 export const BlueprintStatusSchema = z.strictObject({ graphId: IdSchema, kind: z.enum(['compile', 'runtime']), error: AppErrorSchema });
+const KeystrokeListSchema = z.array(z.string().min(1).max(64)).max(64);
 export const BlueprintInspectSchema = z.discriminatedUnion('kind', [
-    z.strictObject({ kind: z.literal('snapshot'), revision: u, blueprints: BlueprintSetSchema, errors: z.array(BlueprintStatusSchema).max(16) }),
-    z.strictObject({ kind: z.literal('delta'), revision: u, batches: z.array(BlueprintBatchSchema.extend({ revision: u })).max(32).refine(batches => batches.every(b => b.ops.every(op => op.kind !== 'replaceAll' && op.kind !== 'createGraph')), 'A delta cannot carry replaceAll or createGraph'), errors: z.array(BlueprintStatusSchema).max(16) }),
+    z.strictObject({ kind: z.literal('snapshot'), revision: u, blueprints: BlueprintSetSchema, errors: z.array(BlueprintStatusSchema).max(16), keystrokes: KeystrokeListSchema.optional() }),
+    z.strictObject({ kind: z.literal('delta'), revision: u, batches: z.array(BlueprintBatchSchema.extend({ revision: u })).max(32).refine(batches => batches.every(b => b.ops.every(op => op.kind !== 'replaceAll' && op.kind !== 'createGraph')), 'A delta cannot carry replaceAll or createGraph'), errors: z.array(BlueprintStatusSchema).max(16), keystrokes: KeystrokeListSchema.optional() }),
 ]);
 export type InputUpdate = z.infer<typeof InputUpdateSchema>;
 export type BlueprintStatus = z.infer<typeof BlueprintStatusSchema>;
