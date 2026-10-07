@@ -1,7 +1,7 @@
 import { IdSchema, ParamSchemas, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate } from "@opensekai/contracts";
 import { createTransformAdapter } from "./ecs";
 import {createTrackingComposer} from "./tracking";
-import { compileBlueprint, executeBlueprint } from './blueprint';
+import { compileBlueprint, runFlow } from './blueprint';
 export interface Session {
     inspect(): SceneView;
     replaceScene(scene: SceneView, expectedRevision: number): Reply<SceneView>;
@@ -49,10 +49,16 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
         runBlueprint(graph, triggerNodeId) {
             const compiled = compileBlueprint(graph);
             if (!compiled.ok) return compiled;
-            const run = executeBlueprint(compiled.data, triggerNodeId);
+            // Temporary bridge until Task 4 wires the Blueprint runtime into the session.
+            const run = runFlow(compiled.data, { nodeId: triggerNodeId, port: 'flow' }, new Map(), { visits: 256, effects: 64 }, 0);
             if (!run.ok) return run;
-            if (run.data.length === 0) return { ok: true, data: { revision: persistent.revision } };
-            return api.applyPatch({ sceneId: persistent.sceneId, expectedRevision: persistent.revision, operations: run.data });
+            const operations = [];
+            for (const effect of run.data.effects) {
+                if (effect.kind !== 'setVisibility') return failure('INVALID_INPUT', 'Blueprint effect is not supported here');
+                operations.push({ kind: 'setVisibility' as const, entityId: effect.entityId, visible: effect.visible });
+            }
+            if (operations.length === 0) return { ok: true, data: { revision: persistent.revision } };
+            return api.applyPatch({ sceneId: persistent.sceneId, expectedRevision: persistent.revision, operations });
         },
         applyPatch(patch) {
             const parsed = ScenePatchSchema.safeParse(patch);
