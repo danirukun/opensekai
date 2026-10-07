@@ -2,11 +2,12 @@ import { McpServer } from '@modelcontextprotocol/server';
 import { type AppApi, type CaptureRecord, type EvidenceManifest, type SceneView } from '@opensekai/contracts';
 import { failure, invokeTool, ParamSchemas, toolMethods } from './tools';
 import { registerResources } from './resources';
+const descriptions: Record<string, string> = {blueprint_edit:'Apply ordered Blueprint operations as one batch.',blueprint_inspect:'Read Blueprint documents, or the batches after a revision.',blueprint_run:'Fire a Manual Trigger in an enabled Blueprint.'};
 export function createMcpServer(api: AppApi, readResource: (uri: string) => Promise<Uint8Array>): McpServer {
  const server = new McpServer({name:'opensekai',version:'0.1.0'});
  const resources = registerResources(server, api, readResource);
  for (const [name, method] of Object.entries(toolMethods)) {
-  server.registerTool(name, {description:`OpenSekai ${name.replaceAll('_', ' ')}`, inputSchema:ParamSchemas[method]}, async (params: unknown) => {
+  server.registerTool(name, {description:descriptions[name] ?? `OpenSekai ${name.replaceAll('_', ' ')}`, inputSchema:ParamSchemas[method]}, async (params: unknown) => {
    let reply = await invokeTool(api, method, params);
    if (reply.ok) {
     try {
