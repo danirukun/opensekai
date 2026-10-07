@@ -1,6 +1,6 @@
 # Scene show management check
 
-Checked 2026-10-07 on macOS in the Tauri debug app. The editor can save a version-1 `.osekai` JSON file with the current scene and one Blueprint. Open validates the file and replaces the live scene through a revision-checked operator command. The renderer and editor connections remain active. The file stores asset IDs, not asset bytes.
+Checked 2026-10-07 on macOS in the Tauri debug app from source commit `60c9628`. The editor can save a version-1 `.osekai` JSON file with the current scene and one Blueprint. Open validates the file and replaces the live scene through a revision-checked operator command. The renderer and editor connections remain active. The file stores asset IDs, not asset bytes.
 
 ## Live check
 
