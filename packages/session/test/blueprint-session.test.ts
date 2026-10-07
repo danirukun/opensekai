@@ -84,12 +84,14 @@ it('adds no whole-scene clone for the Blueprint step on a tick without input or 
   session.advance(0);
   const revision = session.inspect().revision;
   const spy = vi.spyOn(globalThis, 'structuredClone');
+  const stringify = vi.spyOn(JSON, 'stringify');
   try {
    session.advance(16);
+   expect(stringify.mock.calls.filter(([value]) => typeof value === 'object' && value !== null && 'entities' in value && 'outputs' in value)).toHaveLength(0);
    expect(session.inspect().revision).toBe(revision);
    expect(session.inspectBlueprints().errors).toEqual([]);
    return spy.mock.calls.filter(([value]) => typeof value === 'object' && value !== null && 'entities' in value && 'outputs' in value).length;
-  } finally { spy.mockRestore(); }
+  } finally { stringify.mockRestore(); spy.mockRestore(); }
  };
  expect(wholeSceneClones(true)).toBe(wholeSceneClones(false));
 });
