@@ -2044,8 +2044,8 @@ Moves: while one batch is in flight, each later `moveNode` for the same node rep
 - Create: `docs/evaluation/blueprint-interactions.md`, `docs/evaluation/blueprint-interactions-evidence.json`, screenshots
 - Modify: `docs/warudo-parity.md`, this plan (check off the steps), `spdd/prompt/2026-10-07-blueprint-interactions.md` (sync it if the code moved from the contract)
 
-- [ ] **Step 1: Run the full checks.** Run: `pnpm check`, `pnpm test:unit`, `pnpm test:integration`, `cargo test --workspace`. Expected: all PASS. Record the counts.
-- [ ] **Step 2: Build and run the release app.** Run `pnpm build:mac`, then launch the `.app`. Connect OBS (`ws://127.0.0.1:4455`) to the transparent output with an isolated OpenSekai test source. Keep the existing OBS scenes.
+- [x] **Step 1: Run the full checks.** Run: `pnpm check`, `pnpm test:unit`, `pnpm test:integration`, `cargo test --workspace`. Expected: all PASS. Record the counts.
+- [x] **Step 2: Build and run the release app.** Run `pnpm build:mac`, then launch the `.app`. Connect OBS (`ws://127.0.0.1:4455`) to the transparent output with an isolated OpenSekai test source. Keep the existing OBS scenes.
 - [ ] **Step 3: Run the critical path with computer use and OBS screenshots.**
   1. Use the default avatar and add a marker.
   2. Graph A: On Keystroke Pressed ⌃⌥H → Toggle Visibility(avatar).
@@ -2061,19 +2061,19 @@ Moves: while one batch is in flight, each later `moveNode` for the same node rep
   12. With MCP (`pnpm mcp`), call `blueprint_edit` to rename graph C. The open editor shows the new name without a remount.
   13. Save the show, quit, relaunch, and open the show. Press ⌃⌥H: it works without opening the Blueprint panel.
   14. Bind a combination that macOS holds, for example ⌘Space with Spotlight. The field shows the warning, and the other keys still work.
-- [ ] **Step 4: Write the evidence.** Record:
+- [x] **Step 4: Write the evidence.** Record:
   - the commit, the backend, the quality profile, and the fixture revision;
   - the result of each step, with screenshot references;
   - the app timing and the OBS timing separately; every value that was not measured is unknown.
 
   State the Different behavior: a registered combination is held, and other apps do not receive it. State that the live Warudo comparison was not possible on the VMPal guest.
-- [ ] **Step 5: Update parity** in `docs/warudo-parity.md`. Claim only verified behavior:
+- [x] **Step 5: Update parity** in `docs/warudo-parity.md`. Claim only verified behavior:
   - **BP-01** partial: add the event scheduler on the session clock, If Branch, Sequence, Flip Flop, Delay, Not, Toggle Visibility, Switch Camera, and the last valid version running while an edit does not compile.
   - **BP-02** partial: add catalog-driven sockets, Warudo port multiplicity, keystroke capture, live sync between clients, and error location.
   - **BP-03** partial: add create, rename, remove, and enable for up to 8 graphs.
   - **BP-06** partial: add global keyboard hotkeys on macOS. Mark them Different, because the combination is held.
   - Add an evidence row.
-- [ ] **Step 6: Sync the contract and commit.** If the implementation moved from the contract, run `/spdd-sync`. Then commit with `git commit -m "docs: record Blueprint hotkey interaction evidence and parity"`. Do not push, and do not change GitHub issue labels.
+- [x] **Step 6: Sync the contract and commit.** If the implementation moved from the contract, run `/spdd-sync`. Then commit with `git commit -m "docs: record Blueprint hotkey interaction evidence and parity"`. Do not push, and do not change GitHub issue labels.
 
 ---
 
