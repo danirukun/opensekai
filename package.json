@@ -13,7 +13,7 @@
     "test:integration": "vitest run --project integration",
     "build": "pnpm --filter @opensekai/output build && tsx scripts/prepare-output.ts && tsx scripts/prepare-tracking.ts && pnpm --filter @opensekai/desktop build",
     "dev:desktop": "pnpm build && pnpm --filter @opensekai/desktop tauri dev",
-    "build:mac": "pnpm build && pnpm --filter @opensekai/desktop tauri build --bundles app",
+    "build:mac": "pnpm build && CARGO_PROFILE_RELEASE_STRIP=none pnpm --filter @opensekai/desktop tauri build --bundles app",
     "mcp": "tsx apps/mcp/src/cli.ts",
     "evaluate:smoke": "tsx tools/evaluation/src/run-smoke.ts"
   },
