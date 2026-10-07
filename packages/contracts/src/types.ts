@@ -125,6 +125,7 @@ export interface RuntimeFrame {
     scene: SceneView;
     avatarPoses?: AvatarPose[];
     trackingStatus?: TrackingStatus[];
+    blueprintRevision?: number;
 }
 export interface FrameApplied {
     outputId: Id;

@@ -1,5 +1,5 @@
 import { ConnectionDescriptorSchema, CaptureBytesSchema, RuntimeFrameSchema, FrameAppliedSchema, RendererDiagnosticsSchema, ResultSchemas, LIMITS, validateCall, requiredCapability, replySchema, parseWire } from "@opensekai/contracts";
-import type { AppApi, AppError, BrowserClient, CaptureBytes, CaptureParams, ConnectionDescriptor, FrameApplied, PublisherClient, Reply, RuntimeFrame, ValidatedCall, WireMessage, TrackingUpdate } from "@opensekai/contracts";
+import type { AppApi, AppError, BrowserClient, CaptureBytes, CaptureParams, ConnectionDescriptor, FrameApplied, PublisherClient, Reply, RuntimeFrame, ValidatedCall, WireMessage, TrackingUpdate, InputUpdate } from "@opensekai/contracts";
 import { reconnectDelay } from "./reconnect";
 type Socket = Pick<WebSocket, "send" | "close" | "addEventListener" | "removeEventListener" | "bufferedAmount">;
 export interface ClientPorts {
@@ -8,6 +8,8 @@ export interface ClientPorts {
     clearTimeout(id: ReturnType<typeof setTimeout>): void;
     fetch: typeof fetch;
 }
+type ClockListener = (elapsedMs: number, tracking?: TrackingUpdate, input?: InputUpdate) => void;
+type PendingClock = { elapsedMs: number; tracking?: TrackingUpdate; input?: InputUpdate };
 const defaults: ClientPorts = {
     socket: url => new WebSocket(url),
     setTimeout: (callback, ms) => globalThis.setTimeout(callback, ms),
@@ -28,9 +30,12 @@ export function connectWithPorts(raw: ConnectionDescriptor, ports: ClientPorts =
     return new Promise((resolve, reject) => {
         let socket: Socket, closed = false, authenticated = false, everReady = false, attempt = 0, nextId = 0, sequence = -1, latest: RuntimeFrame | undefined;
         let reconnectTimer: ReturnType<typeof setTimeout> | undefined, authTimer: ReturnType<typeof setTimeout> | undefined;
-        let pendingClock: {elapsedMs:number;tracking?:TrackingUpdate} | undefined;
-        const clocks = new Set<(elapsedMs: number,tracking?:TrackingUpdate) => void>();
-        const deliverClock=(listener:(elapsedMs:number,tracking?:TrackingUpdate)=>void,clock:{elapsedMs:number;tracking?:TrackingUpdate})=>clock.tracking===undefined?listener(clock.elapsedMs):listener(clock.elapsedMs,clock.tracking);
+        let pendingClock: PendingClock | undefined;
+        const clocks = new Set<ClockListener>();
+        const deliverClock=(listener:ClockListener,clock:PendingClock)=>
+            clock.input!==undefined?listener(clock.elapsedMs,clock.tracking,clock.input)
+            :clock.tracking!==undefined?listener(clock.elapsedMs,clock.tracking)
+            :listener(clock.elapsedMs);
         const frames = new Set<(f: RuntimeFrame) => void>();
         let capture: ((p: CaptureParams) => Promise<Reply<CaptureBytes>>) | undefined;
         let callListener: ((c: ValidatedCall & {

@@ -1,7 +1,9 @@
-import { IdSchema, ParamSchemas, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate } from "@opensekai/contracts";
+import { IdSchema, ParamSchemas, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate, type AppError, type InputUpdate, type BlueprintInspect } from "@opensekai/contracts";
 import { createTransformAdapter } from "./ecs";
 import {createTrackingComposer} from "./tracking";
-import { compileBlueprint, runFlow } from './blueprint';
+import { createBlueprintRuntime, type GraphRun } from './blueprint-runtime';
+import { createBlueprintStore } from './blueprint-store';
+import { applyEffects, applyOperations } from './scene-ops';
 export interface Session {
     inspect(): SceneView;
     replaceScene(scene: SceneView, expectedRevision: number): Reply<SceneView>;
@@ -16,8 +18,10 @@ export interface Session {
         revision: number;
     }>;
     ingestTracking(update:TrackingUpdate):Reply<null>;
-    advance(elapsedMs: number, trackingNowMs?:number): RuntimeFrame;
-    runBlueprint(graph: unknown, triggerNodeId: Id): Reply<{revision: number}>;
+    advance(elapsedMs: number, trackingNowMs?:number, input?: InputUpdate): RuntimeFrame;
+    editBlueprints(batch: unknown): Reply<{ revision: number; keystrokes: string[] }>;
+    inspectBlueprints(sinceRevision?: number): BlueprintInspect;
+    runBlueprint(graphId: Id, triggerNodeId: Id): Reply<{revision: number}>;
 }
 const failure = (code: ErrorCode, message: string, ids: Id[] = []): Reply<never> => ({ ok: false, error: { code, message, ids } });
 export function createSession(scene: SceneView, sessionId: Id): Session {
@@ -36,6 +40,23 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
         persistent = next;
         return { ok: true, data: { revision: persistent.revision } };
     }
+    const runtime = createBlueprintRuntime();
+    const store = createBlueprintStore(runtime);
+    const runtimeErrors = new Map<Id, AppError>();
+    const applyRuns = (runs: GraphRun[]): Reply<{ revision: number }> => {
+        let working = structuredClone(persistent);
+        let firstError: AppError | null = null;
+        for (const run of runs) {
+            const next = run.error ? null : applyEffects(working, run.effects);
+            const error = run.error ?? (next && !next.ok ? next.error : null);
+            if (error) { runtimeErrors.set(run.graphId, error); firstError ??= error; continue; }
+            runtimeErrors.delete(run.graphId);
+            if (next?.ok) working = next.data;
+        }
+        const changed = JSON.stringify(working) !== JSON.stringify(persistent);
+        const committed = changed ? commit(working) : { ok: true as const, data: { revision: persistent.revision } };
+        return firstError ? { ok: false, error: firstError } : committed;
+    };
     const api: Session = {
         inspect: () => structuredClone(persistent),
         replaceScene(scene, expectedRevision) {
@@ -46,19 +67,14 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
             tracking = createTrackingComposer();
             return { ok: true, data: structuredClone(persistent) };
         },
-        runBlueprint(graph, triggerNodeId) {
-            const compiled = compileBlueprint(graph);
-            if (!compiled.ok) return compiled;
-            // Temporary bridge until Task 4 wires the Blueprint runtime into the session.
-            const run = runFlow(compiled.data, { nodeId: triggerNodeId, port: 'flow' }, new Map(), { visits: 256, effects: 64 }, 0);
-            if (!run.ok) return run;
-            const operations = [];
-            for (const effect of run.data.effects) {
-                if (effect.kind !== 'setVisibility') return failure('INVALID_INPUT', 'Blueprint effect is not supported here');
-                operations.push({ kind: 'setVisibility' as const, entityId: effect.entityId, visible: effect.visible });
-            }
-            if (operations.length === 0) return { ok: true, data: { revision: persistent.revision } };
-            return api.applyPatch({ sceneId: persistent.sceneId, expectedRevision: persistent.revision, operations });
+        editBlueprints: batch => store.edit(batch),
+        inspectBlueprints: since => store.inspect(since, runtimeErrors),
+        runBlueprint(graphId, triggerNodeId) {
+            const graph = store.active(graphId);
+            if (!graph) return failure('NOT_FOUND', 'Blueprint not found', [graphId]);
+            if (!graph.enabled) return failure('INVALID_INPUT', 'Blueprint is disabled', [graphId]);
+            if (!graph.nodes.some(node => node.id === triggerNodeId && node.type === 'event.manual')) return failure('INVALID_INPUT', 'Manual trigger not found', [triggerNodeId]);
+            return applyRuns(runtime.step([{ kind: 'manual', graphId, nodeId: triggerNodeId }], elapsed));
         },
         applyPatch(patch) {
             const parsed = ScenePatchSchema.safeParse(patch);
@@ -69,32 +85,9 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
                 return failure("NOT_FOUND", "Scene not found", [value.sceneId]);
             if (value.expectedRevision !== persistent.revision)
                 return failure("CONFLICT", "Scene revision changed");
-            const next = structuredClone(persistent);
-            for (const operation of value.operations) {
-                if(operation.kind==='createEntity'){
-                    if(next.entities.some(e=>e.id===operation.entity.id))return failure('INVALID_INPUT','Duplicate entity ID',[operation.entity.id]);
-                    const created=structuredClone(operation.entity);if(created.kind==='tracking')created.generation=persistent.revision+1;next.entities.push(created);continue;
-                }
-                const entity = next.entities.find(entity => entity.id === operation.entityId);
-                if (!entity)return failure("NOT_FOUND", "Entity not found", [operation.entityId]);
-                switch(operation.kind){
-                 case 'renameEntity':entity.name=operation.name;break;
-                 case 'removeEntity':
-                  if(next.outputs.some(output=>output.cameraId===entity.id))return failure('INVALID_INPUT','Choose another output camera before removal',[entity.id]);
-                  next.entities=next.entities.filter(item=>item.id!==entity.id);
-                  if(entity.kind==='tracking')for(const avatar of next.entities){if(avatar.kind!=='avatar'||!avatar.tracking)continue;if(avatar.tracking.bodySourceId===entity.id)avatar.tracking.bodySourceId=null;if(avatar.tracking.faceSourceId===entity.id)avatar.tracking.faceSourceId=null;}
-                  break;
-                 case 'setVisibility':entity.visible=operation.visible;break;
-                 case 'setTransform':if(entity.kind==='tracking')return failure('INVALID_INPUT','Tracking assets have no scene transform',[entity.id]);entity.transform=structuredClone(operation.transform);break;
-                 case 'setCameraLens':if(entity.kind!=='camera')return failure('INVALID_INPUT','Entity is not a camera',[entity.id]);entity.lens=structuredClone(operation.lens);break;
-                 case 'setAvatarIdle':if(entity.kind!=='avatar')return failure('INVALID_INPUT','Entity is not an avatar',[entity.id]);entity.idleAnimation=structuredClone(operation.idleAnimation);break;
-                 case 'setAvatarTracking':if(entity.kind!=='avatar')return failure('INVALID_INPUT','Entity is not an avatar',[entity.id]);entity.tracking=structuredClone(operation.tracking);break;
-                 case 'setTrackingSmoothing':if(entity.kind!=='tracking')return failure('INVALID_INPUT','Entity is not a tracking source',[entity.id]);entity.smoothing=structuredClone(operation.smoothing);break;
-                 case 'setTrackingConfig':if(entity.kind!=='tracking'||entity.config.kind!==operation.config.kind)return failure('INVALID_INPUT','Tracking source kind differs',[entity.id]);entity.config=structuredClone(operation.config);entity.generation=persistent.revision+1;break;
-                }
-            }
-            if(!SceneViewSchema.safeParse(next).success)return failure('INVALID_INPUT','Invalid scene references or budget');
-            return commit(next);
+            const applied = applyOperations(persistent, value.operations, persistent.revision + 1);
+            if (!applied.ok) return applied;
+            return commit(applied.data);
         },
         selectCamera(params) {
             const parsed = ParamSchemas.cameraSelect.safeParse(params);
@@ -116,16 +109,17 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
             return commit(next);
         },
         ingestTracking:update=>tracking.ingest(update,persistent),
-        advance(elapsedMs,trackingNowMs) {
+        advance(elapsedMs,trackingNowMs,input) {
             const tick = Math.floor(elapsedMs * 60 / 1000);
             if (!Number.isFinite(elapsedMs) || elapsedMs < elapsed || !Number.isSafeInteger(tick) || !Number.isSafeInteger(sequence + 1)) {
                 throw new RangeError("Elapsed time must be finite, nonnegative and monotonic within safe counter limits");
             }
+            applyRuns(runtime.step(input?.events.map(event => ({ kind: 'keystroke' as const, accelerator: event.accelerator })) ?? [], elapsedMs));
             const scene = adapter.evaluate(persistent, elapsedMs);
             elapsed = elapsedMs;
             sequence += 1;
             const live=tracking.evaluate(persistent,trackingNowMs??elapsedMs,elapsedMs);
-            return { schemaVersion: 1, sessionId, sequence, tick, elapsedMs, scene, ...(live.avatarPoses.length?{avatarPoses:live.avatarPoses}:{}),...(live.trackingStatus.length?{trackingStatus:live.trackingStatus}:{}) };
+            return { schemaVersion: 1, sessionId, sequence, tick, elapsedMs, scene, blueprintRevision: store.revision(), ...(live.avatarPoses.length?{avatarPoses:live.avatarPoses}:{}),...(live.trackingStatus.length?{trackingStatus:live.trackingStatus}:{}) };
         },
     };
     return api;

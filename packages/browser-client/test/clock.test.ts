@@ -40,3 +40,12 @@ it('retains tracking with the latest pre-subscription pulse and forwards live up
  const clock=vi.fn();client.onClock(clock);expect(clock).toHaveBeenLastCalledWith(10000,tracking);
  socket.message({kind:'clock',sessionId:'test',elapsedMs:10010,tracking});expect(clock).toHaveBeenLastCalledWith(10010,tracking);client.close();
 });
+it("passes clock input to the listener as its third argument",async()=>{
+ const sockets:Socket[]=[];
+ const ready=connectWithPorts(descriptor,{socket:()=>{const s=new Socket();sockets.push(s);return s;},setTimeout,clearTimeout,fetch});
+ sockets[0]!.message({kind:"authReply",schemaVersion:1,sessionId:"test",capabilities:["read"]});
+ const client=await ready as PublisherClient, clock=vi.fn(); client.onClock(clock);
+ const input={events:[{kind:"keystroke",accelerator:"Control+Alt+KeyH"}]};
+ sockets[0]!.message({kind:"clock",sessionId:"test",elapsedMs:5,input});
+ expect(clock).toHaveBeenCalledWith(5,undefined,input); client.close();
+});
