@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import fixture from '../../../fixtures/protocol/blueprint-set.json';
 import { makeSmokeScene } from '@opensekai/contracts';
 import { createSession } from '../src/session';
@@ -75,4 +75,17 @@ it('switches an output camera and rejects a run on a missing graph', () => {
  expect(session.runBlueprint('cam', 'go')).toEqual({ ok: true, data: { revision: 1 } });
  expect(session.inspect().outputs.find(o => o.id === 'output_main')?.cameraId).toBe('camera_close');
  expect(session.runBlueprint('nope', 'go')).toMatchObject({ ok: false, error: { code: 'NOT_FOUND' } });
+});
+
+it('does not clone the scene for the Blueprint step on a tick without input or due delays', () => {
+ const session = createSession(makeSmokeScene(), 's');
+ load(session, fixture.blueprints);
+ session.advance(0);
+ const spy = vi.spyOn(globalThis, 'structuredClone');
+ try {
+  session.advance(16);
+  // Other per-tick clones are not whole scenes; the only whole-scene clone is the ECS evaluation, so the Blueprint step must add none.
+  const wholeScenes = spy.mock.calls.filter(([value]) => typeof value === 'object' && value !== null && 'entities' in value && 'outputs' in value);
+  expect(wholeScenes).toHaveLength(1);
+ } finally { spy.mockRestore(); }
 });

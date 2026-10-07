@@ -44,6 +44,7 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
     const store = createBlueprintStore(runtime);
     const runtimeErrors = new Map<Id, AppError>();
     const applyRuns = (runs: GraphRun[]): Reply<{ revision: number }> => {
+        if (runs.length === 0) return { ok: true, data: { revision: persistent.revision } };
         let working = structuredClone(persistent);
         let firstError: AppError | null = null;
         for (const run of runs) {
