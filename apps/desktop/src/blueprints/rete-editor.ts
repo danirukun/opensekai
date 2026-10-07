@@ -43,7 +43,7 @@ export interface ReteBlueprintEditor {
 }
 export interface ReteBlueprintHandlers { onSelect(id: string | null): void; onOps(ops: BlueprintOp[]): void }
 
-export async function mountReteBlueprint(container: HTMLElement, initial: BlueprintGraph, handlers: ReteBlueprintHandlers): Promise<ReteBlueprintEditor> {
+export async function mountReteBlueprint(container: HTMLElement, initial: BlueprintGraph, handlers: ReteBlueprintHandlers, options: { render?: boolean; inspect?: (area: AreaPlugin<Schemes, AreaExtra>) => void } = {}): Promise<ReteBlueprintEditor> {
  const editor = new NodeEditor<Schemes>();
  const area = new AreaPlugin<Schemes, AreaExtra>(container);
  const render = new SveltePlugin<Schemes, AreaExtra>();
@@ -51,9 +51,9 @@ export async function mountReteBlueprint(container: HTMLElement, initial: Bluepr
  render.addPreset(Presets.classic.setup());
  connections.addPreset(ConnectionPresets.classic.setup());
  editor.use(area);
- area.use(render);
- area.use(connections);
+ if (options.render !== false) { area.use(render); area.use(connections); }
  const selectable = AreaExtensions.selectableNodes(area, AreaExtensions.selector(), { accumulating: AreaExtensions.accumulateOnCtrl() });
+ options.inspect?.(area);
  let shown: BlueprintGraph = { ...initial, nodes: [], connections: [] };
  let queue: Promise<void> = Promise.resolve(), destroyed = false, applying = false, silent = false, dirty = false;
  // Events that apply() itself causes are named here only while its own awaited call runs, so a user gesture during a patch still counts.
@@ -87,14 +87,17 @@ export async function mountReteBlueprint(container: HTMLElement, initial: Bluepr
   return context;
  });
 
- const place = async (id: string, position: BlueprintNode['position']) => {
+ // NodeView translates to (0,0) on creation, so a node is own from before addNode until after its placement.
+ const ownNode = async (id: string, work: () => Promise<unknown>) => {
+  const nested = ownNodes.has(id);
   ownNodes.add(id);
-  try { await area.translate(id, position); } finally { ownNodes.delete(id); }
+  try { await work(); } finally { if (!nested) ownNodes.delete(id); }
  };
- const addNode = async (data: BlueprintNode) => {
+ const place = (id: string, position: BlueprintNode['position']) => ownNode(id, () => area.translate(id, position));
+ const addNode = (data: BlueprintNode) => ownNode(data.id, async () => {
   await editor.addNode(new GraphNode(data));
   await place(data.id, data.position);
- };
+ });
  const addWire = async (wire: BlueprintConnection) => {
   const source = editor.getNode(wire.sourceNodeId), target = editor.getNode(wire.targetNodeId);
   if (!source || !target || !Object.hasOwn(source.outputs, wire.sourcePort) || !Object.hasOwn(target.inputs, wire.targetPort)) return;
