@@ -5,4 +5,6 @@ export * from "./marker";
 
 export * from './tracking';
 export * from './blueprint';
+export * from './blueprint-nodes';
+export * from './blueprint-ops';
 export * from './show';

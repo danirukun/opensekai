@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest';
+import fixture from '../../../fixtures/protocol/blueprint-set.json';
 import { makeSmokeScene } from '../src/fixtures';
 import { ShowDocumentSchema } from '../src/show';
 import { requiredCapability, validateCall } from '../src/schema';
@@ -16,8 +17,14 @@ it('accepts a show with one graph and missing asset references', () => {
  expect(ShowDocumentSchema.safeParse(input).success).toBe(true);
 });
 
+it('opens a version-1 show whose graphs omit enabled and holds up to eight graphs', () => {
+ const document = show() as Record<string, unknown>;
+ document.blueprints = fixture.blueprints;
+ expect(ShowDocumentSchema.parse(document).blueprints.map(g => g.enabled)).toEqual([true, true, false]);
+});
+
 it('rejects extra graphs, unsupported versions and invalid output cameras', () => {
- expect(ShowDocumentSchema.safeParse({ ...show(), blueprints: [graph(), { ...graph(), id: 'two' }] }).success).toBe(false);
+ expect(ShowDocumentSchema.safeParse({ ...show(), blueprints: Array.from({ length: 9 }, (_, i) => ({ ...graph(), id: `g${i}` })) }).success).toBe(false);
  expect(ShowDocumentSchema.safeParse({ ...show(), schemaVersion: 2 }).success).toBe(false);
  const invalid = show();
  invalid.scene.outputs[0]!.cameraId = 'missing_camera';
