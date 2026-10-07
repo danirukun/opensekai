@@ -32,7 +32,7 @@ Source: [Assets overview](https://docs.warudo.app/docs/assets/overview).
 - [ ] SCN-02 — Groups, hierarchy, references, and property inspection. First. [GitHub #2](https://github.com/danirukun/opensekai/issues/2)
 - [ ] SCN-03 — Asset export/import and copy between shows. Later. [GitHub #3](https://github.com/danirukun/opensekai/issues/3)
 - [ ] SCN-04 — Merge imported settings into a selected entity. Later. [GitHub #4](https://github.com/danirukun/opensekai/issues/4)
-- [ ] SCN-05 — Save/load shows and preserve missing references. First; OpenSekai persistence requirement. [GitHub #5](https://github.com/danirukun/opensekai/issues/5)
+- [ ] SCN-05 — Save/load shows and preserve missing references. Partial: native Save As/Open of a bounded scene plus one Blueprint, live macOS round trip, and retained unavailable avatar ID. Recent shows, recovery, release/Windows acceptance, and broader show workflow remain. [Check](evaluation/scene-show-management.md). [GitHub #5](https://github.com/danirukun/opensekai/issues/5)
 - [ ] SCN-06 — Portable prepared packages and migration diagnostics. First; OpenSekai persistence requirement. [GitHub #6](https://github.com/danirukun/opensekai/issues/6)
 
 ## Characters and performance control
@@ -150,8 +150,8 @@ Sources: [Warudo Pro](https://docs.warudo.app/docs/pro), [Character](https://doc
 
 Sources: [Blueprint overview](https://docs.warudo.app/docs/blueprints/overview) and the tutorial/preset categories in its navigation.
 
-- [ ] BP-01 — Typed node runtime and data/flow ports. Partial: versioned graph, six typed built-in nodes, validation, bounded manual execution, scene visibility effect, and public edit command route tested. Scheduler, persistent graphs, and full node set remain. [Checks](evaluation/blueprint-foundation.md), [Rete editor](evaluation/rete-blueprint-editor.md). [GitHub #81](https://github.com/danirukun/opensekai/issues/81)
-- [ ] BP-02 — Visual editing, connections, palette, and validation. Partial: Rete draft canvas, typed sockets, node palette, selection, property edits, node deletion, draft retention across panels, pre-run validation, and a live Tauri Run that restored camera visibility. Saved graph workflow, search, grouping, undo, and broader node UI remain. [Check](evaluation/rete-blueprint-editor.md). [GitHub #82](https://github.com/danirukun/opensekai/issues/82)
+- [ ] BP-01 — Typed node runtime and data/flow ports. Partial: versioned graph, six typed built-in nodes, validation, bounded manual execution, scene visibility effect, public edit command route, and one graph saved with its scene. Scheduler and full node set remain. [Checks](evaluation/blueprint-foundation.md), [Rete editor](evaluation/rete-blueprint-editor.md), [show persistence](evaluation/scene-show-management.md). [GitHub #81](https://github.com/danirukun/opensekai/issues/81)
+- [ ] BP-02 — Visual editing, connections, palette, and validation. Partial: Rete draft canvas, typed sockets, node palette, selection, property edits, node deletion, draft retention, pre-run validation, and Save As/Open of one graph in a show. Search, graph lists, grouping, undo, and broader node UI remain. [Checks](evaluation/rete-blueprint-editor.md), [show persistence](evaluation/scene-show-management.md). [GitHub #82](https://github.com/danirukun/opensekai/issues/82)
 - [ ] BP-03 — Create, duplicate, rename, group, and arrange graphs. Later. [GitHub #83](https://github.com/danirukun/opensekai/issues/83)
 - [ ] BP-04 — Versioned graph import/export. Later; Different API. [GitHub #84](https://github.com/danirukun/opensekai/issues/84)
 - [ ] BP-05 — Tracking, character, scene, camera, and animation operations. Later. [GitHub #85](https://github.com/danirukun/opensekai/issues/85)

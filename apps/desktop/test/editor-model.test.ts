@@ -8,10 +8,21 @@ function fixture() {
  const api: AppApi = {
   appStatus: unsupported, sceneInspect: vi.fn(async () => ({ ok: true as const, data: session.inspect() })),
   scenePatch: vi.fn(async params => session.applyPatch(params)), cameraSelect: vi.fn(async params => session.selectCamera(params)),
+  sceneReplace: vi.fn(async params => session.replaceScene(params.scene, params.expectedRevision)),
   blueprintRun: unsupported, captureFrame: unsupported, benchmarkStart: unsupported, benchmarkStatus: unsupported, benchmarkCancel: unsupported, evidenceRead: unsupported,
  };
  return { session, api, model: createEditorModel(api) };
 }
+it('adopts an opened show scene with a new scene ID and clears obsolete selection', async () => {
+ const { model, api, session } = fixture();
+ await model.load(); model.select('marker');
+ const replacement = makeSmokeScene(); replacement.sceneId = 'opened-show';
+ replacement.entities = replacement.entities.filter(entity => entity.id !== 'marker');
+ expect(await model.replaceScene(replacement)).toMatchObject({ ok: true, data: { sceneId: 'opened-show', revision: 1 } });
+ expect(api.sceneReplace).toHaveBeenCalledWith({ scene: replacement, expectedRevision: 0 });
+ expect(model.read()).toMatchObject({ selectedId: null, scene: { sceneId: 'opened-show', revision: 1 } });
+ expect(session.inspect().sceneId).toBe('opened-show');
+});
 it('loads persistent plain state, publishes selection, and unsubscribes', async () => {
  const { model, session } = fixture(); const listener = vi.fn(); const stop = model.subscribe(listener);
  await model.load(); model.select('performer');

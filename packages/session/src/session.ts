@@ -1,9 +1,10 @@
-import { IdSchema, ParamSchemas, ScenePatchSchema, SceneViewSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate } from "@opensekai/contracts";
+import { IdSchema, ParamSchemas, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate } from "@opensekai/contracts";
 import { createTransformAdapter } from "./ecs";
 import {createTrackingComposer} from "./tracking";
 import { compileBlueprint, executeBlueprint } from './blueprint';
 export interface Session {
     inspect(): SceneView;
+    replaceScene(scene: SceneView, expectedRevision: number): Reply<SceneView>;
     applyPatch(patch: ScenePatch): Reply<{
         revision: number;
     }>;
@@ -23,7 +24,7 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
     IdSchema.parse(sessionId);
     let persistent: SceneView = structuredClone(SceneViewSchema.parse(scene));
     const adapter = createTransformAdapter(persistent);
-    const tracking=createTrackingComposer();
+    let tracking=createTrackingComposer();
     let elapsed = 0;
     let sequence = 0;
     function commit(next: SceneView): Reply<{
@@ -37,6 +38,14 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
     }
     const api: Session = {
         inspect: () => structuredClone(persistent),
+        replaceScene(scene, expectedRevision) {
+            if (expectedRevision !== persistent.revision) return failure('CONFLICT', 'Scene revision changed');
+            const parsed = ShowSceneSchema.safeParse(scene);
+            if (!parsed.success || !Number.isSafeInteger(persistent.revision + 1)) return failure('INVALID_INPUT', 'Invalid show scene');
+            persistent = structuredClone({ ...parsed.data, revision: persistent.revision + 1 });
+            tracking = createTrackingComposer();
+            return { ok: true, data: structuredClone(persistent) };
+        },
         runBlueprint(graph, triggerNodeId) {
             const compiled = compileBlueprint(graph);
             if (!compiled.ok) return compiled;

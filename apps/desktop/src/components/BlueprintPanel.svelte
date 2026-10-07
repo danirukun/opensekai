@@ -24,7 +24,8 @@
   { kind: 'value.boolean', label: 'Boolean' }, { kind: 'math.add', label: 'Add' },
   { kind: 'logic.greater', label: 'Greater Than' }, { kind: 'scene.setVisibility', label: 'Set Visibility' },
  ];
- function refresh() { if (editor) graph = editor.read(); }
+ export function readDraft(): BlueprintGraph | null { return editor?.read() ?? draft; }
+ function refresh() { if (editor) { graph = editor.read(); ondraft(graph); } }
  function changeSettings(settings: BlueprintNode['settings']) { if (!editor || !selectedId) return; editor.setSettings(selectedId, settings); refresh(); status = 'Draft'; }
  async function add() { if (!editor) return; await editor.add(addKind, targets[0]?.id ?? 'marker'); refresh(); status = 'Draft'; }
  async function remove() { if (!editor || !selectedId) return; await editor.remove(selectedId); selectedId = null; refresh(); status = 'Draft'; }

@@ -1,4 +1,4 @@
-import { TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,TrackingSmoothingSchema,EntityNameSchema } from '@opensekai/contracts';
+import { TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,TrackingSmoothingSchema,EntityNameSchema,ShowSceneSchema } from '@opensekai/contracts';
 import type { AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing } from '@opensekai/contracts';
 import {makeEntityCopy} from './asset-management';
 type CameraLens=Extract<SceneEntity,{kind:'camera'}>['lens'];
@@ -55,6 +55,25 @@ export function createEditorModel(api: AppApi) {
  function ofKind(entityId:Id,kind:SceneEntity['kind']) {return view.scene?.entities.some(entity=>entity.id===entityId&&entity.kind===kind);}
  return {
   read,
+  async replaceScene(scene:SceneView):Promise<Reply<SceneView>> {
+   if(view.pending)return failure('BUSY');
+   if(!view.scene)return invalid('UNAVAILABLE');
+   const parsed=ShowSceneSchema.safeParse(scene);
+   if(!parsed.success)return invalid();
+   publish({pending:true,error:null});
+   try {
+    const reply=await api.sceneReplace({scene:parsed.data,expectedRevision:view.scene.revision});
+    if(reply.ok){
+     inspectionEpoch+=1;
+     publish({scene:structuredClone(reply.data),selectedId:reply.data.entities.some(entity=>entity.id===view.selectedId)?view.selectedId:null,error:null});
+    }else {
+     if(reply.error.code==='CONFLICT')await inspect();
+     publish({error:reply.error.code});
+    }
+    return reply;
+   }catch{publish({error:'UNAVAILABLE'});return failure('UNAVAILABLE');}
+   finally{publish({pending:false});}
+  },
   async createEntity(entity:SceneEntity,expectedRevision?:number):Promise<Reply<{revision:number}>> {
    const parsed=SceneEntitySchema.safeParse(entity);if(!parsed.success)return invalid();
    const reply=await patch({kind:'createEntity',entity:parsed.data},expectedRevision);

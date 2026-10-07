@@ -10,6 +10,7 @@ export function fixtureApi(): AppApi {
   appStatus:async () => ok({schemaVersion:1,sessionId:'fixture',ready:true,revision:scene.revision,capabilities:['read','edit'],warnings:[],outputs:[]}),
   sceneInspect:async () => ok(structuredClone(scene)),
   scenePatch:async p => p.expectedRevision !== scene.revision ? {ok:false,error:{code:'CONFLICT',message:'Stale revision',ids:[]}} : ok({revision:++scene.revision}),
+  sceneReplace:denied,
   cameraSelect:denied,blueprintRun:denied,captureFrame:async () => ({ok:false,error:{code:'RATE_LIMITED',message:'Capture limit',ids:[]}}),benchmarkStart:denied,benchmarkStatus:denied,benchmarkCancel:denied,evidenceRead:async () => ok({id:'opaque',kind:'capture',sessionId:'fixture',fixtureId:'smoke_v1',appCommit:'fixture',resources:[{uri:'opensekai://evidence/opaque/capture.png',mimeType:'image/png',bytes:3,sha256:createHash('sha256').update(new Uint8Array([1,2,3])).digest('hex')}]})
  };
 }

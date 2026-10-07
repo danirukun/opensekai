@@ -286,6 +286,10 @@ object!(Call {
     params: Value
 });
 object!(SceneInspectParams { scene_id: Id });
+object!(SceneReplaceParams {
+    scene: SceneView,
+    expected_revision: u64
+});
 object!(CameraSelectParams {
     output_id: Id,
     camera_id: Id,
@@ -498,6 +502,27 @@ impl Validate for SceneView {
         Ok(())
     }
 }
+pub fn validate_show_scene(scene: &SceneView) -> Result<(), AppError> {
+    scene.validate()?;
+    let outputs: HashSet<_> = scene
+        .outputs
+        .iter()
+        .map(|output| output.id.as_str())
+        .collect();
+    require(
+        outputs.contains("output_main") && outputs.contains("preview_main"),
+        "show requires main and preview outputs",
+    )
+}
+impl Validate for SceneReplaceParams {
+    fn validate(&self) -> Result<(), AppError> {
+        require(
+            self.expected_revision <= 9_007_199_254_740_991,
+            "invalid expected revision",
+        )?;
+        validate_show_scene(&self.scene)
+    }
+}
 impl Validate for ScenePatch {
     fn validate(&self) -> Result<(), AppError> {
         scalar_checks(&serde_json::to_value(self).map_err(|e| invalid(e.to_string()))?)?;
@@ -661,6 +686,7 @@ pub fn validate_call(method: &str, params: &Value) -> Result<(), AppError> {
         ),
         "sceneInspect" => decode::<SceneInspectParams>(params).map(|_| ()),
         "scenePatch" => decode::<ScenePatch>(params)?.validate(),
+        "sceneReplace" => decode::<SceneReplaceParams>(params)?.validate(),
         "cameraSelect" => decode::<CameraSelectParams>(params).map(|_| ()),
         "blueprintRun" => {
             let input = decode::<BlueprintRunParams>(params)?;
@@ -727,6 +753,7 @@ pub fn validate_result(method: &str, result: &Value) -> Result<(), AppError> {
         "appStatus"
             | "sceneInspect"
             | "scenePatch"
+            | "sceneReplace"
             | "cameraSelect"
             | "blueprintRun"
             | "captureFrame"
@@ -742,6 +769,7 @@ pub fn validate_result(method: &str, result: &Value) -> Result<(), AppError> {
     match method {
         "appStatus" => decode::<AppStatus>(data)?.validate(),
         "sceneInspect" => decode::<SceneView>(data)?.validate(),
+        "sceneReplace" => validate_show_scene(&decode::<SceneView>(data)?),
         "scenePatch" | "cameraSelect" | "blueprintRun" => {
             decode::<RevisionResult>(data).map(|_| ())
         }

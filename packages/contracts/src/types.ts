@@ -1,5 +1,6 @@
 import type {AvatarIdle,AvatarTracking,TrackingConfig,TrackingSmoothing,AvatarPose,TrackingStatus,TrackingUpdate} from './tracking';
 import type { BlueprintGraph } from './blueprint';
+import type { ShowDocument } from './show';
 export type Id = string;
 export type Vec3 = [
     number,
@@ -210,6 +211,7 @@ export interface AppApi {
     scenePatch(params: ScenePatch): Promise<Reply<{
         revision: number;
     }>>;
+    sceneReplace(params: { scene: ShowDocument['scene']; expectedRevision: number }): Promise<Reply<SceneView>>;
     cameraSelect(params: {
         outputId: Id;
         cameraId: Id;

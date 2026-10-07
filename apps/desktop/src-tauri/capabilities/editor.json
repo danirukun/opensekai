@@ -11,6 +11,8 @@
     "allow-hide-editor",
     "allow-show-scene",
     "allow-import-avatar",
+    "allow-save-show-as",
+    "allow-open-show",
     "core:event:allow-listen",
     "core:event:allow-unlisten",
     "core:event:allow-emit-to"

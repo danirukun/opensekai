@@ -39,6 +39,8 @@ fn main() {
             "show_scene",
             "hide_editor",
             "import_avatar",
+            "save_show_as",
+            "open_show",
         ]),
     ))
     .expect("OpenSekai build configuration failed");

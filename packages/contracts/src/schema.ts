@@ -130,6 +130,15 @@ export const SceneViewSchema = z.strictObject({
  if(new Set(s.entities.map(e=>e.id)).size!==s.entities.length||new Set(s.outputs.map(o=>o.id)).size!==s.outputs.length||!s.outputs.every(o=>s.entities.some(e=>e.id===o.cameraId&&e.kind==='camera')))return false;
  return s.entities.every(e=>e.kind!=='avatar'||!e.tracking||[e.tracking.bodySourceId,e.tracking.faceSourceId].every((id,index)=>id===null||sources.some(source=>source.id===id&&(index===1||source.config.kind!=='ifacialmocap'))));
 }, 'Duplicate ID, budget or invalid reference');
+export const ShowSceneSchema = SceneViewSchema.refine(scene =>
+    ['output_main', 'preview_main'].every(id => scene.outputs.some(output => output.id === id)),
+    'Show requires main and preview outputs');
+export const ShowDocumentSchema = z.strictObject({
+    schemaVersion: z.literal(1),
+    name: z.string().trim().min(1).max(128),
+    scene: ShowSceneSchema,
+    blueprints: z.array(BlueprintGraphSchema).max(1)
+});
 export const EntityNameSchema = z.string().trim().min(1).refine(name=>name.length<=128, 'Name is too long');
 export const PatchOpSchema = z.discriminatedUnion("kind", [
     z.strictObject({kind:z.literal('renameEntity'),entityId:IdSchema,name:EntityNameSchema}),
@@ -311,6 +320,7 @@ export const ParamSchemas = {
         sceneId: IdSchema
     }),
     scenePatch: ScenePatchSchema,
+    sceneReplace: z.strictObject({ scene: ShowSceneSchema, expectedRevision: u }),
     cameraSelect: z.strictObject({
         outputId: IdSchema,
         cameraId: IdSchema,
@@ -335,6 +345,7 @@ export const ResultSchemas = {
     scenePatch: z.strictObject({
         revision: u
     }),
+    sceneReplace: ShowSceneSchema,
     cameraSelect: z.strictObject({
         revision: u
     }),
@@ -349,6 +360,7 @@ export const MethodSchema = z.enum([
     "appStatus",
     "sceneInspect",
     "scenePatch",
+    "sceneReplace",
     "cameraSelect",
     "blueprintRun",
     "captureFrame",
@@ -380,7 +392,7 @@ export function validateCall(method: unknown, params: unknown): Reply<ValidatedC
     };
 }
 export function requiredCapability(method: keyof AppApi): Capability {
-    if (method === "scenePatch" || method === "cameraSelect" || method === "blueprintRun")
+    if (method === "scenePatch" || method === "sceneReplace" || method === "cameraSelect" || method === "blueprintRun")
         return "edit";
     if (method === "captureFrame")
         return "capture";
