@@ -1,7 +1,7 @@
 import { IdSchema, ParamSchemas, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate, type AppError, type InputUpdate, type BlueprintInspect } from "@opensekai/contracts";
 import { createTransformAdapter } from "./ecs";
 import {createTrackingComposer} from "./tracking";
-import { createBlueprintRuntime, type GraphRun } from './blueprint-runtime';
+import { createBlueprintRuntime, logicKey, type GraphRun } from './blueprint-runtime';
 import { createBlueprintStore } from './blueprint-store';
 import { applyEffects, applyOperations } from './scene-ops';
 export interface Session {
@@ -68,7 +68,16 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
             tracking = createTrackingComposer();
             return { ok: true, data: structuredClone(persistent) };
         },
-        editBlueprints: batch => store.edit(batch),
+        editBlueprints(batch) {
+            const before = new Map([...runtimeErrors.keys()].map(id => { const graph = store.active(id); return [id, graph && logicKey(graph)] as const; }));
+            const reply = store.edit(batch);
+            if (reply.ok)
+                for (const [id, key] of before) {
+                    const graph = store.active(id);
+                    if (!graph || logicKey(graph) !== key) runtimeErrors.delete(id);
+                }
+            return reply;
+        },
         inspectBlueprints: since => store.inspect(since, runtimeErrors),
         runBlueprint(graphId, triggerNodeId) {
             const graph = store.active(graphId);
@@ -115,7 +124,11 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
             if (!Number.isFinite(elapsedMs) || elapsedMs < elapsed || !Number.isSafeInteger(tick) || !Number.isSafeInteger(sequence + 1)) {
                 throw new RangeError("Elapsed time must be finite, nonnegative and monotonic within safe counter limits");
             }
-            applyRuns(runtime.step(input?.events.map(event => ({ kind: 'keystroke' as const, accelerator: event.accelerator })) ?? [], elapsedMs));
+            try {
+                applyRuns(runtime.step(input?.events.map(event => ({ kind: 'keystroke' as const, accelerator: event.accelerator })) ?? [], elapsedMs));
+            } catch {
+                // An unexpected Blueprint failure must not abort the frame.
+            }
             const scene = adapter.evaluate(persistent, elapsedMs);
             elapsed = elapsedMs;
             sequence += 1;

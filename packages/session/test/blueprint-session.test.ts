@@ -103,3 +103,44 @@ it('adds no whole-scene clone for the Blueprint step on a tick without input or 
  };
  expect(wholeSceneClones(true)).toBe(wholeSceneClones(false));
 });
+
+const withRuntimeError = () => {
+ const session = createSession(makeSmokeScene(), 's');
+ const graphs = structuredClone(fixture.blueprints);
+ graphs[1]!.nodes[0]!.settings = { code: 'KeyH', control: true, alt: true, shift: false, meta: false };
+ graphs[1]!.nodes[3]!.settings = { entityId: 'gone' };
+ load(session, graphs);
+ session.advance(0);
+ session.advance(16, 16, press('Control+Alt+KeyH'));
+ expect(session.inspectBlueprints().errors).toHaveLength(1);
+ return session;
+};
+const edit = (s: S, ops: object[]) => s.editBlueprints({ clientId: 't', batchId: crypto.randomUUID(), ops });
+
+it('clears a runtime error when an edit changes the logic of its graph, but not when it moves a node', () => {
+ const session = withRuntimeError();
+ edit(session, [{ kind: 'moveNode', graphId: 'flash-marker', nodeId: 'show', position: { x: 5, y: 5 } }, { kind: 'updateGraph', graphId: 'flash-marker', name: 'Renamed' }]);
+ expect(session.inspectBlueprints().errors).toHaveLength(1);
+ edit(session, [{ kind: 'setNodeSettings', graphId: 'flash-marker', nodeId: 'show', settings: { entityId: 'marker' } }]);
+ expect(session.inspectBlueprints().errors).toEqual([]);
+});
+
+it('does not bring back a runtime error when a removed graph is created again', () => {
+ const session = withRuntimeError();
+ edit(session, [{ kind: 'removeGraph', graphId: 'flash-marker' }]);
+ const original = fixture.blueprints[1]!;
+ edit(session, [{ kind: 'createGraph', graph: original }]);
+ expect(session.inspectBlueprints().errors).toEqual([]);
+});
+
+it('does not abort the frame when the Blueprint step throws', () => {
+ const session = createSession(makeSmokeScene(), 's');
+ load(session, fixture.blueprints);
+ session.advance(0);
+ const spy = vi.spyOn(globalThis, 'structuredClone').mockImplementationOnce(() => { throw new Error('boom'); });
+ try {
+  const frame = session.advance(16, 16, press('Control+Alt+KeyH'));
+  expect(frame.sequence).toBe(2);
+ } finally { spy.mockRestore(); }
+ expect(session.advance(32).sequence).toBe(3);
+});
