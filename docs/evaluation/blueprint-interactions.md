@@ -27,8 +27,8 @@ I built the scene and the graphs through the shared commands, not through canvas
 | 3.10. Break a data wire, key stays bound | PASS, on graph B | See below |
 | 3.11. Disable graph B, press ⌃⌥J | PASS for "nothing happens"; the key test is partly UNKNOWN | See below |
 | 3.12. Rename graph C through MCP | PASS | [before](blueprint-interactions-editor-before-rename.png), [after](blueprint-interactions-editor-renamed-via-mcp.png) |
-| 3.13. Save, relaunch, open, press ⌃⌥H | FAIL | See Findings |
-| 3.14. Bind ⌘Space | FAIL | See Findings |
+| 3.13. Save, relaunch, open, press ⌃⌥H | FIXED, re-checked on commit `954b5cf` (API path only) | See Findings and Re-check |
+| 3.14. Bind ⌘Space | Different (expected) | See Findings |
 
 ### Timing
 
@@ -48,9 +48,21 @@ The real stdio MCP server (`apps/mcp/src/cli.ts`) listed 13 tools, including `bl
 
 ## Findings
 
-1. **Hotkeys do not fire after a relaunch until a later Blueprint edit.** Repro: quit, relaunch, replace the scene and graphs, press ⌃⌥H: no effect. Any later `blueprint_edit` (for example `moveNode`) makes ⌃⌥H work. The GUI Save As and Open flow showed the same result: the saved show opened with three graphs, and the first ⌃⌥H presses did nothing. The editor was on the Assets panel. The same graphs fired at once when I created them through three `blueprintEdit` batches at the start. The cause is not known.
-2. **A combination that macOS holds gives no warning.** I bound ⌘Space. `appStatus.warnings` stayed empty. ⌘Space fired the graph and Spotlight also opened. The contract expects a warning for a failed registration; macOS did not fail it. The editor warning text was not seen.
-3. **Hotkeys stopped twice without a known cause.** After the first minimize and again after the first compile-error edit, several ⌃⌥H presses did nothing. Disabling and enabling graph A fixed the first case; reconnecting the wire fixed the second. I could not repeat the stop in 14 presses in a row. The OBS test source was crashing at about the same times (see below). The cause is unknown.
+1. **Hotkeys stopped after the publisher connection dropped and came back (fixed).** The host cleared its registrations when the publisher dropped. The worker kept its session and graphs and reconnected. Nothing registered the keys again until a later `blueprint_edit` made the host register them. A drop happens when the worker misses the 2 s clock credit, for example while the page is busy. Repro A (relaunch, scene replace, graph edit, press) and the first 3.13 failure had this shape. The cause is proven with a stall of the web networking process (see Re-check). The Save As and Open flow was not run again.
+2. **A combination that macOS holds gives no warning (expected).** I bound ⌘Space. `appStatus.warnings` stayed empty. ⌘Space fired the graph and Spotlight also opened. The warning covers an OS registration failure only. macOS accepts a combination that a system feature such as Spotlight also uses, and both then fire. This is Different from Warudo. The editor warning text was not seen.
+3. **Hotkeys stopped twice during the session (same cause).** After the first minimize and again after the first compile-error edit, several ⌃⌥H presses did nothing. Each time an edit that went through the host registered the keys again. I could not repeat the stop with presses alone. The connection drop explains both stops.
+
+## Re-check of step 3.13
+
+Commit `954b5cf` (release build, default window state, Finder in front, ⌃⌥H sent with `osascript`). The test froze the app's web networking process for 4 to 5 s with `kill -STOP` and `kill -CONT`. This makes the publisher miss its clock credit and reconnect. I read the scene state through the operator connection (`scene_inspect`), not OBS.
+
+| Build | Run | Result |
+| --- | --- | --- |
+| Before the fix (`7225fa7`) | Freeze, wait, 3 presses | No change in the scene. After one `blueprint_edit` (`moveNode`), the next press toggled the avatar. |
+| After the fix | Relaunch, scene replace, graph edit, 2 presses | Both presses toggled the avatar. |
+| After the fix | 3 freeze cycles with 2 presses each, waiting 25 s after each freeze | All 6 presses toggled the avatar. |
+
+The host asks the publisher for its accelerator set after the publisher answers a clock with a frame. A call sent earlier made the worker miss its credit again in the freeze test, so the host waits for the first frame. The fix is covered by integration tests in `apps/desktop/src-tauri/tests/keystroke_integration.rs`.
 
 ## Different behavior
 
