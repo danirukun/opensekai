@@ -19,7 +19,12 @@ export function createBlueprintSync(api: Pick<AppApi, 'blueprintEdit' | 'bluepri
  // Server reconciliation: confirmed server state, then this client's unconfirmed batches applied again on top.
  const rebuild = () => {
   let next = confirmed;
-  pending = pending.filter(batch => { const r = applyBlueprintOps(next, batch.ops); if (r.ok) next = r.data; return r.ok || batch.sent; });
+  pending = pending.filter(batch => {
+   const r = applyBlueprintOps(next, batch.ops);
+   if (r.ok) next = r.data;
+   else if (!batch.sent) issue = { kind: 'rejected', message: r.error.message };
+   return r.ok || batch.sent;
+  });
   show(next);
  };
  const adopt = async (reply: BlueprintInspect): Promise<void> => {

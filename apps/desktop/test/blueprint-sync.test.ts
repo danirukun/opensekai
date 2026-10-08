@@ -81,3 +81,19 @@ it('recovers from an outage on a later poll without applying the batch twice', a
  expect(flaky.view()).toEqual(b.view());
  expect(wait(flaky.view(), 'wait')!.position).toEqual({ x: 7, y: 7 });
 });
+
+it('reports "rejected" when an unsent batch no longer applies after a remote edit and is dropped', async () => {
+ const session = createSession(makeSmokeScene(), 's');
+ session.editBlueprints({ clientId: 'seed', batchId: 'seed', ops: [{ kind: 'replaceAll', graphs: fixture.blueprints as never }] });
+ let release!: () => void;
+ const gate = new Promise<void>(resolve => { release = resolve; });
+ const a = createBlueprintSync({ ...apiFor(session), blueprintEdit: async batch => { await gate; return session.editBlueprints(batch); } }, 'a');
+ await a.load();
+ a.edit([{ kind: 'updateGraph', graphId: 'flash-marker', name: 'Mine' }]);
+ a.edit([{ kind: 'moveNode', graphId: 'flash-marker', nodeId: 'wait', position: { x: 1, y: 1 } }]);
+ session.editBlueprints({ clientId: 'b', batchId: 'remote', ops: [{ kind: 'removeNode', graphId: 'flash-marker', nodeId: 'wait' }] });
+ await a.pull();
+ expect(wait(a.view(), 'wait')).toBeUndefined();
+ expect(a.issue()).toEqual({ kind: 'rejected', message: expect.any(String) });
+ release(); await a.idle();
+});

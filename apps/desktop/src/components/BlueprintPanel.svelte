@@ -70,7 +70,8 @@
   revealError();
  }
  function create() {
-  const entityId = targets[0]?.id ?? 'marker';
+  const entityId = targets[0]?.id;
+  if (!entityId) return;
   const key = crypto.randomUUID(), act = crypto.randomUUID();
   const id = crypto.randomUUID();
   const settings = defaultKeystroke(platform);
@@ -118,7 +119,7 @@
 <section class="blueprint-panel" aria-label="Blueprint editor">
  <header class="blueprint-toolbar"><h2>Blueprints</h2><span class="blueprint-state" role="status">{problem}</span><div class="spacer"></div>{#if trigger}<Button variant="secondary" disabled={disabled || busy || !graph} onclick={run}><Play size={14}/>Run</Button>{/if}</header>
  <div class="blueprint-workspace">
-  <BlueprintList {graphs} {selectedId} {disabled} onselect={choose} onops={edit} oncreate={create} />
+  <BlueprintList {graphs} {selectedId} {disabled} creatable={targets.length > 0} onselect={choose} onops={edit} oncreate={create} />
   <aside class="blueprint-palette" aria-label="Node palette"><Select label="Node kind" bind:value={addKind} options={kinds.map(([value, label]) => ({ value, label }))} /><Button variant="secondary" disabled={disabled || !graph} onclick={add}><Plus size={14}/>Add node</Button></aside>
   <div class="blueprint-canvas" bind:this={canvas} aria-label="Blueprint canvas"></div>
   <aside class="blueprint-inspector" aria-label="Node properties">
