@@ -33,7 +33,7 @@ A VTuber uses Blueprints mostly for interactions. Typical uses: press a hotkey t
    - Flow: If Branch, Sequence (2–8 outputs), Flip Flop (with an Is A data output), and Delay (0–3600 seconds).
    - Data: Number, Boolean, Add, Greater Than, and Not.
    - Actions: Set Visibility, Toggle Visibility, and Switch Camera (for one output). Each action has an Exit flow output.
-9. **`blueprintRun({ graphId, triggerNodeId })` fires a Manual Trigger in the active version of a graph.** The old form, which sent a draft graph, is removed. MCP gets `blueprint_edit`, `blueprint_inspect`, and the new `blueprint_run`.
+9. **`blueprintRun({ graphId, triggerNodeId })` fires a Manual Trigger in the active version of a graph.** The reply states the result of that graph's own run only. An error of another graph's due delay does not change the reply. A run whose effects fail does not change its Flip Flop state or create delays. The old form, which sent a draft graph, is removed. MCP gets `blueprint_edit`, `blueprint_inspect`, and the new `blueprint_run`.
 10. **Effects commit once per tick.** The session applies the effects of each graph to a working copy of the scene, one graph at a time. When one graph's effects are not valid, the session drops only those effects and records a runtime error on that graph. The session commits at most one scene revision for each tick, and only when the scene changed.
 11. **Validation authority.** TypeScript contracts own the node catalog, the settings, and the operation function. The Rust host checks only structure: version, IDs, sizes, operation kinds, a bounded node type name, and an object for settings. The host keeps no copy of the node settings table.
 

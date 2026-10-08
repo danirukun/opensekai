@@ -3,7 +3,9 @@ import { compileBlueprint, fail, runFlow, type BlueprintEffect, type CompiledBlu
 
 export type BlueprintEvent = { kind: 'manual'; graphId: Id; nodeId: Id } | { kind: 'keystroke'; accelerator: string };
 export interface GraphRun { graphId: Id; effects: BlueprintEffect[]; error: AppError | null }
-export interface BlueprintRuntime { install(graphs: unknown, fresh?: boolean): Reply<BlueprintGraph[]>; keystrokes(): string[]; step(events: BlueprintEvent[], nowMs: number): GraphRun[] }
+// Called once per run, right after the run, before the next one. A returned error keeps the run's Flip Flop state and new delays uncommitted.
+export type RunGate = (run: GraphRun) => AppError | null;
+export interface BlueprintRuntime { install(graphs: unknown, fresh?: boolean): Reply<BlueprintGraph[]>; keystrokes(): string[]; step(events: BlueprintEvent[], nowMs: number, gate?: RunGate): GraphRun[] }
 
 interface Active { compiled: CompiledBlueprint; logic: string; flip: Map<Id, boolean>; delays: (PendingDelay & { order: number })[] }
 const MAX_DELAYS = 32;
@@ -16,7 +18,7 @@ export const activeAccelerators = (graphs: readonly BlueprintGraph[]): string[] 
 export function createBlueprintRuntime(): BlueprintRuntime {
  let active: Active[] = [];
  let order = 0;
- const run = (entry: Active, start: { nodeId: Id; port: string }, budget: FlowBudget, nowMs: number): GraphRun => {
+ const run = (entry: Active, start: { nodeId: Id; port: string }, budget: FlowBudget, nowMs: number, gate: RunGate): GraphRun => {
   const graphId = entry.compiled.graph.id;
   const result = runFlow(entry.compiled, start, entry.flip, budget, nowMs);
   if (!result.ok) return { graphId, effects: [], error: result.error };
@@ -24,9 +26,12 @@ export function createBlueprintRuntime(): BlueprintRuntime {
    const limit = fail('Blueprint delay limit reached', [graphId]);
    return { graphId, effects: [], error: limit.ok ? null : limit.error };
   }
+  const outcome: GraphRun = { graphId, effects: result.data.effects, error: null };
+  const rejected = gate(outcome);
+  if (rejected) return { graphId, effects: [], error: rejected };
   entry.flip = result.data.flip;
   entry.delays.push(...result.data.delays.map(delay => ({ ...delay, order: order++ })));
-  return { graphId, effects: result.data.effects, error: null };
+  return outcome;
  };
  return {
   install(graphs, fresh = false) {
@@ -44,14 +49,14 @@ export function createBlueprintRuntime(): BlueprintRuntime {
    return { ok: true, data: parsed.data };
   },
   keystrokes: () => activeAccelerators(active.map(entry => entry.compiled.graph)),
-  step(events, nowMs) {
+  step(events, nowMs, gate = () => null) {
    const budget: FlowBudget = { visits: 256, effects: 64 };
    const runs: GraphRun[] = [];
    const due = active.flatMap(entry => entry.delays.filter(delay => delay.dueMs <= nowMs).map(delay => ({ entry, delay })))
     .sort((a, b) => a.delay.dueMs - b.delay.dueMs || a.delay.order - b.delay.order);
    for (const { entry, delay } of due) {
     entry.delays = entry.delays.filter(item => item !== delay);
-    runs.push(run(entry, { nodeId: delay.nodeId, port: 'exit' }, budget, nowMs));
+    runs.push(run(entry, { nodeId: delay.nodeId, port: 'exit' }, budget, nowMs, gate));
    }
    for (const event of events)
     for (const entry of active) {
@@ -61,7 +66,7 @@ export function createBlueprintRuntime(): BlueprintRuntime {
       const matches = event.kind === 'manual'
        ? node.type === 'event.manual' && graph.id === event.graphId && node.id === event.nodeId
        : node.type === 'event.keystroke' && keystrokeAccelerator(node.settings) === event.accelerator;
-      if (matches) runs.push(run(entry, { nodeId: node.id, port: 'flow' }, budget, nowMs));
+      if (matches) runs.push(run(entry, { nodeId: node.id, port: 'flow' }, budget, nowMs, gate));
      }
     }
    return runs;

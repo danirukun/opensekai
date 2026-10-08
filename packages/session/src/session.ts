@@ -1,7 +1,7 @@
 import { IdSchema, ParamSchemas, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate, type AppError, type InputUpdate, type BlueprintInspect } from "@opensekai/contracts";
 import { createTransformAdapter } from "./ecs";
 import {createTrackingComposer} from "./tracking";
-import { createBlueprintRuntime, logicKey, type GraphRun } from './blueprint-runtime';
+import { createBlueprintRuntime, logicKey, type BlueprintEvent, type GraphRun } from './blueprint-runtime';
 import { createBlueprintStore } from './blueprint-store';
 import { applyEffects, applyOperations } from './scene-ops';
 export interface Session {
@@ -43,20 +43,26 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
     const runtime = createBlueprintRuntime();
     const store = createBlueprintStore(runtime);
     const runtimeErrors = new Map<Id, AppError>();
-    const applyRuns = (runs: GraphRun[]): Reply<{ revision: number }> => {
-        if (runs.length === 0) return { ok: true, data: { revision: persistent.revision } };
-        let working = structuredClone(persistent);
-        let firstError: AppError | null = null;
-        for (const run of runs) {
-            const next = run.error ? null : applyEffects(working, run.effects);
-            const error = run.error ?? (next && !next.ok ? next.error : null);
-            if (error) { runtimeErrors.set(run.graphId, error); firstError ??= error; continue; }
-            runtimeErrors.delete(run.graphId);
-            if (next?.ok) working = next.data;
-        }
-        const changed = JSON.stringify(working) !== JSON.stringify(persistent);
-        const committed = changed ? commit(working) : { ok: true as const, data: { revision: persistent.revision } };
-        return firstError ? { ok: false, error: firstError } : committed;
+    let lastStepFailure = '';
+    const logOnce = (error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        if (message === lastStepFailure) return;
+        lastStepFailure = message;
+        console.error('Blueprint step failed', error);
+    };
+    // Each run's effects go onto a scratch copy first, so a run whose effects fail leaves no Flip Flop or delay change behind.
+    const stepBlueprints = (events: BlueprintEvent[], nowMs: number): { runs: GraphRun[]; committed: Reply<{ revision: number }> } => {
+        let working: SceneView | null = null;
+        const runs = runtime.step(events, nowMs, run => {
+            if (run.effects.length === 0) return null;
+            const next = applyEffects(working ?? persistent, run.effects);
+            if (!next.ok) return next.error;
+            working = next.data;
+            return null;
+        });
+        for (const run of runs) if (run.error) runtimeErrors.set(run.graphId, run.error); else runtimeErrors.delete(run.graphId);
+        const changed = working !== null && JSON.stringify(working) !== JSON.stringify(persistent);
+        return { runs, committed: changed ? commit(working!) : { ok: true, data: { revision: persistent.revision } } };
     };
     const api: Session = {
         inspect: () => structuredClone(persistent),
@@ -84,7 +90,15 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
             if (!graph) return failure('NOT_FOUND', 'Blueprint not found', [graphId]);
             if (!graph.enabled) return failure('INVALID_INPUT', 'Blueprint is disabled', [graphId]);
             if (!graph.nodes.some(node => node.id === triggerNodeId && node.type === 'event.manual')) return failure('INVALID_INPUT', 'Manual trigger not found', [triggerNodeId]);
-            return applyRuns(runtime.step([{ kind: 'manual', graphId, nodeId: triggerNodeId }], elapsed));
+            try {
+                const { runs, committed } = stepBlueprints([{ kind: 'manual', graphId, nodeId: triggerNodeId }], elapsed);
+                const own = runs.at(-1);
+                if (own?.error) return { ok: false, error: own.error };
+                return committed;
+            } catch (error) {
+                logOnce(error);
+                return failure('INVALID_INPUT', 'Blueprint step failed', [graphId]);
+            }
         },
         applyPatch(patch) {
             const parsed = ScenePatchSchema.safeParse(patch);
@@ -125,9 +139,10 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
                 throw new RangeError("Elapsed time must be finite, nonnegative and monotonic within safe counter limits");
             }
             try {
-                applyRuns(runtime.step(input?.events.map(event => ({ kind: 'keystroke' as const, accelerator: event.accelerator })) ?? [], elapsedMs));
-            } catch {
+                stepBlueprints(input?.events.map(event => ({ kind: 'keystroke' as const, accelerator: event.accelerator })) ?? [], elapsedMs);
+            } catch (error) {
                 // An unexpected Blueprint failure must not abort the frame.
+                logOnce(error);
             }
             const scene = adapter.evaluate(persistent, elapsedMs);
             elapsed = elapsedMs;

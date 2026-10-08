@@ -170,3 +170,60 @@ it('clears a runtime error of a graph that a new show replaces with a document t
  load(session, [{ ...ghost, nodes: [...ghost.nodes, { id: 'dangling', version: 1, type: 'scene.setVisibility', settings: { entityId: 'performer' }, position: { x: 0, y: 0 } }] }]);
  expect(session.inspectBlueprints().errors.map(e => e.kind)).toEqual(['compile']);
 });
+
+const node = (id: string, type: string, settings: object = {}) => ({ id, version: 1, type, settings, position: { x: 0, y: 0 } });
+const wire = (id: string, s: string, sp: string, t: string, tp: string) => ({ id, sourceNodeId: s, sourcePort: sp, targetNodeId: t, targetPort: tp });
+
+it('reports a manual run as ok when its own change committed, even if another graph has a failing due delay', () => {
+ const session = createSession(makeSmokeScene(), 's');
+ load(session, [
+  { schemaVersion: 1, id: 'A', name: 'A', enabled: true, nodes: [node('go', 'event.manual'), node('toggle', 'scene.toggleVisibility', { entityId: 'performer' })], connections: [wire('a', 'go', 'flow', 'toggle', 'flow')] },
+  { schemaVersion: 1, id: 'B', name: 'B', enabled: true, nodes: [node('go', 'event.manual'), node('wait', 'flow.delay', { seconds: 0 }), node('show', 'scene.toggleVisibility', { entityId: 'gone' })], connections: [wire('a', 'go', 'flow', 'wait', 'flow'), wire('b', 'wait', 'exit', 'show', 'flow')] },
+ ]);
+ expect(session.runBlueprint('B', 'go')).toEqual({ ok: true, data: { revision: 0 } });
+ const before = session.inspect().revision;
+ expect(session.runBlueprint('A', 'go')).toEqual({ ok: true, data: { revision: before + 1 } });
+ expect(visible(session, 'performer')).toBe(false);
+ expect(session.inspectBlueprints().errors).toEqual([{ graphId: 'B', kind: 'runtime', error: expect.objectContaining({ code: 'NOT_FOUND', ids: ['gone'] }) }]);
+});
+
+it('does not move a Flip Flop when the action behind it fails', () => {
+ const scene = makeSmokeScene();
+ const session = createSession(scene, 's');
+ load(session, [{ schemaVersion: 1, id: 'F', name: 'F', enabled: true,
+  nodes: [node('go', 'event.manual'), node('flip', 'flow.flipFlop'), node('cut', 'camera.switch', { outputId: 'output_main', cameraId: 'camera_close' }), node('toggle', 'scene.toggleVisibility', { entityId: 'marker' })],
+  connections: [wire('a', 'go', 'flow', 'flip', 'flow'), wire('b', 'flip', 'a', 'cut', 'flow'), wire('c', 'flip', 'b', 'toggle', 'flow')] }]);
+ const without = { ...structuredClone(scene), entities: scene.entities.filter(entity => entity.id !== 'camera_close'), revision: session.inspect().revision };
+ expect(session.replaceScene(without, session.inspect().revision).ok).toBe(true);
+ expect(session.runBlueprint('F', 'go')).toMatchObject({ ok: false, error: { code: 'NOT_FOUND' } });
+ expect(session.replaceScene(structuredClone(scene), session.inspect().revision).ok).toBe(true);
+ expect(session.runBlueprint('F', 'go').ok).toBe(true);
+ expect(session.inspect().outputs.find(o => o.id === 'output_main')?.cameraId).toBe('camera_close');
+ expect(visible(session, 'marker')).toBe(true);
+});
+
+it('logs a failed Blueprint tick once per distinct message and returns an error reply for a failed manual run', () => {
+ const session = createSession(makeSmokeScene(), 's');
+ load(session, fixture.blueprints);
+ session.advance(0);
+ const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+ const real = structuredClone;
+ const spy = vi.spyOn(globalThis, 'structuredClone').mockImplementation(((value: unknown) => { if (new Error().stack?.includes('applyEffects')) throw new Error('boom'); return real(value); }) as typeof structuredClone);
+ try {
+  session.advance(16, 16, press('Control+Alt+KeyH'));
+  session.advance(32, 32, press('Control+Alt+KeyH'));
+  expect(log).toHaveBeenCalledTimes(1);
+  expect(log).toHaveBeenCalledWith('Blueprint step failed', expect.any(Error));
+ } finally { spy.mockRestore(); log.mockRestore(); }
+});
+
+it('returns an error reply when a manual run throws', () => {
+ const session = createSession(makeSmokeScene(), 's');
+ load(session, [{ schemaVersion: 1, id: 'A', name: 'A', enabled: true, nodes: [node('go', 'event.manual'), node('toggle', 'scene.toggleVisibility', { entityId: 'performer' })], connections: [wire('a', 'go', 'flow', 'toggle', 'flow')] }]);
+ const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+ const spy = vi.spyOn(globalThis, 'structuredClone').mockImplementationOnce(() => { throw new Error('boom'); });
+ try {
+  expect(session.runBlueprint('A', 'go')).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', message: 'Blueprint step failed' } });
+ } finally { spy.mockRestore(); log.mockRestore(); }
+ expect(session.runBlueprint('A', 'go').ok).toBe(true);
+});
