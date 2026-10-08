@@ -2,7 +2,7 @@ import { applyBlueprintOps, BlueprintBatchSchema, type AppError, type BlueprintB
 import { compileBlueprint, fail } from './blueprint';
 import { activeAccelerators, type BlueprintRuntime } from './blueprint-runtime';
 
-const JOURNAL = 64, DELTA = 32, MAX_ACCELERATORS = 64, MAX_BYTES = 192 * 1024;
+const JOURNAL = 64, DELTA = 32, MAX_ACCELERATORS = 64, MAX_BYTES = 192 * 1024, DELTA_BYTES = 160 * 1024;
 const encoder = new TextEncoder();
 export interface BlueprintStore {
  edit(batch: unknown): Reply<{ revision: number; keystrokes: string[] }>;
@@ -60,9 +60,13 @@ export function createBlueprintStore(runtime: BlueprintRuntime): BlueprintStore 
    const range = since === undefined ? [] : journal.filter(entry => entry.revision > since);
    const delta = since !== undefined && since <= revision && since >= oldest - 1 && range.length <= DELTA
     && !range.some(entry => entry.ops.some(op => op.kind === 'replaceAll' || op.kind === 'createGraph'));
-   return delta
-    ? { kind: 'delta', revision, batches: structuredClone(range), errors, keystrokes: runtime.keystrokes() }
-    : { kind: 'snapshot', revision, blueprints: structuredClone(documents), errors, keystrokes: runtime.keystrokes() };
+   const keystrokes = runtime.keystrokes();
+   const reply: BlueprintInspect = delta
+    ? { kind: 'delta', revision, batches: structuredClone(range), errors, keystrokes }
+    : { kind: 'snapshot', revision, blueprints: structuredClone(documents), errors, keystrokes };
+   return reply.kind === 'delta' && encoder.encode(JSON.stringify(reply)).length > DELTA_BYTES
+    ? { kind: 'snapshot', revision, blueprints: structuredClone(documents), errors, keystrokes }
+    : reply;
   },
   revision: () => revision,
   active: graphId => { const doc = documents.find(item => item.id === graphId); const last = valid.get(graphId); return doc && last ? { ...last, enabled: doc.enabled } : undefined; },

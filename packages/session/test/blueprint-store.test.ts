@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { KEYSTROKE_CODES } from '@opensekai/contracts';
+import { KEYSTROKE_CODES, LIMITS } from '@opensekai/contracts';
 import fixture from '../../../fixtures/protocol/blueprint-set.json';
 import { createBlueprintRuntime } from '../src/blueprint-runtime';
 import { createBlueprintStore } from '../src/blueprint-store';
@@ -90,4 +90,32 @@ it('rejects a Blueprint set above 192 KiB and leaves the store unchanged', () =>
  expect(store.revision()).toBe(1);
  expect(JSON.stringify(store.inspect())).toBe(before);
  expect(store.edit(batch('ok', [{ kind: 'replaceAll', graphs: wide(4) }]))).toMatchObject({ ok: true });
+});
+
+const longId = (tag: string) => `${tag}-${crypto.randomUUID()}`.repeat(4);
+
+it('answers with a snapshot when the delta would be larger than 160 KiB, and a snapshot fits a message', () => {
+ const store = createBlueprintStore(createBlueprintRuntime());
+ const [graphId, nodeId] = [longId('g'), longId('n')];
+ const graph = { schemaVersion: 1, id: graphId, name: 'G', enabled: true, connections: [], nodes: [{ id: nodeId, version: 1, type: 'value.number', settings: { value: 0 }, position: { x: 0, y: 0 } }] };
+ store.edit(batch('load', [{ kind: 'replaceAll', graphs: [graph] }]));
+ const small = store.revision();
+ store.edit(batch('small', [{ kind: 'moveNode', graphId, nodeId, position: { x: 1, y: 1 } }]));
+ expect(store.inspect(small)).toMatchObject({ kind: 'delta' });
+ for (let b = 0; b < 32; b++)
+  store.edit(batch(`big${b}`, Array.from({ length: 64 }, (_, i) => ({ kind: 'moveNode', graphId, nodeId, position: { x: b, y: i } }))));
+ const since = small + 1;
+ expect(store.inspect(since)).toMatchObject({ kind: 'snapshot' });
+});
+
+it('keeps a maximum-size snapshot below the message limit', () => {
+ const store = createBlueprintStore(createBlueprintRuntime());
+ const graphs = Array.from({ length: 4 }, (_, g) => ({
+  schemaVersion: 1, id: `g${g}`, name: 'G', enabled: true, connections: [],
+  nodes: Array.from({ length: 128 }, (_, n) => ({ id: `${'x'.repeat(250)}${n}`, version: 1, type: 'value.number', settings: { value: 0 }, position: { x: 0, y: 0 } })),
+ }));
+ expect(store.edit(batch('max', [{ kind: 'replaceAll', graphs }])).ok).toBe(true);
+ const bytes = new TextEncoder().encode(JSON.stringify({ ok: true, data: store.inspect() })).length;
+ expect(bytes).toBeGreaterThan(150 * 1024);
+ expect(bytes + 64 * 1024).toBeLessThan(LIMITS.jsonBytes);
 });
