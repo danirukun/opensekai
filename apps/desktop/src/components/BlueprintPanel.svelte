@@ -3,7 +3,7 @@
  import { Button, Select } from '@oshi-connect/ui';
  import { Play, Plus, Trash2 } from '@lucide/svelte';
  import { BLUEPRINT_LABELS, defaultBlueprintSettings, keystrokeAccelerator, type AppApi, type AppStatus, type BlueprintGraph, type BlueprintNode, type BlueprintStatus, type SceneView } from '@opensekai/contracts';
- import type { BlueprintSync, SyncIssue } from '../blueprints/blueprint-sync';
+ import { issueText, type BlueprintSync, type SyncIssue } from '../blueprints/blueprint-sync';
  import { currentPlatform, defaultKeystroke } from '../blueprints/keystroke-format';
  import type { BlueprintKind, ReteBlueprintEditor } from '../blueprints/rete-editor';
  import BlueprintList from './BlueprintList.svelte';
@@ -30,7 +30,7 @@
  const targets = $derived(scene?.entities.filter(entity => entity.kind !== 'tracking') ?? []);
  const cameras = $derived(scene?.entities.filter(entity => entity.kind === 'camera') ?? []);
  const failure = $derived(errors.find(item => item.graphId === selectedId));
- const problem = $derived(runError ?? failure?.error.message ?? (issue?.kind === 'rejected' ? 'Changed elsewhere' : issue?.kind === 'unavailable' ? 'Session unavailable' : ''));
+ const problem = $derived(runError ?? failure?.error.message ?? issueText(issue));
  const taken = $derived(new Set((status?.warnings ?? []).flatMap(warning => warning.ids)));
 
  const edit = (ops: Parameters<BlueprintSync['edit']>[0]) => {

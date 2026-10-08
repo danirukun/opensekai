@@ -1,6 +1,11 @@
-import { applyBlueprintOps, type AppApi, type BlueprintGraph, type BlueprintInspect, type BlueprintOp, type BlueprintStatus, type Id, type Reply } from '@opensekai/contracts';
+import { applyBlueprintOps, type AppApi, type ErrorCode, type BlueprintGraph, type BlueprintInspect, type BlueprintOp, type BlueprintStatus, type Id, type Reply } from '@opensekai/contracts';
 
-export type SyncIssue = { kind: 'rejected'; message: string } | { kind: 'unavailable' } | null;
+export type SyncIssue = { kind: 'rejected'; code: ErrorCode; message: string } | { kind: 'unavailable' } | null;
+// A missing graph or node, or a batch that no longer applies after a remote change, means another client got there first.
+export const issueText = (issue: SyncIssue): string =>
+ issue?.kind === 'unavailable' ? 'Session unavailable'
+  : issue?.kind === 'rejected' ? (issue.code === 'NOT_FOUND' || issue.code === 'CONFLICT' ? 'Changed elsewhere' : issue.message)
+  : '';
 export interface BlueprintSync {
  view(): BlueprintGraph[]; revision(): number; errors(): BlueprintStatus[]; issue(): SyncIssue;
  load(): Promise<void>; pull(): Promise<void>; poll(): Promise<void>; edit(ops: BlueprintOp[]): Reply<BlueprintGraph[]>; idle(): Promise<void>;
@@ -13,7 +18,7 @@ const sameMove = (a: BlueprintOp[], b: BlueprintOp[]) => isMove(a) && isMove(b) 
 export function createBlueprintSync(api: Pick<AppApi, 'blueprintEdit' | 'blueprintInspect'>, clientId: Id = crypto.randomUUID()): BlueprintSync {
  let confirmed: BlueprintGraph[] = [], view: BlueprintGraph[] = [], revision = 0, pending: Pending[] = [];
  let errors: BlueprintStatus[] = [], issue: SyncIssue = null;
- let sending: Promise<void> | null = null, pulling: Promise<void> | null = null;
+ let sending: Promise<void> | null = null, pulling: Promise<void> | null = null, loading: Promise<void> | null = null;
  const listeners = new Set<(next: BlueprintGraph[], previous: BlueprintGraph[]) => void>();
  const show = (next: BlueprintGraph[]) => { const previous = view; view = next; for (const fn of listeners) fn(next, previous); };
  // Server reconciliation: confirmed server state, then this client's unconfirmed batches applied again on top.
@@ -22,18 +27,22 @@ export function createBlueprintSync(api: Pick<AppApi, 'blueprintEdit' | 'bluepri
   pending = pending.filter(batch => {
    const r = applyBlueprintOps(next, batch.ops);
    if (r.ok) next = r.data;
-   else if (!batch.sent) issue = { kind: 'rejected', message: r.error.message };
+   else if (!batch.sent) issue = { kind: 'rejected', code: 'CONFLICT', message: r.error.message };
    return r.ok || batch.sent;
   });
   show(next);
  };
  const adopt = async (reply: BlueprintInspect): Promise<void> => {
+  if (reply.revision < revision) return;
   if (reply.kind === 'snapshot') confirmed = reply.blueprints;
-  else for (const batch of reply.batches) {
-   const r = applyBlueprintOps(confirmed, batch.ops);
-   if (!r.ok) return load();
-   confirmed = r.data;
-   if (batch.clientId === clientId) pending = pending.filter(p => p.batchId !== batch.batchId);
+  else {
+   if (reply.batches.length > 0 && reply.batches[0]!.revision !== revision + 1) return fetch();
+   for (const batch of reply.batches) {
+    const r = applyBlueprintOps(confirmed, batch.ops);
+    if (!r.ok) return fetch();
+    confirmed = r.data;
+    if (batch.clientId === clientId) pending = pending.filter(p => p.batchId !== batch.batchId);
+   }
   }
   revision = reply.revision; errors = reply.errors;
   pending = pending.filter(p => p.revision === undefined || p.revision > revision);
@@ -47,9 +56,15 @@ export function createBlueprintSync(api: Pick<AppApi, 'blueprintEdit' | 'bluepri
    await adopt(reply.data);
   } catch { issue = { kind: 'unavailable' }; }
  };
- const load = (): Promise<void> => fetch();
+ // Inspect calls run one at a time, so a late reply cannot overtake a newer one. A queued pull reads the revision when it starts.
+ let queue: Promise<unknown> = Promise.resolve();
+ const enqueue = (job: () => Promise<void>): Promise<void> => { const done = queue.then(job); queue = done; return done; };
+ const load = (): Promise<void> => {
+  if (!loading) loading = enqueue(() => fetch()).finally(() => { loading = null; });
+  return loading;
+ };
  const pull = (): Promise<void> => {
-  if (!pulling) pulling = fetch(revision).finally(() => { pulling = null; });
+  if (!pulling) pulling = enqueue(() => fetch(revision)).finally(() => { pulling = null; });
   return pulling;
  };
  // Returns false when the session could not be reached, so the loop stops instead of spinning.
@@ -58,9 +73,9 @@ export function createBlueprintSync(api: Pick<AppApi, 'blueprintEdit' | 'bluepri
    for (let batch = pending.find(p => !p.sent); batch; batch = pending.find(p => !p.sent)) {
     batch.sent = true;
     const reply = await api.blueprintEdit({ clientId, batchId: batch.batchId, ops: batch.ops });
-    if (reply.ok) { batch.revision = reply.data.revision; issue = null; continue; }
+    if (reply.ok) { batch.revision = reply.data.revision; if (issue?.kind === 'unavailable') issue = null; continue; }
     pending = pending.filter(p => p !== batch);
-    issue = { kind: 'rejected', message: reply.error.message };
+    issue = { kind: 'rejected', code: reply.error.code, message: reply.error.message };
     await load();
    }
    return true;
@@ -92,11 +107,12 @@ export function createBlueprintSync(api: Pick<AppApi, 'blueprintEdit' | 'bluepri
    const last = pending.at(-1);
    if (last && !last.sent && sameMove(last.ops, ops)) last.ops = ops;
    else pending.push({ batchId: crypto.randomUUID(), ops, sent: false });
+   if (issue?.kind === 'rejected') issue = null;
    show(result.data);
    void flush();
    return result;
   },
-  async idle() { while (sending || pulling) await (sending ?? pulling); },
+  async idle() { while (sending || pulling || loading) await (sending ?? pulling ?? loading); },
   subscribe(fn) { listeners.add(fn); return () => { listeners.delete(fn); }; },
  };
 }
