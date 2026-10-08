@@ -254,36 +254,41 @@ impl Shared {
         // Restore the remembered set at once; the question must not wait behind a slow plugin call.
         let restore = self.clone();
         tokio::spawn(async move { restore.sync_keystrokes().await });
-        let Some(target) = self.running_publisher().await else {
-            return;
-        };
-        let relayed = self
-            .relay("host", target, "blueprintInspect", |request_id| {
-                json!(WireMessage::Call {
-                    request_id,
-                    method: "blueprintInspect".into(),
-                    params: json!({})
+        let asked = lock(&self.inner).publisher.as_ref().map(|p| p.id.clone());
+        let reported = match self.running_publisher().await {
+            Some(target) => self
+                .relay("host", target, "blueprintInspect", |request_id| {
+                    json!(WireMessage::Call {
+                        request_id,
+                        method: "blueprintInspect".into(),
+                        params: json!({})
+                    })
                 })
-            })
-            .await;
-        let reported = relayed
-            .ok()
-            .and_then(|result| result.get("data")?.get("keystrokes").cloned())
-            .and_then(|list| serde_json::from_value::<Vec<String>>(list).ok());
-        if let Some(reported) = reported {
-            let fresh = {
-                let mut known = lock(&self.keystrokes_known);
-                // An edit that finished while the question was open is newer than the answer.
-                let fresh = known.0 == seen;
-                if fresh {
-                    known.0 += 1;
-                    known.1 = reported.into_iter().collect();
-                }
-                fresh
-            };
-            if fresh {
-                self.sync_keystrokes().await;
+                .await
+                .ok()
+                .and_then(|result| result.get("data")?.get("keystrokes").cloned())
+                .and_then(|list| serde_json::from_value::<Vec<String>>(list).ok()),
+            None => None,
+        };
+        let changed = {
+            let mut known = lock(&self.keystrokes_known);
+            // An edit that finished while the question was open is newer than the answer.
+            let current = known.0 == seen;
+            // A publisher that is gone will be asked again when the next one connects. A
+            // publisher that is still here and gave no valid answer has no known set: its
+            // session may be new, so the restored accelerators may belong to no graph.
+            let same_publisher = asked.is_some()
+                && lock(&self.inner).publisher.as_ref().map(|p| &p.id) == asked.as_ref();
+            if current && (reported.is_some() || same_publisher) {
+                known.0 += 1;
+                known.1 = reported.unwrap_or_default().into_iter().collect();
+                true
+            } else {
+                false
             }
+        };
+        if changed {
+            self.sync_keystrokes().await;
         }
     }
     /// The publisher, once it has answered a clock with a frame. A call that arrives while the

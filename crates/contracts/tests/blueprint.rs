@@ -96,6 +96,12 @@ fn blueprint_inspect_run_and_results_validate() {
         &json!({"ok":true,"data":{"kind":"snapshot","revision":1,"blueprints":set(),"errors":[],"keystrokes":[""]}})
     )
     .is_err());
+    let too_many: Vec<String> = (0..65).map(|i| format!("Control+Alt+F{i}")).collect();
+    assert!(validate_result(
+        "blueprintInspect",
+        &json!({"ok":true,"data":{"kind":"snapshot","revision":1,"blueprints":set(),"errors":[],"keystrokes":too_many}})
+    )
+    .is_err());
     assert!(validate_result("blueprintInspect", &json!({"ok":true,"data":{"kind":"delta","revision":2,"batches":[{"revision":2,"clientId":"c","batchId":"b","ops":[{"kind":"removeGraph","graphId":"g"}]}],"errors":[]}})).is_ok());
     let delta = |op: Value| json!({"ok":true,"data":{"kind":"delta","revision":2,"batches":[{"revision":2,"clientId":"c","batchId":"b","ops":[op]}],"errors":[]}});
     assert!(validate_result(

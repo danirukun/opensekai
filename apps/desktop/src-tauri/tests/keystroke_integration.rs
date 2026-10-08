@@ -267,3 +267,65 @@ async fn a_publisher_that_starts_with_an_empty_session_keeps_hotkeys_cleared() {
     assert!(last_set(&fake).is_empty());
     s.shutdown().await.unwrap();
 }
+
+async fn lost_set_then_unhelpful_publisher(reply: Option<Value>) {
+    let (_d, s) = service().await;
+    let fake: Sets = std::sync::Arc::new(Fake(Default::default()));
+    s.ports().set_keystroke_registrar(fake.clone());
+    let mut p = auth(&s.publisher_descriptor()).await;
+    let mut o = auth(&s.operator_descriptor()).await;
+    edit_reply(&mut o, &mut p, json!(["Control+Alt+KeyH"])).await;
+    drop(p);
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    let descriptor = s.publisher_descriptor();
+    let mut p2 = auth(&descriptor).await;
+    assert_eq!(recv(&mut p2).await["kind"], "clock");
+    send(&mut p2, frame(&descriptor.session_id, 1)).await;
+    let mut sequence = 1;
+    let ask = loop {
+        let message = recv(&mut p2).await;
+        if message["kind"] == "clock" {
+            sequence += 1;
+            send(&mut p2, frame(&descriptor.session_id, sequence)).await;
+        } else {
+            break message;
+        }
+    };
+    assert_eq!(ask["method"], "blueprintInspect");
+    // The remembered set is restored while the question is open.
+    assert_eq!(last_set(&fake), vec!["Control+Alt+KeyH".to_string()]);
+    if let Some(result) = reply {
+        send(
+            &mut p2,
+            json!({"kind":"reply","requestId":ask["requestId"],"result":result}),
+        )
+        .await;
+    }
+    // The publisher stays alive: it answers clocks but not the question.
+    let end = tokio::time::Instant::now() + Duration::from_millis(2800);
+    while tokio::time::Instant::now() < end {
+        if let Ok(Some(Ok(Message::Text(text)))) =
+            tokio::time::timeout(Duration::from_millis(100), p2.next()).await
+        {
+            if serde_json::from_str::<Value>(&text).unwrap()["kind"] == "clock" {
+                sequence += 1;
+                send(&mut p2, frame(&descriptor.session_id, sequence)).await;
+            }
+        }
+    }
+    assert!(last_set(&fake).is_empty());
+    s.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn a_new_publisher_that_never_answers_leaves_no_stale_hotkeys() {
+    lost_set_then_unhelpful_publisher(None).await;
+}
+
+#[tokio::test]
+async fn a_new_publisher_that_answers_with_an_error_leaves_no_stale_hotkeys() {
+    lost_set_then_unhelpful_publisher(Some(
+        json!({"ok":false,"error":{"code":"UNAVAILABLE","message":"x","ids":[]}}),
+    ))
+    .await;
+}
