@@ -37,6 +37,12 @@ struct KnownKeystrokes {
     origin: Option<(String, u64)>,
     set: BTreeSet<String>,
 }
+/// A capture field is armed: the OS must pass every key to the editor, so nothing is registered.
+struct KeystrokeCapture {
+    generation: u64,
+    until: Option<Instant>,
+}
+const CAPTURE_TIMEOUT: Duration = Duration::from_secs(30);
 pub struct ServiceConfig {
     pub output_root: PathBuf,
     pub asset_manifest: PathBuf,
@@ -67,6 +73,8 @@ struct Shared {
     input: Mutex<crate::input::InputQueue>,
     keystrokes: Mutex<Arc<dyn crate::input::KeystrokeRegistrar>>,
     keystrokes_known: Mutex<KnownKeystrokes>,
+    keystroke_capture: Mutex<KeystrokeCapture>,
+    capture_timeout: Mutex<Duration>,
     keystroke_warnings: Mutex<Vec<String>>,
     keystroke_gate: tokio::sync::Mutex<()>,
     keystrokes_stopped: watch::Sender<bool>,
@@ -250,7 +258,10 @@ impl Shared {
         }
         let work = async {
             let _gate = self.keystroke_gate.lock().await;
-            let wanted = if lock(&self.inner).publisher.is_some() {
+            let capturing = lock(&self.keystroke_capture)
+                .until
+                .is_some_and(|until| until > Instant::now());
+            let wanted = if !capturing && lock(&self.inner).publisher.is_some() {
                 lock(&self.keystrokes_known).set.clone()
             } else {
                 BTreeSet::new()
@@ -449,6 +460,11 @@ pub async fn start_service(config: ServiceConfig) -> Result<ServiceHandle, AppEr
         input: Mutex::default(),
         keystrokes: Mutex::new(Arc::new(crate::input::NoKeystrokes)),
         keystrokes_known: Mutex::default(),
+        keystroke_capture: Mutex::new(KeystrokeCapture {
+            generation: 0,
+            until: None,
+        }),
+        capture_timeout: Mutex::new(CAPTURE_TIMEOUT),
         keystroke_warnings: Mutex::default(),
         keystroke_gate: tokio::sync::Mutex::new(()),
         keystrokes_stopped: watch::channel(false).0,
@@ -495,6 +511,43 @@ impl ServicePorts {
             let shared = self.shared.clone();
             runtime.spawn(async move { shared.sync_keystrokes().await });
         }
+    }
+    /// Suspends every registration while a capture field waits for a key, and registers the
+    /// remembered set again when it ends. A capture that is not ended expires, so an editor
+    /// that closes or crashes cannot leave the hotkeys off.
+    pub async fn set_keystroke_capture(&self, active: bool) {
+        let timeout = *lock(&self.shared.capture_timeout);
+        let generation = {
+            let mut capture = lock(&self.shared.keystroke_capture);
+            capture.generation += 1;
+            capture.until = active.then(|| Instant::now() + timeout);
+            capture.generation
+        };
+        if active {
+            let shared = self.shared.clone();
+            tokio::spawn(async move {
+                let mut stopped = shared.stop.subscribe();
+                tokio::select! {
+                    _ = tokio::time::sleep(timeout) => {},
+                    _ = stopped.wait_for(|stopped| *stopped) => return,
+                }
+                let expired = {
+                    let mut capture = lock(&shared.keystroke_capture);
+                    let expired = capture.generation == generation;
+                    if expired {
+                        capture.until = None;
+                    }
+                    expired
+                };
+                if expired {
+                    shared.sync_keystrokes().await;
+                }
+            });
+        }
+        self.shared.sync_keystrokes().await;
+    }
+    pub fn set_keystroke_capture_timeout(&self, timeout: Duration) {
+        *lock(&self.shared.capture_timeout) = timeout;
     }
     pub fn push_keystroke(&self, accelerator: String) {
         lock(&self.shared.input).push(accelerator);

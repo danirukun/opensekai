@@ -385,3 +385,49 @@ async fn a_new_publisher_may_report_a_lower_revision_than_the_one_before_it() {
     assert_eq!(last_set(&fake), vec!["Control+Alt+KeyL".to_string()]);
     s.shutdown().await.unwrap();
 }
+
+async fn registered(s: &ServiceHandle) -> (Sets, Socket, Socket) {
+    let fake: Sets = std::sync::Arc::new(Fake(Default::default()));
+    s.ports().set_keystroke_registrar(fake.clone());
+    let mut p = auth(&s.publisher_descriptor()).await;
+    let mut o = auth(&s.operator_descriptor()).await;
+    edit_reply(&mut o, &mut p, json!(["Control+Alt+KeyH"])).await;
+    assert_eq!(last_set(&fake), vec!["Control+Alt+KeyH".to_string()]);
+    (fake, p, o)
+}
+
+#[tokio::test]
+async fn an_armed_capture_field_suspends_registration_until_it_ends() {
+    let (_d, s) = service().await;
+    let (fake, _p, _o) = registered(&s).await;
+    s.ports().set_keystroke_capture(true).await;
+    assert!(last_set(&fake).is_empty());
+    s.ports().set_keystroke_capture(false).await;
+    assert_eq!(last_set(&fake), vec!["Control+Alt+KeyH".to_string()]);
+    s.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn a_capture_that_never_ends_expires_and_restores_registration() {
+    let (_d, s) = service().await;
+    let (fake, _p, _o) = registered(&s).await;
+    s.ports()
+        .set_keystroke_capture_timeout(Duration::from_millis(200));
+    s.ports().set_keystroke_capture(true).await;
+    assert!(last_set(&fake).is_empty());
+    tokio::time::sleep(Duration::from_millis(600)).await;
+    assert_eq!(last_set(&fake), vec!["Control+Alt+KeyH".to_string()]);
+    s.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn an_edit_during_capture_stays_unregistered_until_the_capture_ends() {
+    let (_d, s) = service().await;
+    let (fake, mut p, mut o) = registered(&s).await;
+    s.ports().set_keystroke_capture(true).await;
+    edit_reply_at(&mut o, &mut p, 2, json!(["Control+Alt+KeyK"])).await;
+    assert!(last_set(&fake).is_empty());
+    s.ports().set_keystroke_capture(false).await;
+    assert_eq!(last_set(&fake), vec!["Control+Alt+KeyK".to_string()]);
+    s.shutdown().await.unwrap();
+}

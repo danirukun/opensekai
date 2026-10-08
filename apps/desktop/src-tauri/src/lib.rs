@@ -187,6 +187,16 @@ fn hide_editor(window: tauri::WebviewWindow) -> Result<(), AppError> {
     require_window_label(window.label(), "editor")?;
     window.hide().map_err(window_error)
 }
+#[tauri::command]
+async fn set_keystroke_capture(
+    window: tauri::WebviewWindow,
+    state: tauri::State<'_, Arc<DesktopState>>,
+    active: bool,
+) -> Result<(), AppError> {
+    require_window_label(window.label(), "editor")?;
+    state.set_keystroke_capture(active).await;
+    Ok(())
+}
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let state = DesktopState::new();
@@ -229,6 +239,16 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
+            if window.label() == "editor" && matches!(event, tauri::WindowEvent::Focused(false)) {
+                let state = window
+                    .app_handle()
+                    .state::<Arc<DesktopState>>()
+                    .inner()
+                    .clone();
+                tauri::async_runtime::spawn(
+                    async move { state.set_keystroke_capture(false).await },
+                );
+            }
             if window.label() == "main"
                 && matches!(event, tauri::WindowEvent::CloseRequested { .. })
             {
@@ -243,6 +263,7 @@ pub fn run() {
             show_editor,
             show_scene,
             hide_editor,
+            set_keystroke_capture,
             import_avatar,
             save_show_as,
             open_show

@@ -89,6 +89,13 @@ impl DesktopState {
             ports.push_keystroke(accelerator);
         }
     }
+    /// Suspends or restores the global hotkeys while the editor captures a key.
+    pub async fn set_keystroke_capture(&self, active: bool) {
+        let ports = self.ports.lock().unwrap_or_else(|e| e.into_inner()).clone();
+        if let Some(ports) = ports {
+            ports.set_keystroke_capture(active).await;
+        }
+    }
     pub async fn initialize(self: Arc<Self>, config: ServiceConfig, descriptors: PathBuf) {
         // Initialization and shutdown share one lifecycle lock.
         let mut owned = self.owned.lock().await;
