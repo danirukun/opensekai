@@ -19,7 +19,7 @@ I built the scene and the graphs through the shared commands, not through canvas
 | 1. Full checks | PASS | Counts above |
 | 2. Release build and OBS source | PASS | OBS showed the transparent avatar output |
 | 3.1 to 3.4. Avatar, marker, graphs A, B, C | PASS, with the setup above | Editor screenshot above |
-| 3.5. Editor minimized, OBS in front | PASS | OBS was frontmost for each key press |
+| 3.5. Editor minimized, OBS in front | PASS, with a caveat | The Mac was in use. Focus sometimes moved to other apps, and some synthetic keys landed in other apps |
 | 3.6. Press ⌃⌥H twice | PASS | OBS visible pixels went 11392 to 0 to 11392 (480x270 sample) |
 | 3.7. Hold ⌃⌥H for 2 s | PASS, synthetic keys only | Three holds toggled once each: modifier events, bare key events, and 56 autorepeat key-down events |
 | 3.8. Press ⌃⌥J | PASS | [OBS image](blueprint-interactions-obs-marker-shown.png) |
@@ -48,9 +48,9 @@ The real stdio MCP server (`apps/mcp/src/cli.ts`) listed 13 tools, including `bl
 
 ## Findings
 
-1. **Hotkeys stopped after the publisher connection dropped and came back (fixed).** The host cleared its registrations when the publisher dropped. The worker kept its session and graphs and reconnected. Nothing registered the keys again until a later `blueprint_edit` made the host register them. A drop happens when the worker misses the 2 s clock credit, for example while the page is busy. Repro A (relaunch, scene replace, graph edit, press) and the first 3.13 failure had this shape. The cause is proven with a stall of the web networking process (see Re-check). The Save As and Open flow was not run again.
+1. **Hotkeys stopped after the publisher connection dropped and came back (fixed).** The host cleared its registrations when the publisher dropped. The worker kept its session and graphs and reconnected. Nothing registered the keys again until a later `blueprint_edit` made the host register them. A drop happens when the worker misses the 2 s clock credit, for example while the page is busy. The likely cause of the first 3.13 failure is this drop. It is a hypothesis: on the old build the plain Repro A steps (relaunch, scene replace, graph edit, press) did not fail, and I did not catch the drop in the original run. A forced drop (see Re-check) does reproduce the symptom and the fix removes it. The Save As and Open flow was not run again.
 2. **A combination that macOS holds gives no warning (expected).** I bound ⌘Space. `appStatus.warnings` stayed empty. ⌘Space fired the graph and Spotlight also opened. The warning covers an OS registration failure only. macOS accepts a combination that a system feature such as Spotlight also uses, and both then fire. This is Different from Warudo. The editor warning text was not seen.
-3. **Hotkeys stopped twice during the session (same cause).** After the first minimize and again after the first compile-error edit, several ⌃⌥H presses did nothing. Each time an edit that went through the host registered the keys again. I could not repeat the stop with presses alone. The connection drop explains both stops.
+3. **Hotkeys stopped twice during the session (cause not shown).** After the first minimize and again after the first compile-error edit, several ⌃⌥H presses did nothing. A later edit made them work again. I could not repeat the stop with presses alone. A publisher drop is the likely cause, because it gives the same symptom, but I did not observe a drop in those episodes.
 
 ## Re-check of step 3.13
 
