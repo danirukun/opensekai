@@ -37,9 +37,16 @@ it('polls Blueprints on a revision change, on every tick while visible, and whil
  const readStatus=vi.fn(async()=>({ok:true,data:{...status(0),blueprintRevision:3}}));
  const api={appStatus:readStatus,sceneInspect:vi.fn(async()=>({ok:true,data:makeSmokeScene()}))} as unknown as AppApi;
  let revision=3,issue:{kind:'unavailable'}|null=null,visible=false;const poll=vi.fn(async()=>{});
- const p=createEditorPoll(api,createEditorModel(api),vi.fn(),vi.fn(),{revision:()=>revision,issue:()=>issue,poll},()=>visible);
+ const p=createEditorPoll(api,createEditorModel(api),vi.fn(),vi.fn(),{revision:()=>revision,issue:()=>issue,poll,reset:async()=>{}},()=>visible);
  await p.poll();expect(poll).not.toHaveBeenCalled();
  revision=2;await p.poll();expect(poll).toHaveBeenCalledTimes(1);
  revision=3;visible=true;await p.poll();expect(poll).toHaveBeenCalledTimes(2);
  visible=false;issue={kind:'unavailable'};await p.poll();expect(poll).toHaveBeenCalledTimes(3);
+});
+it('resets Blueprint sync when the session reports a lower revision than the editor holds',async()=>{
+ const readStatus=vi.fn(async()=>({ok:true,data:{...status(0),blueprintRevision:0}}));
+ const api={appStatus:readStatus,sceneInspect:vi.fn(async()=>({ok:true,data:makeSmokeScene()}))} as unknown as AppApi;
+ const poll=vi.fn(async()=>{}),reset=vi.fn(async()=>{});
+ const p=createEditorPoll(api,createEditorModel(api),vi.fn(),vi.fn(),{revision:()=>7,issue:()=>null,poll,reset},()=>true);
+ await p.poll();expect(reset).toHaveBeenCalledTimes(1);expect(poll).not.toHaveBeenCalled();
 });

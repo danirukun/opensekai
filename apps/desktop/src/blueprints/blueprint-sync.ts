@@ -8,7 +8,7 @@ export const issueText = (issue: SyncIssue): string =>
   : '';
 export interface BlueprintSync {
  view(): BlueprintGraph[]; revision(): number; errors(): BlueprintStatus[]; issue(): SyncIssue;
- load(): Promise<void>; pull(): Promise<void>; poll(): Promise<void>; edit(ops: BlueprintOp[]): Reply<BlueprintGraph[]>; idle(): Promise<void>;
+ load(): Promise<void>; pull(): Promise<void>; reset(): Promise<void>; poll(): Promise<void>; edit(ops: BlueprintOp[]): Reply<BlueprintGraph[]>; idle(): Promise<void>;
  subscribe(fn: (next: BlueprintGraph[], previous: BlueprintGraph[]) => void): () => void;
 }
 interface Pending { batchId: Id; ops: BlueprintOp[]; sent: boolean; revision?: number }
@@ -67,6 +67,8 @@ export function createBlueprintSync(api: Pick<AppApi, 'blueprintEdit' | 'bluepri
   if (!pulling) pulling = enqueue(() => fetch(revision)).finally(() => { pulling = null; });
   return pulling;
  };
+ // A new session restarts its revision at 0, so the old state and unsent batches belong to a session that is gone.
+ const reset = (): Promise<void> => enqueue(() => { confirmed = []; pending = []; revision = 0; return fetch(); });
  // Returns false when the session could not be reached, so the loop stops instead of spinning.
  const drain = async (): Promise<boolean> => {
   try {
@@ -98,7 +100,7 @@ export function createBlueprintSync(api: Pick<AppApi, 'blueprintEdit' | 'bluepri
  };
  return {
   view: () => view, revision: () => revision, errors: () => errors, issue: () => issue,
-  load, pull,
+  load, pull, reset,
   // One poll tick: resend unsent batches (for example after an outage), then pull the journal.
   poll: () => pending.some(p => !p.sent) ? flush() : pull(),
   edit(ops) {

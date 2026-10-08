@@ -227,3 +227,22 @@ it('returns an error reply when a manual run throws', () => {
  } finally { spy.mockRestore(); log.mockRestore(); }
  expect(session.runBlueprint('A', 'go').ok).toBe(true);
 });
+
+it('logs alternating tick failures once each and again after a clean tick', () => {
+ const session = createSession(makeSmokeScene(), 's');
+ load(session, fixture.blueprints);
+ session.advance(0);
+ const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+ const real = structuredClone;
+ let message = 'one';
+ const spy = vi.spyOn(globalThis, 'structuredClone').mockImplementation(((value: unknown) => { if (new Error().stack?.includes('applyEffects')) throw new Error(message); return real(value); }) as typeof structuredClone);
+ try {
+  session.advance(16, 16, press('Control+Alt+KeyH'));
+  message = 'two'; session.advance(32, 32, press('Control+Alt+KeyH'));
+  message = 'one'; session.advance(48, 48, press('Control+Alt+KeyH'));
+  expect(log).toHaveBeenCalledTimes(2);
+  session.advance(64);
+  session.advance(80, 80, press('Control+Alt+KeyH'));
+  expect(log).toHaveBeenCalledTimes(3);
+ } finally { spy.mockRestore(); log.mockRestore(); }
+});

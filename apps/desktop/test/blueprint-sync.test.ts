@@ -160,3 +160,26 @@ it('runs a load and a pull one after the other', async () => {
  expect(peak).toBe(1);
  expect(sync.revision()).toBe(3);
 });
+
+it('follows a new session whose revision restarts at 0, and confirms later edits', async () => {
+ let current = createSession(makeSmokeScene(), 'a');
+ current.editBlueprints({ clientId: 'seed', batchId: 'seed', ops: [{ kind: 'replaceAll', graphs: fixture.blueprints as never }] });
+ for (let i = 0; i < 6; i++) current.editBlueprints({ clientId: 'seed', batchId: `n${i}`, ops: [{ kind: 'updateGraph', graphId: 'flash-marker', name: `N${i}` }] });
+ const sync = createBlueprintSync({
+  blueprintEdit: async batch => current.editBlueprints(batch),
+  blueprintInspect: async ({ sinceRevision }) => ({ ok: true, data: current.inspectBlueprints(sinceRevision) }),
+ }, 'a');
+ await sync.load();
+ expect(sync.revision()).toBe(7);
+ current = createSession(makeSmokeScene(), 'b');
+ current.editBlueprints({ clientId: 'seed', batchId: 'seed', ops: [{ kind: 'replaceAll', graphs: [fixture.blueprints[0]] as never }] });
+ await sync.pull();
+ expect(sync.revision()).toBe(7);
+ await sync.reset();
+ expect(sync.revision()).toBe(1);
+ expect(sync.view().map(g => g.id)).toEqual([fixture.blueprints[0]!.id]);
+ sync.edit([{ kind: 'updateGraph', graphId: fixture.blueprints[0]!.id, name: 'After' }]);
+ await sync.idle();
+ expect(sync.revision()).toBe(2);
+ expect(current.inspectBlueprints().blueprints[0]!.name).toBe('After');
+});

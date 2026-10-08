@@ -43,11 +43,14 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
     const runtime = createBlueprintRuntime();
     const store = createBlueprintStore(runtime);
     const runtimeErrors = new Map<Id, AppError>();
-    let lastStepFailure = '';
+    const loggedFailures = new Set<string>();
+    let failedThisTick = false;
     const logOnce = (error: unknown) => {
+        failedThisTick = true;
         const message = error instanceof Error ? error.message : String(error);
-        if (message === lastStepFailure) return;
-        lastStepFailure = message;
+        if (loggedFailures.has(message)) return;
+        if (loggedFailures.size >= 8) loggedFailures.clear();
+        loggedFailures.add(message);
         console.error('Blueprint step failed', error);
     };
     // Each run's effects go onto a scratch copy first, so a run whose effects fail leaves no Flip Flop or delay change behind.
@@ -138,12 +141,14 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
             if (!Number.isFinite(elapsedMs) || elapsedMs < elapsed || !Number.isSafeInteger(tick) || !Number.isSafeInteger(sequence + 1)) {
                 throw new RangeError("Elapsed time must be finite, nonnegative and monotonic within safe counter limits");
             }
+            failedThisTick = false;
             try {
                 stepBlueprints(input?.events.map(event => ({ kind: 'keystroke' as const, accelerator: event.accelerator })) ?? [], elapsedMs);
             } catch (error) {
                 // An unexpected Blueprint failure must not abort the frame.
                 logOnce(error);
             }
+            if (!failedThisTick) loggedFailures.clear();
             const scene = adapter.evaluate(persistent, elapsedMs);
             elapsed = elapsedMs;
             sequence += 1;
