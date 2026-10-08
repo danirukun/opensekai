@@ -188,6 +188,9 @@ fn last_set(fake: &Sets) -> Vec<String> {
         .unwrap_or_default()
 }
 async fn edit_reply(o: &mut Socket, p: &mut Socket, keystrokes: Value) {
+    edit_reply_at(o, p, 1, keystrokes).await;
+}
+async fn edit_reply_at(o: &mut Socket, p: &mut Socket, revision: u64, keystrokes: Value) {
     send(
         o,
         json!({"kind":"call","requestId":"edit","method":"blueprintEdit","params":{"clientId":"c","batchId":"b","ops":[{"kind":"removeGraph","graphId":"g"}]}}),
@@ -196,27 +199,30 @@ async fn edit_reply(o: &mut Socket, p: &mut Socket, keystrokes: Value) {
     let relayed = recv_non_clock(p).await;
     send(
         p,
-        json!({"kind":"reply","requestId":relayed["requestId"],"result":{"ok":true,"data":{"revision":1,"keystrokes":keystrokes}}}),
+        json!({"kind":"reply","requestId":relayed["requestId"],"result":{"ok":true,"data":{"revision":revision,"keystrokes":keystrokes}}}),
     )
     .await;
     assert_eq!(recv_non_clock(o).await["requestId"], "edit");
 }
 /// A publisher that is running after the host learned a set gets asked for its own set.
 async fn reconnected_publisher(s: &ServiceHandle, keystrokes: Value) -> Socket {
+    reconnected_publisher_at(s, 1, keystrokes).await
+}
+async fn reconnected_publisher_at(s: &ServiceHandle, revision: u64, keystrokes: Value) -> Socket {
     let descriptor = s.publisher_descriptor();
     let mut p = auth(&descriptor).await;
     // The host asks only after the publisher has answered a clock with a frame.
     assert_eq!(recv(&mut p).await["kind"], "clock");
     send(&mut p, frame(&descriptor.session_id, 1)).await;
-    answer_inspect(&mut p, keystrokes).await;
+    answer_inspect(&mut p, revision, keystrokes).await;
     p
 }
-async fn answer_inspect(p: &mut Socket, keystrokes: Value) {
+async fn answer_inspect(p: &mut Socket, revision: u64, keystrokes: Value) {
     let relayed = recv_non_clock(p).await;
     assert_eq!(relayed["method"], "blueprintInspect");
     send(
         p,
-        json!({"kind":"reply","requestId":relayed["requestId"],"result":{"ok":true,"data":{"kind":"snapshot","revision":1,"blueprints":[],"errors":[],"keystrokes":keystrokes}}}),
+        json!({"kind":"reply","requestId":relayed["requestId"],"result":{"ok":true,"data":{"kind":"snapshot","revision":revision,"blueprints":[],"errors":[],"keystrokes":keystrokes}}}),
     )
     .await;
 }
@@ -328,4 +334,54 @@ async fn a_new_publisher_that_answers_with_an_error_leaves_no_stale_hotkeys() {
         json!({"ok":false,"error":{"code":"UNAVAILABLE","message":"x","ids":[]}}),
     ))
     .await;
+}
+
+#[tokio::test]
+async fn edit_replies_that_arrive_newest_first_leave_the_newest_set_registered() {
+    let (_d, s) = service().await;
+    let fake: Sets = std::sync::Arc::new(Fake(Default::default()));
+    s.ports().set_keystroke_registrar(fake.clone());
+    let mut p = auth(&s.publisher_descriptor()).await;
+    let mut o = auth(&s.operator_descriptor()).await;
+    for id in ["older", "newer"] {
+        send(
+            &mut o,
+            json!({"kind":"call","requestId":id,"method":"blueprintEdit","params":{"clientId":"c","batchId":id,"ops":[{"kind":"removeGraph","graphId":"g"}]}}),
+        )
+        .await;
+    }
+    let first = recv_non_clock(&mut p).await;
+    let second = recv_non_clock(&mut p).await;
+    send(
+        &mut p,
+        json!({"kind":"reply","requestId":second["requestId"],"result":{"ok":true,"data":{"revision":6,"keystrokes":["Control+Alt+KeyH"]}}}),
+    )
+    .await;
+    assert_eq!(recv_non_clock(&mut o).await["requestId"], "newer");
+    send(
+        &mut p,
+        json!({"kind":"reply","requestId":first["requestId"],"result":{"ok":true,"data":{"revision":5,"keystrokes":["Control+Alt+KeyK"]}}}),
+    )
+    .await;
+    assert_eq!(recv_non_clock(&mut o).await["requestId"], "older");
+    assert_eq!(last_set(&fake), vec!["Control+Alt+KeyH".to_string()]);
+    s.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn a_new_publisher_may_report_a_lower_revision_than_the_one_before_it() {
+    let (_d, s) = service().await;
+    let fake: Sets = std::sync::Arc::new(Fake(Default::default()));
+    s.ports().set_keystroke_registrar(fake.clone());
+    let mut p = auth(&s.publisher_descriptor()).await;
+    let mut o = auth(&s.operator_descriptor()).await;
+    edit_reply_at(&mut o, &mut p, 6, json!(["Control+Alt+KeyH"])).await;
+    drop(p);
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    let mut p2 = reconnected_publisher_at(&s, 1, json!(["Control+Alt+KeyK"])).await;
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert_eq!(last_set(&fake), vec!["Control+Alt+KeyK".to_string()]);
+    edit_reply_at(&mut o, &mut p2, 2, json!(["Control+Alt+KeyL"])).await;
+    assert_eq!(last_set(&fake), vec!["Control+Alt+KeyL".to_string()]);
+    s.shutdown().await.unwrap();
 }

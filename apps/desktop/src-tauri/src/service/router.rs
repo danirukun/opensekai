@@ -107,6 +107,7 @@ impl Shared {
             return Reply::failure(err(ErrorCode::Unavailable, "Publisher disconnected"));
         };
         let method = call.method.clone();
+        let publisher_id = target.id.clone();
         match self
             .relay(client_id, target, &method, |request_id| {
                 json!(WireMessage::Call {
@@ -123,8 +124,17 @@ impl Shared {
                         .get("data")
                         .and_then(|d| serde_json::from_value::<BlueprintEditResult>(d.clone()).ok())
                     {
-                        self.learn_keystrokes(data.keystrokes.into_iter().collect());
-                        self.sync_keystrokes().await;
+                        let current = lock(&self.inner).publisher.as_ref().map(|p| &p.id)
+                            == Some(&publisher_id);
+                        if current
+                            && self.learn_keystrokes(
+                                &publisher_id,
+                                data.revision,
+                                data.keystrokes.into_iter().collect(),
+                            )
+                        {
+                            self.sync_keystrokes().await;
+                        }
                     }
                 }
                 serde_json::from_value(result)

@@ -29,6 +29,14 @@ use tokio::{
     task::JoinHandle,
 };
 use uuid::Uuid;
+/// The accelerator set the session last reported. `counter` moves on every change, and
+/// `origin` names the publisher connection and Blueprint revision that produced the set.
+#[derive(Default)]
+struct KnownKeystrokes {
+    counter: u64,
+    origin: Option<(String, u64)>,
+    set: BTreeSet<String>,
+}
 pub struct ServiceConfig {
     pub output_root: PathBuf,
     pub asset_manifest: PathBuf,
@@ -58,8 +66,7 @@ struct Shared {
     inner: Mutex<Inner>,
     input: Mutex<crate::input::InputQueue>,
     keystrokes: Mutex<Arc<dyn crate::input::KeystrokeRegistrar>>,
-    /// The accelerator set the session last reported, with a counter that moves on every report.
-    keystrokes_known: Mutex<(u64, BTreeSet<String>)>,
+    keystrokes_known: Mutex<KnownKeystrokes>,
     keystroke_warnings: Mutex<Vec<String>>,
     keystroke_gate: tokio::sync::Mutex<()>,
     keystrokes_stopped: watch::Sender<bool>,
@@ -207,12 +214,29 @@ impl Shared {
             output_id,
         }
     }
-    /// Records the set the session reported. Returns the new counter value.
-    fn learn_keystrokes(&self, reported: BTreeSet<String>) -> u64 {
+    /// Records a set the session reported, unless a newer set from the same publisher is
+    /// already known. The session restarts its revision for a new publisher, so a different
+    /// publisher always wins. Returns whether the set was accepted.
+    fn learn_keystrokes(&self, publisher: &str, revision: u64, reported: BTreeSet<String>) -> bool {
         let mut known = lock(&self.keystrokes_known);
-        known.0 += 1;
-        known.1 = reported;
-        known.0
+        Self::learn_locked(&mut known, publisher, revision, reported)
+    }
+    fn learn_locked(
+        known: &mut KnownKeystrokes,
+        publisher: &str,
+        revision: u64,
+        reported: BTreeSet<String>,
+    ) -> bool {
+        let newer = known
+            .origin
+            .as_ref()
+            .is_none_or(|(id, seen)| id != publisher || revision > *seen);
+        if newer {
+            known.counter += 1;
+            known.origin = Some((publisher.into(), revision));
+            known.set = reported;
+        }
+        newer
     }
     /// Makes the OS registrations match the current authoritative set: the last reported
     /// set while a publisher is connected, and nothing otherwise. The set is read inside the
@@ -227,7 +251,7 @@ impl Shared {
         let work = async {
             let _gate = self.keystroke_gate.lock().await;
             let wanted = if lock(&self.inner).publisher.is_some() {
-                lock(&self.keystrokes_known).1.clone()
+                lock(&self.keystrokes_known).set.clone()
             } else {
                 BTreeSet::new()
             };
@@ -246,7 +270,7 @@ impl Shared {
     /// the same worker session, or a new session). When the host knows a set, it asks the
     /// publisher and syncs to the answer.
     async fn relearn_keystrokes(self: &Arc<Self>) {
-        let seen = lock(&self.keystrokes_known).0;
+        let seen = lock(&self.keystrokes_known).counter;
         // Nothing was ever reported, so nothing is registered and nothing is stale.
         if seen == 0 {
             return;
@@ -266,25 +290,35 @@ impl Shared {
                 })
                 .await
                 .ok()
-                .and_then(|result| result.get("data")?.get("keystrokes").cloned())
-                .and_then(|list| serde_json::from_value::<Vec<String>>(list).ok()),
+                .and_then(|result| {
+                    let data = result.get("data")?;
+                    let revision = data.get("revision")?.as_u64()?;
+                    let list = data.get("keystrokes")?.clone();
+                    Some((revision, serde_json::from_value::<Vec<String>>(list).ok()?))
+                }),
             None => None,
         };
         let changed = {
             let mut known = lock(&self.keystrokes_known);
-            // An edit that finished while the question was open is newer than the answer.
-            let current = known.0 == seen;
-            // A publisher that is gone will be asked again when the next one connects. A
-            // publisher that is still here and gave no valid answer has no known set: its
-            // session may be new, so the restored accelerators may belong to no graph.
             let same_publisher = asked.is_some()
                 && lock(&self.inner).publisher.as_ref().map(|p| &p.id) == asked.as_ref();
-            if current && (reported.is_some() || same_publisher) {
-                known.0 += 1;
-                known.1 = reported.unwrap_or_default().into_iter().collect();
-                true
-            } else {
-                false
+            match (reported, asked) {
+                // An edit reply that is newer than the answer wins by revision.
+                (Some((revision, list)), Some(asked)) if same_publisher => {
+                    Self::learn_locked(&mut known, &asked, revision, list.into_iter().collect())
+                }
+                // A publisher that is gone will be asked again when the next one connects.
+                (Some(_), _) => false,
+                // A publisher that is still here and gave no valid answer has no known set: its
+                // session may be new, so the restored accelerators may belong to no graph. An
+                // edit that finished while the question was open is newer than the silence.
+                (None, _) if same_publisher && known.counter == seen => {
+                    known.counter += 1;
+                    known.origin = None;
+                    known.set.clear();
+                    true
+                }
+                _ => false,
             }
         };
         if changed {
