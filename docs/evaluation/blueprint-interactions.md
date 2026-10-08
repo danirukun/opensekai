@@ -50,7 +50,7 @@ The real stdio MCP server (`apps/mcp/src/cli.ts`) listed 13 tools, including `bl
 
 1. **Hotkeys stopped after the publisher connection dropped and came back (fixed).** The host cleared its registrations when the publisher dropped. The worker kept its session and graphs and reconnected. Nothing registered the keys again until a later `blueprint_edit` made the host register them. A drop happens when the worker misses the 2 s clock credit, for example while the page is busy. The likely cause of the first 3.13 failure is this drop. It is a hypothesis: on the old build the plain Repro A steps (relaunch, scene replace, graph edit, press) did not fail, and I did not catch the drop in the original run. A forced drop (see Re-check) does reproduce the symptom and the fix removes it. The Save As and Open flow was not run again.
 2. **A combination that macOS holds gives no warning (expected).** I bound ⌘Space. `appStatus.warnings` stayed empty. ⌘Space fired the graph and Spotlight also opened. The warning covers an OS registration failure only. macOS accepts a combination that a system feature such as Spotlight also uses, and both then fire. This is Different from Warudo. The editor warning text was not seen.
-3. **Hotkeys stopped twice during the session (cause not shown).** After the first minimize and again after the first compile-error edit, several ⌃⌥H presses did nothing. A later edit made them work again. I could not repeat the stop with presses alone. A publisher drop is the likely cause, because it gives the same symptom, but I did not observe a drop in those episodes.
+3. **Hotkeys stopped twice during the session (cause not shown).** After the first minimize and again after the first compile-error edit, several ⌃⌥H presses did nothing. A later edit made them work again. I could not repeat the stop with presses alone. A publisher drop is the likely cause, because it gives the same symptom, but I did not observe a drop in those episodes. This finding stays open. A mitigation is in the host: when a key has been latched for more than 10 s, the next press counts as a new press, because the release is assumed lost. The mitigation covers a lost release only. It does not cover a publisher drop, and a held key repeats after 10 s.
 
 ## Re-check of step 3.13
 
@@ -75,3 +75,7 @@ OBS crashed twice with SIGSEGV in `GetSourceScreenshot` (`device_get_render_targ
 ## Not exercised
 
 Canvas drag and connect gestures, typing into the keystroke capture field, the editor warning for a held combination, a physical held key, Windows, and the app-side tick timing.
+
+## Residual risk
+
+- Live canvas gestures were not tested in the running app. These are drag, connect, delete, add node, rename, and typing in the keystroke capture field. All canvas evidence comes from `render:false` Rete unit tests. A short manual check of these gestures is required before release.
