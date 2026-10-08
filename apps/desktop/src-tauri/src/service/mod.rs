@@ -254,8 +254,9 @@ impl Shared {
         // Restore the remembered set at once; the question must not wait behind a slow plugin call.
         let restore = self.clone();
         tokio::spawn(async move { restore.sync_keystrokes().await });
-        let target = lock(&self.inner).publisher.clone();
-        let Some(target) = target else { return };
+        let Some(target) = self.running_publisher().await else {
+            return;
+        };
         let relayed = self
             .relay("host", target, "blueprintInspect", |request_id| {
                 json!(WireMessage::Call {
@@ -284,6 +285,25 @@ impl Shared {
                 self.sync_keystrokes().await;
             }
         }
+    }
+    /// The publisher, once it has answered a clock with a frame. A call that arrives while the
+    /// worker still starts up can make it miss the clock credit and drop again.
+    async fn running_publisher(&self) -> Option<Connection> {
+        let first = lock(&self.inner).publisher.as_ref().map(|p| p.id.clone())?;
+        for _ in 0..60 {
+            if *self.stop.borrow() {
+                return None;
+            }
+            {
+                let inner = lock(&self.inner);
+                let publisher = inner.publisher.as_ref().filter(|p| p.id == first)?;
+                if inner.latest.is_some() {
+                    return Some(publisher.clone());
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+        None
     }
     async fn disconnect_session(&self, id: &str) {
         if self.disconnect(id) {

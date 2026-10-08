@@ -201,9 +201,13 @@ async fn edit_reply(o: &mut Socket, p: &mut Socket, keystrokes: Value) {
     .await;
     assert_eq!(recv_non_clock(o).await["requestId"], "edit");
 }
-/// A publisher that connects after the host learned a set gets asked for its own set.
+/// A publisher that is running after the host learned a set gets asked for its own set.
 async fn reconnected_publisher(s: &ServiceHandle, keystrokes: Value) -> Socket {
-    let mut p = auth(&s.publisher_descriptor()).await;
+    let descriptor = s.publisher_descriptor();
+    let mut p = auth(&descriptor).await;
+    // The host asks only after the publisher has answered a clock with a frame.
+    assert_eq!(recv(&mut p).await["kind"], "clock");
+    send(&mut p, frame(&descriptor.session_id, 1)).await;
     answer_inspect(&mut p, keystrokes).await;
     p
 }
