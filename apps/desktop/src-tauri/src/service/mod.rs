@@ -546,6 +546,15 @@ impl ServicePorts {
         }
         self.shared.sync_keystrokes().await;
     }
+    /// Ends a capture only when one is active, so a window that loses focus with no capture
+    /// registers nothing again. Returns whether a capture ended.
+    pub async fn end_keystroke_capture(&self) -> bool {
+        if lock(&self.shared.keystroke_capture).until.is_none() {
+            return false;
+        }
+        self.set_keystroke_capture(false).await;
+        true
+    }
     pub fn set_keystroke_capture_timeout(&self, timeout: Duration) {
         *lock(&self.shared.capture_timeout) = timeout;
     }

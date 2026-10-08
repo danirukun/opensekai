@@ -431,3 +431,17 @@ async fn an_edit_during_capture_stays_unregistered_until_the_capture_ends() {
     assert_eq!(last_set(&fake), vec!["Control+Alt+KeyK".to_string()]);
     s.shutdown().await.unwrap();
 }
+
+#[tokio::test]
+async fn ending_a_capture_that_is_not_active_does_not_reconcile() {
+    let (_d, s) = service().await;
+    let (fake, _p, _o) = registered(&s).await;
+    let before = fake.0.lock().unwrap().len();
+    assert!(!s.ports().end_keystroke_capture().await);
+    assert_eq!(fake.0.lock().unwrap().len(), before);
+    s.ports().set_keystroke_capture(true).await;
+    assert!(last_set(&fake).is_empty());
+    assert!(s.ports().end_keystroke_capture().await);
+    assert_eq!(last_set(&fake), vec!["Control+Alt+KeyH".to_string()]);
+    s.shutdown().await.unwrap();
+}

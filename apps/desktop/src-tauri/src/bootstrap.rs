@@ -96,6 +96,13 @@ impl DesktopState {
             ports.set_keystroke_capture(active).await;
         }
     }
+    /// Ends an active capture, for example when the editor loses focus.
+    pub async fn end_keystroke_capture(&self) {
+        let ports = self.ports.lock().unwrap_or_else(|e| e.into_inner()).clone();
+        if let Some(ports) = ports {
+            ports.end_keystroke_capture().await;
+        }
+    }
     pub async fn initialize(self: Arc<Self>, config: ServiceConfig, descriptors: PathBuf) {
         // Initialization and shutdown share one lifecycle lock.
         let mut owned = self.owned.lock().await;

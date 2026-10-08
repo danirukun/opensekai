@@ -245,9 +245,7 @@ pub fn run() {
                     .state::<Arc<DesktopState>>()
                     .inner()
                     .clone();
-                tauri::async_runtime::spawn(
-                    async move { state.set_keystroke_capture(false).await },
-                );
+                tauri::async_runtime::spawn(async move { state.end_keystroke_capture().await });
             }
             if window.label() == "main"
                 && matches!(event, tauri::WindowEvent::CloseRequested { .. })
