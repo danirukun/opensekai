@@ -1,5 +1,5 @@
 import { applyBlueprintOps, BlueprintBatchSchema, type AppError, type BlueprintBatch, type BlueprintGraph, type BlueprintInspect, type Id, type Reply } from '@opensekai/contracts';
-import { compileBlueprint, fail } from './blueprint';
+import { compileBlueprint, fail, type CompiledBlueprint } from './blueprint';
 import { activeAccelerators, type BlueprintRuntime } from './blueprint-runtime';
 
 const JOURNAL = 64, DELTA = 32, MAX_ACCELERATORS = 64, MAX_BYTES = 192 * 1024, DELTA_BYTES = 160 * 1024;
@@ -11,13 +11,17 @@ export interface BlueprintStore {
  active(graphId: Id): BlueprintGraph | undefined;
 }
 
-const withEnabled = (docs: readonly BlueprintGraph[], valid: ReadonlyMap<Id, BlueprintGraph>): BlueprintGraph[] =>
- docs.flatMap(doc => { const last = valid.get(doc.id); return last ? [{ ...last, enabled: doc.enabled }] : []; });
+// The last valid version keeps the executable content of its compile; `enabled` always comes from the current document.
+const withEnabled = (docs: readonly BlueprintGraph[], valid: ReadonlyMap<Id, CompiledBlueprint>): CompiledBlueprint[] =>
+ docs.flatMap(doc => {
+  const last = valid.get(doc.id);
+  return last ? [last.graph.enabled === doc.enabled ? last : { ...last, graph: { ...last.graph, enabled: doc.enabled } }] : [];
+ });
 
 export function createBlueprintStore(runtime: BlueprintRuntime): BlueprintStore {
  let documents: BlueprintGraph[] = [], revision = 0;
  let journal: (BlueprintBatch & { revision: number })[] = [];
- const valid = new Map<Id, BlueprintGraph>();
+ const valid = new Map<Id, CompiledBlueprint>(), keys = new Map<Id, string>();
  const compileErrors = new Map<Id, AppError>();
  return {
   edit(input) {
@@ -35,20 +39,22 @@ export function createBlueprintStore(runtime: BlueprintRuntime): BlueprintStore 
    if (encoder.encode(JSON.stringify(next.data)).length > MAX_BYTES) return fail('Blueprint set is too large');
    const opened = batch.data.ops.some(op => op.kind === 'replaceAll');
    const recreated = new Set(batch.data.ops.flatMap(op => op.kind === 'createGraph' ? [op.graph.id] : []));
-   const nextValid = new Map([...valid].filter(([id]) => !opened && !recreated.has(id) && next.data.some(doc => doc.id === id)));
-   const nextErrors = new Map([...compileErrors].filter(([id]) => next.data.some(doc => doc.id === id)));
+   const nextKeys = new Map(next.data.map(doc => [doc.id, JSON.stringify(doc)] as const));
+   const nextValid = new Map([...valid].filter(([id]) => !opened && !recreated.has(id) && nextKeys.has(id)));
+   const nextErrors = new Map([...compileErrors].filter(([id]) => !opened && !recreated.has(id) && nextKeys.has(id)));
    for (const doc of next.data) {
+    if ((nextValid.has(doc.id) || nextErrors.has(doc.id)) && keys.get(doc.id) === nextKeys.get(doc.id)) continue;
     const compiled = compileBlueprint(doc);
-    if (compiled.ok) { nextValid.set(doc.id, compiled.data.graph); nextErrors.delete(doc.id); }
+    if (compiled.ok) { nextValid.set(doc.id, compiled.data); nextErrors.delete(doc.id); }
     else nextErrors.set(doc.id, compiled.error);
    }
    const nextActive = withEnabled(next.data, nextValid);
-   if (activeAccelerators(nextActive).length > MAX_ACCELERATORS) return fail('Too many active keystrokes');
-   const installed = runtime.install(nextActive, opened);
-   if (!installed.ok) return installed;
+   if (activeAccelerators(nextActive.map(entry => entry.graph)).length > MAX_ACCELERATORS) return fail('Too many active keystrokes');
+   runtime.installCompiled(nextActive, opened);
    documents = next.data;
-   valid.clear(); for (const [id, graph] of nextValid) valid.set(id, graph);
+   valid.clear(); for (const [id, compiled] of nextValid) valid.set(id, compiled);
    compileErrors.clear(); for (const [id, error] of nextErrors) compileErrors.set(id, error);
+   keys.clear(); for (const [id, key] of nextKeys) keys.set(id, key);
    revision += 1;
    journal = [...journal, { ...batch.data, revision }].slice(-JOURNAL);
    return { ok: true, data: { revision, keystrokes: runtime.keystrokes() } };
@@ -71,6 +77,6 @@ export function createBlueprintStore(runtime: BlueprintRuntime): BlueprintStore 
     : reply;
   },
   revision: () => revision,
-  active: graphId => { const doc = documents.find(item => item.id === graphId); const last = valid.get(graphId); return doc && last ? { ...last, enabled: doc.enabled } : undefined; },
+  active: graphId => { const doc = documents.find(item => item.id === graphId); const last = valid.get(graphId)?.graph; return doc && last ? { ...last, enabled: doc.enabled } : undefined; },
  };
 }

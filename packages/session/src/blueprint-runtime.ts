@@ -5,7 +5,7 @@ export type BlueprintEvent = { kind: 'manual'; graphId: Id; nodeId: Id } | { kin
 export interface GraphRun { graphId: Id; effects: BlueprintEffect[]; error: AppError | null }
 // Called once per run, right after the run, before the next one. A returned error keeps the run's Flip Flop state and new delays uncommitted.
 export type RunGate = (run: GraphRun) => AppError | null;
-export interface BlueprintRuntime { install(graphs: unknown, fresh?: boolean): Reply<BlueprintGraph[]>; keystrokes(): string[]; step(events: BlueprintEvent[], nowMs: number, gate?: RunGate): GraphRun[] }
+export interface BlueprintRuntime { install(graphs: unknown, fresh?: boolean): Reply<BlueprintGraph[]>; installCompiled(graphs: readonly CompiledBlueprint[], fresh?: boolean): void; keystrokes(): string[]; step(events: BlueprintEvent[], nowMs: number, gate?: RunGate): GraphRun[] }
 
 interface Active { compiled: CompiledBlueprint; logic: string; flip: Map<Id, boolean>; delays: (PendingDelay & { order: number })[] }
 const MAX_DELAYS = 32;
@@ -33,19 +33,25 @@ export function createBlueprintRuntime(): BlueprintRuntime {
   entry.delays.push(...result.data.delays.map(delay => ({ ...delay, order: order++ })));
   return outcome;
  };
+ const installCompiled = (graphs: readonly CompiledBlueprint[], fresh = false): void => {
+  active = graphs.map(compiled => {
+   const logic = logicKey(compiled.graph);
+   const previous = compiled.graph.enabled && !fresh ? active.find(entry => entry.logic === logic) : undefined;
+   return { compiled, logic, flip: previous?.flip ?? new Map(), delays: previous?.delays ?? [] };
+  });
+ };
  return {
+  installCompiled,
   install(graphs, fresh = false) {
    const parsed = BlueprintSetSchema.safeParse(graphs);
    if (!parsed.success) return fail('Invalid Blueprint set');
-   const next: Active[] = [];
+   const list: CompiledBlueprint[] = [];
    for (const graph of parsed.data) {
     const compiled = compileBlueprint(graph);
     if (!compiled.ok) return { ok: false, error: { ...compiled.error, ids: [graph.id, ...compiled.error.ids] } };
-    const logic = logicKey(graph);
-    const previous = graph.enabled && !fresh ? active.find(entry => entry.logic === logic) : undefined;
-    next.push({ compiled: compiled.data, logic, flip: previous?.flip ?? new Map(), delays: previous?.delays ?? [] });
+    list.push(compiled.data);
    }
-   active = next;
+   installCompiled(list, fresh);
    return { ok: true, data: parsed.data };
   },
   keystrokes: () => activeAccelerators(active.map(entry => entry.compiled.graph)),
