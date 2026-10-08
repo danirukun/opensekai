@@ -24,12 +24,14 @@
     "rete-render-utils": "2.0.3",
     "rete-svelte-plugin": "2.1.2",
     "sass": "1.93.2",
+    "stats.js": "^0.17.0",
     "svelte": "5.57.1"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "7.3.1",
     "@tailwindcss/vite": "4.3.3",
     "@tauri-apps/cli": "2.12.1",
+    "@types/stats.js": "^0.17.4",
     "svelte-check": "4.7.6",
     "tailwindcss": "4.3.3"
   }

@@ -235,6 +235,9 @@ importers:
       sass:
         specifier: 1.93.2
         version: 1.93.2
+      stats.js:
+        specifier: ^0.17.0
+        version: 0.17.0
       svelte:
         specifier: 5.57.1
         version: 5.57.1
@@ -248,6 +251,9 @@ importers:
       '@tauri-apps/cli':
         specifier: 2.12.1
         version: 2.12.1
+      '@types/stats.js':
+        specifier: ^0.17.4
+        version: 0.17.4
       svelte-check:
         specifier: 4.7.6
         version: 4.7.6(picomatch@4.0.7)(svelte@5.57.1)(typescript@6.0.3)
@@ -1454,6 +1460,9 @@ packages:
     resolution: {integrity: sha512-KGj/8Y43x35aZVDtt+J4mK1hoLGHULMYfSkODJNQjNDC3oW1PqPoxMwo0pLUsWM/UEGzON/NxeHywEfNXNP3Vw==}
     engines: {node: '>=0.10.0'}
 
+  stats.js@0.17.0:
+    resolution: {integrity: sha512-hNKz8phvYLPEcRkeG1rsGmV5ChMjKDAWU7/OJJdDErPBNChQXxCo3WZurGpnWc6gZhAzEPFad1aVgyOANH1sMw==}
+
   std-env@4.3.0:
     resolution: {integrity: sha512-OtU/EgQ1kIm5KwqQpBC6ZEMXrZRui11w8zgfTWp8cdO9B8OaPsbA8bTHO2P+HNo1VlUTGMVBwPhydu6poeXiag==}
 
@@ -2460,6 +2469,8 @@ snapshots:
   shebang-regex@3.0.0: {}
 
   source-map-js@1.2.2: {}
+
+  stats.js@0.17.0: {}
 
   std-env@4.3.0: {}
 

@@ -20,7 +20,8 @@ export interface NativeBootstrap {
  fixtureMode:boolean;
  rendererMode: 'auto' | 'force-webgl2';
 }
-export async function bootstrapDesktop(canvas: HTMLCanvasElement, editorOptions?: EditorOptions): Promise<{
+export interface PreviewFrameProbe { begin(): boolean; end(): void }
+export async function bootstrapDesktop(canvas: HTMLCanvasElement, editorOptions?: EditorOptions, previewProbe?: PreviewFrameProbe): Promise<{
  client: BrowserClient; outputUrl: string; assets: AssetRecord[]; canEdit:boolean; editor?:EditorHandle; tracking:{submit(update:TrackingUpdate):void;now():number|null;onClock(listener:()=>void):()=>void}; stop(): Promise<void>;
 }> {
  const info = await invoke<NativeBootstrap>('bootstrap_session');
@@ -71,8 +72,13 @@ export async function bootstrapDesktop(canvas: HTMLCanvasElement, editorOptions?
    resources: preview, diagnostics: false, resolutionScale: 0.5,
    editor: info.operator.capabilities.includes('edit') ? editorOptions : undefined });
   const pump = createPreviewPump<RuntimeFrame>(async frame => {
-   const applied = await renderer.applyFrame(frame);
-   if (!stopped) preview.sendApplied(applied);
+   const measuring = previewProbe?.begin() ?? false;
+   try {
+    const applied = await renderer.applyFrame(frame);
+    if (!stopped) preview.sendApplied(applied);
+   } finally {
+    if (measuring) previewProbe?.end();
+   }
   }, error => {
    const code = (error as { code?: string })?.code;
    if (code !== 'CANCELLED') console.error('Preview submission failed', code ?? 'UNAVAILABLE');
