@@ -119,3 +119,29 @@ it('keeps a maximum-size snapshot below the message limit', () => {
  expect(bytes).toBeGreaterThan(150 * 1024);
  expect(bytes + 64 * 1024).toBeLessThan(LIMITS.jsonBytes);
 });
+
+const invalidToggle = () => ({ ...structuredClone(fixture.blueprints[0]!), nodes: [...structuredClone(fixture.blueprints[0]!.nodes), { id: 'dangling', version: 1, type: 'scene.setVisibility', settings: { entityId: 'performer' }, position: { x: 0, y: 0 } }] });
+
+it('drops the old show last valid versions when a show is opened', () => {
+ const store = loaded();
+ const reply = store.edit(batch('open-b', [{ kind: 'replaceAll', graphs: [invalidToggle()] }]));
+ expect(reply).toEqual({ ok: true, data: { revision: 2, keystrokes: [] } });
+ expect(store.active('toggle-performer')).toBeUndefined();
+ expect(store.inspect().errors).toEqual([expect.objectContaining({ graphId: 'toggle-performer', kind: 'compile' })]);
+});
+
+it('drops the last valid version of a graph that is created again under the same id', () => {
+ const store = loaded();
+ const removed = store.edit(batch('rm', [{ kind: 'removeGraph', graphId: 'toggle-performer' }]));
+ expect(removed.ok).toBe(true);
+ expect(store.active('toggle-performer')).toBeUndefined();
+ const reply = store.edit(batch('mk', [{ kind: 'createGraph', graph: invalidToggle() }]));
+ expect(reply).toMatchObject({ ok: true, data: { keystrokes: ['Control+Alt+KeyJ'] } });
+ expect(store.active('toggle-performer')).toBeUndefined();
+});
+
+it('drops the last valid version when remove and create share one batch', () => {
+ const store = loaded();
+ store.edit(batch('swap', [{ kind: 'removeGraph', graphId: 'toggle-performer' }, { kind: 'createGraph', graph: invalidToggle() }]));
+ expect(store.active('toggle-performer')).toBeUndefined();
+});

@@ -3,7 +3,7 @@ import { compileBlueprint, fail, runFlow, type BlueprintEffect, type CompiledBlu
 
 export type BlueprintEvent = { kind: 'manual'; graphId: Id; nodeId: Id } | { kind: 'keystroke'; accelerator: string };
 export interface GraphRun { graphId: Id; effects: BlueprintEffect[]; error: AppError | null }
-export interface BlueprintRuntime { install(graphs: unknown): Reply<BlueprintGraph[]>; keystrokes(): string[]; step(events: BlueprintEvent[], nowMs: number): GraphRun[] }
+export interface BlueprintRuntime { install(graphs: unknown, fresh?: boolean): Reply<BlueprintGraph[]>; keystrokes(): string[]; step(events: BlueprintEvent[], nowMs: number): GraphRun[] }
 
 interface Active { compiled: CompiledBlueprint; logic: string; flip: Map<Id, boolean>; delays: (PendingDelay & { order: number })[] }
 const MAX_DELAYS = 32;
@@ -29,7 +29,7 @@ export function createBlueprintRuntime(): BlueprintRuntime {
   return { graphId, effects: result.data.effects, error: null };
  };
  return {
-  install(graphs) {
+  install(graphs, fresh = false) {
    const parsed = BlueprintSetSchema.safeParse(graphs);
    if (!parsed.success) return fail('Invalid Blueprint set');
    const next: Active[] = [];
@@ -37,7 +37,7 @@ export function createBlueprintRuntime(): BlueprintRuntime {
     const compiled = compileBlueprint(graph);
     if (!compiled.ok) return { ok: false, error: { ...compiled.error, ids: [graph.id, ...compiled.error.ids] } };
     const logic = logicKey(graph);
-    const previous = graph.enabled ? active.find(entry => entry.logic === logic) : undefined;
+    const previous = graph.enabled && !fresh ? active.find(entry => entry.logic === logic) : undefined;
     next.push({ compiled: compiled.data, logic, flip: previous?.flip ?? new Map(), delays: previous?.delays ?? [] });
    }
    active = next;

@@ -61,3 +61,11 @@ it('fires a manual trigger only on its enabled graph', () => {
  expect(runtime.step([{ kind: 'manual', graphId: 'm', nodeId: 'go' }], 0)[0]!.effects).toHaveLength(1);
  expect(runtime.step([{ kind: 'manual', graphId: 'other', nodeId: 'go' }], 0)).toEqual([]);
 });
+
+it('clears pending delays when a fresh install replaces a show with identical logic', () => {
+ const runtime = createBlueprintRuntime();
+ runtime.install(set());
+ runtime.step([J], 0);
+ runtime.install(set(), true);
+ expect(runtime.step([], 5000)).toEqual([]);
+});

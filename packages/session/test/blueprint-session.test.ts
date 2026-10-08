@@ -144,3 +144,29 @@ it('does not abort the frame when the Blueprint step throws', () => {
  } finally { spy.mockRestore(); }
  expect(session.advance(32).sequence).toBe(3);
 });
+
+it('does not run, keep an error for, or carry state into a graph that a new show replaces', () => {
+ const session = createSession(makeSmokeScene(), 's');
+ load(session, fixture.blueprints);
+ session.advance(0);
+ session.advance(16, 16, press('Control+Alt+KeyH'));
+ expect(visible(session, 'performer')).toBe(false);
+ session.advance(32, 16, press('Control+Alt+KeyH'));
+ const broken = { ...structuredClone(fixture.blueprints[0]!), nodes: [...fixture.blueprints[0]!.nodes, { id: 'dangling', version: 1, type: 'scene.setVisibility', settings: { entityId: 'performer' }, position: { x: 0, y: 0 } }] };
+ expect(load(session, [broken])).toEqual({ ok: true, data: { revision: 2, keystrokes: [] } });
+ const before = JSON.stringify(session.inspect());
+ session.advance(48, 16, press('Control+Alt+KeyH'));
+ expect(JSON.stringify(session.inspect())).toBe(before);
+ expect(session.inspectBlueprints().errors.map(e => e.kind)).toEqual(['compile']);
+});
+
+it('clears a runtime error of a graph that a new show replaces with a document that does not compile', () => {
+ const session = createSession(makeSmokeScene(), 's');
+ const ghost = { ...structuredClone(fixture.blueprints[0]!), nodes: fixture.blueprints[0]!.nodes.map(n => n.id === 'toggle' ? { ...n, settings: { entityId: 'ghost' } } : n) };
+ load(session, [ghost]);
+ session.advance(0);
+ session.advance(16, 16, press('Control+Alt+KeyH'));
+ expect(session.inspectBlueprints().errors.map(e => e.kind)).toEqual(['runtime']);
+ load(session, [{ ...ghost, nodes: [...ghost.nodes, { id: 'dangling', version: 1, type: 'scene.setVisibility', settings: { entityId: 'performer' }, position: { x: 0, y: 0 } }] }]);
+ expect(session.inspectBlueprints().errors.map(e => e.kind)).toEqual(['compile']);
+});

@@ -33,7 +33,9 @@ export function createBlueprintStore(runtime: BlueprintRuntime): BlueprintStore 
    const next = applyBlueprintOps(documents, batch.data.ops);
    if (!next.ok) return next;
    if (encoder.encode(JSON.stringify(next.data)).length > MAX_BYTES) return fail('Blueprint set is too large');
-   const nextValid = new Map([...valid].filter(([id]) => next.data.some(doc => doc.id === id)));
+   const opened = batch.data.ops.some(op => op.kind === 'replaceAll');
+   const recreated = new Set(batch.data.ops.flatMap(op => op.kind === 'createGraph' ? [op.graph.id] : []));
+   const nextValid = new Map([...valid].filter(([id]) => !opened && !recreated.has(id) && next.data.some(doc => doc.id === id)));
    const nextErrors = new Map([...compileErrors].filter(([id]) => next.data.some(doc => doc.id === id)));
    for (const doc of next.data) {
     const compiled = compileBlueprint(doc);
@@ -42,7 +44,7 @@ export function createBlueprintStore(runtime: BlueprintRuntime): BlueprintStore 
    }
    const nextActive = withEnabled(next.data, nextValid);
    if (activeAccelerators(nextActive).length > MAX_ACCELERATORS) return fail('Too many active keystrokes');
-   const installed = runtime.install(nextActive);
+   const installed = runtime.install(nextActive, opened);
    if (!installed.ok) return installed;
    documents = next.data;
    valid.clear(); for (const [id, graph] of nextValid) valid.set(id, graph);
