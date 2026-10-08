@@ -8,7 +8,10 @@ export interface BlueprintRuntime { install(graphs: unknown): Reply<BlueprintGra
 interface Active { compiled: CompiledBlueprint; logic: string; flip: Map<Id, boolean>; delays: (PendingDelay & { order: number })[] }
 const MAX_DELAYS = 32;
 // Executable content only: positions and names do not reset runtime state.
-const logicKey = (graph: BlueprintGraph) => JSON.stringify([graph.id, graph.enabled, graph.nodes.map(({ id, type, settings }) => [id, type, settings]), graph.connections]);
+export const logicKey = (graph: BlueprintGraph) => JSON.stringify([graph.id, graph.enabled, graph.nodes.map(({ id, type, settings }) => [id, type, settings]), graph.connections]);
+
+export const activeAccelerators = (graphs: readonly BlueprintGraph[]): string[] => [...new Set(graphs.filter(graph => graph.enabled)
+ .flatMap(graph => graph.nodes.flatMap(node => node.type === 'event.keystroke' ? [keystrokeAccelerator(node.settings)] : [])))].sort();
 
 export function createBlueprintRuntime(): BlueprintRuntime {
  let active: Active[] = [];
@@ -40,8 +43,7 @@ export function createBlueprintRuntime(): BlueprintRuntime {
    active = next;
    return { ok: true, data: parsed.data };
   },
-  keystrokes: () => [...new Set(active.filter(entry => entry.compiled.graph.enabled)
-   .flatMap(entry => entry.compiled.graph.nodes.flatMap(node => node.type === 'event.keystroke' ? [keystrokeAccelerator(node.settings)] : [])))].sort(),
+  keystrokes: () => activeAccelerators(active.map(entry => entry.compiled.graph)),
   step(events, nowMs) {
    const budget: FlowBudget = { visits: 256, effects: 64 };
    const runs: GraphRun[] = [];

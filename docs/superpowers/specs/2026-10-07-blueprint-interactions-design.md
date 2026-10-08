@@ -44,7 +44,9 @@ A VTuber uses Blueprints mostly for interactions. Typical uses: press a hotkey t
 - 16 input events per clock message, and 64 in the native queue. When the queue is full, the oldest event is dropped.
 - 64 flow visits per event. 256 flow visits and 64 effects per tick in total.
 - 32 pending delays per graph.
-- 64 active accelerators.
+- 64 active accelerators. The session rejects a batch that makes more than 64 accelerators active.
+- 192 KiB for the serialized Blueprint set. The session rejects a batch that makes the set larger.
+- A batch ID is used once for each client. The session rejects a reused batch ID unless the operations are identical, and then it answers the first result again.
 
 ## Out of scope
 

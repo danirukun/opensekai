@@ -67,3 +67,12 @@ it('rejects prototype-named ports', () => {
  expect(applyBlueprintOps(input, [{ kind: 'connect', graphId: 'flash-marker', connection: { id: 'p', sourceNodeId: 'key', sourcePort: 'toString', targetNodeId: 'wait', targetPort: 'toString' } }])).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
  expect(input).toEqual(before);
 });
+
+it('names the failing rule and graph when the final set does not parse', () => {
+ const key = node('k2', 'event.keystroke', { code: 'KeyZ', control: false, alt: false, shift: true, meta: false });
+ expect(applyBlueprintOps(base(), [{ kind: 'addNode', graphId: 'flash-marker', node: key }]))
+  .toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', message: 'Keystroke needs Control, Alt, or Meta', ids: ['flash-marker'] } });
+ const nodes = Array.from({ length: 129 }, (_, i) => node(`n${i}`, 'value.number', { value: 0 }));
+ expect(applyBlueprintOps([], [{ kind: 'createGraph', graph: { schemaVersion: 1, id: 'big', name: 'Big', enabled: true, nodes, connections: [] } }]))
+  .toMatchObject({ ok: false, error: { message: 'Blueprint set exceeds its limits' } });
+});

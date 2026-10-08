@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest';
+import { KEYSTROKE_CODES } from '@opensekai/contracts';
 import fixture from '../../../fixtures/protocol/blueprint-set.json';
 import { createBlueprintRuntime } from '../src/blueprint-runtime';
 import { createBlueprintStore } from '../src/blueprint-store';
@@ -49,4 +50,44 @@ it('answers a resent batch from the journal without applying it twice', () => {
  const again = store.edit(move);
  expect(again).toEqual(first);
  expect(store.revision()).toBe(2);
+});
+
+it('rejects a reused batch id with different operations and keeps the store unchanged', () => {
+ const store = loaded();
+ store.edit(batch('same', [{ kind: 'moveNode', graphId: 'flash-marker', nodeId: 'wait', position: { x: 4, y: 4 } }]));
+ const other = batch('same', [{ kind: 'moveNode', graphId: 'flash-marker', nodeId: 'wait', position: { x: 9, y: 9 } }]);
+ expect(store.edit(other)).toEqual({ ok: false, error: { code: 'INVALID_INPUT', message: 'batchId already used', ids: ['same'] } });
+ expect(store.revision()).toBe(2);
+ const view = store.inspect();
+ expect(view.kind === 'snapshot' && view.blueprints[1]!.nodes.find(n => n.id === 'wait')!.position).toEqual({ x: 4, y: 4 });
+});
+
+const keyGraphs = (count: number) => Array.from({ length: Math.ceil(count / 13) }, (_, g) => ({
+ schemaVersion: 1, id: `k${g}`, name: 'K', enabled: true, connections: [],
+ nodes: Array.from({ length: Math.min(13, count - g * 13) }, (_, n) => ({ id: `n${n}`, version: 1, type: 'event.keystroke',
+  settings: { code: KEYSTROKE_CODES[g * 13 + n], control: true, alt: false, shift: false, meta: false }, position: { x: 0, y: 0 } })),
+}));
+
+it('rejects more than 64 active keystrokes and leaves the store unchanged', () => {
+ const store = loaded();
+ const before = JSON.stringify(store.inspect());
+ expect(store.edit(batch('many', [{ kind: 'replaceAll', graphs: keyGraphs(65) }]))).toEqual({ ok: false, error: { code: 'INVALID_INPUT', message: 'Too many active keystrokes', ids: [] } });
+ expect(store.revision()).toBe(1);
+ expect(JSON.stringify(store.inspect())).toBe(before);
+ expect(store.edit(batch('fit', [{ kind: 'replaceAll', graphs: keyGraphs(64) }]))).toMatchObject({ ok: true, data: { revision: 2 } });
+ const disabled = keyGraphs(65).map((g, i) => ({ ...g, enabled: i !== 0 }));
+ expect(store.edit(batch('off', [{ kind: 'replaceAll', graphs: disabled }]))).toMatchObject({ ok: true });
+});
+
+it('rejects a Blueprint set above 192 KiB and leaves the store unchanged', () => {
+ const store = loaded();
+ const before = JSON.stringify(store.inspect());
+ const wide = (graphs: number) => Array.from({ length: graphs }, (_, g) => ({
+  schemaVersion: 1, id: `g${g}`, name: 'G', enabled: true, connections: [],
+  nodes: Array.from({ length: 128 }, (_, n) => ({ id: `${'x'.repeat(250)}${n}`, version: 1, type: 'value.number', settings: { value: 0 }, position: { x: 0, y: 0 } })),
+ }));
+ expect(store.edit(batch('huge', [{ kind: 'replaceAll', graphs: wide(8) }]))).toEqual({ ok: false, error: { code: 'INVALID_INPUT', message: 'Blueprint set is too large', ids: [] } });
+ expect(store.revision()).toBe(1);
+ expect(JSON.stringify(store.inspect())).toBe(before);
+ expect(store.edit(batch('ok', [{ kind: 'replaceAll', graphs: wide(4) }]))).toMatchObject({ ok: true });
 });

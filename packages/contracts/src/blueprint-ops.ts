@@ -82,5 +82,11 @@ export function applyBlueprintOps(graphs: readonly BlueprintGraph[], ops: readon
   }
  }
  const valid = BlueprintSetSchema.safeParse(next);
- return valid.success ? { ok: true, data: valid.data } : reject('INVALID_INPUT', 'Blueprint set exceeds its limits', []);
+ if (valid.success) return { ok: true, data: valid.data };
+ const issue = valid.error.issues[0]!;
+ const [graphIndex, field, nodeIndex] = issue.path;
+ const owner = typeof graphIndex === 'number' ? next[graphIndex] : undefined;
+ const member = owner && field === 'nodes' && typeof nodeIndex === 'number' ? owner.nodes[nodeIndex] : undefined;
+ const ids = owner ? [owner.id, ...(member ? [member.id] : [])] : [];
+ return reject('INVALID_INPUT', issue.code === 'too_big' ? 'Blueprint set exceeds its limits' : issue.message, ids);
 }

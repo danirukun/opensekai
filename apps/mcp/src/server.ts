@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/server';
 import { type AppApi, type CaptureRecord, type EvidenceManifest, type SceneView } from '@opensekai/contracts';
 import { failure, invokeTool, ParamSchemas, toolMethods } from './tools';
 import { registerResources } from './resources';
-const descriptions: Record<string, string> = {blueprint_edit:'Apply ordered Blueprint operations as one batch.',blueprint_inspect:'Read Blueprint documents, or the batches after a revision.',blueprint_run:'Fire a Manual Trigger in an enabled Blueprint.'};
+const descriptions: Record<string, string> = {blueprint_edit:'Apply ordered Blueprint operations as one batch. Each batch needs a new batchId. Resending the identical batch is safe.',blueprint_inspect:'Read Blueprint documents, or the batches after a revision.',blueprint_run:'Fire a Manual Trigger in an enabled Blueprint.'};
 export function createMcpServer(api: AppApi, readResource: (uri: string) => Promise<Uint8Array>): McpServer {
  const server = new McpServer({name:'opensekai',version:'0.1.0'});
  const resources = registerResources(server, api, readResource);
