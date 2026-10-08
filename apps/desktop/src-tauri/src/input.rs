@@ -1,9 +1,12 @@
 use opensekai_contracts::{InputEvent, InputUpdate};
-use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
+use std::collections::{BTreeSet, HashMap, VecDeque};
 use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
 pub const QUEUE_CAPACITY: usize = 64;
 pub const EVENTS_PER_CLOCK: usize = 16;
+/// A key latched longer than this has lost its release; the next press counts as new.
+pub const LATCH_TIMEOUT: Duration = Duration::from_secs(10);
 
 pub trait KeystrokeRegistrar: Send + Sync {
     fn reconcile(&self, wanted: &BTreeSet<String>) -> Vec<String>;
@@ -16,10 +19,16 @@ impl KeystrokeRegistrar for NoKeystrokes {
 }
 
 #[derive(Default)]
-pub struct KeyLatch(HashSet<u32>);
+pub struct KeyLatch(HashMap<u32, Instant>);
 impl KeyLatch {
-    pub fn press(&mut self, id: u32) -> bool {
-        self.0.insert(id)
+    pub fn press(&mut self, id: u32, now: Instant) -> bool {
+        match self.0.get(&id) {
+            Some(since) if now.saturating_duration_since(*since) <= LATCH_TIMEOUT => false,
+            _ => {
+                self.0.insert(id, now);
+                true
+            }
+        }
     }
     pub fn release(&mut self, id: u32) {
         self.0.remove(&id);
@@ -59,12 +68,12 @@ pub struct Bookkeeping {
 }
 impl Bookkeeping {
     /// The accelerator for a new physical press; None for a repeat or a release.
-    pub fn event(&mut self, id: u32, pressed: bool) -> Option<String> {
+    pub fn event(&mut self, id: u32, pressed: bool, now: Instant) -> Option<String> {
         if !pressed {
             self.latch.release(id);
             return None;
         }
-        if !self.latch.press(id) {
+        if !self.latch.press(id, now) {
             return None;
         }
         self.registered.get(&id).cloned()
@@ -109,7 +118,7 @@ impl<R: tauri::Runtime> GlobalKeystrokes<R> {
     }
     /// Called from the main-thread shortcut handler; the lock is never held across plugin calls.
     pub fn event(&self, id: u32, pressed: bool) -> Option<String> {
-        locked(&self.state).event(id, pressed)
+        locked(&self.state).event(id, pressed, Instant::now())
     }
 }
 impl<R: tauri::Runtime> KeystrokeRegistrar for GlobalKeystrokes<R> {
@@ -148,11 +157,21 @@ mod tests {
     use super::*;
     #[test]
     fn latch_fires_once_per_physical_press() {
+        let now = Instant::now();
         let mut latch = KeyLatch::default();
-        assert!(latch.press(7));
-        assert!(!latch.press(7));
+        assert!(latch.press(7, now));
+        assert!(!latch.press(7, now));
         latch.release(7);
-        assert!(latch.press(7));
+        assert!(latch.press(7, now));
+    }
+    #[test]
+    fn latch_treats_a_press_after_ten_seconds_as_new_because_the_release_was_lost() {
+        let start = Instant::now();
+        let mut latch = KeyLatch::default();
+        assert!(latch.press(7, start));
+        assert!(!latch.press(7, start + LATCH_TIMEOUT));
+        assert!(latch.press(7, start + LATCH_TIMEOUT + Duration::from_millis(1)));
+        assert!(!latch.press(7, start + LATCH_TIMEOUT + Duration::from_secs(5)));
     }
     #[test]
     fn queue_drops_oldest_and_drains_sixteen_per_clock() {
@@ -192,14 +211,15 @@ mod tests {
     }
     #[test]
     fn unregistering_releases_a_held_key_so_the_next_press_fires() {
+        let now = Instant::now();
         let mut b = Bookkeeping::default();
         b.insert(7, "Control+Alt+KeyH".into());
-        assert_eq!(b.event(7, true).as_deref(), Some("Control+Alt+KeyH"));
-        assert!(b.event(7, true).is_none());
+        assert_eq!(b.event(7, true, now).as_deref(), Some("Control+Alt+KeyH"));
+        assert!(b.event(7, true, now).is_none());
         let stale = b.take_stale(&BTreeSet::new());
         assert_eq!(stale, vec![(7, "Control+Alt+KeyH".to_string())]);
         b.insert(7, "Control+Alt+KeyH".into());
-        assert_eq!(b.event(7, true).as_deref(), Some("Control+Alt+KeyH"));
+        assert_eq!(b.event(7, true, now).as_deref(), Some("Control+Alt+KeyH"));
     }
     #[test]
     fn diff_lists_only_missing_accelerators() {
