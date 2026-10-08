@@ -1,7 +1,9 @@
-import { IdSchema, ParamSchemas, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate } from "@opensekai/contracts";
+import { IdSchema, ParamSchemas, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate, type AppError, type InputUpdate, type BlueprintInspect } from "@opensekai/contracts";
 import { createTransformAdapter } from "./ecs";
 import {createTrackingComposer} from "./tracking";
-import { compileBlueprint, executeBlueprint } from './blueprint';
+import { createBlueprintRuntime, logicKey, type BlueprintEvent, type GraphRun } from './blueprint-runtime';
+import { createBlueprintStore } from './blueprint-store';
+import { applyEffects, applyOperations } from './scene-ops';
 export interface Session {
     inspect(): SceneView;
     replaceScene(scene: SceneView, expectedRevision: number): Reply<SceneView>;
@@ -16,8 +18,10 @@ export interface Session {
         revision: number;
     }>;
     ingestTracking(update:TrackingUpdate):Reply<null>;
-    advance(elapsedMs: number, trackingNowMs?:number): RuntimeFrame;
-    runBlueprint(graph: unknown, triggerNodeId: Id): Reply<{revision: number}>;
+    advance(elapsedMs: number, trackingNowMs?:number, input?: InputUpdate): RuntimeFrame;
+    editBlueprints(batch: unknown): Reply<{ revision: number; keystrokes: string[] }>;
+    inspectBlueprints(sinceRevision?: number): BlueprintInspect;
+    runBlueprint(graphId: Id, triggerNodeId: Id): Reply<{revision: number}>;
 }
 const failure = (code: ErrorCode, message: string, ids: Id[] = []): Reply<never> => ({ ok: false, error: { code, message, ids } });
 export function createSession(scene: SceneView, sessionId: Id): Session {
@@ -36,6 +40,33 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
         persistent = next;
         return { ok: true, data: { revision: persistent.revision } };
     }
+    const runtime = createBlueprintRuntime();
+    const store = createBlueprintStore(runtime);
+    const runtimeErrors = new Map<Id, AppError>();
+    const loggedFailures = new Set<string>();
+    let failedThisTick = false;
+    const logOnce = (error: unknown) => {
+        failedThisTick = true;
+        const message = error instanceof Error ? error.message : String(error);
+        if (loggedFailures.has(message)) return;
+        if (loggedFailures.size >= 8) loggedFailures.clear();
+        loggedFailures.add(message);
+        console.error('Blueprint step failed', error);
+    };
+    // Each run's effects go onto a scratch copy first, so a run whose effects fail leaves no Flip Flop or delay change behind.
+    const stepBlueprints = (events: BlueprintEvent[], nowMs: number): { runs: GraphRun[]; committed: Reply<{ revision: number }> } => {
+        let working: SceneView | null = null;
+        const runs = runtime.step(events, nowMs, run => {
+            if (run.effects.length === 0) return null;
+            const next = applyEffects(working ?? persistent, run.effects);
+            if (!next.ok) return next.error;
+            working = next.data;
+            return null;
+        });
+        for (const run of runs) if (run.error) runtimeErrors.set(run.graphId, run.error); else runtimeErrors.delete(run.graphId);
+        const changed = working !== null && JSON.stringify(working) !== JSON.stringify(persistent);
+        return { runs, committed: changed ? commit(working!) : { ok: true, data: { revision: persistent.revision } } };
+    };
     const api: Session = {
         inspect: () => structuredClone(persistent),
         replaceScene(scene, expectedRevision) {
@@ -46,13 +77,31 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
             tracking = createTrackingComposer();
             return { ok: true, data: structuredClone(persistent) };
         },
-        runBlueprint(graph, triggerNodeId) {
-            const compiled = compileBlueprint(graph);
-            if (!compiled.ok) return compiled;
-            const run = executeBlueprint(compiled.data, triggerNodeId);
-            if (!run.ok) return run;
-            if (run.data.length === 0) return { ok: true, data: { revision: persistent.revision } };
-            return api.applyPatch({ sceneId: persistent.sceneId, expectedRevision: persistent.revision, operations: run.data });
+        editBlueprints(batch) {
+            const before = new Map([...runtimeErrors.keys()].map(id => { const graph = store.active(id); return [id, graph && logicKey(graph)] as const; }));
+            const reply = store.edit(batch);
+            if (reply.ok)
+                for (const [id, key] of before) {
+                    const graph = store.active(id);
+                    if (!graph || logicKey(graph) !== key) runtimeErrors.delete(id);
+                }
+            return reply;
+        },
+        inspectBlueprints: since => store.inspect(since, runtimeErrors),
+        runBlueprint(graphId, triggerNodeId) {
+            const graph = store.active(graphId);
+            if (!graph) return failure('NOT_FOUND', 'Blueprint not found', [graphId]);
+            if (!graph.enabled) return failure('INVALID_INPUT', 'Blueprint is disabled', [graphId]);
+            if (!graph.nodes.some(node => node.id === triggerNodeId && node.type === 'event.manual')) return failure('INVALID_INPUT', 'Manual trigger not found', [triggerNodeId]);
+            try {
+                const { runs, committed } = stepBlueprints([{ kind: 'manual', graphId, nodeId: triggerNodeId }], elapsed);
+                const own = runs.at(-1);
+                if (own?.error) return { ok: false, error: own.error };
+                return committed;
+            } catch (error) {
+                logOnce(error);
+                return failure('INVALID_INPUT', 'Blueprint step failed', [graphId]);
+            }
         },
         applyPatch(patch) {
             const parsed = ScenePatchSchema.safeParse(patch);
@@ -63,32 +112,9 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
                 return failure("NOT_FOUND", "Scene not found", [value.sceneId]);
             if (value.expectedRevision !== persistent.revision)
                 return failure("CONFLICT", "Scene revision changed");
-            const next = structuredClone(persistent);
-            for (const operation of value.operations) {
-                if(operation.kind==='createEntity'){
-                    if(next.entities.some(e=>e.id===operation.entity.id))return failure('INVALID_INPUT','Duplicate entity ID',[operation.entity.id]);
-                    const created=structuredClone(operation.entity);if(created.kind==='tracking')created.generation=persistent.revision+1;next.entities.push(created);continue;
-                }
-                const entity = next.entities.find(entity => entity.id === operation.entityId);
-                if (!entity)return failure("NOT_FOUND", "Entity not found", [operation.entityId]);
-                switch(operation.kind){
-                 case 'renameEntity':entity.name=operation.name;break;
-                 case 'removeEntity':
-                  if(next.outputs.some(output=>output.cameraId===entity.id))return failure('INVALID_INPUT','Choose another output camera before removal',[entity.id]);
-                  next.entities=next.entities.filter(item=>item.id!==entity.id);
-                  if(entity.kind==='tracking')for(const avatar of next.entities){if(avatar.kind!=='avatar'||!avatar.tracking)continue;if(avatar.tracking.bodySourceId===entity.id)avatar.tracking.bodySourceId=null;if(avatar.tracking.faceSourceId===entity.id)avatar.tracking.faceSourceId=null;}
-                  break;
-                 case 'setVisibility':entity.visible=operation.visible;break;
-                 case 'setTransform':if(entity.kind==='tracking')return failure('INVALID_INPUT','Tracking assets have no scene transform',[entity.id]);entity.transform=structuredClone(operation.transform);break;
-                 case 'setCameraLens':if(entity.kind!=='camera')return failure('INVALID_INPUT','Entity is not a camera',[entity.id]);entity.lens=structuredClone(operation.lens);break;
-                 case 'setAvatarIdle':if(entity.kind!=='avatar')return failure('INVALID_INPUT','Entity is not an avatar',[entity.id]);entity.idleAnimation=structuredClone(operation.idleAnimation);break;
-                 case 'setAvatarTracking':if(entity.kind!=='avatar')return failure('INVALID_INPUT','Entity is not an avatar',[entity.id]);entity.tracking=structuredClone(operation.tracking);break;
-                 case 'setTrackingSmoothing':if(entity.kind!=='tracking')return failure('INVALID_INPUT','Entity is not a tracking source',[entity.id]);entity.smoothing=structuredClone(operation.smoothing);break;
-                 case 'setTrackingConfig':if(entity.kind!=='tracking'||entity.config.kind!==operation.config.kind)return failure('INVALID_INPUT','Tracking source kind differs',[entity.id]);entity.config=structuredClone(operation.config);entity.generation=persistent.revision+1;break;
-                }
-            }
-            if(!SceneViewSchema.safeParse(next).success)return failure('INVALID_INPUT','Invalid scene references or budget');
-            return commit(next);
+            const applied = applyOperations(persistent, value.operations, persistent.revision + 1);
+            if (!applied.ok) return applied;
+            return commit(applied.data);
         },
         selectCamera(params) {
             const parsed = ParamSchemas.cameraSelect.safeParse(params);
@@ -110,16 +136,24 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
             return commit(next);
         },
         ingestTracking:update=>tracking.ingest(update,persistent),
-        advance(elapsedMs,trackingNowMs) {
+        advance(elapsedMs,trackingNowMs,input) {
             const tick = Math.floor(elapsedMs * 60 / 1000);
             if (!Number.isFinite(elapsedMs) || elapsedMs < elapsed || !Number.isSafeInteger(tick) || !Number.isSafeInteger(sequence + 1)) {
                 throw new RangeError("Elapsed time must be finite, nonnegative and monotonic within safe counter limits");
             }
+            failedThisTick = false;
+            try {
+                stepBlueprints(input?.events.map(event => ({ kind: 'keystroke' as const, accelerator: event.accelerator })) ?? [], elapsedMs);
+            } catch (error) {
+                // An unexpected Blueprint failure must not abort the frame.
+                logOnce(error);
+            }
+            if (!failedThisTick) loggedFailures.clear();
             const scene = adapter.evaluate(persistent, elapsedMs);
             elapsed = elapsedMs;
             sequence += 1;
             const live=tracking.evaluate(persistent,trackingNowMs??elapsedMs,elapsedMs);
-            return { schemaVersion: 1, sessionId, sequence, tick, elapsedMs, scene, ...(live.avatarPoses.length?{avatarPoses:live.avatarPoses}:{}),...(live.trackingStatus.length?{trackingStatus:live.trackingStatus}:{}) };
+            return { schemaVersion: 1, sessionId, sequence, tick, elapsedMs, scene, blueprintRevision: store.revision(), ...(live.avatarPoses.length?{avatarPoses:live.avatarPoses}:{}),...(live.trackingStatus.length?{trackingStatus:live.trackingStatus}:{}) };
         },
     };
     return api;

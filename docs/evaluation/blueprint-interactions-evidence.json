@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-08",
+  "sourceCommit": "67cffe2",
+  "platform": "macOS (Apple Silicon, Darwin 27.0.0), release app from pnpm build:mac (37.70 MiB)",
+  "rendererBackend": "webgpu (reported by the preview frame in appStatus)",
+  "qualityProfile": "none selected; normal startup with default editor settings",
+  "fixtureRevision": "no fixture mode; one user-supplied VRM in the app library (SHA-256 635ce23488a4...b7c5), not committed",
+  "obs": { "version": "OBS 32.2.2, WebSocket 4455 without authentication", "source": "isolated scene OpenSekai-BP-Test with browser source OpenSekai-BP-Out (1920x1080, 60 fps); removed afterwards", "streaming": false, "recording": false },
+  "checks": { "pnpmCheck": "pass", "unitTests": "461 passed in 69 files", "integrationTests": "9 passed in 4 files", "cargoTestWorkspace": "128 passed, 1 ignored, 0 failed" },
+  "steps": [
+    { "id": "1", "result": "PASS" },
+    { "id": "2", "result": "PASS", "note": "release app built and launched; OBS browser source showed the transparent output" },
+    { "id": "3.1", "result": "PASS", "note": "avatar entity from the library VRM and a box marker created through scene_patch" },
+    { "id": "3.2-3.4", "result": "PASS", "note": "graphs created through blueprintEdit; the editor listed all three and drew graph A without remounting", "screenshot": "blueprint-interactions-editor-remote-graphs.png" },
+    { "id": "3.5", "result": "PASS", "note": "editor minimized; OBS was in front for the key presses that were checked, but the Mac was in use, focus sometimes moved to other apps, and some synthetic keys landed in other apps" },
+    { "id": "3.6", "result": "PASS", "obsTransitions": [{ "offsetMs": 4022, "visiblePixels": 0 }, { "offsetMs": 8421, "visiblePixels": 11392 }], "sampleSpacingMs": 11 },
+    { "id": "3.7", "result": "PASS", "note": "three 2 s holds, each toggled once: modifier events, bare key events, and 56 autorepeat key-down events" },
+    { "id": "3.8", "result": "PASS", "obsIntervalMs": 1985, "sampleSpacingMs": 11, "appTiming": "unknown", "sceneRevisionDelta": 2, "screenshot": "blueprint-interactions-obs-marker-shown.png" },
+    { "id": "3.9", "result": "PASS", "obsVisiblePixels480x270": { "before": 11392, "close": 27838, "wide": 5325 }, "screenshots": ["blueprint-interactions-obs-camera-close.png", "blueprint-interactions-obs-camera-wide.png"] },
+    { "id": "3.10", "result": "PASS", "note": "done on graph B because graph A has no data wire; compile error reported, last valid version still ran", "obsIntervalMs": 2056, "sampleSpacingMs": 73, "screenshots": ["blueprint-interactions-editor-compile-error.png", "blueprint-interactions-editor-reconnected.png"] },
+    { "id": "3.11", "result": "PASS", "note": "no scene change while graph B was disabled", "keyReachedFocusedApp": "FAIL for J/K: another process on this Mac holds them; shown for H only" },
+    { "id": "3.12", "result": "PASS", "note": "real MCP stdio server, blueprint_edit renamed graph C; the open editor showed the new name with its selection kept", "screenshots": ["blueprint-interactions-editor-before-rename.png", "blueprint-interactions-editor-renamed-via-mcp.png"] },
+    { "id": "3.13", "result": "FIXED for the forced-drop API path; the Save As, quit, relaunch, Open path was not re-run", "firstResult": "FAIL", "note": "Save As and Open worked; the hotkey did nothing until a later blueprintEdit. Likely cause (hypothesis, not seen in the original run): registrations were cleared when the publisher dropped and nothing restored them after it reconnected with the same graphs. Plain relaunch, scene replace, edit, press did not fail on the old build.", "recheck": { "commit": "954b5cf", "method": "freeze of the web networking process for 4 to 5 s, presses sent with osascript with Finder in front, scene state read with scene_inspect", "before": "3 presses, no change; one moveNode edit restored the next press", "after": "relaunch, scene replace, graph edit: 2 of 2 presses toggled; 3 freeze cycles: 6 of 6 presses toggled", "notRun": "Save As and Open through the GUI" } },
+    { "id": "3.14", "result": "DIFFERENT", "note": "Cmd+Space registered without a warning; the graph fired and Spotlight also opened. The warning covers OS registration failure only; macOS accepts a combination that a system feature also uses, and both fire." }
+  ],
+  "appTiming": "unknown: no app-side tick timestamps were captured",
+  "warudoLiveComparison": "not possible: Warudo stops at Initializing on the VMPal guest (Unity Direct3D 11 device removed on the VirtIO GPU)",
+  "notExercised": ["canvas drag and connect gestures", "keyboard capture field typing", "editor warning text for a held combination", "Windows", "hold test with a physical keyboard"],
+  "environment": "OBS crashed twice (SIGSEGV in GetSourceScreenshot, device_get_render_target) while polled at about 100 requests per second; polling was slowed to about 15 per second afterwards"
+}

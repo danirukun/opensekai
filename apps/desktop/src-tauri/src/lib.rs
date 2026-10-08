@@ -1,6 +1,7 @@
 pub mod assets;
 mod bootstrap;
 pub mod evaluation;
+pub mod input;
 pub mod service;
 mod show;
 pub mod tracking;
@@ -186,18 +187,39 @@ fn hide_editor(window: tauri::WebviewWindow) -> Result<(), AppError> {
     require_window_label(window.label(), "editor")?;
     window.hide().map_err(window_error)
 }
+#[tauri::command]
+async fn set_keystroke_capture(
+    window: tauri::WebviewWindow,
+    state: tauri::State<'_, Arc<DesktopState>>,
+    active: bool,
+) -> Result<(), AppError> {
+    require_window_label(window.label(), "editor")?;
+    state.set_keystroke_capture(active).await;
+    Ok(())
+}
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let state = DesktopState::new();
     let startup = state.clone();
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(|app, shortcut, event| {
+                    app.state::<Arc<DesktopState>>().keystroke(
+                        shortcut.id(),
+                        event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed,
+                    );
+                })
+                .build(),
+        )
         .manage(state.clone())
         .setup(move |app| {
             let data = app.path().app_local_data_dir()?;
             std::fs::create_dir_all(&data)?;
             let output_root = output_resource_dir(app.handle())?;
             let asset_manifest = std::env::var_os("OPENSEKAI_FIXTURE_MANIFEST").map(PathBuf::from);
+            startup.set_keystrokes(Arc::new(input::GlobalKeystrokes::new(app.handle().clone())));
             let runtime = startup.clone();
             tauri::async_runtime::spawn(async move {
                 let asset_manifest = asset_manifest.unwrap_or_default();
@@ -217,6 +239,14 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
+            if window.label() == "editor" && matches!(event, tauri::WindowEvent::Focused(false)) {
+                let state = window
+                    .app_handle()
+                    .state::<Arc<DesktopState>>()
+                    .inner()
+                    .clone();
+                tauri::async_runtime::spawn(async move { state.end_keystroke_capture().await });
+            }
             if window.label() == "main"
                 && matches!(event, tauri::WindowEvent::CloseRequested { .. })
             {
@@ -231,6 +261,7 @@ pub fn run() {
             show_editor,
             show_scene,
             hide_editor,
+            set_keystroke_capture,
             import_avatar,
             save_show_as,
             open_show

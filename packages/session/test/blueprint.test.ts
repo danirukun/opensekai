@@ -1,97 +1,84 @@
 import { expect, it } from 'vitest';
-import { type BlueprintGraph, makeSmokeScene } from '@opensekai/contracts';
-import { compileBlueprint, executeBlueprint } from '../src/blueprint';
-import { createSession } from '../src/session';
+import { compileBlueprint, runFlow } from '../src/blueprint';
 
-const node = (id: string, type: BlueprintGraph['nodes'][number]['type'], settings: object = {}) => ({ id, version: 1, type, settings, position: { x: 0, y: 0 } });
-const wire = (id: string, sourceNodeId: string, sourcePort: string, targetNodeId: string, targetPort: string) => ({ id, sourceNodeId, sourcePort, targetNodeId, targetPort });
-const graph = () => ({
- schemaVersion: 1, id: 'visibility', name: 'Visibility',
- nodes: [node('start', 'event.manual'), node('yes', 'value.boolean', { value: false }), node('hide', 'scene.setVisibility', { entityId: 'marker' })],
- connections: [wire('flow', 'start', 'flow', 'hide', 'flow'), wire('value', 'yes', 'value', 'hide', 'visible')],
+const node = (id: string, type: string, settings: object = {}) => ({ id, version: 1, type, settings, position: { x: 0, y: 0 } });
+const wire = (id: string, s: string, sp: string, t: string, tp: string) => ({ id, sourceNodeId: s, sourcePort: sp, targetNodeId: t, targetPort: tp });
+const graph = (nodes: object[], connections: object[]) => ({ schemaVersion: 1, id: 'g', name: 'G', nodes, connections });
+const budget = () => ({ visits: 256, effects: 64 });
+const compiled = (g: unknown) => { const c = compileBlueprint(g); if (!c.ok) throw new Error(c.error.message); return c.data; };
+
+it('routes If Branch by a lazily read condition', () => {
+ const g = compiled(graph(
+  [node('start', 'event.manual'), node('cond', 'value.boolean', { value: false }), node('if', 'flow.branch'),
+   node('yes', 'scene.toggleVisibility', { entityId: 'marker' }), node('no', 'camera.switch', { outputId: 'output_main', cameraId: 'camera_close' })],
+  [wire('1', 'start', 'flow', 'if', 'flow'), wire('2', 'cond', 'value', 'if', 'condition'), wire('3', 'if', 'true', 'yes', 'flow'), wire('4', 'if', 'false', 'no', 'flow')]));
+ expect(runFlow(g, { nodeId: 'start', port: 'flow' }, new Map(), budget(), 0)).toMatchObject({ ok: true, data: { effects: [{ kind: 'selectCamera', outputId: 'output_main', cameraId: 'camera_close' }] } });
 });
 
-it('compiles a typed graph and executes only its selected trigger', () => {
- const compiled = compileBlueprint(graph());
- expect(compiled.ok).toBe(true);
- if (!compiled.ok) return;
- expect(executeBlueprint(compiled.data, 'start')).toEqual({ ok: true, data: [{ kind: 'setVisibility', entityId: 'marker', visible: false }] });
- expect(executeBlueprint(compiled.data, 'yes')).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+it('runs Sequence outputs depth-first in order', () => {
+ const g = compiled(graph(
+  [node('start', 'event.manual'), node('seq', 'flow.sequence', { outputs: 2 }), node('a', 'scene.toggleVisibility', { entityId: 'a' }), node('a2', 'scene.toggleVisibility', { entityId: 'a2' }), node('b', 'scene.toggleVisibility', { entityId: 'b' })],
+  [wire('1', 'start', 'flow', 'seq', 'flow'), wire('2', 'seq', 'then0', 'a', 'flow'), wire('3', 'a', 'exit', 'a2', 'flow'), wire('4', 'seq', 'then1', 'b', 'flow')]));
+ const run = runFlow(g, { nodeId: 'start', port: 'flow' }, new Map(), budget(), 0);
+ expect(run.ok && run.data.effects.map(e => 'entityId' in e && e.entityId)).toEqual(['a', 'a2', 'b']);
 });
 
-it('evaluates number data through Add and Greater Than before an effect', () => {
- const arithmetic = graph();
- arithmetic.nodes = [
-  node('start', 'event.manual'),
-  node('one', 'value.number', { value: 1 }),
-  node('two', 'value.number', { value: 2 }),
-  node('limit', 'value.number', { value: 2 }),
-  node('sum', 'math.add'),
-  node('greater', 'logic.greater'),
-  node('show', 'scene.setVisibility', { entityId: 'marker' }),
- ];
- arithmetic.connections = [
-  wire('flow', 'start', 'flow', 'show', 'flow'),
-  wire('one', 'one', 'value', 'sum', 'a'),
-  wire('two', 'two', 'value', 'sum', 'b'),
-  wire('sum', 'sum', 'result', 'greater', 'a'),
-  wire('limit', 'limit', 'value', 'greater', 'b'),
-  wire('decision', 'greater', 'result', 'show', 'visible'),
- ];
- const session = createSession(makeSmokeScene(), 'test');
- expect(session.runBlueprint(arithmetic, 'start')).toEqual({ ok: true, data: { revision: 1 } });
- expect(session.inspect().entities.find(entity => entity.id === 'marker')?.visible).toBe(true);
+it('alternates Flip Flop and exposes Is A, without mutating the input state', () => {
+ const g = compiled(graph(
+  [node('start', 'event.manual'), node('ff', 'flow.flipFlop'), node('set', 'scene.setVisibility', { entityId: 'marker' }), node('set2', 'scene.setVisibility', { entityId: 'marker' })],
+  [wire('1', 'start', 'flow', 'ff', 'flow'), wire('2', 'ff', 'a', 'set', 'flow'), wire('3', 'ff', 'b', 'set2', 'flow'), wire('4', 'ff', 'isA', 'set', 'visible'), wire('5', 'ff', 'isA', 'set2', 'visible')]));
+ const state = new Map<string, boolean>();
+ const first = runFlow(g, { nodeId: 'start', port: 'flow' }, state, budget(), 0);
+ expect(first).toMatchObject({ ok: true, data: { effects: [{ kind: 'setVisibility', visible: true }] } });
+ expect(state.size).toBe(0);
+ const second = runFlow(g, { nodeId: 'start', port: 'flow' }, first.ok ? first.data.flip : state, budget(), 0);
+ expect(second).toMatchObject({ ok: true, data: { effects: [{ kind: 'setVisibility', visible: false }] } });
 });
 
-it('rejects non-finite arithmetic without changing the scene', () => {
- const arithmetic = graph();
- arithmetic.nodes = [node('start', 'event.manual'), node('a', 'value.number', { value: 1e308 }), node('b', 'value.number', { value: 1e308 }), node('zero', 'value.number', { value: 0 }), node('sum', 'math.add'), node('greater', 'logic.greater'), node('show', 'scene.setVisibility', { entityId: 'marker' })];
- arithmetic.connections = [wire('flow', 'start', 'flow', 'show', 'flow'), wire('a', 'a', 'value', 'sum', 'a'), wire('b', 'b', 'value', 'sum', 'b'), wire('sum', 'sum', 'result', 'greater', 'a'), wire('zero', 'zero', 'value', 'greater', 'b'), wire('decision', 'greater', 'result', 'show', 'visible')];
- const session = createSession(makeSmokeScene(), 'test');
- const before = session.inspect();
- expect(session.runBlueprint(arithmetic, 'start')).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
- expect(session.inspect()).toEqual(before);
+it('schedules Delay and stops the current flow there', () => {
+ const g = compiled(graph(
+  [node('start', 'event.manual'), node('wait', 'flow.delay', { seconds: 2 }), node('t', 'scene.toggleVisibility', { entityId: 'marker' })],
+  [wire('1', 'start', 'flow', 'wait', 'flow'), wire('2', 'wait', 'exit', 't', 'flow')]));
+ expect(runFlow(g, { nodeId: 'start', port: 'flow' }, new Map(), budget(), 500)).toMatchObject({ ok: true, data: { effects: [], delays: [{ nodeId: 'wait', dueMs: 2500 }] } });
+ expect(runFlow(g, { nodeId: 'wait', port: 'exit' }, new Map(), budget(), 2500)).toMatchObject({ ok: true, data: { effects: [{ kind: 'toggleVisibility' }] } });
 });
 
-it('stops an oversized flow before committing any effect', () => {
- const large = graph();
- large.nodes = [node('start', 'event.manual'), node('yes', 'value.boolean', { value: false }), ...Array.from({ length: 65 }, (_, index) => node(`action-${index}`, 'scene.setVisibility', { entityId: 'marker' }))];
- large.connections = large.nodes.slice(2).flatMap((action, index) => [wire(`flow-${index}`, 'start', 'flow', action.id, 'flow'), wire(`value-${index}`, 'yes', 'value', action.id, 'visible')]);
- const session = createSession(makeSmokeScene(), 'test');
- const before = session.inspect();
- expect(session.runBlueprint(large, 'start')).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
- expect(session.inspect()).toEqual(before);
+it('allows a flow cycle only through Delay and rejects data cycles', () => {
+ const loop = [node('start', 'event.manual'), node('t', 'scene.toggleVisibility', { entityId: 'm' }), node('wait', 'flow.delay', { seconds: 1 })];
+ expect(compileBlueprint(graph(loop, [wire('1', 'start', 'flow', 't', 'flow'), wire('2', 't', 'exit', 'wait', 'flow'), wire('3', 'wait', 'exit', 't', 'flow')])).ok).toBe(true);
+ const immediate = [node('a', 'scene.toggleVisibility', { entityId: 'm' }), node('b', 'scene.toggleVisibility', { entityId: 'm' })];
+ expect(compileBlueprint(graph(immediate, [wire('1', 'a', 'exit', 'b', 'flow'), wire('2', 'b', 'exit', 'a', 'flow')]))).toMatchObject({ ok: false, error: { message: 'Blueprint has an immediate cycle' } });
+ const data = [node('n1', 'logic.not'), node('n2', 'logic.not')];
+ expect(compileBlueprint(graph(data, [wire('1', 'n1', 'result', 'n2', 'value'), wire('2', 'n2', 'result', 'n1', 'value')])).ok).toBe(false);
 });
 
-it('rejects missing nodes, wrong port types, and duplicate inputs', () => {
- const missing = graph(); missing.connections[0]!.sourceNodeId = 'gone';
- expect(compileBlueprint(missing)).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
- const wrongType = graph(); wrongType.connections[1]!.sourcePort = 'flow'; wrongType.connections[1]!.sourceNodeId = 'start';
- expect(compileBlueprint(wrongType)).toMatchObject({ ok: false, error: { message: 'Blueprint ports do not match' } });
- const duplicate = graph(); duplicate.connections.push(wire('extra', 'yes', 'value', 'hide', 'visible'));
- expect(compileBlueprint(duplicate)).toMatchObject({ ok: false, error: { message: 'Blueprint input has multiple connections' } });
+it('accepts a Flip Flop Is A read inside its own flow chain', () => {
+ const g = graph(
+  [node('start', 'event.manual'), node('ff', 'flow.flipFlop'), node('if', 'flow.branch'), node('t', 'scene.toggleVisibility', { entityId: 'm' })],
+  [wire('1', 'start', 'flow', 'ff', 'flow'), wire('2', 'ff', 'a', 'if', 'flow'), wire('3', 'ff', 'isA', 'if', 'condition'), wire('4', 'if', 'true', 't', 'flow')]);
+ expect(compileBlueprint(g).ok).toBe(true);
 });
 
-it('rejects missing required inputs and immediate data cycles', () => {
- const missing = graph(); missing.connections.pop();
- expect(compileBlueprint(missing)).toMatchObject({ ok: false, error: { message: 'Blueprint input is not connected' } });
- const cycle = graph();
- cycle.nodes.push(node('add', 'math.add'));
- cycle.connections.push(wire('self', 'add', 'result', 'add', 'a'));
- cycle.connections.push(wire('other', 'add', 'result', 'add', 'b'));
- expect(compileBlueprint(cycle)).toMatchObject({ ok: false, error: { message: 'Blueprint has an immediate cycle' } });
+it('enforces Warudo port multiplicity', () => {
+ const nodes = [node('start', 'event.manual'), node('x', 'scene.toggleVisibility', { entityId: 'm' }), node('y', 'scene.toggleVisibility', { entityId: 'm' }), node('k', 'event.manual')];
+ expect(compileBlueprint(graph(nodes, [wire('1', 'start', 'flow', 'x', 'flow'), wire('2', 'start', 'flow', 'y', 'flow')]))).toMatchObject({ ok: false, error: { ids: ['start'] } });
+ expect(compileBlueprint(graph(nodes, [wire('1', 'start', 'flow', 'x', 'flow'), wire('2', 'k', 'flow', 'x', 'flow')])).ok).toBe(true);
 });
 
-it('applies a visibility graph through one scene patch', () => {
- const session = createSession(makeSmokeScene(), 'test');
- expect(session.runBlueprint(graph(), 'start')).toEqual({ ok: true, data: { revision: 1 } });
- expect(session.inspect().entities.find(entity => entity.id === 'marker')?.visible).toBe(false);
+it('rejects a missing data input but allows an unwired flow input', () => {
+ expect(compileBlueprint(graph([node('set', 'scene.setVisibility', { entityId: 'm' })], []))).toMatchObject({ ok: false, error: { message: 'Blueprint input is not connected' } });
+ expect(compileBlueprint(graph([node('t', 'scene.toggleVisibility', { entityId: 'm' })], [])).ok).toBe(true);
 });
 
-it('keeps the scene unchanged when a graph targets a missing entity', () => {
- const session = createSession(makeSmokeScene(), 'test');
- const before = session.inspect();
- const invalid = graph(); invalid.nodes[2]!.settings = { entityId: 'missing' };
- expect(session.runBlueprint(invalid, 'start')).toMatchObject({ ok: false, error: { code: 'NOT_FOUND' } });
- expect(session.inspect()).toEqual(before);
+it('stops at the per-event visit limit and at the shared tick budget', () => {
+ const nodes = [node('start', 'event.manual'), ...Array.from({ length: 70 }, (_, i) => node(`t${i}`, 'scene.toggleVisibility', { entityId: 'm' }))];
+ const wires = [wire('w', 'start', 'flow', 't0', 'flow'), ...Array.from({ length: 69 }, (_, i) => wire(`w${i}`, `t${i}`, 'exit', `t${i + 1}`, 'flow'))];
+ expect(runFlow(compiled(graph(nodes, wires)), { nodeId: 'start', port: 'flow' }, new Map(), { visits: 256, effects: 256 }, 0)).toMatchObject({ ok: false, error: { message: 'Blueprint run exceeded its flow limit' } });
+ expect(runFlow(compiled(graph(nodes.slice(0, 4), wires.slice(0, 3))), { nodeId: 'start', port: 'flow' }, new Map(), { visits: 256, effects: 2 }, 0)).toMatchObject({ ok: false, error: { message: 'Blueprint run exceeded its operation limit' } });
+});
+
+it('rejects a connection to a prototype-named port', () => {
+ const nodes = [node('start', 'event.manual'), node('t', 'scene.toggleVisibility', { entityId: 'm' })];
+ expect(compileBlueprint(graph(nodes, [wire('1', 'start', 'toString', 't', 'flow')]))).toMatchObject({ ok: false, error: { message: 'Blueprint ports do not match' } });
+ expect(compileBlueprint(graph(nodes, [wire('1', 'start', 'flow', 't', 'toString')]))).toMatchObject({ ok: false, error: { message: 'Blueprint ports do not match' } });
 });

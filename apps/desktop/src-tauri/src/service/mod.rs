@@ -19,7 +19,7 @@ use queues::{StateQueue, CONTROL_CAPACITY, PENDING_CAPACITY};
 pub use router::{RpcContext, RpcHandler};
 use serde_json::{json, Value};
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::{BTreeSet, HashMap, VecDeque},
     path::{Path as FsPath, PathBuf},
     sync::{Arc, Mutex, MutexGuard},
     time::{Duration, Instant},
@@ -29,6 +29,20 @@ use tokio::{
     task::JoinHandle,
 };
 use uuid::Uuid;
+/// The accelerator set the session last reported. `counter` moves on every change, and
+/// `origin` names the publisher connection and Blueprint revision that produced the set.
+#[derive(Default)]
+struct KnownKeystrokes {
+    counter: u64,
+    origin: Option<(String, u64)>,
+    set: BTreeSet<String>,
+}
+/// A capture field is armed: the OS must pass every key to the editor, so nothing is registered.
+struct KeystrokeCapture {
+    generation: u64,
+    until: Option<Instant>,
+}
+const CAPTURE_TIMEOUT: Duration = Duration::from_secs(30);
 pub struct ServiceConfig {
     pub output_root: PathBuf,
     pub asset_manifest: PathBuf,
@@ -56,6 +70,14 @@ struct Shared {
     clock: Instant,
     tracking: crate::tracking::TrackingManager,
     inner: Mutex<Inner>,
+    input: Mutex<crate::input::InputQueue>,
+    keystrokes: Mutex<Arc<dyn crate::input::KeystrokeRegistrar>>,
+    keystrokes_known: Mutex<KnownKeystrokes>,
+    keystroke_capture: Mutex<KeystrokeCapture>,
+    capture_timeout: Mutex<Duration>,
+    keystroke_warnings: Mutex<Vec<String>>,
+    keystroke_gate: tokio::sync::Mutex<()>,
+    keystrokes_stopped: watch::Sender<bool>,
     stop: watch::Sender<bool>,
     connections: Notify,
 }
@@ -129,7 +151,12 @@ fn err(code: ErrorCode, message: &str) -> AppError {
 fn failure(error: AppError) -> Value {
     json!(Reply::<Value>::failure(error))
 }
-fn tracking_clock(session_id: Id, elapsed_ms: u64, mut tracking: TrackingUpdate) -> Value {
+fn clock_message(
+    session_id: Id,
+    elapsed_ms: u64,
+    mut tracking: TrackingUpdate,
+    input: Option<InputUpdate>,
+) -> Value {
     loop {
         let value = json!(WireMessage::Clock {
             session_id: session_id.clone(),
@@ -138,7 +165,8 @@ fn tracking_clock(session_id: Id, elapsed_ms: u64, mut tracking: TrackingUpdate)
                 None
             } else {
                 Some(tracking.clone())
-            }
+            },
+            input: input.clone()
         });
         if value.to_string().len() <= MAX_TRACKING_CLOCK_BYTES {
             return value;
@@ -156,7 +184,8 @@ fn tracking_clock(session_id: Id, elapsed_ms: u64, mut tracking: TrackingUpdate)
             return json!(WireMessage::Clock {
                 session_id,
                 elapsed_ms,
-                tracking: None
+                tracking: None,
+                input
             });
         }
     }
@@ -193,9 +222,151 @@ impl Shared {
             output_id,
         }
     }
-    fn disconnect(&self, id: &str) {
+    /// Records a set the session reported, unless a newer set from the same publisher is
+    /// already known. The session restarts its revision for a new publisher, so a different
+    /// publisher always wins. Returns whether the set was accepted.
+    fn learn_keystrokes(&self, publisher: &str, revision: u64, reported: BTreeSet<String>) -> bool {
+        let mut known = lock(&self.keystrokes_known);
+        Self::learn_locked(&mut known, publisher, revision, reported)
+    }
+    fn learn_locked(
+        known: &mut KnownKeystrokes,
+        publisher: &str,
+        revision: u64,
+        reported: BTreeSet<String>,
+    ) -> bool {
+        let newer = known
+            .origin
+            .as_ref()
+            .is_none_or(|(id, seen)| id != publisher || revision > *seen);
+        if newer {
+            known.counter += 1;
+            known.origin = Some((publisher.into(), revision));
+            known.set = reported;
+        }
+        newer
+    }
+    /// Makes the OS registrations match the current authoritative set: the last reported
+    /// set while a publisher is connected, and nothing otherwise. The set is read inside the
+    /// gate, so the order of events that ask for a sync never decides the outcome.
+    /// Runs the registrar off the async runtime: it blocks on the main thread.
+    async fn sync_keystrokes(&self) {
+        // Shutdown never waits on the gate or on a plugin call that may need the main thread.
+        let mut stopped = self.keystrokes_stopped.subscribe();
+        if *stopped.borrow() {
+            return;
+        }
+        let work = async {
+            let _gate = self.keystroke_gate.lock().await;
+            let capturing = lock(&self.keystroke_capture)
+                .until
+                .is_some_and(|until| until > Instant::now());
+            let wanted = if !capturing && lock(&self.inner).publisher.is_some() {
+                lock(&self.keystrokes_known).set.clone()
+            } else {
+                BTreeSet::new()
+            };
+            let registrar = lock(&self.keystrokes).clone();
+            let failed = tokio::task::spawn_blocking(move || registrar.reconcile(&wanted))
+                .await
+                .unwrap_or_default();
+            *lock(&self.keystroke_warnings) = failed;
+        };
+        tokio::select! {
+            _ = work => {},
+            _ = stopped.wait_for(|stopped| *stopped) => {},
+        }
+    }
+    /// A publisher can connect with graphs the host has not seen reported (a reconnect of
+    /// the same worker session, or a new session). When the host knows a set, it asks the
+    /// publisher and syncs to the answer.
+    async fn relearn_keystrokes(self: &Arc<Self>) {
+        let seen = lock(&self.keystrokes_known).counter;
+        // Nothing was ever reported, so nothing is registered and nothing is stale.
+        if seen == 0 {
+            return;
+        }
+        // Restore the remembered set at once; the question must not wait behind a slow plugin call.
+        let restore = self.clone();
+        tokio::spawn(async move { restore.sync_keystrokes().await });
+        let asked = lock(&self.inner).publisher.as_ref().map(|p| p.id.clone());
+        let reported = match self.running_publisher().await {
+            Some(target) => self
+                .relay("host", target, "blueprintInspect", |request_id| {
+                    json!(WireMessage::Call {
+                        request_id,
+                        method: "blueprintInspect".into(),
+                        params: json!({})
+                    })
+                })
+                .await
+                .ok()
+                .and_then(|result| {
+                    let data = result.get("data")?;
+                    let revision = data.get("revision")?.as_u64()?;
+                    let list = data.get("keystrokes")?.clone();
+                    Some((revision, serde_json::from_value::<Vec<String>>(list).ok()?))
+                }),
+            None => None,
+        };
+        let changed = {
+            let mut known = lock(&self.keystrokes_known);
+            let same_publisher = asked.is_some()
+                && lock(&self.inner).publisher.as_ref().map(|p| &p.id) == asked.as_ref();
+            match (reported, asked) {
+                // An edit reply that is newer than the answer wins by revision.
+                (Some((revision, list)), Some(asked)) if same_publisher => {
+                    Self::learn_locked(&mut known, &asked, revision, list.into_iter().collect())
+                }
+                // A publisher that is gone will be asked again when the next one connects.
+                (Some(_), _) => false,
+                // A publisher that is still here and gave no valid answer has no known set: its
+                // session may be new, so the restored accelerators may belong to no graph. An
+                // edit that finished while the question was open is newer than the silence.
+                (None, _) if same_publisher && known.counter == seen => {
+                    known.counter += 1;
+                    known.origin = None;
+                    known.set.clear();
+                    true
+                }
+                _ => false,
+            }
+        };
+        if changed {
+            self.sync_keystrokes().await;
+        }
+    }
+    /// The publisher, once it has answered a clock with a frame. A call that arrives while the
+    /// worker still starts up can make it miss the clock credit and drop again.
+    async fn running_publisher(&self) -> Option<Connection> {
+        let first = lock(&self.inner).publisher.as_ref().map(|p| p.id.clone())?;
+        for _ in 0..60 {
+            if *self.stop.borrow() {
+                return None;
+            }
+            {
+                let inner = lock(&self.inner);
+                let publisher = inner.publisher.as_ref().filter(|p| p.id == first)?;
+                if inner.latest.is_some() {
+                    return Some(publisher.clone());
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+        None
+    }
+    async fn disconnect_session(&self, id: &str) {
+        if self.disconnect(id) {
+            // No publisher: nothing is registered. The reported set is kept for a reconnect.
+            self.sync_keystrokes().await;
+        }
+    }
+    /// Returns true when the connection was the publisher.
+    fn disconnect(&self, id: &str) -> bool {
         let mut inner = lock(&self.inner);
-        if inner.publisher.as_ref().is_some_and(|p| p.id == id) {
+        let lost_publisher = inner.publisher.as_ref().is_some_and(|p| p.id == id);
+        if lost_publisher {
+            *lock(&self.input) = crate::input::InputQueue::default();
             inner.publisher = None;
             inner.latest = None;
             inner.frames.clear();
@@ -230,6 +401,7 @@ impl Shared {
                     .send(Err(err(ErrorCode::Unavailable, "Connection closed")));
             }
         }
+        lost_publisher
     }
     fn send(connection: &Connection, value: Value) -> Result<(), AppError> {
         if value.to_string().len() > MAX_MESSAGE_BYTES {
@@ -285,6 +457,17 @@ pub async fn start_service(config: ServiceConfig) -> Result<ServiceHandle, AppEr
         clock,
         tracking: crate::tracking::TrackingManager::new(clock),
         inner: Mutex::new(Inner::default()),
+        input: Mutex::default(),
+        keystrokes: Mutex::new(Arc::new(crate::input::NoKeystrokes)),
+        keystrokes_known: Mutex::default(),
+        keystroke_capture: Mutex::new(KeystrokeCapture {
+            generation: 0,
+            until: None,
+        }),
+        capture_timeout: Mutex::new(CAPTURE_TIMEOUT),
+        keystroke_warnings: Mutex::default(),
+        keystroke_gate: tokio::sync::Mutex::new(()),
+        keystrokes_stopped: watch::channel(false).0,
         stop,
         connections: Notify::new(),
     });
@@ -320,6 +503,63 @@ pub async fn start_service(config: ServiceConfig) -> Result<ServiceHandle, AppEr
 impl ServicePorts {
     pub fn now_ms(&self) -> u64 {
         self.shared.now_ms()
+    }
+    pub fn set_keystroke_registrar(&self, registrar: Arc<dyn crate::input::KeystrokeRegistrar>) {
+        *lock(&self.shared.keystrokes) = registrar;
+        // The session may have reported its set before the registrar existed.
+        if let Ok(runtime) = tokio::runtime::Handle::try_current() {
+            let shared = self.shared.clone();
+            runtime.spawn(async move { shared.sync_keystrokes().await });
+        }
+    }
+    /// Suspends every registration while a capture field waits for a key, and registers the
+    /// remembered set again when it ends. A capture that is not ended expires, so an editor
+    /// that closes or crashes cannot leave the hotkeys off.
+    pub async fn set_keystroke_capture(&self, active: bool) {
+        let timeout = *lock(&self.shared.capture_timeout);
+        let generation = {
+            let mut capture = lock(&self.shared.keystroke_capture);
+            capture.generation += 1;
+            capture.until = active.then(|| Instant::now() + timeout);
+            capture.generation
+        };
+        if active {
+            let shared = self.shared.clone();
+            tokio::spawn(async move {
+                let mut stopped = shared.stop.subscribe();
+                tokio::select! {
+                    _ = tokio::time::sleep(timeout) => {},
+                    _ = stopped.wait_for(|stopped| *stopped) => return,
+                }
+                let expired = {
+                    let mut capture = lock(&shared.keystroke_capture);
+                    let expired = capture.generation == generation;
+                    if expired {
+                        capture.until = None;
+                    }
+                    expired
+                };
+                if expired {
+                    shared.sync_keystrokes().await;
+                }
+            });
+        }
+        self.shared.sync_keystrokes().await;
+    }
+    /// Ends a capture only when one is active, so a window that loses focus with no capture
+    /// registers nothing again. Returns whether a capture ended.
+    pub async fn end_keystroke_capture(&self) -> bool {
+        if lock(&self.shared.keystroke_capture).until.is_none() {
+            return false;
+        }
+        self.set_keystroke_capture(false).await;
+        true
+    }
+    pub fn set_keystroke_capture_timeout(&self, timeout: Duration) {
+        *lock(&self.shared.capture_timeout) = timeout;
+    }
+    pub fn push_keystroke(&self, accelerator: String) {
+        lock(&self.shared.input).push(accelerator);
     }
     pub async fn import_avatar(
         &self,
@@ -515,6 +755,8 @@ impl ServiceHandle {
         Ok((operator, renderer))
     }
     pub async fn shutdown(mut self) -> Result<(), AppError> {
+        // Exit may run on the main thread, so shutdown unregisters nothing; the OS drops hotkeys at exit.
+        self.shared.keystrokes_stopped.send_replace(true);
         {
             let mut inner = lock(&self.shared.inner);
             inner.handler = None;
@@ -761,6 +1003,10 @@ async fn connection_loop(mut socket: WebSocket, shared: &Arc<Shared>) {
     if !registered {
         return;
     }
+    if role == Role::Publisher {
+        let shared = shared.clone();
+        tokio::spawn(async move { shared.relearn_keystrokes().await });
+    }
     let capabilities = shared
         .descriptor(role.clone(), token, output_id.clone())
         .capabilities;
@@ -777,7 +1023,7 @@ async fn connection_loop(mut socket: WebSocket, shared: &Arc<Shared>) {
         .await
         .is_err()
     {
-        shared.disconnect(&connection.id);
+        shared.disconnect_session(&connection.id).await;
         return;
     }
     let (sink, mut stream) = socket.split();
@@ -904,7 +1150,7 @@ async fn connection_loop(mut socket: WebSocket, shared: &Arc<Shared>) {
             }
         }
     }
-    shared.disconnect(&connection.id);
+    shared.disconnect_session(&connection.id).await;
     let _ = writer_stop.send(true);
     if !writer_finished {
         let _ = writer.await;
@@ -943,10 +1189,11 @@ async fn write_connection(
             *lock(&connection.clock_credit.deadline) =
                 Some(tokio::time::Instant::now() + Duration::from_secs(2));
             clock_due = false;
-            Some(tracking_clock(
+            Some(clock_message(
                 shared.session.clone(),
                 elapsed_ms,
                 shared.tracking.snapshot(),
+                lock(&shared.input).drain(),
             ))
         } else if let Some(value) = ready_control.take().or_else(|| control.try_recv().ok()) {
             Some(value)
@@ -1257,7 +1504,8 @@ mod tracking_budget_tests {
             statuses: vec![],
         };
         assert!(
-            tracking_clock("s".into(), 1, update).to_string().len() <= MAX_TRACKING_CLOCK_BYTES
+            clock_message("s".into(), 1, update, None).to_string().len()
+                <= MAX_TRACKING_CLOCK_BYTES
         );
     }
 }

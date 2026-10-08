@@ -75,17 +75,19 @@ export function createWorkerHost(ports: WorkerPorts) {
                         case "scenePatch": return session.applyPatch(call.params);
                         case "sceneReplace": return session.replaceScene(call.params.scene, call.params.expectedRevision);
                         case "cameraSelect": return session.selectCamera(call.params);
-                        case "blueprintRun": return session.runBlueprint(call.params.graph, call.params.triggerNodeId);
+                        case "blueprintRun": return session.runBlueprint(call.params.graphId, call.params.triggerNodeId);
+                        case "blueprintEdit": return session.editBlueprints(call.params);
+                        case "blueprintInspect": return { ok: true, data: session.inspectBlueprints(call.params.sinceRevision) };
                         default: return { ok: false, error: { code: "UNSUPPORTED", message: "Method is not owned by the session", ids: [] } } satisfies Reply<never>;
                     }
                 });
-                removeClock = client.onClock((elapsedMs,tracking) => {
+                removeClock = client.onClock((elapsedMs,tracking,input) => {
                     if (generation !== current || !active || (last !== undefined && elapsedMs <= last)) return;
                     origin ??= elapsedMs;
                     last = elapsedMs;
                     if(tracking)session.ingestTracking(filterTracking(tracking,false));
                     if(syncedAt===undefined||elapsedMs-syncedAt>=100){ports.post?.({kind:'clockSync',elapsedMs});syncedAt=elapsedMs;}
-                    client.publishFrame(session.advance(elapsedMs - origin,elapsedMs));
+                    client.publishFrame(session.advance(elapsedMs - origin,elapsedMs,input));
                 });
                 const unsubscribe = remove, unsubscribeClock = removeClock;
                 cleanup = () => { unsubscribeClock(); unsubscribe(); client.close(); };

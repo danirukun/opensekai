@@ -1,8 +1,13 @@
 use crate::evaluation::{EvaluationIdentity, NativeEvaluation};
-use crate::service::{start_service, ServiceConfig, ServiceHandle};
+use crate::input::GlobalKeystrokes;
+use crate::service::{start_service, ServiceConfig, ServiceHandle, ServicePorts};
 use opensekai_contracts::{AppError, AssetRecord, ConnectionDescriptor, ErrorCode};
 use serde::Serialize;
-use std::{path::PathBuf, sync::Arc, time::Duration};
+use std::{
+    path::PathBuf,
+    sync::{Arc, Mutex as StdMutex, OnceLock},
+    time::Duration,
+};
 use tokio::sync::{watch, Mutex};
 
 #[derive(Clone, Copy, Serialize)]
@@ -47,6 +52,8 @@ type StartupGate = (
 pub struct DesktopState {
     owned: Mutex<Owned>,
     ready: watch::Sender<Option<Result<NativeBootstrap, AppError>>>,
+    keystrokes: OnceLock<Arc<GlobalKeystrokes<tauri::Wry>>>,
+    ports: StdMutex<Option<ServicePorts>>,
     #[cfg(test)]
     startup_gate: Mutex<Option<StartupGate>>,
 }
@@ -63,9 +70,38 @@ impl DesktopState {
         Arc::new(Self {
             owned: Mutex::new(Owned::default()),
             ready,
+            keystrokes: OnceLock::new(),
+            ports: StdMutex::new(None),
             #[cfg(test)]
             startup_gate: Mutex::new(None),
         })
+    }
+    pub fn set_keystrokes(&self, keystrokes: Arc<GlobalKeystrokes<tauri::Wry>>) {
+        let _ = self.keystrokes.set(keystrokes);
+    }
+    /// Called from the global shortcut handler for each OS press or release.
+    pub fn keystroke(&self, id: u32, pressed: bool) {
+        let Some(accelerator) = self.keystrokes.get().and_then(|k| k.event(id, pressed)) else {
+            return;
+        };
+        let ports = self.ports.lock().unwrap_or_else(|e| e.into_inner()).clone();
+        if let Some(ports) = ports {
+            ports.push_keystroke(accelerator);
+        }
+    }
+    /// Suspends or restores the global hotkeys while the editor captures a key.
+    pub async fn set_keystroke_capture(&self, active: bool) {
+        let ports = self.ports.lock().unwrap_or_else(|e| e.into_inner()).clone();
+        if let Some(ports) = ports {
+            ports.set_keystroke_capture(active).await;
+        }
+    }
+    /// Ends an active capture, for example when the editor loses focus.
+    pub async fn end_keystroke_capture(&self) {
+        let ports = self.ports.lock().unwrap_or_else(|e| e.into_inner()).clone();
+        if let Some(ports) = ports {
+            ports.end_keystroke_capture().await;
+        }
     }
     pub async fn initialize(self: Arc<Self>, config: ServiceConfig, descriptors: PathBuf) {
         // Initialization and shutdown share one lifecycle lock.
@@ -130,6 +166,10 @@ impl DesktopState {
         })();
         match info {
             Ok(info) => {
+                if let Some(keystrokes) = self.keystrokes.get() {
+                    service.ports().set_keystroke_registrar(keystrokes.clone());
+                }
+                *self.ports.lock().unwrap_or_else(|e| e.into_inner()) = Some(service.ports());
                 owned.service = Some(service);
                 owned.evaluation = evaluation;
                 self.ready.send_replace(Some(Ok(info)));
@@ -190,6 +230,7 @@ impl DesktopState {
         // Keep the lifecycle lock until teardown completes so all callers wait.
         let mut owned = self.owned.lock().await;
         owned.stopped = true;
+        self.ports.lock().unwrap_or_else(|e| e.into_inner()).take();
         self.ready
             .send_replace(Some(Err(error(ErrorCode::Unavailable, "Session stopped"))));
         if let Some(evaluation) = owned.evaluation.take() {

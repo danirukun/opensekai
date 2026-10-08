@@ -1,5 +1,6 @@
 import {TrackingConfigSchema,TrackingSmoothingSchema,AvatarIdleSchema,AvatarTrackingSchema,AvatarPoseSchema,TrackingStatusSchema,TrackingUpdateSchema} from './tracking';
-import { BlueprintGraphSchema } from './blueprint';
+import { BlueprintGraphSchema, BlueprintSetSchema } from './blueprint';
+import { BlueprintBatchSchema } from './blueprint-ops';
 import { z } from "zod";
 import type { AppApi, Capability, Reply, ValidatedCall } from "./types";
 export const LIMITS = {
@@ -137,7 +138,7 @@ export const ShowDocumentSchema = z.strictObject({
     schemaVersion: z.literal(1),
     name: z.string().trim().min(1).max(128),
     scene: ShowSceneSchema,
-    blueprints: z.array(BlueprintGraphSchema).max(1)
+    blueprints: BlueprintSetSchema
 });
 export const EntityNameSchema = z.string().trim().min(1).refine(name=>name.length<=128, 'Name is too long');
 export const PatchOpSchema = z.discriminatedUnion("kind", [
@@ -205,6 +206,7 @@ export const RuntimeFrameSchema = z.strictObject({
     tick: u,
     elapsedMs: n.nonnegative(),
     scene: SceneViewSchema,
+    blueprintRevision: u.optional(),
     avatarPoses:z.array(AvatarPoseSchema).max(2).optional(),
     trackingStatus:z.array(TrackingStatusSchema).max(4).refine(values=>new Set(values.map(value=>value.sourceId)).size===values.length).optional()
 });
@@ -229,6 +231,7 @@ export const RendererDiagnosticsSchema = z.strictObject({
 });
 export const DiagnosticsEnvelopeSchema = z.strictObject({ kind: z.literal("diagnostics"), diagnostics: RendererDiagnosticsSchema });
 export const AppStatusSchema = z.strictObject({
+    blueprintRevision: u.optional(),
     trackingStatus:z.array(TrackingStatusSchema).max(4).refine(values=>new Set(values.map(value=>value.sourceId)).size===values.length).optional(),
     schemaVersion: z.literal(1),
     sessionId: IdSchema,
@@ -314,6 +317,18 @@ export const CaptureBytesSchema = z.strictObject({
     width: u.positive().max(1920),
     height: u.positive().max(1080)
 });
+export const InputUpdateSchema = z.strictObject({
+    events: z.array(z.strictObject({ kind: z.literal('keystroke'), accelerator: z.string().min(1).max(64) })).min(1).max(16)
+});
+export const BlueprintStatusSchema = z.strictObject({ graphId: IdSchema, kind: z.enum(['compile', 'runtime']), error: AppErrorSchema });
+const KeystrokeListSchema = z.array(z.string().min(1).max(64)).max(64);
+export const BlueprintInspectSchema = z.discriminatedUnion('kind', [
+    z.strictObject({ kind: z.literal('snapshot'), revision: u, blueprints: BlueprintSetSchema, errors: z.array(BlueprintStatusSchema).max(16), keystrokes: KeystrokeListSchema.optional() }),
+    z.strictObject({ kind: z.literal('delta'), revision: u, batches: z.array(BlueprintBatchSchema.extend({ revision: u })).max(32).refine(batches => batches.every(b => b.ops.every(op => op.kind !== 'replaceAll' && op.kind !== 'createGraph')), 'A delta cannot carry replaceAll or createGraph'), errors: z.array(BlueprintStatusSchema).max(16), keystrokes: KeystrokeListSchema.optional() }),
+]);
+export type InputUpdate = z.infer<typeof InputUpdateSchema>;
+export type BlueprintStatus = z.infer<typeof BlueprintStatusSchema>;
+export type BlueprintInspect = z.infer<typeof BlueprintInspectSchema>;
 export const ParamSchemas = {
     appStatus: z.strictObject({}),
     sceneInspect: z.strictObject({
@@ -326,7 +341,9 @@ export const ParamSchemas = {
         cameraId: IdSchema,
         expectedRevision: u
     }),
-    blueprintRun: z.strictObject({ graph: BlueprintGraphSchema, triggerNodeId: IdSchema }),
+    blueprintRun: z.strictObject({ graphId: IdSchema, triggerNodeId: IdSchema }),
+    blueprintEdit: BlueprintBatchSchema,
+    blueprintInspect: z.strictObject({ sinceRevision: u.optional() }),
     captureFrame: CaptureParamsSchema,
     benchmarkStart: BenchmarkParamsSchema,
     benchmarkStatus: z.strictObject({
@@ -350,6 +367,8 @@ export const ResultSchemas = {
         revision: u
     }),
     blueprintRun: z.strictObject({ revision: u }),
+    blueprintEdit: z.strictObject({ revision: u, keystrokes: KeystrokeListSchema }),
+    blueprintInspect: BlueprintInspectSchema,
     captureFrame: CaptureRecordSchema,
     benchmarkStart: BenchmarkRunSchema,
     benchmarkStatus: BenchmarkRunSchema,
@@ -363,6 +382,8 @@ export const MethodSchema = z.enum([
     "sceneReplace",
     "cameraSelect",
     "blueprintRun",
+    "blueprintEdit",
+    "blueprintInspect",
     "captureFrame",
     "benchmarkStart",
     "benchmarkStatus",
@@ -392,7 +413,7 @@ export function validateCall(method: unknown, params: unknown): Reply<ValidatedC
     };
 }
 export function requiredCapability(method: keyof AppApi): Capability {
-    if (method === "scenePatch" || method === "sceneReplace" || method === "cameraSelect" || method === "blueprintRun")
+    if (method === "scenePatch" || method === "sceneReplace" || method === "cameraSelect" || method === "blueprintRun" || method === "blueprintEdit")
         return "edit";
     if (method === "captureFrame")
         return "capture";
@@ -461,7 +482,7 @@ export const PingPongSchema = z.strictObject({
     ]),
     requestId: IdSchema
 });
-export const ClockEnvelopeSchema = z.object({ kind: z.literal("clock"), sessionId: IdSchema, elapsedMs: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER), tracking:TrackingUpdateSchema.optional() }).strict();
+export const ClockEnvelopeSchema = z.object({ kind: z.literal("clock"), sessionId: IdSchema, elapsedMs: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER), tracking:TrackingUpdateSchema.optional(), input: InputUpdateSchema.optional() }).strict();
 export const WireMessageSchema = z.union([
     ClockEnvelopeSchema,
     AuthSchema,

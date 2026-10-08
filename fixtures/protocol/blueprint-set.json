@@ -1,0 +1,36 @@
+{
+ "blueprints": [
+  {
+   "schemaVersion": 1, "id": "toggle-performer", "name": "Toggle performer",
+   "nodes": [
+    { "id": "key", "version": 1, "type": "event.keystroke", "settings": { "code": "KeyH", "control": true, "alt": true, "shift": false, "meta": false }, "position": { "x": 0, "y": 0 } },
+    { "id": "toggle", "version": 1, "type": "scene.toggleVisibility", "settings": { "entityId": "performer" }, "position": { "x": 300, "y": 0 } }
+   ],
+   "connections": [ { "id": "w1", "sourceNodeId": "key", "sourcePort": "flow", "targetNodeId": "toggle", "targetPort": "flow" } ]
+  },
+  {
+   "schemaVersion": 1, "id": "flash-marker", "name": "Flash marker", "enabled": true,
+   "nodes": [
+    { "id": "key", "version": 1, "type": "event.keystroke", "settings": { "code": "KeyJ", "control": true, "alt": true, "shift": false, "meta": false }, "position": { "x": 0, "y": 0 } },
+    { "id": "on", "version": 1, "type": "value.boolean", "settings": { "value": true }, "position": { "x": 0, "y": 200 } },
+    { "id": "off", "version": 1, "type": "value.boolean", "settings": { "value": false }, "position": { "x": 300, "y": 200 } },
+    { "id": "show", "version": 1, "type": "scene.setVisibility", "settings": { "entityId": "marker" }, "position": { "x": 300, "y": 0 } },
+    { "id": "wait", "version": 1, "type": "flow.delay", "settings": { "seconds": 2 }, "position": { "x": 600, "y": 0 } },
+    { "id": "hide", "version": 1, "type": "scene.setVisibility", "settings": { "entityId": "marker" }, "position": { "x": 900, "y": 0 } }
+   ],
+   "connections": [
+    { "id": "w1", "sourceNodeId": "key", "sourcePort": "flow", "targetNodeId": "show", "targetPort": "flow" },
+    { "id": "w2", "sourceNodeId": "on", "sourcePort": "value", "targetNodeId": "show", "targetPort": "visible" },
+    { "id": "w3", "sourceNodeId": "show", "sourcePort": "exit", "targetNodeId": "wait", "targetPort": "flow" },
+    { "id": "w4", "sourceNodeId": "wait", "sourcePort": "exit", "targetNodeId": "hide", "targetPort": "flow" },
+    { "id": "w5", "sourceNodeId": "off", "sourcePort": "value", "targetNodeId": "hide", "targetPort": "visible" }
+   ]
+  },
+  {
+   "schemaVersion": 1, "id": "disabled", "name": "Disabled", "enabled": false,
+   "nodes": [ { "id": "key", "version": 1, "type": "event.keystroke", "settings": { "code": "KeyK", "control": false, "alt": false, "shift": true, "meta": true }, "position": { "x": 0, "y": 0 } } ],
+   "connections": []
+  }
+ ],
+ "expectedAccelerators": ["Control+Alt+KeyH", "Control+Alt+KeyJ"]
+}

@@ -128,13 +128,12 @@ async fn blueprint_run_reaches_the_session_publisher_and_returns_revision() {
     let (_dir, service) = service(false).await;
     let mut publisher = auth(&service.publisher_descriptor()).await;
     let mut operator = auth(&service.operator_descriptor()).await;
-    let graph = json!({"schemaVersion":1,"id":"draft","name":"Draft","nodes":[{"id":"start","version":1,"type":"event.manual","settings":{},"position":{"x":0,"y":0}}],"connections":[]});
     send(
         &mut operator,
         call(
             "run",
             "blueprintRun",
-            json!({"graph":graph,"triggerNodeId":"start"}),
+            json!({"graphId":"draft","triggerNodeId":"start"}),
         ),
     )
     .await;
@@ -229,6 +228,25 @@ async fn service_roles_reject_renderer_edits_and_route_default_operator_edits() 
         .await;
         assert_eq!(recv(socket).await["result"]["error"]["code"], expected);
     }
+    service.shutdown().await.unwrap();
+}
+#[tokio::test]
+async fn service_renderer_cannot_call_blueprint_edit() {
+    let (_dir, service) = service(false).await;
+    let mut renderer = auth(&service.renderer_descriptor("output_main").unwrap()).await;
+    send(
+        &mut renderer,
+        call(
+            "edit",
+            "blueprintEdit",
+            json!({"clientId":"c","batchId":"b","ops":[{"kind":"removeGraph","graphId":"g"}]}),
+        ),
+    )
+    .await;
+    assert_eq!(
+        recv(&mut renderer).await["result"]["error"]["code"],
+        "FORBIDDEN"
+    );
     service.shutdown().await.unwrap();
 }
 #[tokio::test]

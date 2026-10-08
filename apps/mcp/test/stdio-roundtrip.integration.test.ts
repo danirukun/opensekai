@@ -7,7 +7,7 @@ it('initializes and calls a real stdio process, then closes it',async()=>{
  const client=new Client({name:'opensekai-test',version:'0.1.0'});
  try {
   await client.connect(transport);
-  expect((await client.listTools()).tools.map(t=>t.name)).toEqual(['app_status','scene_inspect','scene_patch','scene_replace','camera_select','blueprint_run','capture_frame','benchmark_start','benchmark_status','benchmark_cancel','evidence_read']);
+  expect((await client.listTools()).tools.map(t=>t.name)).toEqual(['app_status','scene_inspect','scene_patch','scene_replace','camera_select','blueprint_run','blueprint_edit','blueprint_inspect','capture_frame','benchmark_start','benchmark_status','benchmark_cancel','evidence_read']);
   expect((await client.callTool({name:'blueprint_run',arguments:{graph:{schemaVersion:1,id:'draft',name:'Draft',nodes:[{id:'start',version:1,type:'event.manual',settings:{},position:{x:0,y:0}}],connections:[]},triggerNodeId:'start'}})).isError).toBe(true);
   expect((await client.callTool({name:'app_status',arguments:{}})).isError).toBe(false);
   expect((await client.callTool({name:'scene_inspect',arguments:{sceneId:'scene_smoke'}})).isError).toBe(false);
@@ -16,6 +16,9 @@ it('initializes and calls a real stdio process, then closes it',async()=>{
   const bad=await client.callTool({name:'app_status',arguments:{extra:true}}); expect(bad.isError).toBe(true);
   expect((await client.listResources()).resources.map(r=>r.uri)).toContain('opensekai://scene/scene_smoke');
   expect((await client.readResource({uri:'opensekai://status'})).contents).toHaveLength(1);
+  expect((await client.listResources()).resources.map(r=>r.uri)).toContain('opensekai://blueprints');
+  expect((await client.readResource({uri:'opensekai://blueprints'})).contents).toHaveLength(1);
+  expect((await client.callTool({name:'blueprint_inspect',arguments:{}})).isError).toBe(false);
   expect((await client.callTool({name:'evidence_read',arguments:{evidenceId:'opaque'}})).isError).toBe(false);
   expect((await client.readResource({uri:'opensekai://evidence/opaque/capture.png'})).contents[0]).toMatchObject({blob:'AQID',mimeType:'image/png'});
   await expect(client.readResource({uri:'opensekai://evidence/opaque/capture.png'})).rejects.toThrow();

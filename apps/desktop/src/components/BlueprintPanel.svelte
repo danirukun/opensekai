@@ -1,73 +1,133 @@
 <script lang="ts">
  import { onMount } from 'svelte';
- import { Button } from '@oshi-connect/ui';
+ import { Button, Select } from '@oshi-connect/ui';
  import { Play, Plus, Trash2 } from '@lucide/svelte';
- import { compileBlueprint } from '@opensekai/session';
- import type { AppApi, BlueprintGraph, BlueprintNode, SceneView } from '@opensekai/contracts';
+ import { BLUEPRINT_LABELS, defaultBlueprintSettings, keystrokeAccelerator, type AppApi, type AppStatus, type BlueprintGraph, type BlueprintNode, type BlueprintStatus, type SceneView } from '@opensekai/contracts';
+ import { issueText, type BlueprintSync, type SyncIssue } from '../blueprints/blueprint-sync';
+ import { currentPlatform, defaultKeystroke } from '../blueprints/keystroke-format';
  import type { BlueprintKind, ReteBlueprintEditor } from '../blueprints/rete-editor';
+ import BlueprintList from './BlueprintList.svelte';
+ import BlueprintNodeFields from './BlueprintNodeFields.svelte';
 
- let { api, scene, disabled, draft, ondraft, onrun }: {
-  api: AppApi | null; scene: SceneView | null; disabled: boolean;
-  draft: BlueprintGraph | null; ondraft: (graph: BlueprintGraph) => void; onrun: () => void;
+ let { api, sync, scene, status, disabled, onrun }: {
+  api: AppApi | null; sync: BlueprintSync; scene: SceneView | null; status: AppStatus | null; disabled: boolean; onrun: () => void;
  } = $props();
+ const platform = currentPlatform();
  let canvas: HTMLDivElement;
- let editor = $state.raw<ReteBlueprintEditor | null>(null);
- let graph = $state<BlueprintGraph | null>(null);
+ let editor: ReteBlueprintEditor | null = null;
+ let graphs = $state.raw<BlueprintGraph[]>([]);
+ let errors = $state.raw<BlueprintStatus[]>([]);
+ let issue = $state.raw<SyncIssue>(null);
  let selectedId = $state<string | null>(null);
- let addKind = $state<BlueprintKind>('event.manual');
- let status = $state('Draft');
- let busy = $state(false);
- const selected = $derived(graph?.nodes.find(node => node.id === selectedId) ?? null);
+ let nodeId = $state<string | null>(null);
+ let addKind = $state<string>('flow.branch');
+ let runError = $state<string | null>(null), busy = $state(false);
+ let mountedFor: string | null = null, generation = 0, announced = '';
+ const kinds = Object.entries(BLUEPRINT_LABELS) as [BlueprintKind, string][];
+ const graph = $derived(graphs.find(item => item.id === selectedId) ?? null);
+ const node = $derived(graph?.nodes.find(item => item.id === nodeId) ?? null);
+ const trigger = $derived(graph?.nodes.find(item => item.type === 'event.manual') ?? null);
  const targets = $derived(scene?.entities.filter(entity => entity.kind !== 'tracking') ?? []);
- const kinds: { kind: BlueprintKind; label: string }[] = [
-  { kind: 'event.manual', label: 'Manual Trigger' }, { kind: 'value.number', label: 'Number' },
-  { kind: 'value.boolean', label: 'Boolean' }, { kind: 'math.add', label: 'Add' },
-  { kind: 'logic.greater', label: 'Greater Than' }, { kind: 'scene.setVisibility', label: 'Set Visibility' },
- ];
- export function readDraft(): BlueprintGraph | null { return editor?.read() ?? draft; }
- function refresh() { if (editor) { graph = editor.read(); ondraft(graph); } }
- function changeSettings(settings: BlueprintNode['settings']) { if (!editor || !selectedId) return; editor.setSettings(selectedId, settings); refresh(); status = 'Draft'; }
- async function add() { if (!editor) return; await editor.add(addKind, targets[0]?.id ?? 'marker'); refresh(); status = 'Draft'; }
- async function remove() { if (!editor || !selectedId) return; await editor.remove(selectedId); selectedId = null; refresh(); status = 'Draft'; }
- async function run() {
-  if (!api || !editor || busy || disabled) return;
-  const current = editor.read(); graph = current;
-  const valid = compileBlueprint(current);
-  if (!valid.ok) { status = valid.error.message; return; }
-  const trigger = current.nodes.find(node => node.type === 'event.manual');
-  if (!trigger) { status = 'Add a Manual Trigger'; return; }
-  busy = true;
+ const cameras = $derived(scene?.entities.filter(entity => entity.kind === 'camera') ?? []);
+ const failure = $derived(errors.find(item => item.graphId === selectedId));
+ const problem = $derived(runError ?? failure?.error.message ?? issueText(issue));
+ const outputId = $derived(scene?.outputs[0]?.id);
+ const defaults = $derived(defaultBlueprintSettings(addKind as BlueprintKind, { entityId: targets[0]?.id, cameraId: cameras[0]?.id, outputId, keystroke: defaultKeystroke(platform) }));
+ const taken = $derived(new Set((status?.warnings ?? []).flatMap(warning => warning.ids)));
+
+ const edit = (ops: Parameters<BlueprintSync['edit']>[0]) => {
+  const result = sync.edit(ops);
+  if (!result.ok && graph) { const current = sync.view().find(item => item.id === graph.id); if (current) void editor?.show(current); }
+  return result;
+ };
+ async function mount(id: string | null) {
+  const mine = ++generation;
+  editor?.destroy(); editor = null; mountedFor = id; nodeId = null;
+  const target = graphs.find(item => item.id === id);
+  if (!target) return;
   try {
-   const result = await api.blueprintRun({ graph: current, triggerNodeId: trigger.id });
-   status = result.ok ? 'Ran' : result.error.message;
-   if (result.ok) onrun();
-  } catch { status = 'Session unavailable'; }
+   const { mountReteBlueprint } = await import('../blueprints/rete-editor');
+   const mounted = await mountReteBlueprint(canvas, target, { onSelect: picked => { nodeId = picked; }, onOps: ops => { edit(ops); } });
+   if (mine !== generation) { mounted.destroy(); return; }
+   editor = mounted;
+   const latest = sync.view().find(item => item.id === id);
+   if (latest) void mounted.show(latest);
+  } catch { if (mine === generation) runError = 'Blueprint canvas unavailable'; }
+ }
+ function choose(id: string | null) { selectedId = id; if (id !== mountedFor) void mount(id); }
+ function revealError() {
+  const first = errors.find(item => item.graphId === selectedId);
+  const key = first ? JSON.stringify([first.graphId, first.kind, first.error.message, first.error.ids]) : '';
+  if (key === announced) return;
+  announced = key;
+  const id = first?.error.ids.find(candidate => graph?.nodes.some(item => item.id === candidate));
+  if (id) { nodeId = id; editor?.select(id); }
+ }
+ function update(next: BlueprintGraph[]) {
+  graphs = next; errors = sync.errors(); issue = sync.issue();
+  if (selectedId === null || !next.some(item => item.id === selectedId)) { choose(next[0]?.id ?? null); return; }
+  if (nodeId && !graph?.nodes.some(item => item.id === nodeId)) nodeId = null;
+  const current = next.find(item => item.id === selectedId);
+  if (current) void editor?.show(current);
+  revealError();
+ }
+ function create() {
+  const entityId = targets[0]?.id;
+  if (!entityId) return;
+  const key = crypto.randomUUID(), act = crypto.randomUUID();
+  const id = crypto.randomUUID();
+  const settings = defaultKeystroke(platform);
+  const result = edit([{ kind: 'createGraph', graph: {
+   schemaVersion: 1, id, name: `Blueprint ${graphs.length + 1}`, enabled: true,
+   nodes: [
+    { id: key, version: 1, type: 'event.keystroke', settings, position: { x: 60, y: 80 } },
+    { id: act, version: 1, type: 'scene.toggleVisibility', settings: { entityId }, position: { x: 380, y: 80 } },
+   ],
+   connections: [{ id: crypto.randomUUID(), sourceNodeId: key, sourcePort: 'flow', targetNodeId: act, targetPort: 'flow' }],
+  } }]);
+  if (result.ok) choose(id);
+ }
+ function add() {
+  if (!graph || !editor || !defaults) return;
+  const { x, y } = editor.center(), offset = (graph.nodes.length % 5) * 24;
+  const id = crypto.randomUUID();
+  const result = edit([{ kind: 'addNode', graphId: graph.id, node: { id, version: 1, type: addKind as BlueprintKind, settings: defaults, position: { x: x + offset, y: y + offset } } as BlueprintNode }]);
+  if (!result.ok) return;
+  nodeId = id;
+  const latest = sync.view().find(item => item.id === graph!.id);
+  if (latest) void editor.show(latest).then(() => editor?.select(id));
+ }
+ function remove() { if (graph && nodeId) edit([{ kind: 'removeNode', graphId: graph.id, nodeId }]); }
+ function settings(next: BlueprintNode['settings']) { if (graph && nodeId) edit([{ kind: 'setNodeSettings', graphId: graph.id, nodeId, settings: next }]); }
+ async function run() {
+  if (!api || !graph || !trigger || busy || disabled) return;
+  busy = true; runError = null;
+  try {
+   const result = await api.blueprintRun({ graphId: graph.id, triggerNodeId: trigger.id });
+   if (result.ok) onrun(); else runError = result.error.message;
+  } catch { runError = 'Session unavailable'; }
   finally { busy = false; }
  }
  onMount(() => {
-  let disposed = false;
-  void import('../blueprints/rete-editor').then(async ({ mountReteBlueprint, initialBlueprint }) => {
-   if (disposed) return;
-   const mounted = await mountReteBlueprint(canvas, draft ?? initialBlueprint(targets[0]?.id ?? 'marker'), id => { selectedId = id; refresh(); });
-   if (disposed) { mounted.destroy(); return; }
-   editor = mounted; refresh();
-  }).catch(() => { if (!disposed) status = 'Blueprint canvas unavailable'; });
-  return () => { disposed = true; if (editor) { ondraft(editor.read()); editor.destroy(); editor = null; } };
+  const off = sync.subscribe(update);
+  const timer = setInterval(() => { issue = sync.issue(); }, 500);
+  void sync.load().then(() => update(sync.view()));
+  update(sync.view());
+  return () => { off(); clearInterval(timer); generation++; editor?.destroy(); editor = null; };
  });
 </script>
 
 <section class="blueprint-panel" aria-label="Blueprint editor">
- <header class="blueprint-toolbar"><h2>Blueprints</h2><span class="blueprint-state">{status}</span><div class="spacer"></div><Button variant="secondary" disabled={disabled || busy || !editor} onclick={run}><Play size={14}/>Run</Button></header>
+ <header class="blueprint-toolbar"><h2>Blueprints</h2><span class="blueprint-state" role="status">{problem}</span><div class="spacer"></div>{#if trigger}<Button variant="secondary" disabled={disabled || busy || !graph} onclick={run}><Play size={14}/>Run</Button>{/if}</header>
  <div class="blueprint-workspace">
-  <aside class="blueprint-palette" aria-label="Node palette"><h3>Nodes</h3><select aria-label="Node kind" bind:value={addKind}>{#each kinds as entry}<option value={entry.kind}>{entry.label}</option>{/each}</select><Button variant="secondary" disabled={!editor} onclick={add}><Plus size={14}/>Add node</Button></aside>
+  <BlueprintList {graphs} {selectedId} {disabled} creatable={targets.length > 0} onselect={choose} onops={edit} oncreate={create} />
+  <aside class="blueprint-palette" aria-label="Node palette"><Select label="Node kind" bind:value={addKind} options={kinds.map(([value, label]) => ({ value, label }))} /><Button variant="secondary" disabled={disabled || !graph || !defaults} onclick={add}><Plus size={14}/>Add node</Button></aside>
   <div class="blueprint-canvas" bind:this={canvas} aria-label="Blueprint canvas"></div>
-  <aside class="blueprint-inspector" aria-label="Node properties"><h3>Properties</h3>
-   {#if selected}
-    <strong>{kinds.find(entry => entry.kind === selected.type)?.label}</strong>
-    {#if selected.type === 'value.number'}<label>Value<input type="number" value={selected.settings.value} oninput={event => { const value = Number(event.currentTarget.value); if (Number.isFinite(value)) changeSettings({ value }); }}/></label>{/if}
-    {#if selected.type === 'value.boolean'}<label class="blueprint-checkbox"><input type="checkbox" checked={selected.settings.value} onchange={event => changeSettings({ value: event.currentTarget.checked })}/>Value</label>{/if}
-    {#if selected.type === 'scene.setVisibility'}<label>Entity<select value={selected.settings.entityId} onchange={event => changeSettings({ entityId: event.currentTarget.value })}>{#each targets as target}<option value={target.id}>{target.name}</option>{/each}</select></label>{/if}
-    <Button variant="ghost" onclick={remove}><Trash2 size={14}/>Delete node</Button>
+  <aside class="blueprint-inspector" aria-label="Node properties">
+   {#if node}
+    <strong>{BLUEPRINT_LABELS[node.type]}</strong>
+    <BlueprintNodeFields {node} {scene} {platform} unavailable={node.type === 'event.keystroke' && taken.has(keystrokeAccelerator(node.settings))} onsettings={settings} />
+    <Button variant="ghost" {disabled} onclick={remove}><Trash2 size={14}/>Delete node</Button>
    {/if}
   </aside>
  </div>

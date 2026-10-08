@@ -12,6 +12,11 @@ export function registerResources(server: McpServer, api: AppApi, readResource: 
   if (!reply.ok) throw new Error(reply.error.code);
   return {contents:[{uri:uri.href,mimeType:'application/json',text:JSON.stringify(reply.data)}]};
  });
+ server.registerResource('blueprints', 'opensekai://blueprints', {mimeType:'application/json'}, async uri => {
+  const reply = await api.blueprintInspect({});
+  if (!reply.ok) throw new Error(reply.error.code);
+  return {contents:[{uri:uri.href,mimeType:'application/json',text:JSON.stringify(reply.data)}]};
+ });
  const registerScene = (sceneId: string) => {
   const uri = `opensekai://scene/${encodeURIComponent(sceneId)}`;
   if (retained.has(uri)) return;

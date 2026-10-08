@@ -9,6 +9,7 @@
     "allow-app-version",
     "allow-editor-connection",
     "allow-hide-editor",
+    "allow-set-keystroke-capture",
     "allow-show-scene",
     "allow-import-avatar",
     "allow-save-show-as",

@@ -17,3 +17,12 @@ it('rejects arbitrary evidence locations',()=>{
  for(const uri of ['file:///tmp/a','http://127.0.0.1/a','opensekai://evidence/../x','opensekai://evidence/opaque/..','opensekai://evidence/x/capture.png?token=x']) expect(validEvidenceUri(uri)).toBe(false);
  expect(validEvidenceUri('opensekai://evidence/opaque/capture.png')).toBe(true);
 });
+it('maps Blueprint tools and validates their input',async () => {
+ const { toolMethods } = await import('../src/tools');
+ expect(toolMethods).toMatchObject({blueprint_edit:'blueprintEdit',blueprint_inspect:'blueprintInspect'});
+ const api=fixtureApi();
+ expect(await invokeTool(api,'blueprintEdit',{clientId:'agent',batchId:'b1',ops:[{kind:'replaceAll',graphs:[]}]})).toMatchObject({ok:true,data:{revision:1}});
+ expect(await invokeTool(api,'blueprintInspect',{})).toMatchObject({ok:true});
+ expect(await invokeTool(api,'blueprintInspect',{sinceRevision:0})).toMatchObject({ok:true});
+ expect(await invokeTool(api,'blueprintRun',{graph:{},triggerNodeId:'start'})).toMatchObject({ok:false,error:{code:'INVALID_INPUT'}});
+});
