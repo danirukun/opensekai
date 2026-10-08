@@ -2,7 +2,7 @@ import { ClassicPreset, NodeEditor, type GetSchemes } from 'rete';
 import { AreaExtensions, AreaPlugin } from 'rete-area-plugin';
 import { ConnectionPlugin, Presets as ConnectionPresets } from 'rete-connection-plugin';
 import { Presets, SveltePlugin, type SvelteArea2D } from 'rete-svelte-plugin/5';
-import { BLUEPRINT_LABELS, blueprintPorts, type BlueprintConnection, type BlueprintGraph, type BlueprintNode, type BlueprintOp, type PortType } from '@opensekai/contracts';
+import { BLUEPRINT_LABELS, blueprintPorts, ownPort, type BlueprintConnection, type BlueprintGraph, type BlueprintNode, type BlueprintOp, type PortType } from '@opensekai/contracts';
 import { graphPatch } from './graph-patch';
 
 export { graphPatch } from './graph-patch';
@@ -25,8 +25,8 @@ class GraphNode extends ClassicPreset.Node {
  // Flow inputs take many wires and flow outputs one; data inputs take one wire and data outputs many.
  syncPorts() {
   const ports = blueprintPorts(this.data);
-  for (const name of Object.keys(this.inputs)) if (!Object.hasOwn(ports.inputs, name)) this.removeInput(name);
-  for (const name of Object.keys(this.outputs)) if (!Object.hasOwn(ports.outputs, name)) this.removeOutput(name);
+  for (const name of Object.keys(this.inputs)) if (!ownPort(ports, 'inputs', name)) this.removeInput(name);
+  for (const name of Object.keys(this.outputs)) if (!ownPort(ports, 'outputs', name)) this.removeOutput(name);
   for (const [name, type] of Object.entries(ports.inputs)) if (!Object.hasOwn(this.inputs, name)) this.addInput(name, new ClassicPreset.Input(sockets[type], name, type === 'flow'));
   for (const [name, type] of Object.entries(ports.outputs)) if (!Object.hasOwn(this.outputs, name)) this.addOutput(name, new ClassicPreset.Output(sockets[type], name, type !== 'flow'));
  }
@@ -117,7 +117,7 @@ export async function mountReteBlueprint(container: HTMLElement, initial: Bluepr
   const ports = blueprintPorts(data);
   // A wire on a port that no longer exists must leave the canvas before the port does.
   for (const c of editor.getConnections()) {
-   if ((c.source === data.id && !Object.hasOwn(ports.outputs, String(c.sourceOutput))) || (c.target === data.id && !Object.hasOwn(ports.inputs, String(c.targetInput)))) await removeWire(c.id);
+   if ((c.source === data.id && !ownPort(ports, 'outputs', String(c.sourceOutput))) || (c.target === data.id && !ownPort(ports, 'inputs', String(c.targetInput)))) await removeWire(c.id);
   }
   node.data = data;
   node.syncPorts();

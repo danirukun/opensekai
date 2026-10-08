@@ -367,7 +367,7 @@ export const ResultSchemas = {
         revision: u
     }),
     blueprintRun: z.strictObject({ revision: u }),
-    blueprintEdit: z.strictObject({ revision: u, keystrokes: z.array(z.string().min(1).max(64)).max(64) }),
+    blueprintEdit: z.strictObject({ revision: u, keystrokes: KeystrokeListSchema }),
     blueprintInspect: BlueprintInspectSchema,
     captureFrame: CaptureRecordSchema,
     benchmarkStart: BenchmarkRunSchema,

@@ -1,4 +1,4 @@
-import { BlueprintGraphSchema, blueprintPorts, type BlueprintConnection, type BlueprintGraph, type BlueprintNode, type Id, type Reply } from '@opensekai/contracts';
+import { BlueprintGraphSchema, blueprintPorts, connectionType, type BlueprintConnection, type BlueprintGraph, type BlueprintNode, type Id, type Reply } from '@opensekai/contracts';
 
 export type BlueprintEffect =
  | { kind: 'setVisibility'; entityId: Id; visible: boolean }
@@ -11,7 +11,6 @@ export interface FlowResult { effects: BlueprintEffect[]; delays: PendingDelay[]
 
 const MAX_EVENT_VISITS = 64;
 export const fail = (message: string, ids: string[] = []): Reply<never> => ({ ok: false, error: { code: 'INVALID_INPUT', message, ids } });
-const own = <T>(record: Record<string, T>, name: string): T | undefined => Object.hasOwn(record, name) ? record[name] : undefined;
 const key = (nodeId: string, port: string) => `${nodeId}\0${port}`;
 
 const cycleIn = (ids: Id[], edges: Map<Id, Id[]>): Id | null => {
@@ -39,10 +38,9 @@ export function compileBlueprint(input: unknown): Reply<CompiledBlueprint> {
  for (const connection of graph.connections) {
   const source = nodes.get(connection.sourceNodeId), target = nodes.get(connection.targetNodeId);
   if (!source || !target) return fail('Blueprint connection references a missing node', [connection.sourceNodeId, connection.targetNodeId]);
-  const output = own(blueprintPorts(source).outputs, connection.sourcePort);
-  const input = own(blueprintPorts(target).inputs, connection.targetPort);
-  if (!output || !input || output !== input) return fail('Blueprint ports do not match', [source.id, target.id]);
-  if (output === 'flow') {
+  const type = connectionType(source, connection.sourcePort, target, connection.targetPort);
+  if (!type) return fail('Blueprint ports do not match', [source.id, target.id]);
+  if (type === 'flow') {
    if (flowNext.has(key(source.id, connection.sourcePort))) return fail('Blueprint flow output has multiple connections', [source.id]);
    flowNext.set(key(source.id, connection.sourcePort), connection);
    if (source.type !== 'flow.delay') push(flowEdges, source.id, target.id);

@@ -95,3 +95,15 @@ it('forbids replaceAll and createGraph in a delta but not a snapshot', () => {
  expect(ResultSchemas.blueprintInspect.safeParse(delta({ kind: 'createGraph', graph: graphWith([]) })).success).toBe(false);
  expect(ResultSchemas.blueprintInspect.safeParse({ kind: 'snapshot', revision: 2, blueprints: fixture.blueprints, errors: [] }).success).toBe(true);
 });
+
+it('gives no default settings for a node that needs an entity, camera, or output the scene lacks', async () => {
+ const { defaultBlueprintSettings } = await import('../src/blueprint-nodes');
+ const keystroke = { code: 'KeyH', control: true, alt: false, shift: false, meta: false };
+ expect(defaultBlueprintSettings('scene.toggleVisibility', { keystroke })).toBeNull();
+ expect(defaultBlueprintSettings('scene.setVisibility', { keystroke })).toBeNull();
+ expect(defaultBlueprintSettings('camera.switch', { cameraId: 'cam', keystroke })).toBeNull();
+ expect(defaultBlueprintSettings('camera.switch', { outputId: 'out', keystroke })).toBeNull();
+ expect(defaultBlueprintSettings('scene.toggleVisibility', { entityId: 'e', keystroke })).toEqual({ entityId: 'e' });
+ expect(defaultBlueprintSettings('camera.switch', { outputId: 'out', cameraId: 'cam', keystroke })).toEqual({ outputId: 'out', cameraId: 'cam' });
+ expect(defaultBlueprintSettings('flow.branch', { keystroke })).toEqual({});
+});

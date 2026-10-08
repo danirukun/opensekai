@@ -22,6 +22,14 @@ export function blueprintPorts(node: BlueprintNode): PortShape {
  }
 }
 
+export const ownPort = (ports: PortShape, side: 'inputs' | 'outputs', name: string): PortType | undefined =>
+ Object.hasOwn(ports[side], name) ? ports[side][name] : undefined;
+// The type shared by an output and an input, or null when either port is missing or their types differ.
+export function connectionType(source: BlueprintNode, sourcePort: string, target: BlueprintNode, targetPort: string): PortType | null {
+ const output = ownPort(blueprintPorts(source), 'outputs', sourcePort), input = ownPort(blueprintPorts(target), 'inputs', targetPort);
+ return output && output === input ? output : null;
+}
+
 export const BLUEPRINT_LABELS: Record<BlueprintKind, string> = {
  'event.manual': 'Manual Trigger', 'event.keystroke': 'On Keystroke Pressed',
  'value.number': 'Number', 'value.boolean': 'Boolean', 'math.add': 'Add', 'logic.greater': 'Greater Than', 'logic.not': 'Not',
@@ -29,15 +37,16 @@ export const BLUEPRINT_LABELS: Record<BlueprintKind, string> = {
  'scene.setVisibility': 'Set Visibility', 'scene.toggleVisibility': 'Toggle Visibility', 'camera.switch': 'Switch Camera',
 };
 
-export function defaultBlueprintSettings(kind: BlueprintKind, refs: { entityId: string; cameraId: string; keystroke: KeystrokeSettings }): BlueprintNode['settings'] {
+// Null when the node needs an entity, camera, or output that the scene does not have.
+export function defaultBlueprintSettings(kind: BlueprintKind, refs: { entityId?: string; cameraId?: string; outputId?: string; keystroke: KeystrokeSettings }): BlueprintNode['settings'] | null {
  switch (kind) {
   case 'event.keystroke': return { ...refs.keystroke };
   case 'value.number': return { value: 0 };
   case 'value.boolean': return { value: true };
   case 'flow.sequence': return { outputs: 2 };
   case 'flow.delay': return { seconds: 1 };
-  case 'scene.setVisibility': case 'scene.toggleVisibility': return { entityId: refs.entityId };
-  case 'camera.switch': return { outputId: 'output_main', cameraId: refs.cameraId };
+  case 'scene.setVisibility': case 'scene.toggleVisibility': return refs.entityId ? { entityId: refs.entityId } : null;
+  case 'camera.switch': return refs.outputId && refs.cameraId ? { outputId: refs.outputId, cameraId: refs.cameraId } : null;
   default: return {};
  }
 }

@@ -14,6 +14,12 @@
   if (name && name !== graph.name) onops([{ kind: 'updateGraph', graphId: graph.id, name }]);
  }
  function start(graph: BlueprintGraph) { if (disabled) return; draft = graph.name; renaming = graph.id; }
+ // The kit Button takes no ARIA state of its own, so the state goes onto its button element.
+ function aria(node: HTMLElement, attributes: Record<string, string>) {
+  const apply = (next: Record<string, string>) => { const button = node.querySelector('button'); for (const [name, value] of Object.entries(next)) button?.setAttribute(name, value); };
+  apply(attributes);
+  return { update: apply };
+ }
  function focus(node: HTMLElement) { const input = node.querySelector('input'); input?.focus(); input?.select(); node.addEventListener('focusout', () => { if (renaming) { const graph = graphs.find(item => item.id === renaming); if (graph) commit(graph); } }); }
 </script>
 
@@ -25,9 +31,9 @@
     {#if renaming === graph.id}
      <div class="rename" use:focus><Input label="Blueprint name" bind:value={draft} onkeydown={event => { if (event.key === 'Enter') commit(graph); else if (event.key === 'Escape') renaming = null; }} /></div>
     {:else}
-     <button type="button" class="blueprint-name" aria-current={graph.id === selectedId} onclick={() => onselect(graph.id)} ondblclick={() => start(graph)}>{graph.name}</button>
+     <span class="blueprint-name" role="presentation" ondblclick={() => start(graph)} use:aria={{ 'aria-current': String(graph.id === selectedId) }}><Button variant="ghost" onclick={() => onselect(graph.id)}>{graph.name}</Button></span>
     {/if}
-    <button type="button" title={graph.enabled ? 'Disable' : 'Enable'} aria-label="Enabled" aria-pressed={graph.enabled} {disabled} onclick={() => onops([{ kind: 'updateGraph', graphId: graph.id, enabled: !graph.enabled }])}>{#if graph.enabled}<Eye size={14} />{:else}<EyeOff size={14} />{/if}</button>
+    <span role="presentation" use:aria={{ 'aria-label': 'Enabled', 'aria-pressed': String(graph.enabled) }}><Button variant="ghost" title={graph.enabled ? 'Disable' : 'Enable'} {disabled} onclick={() => onops([{ kind: 'updateGraph', graphId: graph.id, enabled: !graph.enabled }])}>{#if graph.enabled}<Eye size={14} />{:else}<EyeOff size={14} />{/if}</Button></span>
     <Button variant="ghost" title="Delete blueprint" {disabled} onclick={() => onops([{ kind: 'removeGraph', graphId: graph.id }])}><Trash2 size={14} /></Button>
    </li>
   {/each}
