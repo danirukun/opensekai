@@ -47,6 +47,7 @@ pub fn validate_show(value: &Value) -> Result<(), AppError> {
         return Err(invalid("Unsupported show document"));
     }
     show.scene.validate()?;
+    opensekai_contracts::validate_value::<SceneView>(&value["scene"])?;
     if !["output_main", "preview_main"]
         .iter()
         .all(|id| show.scene.outputs.iter().any(|output| output.id == *id))
@@ -160,6 +161,21 @@ mod tests {
         assert!(validate_show(&document).is_ok());
         document["blueprints"] = json!([]);
         document["scene"]["outputs"] = json!([]);
+        assert!(validate_show(&document).is_err());
+    }
+    #[test]
+    fn round_trip_keeps_a_character_without_model() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("empty-character.osekai");
+        let mut document = show();
+        document["scene"]["entities"][1]["assetId"] = json!(null);
+        assert!(validate_show(&document).is_ok());
+        write_show(&path, &document).unwrap();
+        assert_eq!(read_show(&path).unwrap(), document);
+        document["scene"]["entities"][1]
+            .as_object_mut()
+            .unwrap()
+            .remove("assetId");
         assert!(validate_show(&document).is_err());
     }
 }

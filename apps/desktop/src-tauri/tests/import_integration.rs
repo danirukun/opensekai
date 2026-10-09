@@ -25,6 +25,7 @@ async fn imported_avatar_is_served_by_opaque_id_and_survives_service_restart() {
     let imported = service.import_avatar(source.clone()).await.unwrap();
     let descriptor = service.operator_descriptor();
     assert_eq!(imported.name, "Test avatar");
+    assert_eq!(imported.record.name, "Test avatar");
     assert!(!serde_json::to_string(&imported)
         .unwrap()
         .contains("private-source"));

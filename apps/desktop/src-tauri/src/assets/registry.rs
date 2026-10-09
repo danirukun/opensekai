@@ -78,21 +78,41 @@ impl AssetRegistry {
         for item in std::fs::read_dir(&library).map_err(|_| error(ErrorCode::Unavailable, ""))? {
             let p = item.map_err(|_| error(ErrorCode::Unavailable, ""))?.path();
             if p.extension().is_some_and(|s| s == "json") {
-                if let Ok(record) = std::fs::read(&p).and_then(|b| {
-                    serde_json::from_slice::<AssetRecord>(&b).map_err(std::io::Error::other)
-                }) {
-                    if record.validate().is_ok()
-                        && opaque(&record.id)
-                        && record.id == format!("avatar_{}", record.sha256)
-                    {
-                        self.entries.insert(
-                            record.id.clone(),
-                            Entry {
-                                path: library.join(format!("{}.vrm", record.id)),
-                                record,
-                            },
-                        );
+                let Ok(mut value) = std::fs::read(&p)
+                    .map_err(|_| ())
+                    .and_then(|b| serde_json::from_slice::<Value>(&b).map_err(|_| ()))
+                else {
+                    continue;
+                };
+                let stored = p.with_extension("vrm");
+                let backfilled = value.get("name").is_none() && value.is_object();
+                if backfilled {
+                    value["name"] = Value::String(
+                        stored_meta_name(&stored).unwrap_or_else(|| "Avatar".into()),
+                    );
+                }
+                let Ok(record) = serde_json::from_value::<AssetRecord>(value) else {
+                    continue;
+                };
+                if record.validate().is_ok()
+                    && opaque(&record.id)
+                    && record.id == format!("avatar_{}", record.sha256)
+                {
+                    if backfilled {
+                        if let Ok(bytes) = serde_json::to_vec(&record) {
+                            if let Ok(mut temp) = tempfile::NamedTempFile::new_in(&library) {
+                                let _ = temp.write_all(&bytes).and_then(|_| temp.as_file().sync_all());
+                                let _ = temp.persist(&p);
+                            }
+                        }
                     }
+                    self.entries.insert(
+                        record.id.clone(),
+                        Entry {
+                            path: library.join(format!("{}.vrm", record.id)),
+                            record,
+                        },
+                    );
                 }
             }
         }
@@ -139,6 +159,9 @@ impl AssetRegistry {
             .map(|b| format!("{b:02x}"))
             .collect::<String>();
         let id = format!("avatar_{sha256}");
+        let name = meta_name(&json)
+            .or_else(|| path.file_stem().and_then(|s| s.to_str()).and_then(bounded_name))
+            .unwrap_or_else(|| "Avatar".into());
         let record = AssetRecord {
             id: id.clone(),
             format: opensekai_contracts::AssetFormat::Vrm,
@@ -147,6 +170,7 @@ impl AssetRegistry {
             source_url: None,
             license_label: "User supplied".into(),
             importer_version: 1,
+            name: name.clone(),
         };
         let target = library.join(format!("{id}.vrm"));
         copy.as_file()
@@ -173,15 +197,6 @@ impl AssetRegistry {
                 path: target,
             },
         );
-        let name = json
-            .pointer("/extensions/VRMC_vrm/meta/name")
-            .or_else(|| json.pointer("/extensions/VRM/meta/title"))
-            .and_then(Value::as_str)
-            .filter(|n| !n.is_empty())
-            .unwrap_or("Avatar")
-            .chars()
-            .take(128)
-            .collect();
         Ok(ImportResult { record, name })
     }
     pub fn load(manifest: &Path) -> Result<Self, AppError> {
@@ -380,7 +395,7 @@ mod boundary_tests {
             .map(|b| format!("{b:02x}"))
             .collect::<String>();
         let manifest = root.join("manifest.json");
-        std::fs::write(&manifest,serde_json::to_vec(&serde_json::json!({"schemaVersion":1,"fixtureId":"smoke_v1","assets":[{"record":{"id":"fixture_asset","format":"glb","sha256":hash,"bytes":bytes.len(),"sourceUrl":null,"licenseLabel":"test","importerVersion":1},"path":path}]})).unwrap()).unwrap();
+        std::fs::write(&manifest,serde_json::to_vec(&serde_json::json!({"schemaVersion":1,"fixtureId":"smoke_v1","assets":[{"record":{"id":"fixture_asset","format":"glb","sha256":hash,"bytes":bytes.len(),"sourceUrl":null,"licenseLabel":"test","importerVersion":1,"name":"Test"},"path":path}]})).unwrap()).unwrap();
         AssetRegistry::load(&manifest).unwrap()
     }
     #[test]
@@ -478,6 +493,86 @@ mod import_tests {
         }
         assert!(r.records().is_empty());
     }
+    fn without_meta_name() -> String {
+        let mut v: Value =
+            serde_json::from_str(include_str!("../../tests/fixtures/minimal-vrm1.json")).unwrap();
+        v["extensions"]["VRMC_vrm"]["meta"]
+            .as_object_mut()
+            .unwrap()
+            .remove("name");
+        v.to_string()
+    }
+    #[test]
+    fn import_stores_meta_name_or_file_stem() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut r = AssetRegistry::empty(&dir.path().join("managed")).unwrap();
+        let named = dir.path().join("named.vrm");
+        std::fs::write(&named, vrm(include_str!("../../tests/fixtures/minimal-vrm1.json"))).unwrap();
+        let a = r.import_avatar(&named).unwrap();
+        assert_eq!(a.record.name, "Test avatar");
+        assert_eq!(a.name, a.record.name);
+        let stem = dir.path().join("Rem Model.vrm");
+        std::fs::write(&stem, vrm(&without_meta_name())).unwrap();
+        assert_eq!(r.import_avatar(&stem).unwrap().record.name, "Rem Model");
+    }
+    #[test]
+    fn fills_a_missing_name_from_stored_vrm_meta() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("a.vrm");
+        std::fs::write(&source, vrm(include_str!("../../tests/fixtures/minimal-vrm1.json"))).unwrap();
+        let managed = dir.path().join("managed");
+        let id = AssetRegistry::empty(&managed).unwrap().import_avatar(&source).unwrap().record.id;
+        let json = managed.join("library").join(format!("{id}.json"));
+        let mut legacy: Value = serde_json::from_slice(&std::fs::read(&json).unwrap()).unwrap();
+        legacy.as_object_mut().unwrap().remove("name");
+        std::fs::write(&json, serde_json::to_vec(&legacy).unwrap()).unwrap();
+        let reopened = AssetRegistry::empty(&managed).unwrap();
+        assert_eq!(reopened.records()[0].name, "Test avatar");
+        let rewritten: Value = serde_json::from_slice(&std::fs::read(&json).unwrap()).unwrap();
+        assert_eq!(rewritten["name"], "Test avatar");
+    }
+    #[test]
+    fn legacy_record_with_unreadable_file_falls_back_to_avatar() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("a.vrm");
+        std::fs::write(&source, vrm(include_str!("../../tests/fixtures/minimal-vrm1.json"))).unwrap();
+        let managed = dir.path().join("managed");
+        let id = AssetRegistry::empty(&managed).unwrap().import_avatar(&source).unwrap().record.id;
+        let library = managed.join("library");
+        let json = library.join(format!("{id}.json"));
+        let mut legacy: Value = serde_json::from_slice(&std::fs::read(&json).unwrap()).unwrap();
+        legacy.as_object_mut().unwrap().remove("name");
+        std::fs::write(&json, serde_json::to_vec(&legacy).unwrap()).unwrap();
+        std::fs::write(library.join(format!("{id}.vrm")), b"not a glb").unwrap();
+        let reopened = AssetRegistry::empty(&managed).unwrap();
+        assert_eq!(reopened.records()[0].name, "Avatar");
+    }
+}
+fn bounded_name(name: &str) -> Option<String> {
+    let name = name.trim();
+    if name.is_empty() {
+        return None;
+    }
+    let mut units = 0;
+    Some(
+        name.chars()
+            .take_while(|c| {
+                units += c.len_utf16();
+                units <= 128
+            })
+            .collect(),
+    )
+}
+fn meta_name(json: &Value) -> Option<String> {
+    json.pointer("/extensions/VRMC_vrm/meta/name")
+        .or_else(|| json.pointer("/extensions/VRM/meta/title"))
+        .and_then(Value::as_str)
+        .and_then(bounded_name)
+}
+fn stored_meta_name(path: &Path) -> Option<String> {
+    let mut file = std::fs::File::open(path).ok()?;
+    let len = file.metadata().ok()?.len();
+    meta_name(&validate_import_file(&mut file, len).ok()?)
 }
 fn validate_import_file(file: &mut std::fs::File, len: u64) -> Result<Value, AppError> {
     file.seek(SeekFrom::Start(0))
