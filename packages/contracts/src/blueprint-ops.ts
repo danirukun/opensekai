@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { BlueprintConnectionSchema, BlueprintGraphSchema, BlueprintNodeSchema, BlueprintPositionSchema, BlueprintSetSchema, type BlueprintGraph } from './blueprint';
-import { blueprintPorts, connectionType, ownPort } from './blueprint-nodes';
+import { BlueprintConnectionSchema, BlueprintGraphSchema, BlueprintSetSchema, type BlueprintGraph } from './blueprint';
+import { BlueprintNodeSchema, BlueprintPositionSchema, blueprintPorts, connectionType, ownPort } from './blueprint-nodes';
 import type { Reply } from './types';
 
 const IdSchema = z.string().min(1).max(256);
