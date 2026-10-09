@@ -68,6 +68,8 @@ export async function mountReteBlueprint(container: HTMLElement, initial: Bluepr
  });
  editor.use(area);
  if (options.render !== false) { area.use(render); area.use(connections); }
+ // The selection extension clears on any pointerup it sees as a click; only the primary button may reach it.
+ area.addPipe(context => (context.type === 'pointerdown' || context.type === 'pointerup') && context.data.event.button !== 0 ? undefined : context);
  const selector = AreaExtensions.selector();
  const selectable = AreaExtensions.selectableNodes(area, selector, { accumulating: AreaExtensions.accumulateOnCtrl() });
  options.inspect?.(area);

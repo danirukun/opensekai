@@ -44,3 +44,16 @@ it('reports one context menu for a node right-click that bubbles to the canvas',
  await area.emit({ type: 'contextmenu', data: { event: { ...event }, context: { id: 'w1', source: 'key', target: 'show' } } });
  expect(menus).toEqual([{ kind: 'node', nodeId: 'wait' }, { kind: 'canvas' }, { kind: 'wire', connectionId: 'w1' }]);
 });
+
+it('keeps the selection through a right-button press and release', async () => {
+ let area!: { emit(context: unknown): Promise<unknown> };
+ const editor = await mountReteBlueprint(element() as unknown as HTMLElement, graph!, { onSelect() {}, onOps() {} }, { render: false, inspect: value => { area = value as never; } });
+ editor.selectMany(['show', 'wait']);
+ const data = { position: { x: 0, y: 0 }, event: { button: 2 } };
+ await area.emit({ type: 'pointerdown', data });
+ await area.emit({ type: 'pointerup', data });
+ expect(editor.selected().sort()).toEqual(['show', 'wait']);
+ await area.emit({ type: 'pointerdown', data: { ...data, event: { button: 0 } } });
+ await area.emit({ type: 'pointerup', data: { ...data, event: { button: 0 } } });
+ expect(editor.selected()).toEqual([]);
+});
