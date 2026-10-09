@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import SessionWorker from '@opensekai/session/worker?worker';
 import { connectClient } from '@opensekai/browser-client';
-import type { EditorOptions, EditorHandle } from '@opensekai/renderer';
+import type { EditorOptions, EditorHandle, AssetLoadStatus } from '@opensekai/renderer';
 import { createRenderer } from '@opensekai/renderer';
 import { makeSmokeScene, ConnectionDescriptorSchema, TrackingUpdateSchema } from '@opensekai/contracts';
 import type { AssetRecord, BrowserClient, ConnectionDescriptor, RuntimeFrame,TrackingUpdate } from '@opensekai/contracts';
@@ -22,7 +22,7 @@ export interface NativeBootstrap {
 }
 export interface PreviewFrameProbe { begin(): boolean; end(): void }
 export async function bootstrapDesktop(canvas: HTMLCanvasElement, editorOptions?: EditorOptions, previewProbe?: PreviewFrameProbe): Promise<{
- client: BrowserClient; outputUrl: string; assets: AssetRecord[]; canEdit:boolean; editor?:EditorHandle; tracking:{submit(update:TrackingUpdate):void;now():number|null;onClock(listener:()=>void):()=>void}; stop(): Promise<void>;
+ client: BrowserClient; outputUrl: string; assets: AssetRecord[]; canEdit:boolean; editor?:EditorHandle; tracking:{submit(update:TrackingUpdate):void;now():number|null;onClock(listener:()=>void):()=>void}; onLoadStatus(listener:(entries:AssetLoadStatus[])=>void):()=>void;dismissLoad(entityId:string):void; stop(): Promise<void>;
 }> {
  const info = await invoke<NativeBootstrap>('bootstrap_session');
  let worker: Worker | undefined;
@@ -86,7 +86,7 @@ export async function bootstrapDesktop(canvas: HTMLCanvasElement, editorOptions?
   const off = preview.onFrame(frame => pump.offer(frame));
   closePreview = () => { off(); pump.stop(); renderer.dispose(); };
   const outputUrl = makeOutputUrl(info.output,info.rendererMode);
-  return { client, outputUrl, assets: info.assets, canEdit:info.operator.capabilities.includes('edit'), editor:renderer.editor, tracking, stop };
+  return { client, outputUrl, assets: info.assets, canEdit:info.operator.capabilities.includes('edit'), editor:renderer.editor, tracking, onLoadStatus:renderer.onLoadStatus, dismissLoad:renderer.dismissLoad, stop };
  } catch (error) {
   await stop().catch(() => {});
   throw error;
