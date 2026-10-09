@@ -208,8 +208,23 @@ impl AssetRegistry {
             .ok_or_else(|| invalid("Invalid manifest location"))?
             .to_path_buf();
         let bytes = std::fs::read(&path).map_err(|_| error(ErrorCode::NotFound, ""))?;
-        let manifest: Manifest =
+        let mut value: Value =
             serde_json::from_slice(&bytes).map_err(|_| invalid("Invalid asset manifest"))?;
+        // Older local manifests have records without a name: use the record ID as the name.
+        if let Some(assets) = value.get_mut("assets").and_then(Value::as_array_mut) {
+            for record in assets
+                .iter_mut()
+                .filter_map(|entry| entry.get_mut("record").and_then(Value::as_object_mut))
+            {
+                if !record.contains_key("name") {
+                    if let Some(id) = record.get("id").cloned() {
+                        record.insert("name".into(), id);
+                    }
+                }
+            }
+        }
+        let manifest: Manifest =
+            serde_json::from_value(value).map_err(|_| invalid("Invalid asset manifest"))?;
         if manifest.schema_version != 1 || manifest.fixture_id != "smoke_v1" {
             return Err(invalid("Invalid asset manifest version or fixture"));
         }
@@ -397,6 +412,26 @@ mod boundary_tests {
         let manifest = root.join("manifest.json");
         std::fs::write(&manifest,serde_json::to_vec(&serde_json::json!({"schemaVersion":1,"fixtureId":"smoke_v1","assets":[{"record":{"id":"fixture_asset","format":"glb","sha256":hash,"bytes":bytes.len(),"sourceUrl":null,"licenseLabel":"test","importerVersion":1,"name":"Test"},"path":path}]})).unwrap()).unwrap();
         AssetRegistry::load(&manifest).unwrap()
+    }
+    #[test]
+    fn manifest_record_without_name_uses_its_id() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("asset.glb");
+        let bytes = glb();
+        std::fs::write(&path, &bytes).unwrap();
+        let hash = Sha256::digest(&bytes)
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect::<String>();
+        let manifest = root.path().join("manifest.json");
+        std::fs::write(&manifest,serde_json::to_vec(&serde_json::json!({"schemaVersion":1,"fixtureId":"smoke_v1","assets":[{"record":{"id":"fixture_asset","format":"glb","sha256":hash,"bytes":bytes.len(),"sourceUrl":null,"licenseLabel":"test","importerVersion":1},"path":path}]})).unwrap()).unwrap();
+        let registry = AssetRegistry::load(&manifest).unwrap();
+        let record = registry
+            .records()
+            .into_iter()
+            .find(|r| r.id == "fixture_asset")
+            .unwrap();
+        assert_eq!(record.name, "fixture_asset");
     }
     #[test]
     fn service_asset_bytes_hash_and_missing_are_checked() {
