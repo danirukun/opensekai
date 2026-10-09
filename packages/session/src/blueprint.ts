@@ -1,5 +1,5 @@
 import { cloneState, EVALUATORS, type BlueprintValue, type Evaluator, type RunState } from './blueprint-eval';
-import { BlueprintGraphSchema, blueprintPorts, connectionType, type BlueprintConnection, type BlueprintGraph, type BlueprintNode, type Id, type Reply } from '@opensekai/contracts';
+import { BlueprintGraphSchema, blueprintPorts, nodeDefinition, connectionType, type BlueprintConnection, type BlueprintGraph, type BlueprintNode, type Id, type Reply } from '@opensekai/contracts';
 
 export type BlueprintEffect =
  | { kind: 'setVisibility'; entityId: Id; visible: boolean }
@@ -35,6 +35,12 @@ export function compileBlueprint(input: unknown): Reply<CompiledBlueprint> {
  const parsed = BlueprintGraphSchema.safeParse(input);
  if (!parsed.success) return fail('Invalid Blueprint document');
  const graph = parsed.data;
+ const variables = new Map(graph.variables.map(variable => [variable.id, variable.type]));
+ for (const node of graph.nodes) {
+  const field = nodeDefinition(node.type).fields.find(item => item.kind === 'variable');
+  if (field?.kind === 'variable' && variables.get((node.settings as { variableId: string }).variableId) !== field.variableType)
+   return fail('Blueprint variable is missing', [node.id]);
+ }
  const nodes = new Map(graph.nodes.map(node => [node.id, node]));
  const dataIn = new Map<string, BlueprintConnection>();
  const flowNext = new Map<string, BlueprintConnection>();

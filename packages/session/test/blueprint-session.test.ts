@@ -281,3 +281,36 @@ it('does not fire On Enable for a graph that is installed disabled', () => {
  session.advance(0);
  expect(visible(session, 'marker')).toBe(true);
 });
+
+it('counts a hotkey in a variable and cuts cameras through Switch On Number, and resets on a logic edit', () => {
+ const session = createSession(makeSmokeScene(), 's');
+ const camera = () => session.inspect().outputs.find(output => output.id === 'output_main')?.cameraId;
+ load(session, [{ schemaVersion: 1, id: 'cuts', name: 'Cuts', variables: [{ id: 'count', name: 'Count', type: 'number', default: 0 }],
+  nodes: [
+   { id: 'key', version: 1, type: 'event.keystroke', settings: { code: 'KeyC', control: true, alt: true, shift: false, meta: false }, position: { x: 0, y: 0 } },
+   { id: 'one', version: 1, type: 'value.number', settings: { value: 1 }, position: { x: 0, y: 0 } },
+   { id: 'add', version: 1, type: 'variable.addNumber', settings: { variableId: 'count' }, position: { x: 0, y: 0 } },
+   { id: 'get', version: 1, type: 'variable.getNumber', settings: { variableId: 'count' }, position: { x: 0, y: 0 } },
+   { id: 'sw', version: 1, type: 'flow.switch', settings: { cases: [1, 2] }, position: { x: 0, y: 0 } },
+   { id: 'close', version: 1, type: 'camera.switch', settings: { outputId: 'output_main', cameraId: 'camera_close' }, position: { x: 0, y: 0 } },
+   { id: 'wide', version: 1, type: 'camera.switch', settings: { outputId: 'output_main', cameraId: 'camera_wide' }, position: { x: 0, y: 0 } },
+  ],
+  connections: [
+   { id: 'w1', sourceNodeId: 'key', sourcePort: 'flow', targetNodeId: 'add', targetPort: 'flow' },
+   { id: 'w2', sourceNodeId: 'one', sourcePort: 'value', targetNodeId: 'add', targetPort: 'amount' },
+   { id: 'w3', sourceNodeId: 'add', sourcePort: 'exit', targetNodeId: 'sw', targetPort: 'flow' },
+   { id: 'w4', sourceNodeId: 'get', sourcePort: 'value', targetNodeId: 'sw', targetPort: 'value' },
+   { id: 'w5', sourceNodeId: 'sw', sourcePort: 'case0', targetNodeId: 'close', targetPort: 'flow' },
+   { id: 'w6', sourceNodeId: 'sw', sourcePort: 'case1', targetNodeId: 'wide', targetPort: 'flow' },
+  ] }]);
+ session.advance(0);
+ session.advance(16, 16, press('Control+Alt+KeyC'));
+ expect(camera()).toBe('camera_close');
+ session.advance(32, 16, press('Control+Alt+KeyC'));
+ expect(camera()).toBe('camera_wide');
+ session.advance(48, 16, press('Control+Alt+KeyC'));
+ expect(camera()).toBe('camera_wide');
+ session.editBlueprints({ clientId: 't', batchId: 'edit', ops: [{ kind: 'setNodeSettings', graphId: 'cuts', nodeId: 'sw', settings: { cases: [1, 3] } }] });
+ session.advance(64, 16, press('Control+Alt+KeyC'));
+ expect(camera()).toBe('camera_close');
+});

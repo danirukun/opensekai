@@ -6,12 +6,13 @@ import { LOGIC_NODES } from './logic';
 import { MATH_NODES } from './math';
 import { SCENE_NODES } from './scene';
 import { VALUE_NODES } from './values';
+import { VARIABLE_NODES } from './variables';
 
 export { defineNode, NODE_CATEGORIES, type PortType, type PortShape, type NodeCategory, type DefaultRefs, type BlueprintField, type NodeDefinition } from './define';
 export { KEYSTROKE_CODES, KeystrokeSettingsSchema, keystrokeAccelerator, keystrokeHasModifier, type KeystrokeSettings } from './events';
 
 // Palette order inside a category follows this list.
-export const NODE_DEFINITIONS = [...EVENT_NODES, ...FLOW_NODES, ...VALUE_NODES, ...MATH_NODES, ...LOGIC_NODES, ...SCENE_NODES] as const;
+export const NODE_DEFINITIONS = [...EVENT_NODES, ...FLOW_NODES, ...VALUE_NODES, ...MATH_NODES, ...LOGIC_NODES, ...VARIABLE_NODES, ...SCENE_NODES] as const;
 type Definition = (typeof NODE_DEFINITIONS)[number];
 export type BlueprintKind = Definition['type'];
 export const BlueprintPositionSchema = z.strictObject({ x: finite, y: finite });
