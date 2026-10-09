@@ -126,3 +126,54 @@ fn clock_carries_at_most_sixteen_keystrokes_within_the_plain_clock_limit() {
         json!({"kind":"clock","sessionId":"s","elapsedMs":1,"input":{"events": vec![event; 17]}});
     assert!(parse_wire(over.to_string().as_bytes()).is_err());
 }
+
+fn variables() -> Value {
+    serde_json::from_str(include_str!(
+        "../../../fixtures/protocol/blueprint-variables.json"
+    ))
+    .unwrap()
+}
+
+#[test]
+fn blueprint_graph_checks_variable_structure() {
+    let v = variables();
+    assert!(validate_blueprint_graph(&v["valid"]).is_ok());
+    let mut legacy = v["valid"].clone();
+    legacy.as_object_mut().unwrap().remove("variables");
+    assert!(validate_blueprint_graph(&legacy).is_ok());
+    for case in v["invalid"].as_array().unwrap() {
+        let mut g = v["valid"].clone();
+        g["variables"] = case["variables"].clone();
+        assert!(validate_blueprint_graph(&g).is_err(), "{}", case["name"]);
+    }
+    let mut many = v["valid"].clone();
+    many["variables"] = json!((0..33).map(|i| json!({"id": format!("v{i}"), "name": format!("V{i}"), "type": "number", "default": 0})).collect::<Vec<_>>());
+    assert!(validate_blueprint_graph(&many).is_err());
+}
+
+#[test]
+fn blueprint_edit_accepts_variable_operations() {
+    let ok = |op: Value| validate_call("blueprintEdit", &edit(json!([op]))).is_ok();
+    assert!(ok(
+        json!({"kind":"addVariable","graphId":"g","variable":{"id":"v","name":"V","type":"number","default":1.5}})
+    ));
+    assert!(!ok(
+        json!({"kind":"addVariable","graphId":"g","variable":{"id":"v","name":"V","type":"number","default":false}})
+    ));
+    assert!(ok(
+        json!({"kind":"updateVariable","graphId":"g","variableId":"v","name":"W","type":"boolean","default":true})
+    ));
+    assert!(ok(
+        json!({"kind":"updateVariable","graphId":"g","variableId":"v"})
+    ));
+    assert!(!ok(
+        json!({"kind":"updateVariable","graphId":"g","variableId":"v","type":"string"})
+    ));
+    assert!(!ok(
+        json!({"kind":"updateVariable","graphId":"g","variableId":"v","name":" "})
+    ));
+    assert!(ok(
+        json!({"kind":"removeVariable","graphId":"g","variableId":"v"})
+    ));
+    assert!(!ok(json!({"kind":"removeVariable","graphId":"g"})));
+}

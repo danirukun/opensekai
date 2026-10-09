@@ -78,7 +78,7 @@
   const id = crypto.randomUUID();
   const settings = defaultKeystroke(platform);
   const result = edit([{ kind: 'createGraph', graph: {
-   schemaVersion: 1, id, name: `Blueprint ${graphs.length + 1}`, enabled: true,
+   schemaVersion: 1, id, name: `Blueprint ${graphs.length + 1}`, enabled: true, variables: [],
    nodes: [
     { id: key, version: 1, type: 'event.keystroke', settings, position: { x: 60, y: 80 } },
     { id: act, version: 1, type: 'scene.toggleVisibility', settings: { entityId }, position: { x: 380, y: 80 } },
