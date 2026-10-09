@@ -85,7 +85,7 @@ import { createEditorMemory } from './blueprints/editor-memory';
     select(null);
     const broken=document.blueprints.map(graph=>({graph,result:compileBlueprint(graph)})).find(item=>!item.result.ok);
     if(broken&&!broken.result.ok)showError=`${broken.graph.name}: ${broken.result.error.message}`;
-    if(sync){const applied=sync.edit([{kind:'replaceAll',graphs:document.blueprints}]);await sync.idle();if((!applied.ok||sync.issue())&&!showError)showError='Blueprints were not applied';}
+    if(sync){const applied=sync.edit([{kind:'replaceAll',graphs:document.blueprints}]);await sync.idle();if(applied.ok)memory.history.clear();if((!applied.ok||sync.issue())&&!showError)showError='Blueprints were not applied';}
    });
    if(!reply.ok){showError=reply.error.message;return;}
   }catch(cause){showError=showFailure(cause);}
