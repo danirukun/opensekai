@@ -6,6 +6,7 @@ build/
 .svelte-kit/
 .vite/
 .turbo/
+.vitest/
 coverage/
 .DS_Store
 
