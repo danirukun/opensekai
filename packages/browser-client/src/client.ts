@@ -171,7 +171,7 @@ export function connectWithPorts(raw: ConnectionDescriptor, ports: ClientPorts =
                 }
             })
         ])) as unknown as AppApi;
-        const read = async (path: string): Promise<Uint8Array> => {
+        const read = async (path: string, onProgress?: (loaded: number, total: number | null) => void): Promise<Uint8Array> => {
             if (closed)
                 throw new Error("Client closed");
             const response = await ports.fetch(new URL(path, descriptor.httpOrigin), {
@@ -181,7 +181,24 @@ export function connectWithPorts(raw: ConnectionDescriptor, ports: ClientPorts =
             });
             if (!response.ok)
                 throw new Error(`Resource unavailable: ${response.status}`);
-            return new Uint8Array(await response.arrayBuffer());
+            if (!onProgress || !response.body)
+                return new Uint8Array(await response.arrayBuffer());
+            const length = Number(response.headers.get("content-length"));
+            const total = Number.isSafeInteger(length) && length > 0 ? length : null;
+            const reader = response.body.getReader();
+            const chunks: Uint8Array[] = [];
+            let loaded = 0;
+            for (;;) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                chunks.push(value);
+                loaded += value.byteLength;
+                onProgress(loaded, total);
+            }
+            const bytes = new Uint8Array(loaded);
+            let offset = 0;
+            for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+            return bytes;
         };
         const browser: BrowserClient = {
             api,
@@ -220,7 +237,7 @@ export function connectWithPorts(raw: ConnectionDescriptor, ports: ClientPorts =
                     throw new Error("Invalid resource URI");
                 return read(`/evidence/${match[1]}/${match[2]}`);
             },
-            readAsset: async (id) => (await read(`/assets/${encodeURIComponent(id)}`)).buffer as ArrayBuffer,
+            readAsset: async (id, onProgress) => (await read(`/assets/${encodeURIComponent(id)}`, onProgress)).buffer as ArrayBuffer,
             close
         };
         const publisher: PublisherClient = {
