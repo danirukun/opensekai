@@ -16,7 +16,7 @@ it("disposes shared geometry material and texture once",()=>{const geometry=new 
 const rendererPorts = vi.hoisted(() => ({ load: vi.fn(), render: vi.fn(), dispose: vi.fn(), setSize: vi.fn() }));
 vi.mock("../src/backend", () => ({ initializeBackend: async (canvas: HTMLCanvasElement) => ({
     backend: "webgl2",
-    renderer: { info: {memory: {geometries: 7, textures: 9}}, setSize: rendererPorts.setSize.mockImplementation((width: number, height: number) => {canvas.width = width; canvas.height = height;}), renderAsync: rendererPorts.render, dispose: rendererPorts.dispose }
+    renderer: { info: {memory: {geometries: 7, textures: 9}}, setSize: rendererPorts.setSize.mockImplementation((width: number, height: number) => {canvas.width = width; canvas.height = height;}), renderAsync: rendererPorts.render, compileAsync: vi.fn(async () => {}), dispose: rendererPorts.dispose }
 }) }));
 vi.mock("../src/assets", async importOriginal => ({
     ...await importOriginal<typeof import("../src/assets")>(),
@@ -32,6 +32,7 @@ it("releases an asset removed after failed render submission", async () => {
     const first = makeSmokeFrame({sequence: 1, tick: 1});
     first.scene.entities = first.scene.entities.filter(entity => entity.kind !== "mesh");
     await expect(renderer.applyFrame(first)).rejects.toMatchObject({code: "UNSUPPORTED"});
+    await new Promise(r => setTimeout(r, 0));
     expect(rendererPorts.load).toHaveBeenCalledTimes(1);
     const removed = structuredClone(first);
     removed.sequence = 2;

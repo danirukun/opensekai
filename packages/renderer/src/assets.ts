@@ -1,4 +1,5 @@
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import type { LoadReport } from "./load-jobs";
 import { MToonMaterialLoaderPlugin, VRMLoaderPlugin, VRMUtils, type VRM } from "@pixiv/three-vrm";
 import { MToonNodeMaterial } from "@pixiv/three-vrm/nodes";
 import type { ResourceHost, AppError } from "@opensekai/contracts";
@@ -69,7 +70,7 @@ export function disposeObject(root: Object3D, shared?: { textures: ReadonlySet<T
     for (const image of images)
         image.close();
 }
-export function inspectContainer(bytes: ArrayBuffer): string[] {
+export function inspectContainer(bytes: ArrayBuffer): { extensions: string[]; imageCount: number } {
     const view = new DataView(bytes);
     if (view.byteLength < 20 || view.getUint32(0, true) !== 0x46546c67 || view.getUint32(4, true) !== 2 || view.getUint32(8, true) !== view.byteLength)
         throw failure("INVALID_INPUT", "Expected self-contained GLB");
@@ -87,25 +88,41 @@ export function inspectContainer(bytes: ArrayBuffer): string[] {
     };
     if ([...json.buffers ?? [], ...json.images ?? []].some(x => x.uri !== undefined))
         throw failure("UNSUPPORTED", "External or URI resources are not supported");
-    return json.extensionsUsed ?? [];
+    return { extensions: json.extensionsUsed ?? [], imageCount: json.images?.length ?? 0 };
 }
 export function createAssetLoader(resources: ResourceHost, options: { maxTextureSize?: 1024 | 2048 } = {}) {
     const textures = createTexturePool();
     const images = createImageResizePolicy(options.maxTextureSize);
-    return async (id: string) => {
+    return async (id: string, report: (report: LoadReport) => void = () => {}) => {
         const lease = textures.acquire(id);
         const loader = new GLTFLoader();
         let imageFailure: unknown;
+        let imageTotal = 0;
+        const decoded = new Set<number>();
         loader.register(parser => {
             // Share decoding before GLTFLoader allocates another bitmap; keep each parser and texture wrapper independent.
             const decode = parser.loadImageSource.bind(parser);
-            parser.loadImageSource = (index, imageLoader) => lease.load(index, () => images.decode(() => decode(index, imageLoader))).catch(error => { imageFailure = error; throw error; });
+            parser.loadImageSource = (index, imageLoader) => lease.load(index, () => images.decode(() => decode(index, imageLoader))).then(texture => {
+                if (imageTotal > 0 && !decoded.has(index)) {
+                    decoded.add(index);
+                    report({ stage: 'textures', progress: decoded.size / imageTotal, count: { done: decoded.size, total: imageTotal } });
+                }
+                return texture;
+            }).catch(error => { imageFailure = error; throw error; });
             return { name: "OPENSEKAI_shared_images" };
         });
         loader.register(parser => new VRMLoaderPlugin(parser, { mtoonMaterialPlugin: new MToonMaterialLoaderPlugin(parser, { materialType: MToonNodeMaterial }) }));
         try {
-            const bytes = await resources.readAsset(id);
-            const extensions = inspectContainer(bytes);
+            let percent = -1;
+            report({ stage: 'download', progress: null });
+            const bytes = await resources.readAsset(id, (loaded, total) => {
+                const progress = total ? Math.min(1, loaded / total) : null;
+                const next = progress === null ? -1 : Math.floor(progress * 100);
+                if (next !== percent) { percent = next; report({ stage: 'download', progress }); }
+            });
+            const { extensions, imageCount } = inspectContainer(bytes);
+            imageTotal = imageCount;
+            if (imageTotal > 0) report({ stage: 'textures', progress: 0, count: { done: 0, total: imageTotal } });
             const gltf = await loader.parseAsync(bytes, "");
             // GLTFLoader converts image failures to null maps; reject the asset instead.
             if (imageFailure) { disposeObject(gltf.scene, lease); throw imageFailure; }
