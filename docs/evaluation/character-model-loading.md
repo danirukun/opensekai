@@ -36,7 +36,7 @@ The "after" phase also shows long frames: 121 ms in run 1 and 630 ms in run 2. T
 
 The preview still stutters visibly during a load in Safari.
 
-The earlier [avatar performance](avatar-performance.md) record shows a blocked first frame of 10.9 s on a cold pipeline cache and 2.1 s on a warm cache, in Safari 27. The earlier and current runs used the same harness, the same VRM file, and the same Safari, so the comparison is like for like. In these runs, no single frame blocked for the full load time. The cold case is unknown, so this evidence does not show that the 10.9 s cold block is removed.
+The earlier [avatar performance](avatar-performance.md) record shows a blocked first frame of 10.9 s on a cold pipeline cache and 2.1 s on a warm cache, in Safari 27. That figure is the time that the first frame was blocked. The figures in this record are the intervals of each frame while a load runs. The backend of these runs is not recorded. Thus the two sets of numbers show different things, and you must not compare them directly. These runs show that frames continue during a load, with the stutter that this record states. In these runs, no single frame blocked for the full load time. The cold case is unknown, so this evidence does not show that the 10.9 s cold block is removed.
 
 ## Residual risk
 
