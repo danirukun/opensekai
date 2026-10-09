@@ -35,4 +35,4 @@ Use pnpm and `@oshi-connect/ui` for the toolbar control. Keep visual style compa
 
 ## S — Safeguards
 
-Do not claim GPU, system memory, or OBS throughput measurements. Do not add a second render loop. Ensure an exception from rendering leaves stats.js timing balanced. Keep monitor DOM separate from the rendered canvas.
+Do not claim GPU, system memory, or OBS throughput measurements. Do not add a second render loop. The preview pump uses display frames (`requestAnimationFrame`), renders the newest frame only, and never starts a submission while one is in progress. Ensure an exception from rendering leaves stats.js timing balanced. Keep monitor DOM separate from the rendered canvas.
