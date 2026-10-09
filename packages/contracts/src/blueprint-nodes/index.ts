@@ -38,3 +38,12 @@ export function connectionType(source: BlueprintNode, sourcePort: string, target
  const output = ownPort(blueprintPorts(source), 'outputs', sourcePort), input = ownPort(blueprintPorts(target), 'inputs', targetPort);
  return output && output === input ? output : null;
 }
+
+const SAMPLE: DefaultRefs = { entityId: 'entity', cameraId: 'camera', outputId: 'output', keystroke: { code: 'KeyH', control: true, alt: true, shift: false, meta: false }, variables: [{ id: 'number', type: 'number' }, { id: 'boolean', type: 'boolean' }] };
+// Ports are shown for the default settings; `portsDependOnSettings` marks nodes whose port list changes with them.
+export const blueprintNodeCatalog = () => NODE_DEFINITIONS.map(definition => ({
+ type: definition.type, label: definition.label, category: definition.category, keywords: [...definition.keywords],
+ ports: definition.ports(definition.defaults(SAMPLE) as never),
+ portsDependOnSettings: 'dynamicPorts' in definition && definition.dynamicPorts === true,
+ settings: z.toJSONSchema(definition.settings),
+}));
