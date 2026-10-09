@@ -26,7 +26,7 @@ export function diffOps(from: BlueprintGraph, to: BlueprintGraph): BlueprintOp[]
  return ops;
 }
 
-interface Step { before: BlueprintGraph; undo: BlueprintOp[]; redo: BlueprintOp[]; shape: string; at: number }
+interface Step { before: BlueprintGraph; after: BlueprintGraph; undo: BlueprintOp[]; redo: BlueprintOp[]; shape: string; at: number }
 export interface UndoHistory {
  record(graphId: string, before: BlueprintGraph, after: BlueprintGraph, ops: readonly BlueprintOp[]): void;
  // `apply` sends the operations and returns false when they no longer apply; that step is then dropped.
@@ -57,11 +57,11 @@ export function createUndoHistory(now: () => number = () => performance.now()): 
  return {
   record(graphId, before, after, ops) {
    const list = done.get(graphId) ?? [], last = list.at(-1), key = shape(ops), time = now();
-   const merge = last !== undefined && key !== '' && last.shape === key && time - last.at < MERGE_MS;
+   const merge = last !== undefined && key !== '' && last.shape === key && time - last.at < MERGE_MS && same(last.after, before);
    const start = merge ? last.before : before;
    const redo = diffOps(start, after);
    const kept = merge ? list.slice(0, -1) : list;
-   done.set(graphId, redo.length === 0 ? kept : [...kept, { before: start, undo: diffOps(after, start), redo, shape: key, at: time }].slice(-LIMIT));
+   done.set(graphId, redo.length === 0 ? kept : [...kept, { before: start, after, undo: diffOps(after, start), redo, shape: key, at: time }].slice(-LIMIT));
    if (redo.length > 0 || merge) undone.set(graphId, []);
   },
   undo: (graphId, apply) => move(done, undone, graphId, step => step.undo, apply),

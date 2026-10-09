@@ -91,3 +91,19 @@ it('reports whether a step is available', () => {
  expect(history.canUndo('flash-marker')).toBe(false);
  expect(history.canRedo('flash-marker')).toBe(true);
 });
+
+it('does not merge a quick move into a step when another change landed between them', () => {
+ const move = (x: number): BlueprintOp[] => [{ kind: 'moveNode', graphId: 'flash-marker', nodeId: 'wait', position: { x, y: 0 } }];
+ const quick = (remote: boolean) => {
+  const history = createUndoHistory(() => 0);
+  const first = apply(flash(), move(1));
+  history.record('flash-marker', flash(), first, move(1));
+  const landed = remote ? apply(first, [{ kind: 'removeNode', graphId: 'flash-marker', nodeId: 'hide' }]) : first;
+  history.record('flash-marker', landed, apply(landed, move(2)), move(2));
+  let steps = 0;
+  while (history.undo('flash-marker', () => true)) steps++;
+  return steps;
+ };
+ expect(quick(false)).toBe(1);
+ expect(quick(true)).toBe(2);
+});
