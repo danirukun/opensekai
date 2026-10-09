@@ -5,8 +5,9 @@
  import { newVariable } from '../blueprints/fields';
 
  let { graphId, variables, disabled, onops }: { graphId: string; variables: readonly BlueprintVariable[]; disabled: boolean; onops: (ops: BlueprintOp[]) => void } = $props();
+ let picked = $state('');
  const types = [{ value: 'number', label: 'Number' }, { value: 'boolean', label: 'Boolean' }];
- const add = (type: string) => onops([{ kind: 'addVariable', graphId, variable: newVariable(variables, type === 'boolean' ? 'boolean' : 'number', crypto.randomUUID()) }]);
+ const add = (type: string) => { picked = ''; onops([{ kind: 'addVariable', graphId, variable: newVariable(variables, type === 'boolean' ? 'boolean' : 'number', crypto.randomUUID()) }]); };
  const update = (variableId: string, change: { name?: string; type?: 'number' | 'boolean'; default?: number | boolean }) => onops([{ kind: 'updateVariable', graphId, variableId, ...change }]);
  const rename = (variable: BlueprintVariable, input: HTMLInputElement) => {
   const name = input.value.trim();
@@ -29,5 +30,5 @@
    <button type="button" class="blueprint-icon-button" aria-label={`Remove ${variable.name}`} {disabled} onclick={() => onops([{ kind: 'removeVariable', graphId, variableId: variable.id }])}><Trash2 size={14} /></button>
   </div>
  {/each}
- {#if variables.length < 32}<Dropdown items={types} triggerLabel="Add variable" {disabled} onselect={add} />{/if}
+ {#if variables.length < 32}<Dropdown bind:value={picked} items={types} triggerLabel="Add variable" {disabled} onselect={add} />{/if}
 </section>
