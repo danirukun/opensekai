@@ -71,3 +71,44 @@ it('lists asset IDs of live jobs and disposes everything on dispose',async()=>{
  const a=await h.finish('a');expect(a.dispose).toHaveBeenCalledOnce();
  h.jobs.reconcile(need([['one','c']]));expect(h.start).toHaveBeenCalledTimes(2);
 });
+it('does not call onStatus after dispose',async()=>{
+ const h=harness();
+ h.jobs.reconcile(need([['one','a'],['two','b'],['three','c']]));
+ h.jobs.dispose();
+ h.onStatus.mockClear();
+ h.pending.get('a')!.report({stage:'prepare',progress:.1});
+ await h.finish('b');await h.fail('c','late');
+ expect(h.onStatus).not.toHaveBeenCalled();
+});
+it('does not call onStatus when reconcile changes nothing',()=>{
+ const h=harness();
+ h.jobs.reconcile(need([['char','a']]));
+ h.onStatus.mockClear();
+ h.jobs.reconcile(need([['char','a']]));
+ expect(h.onStatus).not.toHaveBeenCalled();
+});
+it('turns a synchronous start throw into a failed job',()=>{
+ const onStatus=vi.fn();
+ const jobs=createLoadJobs<Value>(()=>{throw new Error('boom');},onStatus);
+ expect(()=>jobs.reconcile(need([['char','a']]))).not.toThrow();
+ return Promise.resolve().then(()=>{
+  expect(jobs.status()).toEqual([{entityId:'char',assetId:'a',stage:'failed',progress:null,message:'boom'}]);
+  expect(jobs.failure('char')).toBe('boom');
+ });
+});
+it('does not dispose a taken value when its entity is later removed',async()=>{
+ const h=harness();
+ h.jobs.reconcile(need([['char','a']]));
+ const v=await h.finish('a');
+ expect(h.jobs.take('char')).toBe(v);
+ h.jobs.reconcile(need([]));
+ expect(v.dispose).not.toHaveBeenCalled();
+});
+it('ignores a report after cancellation',()=>{
+ const h=harness();
+ h.jobs.reconcile(need([['char','a']]));
+ h.jobs.reconcile(need([]));
+ h.onStatus.mockClear();
+ h.pending.get('a')!.report({stage:'textures',progress:.5});
+ expect(h.onStatus).not.toHaveBeenCalled();expect(h.jobs.status()).toEqual([]);
+});
