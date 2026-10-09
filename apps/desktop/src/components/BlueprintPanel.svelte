@@ -1,12 +1,13 @@
 <script lang="ts">
  import { onMount } from 'svelte';
  import { Button } from '@oshi-connect/ui';
- import { Play, Trash2 } from '@lucide/svelte';
- import { BLUEPRINT_LABELS, blueprintPorts, defaultBlueprintSettings, keystrokeAccelerator, type AppApi, type AppStatus, type BlueprintGraph, type BlueprintNode, type BlueprintOp, type BlueprintStatus, type DefaultRefs, type SceneView } from '@opensekai/contracts';
+ import { Play, Search, Trash2, Variable } from '@lucide/svelte';
+ import { BLUEPRINT_LABELS, blueprintPorts, nodeDefinition, defaultBlueprintSettings, keystrokeAccelerator, type AppApi, type AppStatus, type BlueprintGraph, type BlueprintNode, type BlueprintOp, type BlueprintStatus, type DefaultRefs, type SceneView } from '@opensekai/contracts';
  import { issueText, type BlueprintSync, type SyncIssue } from '../blueprints/blueprint-sync';
  import { currentPlatform, defaultKeystroke } from '../blueprints/keystroke-format';
  import type { MenuTarget, ReteBlueprintEditor } from '../blueprints/rete-editor';
  import { deleteOps, disconnectOps } from '../blueprints/selection-ops';
+ import { freeSpot } from '../blueprints/placement';
  import { shortcutFor } from '../blueprints/keys';
  import { copyNodes, duplicateAnchor, pasteOps, type BlueprintClipboard } from '../blueprints/clipboard';
  import type { EditorMemory } from '../blueprints/editor-memory';
@@ -16,6 +17,8 @@
  import BlueprintList from './BlueprintList.svelte';
  import BlueprintNodeFields from './BlueprintNodeFields.svelte';
  import BlueprintVariables from './BlueprintVariables.svelte';
+ import BlueprintNodeView from './BlueprintNodeView.svelte';
+ import BlueprintSocketView from './BlueprintSocketView.svelte';
 
  let { api, sync, memory, scene, status, disabled, onrun }: {
   api: AppApi | null; sync: BlueprintSync; memory: EditorMemory; scene: SceneView | null; status: AppStatus | null; disabled: boolean; onrun: () => void;
@@ -29,6 +32,14 @@
  let selectedId = $state<string | null>(null);
  let nodeId = $state<string | null>(null);
  let runError = $state<string | null>(null), busy = $state(false);
+ type Drawer = 'nodes' | 'variables' | null;
+ const DRAWER_KEY = 'opensekai.blueprint.drawer';
+ const storedDrawer = (): Drawer => { try { const value = localStorage.getItem(DRAWER_KEY); return value === 'nodes' || value === 'variables' || value === 'none' ? (value === 'none' ? null : value) : 'nodes'; } catch { return 'nodes'; } };
+ let drawer = $state<Drawer>(storedDrawer());
+ function toggleDrawer(next: Exclude<Drawer, null>) {
+  drawer = drawer === next ? null : next;
+  try { localStorage.setItem(DRAWER_KEY, drawer ?? 'none'); } catch { /* the choice is a convenience only */ }
+ }
  let mountedFor: string | null = null, generation = 0, announced = '';
  const history: EditorMemory['history'] = {
   record: (...args) => memory.history.record(...args), undo: (...args) => memory.history.undo(...args), redo: (...args) => memory.history.redo(...args),
@@ -95,7 +106,7 @@
   if (!target) return;
   try {
    const { mountReteBlueprint } = await import('../blueprints/rete-editor');
-   const mounted = await mountReteBlueprint(canvas, target, { onSelect: picked => { nodeId = picked; }, onOps: ops => { act(ops); }, onContextMenu: openMenu, onWireDrop: openDrop });
+   const mounted = await mountReteBlueprint(canvas, target, { onSelect: picked => { nodeId = picked; }, onOps: ops => { act(ops); }, onContextMenu: openMenu, onWireDrop: openDrop }, { views: { node: BlueprintNodeView, socket: BlueprintSocketView } });
    if (mine !== generation) { mounted.destroy(); return; }
    editor = mounted;
    const latest = sync.view().find(item => item.id === id);
@@ -220,16 +231,25 @@
  <header class="blueprint-toolbar"><h2>Blueprints</h2><span class="blueprint-state" role="status">{problem}</span><div class="spacer"></div>{#if trigger}<Button variant="secondary" disabled={disabled || busy || !graph} onclick={() => run()}><Play size={14}/>Run</Button>{/if}</header>
  <div class="blueprint-workspace">
   <BlueprintList {graphs} {selectedId} {disabled} creatable={targets.length > 0} onselect={choose} onops={edit} oncreate={create} />
-  <aside class="blueprint-palette" aria-label="Node palette"><NodeSearch {refs} disabled={disabled || !graph} onpick={entry => { const step = (graph?.nodes.length ?? 0) % 5 * 24, center = editor?.center() ?? { x: 0, y: 0 }; addAt(entry, { x: center.x + step, y: center.y + step }); }} />{#if graph}<BlueprintVariables graphId={graph.id} variables={graph.variables} {disabled} onops={ops => { act(ops); }} />{/if}</aside>
+  <nav class="blueprint-tools" aria-label="Blueprint tools">
+   <button type="button" class:active={drawer === 'nodes'} aria-pressed={drawer === 'nodes'} title="Nodes" aria-label="Nodes" onclick={() => toggleDrawer('nodes')}><Search size={16} /></button>
+   <button type="button" class:active={drawer === 'variables'} aria-pressed={drawer === 'variables'} title="Variables" aria-label="Variables" onclick={() => toggleDrawer('variables')}><Variable size={16} /></button>
+  </nav>
+  {#if drawer === 'nodes'}
+   <aside class="blueprint-drawer" aria-label="Nodes"><NodeSearch {refs} disabled={disabled || !graph} onpick={entry => addAt(entry, freeSpot(graph?.nodes ?? [], editor?.center() ?? { x: 0, y: 0 }))} /></aside>
+  {:else if drawer === 'variables' && graph}
+   <aside class="blueprint-drawer"><BlueprintVariables graphId={graph.id} variables={graph.variables} {disabled} onops={ops => { act(ops); }} /></aside>
+  {/if}
   <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
   <div class="blueprint-canvas" bind:this={canvas} tabindex="0" role="application" aria-label="Blueprint canvas" onkeydown={shortcut} onpointerdown={() => canvas.focus()}></div>
+  {#if node}
   <aside class="blueprint-inspector" aria-label="Node properties">
-   {#if node}
     <strong>{BLUEPRINT_LABELS[node.type]}</strong>
+    <span class="blueprint-inspector-category" data-category={nodeDefinition(node.type).category.toLowerCase()}>{nodeDefinition(node.type).category}</span>
     <BlueprintNodeFields {node} {scene} variables={graph?.variables ?? []} {platform} unavailable={node.type === 'event.keystroke' && taken.has(keystrokeAccelerator(node.settings))} onsettings={settings} />
     <Button variant="ghost" {disabled} onclick={remove}><Trash2 size={14}/>Delete node</Button>
-   {/if}
   </aside>
+  {/if}
  </div>
  {#if menu}
   <CanvasMenu x={menu.x} y={menu.y} onclose={() => { menu = null; canvas.focus({ preventScroll: true }); }} onpick={pick}

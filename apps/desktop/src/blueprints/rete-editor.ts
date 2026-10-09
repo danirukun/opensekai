@@ -1,3 +1,4 @@
+import type { Component } from 'svelte';
 import { ClassicPreset, NodeEditor, type GetSchemes } from 'rete';
 import { AreaExtensions, AreaPlugin } from 'rete-area-plugin';
 import { ConnectionPlugin, Presets as ConnectionPresets } from 'rete-connection-plugin';
@@ -45,18 +46,20 @@ export interface ReteBlueprintEditor {
  zoomToFit(): Promise<void>;
  destroy(): void;
 }
+// Svelte components for nodes and sockets; the panel passes them so this module stays free of .svelte imports.
+export interface BlueprintViews { node: Component<any>; socket: Component<any> }
 export interface ReteBlueprintHandlers {
  onSelect(id: string | null): void; onOps(ops: BlueprintOp[]): void;
  onContextMenu?(target: MenuTarget, client: { x: number; y: number }): void;
  onWireDrop?(from: { nodeId: string; port: string; side: 'input' | 'output' }, client: { x: number; y: number }): void;
 }
 
-export async function mountReteBlueprint(container: HTMLElement, initial: BlueprintGraph, handlers: ReteBlueprintHandlers, options: { render?: boolean; inspect?: (area: AreaPlugin<Schemes, AreaExtra>) => void } = {}): Promise<ReteBlueprintEditor> {
+export async function mountReteBlueprint(container: HTMLElement, initial: BlueprintGraph, handlers: ReteBlueprintHandlers, options: { render?: boolean; inspect?: (area: AreaPlugin<Schemes, AreaExtra>) => void; views?: BlueprintViews } = {}): Promise<ReteBlueprintEditor> {
  const editor = new NodeEditor<Schemes>();
  const area = new AreaPlugin<Schemes, AreaExtra>(container);
  const render = new SveltePlugin<Schemes, AreaExtra>();
  const connections = new ConnectionPlugin<Schemes, AreaExtra>();
- render.addPreset(Presets.classic.setup());
+ render.addPreset(Presets.classic.setup(options.views ? { customize: { node: () => options.views!.node, socket: () => options.views!.socket } } : undefined));
  connections.addPreset(ConnectionPresets.classic.setup());
  connections.addPipe(context => {
   if (context.type === 'connectiondrop' && !context.data.created && context.data.socket === null) {

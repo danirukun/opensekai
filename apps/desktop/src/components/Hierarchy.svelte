@@ -1,7 +1,7 @@
 <script lang="ts">
  import {tick} from 'svelte';
  import { Button, Input } from '@oshi-connect/ui';
- import { Camera, User, Box, Search, Radio, Eye, EyeOff, ChevronRight, ChevronDown, Video } from '@lucide/svelte';
+ import { Camera, User, Box, Search, Radio, Eye, EyeOff, ChevronRight, ChevronDown, Video, Plus } from '@lucide/svelte';
  import type { Transform, Reply } from '@opensekai/contracts';
  import type {AddKind} from '../editor/live-fields';
  import type { EditorPanelProps } from '../editor/model';
@@ -55,7 +55,7 @@
  }
 
 </script>
-<section class="editor-panel hierarchy" aria-labelledby="hierarchy-heading"><div class="asset-heading"><h2 id="hierarchy-heading">Assets</h2><div class="asset-actions"><Button variant="ghost" disabled={disabled||view.pending||!view.scene||!onadd} onclick={event=>{const revision=view.scene?.revision;if(revision===undefined)return;menu={x:event.currentTarget.getBoundingClientRect().left,y:event.currentTarget.getBoundingClientRect().bottom,actions:([['camera','Camera'],['vmc','VMC Receiver'],['ifacialmocap','iFacialMocap Receiver'],['mediapipe','MediaPipe Tracker']] as [AddKind,string][]).map(([kind,label])=>({label,run:()=>{if(view.scene?.revision===revision&&!view.pending&&!disabled)void onadd?.(kind,revision);}}))};}}>Add</Button><Button variant="ghost" disabled={disabled||view.pending||!view.scene||!onimport} onclick={()=>{void onimport?.();}}>Import</Button></div></div><div class="asset-search"><Search size={14}/><Input label="Search assets" placeholder="Search" bind:value={search}/></div>
+<section class="editor-panel hierarchy" aria-labelledby="hierarchy-heading"><div class="asset-heading"><h2 id="hierarchy-heading">Assets</h2><div class="asset-actions"><Button variant="ghost" disabled={disabled||view.pending||!view.scene||!onadd} onclick={event=>{const revision=view.scene?.revision;if(revision===undefined)return;menu={x:event.currentTarget.getBoundingClientRect().left,y:event.currentTarget.getBoundingClientRect().bottom,actions:([['camera','Camera'],['vmc','VMC Receiver'],['ifacialmocap','iFacialMocap Receiver'],['mediapipe','MediaPipe Tracker']] as [AddKind,string][]).map(([kind,label])=>({label,run:()=>{if(view.scene?.revision===revision&&!view.pending&&!disabled)void onadd?.(kind,revision);}}))};}} title="Add"><Plus size={14}/></Button><Button variant="ghost" disabled={disabled||view.pending||!view.scene||!onimport} onclick={()=>{void onimport?.();}}>Import</Button></div></div><div class="asset-search"><Search size={14}/><Input label="Search assets" placeholder="Search" bind:value={search}/></div>
  <div class="entity-list" role="toolbar" aria-label="Scene assets" tabindex="0" onkeydown={navigate}>
   {#each groups as group (group.key)}
    <div class="asset-group">

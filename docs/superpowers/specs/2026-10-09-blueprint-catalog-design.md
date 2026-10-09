@@ -71,7 +71,7 @@ This slice is the first of three. The later slices are continuous Blueprints (On
    - **Context menu on a node:** **Delete**, **Duplicate**, **Copy**, and **Disconnect all**. A Manual Trigger node also has **Run**. When the node is part of a selection of more than one node, each action applies to the selection.
    - **Context menu on a wire:** **Delete**.
    - **Wire released on empty canvas:** the same search palette opens. It shows only nodes with a compatible port. A choice adds the node at that point and connects the wire to the first compatible port.
-   - The palette dropdown and **Add** button in the left panel become the same search field.
+   - The palette dropdown and **Add** button in the left panel become the same search field. It is in the **Nodes** drawer (decision 13).
    - The search field is the kit `Input`. The menu and the result list are small product components that use the kit theme tokens, because the kit `Dropdown` opens only at its own trigger and the kit `Combobox` matches labels only. Rete events supply the targets (`contextmenu` from the area plugin and `connectiondrop` from the connection plugin).
    - A data input must have a wire, as before. Inline values on data inputs are a later change.
 
@@ -94,9 +94,17 @@ This slice is the first of three. The later slices are continuous Blueprints (On
     - An action with more than 64 operations is sent as more than one batch, in order, but stays one undo step. An action sent as more than one batch is not atomic on the session: a tick between batches can see a partial result (for example a reset and On Enable after each batch that changes logic).
     - Graph create and graph remove are not in the history. The history is cleared when the session resets.
 
-11. **Variables panel.** The Blueprint panel has a Variables section for the selected graph. It can add, rename, retype, set the default of, and remove a variable. Each change is one undo step.
+11. **Variables panel.** The Blueprint panel has a Variables section for the selected graph, in the **Variables** drawer (decision 13). A plus button opens Number and Boolean. Each variable row can rename, retype, set the default of, and remove the variable. Each change is one undo step.
 
 12. **MCP node catalog.** `blueprint_edit` accepts the new node types and variable operations without a new command. The resource `opensekai://blueprint-nodes` lists each node definition: type, label, category, ports, and the JSON Schema of its settings, generated from the definitions. The Rust host does not validate node settings, as before. It checks the structure of variables: IDs, sizes, a known type, and a default of that type.
+
+13. **Editor layout and motion.**
+    - A narrow tool strip next to the Blueprint list has two icon buttons: **Nodes** (search icon) and **Variables** (variable icon). Each opens its drawer. A click on the open drawer's button closes it, so the canvas gets the space. The editor remembers the choice in local browser storage.
+    - Controls that add an item show a plus icon, not the word Add.
+    - The Inspector column shows only while a node is selected. It shows the node label and its category.
+    - A node shows a category color dot in its title, inputs on the left, and outputs on the right. A flow port is a small chevron. A number or boolean port is a small dot in the type color. The click target of a port is 18 px. Flow ports have no label; other ports show their name.
+    - A node added from the Nodes drawer goes to the first free place near the view center, so it does not cover another node.
+    - New nodes, new wires, menus, and drawers fade in over 120 to 140 ms. Removal is immediate. When the system asks for reduced motion, there is no animation.
 
 ## Limits
 
