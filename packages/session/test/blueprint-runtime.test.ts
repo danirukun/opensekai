@@ -69,3 +69,13 @@ it('clears pending delays when a fresh install replaces a show with identical lo
  runtime.install(set(), true);
  expect(runtime.step([], 5000)).toEqual([]);
 });
+
+it('runs On Enable before a due delay in the same step', () => {
+ const runtime = createBlueprintRuntime();
+ runtime.install(set());
+ runtime.step([J], 0);
+ const setup = { schemaVersion: 1, id: 'setup', name: 'Setup', enabled: true, variables: [], connections: [{ id: 'w', sourceNodeId: 'on', sourcePort: 'flow', targetNodeId: 'flip', targetPort: 'flow' }],
+  nodes: [{ id: 'on', version: 1, type: 'event.enable', settings: {}, position: { x: 0, y: 0 } }, { id: 'flip', version: 1, type: 'scene.toggleVisibility', settings: { entityId: 'performer' }, position: { x: 0, y: 0 } }] };
+ expect(runtime.install([...set(), setup]).ok).toBe(true);
+ expect(runtime.step([], 2000).map(run => run.graphId)).toEqual(['setup', 'flash-marker']);
+});

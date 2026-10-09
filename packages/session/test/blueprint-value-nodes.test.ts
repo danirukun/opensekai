@@ -67,3 +67,26 @@ it('rejects a variable node whose variable is missing or of the other type', () 
  expect(one({ variableId: 'b' })).toMatchObject({ ok: false, error: { message: 'Blueprint variable is missing' } });
  expect(one({ variableId: 'n' }).ok).toBe(true);
 });
+
+const withR = (graph: ReturnType<typeof doc>) => ({ ...graph, variables: [...variables, { id: 'r', name: 'R', type: 'number', default: 0 }] });
+it('keeps the committed variables and random state when a run fails, and draws a new value on each successful run', () => {
+ const failing = compileBlueprint(withR(doc(
+  [node('start', 'event.manual'), node('seven', 'value.number', { value: 7 }), node('set', 'variable.setNumber', { variableId: 'n' }), node('rand', 'math.random'), node('lo', 'value.number', { value: 0 }), node('hi', 'value.number', { value: 100 }),
+   node('keep', 'variable.setNumber', { variableId: 'r' }), node('one', 'value.number', { value: 1 }), node('zero', 'value.number', { value: 0 }), node('div', 'math.divide'), node('bad', 'variable.setNumber', { variableId: 'n' })],
+  [wire('1', 'start', 'flow', 'set', 'flow'), wire('2', 'seven', 'value', 'set', 'value'), wire('3', 'set', 'exit', 'keep', 'flow'), wire('4', 'rand', 'result', 'keep', 'value'), wire('5', 'lo', 'value', 'rand', 'min'), wire('6', 'hi', 'value', 'rand', 'max'),
+   wire('7', 'keep', 'exit', 'bad', 'flow'), wire('8', 'div', 'result', 'bad', 'value'), wire('9', 'one', 'value', 'div', 'a'), wire('10', 'zero', 'value', 'div', 'b')])));
+ if (!failing.ok) throw new Error(failing.error.message);
+ const state = initialState(failing.data.graph), before = { variables: new Map(state.variables), random: state.random };
+ const run = runFlow(failing.data, { nodeId: 'start', port: 'flow' }, state, budget(), 0);
+ expect(run.ok).toBe(false);
+ expect(state.variables).toEqual(before.variables);
+ expect(state.random).toBe(before.random);
+
+ const draw = compileBlueprint(doc([node('start', 'event.manual'), node('rand', 'math.random'), node('lo', 'value.number', { value: 0 }), node('hi', 'value.number', { value: 100 }), node('keep', 'variable.setNumber', { variableId: 'n' })],
+  [wire('1', 'start', 'flow', 'keep', 'flow'), wire('2', 'rand', 'result', 'keep', 'value'), wire('3', 'lo', 'value', 'rand', 'min'), wire('4', 'hi', 'value', 'rand', 'max')]));
+ if (!draw.ok) throw new Error(draw.error.message);
+ const one = runFlow(draw.data, { nodeId: 'start', port: 'flow' }, initialState(draw.data.graph), budget(), 0);
+ if (!one.ok) throw new Error(one.error.message);
+ const two = runFlow(draw.data, { nodeId: 'start', port: 'flow' }, one.data.state, budget(), 0);
+ expect(two.ok && two.data.state.variables.get('n')).not.toBe(one.data.state.variables.get('n'));
+});
