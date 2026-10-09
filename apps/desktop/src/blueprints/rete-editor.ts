@@ -34,14 +34,22 @@ class GraphNode extends ClassicPreset.Node {
 type Schemes = GetSchemes<ClassicPreset.Node, ClassicPreset.Connection<ClassicPreset.Node, ClassicPreset.Node>>;
 type AreaExtra = SvelteArea2D<Schemes>;
 
+export type MenuTarget = { kind: 'canvas' } | { kind: 'node'; nodeId: string } | { kind: 'wire'; connectionId: string };
 export interface ReteBlueprintEditor {
+ selected(): string[];
+ selectMany(ids: string[]): void;
+ pointer(): { x: number; y: number };
  center(): { x: number; y: number };
  show(graph: BlueprintGraph): Promise<void>;
  select(nodeId: string | null): void;
  zoomToFit(): Promise<void>;
  destroy(): void;
 }
-export interface ReteBlueprintHandlers { onSelect(id: string | null): void; onOps(ops: BlueprintOp[]): void }
+export interface ReteBlueprintHandlers {
+ onSelect(id: string | null): void; onOps(ops: BlueprintOp[]): void;
+ onContextMenu?(target: MenuTarget, client: { x: number; y: number }): void;
+ onWireDrop?(from: { nodeId: string; port: string; side: 'input' | 'output' }, client: { x: number; y: number }): void;
+}
 
 export async function mountReteBlueprint(container: HTMLElement, initial: BlueprintGraph, handlers: ReteBlueprintHandlers, options: { render?: boolean; inspect?: (area: AreaPlugin<Schemes, AreaExtra>) => void } = {}): Promise<ReteBlueprintEditor> {
  const editor = new NodeEditor<Schemes>();
@@ -50,12 +58,22 @@ export async function mountReteBlueprint(container: HTMLElement, initial: Bluepr
  const connections = new ConnectionPlugin<Schemes, AreaExtra>();
  render.addPreset(Presets.classic.setup());
  connections.addPreset(ConnectionPresets.classic.setup());
+ connections.addPipe(context => {
+  if (context.type === 'connectiondrop' && !context.data.created && context.data.socket === null) {
+   const { nodeId, key, side } = context.data.initial;
+   const { x, y } = area.area.pointer, { k, x: tx, y: ty } = area.area.transform, box = container.getBoundingClientRect();
+   handlers.onWireDrop?.({ nodeId, port: key, side }, { x: box.left + x * k + tx, y: box.top + y * k + ty });
+  }
+  return context;
+ });
  editor.use(area);
  if (options.render !== false) { area.use(render); area.use(connections); }
- const selectable = AreaExtensions.selectableNodes(area, AreaExtensions.selector(), { accumulating: AreaExtensions.accumulateOnCtrl() });
+ const selector = AreaExtensions.selector();
+ const selectable = AreaExtensions.selectableNodes(area, selector, { accumulating: AreaExtensions.accumulateOnCtrl() });
  options.inspect?.(area);
  let shown: BlueprintGraph = { ...initial, nodes: [], connections: [] };
  let queue: Promise<void> = Promise.resolve(), destroyed = false, applying = false, silent = false, dirty = false;
+ let targeted: MouseEvent | null = null;
  // Events that apply() itself causes are named here only while its own awaited call runs, so a user gesture during a patch still counts.
  const ownNodes = new Set<string>(), ownWires = new Set<string>();
  let log: ((graph: BlueprintGraph) => BlueprintGraph)[] = [];
@@ -68,6 +86,15 @@ export async function mountReteBlueprint(container: HTMLElement, initial: Bluepr
    const { id, position } = context.data;
    track(graph => ({ ...graph, nodes: graph.nodes.map(node => node.id === id ? { ...node, position: { ...position } } : node) }));
    handlers.onOps([{ kind: 'moveNode', graphId, nodeId: id, position: { ...position } }]);
+  }
+  if (context.type === 'contextmenu') {
+   const { event, context: hit } = context.data as { event: MouseEvent; context: 'root' | { id: string; source?: string; target?: string } };
+   event.preventDefault();
+   // A right-click on a node or wire bubbles to the canvas with the same event; report only the first.
+   if (hit === 'root' && event === targeted) return context;
+   if (hit !== 'root') targeted = event;
+   const target: MenuTarget = hit === 'root' ? { kind: 'canvas' } : 'source' in hit && 'target' in hit ? { kind: 'wire', connectionId: hit.id } : { kind: 'node', nodeId: hit.id };
+   handlers.onContextMenu?.(target, { x: event.clientX, y: event.clientY });
   }
   return context;
  });
@@ -168,6 +195,9 @@ export async function mountReteBlueprint(container: HTMLElement, initial: Bluepr
    return { x: Math.round((container.clientWidth / 2 - x) / k - 90), y: Math.round((container.clientHeight / 2 - y) / k - 40) };
   },
   show,
+  selected: () => [...selector.entities.values()].filter(entity => entity.label === 'node').map(entity => entity.id),
+  selectMany(ids) { ids.forEach((id, i) => { if (editor.getNode(id)) selectable.select(id, i > 0); }); },
+  pointer: () => ({ x: Math.round(area.area.pointer.x), y: Math.round(area.area.pointer.y) }),
   select(nodeId) {
    if (nodeId === null) { for (const node of editor.getNodes()) selectable.unselect(node.id); return; }
    if (editor.getNode(nodeId)) selectable.select(nodeId, false);

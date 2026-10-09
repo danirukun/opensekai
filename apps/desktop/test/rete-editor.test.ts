@@ -32,3 +32,15 @@ it('emits no operations while it patches the canvas, and one moveNode for a user
  await area.translate('wait', { x: 11, y: 12 });
  expect(ops).toEqual([[{ kind: 'moveNode', graphId: graph!.id, nodeId: 'wait', position: { x: 11, y: 12 } }]]);
 });
+
+it('reports one context menu for a node right-click that bubbles to the canvas', async () => {
+ const menus: unknown[] = [];
+ let area!: { emit(context: unknown): Promise<unknown> };
+ await mountReteBlueprint(element() as unknown as HTMLElement, graph!, { onSelect() {}, onOps() {}, onContextMenu: target => { menus.push(target); } }, { render: false, inspect: value => { area = value as never; } });
+ const event = { preventDefault() {}, clientX: 5, clientY: 6 };
+ await area.emit({ type: 'contextmenu', data: { event, context: { id: 'wait', label: 'Delay' } } });
+ await area.emit({ type: 'contextmenu', data: { event, context: 'root' } });
+ await area.emit({ type: 'contextmenu', data: { event: { ...event }, context: 'root' } });
+ await area.emit({ type: 'contextmenu', data: { event: { ...event }, context: { id: 'w1', source: 'key', target: 'show' } } });
+ expect(menus).toEqual([{ kind: 'node', nodeId: 'wait' }, { kind: 'canvas' }, { kind: 'wire', connectionId: 'w1' }]);
+});

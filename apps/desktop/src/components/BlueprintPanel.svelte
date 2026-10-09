@@ -1,11 +1,15 @@
 <script lang="ts">
  import { onMount } from 'svelte';
- import { Button, Select } from '@oshi-connect/ui';
- import { Play, Plus, Trash2 } from '@lucide/svelte';
- import { BLUEPRINT_LABELS, defaultBlueprintSettings, keystrokeAccelerator, type AppApi, type AppStatus, type BlueprintGraph, type BlueprintNode, type BlueprintStatus, type DefaultRefs, type SceneView } from '@opensekai/contracts';
+ import { Button } from '@oshi-connect/ui';
+ import { Play, Trash2 } from '@lucide/svelte';
+ import { BLUEPRINT_LABELS, blueprintPorts, defaultBlueprintSettings, keystrokeAccelerator, type AppApi, type AppStatus, type BlueprintGraph, type BlueprintNode, type BlueprintOp, type BlueprintStatus, type DefaultRefs, type SceneView } from '@opensekai/contracts';
  import { issueText, type BlueprintSync, type SyncIssue } from '../blueprints/blueprint-sync';
  import { currentPlatform, defaultKeystroke } from '../blueprints/keystroke-format';
- import type { BlueprintKind, ReteBlueprintEditor } from '../blueprints/rete-editor';
+ import type { MenuTarget, ReteBlueprintEditor } from '../blueprints/rete-editor';
+ import { deleteOps, disconnectOps } from '../blueprints/selection-ops';
+ import type { SearchEntry, WireNeed } from '../blueprints/node-search';
+ import CanvasMenu from './CanvasMenu.svelte';
+ import NodeSearch from './NodeSearch.svelte';
  import BlueprintList from './BlueprintList.svelte';
  import BlueprintNodeFields from './BlueprintNodeFields.svelte';
  import BlueprintVariables from './BlueprintVariables.svelte';
@@ -21,10 +25,8 @@
  let issue = $state.raw<SyncIssue>(null);
  let selectedId = $state<string | null>(null);
  let nodeId = $state<string | null>(null);
- let addKind = $state<string>('flow.branch');
  let runError = $state<string | null>(null), busy = $state(false);
  let mountedFor: string | null = null, generation = 0, announced = '';
- const kinds = Object.entries(BLUEPRINT_LABELS) as [BlueprintKind, string][];
  const graph = $derived(graphs.find(item => item.id === selectedId) ?? null);
  const node = $derived(graph?.nodes.find(item => item.id === nodeId) ?? null);
  const trigger = $derived(graph?.nodes.find(item => item.type === 'event.manual') ?? null);
@@ -34,7 +36,6 @@
  const problem = $derived(runError ?? failure?.error.message ?? issueText(issue));
  const outputId = $derived(scene?.outputs[0]?.id);
  const refs = $derived<DefaultRefs>({ entityId: targets[0]?.id, cameraId: cameras[0]?.id, outputId, keystroke: defaultKeystroke(platform), variables: graph?.variables ?? [] });
- const defaults = $derived(defaultBlueprintSettings(addKind as BlueprintKind, refs));
  const taken = $derived(new Set((status?.warnings ?? []).flatMap(warning => warning.ids)));
 
  const edit = (ops: Parameters<BlueprintSync['edit']>[0]) => {
@@ -42,6 +43,7 @@
   if (!result.ok && graph) { const current = sync.view().find(item => item.id === graph.id); if (current) void editor?.show(current); }
   return result;
  };
+const act = (ops: BlueprintOp[]) => ops.length === 0 ? ({ ok: true, data: sync.view() } as const) : edit(ops);
  async function mount(id: string | null) {
   const mine = ++generation;
   editor?.destroy(); editor = null; mountedFor = id; nodeId = null;
@@ -49,7 +51,7 @@
   if (!target) return;
   try {
    const { mountReteBlueprint } = await import('../blueprints/rete-editor');
-   const mounted = await mountReteBlueprint(canvas, target, { onSelect: picked => { nodeId = picked; }, onOps: ops => { edit(ops); } });
+   const mounted = await mountReteBlueprint(canvas, target, { onSelect: picked => { nodeId = picked; }, onOps: ops => { act(ops); }, onContextMenu: openMenu, onWireDrop: openDrop });
    if (mine !== generation) { mounted.destroy(); return; }
    editor = mounted;
    const latest = sync.view().find(item => item.id === id);
@@ -89,23 +91,64 @@
   } }]);
   if (result.ok) choose(id);
  }
- function add() {
-  if (!graph || !editor || !defaults) return;
-  const { x, y } = editor.center(), offset = (graph.nodes.length % 5) * 24;
+ type Wire = { nodeId: string; port: string; side: 'input' | 'output' };
+ type Menu = { x: number; y: number; at: { x: number; y: number } } & ({ kind: 'canvas' } | { kind: 'node'; nodeIds: string[] } | { kind: 'wire'; connectionId: string } | { kind: 'drop'; from: Wire; need: WireNeed });
+ let menu = $state.raw<Menu | null>(null);
+ function addAt(entry: SearchEntry, at: { x: number; y: number }, from?: Wire) {
+  const settings = defaultBlueprintSettings(entry.type, refs);
+  if (!graph || !settings) return;
   const id = crypto.randomUUID();
-  const result = edit([{ kind: 'addNode', graphId: graph.id, node: { id, version: 1, type: addKind as BlueprintKind, settings: defaults, position: { x: x + offset, y: y + offset } } as BlueprintNode }]);
-  if (!result.ok) return;
+  const ops: BlueprintOp[] = [{ kind: 'addNode', graphId: graph.id, node: { id, version: 1, type: entry.type, settings, position: at } as BlueprintNode }];
+  if (from && entry.port) ops.push({ kind: 'connect', graphId: graph.id, connection: from.side === 'output'
+   ? { id: crypto.randomUUID(), sourceNodeId: from.nodeId, sourcePort: from.port, targetNodeId: id, targetPort: entry.port }
+   : { id: crypto.randomUUID(), sourceNodeId: id, sourcePort: entry.port, targetNodeId: from.nodeId, targetPort: from.port } });
+  menu = null;
+  if (!act(ops).ok) return;
   nodeId = id;
   const latest = sync.view().find(item => item.id === graph!.id);
-  if (latest) void editor.show(latest).then(() => editor?.select(id));
+  if (latest) void editor?.show(latest).then(() => editor?.select(id));
  }
- function remove() { if (graph && nodeId) edit([{ kind: 'removeNode', graphId: graph.id, nodeId }]); }
- function settings(next: BlueprintNode['settings']) { if (graph && nodeId) edit([{ kind: 'setNodeSettings', graphId: graph.id, nodeId, settings: next }]); }
- async function run() {
-  if (!api || !graph || !trigger || busy || disabled) return;
+ function openMenu(target: MenuTarget, client: { x: number; y: number }) {
+  if (!editor || !graph || disabled) return;
+  const at = editor.pointer(), place = { x: client.x, y: client.y, at };
+  if (target.kind === 'canvas') menu = { ...place, kind: 'canvas' };
+  else if (target.kind === 'wire') menu = { ...place, kind: 'wire', connectionId: target.connectionId };
+  else {
+   const selection = editor.selected();
+   const nodeIds = selection.length > 1 && selection.includes(target.nodeId) ? selection : [target.nodeId];
+   if (nodeIds.length === 1) { editor.select(target.nodeId); nodeId = target.nodeId; }
+   menu = { ...place, kind: 'node', nodeIds };
+  }
+ }
+ function openDrop(from: Wire, client: { x: number; y: number }) {
+  const source = graph?.nodes.find(item => item.id === from.nodeId);
+  if (!editor || !source || disabled) return;
+  const type = blueprintPorts(source)[from.side === 'output' ? 'outputs' : 'inputs'][from.port];
+  if (!type) return;
+  menu = { x: client.x, y: client.y, at: editor.pointer(), kind: 'drop', from, need: { side: from.side === 'output' ? 'inputs' : 'outputs', type } };
+ }
+ const nodeItems = (ids: string[]) => [
+  { value: 'delete', label: 'Delete' },
+  { value: 'disconnect', label: 'Disconnect all' },
+  ...(ids.length === 1 && graph?.nodes.find(item => item.id === ids[0])?.type === 'event.manual' ? [{ value: 'run', label: 'Run' }] : []),
+ ];
+ function pick(action: string) {
+  const current = menu;
+  menu = null;
+  if (!graph || !current) return;
+  if (current.kind === 'node' && action === 'delete') act(deleteOps(graph, current.nodeIds));
+  if (current.kind === 'node' && action === 'disconnect') act(disconnectOps(graph, current.nodeIds));
+  if (current.kind === 'node' && action === 'run') void run(current.nodeIds[0]!);
+  if (current.kind === 'wire' && action === 'delete') act([{ kind: 'disconnect', graphId: graph.id, connectionId: current.connectionId }]);
+  if (current.kind === 'canvas' && action === 'selectAll') editor?.selectMany(graph.nodes.map(item => item.id));
+ }
+ function remove() { if (graph && nodeId) act(deleteOps(graph, [nodeId])); }
+ function settings(next: BlueprintNode['settings']) { if (graph && nodeId) act([{ kind: 'setNodeSettings', graphId: graph.id, nodeId, settings: next }]); }
+ async function run(triggerId = trigger?.id) {
+  if (!api || !graph || !triggerId || busy || disabled) return;
   busy = true; runError = null;
   try {
-   const result = await api.blueprintRun({ graphId: graph.id, triggerNodeId: trigger.id });
+   const result = await api.blueprintRun({ graphId: graph.id, triggerNodeId: triggerId });
    if (result.ok) onrun(); else runError = result.error.message;
   } catch { runError = 'Session unavailable'; }
   finally { busy = false; }
@@ -120,10 +163,10 @@
 </script>
 
 <section class="blueprint-panel" aria-label="Blueprint editor">
- <header class="blueprint-toolbar"><h2>Blueprints</h2><span class="blueprint-state" role="status">{problem}</span><div class="spacer"></div>{#if trigger}<Button variant="secondary" disabled={disabled || busy || !graph} onclick={run}><Play size={14}/>Run</Button>{/if}</header>
+ <header class="blueprint-toolbar"><h2>Blueprints</h2><span class="blueprint-state" role="status">{problem}</span><div class="spacer"></div>{#if trigger}<Button variant="secondary" disabled={disabled || busy || !graph} onclick={() => run()}><Play size={14}/>Run</Button>{/if}</header>
  <div class="blueprint-workspace">
   <BlueprintList {graphs} {selectedId} {disabled} creatable={targets.length > 0} onselect={choose} onops={edit} oncreate={create} />
-  <aside class="blueprint-palette" aria-label="Node palette"><Select label="Node kind" bind:value={addKind} options={kinds.map(([value, label]) => ({ value, label }))} /><Button variant="secondary" disabled={disabled || !graph || !defaults} onclick={add}><Plus size={14}/>Add node</Button>{#if graph}<BlueprintVariables graphId={graph.id} variables={graph.variables} {disabled} onops={ops => { edit(ops); }} />{/if}</aside>
+  <aside class="blueprint-palette" aria-label="Node palette"><NodeSearch {refs} disabled={disabled || !graph} onpick={entry => addAt(entry, editor?.center() ?? { x: 0, y: 0 })} />{#if graph}<BlueprintVariables graphId={graph.id} variables={graph.variables} {disabled} onops={ops => { act(ops); }} />{/if}</aside>
   <div class="blueprint-canvas" bind:this={canvas} aria-label="Blueprint canvas"></div>
   <aside class="blueprint-inspector" aria-label="Node properties">
    {#if node}
@@ -133,4 +176,14 @@
    {/if}
   </aside>
  </div>
+ {#if menu}
+  <CanvasMenu x={menu.x} y={menu.y} onclose={() => { menu = null; }} onpick={pick}
+   items={menu.kind === 'node' ? nodeItems(menu.nodeIds) : menu.kind === 'wire' ? [{ value: 'delete', label: 'Delete' }] : menu.kind === 'canvas' ? [{ value: 'selectAll', label: 'Select all' }] : []}>
+   {#if menu.kind === 'canvas' || menu.kind === 'drop'}
+    {@const at = menu.at}
+    {@const from = menu.kind === 'drop' ? menu.from : undefined}
+    <NodeSearch {refs} need={menu.kind === 'drop' ? menu.need : undefined} focus onpick={entry => addAt(entry, at, from)} />
+   {/if}
+  </CanvasMenu>
+ {/if}
 </section>
