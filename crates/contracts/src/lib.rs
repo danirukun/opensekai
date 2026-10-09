@@ -83,7 +83,7 @@ pub enum SceneEntity {
         visible: bool,
         transform: Transform,
         #[serde(rename = "assetId")]
-        asset_id: Id,
+        asset_id: Option<Id>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         tracking: Option<AvatarTracking>,
         #[serde(
@@ -168,6 +168,12 @@ pub enum PatchOp {
         entity_id: Id,
         tracking: AvatarTracking,
     },
+    SetAvatarModel {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+        #[serde(rename = "assetId")]
+        asset_id: Option<Id>,
+    },
     SetTrackingSmoothing {
         #[serde(rename = "entityId")]
         entity_id: Id,
@@ -190,7 +196,7 @@ pub enum PatchOp {
     },
 }
 object!(ScenePatch {scene_id:Id,expected_revision:u64,operations:Vec<PatchOp>});
-object!(AssetRecord {id:Id,format:AssetFormat,sha256:String,bytes:u64,source_url:Option<String>,license_label:String,importer_version:u32});
+object!(AssetRecord {id:Id,format:AssetFormat,sha256:String,bytes:u64,source_url:Option<String>,license_label:String,importer_version:u32,name:String});
 object!(ConnectionDescriptor {schema_version:u32,session_id:Id,http_origin:String,ws_url:String,role:Role,token:String,capabilities:Vec<Capability>,output_id:Option<Id>});
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -1039,6 +1045,10 @@ impl Validate for AssetRecord {
     fn validate(&self) -> Result<(), AppError> {
         scalar_checks(&serde_json::to_value(self).map_err(|e| invalid(e.to_string()))?)?;
         require(self.importer_version == 1, "unsupported importer version")?;
+        require(
+            !self.name.trim().is_empty() && self.name.encode_utf16().count() <= 128,
+            "invalid asset name",
+        )?;
         require(
             self.source_url
                 .as_ref()
