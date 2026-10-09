@@ -166,7 +166,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             value.avatar?.apply(frame.avatarPoses?.find(pose => pose.avatarId === entity.id));
             if (!editor?.frozen(entity.id)) applyTransform(value.root, entity);
         }
-        jobs.reconcile(needed);
+        jobs.reconcile(needed, frame.scene.revision);
         for (const [entityId, request] of needed) {
             const ready = jobs.take(entityId);
             if (!ready) continue;

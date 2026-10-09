@@ -3,16 +3,17 @@ export interface LoadReport { stage: Exclude<LoadStage, 'failed'>; progress: num
 export interface AssetLoadStatus { entityId: string; assetId: string; stage: LoadStage; progress: number | null; count?: { done: number; total: number }; message?: string }
 export interface LoadRequest { kind: 'avatar' | 'mesh'; assetId: string }
 
-type Job<T> = { request: LoadRequest; state: 'loading' | 'ready' | 'failed'; status: AssetLoadStatus; value?: T; cancelled: boolean; dismissed: boolean };
+type Job<T> = { request: LoadRequest; state: 'loading' | 'ready' | 'failed'; status: AssetLoadStatus; value?: T; cancelled: boolean; dismissed: boolean; failed?: { revision: number; time: number } };
 const sameRequest = (a: LoadRequest, b: LoadRequest) => a.kind === b.kind && a.assetId === b.assetId;
 const messageOf = (error: unknown) => error instanceof Error ? error.message : String(error);
 
 export function createLoadJobs<T extends { dispose(): void }>(
   start: (request: LoadRequest, report: (report: LoadReport) => void, cancelled: () => boolean) => Promise<T>,
   onStatus: (entries: AssetLoadStatus[]) => void,
+  { now = () => performance.now(), retryAfterMs = 3000 }: { now?: () => number; retryAfterMs?: number } = {},
 ) {
   const jobs = new Map<string, Job<T>>();
-  let closed = false;
+  let closed = false, revision = -Infinity;
   const status = () => [...jobs.values()].filter(job => job.state === 'loading' || (job.state === 'failed' && !job.dismissed)).map(job => ({ ...job.status }));
   const emit = () => { if (!closed) onStatus(status()); };
   const cancel = (entityId: string) => {
@@ -41,17 +42,20 @@ export function createLoadJobs<T extends { dispose(): void }>(
     }, error => {
       if (job.cancelled) return;
       job.state = 'failed';
+      job.failed = { revision, time: now() };
       job.status = { entityId, assetId: request.assetId, stage: 'failed', progress: null, message: messageOf(error) };
       emit();
     });
   };
   return {
-    reconcile(needed: ReadonlyMap<string, LoadRequest>) {
+    reconcile(needed: ReadonlyMap<string, LoadRequest>, frameRevision: number) {
       if (closed) return;
+      revision = frameRevision;
       let changed = false;
-      for (const entityId of [...jobs.keys()]) {
+      for (const [entityId, job] of [...jobs]) {
         const request = needed.get(entityId);
-        if (!request || !sameRequest(request, jobs.get(entityId)!.request)) { cancel(entityId); changed = true; }
+        const retry = job.failed !== undefined && frameRevision > job.failed.revision && now() - job.failed.time >= retryAfterMs;
+        if (!request || !sameRequest(request, job.request) || retry) { cancel(entityId); changed = true; }
       }
       for (const [entityId, request] of needed) if (!jobs.has(entityId)) { begin(entityId, request); changed = true; }
       if (changed) emit();

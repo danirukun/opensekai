@@ -8,8 +8,9 @@ vi.mock('../src/avatar-pose',()=>({createAvatarBinding:(vrm:{root:Group})=>({roo
 import {createRenderer} from '../src/renderer';
 const settle=()=>new Promise(r=>setTimeout(r,0));
 let sequence=0;
-function frame(assetId:string|null,withAvatar=true):RuntimeFrame{
+function frame(assetId:string|null,withAvatar=true,revision=0):RuntimeFrame{
  const f=makeSmokeFrame({sequence:++sequence,tick:sequence});
+ f.scene.revision=revision;
  f.scene.entities=f.scene.entities.filter(e=>e.kind==='camera'||(withAvatar&&e.kind==='avatar'));
  for(const e of f.scene.entities)if(e.kind==='avatar')e.assetId=assetId;
  return f;
@@ -60,7 +61,7 @@ it('disposes a model whose character was removed during load',async()=>{
  expect(rendered().getObjectById(a.root.id)).toBeUndefined();
  r.dispose();
 });
-it('reports a failed load once, warns each frame, and does not retry',async()=>{
+it('reports a failed load once, warns each frame, and does not retry at the same revision',async()=>{
  ports.load.mockRejectedValue(new Error('Asset unavailable'));
  const r=await make();let last:unknown;r.onLoadStatus(s=>{last=s;});
  await r.applyFrame(frame('avatar_x'));await settle();
@@ -71,6 +72,21 @@ it('reports a failed load once, warns each frame, and does not retry',async()=>{
  expect(ports.load).toHaveBeenCalledTimes(1);
  r.dismissLoad('performer');expect(last).toEqual([]);
  r.dispose();
+});
+it('retries a failed load at a later revision after the retry delay and installs it',async()=>{
+ let time=0;const clock=vi.spyOn(performance,'now').mockImplementation(()=>time);
+ const a=asset();
+ ports.load.mockRejectedValueOnce(new Error('Asset unavailable')).mockResolvedValueOnce(a.value);
+ const r=await make();
+ await r.applyFrame(frame('avatar_x',true,1));await settle();
+ time=1000;await r.applyFrame(frame('avatar_x',true,2));
+ expect(ports.load).toHaveBeenCalledTimes(1);
+ time=3500;await r.applyFrame(frame('avatar_x',true,3));await settle();
+ expect(ports.load).toHaveBeenCalledTimes(2);
+ const applied=await r.applyFrame(frame('avatar_x',true,3));
+ expect(rendered().getObjectById(a.root.id)).toBe(a.root);
+ expect(applied.warnings).not.toEqual(expect.arrayContaining([expect.objectContaining({code:'UNAVAILABLE'})]));
+ r.dispose();clock.mockRestore();
 });
 it('loads nothing for a character with no model',async()=>{
  const r=await make();
