@@ -12,7 +12,7 @@ R5. Variable values live only in the session runtime. The graph state (variables
 R6. After a reset of an enabled graph, the next tick fires each On Enable node, before due delays and input events.
 R7. A run writes state to a copy. The session keeps it only when the run succeeds.
 R8. The limits are 512 flow visits per event, 1024 per tick, 64 effects per tick, 32 delays per graph, and 64 iterations per loop entry. A run that hits a limit fails with a runtime error.
-R9. Random Number uses mulberry32, seeded on reset from the 32-bit FNV-1a hash of the graph ID.
+R9. Random Number uses mulberry32, seeded on reset from the 32-bit FNV-1a hash of the graph ID. The hash runs over the UTF-16 code units of the graph ID.
 R10. The editor has context menus on the canvas (search palette, Paste, Select all), on a node (Delete, Duplicate, Copy, Disconnect all, and Run for a Manual Trigger), and on a wire (Delete). A node action applies to the selection when the node is part of it.
 R11. A wire released on empty canvas opens the search palette filtered to compatible nodes. A choice adds the node there and connects the wire.
 R12. The keys Delete, Backspace, ⌘C, ⌘V, ⌘D, ⌘A, ⌘Z, ⇧⌘Z, and Esc work while the canvas has focus and never while a text field has focus. Control replaces ⌘ on Windows.

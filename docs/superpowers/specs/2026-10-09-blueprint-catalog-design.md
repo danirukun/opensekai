@@ -55,7 +55,7 @@ This slice is the first of three. The later slices are continuous Blueprints (On
 5. **Graph state and On Enable.**
    - The state of a graph is: variable values, Flip Flop, Gate, Multi Gate, and Throttle state, For Loop indexes, the random generator, and pending delays.
    - The state resets when the session installs the graph (show open or `replaceAll`), when the logic of the graph changes, and when the graph changes from disabled to enabled. Logic includes the variables without their names. A change of node position, graph name, or variable name does not reset state.
-   - A reset sets each variable to its default. It seeds the random generator from the graph ID (mulberry32 seeded by the 32-bit FNV-1a hash of the ID), so a run can be repeated.
+   - A reset sets each variable to its default. It seeds the random generator from the graph ID (mulberry32 seeded by the 32-bit FNV-1a hash of the ID; the hash runs over the UTF-16 code units of the graph ID), so a run can be repeated.
    - After a reset of an enabled graph, the next tick fires each On Enable node of the graph. On Enable runs before due delays and input events, in node order.
    - An edit that changes logic therefore acts as a hot reload: the variables go back to their defaults, and the setup flow runs again.
    - A run writes state to a copy. The session keeps the copy only when the run succeeds, as it does for Flip Flop today. A later run in the same tick sees the kept state.
@@ -91,7 +91,7 @@ This slice is the first of three. The later slices are continuous Blueprints (On
     - A step stores the inverse operations, computed at action time as the difference from the graph after the action to the graph before it. The difference includes variables and the wires that a cascade removed. Redo stores the forward operations in the same way.
     - Undo and redo send normal `blueprintEdit` batches. The protocol does not change, and other clients see a normal edit.
     - When the session rejects an undo batch because an ID no longer exists, the editor drops that step and shows "Changed elsewhere". Other edits from other clients stay; last writer wins for each property, as today.
-    - An action with more than 64 operations is sent as more than one batch, in order, but stays one undo step.
+    - An action with more than 64 operations is sent as more than one batch, in order, but stays one undo step. An action sent as more than one batch is not atomic on the session: a tick between batches can see a partial result (for example a reset and On Enable after each batch that changes logic).
     - Graph create and graph remove are not in the history. The history is cleared when the session resets.
 
 11. **Variables panel.** The Blueprint panel has a Variables section for the selected graph. It can add, rename, retype, set the default of, and remove a variable. Each change is one undo step.
