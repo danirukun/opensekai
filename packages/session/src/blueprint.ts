@@ -11,7 +11,9 @@ export interface FlowBudget { visits: number; effects: number }
 export interface FlowResult { effects: BlueprintEffect[]; delays: PendingDelay[]; state: RunState }
 
 const MAX_EVENT_VISITS = 512;
-type Frame = { nodeId: Id; port: string };
+const MAX_LOOP_ITERATIONS = 64;
+class LoopLimit extends Error {}
+type Frame = { kind: 'enter'; nodeId: Id; port: string } | { kind: 'loop'; nodeId: Id; index: number; last: number };
 const evaluator = (node: BlueprintNode) => EVALUATORS[node.type] as Evaluator<BlueprintNode>;
 export const fail = (message: string, ids: string[] = []): Reply<never> => ({ ok: false, error: { code: 'INVALID_INPUT', message, ids } });
 const key = (nodeId: string, port: string) => `${nodeId}\0${port}`;
@@ -83,13 +85,21 @@ export function runFlow(compiled: CompiledBlueprint, start: { nodeId: Id; port: 
  const next = cloneState(state);
  const effects: BlueprintEffect[] = [], delays: PendingDelay[] = [], stack: Frame[] = [];
  const follow = (nodeId: Id, ports: string[]) => {
-  for (const port of [...ports].reverse()) { const wire = compiled.flowNext.get(key(nodeId, port)); if (wire) stack.push({ nodeId: wire.targetNodeId, port: wire.targetPort }); }
+  for (const port of [...ports].reverse()) { const wire = compiled.flowNext.get(key(nodeId, port)); if (wire) stack.push({ kind: 'enter', nodeId: wire.targetNodeId, port: wire.targetPort }); }
  };
  follow(start.nodeId, [start.port]);
  let visits = 0;
  while (stack.length > 0) {
   if (++visits > MAX_EVENT_VISITS || --budget.visits < 0) return fail('Blueprint run exceeded its flow limit', [start.nodeId]);
   const frame = stack.pop()!;
+  if (frame.kind === 'loop') {
+   if (frame.index > frame.last) { follow(frame.nodeId, ['completed']); continue; }
+   next.loops.set(frame.nodeId, frame.index);
+   // The next iteration waits under the body, so all flow after `body` runs first.
+   stack.push({ ...frame, index: frame.index + 1 });
+   follow(frame.nodeId, ['body']);
+   continue;
+  }
   const node = compiled.nodes.get(frame.nodeId)!;
   const flow = evaluator(node).flow;
   if (!flow) return fail('Blueprint flow reached a data node', [node.id]);
@@ -104,8 +114,13 @@ export function runFlow(compiled: CompiledBlueprint, start: { nodeId: Id; port: 
      effects.push(effect); follow(node.id, ['exit']);
     },
     delay: seconds => { delays.push({ nodeId: node.id, dueMs: nowMs + seconds * 1000 }); },
+    loop: (first, last) => {
+     if (last - first + 1 > MAX_LOOP_ITERATIONS) throw new LoopLimit();
+     if (last < first) follow(node.id, ['completed']);
+     else stack.push({ kind: 'loop', nodeId: node.id, index: first, last });
+    },
    });
-  } catch { return fail('Blueprint data could not be evaluated', [node.id]); }
+  } catch (error) { return fail(error instanceof LoopLimit ? 'Blueprint loop exceeded its iteration limit' : 'Blueprint data could not be evaluated', [node.id]); }
   if (failure) return failure;
  }
  return { ok: true, data: { effects, delays, state: next } };
