@@ -8,7 +8,7 @@
  <span class="model-label">Model</span>
  <Button variant="secondary" class="model-choice" disabled={disabled||importing} onclick={onchoose}>{label}</Button>
  {#if importing}<div class="model-status"><span>Importing…</span><progress max="1" aria-label="Importing…"></progress></div>
- {:else if status}<div class="model-status" class:failed={status.stage==='failed'}><span>{stageLabel(status)}</span>{#if status.stage!=='failed'}<progress max="1" value={status.progress??undefined} aria-label={stageLabel(status)}></progress>{/if}</div>{/if}
+ {:else if status}<div class="model-status" class:failed={status.stage==='failed'}><span>{stageLabel(status)}</span>{#if status.stage!=='failed'}{#if status.progress===null}<progress max="1" aria-label={stageLabel(status)}></progress>{:else}<progress max="1" value={status.progress} aria-label={stageLabel(status)}></progress>{/if}{/if}</div>{/if}
 </div>
 <style>
  .model-field{display:grid;gap:6px;padding:12px 0;border-bottom:1px solid #e1dee6}.model-label{font-size:12px;color:#85818f}

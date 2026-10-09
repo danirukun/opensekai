@@ -40,4 +40,9 @@ it('accepts bounded load status and rejects malformed entries',()=>{
  expect(parseUIMessage({kind:'loadStatus',entries:[{...ok,progress:2}]})).toBeNull();
  expect(parseUIMessage({kind:'loadStatus',entries:[{...ok,stage:'parse'}]})).toBeNull();
  expect(parseUIMessage({kind:'loadStatus',entries:[{...ok,extra:1}]})).toBeNull();
+ expect(parseUIMessage({kind:'loadStatus',entries:[{...ok,count:{done:25,total:24}}]})).toBeNull();
+ expect(parseUIMessage({kind:'loadStatus',entries:[{...ok,count:{done:1,total:1025}}]})).toBeNull();
+ expect(parseUIMessage({kind:'loadStatus',entries:[{...failed,message:'x'.repeat(161)}]})).toBeNull();
+ const {progress:_,...noProgress}=ok;
+ expect(parseUIMessage({kind:'loadStatus',entries:[noProgress]})).toBeNull();
 });

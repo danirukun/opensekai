@@ -12,7 +12,8 @@
      <div class="load-title">Loading {names[entry.entityId]??entry.assetId}</div>
      <div class="load-stage" class:failed={entry.stage==='failed'}>{stageLabel(entry)}</div>
      {#if entry.stage==='failed'}<Button variant="ghost" onclick={()=>ondismiss(entry.entityId)}>Dismiss</Button>
-     {:else}<progress max="1" value={entry.progress??undefined} aria-label={stageLabel(entry)}></progress>{/if}
+     {:else if entry.progress===null}<progress max="1" aria-label={stageLabel(entry)}></progress>
+     {:else}<progress max="1" value={entry.progress} aria-label={stageLabel(entry)}></progress>{/if}
     </div>
    {/each}
   </div>

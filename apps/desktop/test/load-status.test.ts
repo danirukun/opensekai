@@ -1,5 +1,6 @@
 import {it,expect,vi} from 'vitest';
 import {stageLabel,createLoadStatusSender} from '../src/editor/load-status';
+import {parseUIMessage,type UIMessage} from '../src/editor/ui-message';
 const entry=(stage:'download'|'textures'|'prepare'|'failed',progress:number|null=null,extra={})=>({entityId:'char',assetId:'a',stage,progress,...extra});
 it('labels each stage with the specified copy',()=>{
  expect(stageLabel(entry('download',.4))).toBe('Downloading');
@@ -20,4 +21,17 @@ it('sends stage changes at once and throttles progress to the interval',async()=
  sender.resend();expect(send).toHaveBeenCalledTimes(5);
  sender.close();sender.offer([entry('download')]);expect(send).toHaveBeenCalledTimes(5);
  vi.useRealTimers();
+});
+it('clamps a long failure message and drops an out-of-range count before it sends',()=>{
+ const send=vi.fn(async(_message:UIMessage)=>{});const sender=createLoadStatusSender(send,200);
+ sender.offer([entry('failed',null,{message:'x'.repeat(300)})]);
+ const sent=send.mock.lastCall![0];
+ expect(sent).toEqual({kind:'loadStatus',entries:[entry('failed',null,{message:'x'.repeat(160)})]});
+ expect(parseUIMessage(sent)).toEqual(sent);
+ sender.offer([entry('textures',.5,{count:{done:10,total:5000}})]);
+ expect(send).toHaveBeenLastCalledWith({kind:'loadStatus',entries:[entry('textures',.5)]});
+ sender.offer([entry('textures',.6,{count:{done:30,total:24}})]);
+ sender.resend();
+ expect(send).toHaveBeenLastCalledWith({kind:'loadStatus',entries:[entry('textures',.6)]});
+ sender.close();
 });
