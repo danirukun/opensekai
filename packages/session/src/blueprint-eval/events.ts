@@ -4,4 +4,5 @@ import type { EvaluatorTable } from './types';
 export const EVENT_EVALUATORS = {
  'event.manual': {},
  'event.keystroke': {},
+ 'event.enable': {},
 } satisfies Partial<EvaluatorTable>;

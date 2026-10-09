@@ -16,4 +16,5 @@ const trigger = (): PortShape => ({ inputs: {}, outputs: { flow: 'flow' } });
 export const EVENT_NODES = [
  defineNode({ type: 'event.manual', label: 'Manual Trigger', category: 'Events', keywords: ['run', 'button', 'start', 'test'], settings: empty, ports: trigger, defaults: () => ({}), fields: [] }),
  defineNode({ type: 'event.keystroke', label: 'On Keystroke Pressed', category: 'Events', keywords: ['hotkey', 'key', 'shortcut', 'keyboard'], settings: KeystrokeSettingsSchema, ports: trigger, defaults: refs => ({ ...refs.keystroke }), fields: [{ key: 'keystroke', label: 'Keystroke', kind: 'keystroke' }] }),
+ defineNode({ type: 'event.enable', label: 'On Enable', category: 'Events', keywords: ['start', 'setup', 'init', 'load', 'reset'], settings: empty, ports: trigger, defaults: () => ({}), fields: [] }),
 ] as const;

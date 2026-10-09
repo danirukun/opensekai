@@ -246,3 +246,38 @@ it('logs alternating tick failures once each and again after a clean tick', () =
   expect(log).toHaveBeenCalledTimes(3);
  } finally { spy.mockRestore(); log.mockRestore(); }
 });
+
+const enableGraph = (enabled = true) => [{ schemaVersion: 1, id: 'setup', name: 'Setup', enabled, variables: [],
+ nodes: [
+  { id: 'on', version: 1, type: 'event.enable', settings: {}, position: { x: 0, y: 0 } },
+  { id: 'flip', version: 1, type: 'scene.toggleVisibility', settings: { entityId: 'marker' }, position: { x: 300, y: 0 } },
+ ],
+ connections: [{ id: 'w', sourceNodeId: 'on', sourcePort: 'flow', targetNodeId: 'flip', targetPort: 'flow' }] }];
+
+it('fires On Enable once after install, a logic edit, and a re-enable, but not after a move', () => {
+ const session = createSession(makeSmokeScene(), 's');
+ load(session, enableGraph());
+ session.advance(0);
+ expect(visible(session, 'marker')).toBe(false);
+ session.advance(16);
+ expect(visible(session, 'marker')).toBe(false);
+ session.editBlueprints({ clientId: 't', batchId: 'move', ops: [{ kind: 'moveNode', graphId: 'setup', nodeId: 'flip', position: { x: 9, y: 9 } }] });
+ session.advance(32);
+ expect(visible(session, 'marker')).toBe(false);
+ session.editBlueprints({ clientId: 't', batchId: 'logic', ops: [{ kind: 'addVariable', graphId: 'setup', variable: { id: 'n', name: 'N', type: 'number', default: 1 } }] });
+ session.advance(48);
+ expect(visible(session, 'marker')).toBe(true);
+ session.editBlueprints({ clientId: 't', batchId: 'off', ops: [{ kind: 'updateGraph', graphId: 'setup', enabled: false }] });
+ session.advance(64);
+ expect(visible(session, 'marker')).toBe(true);
+ session.editBlueprints({ clientId: 't', batchId: 'on', ops: [{ kind: 'updateGraph', graphId: 'setup', enabled: true }] });
+ session.advance(80);
+ expect(visible(session, 'marker')).toBe(false);
+});
+
+it('does not fire On Enable for a graph that is installed disabled', () => {
+ const session = createSession(makeSmokeScene(), 's');
+ load(session, enableGraph(false));
+ session.advance(0);
+ expect(visible(session, 'marker')).toBe(true);
+});

@@ -10,7 +10,7 @@ export interface PendingDelay { nodeId: Id; dueMs: number }
 export interface FlowBudget { visits: number; effects: number }
 export interface FlowResult { effects: BlueprintEffect[]; delays: PendingDelay[]; state: RunState }
 
-const MAX_EVENT_VISITS = 64;
+const MAX_EVENT_VISITS = 512;
 type Frame = { nodeId: Id; port: string };
 const evaluator = (node: BlueprintNode) => EVALUATORS[node.type] as Evaluator<BlueprintNode>;
 export const fail = (message: string, ids: string[] = []): Reply<never> => ({ ok: false, error: { code: 'INVALID_INPUT', message, ids } });

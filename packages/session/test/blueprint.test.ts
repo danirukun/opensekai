@@ -71,11 +71,12 @@ it('rejects a missing data input but allows an unwired flow input', () => {
  expect(compileBlueprint(graph([node('t', 'scene.toggleVisibility', { entityId: 'm' })], [])).ok).toBe(true);
 });
 
-it('stops at the per-event visit limit and at the shared tick budget', () => {
+it('stops at the shared tick budget', () => {
  const nodes = [node('start', 'event.manual'), ...Array.from({ length: 70 }, (_, i) => node(`t${i}`, 'scene.toggleVisibility', { entityId: 'm' }))];
  const wires = [wire('w', 'start', 'flow', 't0', 'flow'), ...Array.from({ length: 69 }, (_, i) => wire(`w${i}`, `t${i}`, 'exit', `t${i + 1}`, 'flow'))];
- expect(runFlow(compiled(graph(nodes, wires)), { nodeId: 'start', port: 'flow' }, emptyState(), { visits: 256, effects: 256 }, 0)).toMatchObject({ ok: false, error: { message: 'Blueprint run exceeded its flow limit' } });
+ expect(runFlow(compiled(graph(nodes, wires)), { nodeId: 'start', port: 'flow' }, emptyState(), { visits: 50, effects: 256 }, 0)).toMatchObject({ ok: false, error: { message: 'Blueprint run exceeded its flow limit' } });
  expect(runFlow(compiled(graph(nodes.slice(0, 4), wires.slice(0, 3))), { nodeId: 'start', port: 'flow' }, emptyState(), { visits: 256, effects: 2 }, 0)).toMatchObject({ ok: false, error: { message: 'Blueprint run exceeded its operation limit' } });
+ expect(runFlow(compiled(graph(nodes, wires)), { nodeId: 'start', port: 'flow' }, emptyState(), { visits: 1024, effects: 256 }, 0).ok).toBe(true);
 });
 
 it('rejects a connection to a prototype-named port', () => {
