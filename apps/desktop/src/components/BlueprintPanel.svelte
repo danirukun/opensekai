@@ -9,7 +9,7 @@
  import { deleteOps, disconnectOps } from '../blueprints/selection-ops';
  import { shortcutFor } from '../blueprints/keys';
  import { copyNodes, duplicateAnchor, pasteOps, type BlueprintClipboard } from '../blueprints/clipboard';
- import { createUndoHistory } from '../blueprints/undo';
+ import type { EditorMemory } from '../blueprints/editor-memory';
  import type { SearchEntry, WireNeed } from '../blueprints/node-search';
  import CanvasMenu from './CanvasMenu.svelte';
  import NodeSearch from './NodeSearch.svelte';
@@ -17,8 +17,8 @@
  import BlueprintNodeFields from './BlueprintNodeFields.svelte';
  import BlueprintVariables from './BlueprintVariables.svelte';
 
- let { api, sync, scene, status, disabled, onrun }: {
-  api: AppApi | null; sync: BlueprintSync; scene: SceneView | null; status: AppStatus | null; disabled: boolean; onrun: () => void;
+ let { api, sync, memory, scene, status, disabled, onrun }: {
+  api: AppApi | null; sync: BlueprintSync; memory: EditorMemory; scene: SceneView | null; status: AppStatus | null; disabled: boolean; onrun: () => void;
  } = $props();
  const platform = currentPlatform();
  let canvas: HTMLDivElement;
@@ -30,15 +30,19 @@
  let nodeId = $state<string | null>(null);
  let runError = $state<string | null>(null), busy = $state(false);
  let mountedFor: string | null = null, generation = 0, announced = '';
- const history = createUndoHistory();
- let clipboard = $state.raw<BlueprintClipboard | null>(null), lastRevision = 0;
+ const history: EditorMemory['history'] = {
+  record: (...args) => memory.history.record(...args), undo: (...args) => memory.history.undo(...args), redo: (...args) => memory.history.redo(...args),
+  canUndo: id => memory.history.canUndo(id), canRedo: id => memory.history.canRedo(id), clear: () => memory.history.clear(),
+ };
+ let clipboard = $state.raw<BlueprintClipboard | null>(null), changedElsewhere = $state(false);
+ const remember = (clip: BlueprintClipboard | null) => { clipboard = memory.clipboard.current = clip ?? clipboard; };
  const graph = $derived(graphs.find(item => item.id === selectedId) ?? null);
  const node = $derived(graph?.nodes.find(item => item.id === nodeId) ?? null);
  const trigger = $derived(graph?.nodes.find(item => item.type === 'event.manual') ?? null);
  const targets = $derived(scene?.entities.filter(entity => entity.kind !== 'tracking') ?? []);
  const cameras = $derived(scene?.entities.filter(entity => entity.kind === 'camera') ?? []);
  const failure = $derived(errors.find(item => item.graphId === selectedId));
- const problem = $derived(runError ?? failure?.error.message ?? issueText(issue));
+ const problem = $derived(runError ?? failure?.error.message ?? (issueText(issue) || (changedElsewhere ? 'Changed elsewhere' : null)));
  const outputId = $derived(scene?.outputs[0]?.id);
  const refs = $derived<DefaultRefs>({ entityId: targets[0]?.id, cameraId: cameras[0]?.id, outputId, keystroke: defaultKeystroke(platform), variables: graph?.variables ?? [] });
  const taken = $derived(new Set((status?.warnings ?? []).flatMap(warning => warning.ids)));
@@ -53,10 +57,15 @@
   const before = sync.view().find(item => item.id === selectedId);
   if (ops.length === 0 || !before) return { ok: true, data: sync.view() } as const;
   const result = edit(ops);
-  if (result.ok) { const after = result.data.find(item => item.id === before.id); if (after) history.record(before.id, before, after, ops); }
+  if (result.ok) { changedElsewhere = false; const after = result.data.find(item => item.id === before.id); if (after) history.record(before.id, before, after, ops); }
   return result;
  };
  const send = (ops: BlueprintOp[]) => edit(ops).ok;
+ function step(kind: 'undo' | 'redo', id: string) {
+  const available = kind === 'undo' ? history.canUndo(id) : history.canRedo(id);
+  const done = kind === 'undo' ? history.undo(id, send) : history.redo(id, send);
+  changedElsewhere = available && !done;
+ }
  function paste(clip: BlueprintClipboard, anchor: { x: number; y: number }) {
   if (!graph) return;
   const { ops, nodeIds } = pasteOps(clip, graph.id, anchor);
@@ -68,14 +77,15 @@
   const action = shortcutFor(event, platform);
   if (!action || !graph || !editor) return;
   event.preventDefault();
+  if (disabled && !['copy', 'selectAll', 'escape'].includes(action)) return;
   const selection = editor.selected();
   if (action === 'delete') act(deleteOps(graph, selection));
-  if (action === 'copy') clipboard = copyNodes(graph, selection) ?? clipboard;
+  if (action === 'copy') remember(copyNodes(graph, selection));
   if (action === 'paste' && clipboard) paste(clipboard, editor.pointer());
   if (action === 'duplicate') { const clip = copyNodes(graph, selection); if (clip) paste(clip, duplicateAnchor(clip)); }
   if (action === 'selectAll') editor.selectMany(graph.nodes.map(item => item.id));
-  if (action === 'undo') history.undo(graph.id, send);
-  if (action === 'redo') history.redo(graph.id, send);
+  if (action === 'undo') step('undo', graph.id);
+  if (action === 'redo') step('redo', graph.id);
   if (action === 'escape') { if (menu) menu = null; else { editor.select(null); nodeId = null; } }
  }
  async function mount(id: string | null) {
@@ -102,8 +112,8 @@
   if (id) { nodeId = id; editor?.select(id); }
  }
  function update(next: BlueprintGraph[]) {
-  if (sync.revision() < lastRevision) history.clear();
-  lastRevision = sync.revision();
+  if (sync.revision() < memory.seen.revision) history.clear();
+  memory.seen.revision = sync.revision();
   graphs = next; errors = sync.errors(); issue = sync.issue();
   if (selectedId === null || !next.some(item => item.id === selectedId)) { choose(next[0]?.id ?? null); return; }
   if (nodeId && !graph?.nodes.some(item => item.id === nodeId)) nodeId = null;
@@ -176,7 +186,7 @@
   if (!graph || !current) return;
   if (current.kind === 'node' && action === 'delete') act(deleteOps(graph, current.nodeIds));
   if (current.kind === 'node' && action === 'disconnect') act(disconnectOps(graph, current.nodeIds));
-  if (current.kind === 'node' && action === 'copy') clipboard = copyNodes(graph, current.nodeIds) ?? clipboard;
+  if (current.kind === 'node' && action === 'copy') remember(copyNodes(graph, current.nodeIds));
   if (current.kind === 'node' && action === 'duplicate') { const clip = copyNodes(graph, current.nodeIds); if (clip) paste(clip, duplicateAnchor(clip)); }
   if (current.kind === 'canvas' && action === 'paste' && clipboard) paste(clipboard, current.at);
   if (current.kind === 'node' && action === 'run') void run(current.nodeIds[0]!);
@@ -195,6 +205,7 @@
   finally { busy = false; }
  }
  onMount(() => {
+  clipboard = memory.clipboard.current;
   const off = sync.subscribe(update);
   const timer = setInterval(() => { issue = sync.issue(); }, 500);
   void sync.load().then(() => update(sync.view()));

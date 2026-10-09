@@ -32,11 +32,18 @@ export interface UndoHistory {
  // `apply` sends the operations and returns false when they no longer apply; that step is then dropped.
  undo(graphId: string, apply: (ops: BlueprintOp[]) => boolean): boolean;
  redo(graphId: string, apply: (ops: BlueprintOp[]) => boolean): boolean;
+ canUndo(graphId: string): boolean;
+ canRedo(graphId: string): boolean;
  clear(): void;
 }
 const LIMIT = 64, MERGE_MS = 500;
-const shape = (ops: readonly BlueprintOp[]) => ops.length > 0 && ops.every(op => op.kind === 'moveNode') ? 'move'
- : JSON.stringify(ops.map(op => [op.kind, 'nodeId' in op ? op.nodeId : 'variableId' in op ? op.variableId : '']));
+// Only a drag (moves) or repeated edits of one node's settings or one variable merge; any other action is one step.
+const shape = (ops: readonly BlueprintOp[]) => {
+ if (ops.length > 0 && ops.every(op => op.kind === 'moveNode')) return 'move';
+ const [only] = ops;
+ if (ops.length !== 1 || !only) return '';
+ return only.kind === 'setNodeSettings' ? `settings:${only.nodeId}` : only.kind === 'updateVariable' ? `variable:${only.variableId}` : '';
+};
 
 export function createUndoHistory(now: () => number = () => performance.now()): UndoHistory {
  const done = new Map<string, Step[]>(), undone = new Map<string, Step[]>();
@@ -50,7 +57,7 @@ export function createUndoHistory(now: () => number = () => performance.now()): 
  return {
   record(graphId, before, after, ops) {
    const list = done.get(graphId) ?? [], last = list.at(-1), key = shape(ops), time = now();
-   const merge = last !== undefined && key !== '[]' && last.shape === key && time - last.at < MERGE_MS;
+   const merge = last !== undefined && key !== '' && last.shape === key && time - last.at < MERGE_MS;
    const start = merge ? last.before : before;
    const redo = diffOps(start, after);
    const kept = merge ? list.slice(0, -1) : list;
@@ -59,6 +66,8 @@ export function createUndoHistory(now: () => number = () => performance.now()): 
   },
   undo: (graphId, apply) => move(done, undone, graphId, step => step.undo, apply),
   redo: (graphId, apply) => move(undone, done, graphId, step => step.redo, apply),
+  canUndo: graphId => (done.get(graphId)?.length ?? 0) > 0,
+  canRedo: graphId => (undone.get(graphId)?.length ?? 0) > 0,
   clear() { done.clear(); undone.clear(); },
  };
 }

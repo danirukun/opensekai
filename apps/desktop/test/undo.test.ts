@@ -23,7 +23,7 @@ it('restores a wire that a connect replaced and wires a settings change dropped'
  expect(norm(apply(after, diffOps(after, g)))).toEqual(norm(g));
 });
 
-it('merges quick moves and settings edits of the same target into one step', () => {
+it('merges quick moves into one step and keeps a delete as its own step', () => {
  let time = 0;
  const history = createUndoHistory(() => time);
  let current = flash();
@@ -63,4 +63,31 @@ it('keeps at most 64 steps per graph and ignores no-op actions', () => {
  let count = 0;
  while (history.undo('flash-marker', () => true)) count++;
  expect(count).toBe(64);
+});
+
+const settingsOp = (nodeId: string, seconds: number): BlueprintOp => ({ kind: 'setNodeSettings', graphId: 'flash-marker', nodeId, settings: { seconds } });
+const run = (history: ReturnType<typeof createUndoHistory>, start: BlueprintGraph, actions: BlueprintOp[][]) => {
+ let current = start;
+ for (const ops of actions) { const next = apply(current, ops); history.record('flash-marker', current, next, ops); current = next; }
+ let steps = 0;
+ while (history.undo('flash-marker', () => true)) steps++;
+ return steps;
+};
+
+it('keeps quick discrete actions as separate steps', () => {
+ const add = (id: string): BlueprintOp[] => [{ kind: 'addNode', graphId: 'flash-marker', node: { id, version: 1, type: 'flow.delay', settings: { seconds: 1 }, position: { x: 0, y: 0 } } }];
+ expect(run(createUndoHistory(() => 0), flash(), [add('d1'), add('d2')])).toBe(2);
+});
+
+it('merges quick settings changes of the same node and not of another node', () => {
+ expect(run(createUndoHistory(() => 0), flash(), [[settingsOp('wait', 7)], [settingsOp('wait', 8)]])).toBe(1);
+ expect(run(createUndoHistory(() => 0), flash(), [[settingsOp('wait', 7)], [settingsOp('wait', 8)], [{ kind: 'setNodeSettings', graphId: 'flash-marker', nodeId: 'on', settings: { value: false } }]])).toBe(2);
+});
+
+it('reports whether a step is available', () => {
+ const history = createUndoHistory(() => 0);
+ expect(history.canUndo('flash-marker')).toBe(false);
+ run(history, flash(), [[settingsOp('wait', 7)]]);
+ expect(history.canUndo('flash-marker')).toBe(false);
+ expect(history.canRedo('flash-marker')).toBe(true);
 });
