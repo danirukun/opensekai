@@ -156,8 +156,6 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
                 } else {
                     // The new model is still loading: keep posing the old model, if any, until the job installs the new one.
                     needed.set(entity.id, { kind: entity.kind === "avatar" ? "avatar" : "mesh", assetId });
-                    const message = jobs.failure(entity.id);
-                    if (message) warnings.push({ code: "UNAVAILABLE", message: "Asset load failed: " + message, ids: [assetId] });
                     if (!value) continue;
                 }
             }
@@ -180,6 +178,11 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             if (!editor?.frozen(entityId)) applyTransform(installed.root, entity);
             warnings.push(...ready.warnings);
         }
+        for (const [entityId, request] of needed) {
+            const message = jobs.failure(entityId);
+            if (message) warnings.push({ code: "UNAVAILABLE", message: "Asset load failed: " + message, ids: [request.assetId] });
+        }
+        for (const entry of jobs.status()) if (entry.stage !== "failed") warnings.push({ code: "BUSY", message: "Asset loading", ids: [entry.assetId] });
         editor?.refresh();
         const used = new Set([...objects.values()].flatMap(x => x.assetId ? [x.assetId] : []));
         for (const id of jobs.assetIds()) used.add(id);

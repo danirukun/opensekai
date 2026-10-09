@@ -36,6 +36,26 @@ it('renders frames while a model loads and installs it after GPU preparation',as
  expect(ports.load).toHaveBeenCalledTimes(1);
  r.dispose();
 });
+it('warns BUSY while a load runs and stops after install',async()=>{
+ const a=asset(),pending=deferred();ports.load.mockReturnValue(pending.promise);
+ const r=await make();
+ const busy={code:'BUSY',message:'Asset loading',ids:['avatar_a']};
+ expect((await r.applyFrame(frame('avatar_a'))).warnings).toContainEqual(busy);
+ expect((await r.applyFrame(frame('avatar_a'))).warnings).toContainEqual(busy);
+ pending.resolve(a.value);await settle();
+ const applied=await r.applyFrame(frame('avatar_a'));
+ expect(rendered().getObjectById(a.root.id)).toBe(a.root);
+ expect(applied.warnings).not.toContainEqual(busy);
+ r.dispose();
+});
+it('does not warn BUSY for a failed load',async()=>{
+ ports.load.mockRejectedValue(new Error('Asset unavailable'));
+ const r=await make();
+ await r.applyFrame(frame('avatar_x'));await settle();
+ const applied=await r.applyFrame(frame('avatar_x'));
+ expect(applied.warnings.map(w=>w.code)).toEqual(['UNAVAILABLE']);
+ r.dispose();
+});
 it('keeps the old model until the new model is ready',async()=>{
  const first=asset(),second=asset(),pending=deferred();
  ports.load.mockResolvedValueOnce(first.value).mockReturnValueOnce(pending.promise);
