@@ -7,6 +7,9 @@
  import { currentPlatform, defaultKeystroke } from '../blueprints/keystroke-format';
  import type { MenuTarget, ReteBlueprintEditor } from '../blueprints/rete-editor';
  import { deleteOps, disconnectOps } from '../blueprints/selection-ops';
+ import { shortcutFor } from '../blueprints/keys';
+ import { copyNodes, duplicateAnchor, pasteOps, type BlueprintClipboard } from '../blueprints/clipboard';
+ import { createUndoHistory } from '../blueprints/undo';
  import type { SearchEntry, WireNeed } from '../blueprints/node-search';
  import CanvasMenu from './CanvasMenu.svelte';
  import NodeSearch from './NodeSearch.svelte';
@@ -27,6 +30,8 @@
  let nodeId = $state<string | null>(null);
  let runError = $state<string | null>(null), busy = $state(false);
  let mountedFor: string | null = null, generation = 0, announced = '';
+ const history = createUndoHistory();
+ let clipboard = $state.raw<BlueprintClipboard | null>(null), lastRevision = 0;
  const graph = $derived(graphs.find(item => item.id === selectedId) ?? null);
  const node = $derived(graph?.nodes.find(item => item.id === nodeId) ?? null);
  const trigger = $derived(graph?.nodes.find(item => item.type === 'event.manual') ?? null);
@@ -43,7 +48,36 @@
   if (!result.ok && graph) { const current = sync.view().find(item => item.id === graph.id); if (current) void editor?.show(current); }
   return result;
  };
-const act = (ops: BlueprintOp[]) => ops.length === 0 ? ({ ok: true, data: sync.view() } as const) : edit(ops);
+
+ const act = (ops: BlueprintOp[]) => {
+  const before = sync.view().find(item => item.id === selectedId);
+  if (ops.length === 0 || !before) return { ok: true, data: sync.view() } as const;
+  const result = edit(ops);
+  if (result.ok) { const after = result.data.find(item => item.id === before.id); if (after) history.record(before.id, before, after, ops); }
+  return result;
+ };
+ const send = (ops: BlueprintOp[]) => edit(ops).ok;
+ function paste(clip: BlueprintClipboard, anchor: { x: number; y: number }) {
+  if (!graph) return;
+  const { ops, nodeIds } = pasteOps(clip, graph.id, anchor);
+  if (!act(ops).ok) return;
+  const latest = sync.view().find(item => item.id === graph!.id);
+  if (latest) void editor?.show(latest).then(() => editor?.selectMany(nodeIds));
+ }
+ function shortcut(event: KeyboardEvent) {
+  const action = shortcutFor(event, platform);
+  if (!action || !graph || !editor) return;
+  event.preventDefault();
+  const selection = editor.selected();
+  if (action === 'delete') act(deleteOps(graph, selection));
+  if (action === 'copy') clipboard = copyNodes(graph, selection) ?? clipboard;
+  if (action === 'paste' && clipboard) paste(clipboard, editor.pointer());
+  if (action === 'duplicate') { const clip = copyNodes(graph, selection); if (clip) paste(clip, duplicateAnchor(clip)); }
+  if (action === 'selectAll') editor.selectMany(graph.nodes.map(item => item.id));
+  if (action === 'undo') history.undo(graph.id, send);
+  if (action === 'redo') history.redo(graph.id, send);
+  if (action === 'escape') { if (menu) menu = null; else { editor.select(null); nodeId = null; } }
+ }
  async function mount(id: string | null) {
   const mine = ++generation;
   editor?.destroy(); editor = null; mountedFor = id; nodeId = null;
@@ -68,6 +102,8 @@ const act = (ops: BlueprintOp[]) => ops.length === 0 ? ({ ok: true, data: sync.v
   if (id) { nodeId = id; editor?.select(id); }
  }
  function update(next: BlueprintGraph[]) {
+  if (sync.revision() < lastRevision) history.clear();
+  lastRevision = sync.revision();
   graphs = next; errors = sync.errors(); issue = sync.issue();
   if (selectedId === null || !next.some(item => item.id === selectedId)) { choose(next[0]?.id ?? null); return; }
   if (nodeId && !graph?.nodes.some(item => item.id === nodeId)) nodeId = null;
@@ -129,6 +165,8 @@ const act = (ops: BlueprintOp[]) => ops.length === 0 ? ({ ok: true, data: sync.v
  }
  const nodeItems = (ids: string[]) => [
   { value: 'delete', label: 'Delete' },
+  { value: 'duplicate', label: 'Duplicate' },
+  { value: 'copy', label: 'Copy' },
   { value: 'disconnect', label: 'Disconnect all' },
   ...(ids.length === 1 && graph?.nodes.find(item => item.id === ids[0])?.type === 'event.manual' ? [{ value: 'run', label: 'Run' }] : []),
  ];
@@ -138,6 +176,9 @@ const act = (ops: BlueprintOp[]) => ops.length === 0 ? ({ ok: true, data: sync.v
   if (!graph || !current) return;
   if (current.kind === 'node' && action === 'delete') act(deleteOps(graph, current.nodeIds));
   if (current.kind === 'node' && action === 'disconnect') act(disconnectOps(graph, current.nodeIds));
+  if (current.kind === 'node' && action === 'copy') clipboard = copyNodes(graph, current.nodeIds) ?? clipboard;
+  if (current.kind === 'node' && action === 'duplicate') { const clip = copyNodes(graph, current.nodeIds); if (clip) paste(clip, duplicateAnchor(clip)); }
+  if (current.kind === 'canvas' && action === 'paste' && clipboard) paste(clipboard, current.at);
   if (current.kind === 'node' && action === 'run') void run(current.nodeIds[0]!);
   if (current.kind === 'wire' && action === 'delete') act([{ kind: 'disconnect', graphId: graph.id, connectionId: current.connectionId }]);
   if (current.kind === 'canvas' && action === 'selectAll') editor?.selectMany(graph.nodes.map(item => item.id));
@@ -167,7 +208,8 @@ const act = (ops: BlueprintOp[]) => ops.length === 0 ? ({ ok: true, data: sync.v
  <div class="blueprint-workspace">
   <BlueprintList {graphs} {selectedId} {disabled} creatable={targets.length > 0} onselect={choose} onops={edit} oncreate={create} />
   <aside class="blueprint-palette" aria-label="Node palette"><NodeSearch {refs} disabled={disabled || !graph} onpick={entry => addAt(entry, editor?.center() ?? { x: 0, y: 0 })} />{#if graph}<BlueprintVariables graphId={graph.id} variables={graph.variables} {disabled} onops={ops => { act(ops); }} />{/if}</aside>
-  <div class="blueprint-canvas" bind:this={canvas} aria-label="Blueprint canvas"></div>
+  <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
+  <div class="blueprint-canvas" bind:this={canvas} tabindex="0" role="application" aria-label="Blueprint canvas" onkeydown={shortcut} onpointerdown={() => canvas.focus()}></div>
   <aside class="blueprint-inspector" aria-label="Node properties">
    {#if node}
     <strong>{BLUEPRINT_LABELS[node.type]}</strong>
@@ -178,7 +220,7 @@ const act = (ops: BlueprintOp[]) => ops.length === 0 ? ({ ok: true, data: sync.v
  </div>
  {#if menu}
   <CanvasMenu x={menu.x} y={menu.y} onclose={() => { menu = null; }} onpick={pick}
-   items={menu.kind === 'node' ? nodeItems(menu.nodeIds) : menu.kind === 'wire' ? [{ value: 'delete', label: 'Delete' }] : menu.kind === 'canvas' ? [{ value: 'selectAll', label: 'Select all' }] : []}>
+   items={menu.kind === 'node' ? nodeItems(menu.nodeIds) : menu.kind === 'wire' ? [{ value: 'delete', label: 'Delete' }] : menu.kind === 'canvas' ? [...(clipboard ? [{ value: 'paste', label: 'Paste' }] : []), { value: 'selectAll', label: 'Select all' }] : []}>
    {#if menu.kind === 'canvas' || menu.kind === 'drop'}
     {@const at = menu.at}
     {@const from = menu.kind === 'drop' ? menu.from : undefined}

@@ -183,3 +183,23 @@ it('follows a new session whose revision restarts at 0, and confirms later edits
  expect(sync.revision()).toBe(2);
  expect(current.inspectBlueprints().blueprints[0]!.name).toBe('After');
 });
+
+it('sends an edit with more than 64 operations as ordered batches', async () => {
+ const { session, a } = await setup();
+ const before = session.inspectBlueprints().revision;
+ const ops = Array.from({ length: 40 }, (_, i) => ({ kind: 'addNode' as const, graphId: 'flash-marker', node: { id: `p${i}`, version: 1 as const, type: 'flow.delay' as const, settings: { seconds: 1 }, position: { x: i, y: 0 } } }));
+ const wires = Array.from({ length: 39 }, (_, i) => ({ kind: 'connect' as const, graphId: 'flash-marker', connection: { id: `pw${i}`, sourceNodeId: `p${i}`, sourcePort: 'exit', targetNodeId: `p${i + 1}`, targetPort: 'flow' } }));
+ expect(a.edit([...ops, ...wires]).ok).toBe(true);
+ await a.idle();
+ expect(session.inspectBlueprints().revision - before).toBe(2);
+ expect(a.issue()).toBeNull();
+ expect(a.view().find(g => g.id === 'flash-marker')!.connections).toHaveLength(5 + 39);
+});
+
+it('rejects a paste over the node limit without changing the graph', async () => {
+ const { a } = await setup();
+ const before = a.view();
+ const ops = Array.from({ length: 123 }, (_, i) => ({ kind: 'addNode' as const, graphId: 'flash-marker', node: { id: `q${i}`, version: 1 as const, type: 'flow.delay' as const, settings: { seconds: 1 }, position: { x: i, y: 0 } } }));
+ expect(a.edit(ops).ok).toBe(false);
+ expect(a.view()).toEqual(before);
+});
