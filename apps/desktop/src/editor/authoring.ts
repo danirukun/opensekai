@@ -3,8 +3,9 @@ import type {AddKind} from './live-fields';
 const transform=()=>({position:[0,0,0] as [number,number,number],rotation:[0,0,0,1] as [number,number,number,number],scale:[1,1,1] as [number,number,number]});
 export function makeAuthoringEntity(kind:AddKind,id:string,entities:readonly SceneEntity[]):SceneEntity {
  const label=({camera:'Camera',character:'Character',vmc:'VMC Receiver',ifacialmocap:'iFacialMocap Receiver',mediapipe:'MediaPipe Tracker'} as const)[kind];
- const count=entities.filter(entity=>kind==='camera'?entity.kind==='camera':kind==='character'?entity.kind==='avatar':entity.kind==='tracking'&&entity.config.kind===kind).length+1;
- const base={id,name:count===1?label:`${label} ${count}`,visible:true,transform:transform()};
+ const taken=new Set(entities.map(entity=>entity.name));
+ let n=2;while(taken.has(`${label} ${n}`))n++;
+ const base={id,name:taken.has(label)?`${label} ${n}`:label,visible:true,transform:transform()};
  if(kind==='camera')return {...base,kind,transform:{...base.transform,position:[0,1.2,3]},lens:{fovDegrees:40,near:.01,far:100}};
  if(kind==='character')return {...base,kind:'avatar',assetId:null,tracking:{bodySourceId:null,faceSourceId:null},idleAnimation:{kind:'builtin',enabled:true}};
  return {...base,kind:'tracking',generation:0,config:defaultTrackingConfig(kind)};

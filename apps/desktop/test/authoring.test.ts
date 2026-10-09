@@ -22,6 +22,14 @@ it('creates a character without a model and with its own idle settings',()=>{
  if(a.kind!=='avatar'||b.kind!=='avatar')throw new Error('avatar expected');
  a.idleAnimation!.enabled=false;a.transform.position[0]=5;expect(b.idleAnimation?.enabled).toBe(true);expect(b.transform.position[0]).toBe(0);
 });
+it('names a new entity with the label or the smallest free number',()=>{
+ const scene=makeEmptyScene();
+ const named=(...names:string[])=>[...scene.entities,...names.map((name,i)=>({...makeAuthoringEntity('character',`c${i}`,[]),name}))];
+ expect(makeAuthoringEntity('character','new',named('Character 2')).name).toBe('Character');
+ expect(makeAuthoringEntity('character','new',named('Character','Character 2')).name).toBe('Character 3');
+ const remaining=named('Character','Character 2').filter(entity=>entity.name!=='Character');
+ expect(makeAuthoringEntity('character','new',remaining).name).toBe('Character');
+});
 it('labels the model control from the asset list',()=>{
  const assets=[{id:'avatar_a',format:'vrm',sha256:'a'.repeat(64),bytes:1,sourceUrl:null,licenseLabel:'User supplied',importerVersion:1,name:'Rem'}] as const;
  expect(modelLabel(null,assets)).toBe('Choose VRM…');
