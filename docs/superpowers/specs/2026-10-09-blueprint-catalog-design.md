@@ -18,7 +18,7 @@ This slice is the first of three. The later slices are continuous Blueprints (On
    - The node union, `blueprintPorts`, the labels, the defaults, the search palette, the menus, the settings form, and the MCP node catalog all come from the definitions.
    - The session keeps an evaluator table keyed by `type` in place of the switch in `blueprint.ts`.
    - The 14 existing types keep their `type`, `version: 1`, and settings. Existing shows open without change.
-   - A field kind is one of `number`, `boolean`, `entity`, `camera`, `output`, `variable`, `cases`, and `keystroke`. Only the keystroke field keeps its own component.
+   - A field kind is one of `number`, `boolean`, `count`, `entity`, `camera`, `output`, `variable`, `cases`, and `keystroke`. Only the keystroke field keeps its own component.
 
 2. **Node set.** All data ports stay `number` or `boolean`. The added types are listed below; the existing 14 types stay.
 
@@ -72,7 +72,8 @@ This slice is the first of three. The later slices are continuous Blueprints (On
    - **Context menu on a wire:** **Delete**.
    - **Wire released on empty canvas:** the same search palette opens. It shows only nodes with a compatible port. A choice adds the node at that point and connects the wire to the first compatible port.
    - The palette dropdown and **Add** button in the left panel become the same search field.
-   - Controls come from `@oshi-connect/ui` (`Dropdown`, `Combobox`). Rete events supply the targets (`contextmenu` from the area plugin and `connectiondrop` from the connection plugin).
+   - The search field is the kit `Input`. The menu and the result list are small product components that use the kit theme tokens, because the kit `Dropdown` opens only at its own trigger and the kit `Combobox` matches labels only. Rete events supply the targets (`contextmenu` from the area plugin and `connectiondrop` from the connection plugin).
+   - A data input must have a wire, as before. Inline values on data inputs are a later change.
 
 8. **Keyboard.** The keys work while the canvas has focus, and never while a text field has focus.
    - Delete or Backspace deletes the selection.

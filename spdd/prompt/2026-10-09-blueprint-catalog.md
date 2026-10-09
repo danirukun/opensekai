@@ -25,7 +25,7 @@ R17. The Rust host checks the structure of `variables` and the three new operati
 ## E — Entities
 
 - `BlueprintNodeDefinition`: `{ type, label, category, keywords, settings, ports(settings), defaults(scene), fields }`.
-- `BlueprintField`: `{ key, kind: 'number' | 'boolean' | 'entity' | 'camera' | 'output' | 'variable' | 'cases' | 'keystroke', label, ... }`.
+- `BlueprintField`: `{ key, kind: 'number' | 'boolean' | 'count' | 'entity' | 'camera' | 'output' | 'variable' | 'cases' | 'keystroke', label, ... }`.
 - `BlueprintVariable`: `{ id, name, type: 'number' | 'boolean', default: number | boolean }`.
 - `BlueprintGraph`: adds `variables: BlueprintVariable[]` (default `[]`).
 - `BlueprintOp`: adds `addVariable`, `updateVariable`, and `removeVariable`.
