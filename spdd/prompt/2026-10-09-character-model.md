@@ -23,7 +23,8 @@ R13. The Scene window sends the load status to the editor through the UI bridge.
 - `SceneEntity` (avatar): `assetId: Id | null`.
 - `ScenePatch` operation: `setAvatarModel { kind, entityId, assetId }`.
 - `AssetRecord`: adds `name`.
-- `AssetLoadStatus`: `{ entityId, assetId, stage: 'download' | 'textures' | 'prepare' | 'failed', progress: number | null, message?: string }`. Renderer and editor local; not a protocol type.
+- `AssetLoadStatus`: `{ entityId, assetId, stage: 'download' | 'textures' | 'prepare' | 'failed', progress: number | null, count?: { done, total }, message?: string }`. `count` carries the texture numbers for the `Textures 12 of 24` line. Renderer and editor local; not a protocol type.
+- `RendererHandle`: adds `onLoadStatus(listener)` and `dismissLoad(entityId)`. The Scene overlay **Dismiss** control calls `dismissLoad`.
 - UI bridge message: `{ kind: 'loadStatus', entries: AssetLoadStatus[] }`.
 - Editor: `makeCharacter(id, entities)` replaces `makeImportedAvatar`.
 

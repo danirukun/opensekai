@@ -5,3 +5,4 @@ export { selectFrame } from "./apply-frame";
 export { createDiagnosticsSampler } from "./diagnostics";
 
 export type { EditorTool, EditorTransformEdit, EditorViewportState, EditorOptions, EditorHandle } from './editor-viewport';
+export type { AssetLoadStatus, LoadStage } from "./load-jobs";
