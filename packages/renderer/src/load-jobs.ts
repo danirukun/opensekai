@@ -8,7 +8,7 @@ const sameRequest = (a: LoadRequest, b: LoadRequest) => a.kind === b.kind && a.a
 const messageOf = (error: unknown) => error instanceof Error ? error.message : String(error);
 
 export function createLoadJobs<T extends { dispose(): void }>(
-  start: (request: LoadRequest, report: (report: LoadReport) => void) => Promise<T>,
+  start: (request: LoadRequest, report: (report: LoadReport) => void, cancelled: () => boolean) => Promise<T>,
   onStatus: (entries: AssetLoadStatus[]) => void,
 ) {
   const jobs = new Map<string, Job<T>>();
@@ -32,7 +32,7 @@ export function createLoadJobs<T extends { dispose(): void }>(
       emit();
     };
     let running: Promise<T>;
-    try { running = start(request, report); } catch (error) { running = Promise.reject(error); }
+    try { running = start(request, report, () => job.cancelled); } catch (error) { running = Promise.reject(error); }
     void running.then(value => {
       if (job.cancelled) { value.dispose(); return; }
       job.value = value;

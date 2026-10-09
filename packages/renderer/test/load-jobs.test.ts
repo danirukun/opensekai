@@ -112,3 +112,13 @@ it('ignores a report after cancellation',()=>{
  h.pending.get('a')!.report({stage:'textures',progress:.5});
  expect(h.onStatus).not.toHaveBeenCalled();expect(h.jobs.status()).toEqual([]);
 });
+it('tells start whether its job is cancelled',()=>{
+ const flags:(()=>boolean)[]=[];
+ const jobs=createLoadJobs<Value>((_r,_p,cancelled)=>{flags.push(cancelled);return new Promise<Value>(()=>{});},vi.fn());
+ jobs.reconcile(need([['char','a']]));
+ expect(flags[0]()).toBe(false);
+ jobs.reconcile(need([['char','b']]));
+ expect(flags[0]()).toBe(true);expect(flags[1]()).toBe(false);
+ jobs.dispose();
+ expect(flags[1]()).toBe(true);
+});

@@ -44,21 +44,29 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     const assets = createAssetCache(loadAsset);
     type Ready = { root: Object3D; avatar?: ReturnType<typeof createAvatarBinding>; assetId?: string; assetDispose?: () => void; warnings: AppError[]; dispose(): void };
     const loadListeners = new Set<(entries: AssetLoadStatus[]) => void>();
-    const build = async (request: LoadRequest, report: (r: LoadReport) => void): Promise<Ready> => {
+    const prepare = async (root: Object3D, report: (r: LoadReport) => void, cancelled: () => boolean) => {
+        if (cancelled() || disposed) throw failure("CANCELLED", "Asset load cancelled");
+        report({ stage: "prepare", progress: null });
+        const culled: Object3D[] = [];
+        root.traverse(object => { if (object.frustumCulled) { culled.push(object); object.frustumCulled = false; } });
+        try { await renderer.compileAsync(root, camera, scene); }
+        finally { for (const object of culled) object.frustumCulled = true; }
+    };
+    const build = async (request: LoadRequest, report: (r: LoadReport) => void, cancelled: () => boolean): Promise<Ready> => {
         if (request.kind === "avatar") {
             const asset = await loadAsset(request.assetId, report);
             try {
                 if (!asset.vrm) throw failure("INVALID_INPUT", "Avatar asset has no VRM");
                 const avatar = createAvatarBinding(asset.vrm);
-                report({ stage: "prepare", progress: null });
-                await renderer.compileAsync(avatar.root, camera, scene);
+                await prepare(avatar.root, report, cancelled);
                 return { root: avatar.root, avatar, assetDispose: asset.dispose, warnings: asset.warnings, dispose: asset.dispose };
             } catch (error) { asset.dispose(); throw error; }
         }
         const asset = await assets.get(request.assetId);
+        if (cancelled() || disposed) throw failure("CANCELLED", "Asset load cancelled");
         const root = clone(asset.scene);
-        report({ stage: "prepare", progress: null });
-        await renderer.compileAsync(root, camera, scene);
+        try { await prepare(root, report, cancelled); }
+        catch (error) { disposeInstance(root); throw error; }
         return { root, assetId: request.assetId, warnings: asset.warnings, dispose: () => disposeInstance(root) };
     };
     const jobs = createLoadJobs<Ready>(build, entries => { for (const listener of loadListeners) listener(entries); });
