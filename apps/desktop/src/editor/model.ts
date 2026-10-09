@@ -1,4 +1,4 @@
-import { TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,TrackingSmoothingSchema,EntityNameSchema,ShowSceneSchema } from '@opensekai/contracts';
+import { TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,TrackingSmoothingSchema,EntityNameSchema,ShowSceneSchema,IdSchema } from '@opensekai/contracts';
 import type { AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing } from '@opensekai/contracts';
 import {makeEntityCopy} from './asset-management';
 type CameraLens=Extract<SceneEntity,{kind:'camera'}>['lens'];
@@ -105,6 +105,10 @@ export function createEditorModel(api: AppApi) {
   setAvatarTracking(entityId:Id,tracking:AvatarTracking,expectedRevision?:number):Promise<Reply<{revision:number}>> {
    const parsed=AvatarTrackingSchema.safeParse(tracking);if(!ofKind(entityId,'avatar')||!parsed.success)return invalid();
    return patch({kind:'setAvatarTracking',entityId,tracking:parsed.data},expectedRevision);
+  },
+  setAvatarModel(entityId:Id,assetId:Id|null,expectedRevision?:number):Promise<Reply<{revision:number}>> {
+   const parsed=IdSchema.nullable().safeParse(assetId);if(!ofKind(entityId,'avatar')||!parsed.success)return invalid();
+   return patch({kind:'setAvatarModel',entityId,assetId:parsed.data},expectedRevision);
   },
   setTrackingSmoothing(entityId:Id,smoothing:TrackingSmoothing,expectedRevision?:number):Promise<Reply<{revision:number}>> {
    const parsed=TrackingSmoothingSchema.safeParse(smoothing);if(!ofKind(entityId,'tracking')||!parsed.success)return invalid();

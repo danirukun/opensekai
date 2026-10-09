@@ -217,3 +217,13 @@ it('keeps normal lower-revision inspections from replacing current state',async(
  await model.load();expect(model.read().scene?.revision).toBe(1);
  expect(model.read().scene?.entities.find(e=>e.id==='marker')?.visible).toBe(false);
 });
+
+it('sets or clears an avatar model and rejects non-avatars and bad IDs',async()=>{
+ const {model,api}=fixture();await model.load();
+ expect((await model.setAvatarModel('performer','avatar_b',0)).ok).toBe(true);
+ expect(model.read().scene?.entities.find(e=>e.id==='performer')).toMatchObject({assetId:'avatar_b'});
+ expect((await model.setAvatarModel('performer',null,1)).ok).toBe(true);
+ expect(await model.setAvatarModel('marker','avatar_b',2)).toMatchObject({ok:false,error:{code:'INVALID_INPUT'}});
+ expect(await model.setAvatarModel('performer','',2)).toMatchObject({ok:false,error:{code:'INVALID_INPUT'}});
+ expect(api.scenePatch).toHaveBeenCalledTimes(2);
+});
