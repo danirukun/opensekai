@@ -2,12 +2,13 @@
  import { onMount } from 'svelte';
  import { Button, Select } from '@oshi-connect/ui';
  import { Play, Plus, Trash2 } from '@lucide/svelte';
- import { BLUEPRINT_LABELS, defaultBlueprintSettings, keystrokeAccelerator, type AppApi, type AppStatus, type BlueprintGraph, type BlueprintNode, type BlueprintStatus, type SceneView } from '@opensekai/contracts';
+ import { BLUEPRINT_LABELS, defaultBlueprintSettings, keystrokeAccelerator, type AppApi, type AppStatus, type BlueprintGraph, type BlueprintNode, type BlueprintStatus, type DefaultRefs, type SceneView } from '@opensekai/contracts';
  import { issueText, type BlueprintSync, type SyncIssue } from '../blueprints/blueprint-sync';
  import { currentPlatform, defaultKeystroke } from '../blueprints/keystroke-format';
  import type { BlueprintKind, ReteBlueprintEditor } from '../blueprints/rete-editor';
  import BlueprintList from './BlueprintList.svelte';
  import BlueprintNodeFields from './BlueprintNodeFields.svelte';
+ import BlueprintVariables from './BlueprintVariables.svelte';
 
  let { api, sync, scene, status, disabled, onrun }: {
   api: AppApi | null; sync: BlueprintSync; scene: SceneView | null; status: AppStatus | null; disabled: boolean; onrun: () => void;
@@ -32,7 +33,8 @@
  const failure = $derived(errors.find(item => item.graphId === selectedId));
  const problem = $derived(runError ?? failure?.error.message ?? issueText(issue));
  const outputId = $derived(scene?.outputs[0]?.id);
- const defaults = $derived(defaultBlueprintSettings(addKind as BlueprintKind, { entityId: targets[0]?.id, cameraId: cameras[0]?.id, outputId, keystroke: defaultKeystroke(platform) }));
+ const refs = $derived<DefaultRefs>({ entityId: targets[0]?.id, cameraId: cameras[0]?.id, outputId, keystroke: defaultKeystroke(platform), variables: graph?.variables ?? [] });
+ const defaults = $derived(defaultBlueprintSettings(addKind as BlueprintKind, refs));
  const taken = $derived(new Set((status?.warnings ?? []).flatMap(warning => warning.ids)));
 
  const edit = (ops: Parameters<BlueprintSync['edit']>[0]) => {
@@ -121,12 +123,12 @@
  <header class="blueprint-toolbar"><h2>Blueprints</h2><span class="blueprint-state" role="status">{problem}</span><div class="spacer"></div>{#if trigger}<Button variant="secondary" disabled={disabled || busy || !graph} onclick={run}><Play size={14}/>Run</Button>{/if}</header>
  <div class="blueprint-workspace">
   <BlueprintList {graphs} {selectedId} {disabled} creatable={targets.length > 0} onselect={choose} onops={edit} oncreate={create} />
-  <aside class="blueprint-palette" aria-label="Node palette"><Select label="Node kind" bind:value={addKind} options={kinds.map(([value, label]) => ({ value, label }))} /><Button variant="secondary" disabled={disabled || !graph || !defaults} onclick={add}><Plus size={14}/>Add node</Button></aside>
+  <aside class="blueprint-palette" aria-label="Node palette"><Select label="Node kind" bind:value={addKind} options={kinds.map(([value, label]) => ({ value, label }))} /><Button variant="secondary" disabled={disabled || !graph || !defaults} onclick={add}><Plus size={14}/>Add node</Button>{#if graph}<BlueprintVariables graphId={graph.id} variables={graph.variables} {disabled} onops={ops => { edit(ops); }} />{/if}</aside>
   <div class="blueprint-canvas" bind:this={canvas} aria-label="Blueprint canvas"></div>
   <aside class="blueprint-inspector" aria-label="Node properties">
    {#if node}
     <strong>{BLUEPRINT_LABELS[node.type]}</strong>
-    <BlueprintNodeFields {node} {scene} {platform} unavailable={node.type === 'event.keystroke' && taken.has(keystrokeAccelerator(node.settings))} onsettings={settings} />
+    <BlueprintNodeFields {node} {scene} variables={graph?.variables ?? []} {platform} unavailable={node.type === 'event.keystroke' && taken.has(keystrokeAccelerator(node.settings))} onsettings={settings} />
     <Button variant="ghost" {disabled} onclick={remove}><Trash2 size={14}/>Delete node</Button>
    {/if}
   </aside>
