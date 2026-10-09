@@ -149,6 +149,7 @@
    ? { id: crypto.randomUUID(), sourceNodeId: from.nodeId, sourcePort: from.port, targetNodeId: id, targetPort: entry.port }
    : { id: crypto.randomUUID(), sourceNodeId: id, sourcePort: entry.port, targetNodeId: from.nodeId, targetPort: from.port } });
   menu = null;
+  canvas.focus({ preventScroll: true });
   if (!act(ops).ok) return;
   nodeId = id;
   const latest = sync.view().find(item => item.id === graph!.id);
@@ -183,6 +184,7 @@
  function pick(action: string) {
   const current = menu;
   menu = null;
+  canvas.focus({ preventScroll: true });
   if (!graph || !current) return;
   if (current.kind === 'node' && action === 'delete') act(deleteOps(graph, current.nodeIds));
   if (current.kind === 'node' && action === 'disconnect') act(disconnectOps(graph, current.nodeIds));
@@ -218,7 +220,7 @@
  <header class="blueprint-toolbar"><h2>Blueprints</h2><span class="blueprint-state" role="status">{problem}</span><div class="spacer"></div>{#if trigger}<Button variant="secondary" disabled={disabled || busy || !graph} onclick={() => run()}><Play size={14}/>Run</Button>{/if}</header>
  <div class="blueprint-workspace">
   <BlueprintList {graphs} {selectedId} {disabled} creatable={targets.length > 0} onselect={choose} onops={edit} oncreate={create} />
-  <aside class="blueprint-palette" aria-label="Node palette"><NodeSearch {refs} disabled={disabled || !graph} onpick={entry => addAt(entry, editor?.center() ?? { x: 0, y: 0 })} />{#if graph}<BlueprintVariables graphId={graph.id} variables={graph.variables} {disabled} onops={ops => { act(ops); }} />{/if}</aside>
+  <aside class="blueprint-palette" aria-label="Node palette"><NodeSearch {refs} disabled={disabled || !graph} onpick={entry => { const step = (graph?.nodes.length ?? 0) % 5 * 24, center = editor?.center() ?? { x: 0, y: 0 }; addAt(entry, { x: center.x + step, y: center.y + step }); }} />{#if graph}<BlueprintVariables graphId={graph.id} variables={graph.variables} {disabled} onops={ops => { act(ops); }} />{/if}</aside>
   <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
   <div class="blueprint-canvas" bind:this={canvas} tabindex="0" role="application" aria-label="Blueprint canvas" onkeydown={shortcut} onpointerdown={() => canvas.focus()}></div>
   <aside class="blueprint-inspector" aria-label="Node properties">
@@ -230,7 +232,7 @@
   </aside>
  </div>
  {#if menu}
-  <CanvasMenu x={menu.x} y={menu.y} onclose={() => { menu = null; }} onpick={pick}
+  <CanvasMenu x={menu.x} y={menu.y} onclose={() => { menu = null; canvas.focus({ preventScroll: true }); }} onpick={pick}
    items={menu.kind === 'node' ? nodeItems(menu.nodeIds) : menu.kind === 'wire' ? [{ value: 'delete', label: 'Delete' }] : menu.kind === 'canvas' ? [...(clipboard ? [{ value: 'paste', label: 'Paste' }] : []), { value: 'selectAll', label: 'Select all' }] : []}>
    {#if menu.kind === 'canvas' || menu.kind === 'drop'}
     {@const at = menu.at}

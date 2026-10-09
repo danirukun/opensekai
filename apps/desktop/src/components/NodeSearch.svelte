@@ -11,10 +11,11 @@
  const flat = $derived(groups.flatMap(group => group.entries));
  $effect(() => { void query; active = 0; });
  onMount(() => { if (focus) (document.getElementById(id) as HTMLInputElement | null)?.focus(); });
+ function pickEntry(entry: SearchEntry) { onpick(entry); query = ''; }
  function keydown(event: KeyboardEvent) {
   if (event.key === 'ArrowDown') { active = Math.min(active + 1, flat.length - 1); event.preventDefault(); }
   else if (event.key === 'ArrowUp') { active = Math.max(active - 1, 0); event.preventDefault(); }
-  else if (event.key === 'Enter' && flat[active]) { onpick(flat[active]); event.preventDefault(); }
+  else if (event.key === 'Enter' && flat[active]) { pickEntry(flat[active]); event.preventDefault(); }
  }
 </script>
 
@@ -24,7 +25,7 @@
   {#each groups as group (group.category)}
    <li class="node-search-category" role="presentation">{group.category}</li>
    {#each group.entries as entry (entry.type)}
-    <li role="option" aria-selected={flat[active] === entry} class:active={flat[active] === entry} onpointerdown={event => { event.preventDefault(); if (!disabled) onpick(entry); }}>{entry.label}</li>
+    <li role="option" aria-selected={flat[active] === entry} class:active={flat[active] === entry} onpointerdown={event => { event.preventDefault(); if (!disabled) pickEntry(entry); }}>{entry.label}</li>
    {/each}
   {/each}
  </ul>
