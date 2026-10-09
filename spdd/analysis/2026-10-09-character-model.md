@@ -17,6 +17,16 @@ Warudo uses one flow. The operator adds a Character asset, and the Inspector has
 - A character with no model renders nothing. The output has no placeholder.
 - MCP gets `setAvatarModel` through `scene_patch`, because MCP uses the validated command API. MCP can set only an asset ID; it cannot import a file.
 
+## Model loading
+
+The renderer loads a model inside frame submission, and submissions run in sequence. While a model loads, the preview and the OBS output stop. With the Rem VRM, the stop is 1 to 2 s with a warm pipeline cache and 10.9 s with a cold cache in Safari ([avatar performance](../../docs/evaluation/avatar-performance.md)). The operator sees no status during this time.
+
+- The renderer loads models in the background. The rest of the scene continues to render. A replaced model stays visible until the new model is ready.
+- The renderer prepares GPU pipelines for the new model before it joins the scene, to move pipeline compilation out of the frame path. A Safari measurement must confirm this.
+- The Scene window shows a centered overlay card with the model name, the stage, and a progress bar. The stages are download, textures, prepare, and failed. Shader preparation has no known total, so its bar is indeterminate.
+- The editor shows the same status in the Model row, and a spinner in the character's Assets row. The native import step shows its own indeterminate state.
+- The overlay is outside the canvas. The OBS output and captures stay clean.
+
 ## Effects
 
 - Shows that refer to an asset ID still open without change. A show can now hold a character with `assetId: null`. Older builds reject such a show.
@@ -26,4 +36,4 @@ Warudo uses one flow. The operator adds a Character asset, and the Inspector has
 
 ## Out of scope
 
-Model selection from the existing library without the file picker, model thumbnails, automatic rename of a character to its model name, and import of GLB props.
+Model selection from the existing library without the file picker, import progress percent from the native host, load status for the OBS output in the editor, model thumbnails, automatic rename of a character to its model name, and import of GLB props.
