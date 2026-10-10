@@ -29,3 +29,12 @@ it('filters to nodes with a compatible port and names that port', () => {
  expect(intoNumber.find(entry => entry.type === 'flow.forLoop')?.port).toBe('index');
  expect(intoNumber.some(entry => entry.type === 'event.manual')).toBe(false);
 });
+
+it('puts the closest label match first', () => {
+ const first = (query: string) => searchNodes(query, refs)[0]!.entries[0]!.type;
+ expect(first('number')).toBe('value.number');
+ expect(first('gate')).toBe('flow.gate');
+ expect(first('add')).toBe('math.add');
+ expect(first('')).toBe('event.manual');
+ expect(types(searchNodes('number variable', refs))[0]).toBe('variable.getNumber');
+});

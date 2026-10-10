@@ -10,7 +10,13 @@
  const sorted = (ports: Record<string, Port | undefined>) =>
   Object.entries(ports).filter((entry): entry is [string, Port] => entry[1] !== undefined).sort(([, a], [, b]) => (a.index ?? 0) - (b.index ?? 0));
  // Flow ports read from their chevron, so only data ports and branch names keep a label.
- const label = (name: string) => name === 'flow' || name === 'exit' ? '' : name.replace(/(\d+)$/, ' $1');
+ const label = (name: string) => {
+  if (name === 'flow' || name === 'exit') return '';
+  // A Switch On Number case port shows the value it matches.
+  const match = /^case(\d+)$/.exec(name);
+  if (match && data.data?.type === 'flow.switch') return `= ${data.data.settings.cases[Number(match[1])]}`;
+  return name.replace(/(\d+)$/, ' $1');
+ };
  const socket = (side: 'input' | 'output', key: string, payload: unknown) => (element: HTMLElement) =>
   emit({ type: 'render', data: { type: 'socket', side, key, nodeId: data.id, element, payload } });
  const unmount = (element: HTMLElement) => emit({ type: 'unmount', data: { element } });

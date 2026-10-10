@@ -75,3 +75,4 @@
 .canvas-menu .node-search{padding:4px 4px 6px}
 .canvas-menu .node-search-results{max-height:220px}
 .canvas-menu .node-search:has(+button){margin-bottom:4px;border-bottom:1px solid #eeecf2}
+.blueprint-canvas,.bp-node,.canvas-menu>button{-webkit-user-select:none;user-select:none}

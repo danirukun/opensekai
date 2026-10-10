@@ -88,6 +88,11 @@ export async function mountReteBlueprint(container: HTMLElement, initial: Bluepr
 
  area.addPipe(context => {
   if (context.type === 'nodepicked') handlers.onSelect(context.data.id);
+  // New wires go behind every node, so a wire never covers a node's ports or labels.
+  if (context.type === 'connectioncreated') {
+   const view = area.connectionViews.get(context.data.id);
+   if (view) void area.area.content.reorder(view.element, area.area.content.holder.firstChild);
+  }
   if (context.type === 'nodetranslated' && !silent && !ownNodes.has(context.data.id)) {
    const { id, position } = context.data;
    track(graph => ({ ...graph, nodes: graph.nodes.map(node => node.id === id ? { ...node, position: { ...position } } : node) }));
