@@ -108,7 +108,8 @@ export function createBlueprintSync(api: Pick<AppApi, 'blueprintEdit' | 'bluepri
    if (!result.ok) return result;
    const last = pending.at(-1);
    if (last && !last.sent && sameMove(last.ops, ops)) last.ops = ops;
-   else pending.push({ batchId: crypto.randomUUID(), ops, sent: false });
+   // One user action can exceed the batch limit; its batches go in order.
+   else for (let i = 0; i < ops.length; i += 64) pending.push({ batchId: crypto.randomUUID(), ops: ops.slice(i, i + 64), sent: false });
    if (issue?.kind === 'rejected') issue = null;
    show(result.data);
    void flush();

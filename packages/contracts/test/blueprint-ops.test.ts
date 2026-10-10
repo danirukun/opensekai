@@ -45,7 +45,7 @@ it('moves, renames, enables, creates, removes, and replaces graphs', () => {
  let gs = ok(applyBlueprintOps(base(), [
   { kind: 'moveNode', graphId: 'flash-marker', nodeId: 'wait', position: { x: 10, y: 20 } },
   { kind: 'updateGraph', graphId: 'disabled', enabled: true, name: 'On' },
-  { kind: 'createGraph', graph: { schemaVersion: 1, id: 'new', name: 'New', enabled: true, nodes: [], connections: [] } },
+  { kind: 'createGraph', graph: { schemaVersion: 1, id: 'new', name: 'New', enabled: true, nodes: [], connections: [], variables: [] } },
   { kind: 'removeGraph', graphId: 'toggle-performer' },
  ]));
  expect(graph(gs, 'flash-marker').nodes.find(n => n.id === 'wait')!.position).toEqual({ x: 10, y: 20 });
@@ -56,10 +56,10 @@ it('moves, renames, enables, creates, removes, and replaces graphs', () => {
 });
 
 it('enforces graph and set limits after the batch', () => {
- const create = (i: number) => ({ kind: 'createGraph' as const, graph: { schemaVersion: 1 as const, id: `g${i}`, name: 'G', enabled: true, nodes: [], connections: [] } });
+ const create = (i: number) => ({ kind: 'createGraph' as const, graph: { schemaVersion: 1 as const, id: `g${i}`, name: 'G', enabled: true, nodes: [], connections: [], variables: [] } });
  expect(applyBlueprintOps([], Array.from({ length: 8 }, (_, i) => create(i))).ok).toBe(true);
  expect(applyBlueprintOps([], Array.from({ length: 9 }, (_, i) => create(i)))).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
- expect(applyBlueprintOps(base(), [{ kind: 'createGraph', graph: { schemaVersion: 1, id: 'flash-marker', name: 'Dup', enabled: true, nodes: [], connections: [] } }])).toMatchObject({ ok: false });
+ expect(applyBlueprintOps(base(), [{ kind: 'createGraph', graph: { schemaVersion: 1, id: 'flash-marker', name: 'Dup', enabled: true, nodes: [], connections: [], variables: [] } }])).toMatchObject({ ok: false });
 });
 
 it('rejects prototype-named ports', () => {
@@ -73,6 +73,6 @@ it('names the failing rule and graph when the final set does not parse', () => {
  expect(applyBlueprintOps(base(), [{ kind: 'addNode', graphId: 'flash-marker', node: key }]))
   .toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', message: 'Keystroke needs Control, Alt, or Meta', ids: ['flash-marker'] } });
  const nodes = Array.from({ length: 129 }, (_, i) => node(`n${i}`, 'value.number', { value: 0 }));
- expect(applyBlueprintOps([], [{ kind: 'createGraph', graph: { schemaVersion: 1, id: 'big', name: 'Big', enabled: true, nodes, connections: [] } }]))
+ expect(applyBlueprintOps([], [{ kind: 'createGraph', graph: { schemaVersion: 1, id: 'big', name: 'Big', enabled: true, nodes, connections: [], variables: [] } }]))
   .toMatchObject({ ok: false, error: { message: 'Blueprint set exceeds its limits' } });
 });

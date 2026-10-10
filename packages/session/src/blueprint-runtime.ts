@@ -1,4 +1,6 @@
 import { BlueprintSetSchema, keystrokeAccelerator, type AppError, type BlueprintGraph, type Id, type Reply } from '@opensekai/contracts';
+import { emptyState, type RunState } from './blueprint-eval';
+import { fnv1a } from './blueprint-random';
 import { compileBlueprint, fail, runFlow, type BlueprintEffect, type CompiledBlueprint, type FlowBudget, type PendingDelay } from './blueprint';
 
 export type BlueprintEvent = { kind: 'manual'; graphId: Id; nodeId: Id } | { kind: 'keystroke'; accelerator: string };
@@ -7,10 +9,12 @@ export interface GraphRun { graphId: Id; effects: BlueprintEffect[]; error: AppE
 export type RunGate = (run: GraphRun) => AppError | null;
 export interface BlueprintRuntime { install(graphs: unknown, fresh?: boolean): Reply<BlueprintGraph[]>; installCompiled(graphs: readonly CompiledBlueprint[], fresh?: boolean): void; keystrokes(): string[]; step(events: BlueprintEvent[], nowMs: number, gate?: RunGate): GraphRun[] }
 
-interface Active { compiled: CompiledBlueprint; logic: string; flip: Map<Id, boolean>; delays: (PendingDelay & { order: number })[] }
-const MAX_DELAYS = 32;
+interface Active { compiled: CompiledBlueprint; logic: string; state: RunState; delays: (PendingDelay & { order: number })[]; enable: boolean }
+const MAX_DELAYS = 32, TICK_VISITS = 1024, TICK_EFFECTS = 64;
 // Executable content only: positions and names do not reset runtime state.
-export const logicKey = (graph: BlueprintGraph) => JSON.stringify([graph.id, graph.enabled, graph.nodes.map(({ id, type, settings }) => [id, type, settings]), graph.connections]);
+export const logicKey = (graph: BlueprintGraph) => JSON.stringify([graph.id, graph.enabled, graph.nodes.map(({ id, type, settings }) => [id, type, settings]), graph.connections, (graph.variables ?? []).map(({ id, type, default: value }) => [id, type, value])]);
+export const initialState = (graph: BlueprintGraph): RunState =>
+ ({ ...emptyState(fnv1a(graph.id)), variables: new Map((graph.variables ?? []).map(variable => [variable.id, variable.default])) });
 
 export const activeAccelerators = (graphs: readonly BlueprintGraph[]): string[] => [...new Set(graphs.filter(graph => graph.enabled)
  .flatMap(graph => graph.nodes.flatMap(node => node.type === 'event.keystroke' ? [keystrokeAccelerator(node.settings)] : [])))].sort();
@@ -20,7 +24,7 @@ export function createBlueprintRuntime(): BlueprintRuntime {
  let order = 0;
  const run = (entry: Active, start: { nodeId: Id; port: string }, budget: FlowBudget, nowMs: number, gate: RunGate): GraphRun => {
   const graphId = entry.compiled.graph.id;
-  const result = runFlow(entry.compiled, start, entry.flip, budget, nowMs);
+  const result = runFlow(entry.compiled, start, entry.state, budget, nowMs);
   if (!result.ok) return { graphId, effects: [], error: result.error };
   if (entry.delays.length + result.data.delays.length > MAX_DELAYS) {
    const limit = fail('Blueprint delay limit reached', [graphId]);
@@ -29,7 +33,7 @@ export function createBlueprintRuntime(): BlueprintRuntime {
   const outcome: GraphRun = { graphId, effects: result.data.effects, error: null };
   const rejected = gate(outcome);
   if (rejected) return { graphId, effects: [], error: rejected };
-  entry.flip = result.data.flip;
+  entry.state = result.data.state;
   entry.delays.push(...result.data.delays.map(delay => ({ ...delay, order: order++ })));
   return outcome;
  };
@@ -37,7 +41,8 @@ export function createBlueprintRuntime(): BlueprintRuntime {
   active = graphs.map(compiled => {
    const logic = logicKey(compiled.graph);
    const previous = compiled.graph.enabled && !fresh ? active.find(entry => entry.logic === logic) : undefined;
-   return { compiled, logic, flip: previous?.flip ?? new Map(), delays: previous?.delays ?? [] };
+   // A new state on an enabled graph runs its On Enable nodes on the next step.
+   return previous ? { ...previous, compiled } : { compiled, logic, state: initialState(compiled.graph), delays: [], enable: compiled.graph.enabled };
   });
  };
  return {
@@ -56,8 +61,14 @@ export function createBlueprintRuntime(): BlueprintRuntime {
   },
   keystrokes: () => activeAccelerators(active.map(entry => entry.compiled.graph)),
   step(events, nowMs, gate = () => null) {
-   const budget: FlowBudget = { visits: 256, effects: 64 };
+   const budget: FlowBudget = { visits: TICK_VISITS, effects: TICK_EFFECTS };
    const runs: GraphRun[] = [];
+   for (const entry of active) {
+    if (!entry.enable) continue;
+    entry.enable = false;
+    for (const node of entry.compiled.graph.nodes)
+     if (node.type === 'event.enable') runs.push(run(entry, { nodeId: node.id, port: 'flow' }, budget, nowMs, gate));
+   }
    const due = active.flatMap(entry => entry.delays.filter(delay => delay.dueMs <= nowMs).map(delay => ({ entry, delay })))
     .sort((a, b) => a.delay.dueMs - b.delay.dueMs || a.delay.order - b.delay.order);
    for (const { entry, delay } of due) {

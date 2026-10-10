@@ -18,6 +18,10 @@ it('initializes and calls a real stdio process, then closes it',async()=>{
   expect((await client.readResource({uri:'opensekai://status'})).contents).toHaveLength(1);
   expect((await client.listResources()).resources.map(r=>r.uri)).toContain('opensekai://blueprints');
   expect((await client.readResource({uri:'opensekai://blueprints'})).contents).toHaveLength(1);
+  expect((await client.listResources()).resources.map(r=>r.uri)).toContain('opensekai://blueprint-nodes');
+  const catalog=JSON.parse(((await client.readResource({uri:'opensekai://blueprint-nodes'})).contents[0] as {text:string}).text);
+  expect(catalog.nodes.map((n:{type:string})=>n.type)).toContain('variable.addNumber');
+  expect((await client.callTool({name:'blueprint_edit',arguments:{clientId:'mcp',batchId:'v1',ops:[{kind:'addVariable',graphId:'g',variable:{id:'n',name:'N',type:'number',default:0}},{kind:'addNode',graphId:'g',node:{id:'add',version:1,type:'variable.addNumber',settings:{variableId:'n'},position:{x:0,y:0}}}]}})).isError).toBe(false);
   expect((await client.callTool({name:'blueprint_inspect',arguments:{}})).isError).toBe(false);
   expect((await client.callTool({name:'evidence_read',arguments:{evidenceId:'opaque'}})).isError).toBe(false);
   expect((await client.readResource({uri:'opensekai://evidence/opaque/capture.png'})).contents[0]).toMatchObject({blob:'AQID',mimeType:'image/png'});

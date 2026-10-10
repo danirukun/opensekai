@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { BlueprintConnectionSchema, BlueprintGraphSchema, BlueprintNodeSchema, BlueprintPositionSchema, BlueprintSetSchema, type BlueprintGraph } from './blueprint';
-import { blueprintPorts, connectionType, ownPort } from './blueprint-nodes';
+import { BlueprintConnectionSchema, BlueprintGraphSchema, BlueprintSetSchema, BlueprintVariableSchema, type BlueprintGraph } from './blueprint';
+import { BlueprintNodeSchema, BlueprintPositionSchema, blueprintPorts, connectionType, ownPort } from './blueprint-nodes';
 import type { Reply } from './types';
 
 const IdSchema = z.string().min(1).max(256);
@@ -15,6 +15,9 @@ export const BlueprintOpSchema = z.discriminatedUnion('kind', [
  z.strictObject({ kind: z.literal('setNodeSettings'), graphId: IdSchema, nodeId: IdSchema, settings: z.record(z.string(), z.unknown()) }),
  z.strictObject({ kind: z.literal('connect'), graphId: IdSchema, connection: BlueprintConnectionSchema }),
  z.strictObject({ kind: z.literal('disconnect'), graphId: IdSchema, connectionId: IdSchema }),
+ z.strictObject({ kind: z.literal('addVariable'), graphId: IdSchema, variable: BlueprintVariableSchema }),
+ z.strictObject({ kind: z.literal('updateVariable'), graphId: IdSchema, variableId: IdSchema, name: z.string().trim().min(1).max(64).optional(), type: z.enum(['number', 'boolean']).optional(), default: z.union([z.number().finite(), z.boolean()]).optional() }),
+ z.strictObject({ kind: z.literal('removeVariable'), graphId: IdSchema, variableId: IdSchema }),
 ]);
 export const BlueprintBatchSchema = z.strictObject({ clientId: IdSchema, batchId: IdSchema, ops: z.array(BlueprintOpSchema).min(1).max(64) });
 export type BlueprintOp = z.infer<typeof BlueprintOpSchema>;
@@ -23,7 +26,7 @@ export type BlueprintBatch = z.infer<typeof BlueprintBatchSchema>;
 const reject = (code: 'NOT_FOUND' | 'INVALID_INPUT', message: string, ids: string[]): Reply<never> => ({ ok: false, error: { code, message, ids } });
 
 export function applyBlueprintOps(graphs: readonly BlueprintGraph[], ops: readonly BlueprintOp[]): Reply<BlueprintGraph[]> {
- let next = structuredClone(graphs) as BlueprintGraph[];
+ let next = (structuredClone(graphs) as BlueprintGraph[]).map(graph => ({ ...graph, variables: graph.variables ?? [] }));
  for (const op of ops) {
   if (op.kind === 'replaceAll') { next = structuredClone(op.graphs); continue; }
   if (op.kind === 'createGraph') {
@@ -78,6 +81,22 @@ export function applyBlueprintOps(graphs: readonly BlueprintGraph[], ops: readon
    case 'disconnect':
     if (!graph.connections.some(c => c.id === op.connectionId)) return reject('NOT_FOUND', 'Connection not found', [op.connectionId]);
     graph.connections = graph.connections.filter(c => c.id !== op.connectionId); break;
+   case 'addVariable':
+    if (graph.variables.some(v => v.id === op.variable.id)) return reject('INVALID_INPUT', 'Duplicate variable ID', [op.variable.id]);
+    graph.variables.push(structuredClone(op.variable)); break;
+   case 'updateVariable': {
+    const i = graph.variables.findIndex(v => v.id === op.variableId);
+    if (i < 0) return reject('NOT_FOUND', 'Variable not found', [op.variableId]);
+    const old = graph.variables[i]!, type = op.type ?? old.type;
+    // A new type without a new default starts from that type's zero value.
+    const fallback = type === old.type ? old.default : type === 'number' ? 0 : false;
+    const parsed = BlueprintVariableSchema.safeParse({ id: old.id, name: op.name ?? old.name, type, default: op.default ?? fallback });
+    if (!parsed.success) return reject('INVALID_INPUT', 'Invalid variable', [op.variableId]);
+    graph.variables[i] = parsed.data; break;
+   }
+   case 'removeVariable':
+    if (!graph.variables.some(v => v.id === op.variableId)) return reject('NOT_FOUND', 'Variable not found', [op.variableId]);
+    graph.variables = graph.variables.filter(v => v.id !== op.variableId); break;
   }
  }
  const valid = BlueprintSetSchema.safeParse(next);

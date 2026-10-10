@@ -369,6 +369,20 @@ fn position_ok(value: &Value) -> bool {
             .iter()
             .all(|a| value[*a].as_f64().is_some_and(f64::is_finite))
 }
+fn variable_name_ok(name: &Value) -> bool {
+    name.as_str()
+        .is_some_and(|n| !n.trim().is_empty() && n.chars().count() <= 64)
+}
+fn variable_ok(v: &Value) -> bool {
+    keys_within(v, &["id", "name", "type", "default"])
+        && id_ok(&v["id"])
+        && variable_name_ok(&v["name"])
+        && match v["type"].as_str() {
+            Some("number") => v["default"].as_f64().is_some_and(f64::is_finite),
+            Some("boolean") => v["default"].is_boolean(),
+            _ => false,
+        }
+}
 
 pub fn validate_blueprint_node(node: &Value) -> Result<(), AppError> {
     require(
@@ -411,6 +425,7 @@ pub fn validate_blueprint_graph(graph: &Value) -> Result<(), AppError> {
                 "enabled",
                 "nodes",
                 "connections",
+                "variables",
             ],
         ),
         "Invalid Blueprint graph",
@@ -450,6 +465,20 @@ pub fn validate_blueprint_graph(graph: &Value) -> Result<(), AppError> {
             wires.insert(c["id"].as_str().unwrap_or_default()),
             "Duplicate connection ID",
         )?;
+    }
+    if let Some(vars) = graph.get("variables") {
+        let vars = vars
+            .as_array()
+            .filter(|v| v.len() <= 32)
+            .ok_or_else(|| invalid("invalid Blueprint variables"))?;
+        let mut ids = std::collections::HashSet::new();
+        for v in vars {
+            require(variable_ok(v), "Invalid Blueprint variable")?;
+            require(
+                ids.insert(v["id"].as_str().unwrap_or_default()),
+                "Duplicate variable ID",
+            )?;
+        }
     }
     Ok(())
 }
@@ -523,6 +552,30 @@ pub fn validate_blueprint_ops(ops: &[Value]) -> Result<(), AppError> {
                 keys_within(op, &["kind", "graphId", "connectionId"])
                     && id_ok(&op["graphId"])
                     && id_ok(&op["connectionId"])
+            }
+            Some("addVariable") => {
+                keys_within(op, &["kind", "graphId", "variable"])
+                    && id_ok(&op["graphId"])
+                    && variable_ok(&op["variable"])
+            }
+            Some("updateVariable") => {
+                keys_within(
+                    op,
+                    &["kind", "graphId", "variableId", "name", "type", "default"],
+                ) && id_ok(&op["graphId"])
+                    && id_ok(&op["variableId"])
+                    && op.get("name").is_none_or(variable_name_ok)
+                    && op
+                        .get("type")
+                        .is_none_or(|t| matches!(t.as_str(), Some("number" | "boolean")))
+                    && op
+                        .get("default")
+                        .is_none_or(|d| d.is_boolean() || d.as_f64().is_some_and(f64::is_finite))
+            }
+            Some("removeVariable") => {
+                keys_within(op, &["kind", "graphId", "variableId"])
+                    && id_ok(&op["graphId"])
+                    && id_ok(&op["variableId"])
             }
             _ => false,
         };

@@ -1,0 +1,19 @@
+{
+ "valid": {
+  "schemaVersion": 1, "id": "counter", "name": "Counter",
+  "variables": [
+   { "id": "count", "name": "Count", "type": "number", "default": 0 },
+   { "id": "armed", "name": "Armed", "type": "boolean", "default": false }
+  ],
+  "nodes": [], "connections": []
+ },
+ "invalid": [
+  { "name": "duplicate-id", "variables": [ { "id": "count", "name": "Count", "type": "number", "default": 0 }, { "id": "count", "name": "Other", "type": "number", "default": 1 } ] },
+  { "name": "default-type", "variables": [ { "id": "v", "name": "V", "type": "number", "default": true } ] },
+  { "name": "unknown-type", "variables": [ { "id": "v", "name": "V", "type": "string", "default": "x" } ] },
+  { "name": "blank-name", "variables": [ { "id": "v", "name": "  ", "type": "boolean", "default": true } ] },
+  { "name": "unknown-key", "variables": [ { "id": "v", "name": "V", "type": "boolean", "default": true, "note": "x" } ] },
+  { "name": "long-name", "variables": [ { "id": "v", "name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "type": "boolean", "default": true } ] },
+  { "name": "not-array", "variables": {} }
+ ]
+}

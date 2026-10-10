@@ -14,7 +14,7 @@ The CLI authenticates the app connection before it starts MCP stdio. Startup fai
 
 Tools are `app_status`, `scene_inspect`, `scene_patch`, `scene_replace`, `camera_select`, `blueprint_edit`, `blueprint_inspect`, `blueprint_run`, `capture_frame`, `benchmark_start`, `benchmark_status`, `benchmark_cancel`, and `evidence_read`. Inputs use the shared strict command schemas. Domain failures include the structured error code and mark the tool result as an error.
 
-Read `opensekai://status` for current status. Read `opensekai://blueprints` for the current Blueprint documents.
+Read `opensekai://status` for current status. Read `opensekai://blueprints` for the current Blueprint documents. The resource `opensekai://blueprint-nodes` lists each node type with its ports and the JSON Schema of its settings.
 
 `blueprint_edit` applies one batch of ordered operations to the session Blueprints. Each batch needs a new `batchId`. Resending the identical batch is safe. `blueprint_inspect` reads the documents, or the batches after a revision. Its reply also lists the active accelerators. `blueprint_run` fires a Manual Trigger in an enabled graph. These tools use the same validated commands as the editor. Scene inspection registers `opensekai://scene/<scene-id>`. Capture and evidence results register opaque `opensekai://evidence/<id>/<filename>` resources. Only app-returned evidence IDs can be read. Bytes use the authenticated shared client and are checked against the declared length and SHA-256 hash. Evidence registrations are bounded to eight and removed when a read fails. The CLI does not fetch arbitrary URLs or file paths.
 

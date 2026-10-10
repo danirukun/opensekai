@@ -1,5 +1,7 @@
+import type { Component } from 'svelte';
 import { ClassicPreset, NodeEditor, type GetSchemes } from 'rete';
 import { AreaExtensions, AreaPlugin } from 'rete-area-plugin';
+import { getDOMSocketPosition } from 'rete-render-utils';
 import { ConnectionPlugin, Presets as ConnectionPresets } from 'rete-connection-plugin';
 import { Presets, SveltePlugin, type SvelteArea2D } from 'rete-svelte-plugin/5';
 import { BLUEPRINT_LABELS, blueprintPorts, ownPort, type BlueprintConnection, type BlueprintGraph, type BlueprintNode, type BlueprintOp, type PortType } from '@opensekai/contracts';
@@ -29,33 +31,61 @@ class GraphNode extends ClassicPreset.Node {
   for (const name of Object.keys(this.outputs)) if (!ownPort(ports, 'outputs', name)) this.removeOutput(name);
   for (const [name, type] of Object.entries(ports.inputs)) if (!Object.hasOwn(this.inputs, name)) this.addInput(name, new ClassicPreset.Input(sockets[type], name, type === 'flow'));
   for (const [name, type] of Object.entries(ports.outputs)) if (!Object.hasOwn(this.outputs, name)) this.addOutput(name, new ClassicPreset.Output(sockets[type], name, type !== 'flow'));
+  // Ports keep the definition's order, also when a settings change adds one (a new Switch case goes before default).
+  Object.keys(ports.inputs).forEach((name, index) => { this.inputs[name]!.index = index; });
+  Object.keys(ports.outputs).forEach((name, index) => { this.outputs[name]!.index = index; });
  }
 }
 type Schemes = GetSchemes<ClassicPreset.Node, ClassicPreset.Connection<ClassicPreset.Node, ClassicPreset.Node>>;
 type AreaExtra = SvelteArea2D<Schemes>;
 
+export type MenuTarget = { kind: 'canvas' } | { kind: 'node'; nodeId: string } | { kind: 'wire'; connectionId: string };
 export interface ReteBlueprintEditor {
+ selected(): string[];
+ selectMany(ids: string[]): void;
+ pointer(): { x: number; y: number };
  center(): { x: number; y: number };
  show(graph: BlueprintGraph): Promise<void>;
  select(nodeId: string | null): void;
  zoomToFit(): Promise<void>;
  destroy(): void;
 }
-export interface ReteBlueprintHandlers { onSelect(id: string | null): void; onOps(ops: BlueprintOp[]): void }
+// Svelte components for nodes and sockets; the panel passes them so this module stays free of .svelte imports.
+export interface BlueprintViews { node: Component<any>; socket: Component<any>; connection: Component<any> }
+export interface ReteBlueprintHandlers {
+ onSelect(id: string | null): void; onOps(ops: BlueprintOp[]): void;
+ onContextMenu?(target: MenuTarget, client: { x: number; y: number }): void;
+ onWireDrop?(from: { nodeId: string; port: string; side: 'input' | 'output' }, client: { x: number; y: number }): void;
+}
 
-export async function mountReteBlueprint(container: HTMLElement, initial: BlueprintGraph, handlers: ReteBlueprintHandlers, options: { render?: boolean; inspect?: (area: AreaPlugin<Schemes, AreaExtra>) => void } = {}): Promise<ReteBlueprintEditor> {
+export async function mountReteBlueprint(container: HTMLElement, initial: BlueprintGraph, handlers: ReteBlueprintHandlers, options: { render?: boolean; inspect?: (area: AreaPlugin<Schemes, AreaExtra>) => void; views?: BlueprintViews } = {}): Promise<ReteBlueprintEditor> {
  const editor = new NodeEditor<Schemes>();
  const area = new AreaPlugin<Schemes, AreaExtra>(container);
  const render = new SveltePlugin<Schemes, AreaExtra>();
  const connections = new ConnectionPlugin<Schemes, AreaExtra>();
- render.addPreset(Presets.classic.setup());
+ const views = options.views;
+ // Wires end at the socket center: the custom sockets are small, so the classic 12 px offset would leave a gap.
+ render.addPreset(Presets.classic.setup(views ? { socketPositionWatcher: getDOMSocketPosition({ offset: position => position }), customize: { node: () => views.node, socket: () => views.socket, connection: () => views.connection } } : undefined));
  connections.addPreset(ConnectionPresets.classic.setup());
+ connections.addPipe(context => {
+  if (context.type === 'connectiondrop' && !context.data.created && context.data.socket === null) {
+   const { nodeId, key, side } = context.data.initial;
+   const { x, y } = area.area.pointer, { k, x: tx, y: ty } = area.area.transform, box = container.getBoundingClientRect();
+   handlers.onWireDrop?.({ nodeId, port: key, side }, { x: box.left + x * k + tx, y: box.top + y * k + ty });
+  }
+  return context;
+ });
  editor.use(area);
  if (options.render !== false) { area.use(render); area.use(connections); }
- const selectable = AreaExtensions.selectableNodes(area, AreaExtensions.selector(), { accumulating: AreaExtensions.accumulateOnCtrl() });
+ // This pipe must stay after `area.use(connections)` so the connection plugin still receives every pointerup.
+ // The selection extension clears on any pointerup it sees as a click; only the primary button may reach it.
+ area.addPipe(context => (context.type === 'pointerdown' || context.type === 'pointerup') && context.data.event.button !== 0 ? undefined : context);
+ const selector = AreaExtensions.selector();
+ const selectable = AreaExtensions.selectableNodes(area, selector, { accumulating: AreaExtensions.accumulateOnCtrl() });
  options.inspect?.(area);
  let shown: BlueprintGraph = { ...initial, nodes: [], connections: [] };
  let queue: Promise<void> = Promise.resolve(), destroyed = false, applying = false, silent = false, dirty = false;
+ let targeted: MouseEvent | null = null;
  // Events that apply() itself causes are named here only while its own awaited call runs, so a user gesture during a patch still counts.
  const ownNodes = new Set<string>(), ownWires = new Set<string>();
  let log: ((graph: BlueprintGraph) => BlueprintGraph)[] = [];
@@ -64,10 +94,24 @@ export async function mountReteBlueprint(container: HTMLElement, initial: Bluepr
 
  area.addPipe(context => {
   if (context.type === 'nodepicked') handlers.onSelect(context.data.id);
+  // New wires go behind every node, so a wire never covers a node's ports or labels.
+  if (context.type === 'connectioncreated') {
+   const view = area.connectionViews.get(context.data.id);
+   if (view) void area.area.content.reorder(view.element, area.area.content.holder.firstChild);
+  }
   if (context.type === 'nodetranslated' && !silent && !ownNodes.has(context.data.id)) {
    const { id, position } = context.data;
    track(graph => ({ ...graph, nodes: graph.nodes.map(node => node.id === id ? { ...node, position: { ...position } } : node) }));
    handlers.onOps([{ kind: 'moveNode', graphId, nodeId: id, position: { ...position } }]);
+  }
+  if (context.type === 'contextmenu') {
+   const { event, context: hit } = context.data as { event: MouseEvent; context: 'root' | { id: string; source?: string; target?: string } };
+   event.preventDefault();
+   // A right-click on a node or wire bubbles to the canvas with the same event; report only the first.
+   if (hit === 'root' && event === targeted) return context;
+   if (hit !== 'root') targeted = event;
+   const target: MenuTarget = hit === 'root' ? { kind: 'canvas' } : 'source' in hit && 'target' in hit ? { kind: 'wire', connectionId: hit.id } : { kind: 'node', nodeId: hit.id };
+   handlers.onContextMenu?.(target, { x: event.clientX, y: event.clientY });
   }
   return context;
  });
@@ -168,6 +212,9 @@ export async function mountReteBlueprint(container: HTMLElement, initial: Bluepr
    return { x: Math.round((container.clientWidth / 2 - x) / k - 90), y: Math.round((container.clientHeight / 2 - y) / k - 40) };
   },
   show,
+  selected: () => [...selector.entities.values()].filter(entity => entity.label === 'node').map(entity => entity.id),
+  selectMany(ids) { ids.forEach((id, i) => { if (editor.getNode(id)) selectable.select(id, i > 0); }); },
+  pointer: () => ({ x: Math.round(area.area.pointer.x), y: Math.round(area.area.pointer.y) }),
   select(nodeId) {
    if (nodeId === null) { for (const node of editor.getNodes()) selectable.unselect(node.id); return; }
    if (editor.getNode(nodeId)) selectable.select(nodeId, false);

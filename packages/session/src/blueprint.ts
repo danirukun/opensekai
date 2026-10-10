@@ -1,4 +1,5 @@
-import { BlueprintGraphSchema, blueprintPorts, connectionType, type BlueprintConnection, type BlueprintGraph, type BlueprintNode, type Id, type Reply } from '@opensekai/contracts';
+import { cloneState, EVALUATORS, type BlueprintValue, type Evaluator, type RunState } from './blueprint-eval';
+import { BlueprintGraphSchema, blueprintPorts, nodeDefinition, connectionType, type BlueprintConnection, type BlueprintGraph, type BlueprintNode, type Id, type Reply } from '@opensekai/contracts';
 
 export type BlueprintEffect =
  | { kind: 'setVisibility'; entityId: Id; visible: boolean }
@@ -7,9 +8,13 @@ export type BlueprintEffect =
 export interface CompiledBlueprint { graph: BlueprintGraph; nodes: Map<Id, BlueprintNode>; dataIn: Map<string, BlueprintConnection>; flowNext: Map<string, BlueprintConnection> }
 export interface PendingDelay { nodeId: Id; dueMs: number }
 export interface FlowBudget { visits: number; effects: number }
-export interface FlowResult { effects: BlueprintEffect[]; delays: PendingDelay[]; flip: Map<Id, boolean> }
+export interface FlowResult { effects: BlueprintEffect[]; delays: PendingDelay[]; state: RunState }
 
-const MAX_EVENT_VISITS = 64;
+const MAX_EVENT_VISITS = 512;
+const MAX_LOOP_ITERATIONS = 64;
+class LoopLimit extends Error {}
+type Frame = { kind: 'enter'; nodeId: Id; port: string } | { kind: 'loop'; nodeId: Id; index: number; last: number };
+const evaluator = (node: BlueprintNode) => EVALUATORS[node.type] as Evaluator<BlueprintNode>;
 export const fail = (message: string, ids: string[] = []): Reply<never> => ({ ok: false, error: { code: 'INVALID_INPUT', message, ids } });
 const key = (nodeId: string, port: string) => `${nodeId}\0${port}`;
 
@@ -30,6 +35,12 @@ export function compileBlueprint(input: unknown): Reply<CompiledBlueprint> {
  const parsed = BlueprintGraphSchema.safeParse(input);
  if (!parsed.success) return fail('Invalid Blueprint document');
  const graph = parsed.data;
+ const variables = new Map(graph.variables.map(variable => [variable.id, variable.type]));
+ for (const node of graph.nodes) {
+  const field = nodeDefinition(node.type).fields.find(item => item.kind === 'variable');
+  if (field?.kind === 'variable' && variables.get((node.settings as { variableId: string }).variableId) !== field.variableType)
+   return fail('Blueprint variable is missing', [node.id]);
+ }
  const nodes = new Map(graph.nodes.map(node => [node.id, node]));
  const dataIn = new Map<string, BlueprintConnection>();
  const flowNext = new Map<string, BlueprintConnection>();
@@ -59,22 +70,15 @@ export function compileBlueprint(input: unknown): Reply<CompiledBlueprint> {
  return { ok: true, data: { graph, nodes, dataIn, flowNext } };
 }
 
-const readInput = (compiled: CompiledBlueprint, flip: ReadonlyMap<Id, boolean>, nodeId: Id, port: string): number | boolean => {
- const cache = new Map<string, number | boolean>();
- const evaluate = (id: Id, out: string): number | boolean => {
+const readInput = (compiled: CompiledBlueprint, state: RunState, nodeId: Id, port: string): BlueprintValue => {
+ const cache = new Map<string, BlueprintValue>();
+ const evaluate = (id: Id, out: string): BlueprintValue => {
   const cached = cache.get(key(id, out));
   if (cached !== undefined) return cached;
   const node = compiled.nodes.get(id)!;
-  const input = (name: string) => { const wire = compiled.dataIn.get(key(id, name))!; return evaluate(wire.sourceNodeId, wire.sourcePort); };
-  let result: number | boolean;
-  switch (node.type) {
-   case 'value.number': case 'value.boolean': result = node.settings.value; break;
-   case 'math.add': result = Number(input('a')) + Number(input('b')); break;
-   case 'logic.greater': result = Number(input('a')) > Number(input('b')); break;
-   case 'logic.not': result = !input('value'); break;
-   case 'flow.flipFlop': result = flip.get(id) ?? false; break;
-   default: throw new Error('Blueprint has an invalid data source');
-  }
+  const data = evaluator(node).data;
+  if (!data) throw new Error('Blueprint has an invalid data source');
+  const result = data(node, out, name => { const wire = compiled.dataIn.get(key(id, name))!; return evaluate(wire.sourceNodeId, wire.sourcePort); }, state);
   if (typeof result === 'number' && !Number.isFinite(result)) throw new RangeError('Blueprint number is not finite');
   cache.set(key(id, out), result);
   return result;
@@ -83,35 +87,47 @@ const readInput = (compiled: CompiledBlueprint, flip: ReadonlyMap<Id, boolean>, 
  return evaluate(wire.sourceNodeId, wire.sourcePort);
 };
 
-export function runFlow(compiled: CompiledBlueprint, start: { nodeId: Id; port: string }, state: ReadonlyMap<Id, boolean>, budget: FlowBudget, nowMs: number): Reply<FlowResult> {
- const flip = new Map(state);
- const effects: BlueprintEffect[] = [], delays: PendingDelay[] = [], stack: Id[] = [];
+export function runFlow(compiled: CompiledBlueprint, start: { nodeId: Id; port: string }, state: RunState, budget: FlowBudget, nowMs: number): Reply<FlowResult> {
+ const next = cloneState(state);
+ const effects: BlueprintEffect[] = [], delays: PendingDelay[] = [], stack: Frame[] = [];
  const follow = (nodeId: Id, ports: string[]) => {
-  for (const port of [...ports].reverse()) { const wire = compiled.flowNext.get(key(nodeId, port)); if (wire) stack.push(wire.targetNodeId); }
- };
- const emit = (node: BlueprintNode, effect: BlueprintEffect): Reply<never> | null => {
-  if (--budget.effects < 0) return fail('Blueprint run exceeded its operation limit', [node.id]);
-  effects.push(effect); follow(node.id, ['exit']); return null;
+  for (const port of [...ports].reverse()) { const wire = compiled.flowNext.get(key(nodeId, port)); if (wire) stack.push({ kind: 'enter', nodeId: wire.targetNodeId, port: wire.targetPort }); }
  };
  follow(start.nodeId, [start.port]);
  let visits = 0;
  while (stack.length > 0) {
   if (++visits > MAX_EVENT_VISITS || --budget.visits < 0) return fail('Blueprint run exceeded its flow limit', [start.nodeId]);
-  const node = compiled.nodes.get(stack.pop()!)!;
+  const frame = stack.pop()!;
+  if (frame.kind === 'loop') {
+   if (frame.index > frame.last) { follow(frame.nodeId, ['completed']); continue; }
+   next.loops.set(frame.nodeId, frame.index);
+   // The next iteration waits under the body, so all flow after `body` runs first.
+   stack.push({ ...frame, index: frame.index + 1 });
+   follow(frame.nodeId, ['body']);
+   continue;
+  }
+  const node = compiled.nodes.get(frame.nodeId)!;
+  const flow = evaluator(node).flow;
+  if (!flow) return fail('Blueprint flow reached a data node', [node.id]);
   let failure: Reply<never> | null = null;
   try {
-   switch (node.type) {
-    case 'flow.branch': follow(node.id, [readInput(compiled, flip, node.id, 'condition') ? 'true' : 'false']); break;
-    case 'flow.sequence': follow(node.id, Array.from({ length: node.settings.outputs }, (_, i) => `then${i}`)); break;
-    case 'flow.flipFlop': { const isA = !(flip.get(node.id) ?? false); flip.set(node.id, isA); follow(node.id, [isA ? 'a' : 'b']); break; }
-    case 'flow.delay': delays.push({ nodeId: node.id, dueMs: nowMs + node.settings.seconds * 1000 }); break;
-    case 'scene.setVisibility': failure = emit(node, { kind: 'setVisibility', entityId: node.settings.entityId, visible: Boolean(readInput(compiled, flip, node.id, 'visible')) }); break;
-    case 'scene.toggleVisibility': failure = emit(node, { kind: 'toggleVisibility', entityId: node.settings.entityId }); break;
-    case 'camera.switch': failure = emit(node, { kind: 'selectCamera', outputId: node.settings.outputId, cameraId: node.settings.cameraId }); break;
-    default: return fail('Blueprint flow reached a data node', [node.id]);
-   }
-  } catch { return fail('Blueprint data could not be evaluated', [node.id]); }
+   flow(node, {
+    port: frame.port, state: next, nowMs,
+    read: port => readInput(compiled, next, node.id, port),
+    follow: (...ports) => follow(node.id, ports),
+    emit: effect => {
+     if (--budget.effects < 0) { failure ??= fail('Blueprint run exceeded its operation limit', [node.id]); return; }
+     effects.push(effect); follow(node.id, ['exit']);
+    },
+    delay: seconds => { delays.push({ nodeId: node.id, dueMs: nowMs + seconds * 1000 }); },
+    loop: (first, last) => {
+     if (last - first + 1 > MAX_LOOP_ITERATIONS) throw new LoopLimit();
+     if (last < first) follow(node.id, ['completed']);
+     else stack.push({ kind: 'loop', nodeId: node.id, index: first, last });
+    },
+   });
+  } catch (error) { return fail(error instanceof LoopLimit ? 'Blueprint loop exceeded its iteration limit' : 'Blueprint data could not be evaluated', [node.id]); }
   if (failure) return failure;
  }
- return { ok: true, data: { effects, delays, flip } };
+ return { ok: true, data: { effects, delays, state: next } };
 }

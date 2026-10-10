@@ -1,33 +1,41 @@
 <script lang="ts">
  import { Input, Select } from '@oshi-connect/ui';
- import type { BlueprintNode, KeystrokeSettings, SceneView } from '@opensekai/contracts';
+ import { nodeDefinition, type BlueprintField, type BlueprintNode, type BlueprintVariable, type KeystrokeSettings, type SceneView } from '@opensekai/contracts';
  import KeystrokeField from './KeystrokeField.svelte';
+ import { formatCases, parseCases } from '../blueprints/fields';
 
- let { node, scene, platform, unavailable, onsettings }: {
-  node: BlueprintNode; scene: SceneView | null; platform: string; unavailable: boolean;
+ let { node, scene, variables, platform, unavailable, onsettings }: {
+  node: BlueprintNode; scene: SceneView | null; variables: readonly BlueprintVariable[]; platform: string; unavailable: boolean;
   onsettings: (settings: BlueprintNode['settings']) => void;
  } = $props();
- const targets = $derived(scene?.entities.filter(entity => entity.kind !== 'tracking') ?? []);
- const cameras = $derived(scene?.entities.filter(entity => entity.kind === 'camera') ?? []);
- const entityOptions = $derived(targets.map(target => ({ value: target.id, label: target.name })));
- const cameraOptions = $derived(cameras.map(camera => ({ value: camera.id, label: camera.name })));
- const outputOptions = $derived((scene?.outputs ?? []).map(output => ({ value: output.id, label: output.id })));
- const countOptions = [2, 3, 4, 5, 6, 7, 8].map(count => ({ value: String(count), label: String(count) }));
+ const settings = $derived(node.settings as Record<string, unknown>);
+ const fields = $derived(nodeDefinition(node.type).fields);
+ const set = (key: string, value: unknown) => onsettings({ ...settings, [key]: value } as BlueprintNode['settings']);
+ const numberInput = (field: Extract<BlueprintField, { kind: 'number' }>, text: string) => {
+  const value = Number(text);
+  if (text !== '' && Number.isFinite(value) && (field.min === undefined || value >= field.min) && (field.max === undefined || value <= field.max)) set(field.key, value);
+ };
+ const choices = (field: BlueprintField) =>
+  field.kind === 'entity' ? (scene?.entities ?? []).filter(entity => entity.kind !== 'tracking').map(entity => ({ value: entity.id, label: entity.name }))
+  : field.kind === 'camera' ? (scene?.entities ?? []).filter(entity => entity.kind === 'camera').map(entity => ({ value: entity.id, label: entity.name }))
+  : field.kind === 'output' ? (scene?.outputs ?? []).map(output => ({ value: output.id, label: output.id }))
+  : field.kind === 'variable' ? variables.filter(variable => variable.type === field.variableType).map(variable => ({ value: variable.id, label: variable.name }))
+  : field.kind === 'count' ? Array.from({ length: field.max - field.min + 1 }, (_, i) => ({ value: String(field.min + i), label: String(field.min + i) }))
+  : [];
 </script>
 
-{#if node.type === 'value.number'}
- <Input type="number" label="Value" value={String(node.settings.value)} oninput={event => { const value = Number(event.currentTarget.value); if (event.currentTarget.value !== '' && Number.isFinite(value)) onsettings({ value }); }} />
-{:else if node.type === 'value.boolean'}
- <label class="blueprint-checkbox"><input type="checkbox" checked={node.settings.value} onchange={event => onsettings({ value: event.currentTarget.checked })} />Value</label>
-{:else if node.type === 'scene.setVisibility' || node.type === 'scene.toggleVisibility'}
- <Select label="Entity" value={node.settings.entityId} options={entityOptions} onchange={event => onsettings({ entityId: event.currentTarget.value })} />
-{:else if node.type === 'camera.switch'}
- <Select label="Output" value={node.settings.outputId} options={outputOptions} onchange={event => onsettings({ ...node.settings, outputId: event.currentTarget.value })} />
- <Select label="Camera" value={node.settings.cameraId} options={cameraOptions} onchange={event => onsettings({ ...node.settings, cameraId: event.currentTarget.value })} />
-{:else if node.type === 'flow.delay'}
- <Input type="number" label="Seconds" min={0} max={3600} step="any" value={String(node.settings.seconds)} oninput={event => { const seconds = Number(event.currentTarget.value); if (event.currentTarget.value !== '' && Number.isFinite(seconds) && seconds >= 0 && seconds <= 3600) onsettings({ seconds }); }} />
-{:else if node.type === 'flow.sequence'}
- <Select label="Outputs" value={String(node.settings.outputs)} options={countOptions} onchange={event => onsettings({ outputs: Number(event.currentTarget.value) })} />
-{:else if node.type === 'event.keystroke'}
- <KeystrokeField value={node.settings as KeystrokeSettings} {platform} {unavailable} onchange={next => onsettings(next)} />
-{/if}
+{#each fields as field (field.key)}
+ {#if field.kind === 'number'}
+  <Input type="number" label={field.label} min={field.min} max={field.max} step="any" value={String(settings[field.key])} oninput={event => numberInput(field, event.currentTarget.value)} />
+ {:else if field.kind === 'boolean'}
+  <label class="blueprint-checkbox"><input type="checkbox" checked={Boolean(settings[field.key])} onchange={event => set(field.key, event.currentTarget.checked)} />{field.label}</label>
+ {:else if field.kind === 'count'}
+  <Select label={field.label} value={String(settings[field.key])} options={choices(field)} onchange={event => set(field.key, Number(event.currentTarget.value))} />
+ {:else if field.kind === 'cases'}
+  <Input label={field.label} value={formatCases(settings[field.key] as number[])} onchange={event => { const cases = parseCases(event.currentTarget.value); if (cases) set(field.key, cases); else event.currentTarget.value = formatCases(settings[field.key] as number[]); }} />
+ {:else if field.kind === 'keystroke'}
+  <KeystrokeField value={settings as KeystrokeSettings} {platform} {unavailable} onchange={next => onsettings(next)} />
+ {:else}
+  <Select label={field.label} value={String(settings[field.key])} options={choices(field)} onchange={event => set(field.key, event.currentTarget.value)} />
+ {/if}
+{/each}

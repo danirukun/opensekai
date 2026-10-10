@@ -9,6 +9,7 @@
  import {createLiveTransform} from './editor/live-transform';
  import { createEditorPoll } from './editor-poll';
  import { createBlueprintSync, type BlueprintSync } from './blueprints/blueprint-sync';
+import { createEditorMemory } from './blueprints/editor-memory';
  import { compileBlueprint } from '@opensekai/session';
  import { listenUI, sendUI } from './editor/ui-bridge';
  import {collectWarnings} from './editor/warnings';
@@ -29,6 +30,7 @@
  let status=$state<AppStatus|null>(null),assets=$state<AssetRecord[]>([]),outputUrl=$state(''),canEdit=$state(false),available=$state(false),error=$state<string|null>(null);
  let panel=$state<'assets'|'output'|'resources'|'blueprints'>('assets'),width=$state(224),maxWidth=$state(360),shell:HTMLDivElement;
  let api=$state.raw<AppApi|null>(null),sync=$state.raw<BlueprintSync|null>(null);
+ const memory=createEditorMemory();
  let showName=$state('Untitled Show'),showBusy=$state(false),showError=$state<string|null>(null);
  let importError=$state<string|null>(null),trackingError=$state<string|null>(null);
  let importing=$state(false),devices=$state<{deviceId:string;label:string}[]>([]);
@@ -83,7 +85,7 @@
     select(null);
     const broken=document.blueprints.map(graph=>({graph,result:compileBlueprint(graph)})).find(item=>!item.result.ok);
     if(broken&&!broken.result.ok)showError=`${broken.graph.name}: ${broken.result.error.message}`;
-    if(sync){const applied=sync.edit([{kind:'replaceAll',graphs:document.blueprints}]);await sync.idle();if((!applied.ok||sync.issue())&&!showError)showError='Blueprints were not applied';}
+    if(sync){const applied=sync.edit([{kind:'replaceAll',graphs:document.blueprints}]);await sync.idle();if(applied.ok)memory.history.clear();if((!applied.ok||sync.issue())&&!showError)showError='Blueprints were not applied';}
    });
    if(!reply.ok){showError=reply.error.message;return;}
   }catch(cause){showError=showFailure(cause);}
@@ -118,7 +120,7 @@
     <ResizeHandle value={width} min={160} max={maxWidth} onchange={value=>{width=value;}}/>
     <div class="properties-column">{#if model}<Inspector {model} {view} {draft} {transformError} {livePending} onlivetransform={transformLive} oncanceltransform={()=>liveTransform?.cancel()} onfinishtransform={()=>liveTransform?.end()} disabled={!canEdit||!available||importing} {devices} trackingStatus={status?.trackingStatus??[]} onlens={async(id,lens,revision)=>{await model?.setCameraLens(id,lens,revision);}} onavataridle={async(id,idle,revision)=>{await model?.setAvatarIdle(id,idle,revision);}} onavatartracking={async(id,tracking,revision)=>{await model?.setAvatarTracking(id,tracking,revision);}} ontrackingsmoothing={async(id,smoothing,revision)=>{await model?.setTrackingSmoothing(id,smoothing,revision);}} ontrackingconfig={configureTracking} ontrackingtoggle={toggleTracking}/>{/if}</div>
    {:else if panel==='output'}<section class="output-panel"><h2>Output</h2>{#if model}<OutputControls {model} {view} {status} {outputUrl} disabled={!canEdit||!available||livePending}/>{/if}</section>
-   {:else if panel==='blueprints'}{#if sync}<BlueprintPanel {api} {sync} {status} scene={view.scene} disabled={!canEdit||!available||view.pending} onrun={()=>{void model?.load();notify({kind:'refresh'});}}/>{/if}
+   {:else if panel==='blueprints'}{#if sync}<BlueprintPanel {api} {sync} {memory} {status} scene={view.scene} disabled={!canEdit||!available||view.pending} onrun={()=>{void model?.load();notify({kind:'refresh'});}}/>{/if}
    {:else}<AssetList {assets} {warnings}/>{/if}
   </div>
   <footer><span>{showError??importError??trackingError??transformError??error??view.error??(view.scene?'Session connected':'Starting…')}</span><span>{canEdit ? (tool==='translate'?'Move':tool==='rotate'?'Rotate':'Scale'):'Read only'}</span></footer>

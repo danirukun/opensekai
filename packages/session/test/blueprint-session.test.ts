@@ -246,3 +246,71 @@ it('logs alternating tick failures once each and again after a clean tick', () =
   expect(log).toHaveBeenCalledTimes(3);
  } finally { spy.mockRestore(); log.mockRestore(); }
 });
+
+const enableGraph = (enabled = true) => [{ schemaVersion: 1, id: 'setup', name: 'Setup', enabled, variables: [],
+ nodes: [
+  { id: 'on', version: 1, type: 'event.enable', settings: {}, position: { x: 0, y: 0 } },
+  { id: 'flip', version: 1, type: 'scene.toggleVisibility', settings: { entityId: 'marker' }, position: { x: 300, y: 0 } },
+ ],
+ connections: [{ id: 'w', sourceNodeId: 'on', sourcePort: 'flow', targetNodeId: 'flip', targetPort: 'flow' }] }];
+
+it('fires On Enable once after install, a logic edit, and a re-enable, but not after a move', () => {
+ const session = createSession(makeSmokeScene(), 's');
+ load(session, enableGraph());
+ session.advance(0);
+ expect(visible(session, 'marker')).toBe(false);
+ session.advance(16);
+ expect(visible(session, 'marker')).toBe(false);
+ session.editBlueprints({ clientId: 't', batchId: 'move', ops: [{ kind: 'moveNode', graphId: 'setup', nodeId: 'flip', position: { x: 9, y: 9 } }] });
+ session.advance(32);
+ expect(visible(session, 'marker')).toBe(false);
+ session.editBlueprints({ clientId: 't', batchId: 'logic', ops: [{ kind: 'addVariable', graphId: 'setup', variable: { id: 'n', name: 'N', type: 'number', default: 1 } }] });
+ session.advance(48);
+ expect(visible(session, 'marker')).toBe(true);
+ session.editBlueprints({ clientId: 't', batchId: 'off', ops: [{ kind: 'updateGraph', graphId: 'setup', enabled: false }] });
+ session.advance(64);
+ expect(visible(session, 'marker')).toBe(true);
+ session.editBlueprints({ clientId: 't', batchId: 'on', ops: [{ kind: 'updateGraph', graphId: 'setup', enabled: true }] });
+ session.advance(80);
+ expect(visible(session, 'marker')).toBe(false);
+});
+
+it('does not fire On Enable for a graph that is installed disabled', () => {
+ const session = createSession(makeSmokeScene(), 's');
+ load(session, enableGraph(false));
+ session.advance(0);
+ expect(visible(session, 'marker')).toBe(true);
+});
+
+it('counts a hotkey in a variable and cuts cameras through Switch On Number, and resets on a logic edit', () => {
+ const session = createSession(makeSmokeScene(), 's');
+ const camera = () => session.inspect().outputs.find(output => output.id === 'output_main')?.cameraId;
+ load(session, [{ schemaVersion: 1, id: 'cuts', name: 'Cuts', variables: [{ id: 'count', name: 'Count', type: 'number', default: 0 }],
+  nodes: [
+   { id: 'key', version: 1, type: 'event.keystroke', settings: { code: 'KeyC', control: true, alt: true, shift: false, meta: false }, position: { x: 0, y: 0 } },
+   { id: 'one', version: 1, type: 'value.number', settings: { value: 1 }, position: { x: 0, y: 0 } },
+   { id: 'add', version: 1, type: 'variable.addNumber', settings: { variableId: 'count' }, position: { x: 0, y: 0 } },
+   { id: 'get', version: 1, type: 'variable.getNumber', settings: { variableId: 'count' }, position: { x: 0, y: 0 } },
+   { id: 'sw', version: 1, type: 'flow.switch', settings: { cases: [1, 2] }, position: { x: 0, y: 0 } },
+   { id: 'close', version: 1, type: 'camera.switch', settings: { outputId: 'output_main', cameraId: 'camera_close' }, position: { x: 0, y: 0 } },
+   { id: 'wide', version: 1, type: 'camera.switch', settings: { outputId: 'output_main', cameraId: 'camera_wide' }, position: { x: 0, y: 0 } },
+  ],
+  connections: [
+   { id: 'w1', sourceNodeId: 'key', sourcePort: 'flow', targetNodeId: 'add', targetPort: 'flow' },
+   { id: 'w2', sourceNodeId: 'one', sourcePort: 'value', targetNodeId: 'add', targetPort: 'amount' },
+   { id: 'w3', sourceNodeId: 'add', sourcePort: 'exit', targetNodeId: 'sw', targetPort: 'flow' },
+   { id: 'w4', sourceNodeId: 'get', sourcePort: 'value', targetNodeId: 'sw', targetPort: 'value' },
+   { id: 'w5', sourceNodeId: 'sw', sourcePort: 'case0', targetNodeId: 'close', targetPort: 'flow' },
+   { id: 'w6', sourceNodeId: 'sw', sourcePort: 'case1', targetNodeId: 'wide', targetPort: 'flow' },
+  ] }]);
+ session.advance(0);
+ session.advance(16, 16, press('Control+Alt+KeyC'));
+ expect(camera()).toBe('camera_close');
+ session.advance(32, 16, press('Control+Alt+KeyC'));
+ expect(camera()).toBe('camera_wide');
+ session.advance(48, 16, press('Control+Alt+KeyC'));
+ expect(camera()).toBe('camera_wide');
+ session.editBlueprints({ clientId: 't', batchId: 'edit', ops: [{ kind: 'setNodeSettings', graphId: 'cuts', nodeId: 'sw', settings: { cases: [1, 3] } }] });
+ session.advance(64, 16, press('Control+Alt+KeyC'));
+ expect(camera()).toBe('camera_close');
+});
