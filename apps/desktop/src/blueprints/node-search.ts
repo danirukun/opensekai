@@ -4,16 +4,16 @@ export interface WireNeed { side: 'inputs' | 'outputs'; type: PortType }
 export interface SearchEntry { type: BlueprintKind; label: string; port?: string }
 export interface SearchGroup { category: NodeCategory; entries: SearchEntry[] }
 
-// Every word must appear in the label, category, or keywords.
-// 0: the label is the query; 1: the label starts with it; 2: a label word starts with it; 3: any other match.
-const rank = (label: string, query: string): number => {
- const name = label.toLowerCase();
- return !query ? 3 : name === query ? 0 : name.startsWith(query) ? 1 : name.split(/\s+/).some(word => word.startsWith(query)) ? 2 : 3;
+// 0: the label is the query; 1: the label starts with it; 2: each query word starts a label word; 3: any other match.
+const rank = (label: string, words: readonly string[]): number => {
+ const name = label.toLowerCase(), query = words.join(' '), labelWords = name.split(/\s+/);
+ if (words.length === 0) return 3;
+ return name === query ? 0 : name.startsWith(query) ? 1 : words.every(word => labelWords.some(part => part.startsWith(word))) ? 2 : 3;
 };
 
 // Every word must appear in the label, category, or keywords. Groups with a closer label match come first.
 export function searchNodes(query: string, refs: DefaultRefs, need?: WireNeed): SearchGroup[] {
- const words = query.toLowerCase().split(/\s+/).filter(Boolean), phrase = words.join(' ');
+ const words = query.toLowerCase().split(/\s+/).filter(Boolean);
  const groups = new Map<NodeCategory, (SearchEntry & { rank: number })[]>();
  for (const definition of NODE_DEFINITIONS) {
   const settings = definition.defaults(refs);
@@ -27,7 +27,7 @@ export function searchNodes(query: string, refs: DefaultRefs, need?: WireNeed): 
    if (port === undefined) continue;
   }
   const list = groups.get(definition.category) ?? [];
-  list.push({ type: definition.type, label: definition.label, rank: rank(definition.label, phrase), ...(port === undefined ? {} : { port }) });
+  list.push({ type: definition.type, label: definition.label, rank: rank(definition.label, words), ...(port === undefined ? {} : { port }) });
   groups.set(definition.category, list);
  }
  return NODE_CATEGORIES.flatMap(category => {

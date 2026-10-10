@@ -19,6 +19,7 @@
  import BlueprintVariables from './BlueprintVariables.svelte';
  import BlueprintNodeView from './BlueprintNodeView.svelte';
  import BlueprintSocketView from './BlueprintSocketView.svelte';
+ import BlueprintConnectionView from './BlueprintConnectionView.svelte';
 
  let { api, sync, memory, scene, status, disabled, onrun }: {
   api: AppApi | null; sync: BlueprintSync; memory: EditorMemory; scene: SceneView | null; status: AppStatus | null; disabled: boolean; onrun: () => void;
@@ -106,7 +107,7 @@
   if (!target) return;
   try {
    const { mountReteBlueprint } = await import('../blueprints/rete-editor');
-   const mounted = await mountReteBlueprint(canvas, target, { onSelect: picked => { nodeId = picked; }, onOps: ops => { act(ops); }, onContextMenu: openMenu, onWireDrop: openDrop }, { views: { node: BlueprintNodeView, socket: BlueprintSocketView } });
+   const mounted = await mountReteBlueprint(canvas, target, { onSelect: picked => { nodeId = picked; }, onOps: ops => { act(ops); }, onContextMenu: openMenu, onWireDrop: openDrop }, { views: { node: BlueprintNodeView, socket: BlueprintSocketView, connection: BlueprintConnectionView } });
    if (mine !== generation) { mounted.destroy(); return; }
    editor = mounted;
    const latest = sync.view().find(item => item.id === id);

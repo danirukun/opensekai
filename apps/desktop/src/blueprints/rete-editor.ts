@@ -1,6 +1,7 @@
 import type { Component } from 'svelte';
 import { ClassicPreset, NodeEditor, type GetSchemes } from 'rete';
 import { AreaExtensions, AreaPlugin } from 'rete-area-plugin';
+import { getDOMSocketPosition } from 'rete-render-utils';
 import { ConnectionPlugin, Presets as ConnectionPresets } from 'rete-connection-plugin';
 import { Presets, SveltePlugin, type SvelteArea2D } from 'rete-svelte-plugin/5';
 import { BLUEPRINT_LABELS, blueprintPorts, ownPort, type BlueprintConnection, type BlueprintGraph, type BlueprintNode, type BlueprintOp, type PortType } from '@opensekai/contracts';
@@ -30,6 +31,9 @@ class GraphNode extends ClassicPreset.Node {
   for (const name of Object.keys(this.outputs)) if (!ownPort(ports, 'outputs', name)) this.removeOutput(name);
   for (const [name, type] of Object.entries(ports.inputs)) if (!Object.hasOwn(this.inputs, name)) this.addInput(name, new ClassicPreset.Input(sockets[type], name, type === 'flow'));
   for (const [name, type] of Object.entries(ports.outputs)) if (!Object.hasOwn(this.outputs, name)) this.addOutput(name, new ClassicPreset.Output(sockets[type], name, type !== 'flow'));
+  // Ports keep the definition's order, also when a settings change adds one (a new Switch case goes before default).
+  Object.keys(ports.inputs).forEach((name, index) => { this.inputs[name]!.index = index; });
+  Object.keys(ports.outputs).forEach((name, index) => { this.outputs[name]!.index = index; });
  }
 }
 type Schemes = GetSchemes<ClassicPreset.Node, ClassicPreset.Connection<ClassicPreset.Node, ClassicPreset.Node>>;
@@ -47,7 +51,7 @@ export interface ReteBlueprintEditor {
  destroy(): void;
 }
 // Svelte components for nodes and sockets; the panel passes them so this module stays free of .svelte imports.
-export interface BlueprintViews { node: Component<any>; socket: Component<any> }
+export interface BlueprintViews { node: Component<any>; socket: Component<any>; connection: Component<any> }
 export interface ReteBlueprintHandlers {
  onSelect(id: string | null): void; onOps(ops: BlueprintOp[]): void;
  onContextMenu?(target: MenuTarget, client: { x: number; y: number }): void;
@@ -59,7 +63,9 @@ export async function mountReteBlueprint(container: HTMLElement, initial: Bluepr
  const area = new AreaPlugin<Schemes, AreaExtra>(container);
  const render = new SveltePlugin<Schemes, AreaExtra>();
  const connections = new ConnectionPlugin<Schemes, AreaExtra>();
- render.addPreset(Presets.classic.setup(options.views ? { customize: { node: () => options.views!.node, socket: () => options.views!.socket } } : undefined));
+ const views = options.views;
+ // Wires end at the socket center: the custom sockets are small, so the classic 12 px offset would leave a gap.
+ render.addPreset(Presets.classic.setup(views ? { socketPositionWatcher: getDOMSocketPosition({ offset: position => position }), customize: { node: () => views.node, socket: () => views.socket, connection: () => views.connection } } : undefined));
  connections.addPreset(ConnectionPresets.classic.setup());
  connections.addPipe(context => {
   if (context.type === 'connectiondrop' && !context.data.created && context.data.socket === null) {

@@ -37,4 +37,6 @@ it('puts the closest label match first', () => {
  expect(first('add')).toBe('math.add');
  expect(first('')).toBe('event.manual');
  expect(types(searchNodes('number variable', refs))[0]).toBe('variable.getNumber');
+ expect(first('add num')).toBe('variable.addNumber');
+ expect(first('switch cam')).toBe('camera.switch');
 });

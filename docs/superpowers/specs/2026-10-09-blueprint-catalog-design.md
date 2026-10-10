@@ -67,7 +67,7 @@ This slice is the first of three. The later slices are continuous Blueprints (On
    - The For Loop continues `body` depth first. All of the flow after `body` for one index runs before the next index. A Delay in `body` schedules one delay for each iteration and counts toward the 32 delays.
 
 7. **Editor actions.**
-   - **Context menu on the canvas:** a search palette at the pointer, with nodes grouped by category and matched on label and keywords. A choice adds the node at the pointer. The menu also has **Paste** (only when the clipboard has nodes) and **Select all**.
+   - **Context menu on the canvas:** a search palette at the pointer, with nodes grouped by category and matched on label and keywords. A label that is the query, then a label that starts with it, then a label whose words start with the query words, comes first; the first result is the Enter choice. A choice adds the node at the pointer. The menu also has **Paste** (only when the clipboard has nodes) and **Select all**.
    - **Context menu on a node:** **Delete**, **Duplicate**, **Copy**, and **Disconnect all**. A Manual Trigger node also has **Run**. When the node is part of a selection of more than one node, each action applies to the selection.
    - **Context menu on a wire:** **Delete**.
    - **Wire released on empty canvas:** the same search palette opens. It shows only nodes with a compatible port. A choice adds the node at that point and connects the wire to the first compatible port.
@@ -102,7 +102,7 @@ This slice is the first of three. The later slices are continuous Blueprints (On
     - A narrow tool strip next to the Blueprint list has two icon buttons: **Nodes** (search icon) and **Variables** (variable icon). Each opens its drawer. A click on the open drawer's button closes it, so the canvas gets the space. The editor remembers the choice in local browser storage.
     - Controls that add an item show a plus icon, not the word Add.
     - The Inspector column shows only while a node is selected. It shows the node label and its category.
-    - A node shows a category color dot in its title, inputs on the left, and outputs on the right. A flow port is a small chevron. A number or boolean port is a small dot in the type color. The click target of a port is 18 px. Flow ports have no label; other ports show their name.
+    - A node shows a category color dot in its title, inputs on the left, and outputs on the right. A flow port is a small chevron. A number or boolean port is a small dot in the type color. The click target of a port is 18 px. The plain `flow` input and `exit` output have no label; other ports show their name, and a Switch On Number case port shows its value (for example `= 2`). Ports keep the definition order when a settings change adds one. Wires end at the port center and are drawn behind nodes; a wire has a wider transparent pointer target than its line. Node text cannot be selected.
     - A node added from the Nodes drawer goes to the first free place near the view center, so it does not cover another node.
     - New nodes, new wires, menus, and drawers fade in over 120 to 140 ms. Removal is immediate. When the system asks for reduced motion, there is no animation.
 
