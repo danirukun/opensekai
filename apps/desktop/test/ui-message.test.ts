@@ -30,3 +30,19 @@ it('passes only bounded device choices to the editor without camera frames or pr
 });
 
 it('fits the camera frame inside its margin and clamps collapsed stages',()=>{expect(fitPreview(800,300,24)).toEqual({width:448,height:252});expect(fitPreview(320,600,24)).toEqual({width:272,height:153});expect(fitPreview(20,20,24)).toEqual({width:0,height:0});expect(fitPreview(800,0,24)).toEqual({width:0,height:0});});
+
+it('accepts bounded load status and rejects malformed entries',()=>{
+ const ok={entityId:'char',assetId:'avatar_a',stage:'textures',progress:.5,count:{done:12,total:24}};
+ expect(parseUIMessage({kind:'loadStatus',entries:[ok]})).toEqual({kind:'loadStatus',entries:[ok]});
+ const failed={entityId:'char',assetId:'avatar_a',stage:'failed',progress:null,message:'Asset unavailable'};
+ expect(parseUIMessage({kind:'loadStatus',entries:[failed]})).toEqual({kind:'loadStatus',entries:[failed]});
+ expect(parseUIMessage({kind:'loadStatus',entries:Array(9).fill(ok)})).toBeNull();
+ expect(parseUIMessage({kind:'loadStatus',entries:[{...ok,progress:2}]})).toBeNull();
+ expect(parseUIMessage({kind:'loadStatus',entries:[{...ok,stage:'parse'}]})).toBeNull();
+ expect(parseUIMessage({kind:'loadStatus',entries:[{...ok,extra:1}]})).toBeNull();
+ expect(parseUIMessage({kind:'loadStatus',entries:[{...ok,count:{done:25,total:24}}]})).toBeNull();
+ expect(parseUIMessage({kind:'loadStatus',entries:[{...ok,count:{done:1,total:1025}}]})).toBeNull();
+ expect(parseUIMessage({kind:'loadStatus',entries:[{...failed,message:'x'.repeat(161)}]})).toBeNull();
+ const {progress:_,...noProgress}=ok;
+ expect(parseUIMessage({kind:'loadStatus',entries:[noProgress]})).toBeNull();
+});

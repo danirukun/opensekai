@@ -50,7 +50,7 @@ export type SceneEntity = (EntityBase & {
     };
 }) | (EntityBase & {
     kind: "avatar";
-    assetId: Id;
+    assetId: Id | null;
     tracking?: AvatarTracking;
     idleAnimation?: AvatarIdle;
 }) | (EntityBase & {
@@ -89,7 +89,7 @@ type ExistingPatchOp = {
     entityId: Id;
     visible: boolean;
 };
-export type LivePatchOp = {kind:'setTrackingSmoothing';entityId:Id;smoothing:TrackingSmoothing}| {kind:'setAvatarIdle';entityId:Id;idleAnimation:AvatarIdle}|{kind:'createEntity';entity:SceneEntity}|{kind:'setCameraLens';entityId:Id;lens:Extract<SceneEntity,{kind:'camera'}>['lens']}|{kind:'setAvatarTracking';entityId:Id;tracking:AvatarTracking}|{kind:'setTrackingConfig';entityId:Id;config:TrackingConfig};
+export type LivePatchOp = {kind:'setTrackingSmoothing';entityId:Id;smoothing:TrackingSmoothing}| {kind:'setAvatarIdle';entityId:Id;idleAnimation:AvatarIdle}|{kind:'createEntity';entity:SceneEntity}|{kind:'setCameraLens';entityId:Id;lens:Extract<SceneEntity,{kind:'camera'}>['lens']}|{kind:'setAvatarTracking';entityId:Id;tracking:AvatarTracking}|{kind:'setTrackingConfig';entityId:Id;config:TrackingConfig}|{kind:'setAvatarModel';entityId:Id;assetId:Id|null};
 export type AssetManagementPatchOp = {kind:'renameEntity';entityId:Id;name:string}|{kind:'removeEntity';entityId:Id};
 export type PatchOp = ExistingPatchOp | LivePatchOp | AssetManagementPatchOp;
 export interface ScenePatch {
@@ -105,6 +105,7 @@ export interface AssetRecord {
     sourceUrl: string | null;
     licenseLabel: string;
     importerVersion: 1;
+    name: string;
 }
 export interface ConnectionDescriptor {
     schemaVersion: 1;
@@ -280,5 +281,5 @@ export interface BrowserClient extends ResourceHost {
     close(): void;
 }
 export interface ResourceHost {
-    readAsset(assetId: Id): Promise<ArrayBuffer>;
+    readAsset(assetId: Id, onProgress?: (loaded: number, total: number | null) => void): Promise<ArrayBuffer>;
 }

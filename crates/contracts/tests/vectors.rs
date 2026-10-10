@@ -144,7 +144,7 @@ fn expanded_shared_vectors() {
 #[test]
 fn review_regressions() {
     use opensekai_contracts::{validate_value, AssetRecord, CaptureRecord, ConnectionDescriptor};
-    let asset = json!({"id":"a","format":"glb","sha256":"a".repeat(64),"bytes":1,"sourceUrl":"not a url","licenseLabel":"test","importerVersion":1});
+    let asset = json!({"id":"a","format":"glb","sha256":"a".repeat(64),"bytes":1,"sourceUrl":"not a url","licenseLabel":"test","importerVersion":1,"name":"Test"});
     assert!(validate_value::<AssetRecord>(&asset).is_err());
     let capture = json!({"id":"c","outputId":"o","revision":0,"tick":0,"sequence":0,"backend":"webgpu","cameraId":"cam","width":1,"height":1,"mimeType":"image/png","bytes":1,"sha256":"a".repeat(64),"resourceUri":"evidence:c","createdAtUtc":"2026-10-03T10:00:00.Z"});
     assert!(validate_value::<CaptureRecord>(&capture).is_err());

@@ -9,7 +9,8 @@
       "sourceUrl": "https://raw.githubusercontent.com/pixiv/three-vrm/ff42fae4fcee1fcbca2cd262c7f5f8cbddeaf5ab/packages/three-vrm/examples/models/VRM1_Constraint_Twist_Sample.vrm",
       "format": "vrm",
       "licenseLabel": "VRM Public License 1.0; embedded model terms apply",
-      "importerVersion": 1
+      "importerVersion": 1,
+      "name": "VRM1 Constraint Twist Sample"
     },
     {
       "id": "fixture_glb_1",
@@ -18,7 +19,8 @@
       "sourceUrl": null,
       "format": "glb",
       "licenseLabel": "Generated for OpenSekai; project license pending",
-      "importerVersion": 1
+      "importerVersion": 1,
+      "name": "Reference box"
     }
   ]
 }

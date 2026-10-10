@@ -3,7 +3,7 @@ import { Object3D } from 'three/webgpu';
 import { makeSmokeFrame } from '@opensekai/contracts';
 import { createRenderer } from '../src/renderer';
 const ports=vi.hoisted(()=>({controls:null as any,render:vi.fn(),dispose:vi.fn()}));
-vi.mock('../src/backend',()=>({initializeBackend:async()=>({backend:'webgl2',renderer:{setSize:vi.fn(),renderAsync:ports.render,dispose:ports.dispose}})}));
+vi.mock('../src/backend',()=>({initializeBackend:async()=>({backend:'webgl2',renderer:{setSize:vi.fn(),renderAsync:ports.render,compileAsync:vi.fn(async()=>{}),dispose:ports.dispose}})}));
 vi.mock('three/addons/controls/TransformControls.js',()=>({TransformControls:class {
  listeners=new Map<string,()=>void>();dragging=false;enabled=false;axis=null;helper=new Object3D();
  constructor(){ports.controls=this;}getHelper(){return this.helper;}attach=vi.fn();detach=vi.fn();dispose=vi.fn();setMode=vi.fn();

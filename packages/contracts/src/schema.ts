@@ -102,7 +102,7 @@ export const SceneEntitySchema = z.discriminatedUnion("kind", [
     }),
     EntityBaseSchema.extend({
         kind: z.literal("avatar"),
-        assetId: IdSchema,
+        assetId: IdSchema.nullable(),
         tracking: AvatarTrackingSchema.optional(),
         idleAnimation: AvatarIdleSchema.optional()
     }),
@@ -149,6 +149,7 @@ export const PatchOpSchema = z.discriminatedUnion("kind", [
     z.strictObject({kind:z.literal('setCameraLens'),entityId:IdSchema,lens:LensSchema}),
     z.strictObject({kind:z.literal('setAvatarIdle'),entityId:IdSchema,idleAnimation:AvatarIdleSchema}),
     z.strictObject({kind:z.literal('setAvatarTracking'),entityId:IdSchema,tracking:AvatarTrackingSchema}),
+    z.strictObject({kind:z.literal('setAvatarModel'),entityId:IdSchema,assetId:IdSchema.nullable()}),
     z.strictObject({kind:z.literal('setTrackingConfig'),entityId:IdSchema,config:TrackingConfigSchema}),
     z.strictObject({
         kind: z.literal("setTransform"),
@@ -177,7 +178,8 @@ export const AssetRecordSchema = z.strictObject({
     bytes: u,
     sourceUrl: z.url().nullable(),
     licenseLabel: z.string(),
-    importerVersion: z.literal(1)
+    importerVersion: z.literal(1),
+    name: z.string().refine(name => name.trim().length > 0 && name.length <= 128, 'Invalid asset name')
 });
 export const ConnectionDescriptorSchema = z.strictObject({
     schemaVersion: z.literal(1),
