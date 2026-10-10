@@ -28,7 +28,7 @@ GitHub issues use `parity`, one `area:*` label, one `status:*` label, and a `pha
 
 Source: [Assets overview](https://docs.warudo.app/docs/assets/overview).
 
-- [ ] SCN-01 — Create, remove, duplicate, and rename scene entities. Partial: current camera/avatar/tracker UI verified on macOS; additional asset types remain. [Check](evaluation/asset-management.md). [GitHub #1](https://github.com/danirukun/opensekai/issues/1)
+- [ ] SCN-01 — Create, remove, duplicate, and rename scene entities. Partial: current camera/avatar/tracker UI verified on macOS; additional asset types remain. [Check](evaluation/asset-management.md). Add › Character creates a character without a model, verified on macOS in a dev-build smoke check ([character check](evaluation/character-model-editor.md)). [GitHub #1](https://github.com/danirukun/opensekai/issues/1)
 - [ ] SCN-02 — Groups, hierarchy, references, and property inspection. First. [GitHub #2](https://github.com/danirukun/opensekai/issues/2)
 - [ ] SCN-03 — Asset export/import and copy between shows. Later. [GitHub #3](https://github.com/danirukun/opensekai/issues/3)
 - [ ] SCN-04 — Merge imported settings into a selected entity. Later. [GitHub #4](https://github.com/danirukun/opensekai/issues/4)
@@ -39,7 +39,7 @@ Source: [Assets overview](https://docs.warudo.app/docs/assets/overview).
 
 Source: [Character](https://docs.warudo.app/docs/assets/character).
 
-- [ ] CHR-01 — VRM import and humanoid rig validation. First. [GitHub #7](https://github.com/danirukun/opensekai/issues/7)
+- [ ] CHR-01 — VRM import and humanoid rig validation. First. Partial: the Inspector Model row chooses and replaces the VRM of a character, and asset records keep the model name. Models load in the background with a load status overlay. Safari load timing of a 75 MB VRM shows that frames continue during a load of about 2 s, but frames over 100 ms remain; the cold pipeline cache case is unknown ([load timing](evaluation/character-model-loading.md)). A model load through the macOS editor was not checked live. Humanoid rig validation remains. [GitHub #7](https://github.com/danirukun/opensekai/issues/7)
 - [ ] CHR-02 — Prepared custom character packages. Later; Different API. [GitHub #8](https://github.com/danirukun/opensekai/issues/8)
 - [ ] CHR-03 — Expressions, expression blending, and triggers. First for tracking; full controls Later. [GitHub #9](https://github.com/danirukun/opensekai/issues/9)
 - [ ] CHR-04 — Idle animation and override clips. Partial: built-in default idle verified on macOS; imported Mixamo/VRMA and override clips remain later. [Check](evaluation/default-avatar-idle.md). [GitHub #10](https://github.com/danirukun/opensekai/issues/10)
@@ -213,7 +213,7 @@ These split the first editor slice from broad OSE-08 and SCN-02. The broad boxes
 
 - [x] UI-09 — Asset Rename/Duplicate/Remove menu, inline name editing, safe stopped/unassigned copies, camera guard and source cleanup on macOS. Duplicate-VRM memory failure reproduced and corrected with bounded textures. [Check](evaluation/asset-management.md). [GitHub #137](https://github.com/danirukun/opensekai/issues/137)
 - [x] UI-10 — Exact Scene preview camera frame, responsive fit, and editor-only output boundary. [GitHub #138](https://github.com/danirukun/opensekai/issues/138)
-- [ ] UI-11 — Toggleable stats.js Scene preview monitor. Source and release build pass; live macOS toggle and OBS isolation check remain. [Check](evaluation/scene-performance-monitor.md). [GitHub #141](https://github.com/danirukun/opensekai/issues/141)
+- [ ] UI-11 — Toggleable stats.js Scene preview monitor. Source and release build pass; live macOS toggle and OBS isolation check remain. [Check](evaluation/scene-performance-monitor.md). The preview renders at display rate, not 15 Hz ([avatar performance](evaluation/avatar-performance.md)). A macOS dev-build smoke check showed 56 FPS (range 0–60) on the monitor ([character check](evaluation/character-model-editor.md)). [GitHub #141](https://github.com/danirukun/opensekai/issues/141)
 
 ## Evidence ledger
 
@@ -233,6 +233,7 @@ The desktop shell, shared contracts, scene worker, renderer, editor, and MCP hav
 | SCN-05, BP-01, BP-02 (partial) | 60c9628 | Native Save As/Open for one scene and graph; revision-checked replacement; missing avatar ID retained; reopened Blueprint ran; release app launched from `pnpm build:mac` | macOS debug and release / WKWebView; renderer backend not measured | [Show management check](evaluation/scene-show-management.md) | Windows, recent shows, recovery, graph manager, portable assets, and OBS continuity during Open remain open |
 | BP-01, BP-02, BP-03, BP-06 (partial) | 67cffe2 | Global ⌃⌥ hotkeys drove Toggle Visibility, Set Visibility with Delay (OBS interval 1985 ms), and a Flip Flop camera cut; held key toggled once; last valid version ran while a wire was missing; MCP rename shown in the open editor; Save As and Open worked | macOS release / WKWebView; WebGPU in OBS; Warudo live comparison impossible on the VMPal guest | [Blueprint interactions check](evaluation/blueprint-interactions.md), [index](evaluation/blueprint-interactions-evidence.json) | Hotkeys stopped after a publisher reconnect (fixed in `954b5cf`, GUI Save As and Open not re-run); no warning for ⌘Space, which is Different; canvas gestures, app timing, held physical key, and Windows not exercised |
 | BP-01, BP-02, BP-03 (partial) | 58cd3d1 | Context menus, search palette, wire-release search, shortcuts, copy and paste across graphs, undo and redo, Variables drawer; a ⌃⌥H counter graph cut Camera 2, Camera, Camera; Save and Open kept the variable and the graph | macOS debug / WKWebView; renderer backend not measured; OBS not connected | [Blueprint catalog check](evaluation/blueprint-catalog.md) | Synthetic input only; physical ⌘-click, OBS frames, animation timing, Windows, and live Warudo comparison not exercised |
+| SCN-01, CHR-01, UI-11 (partial) | d82a724 | Add › Character without a model and the Model row; Scene preview at display rate (56 FPS on the monitor); Safari load of a 75 MB VRM in about 2 s while frames continue | macOS dev build / WKWebView, synthetic input; Safari 27, backend not recorded | [Character check](evaluation/character-model-editor.md), [load timing](evaluation/character-model-loading.md), [avatar performance](evaluation/avatar-performance.md) | No VRM loaded through the editor; frames over 100 ms during a load; cold pipeline cache unknown; OBS not connected; UI-11 toggle, persistence, and OBS isolation remain |
 
 | UI-10 (scoped verified), MAT-01 (partial) | 47b7fd0 | Exact preview frame, resize, pointer selection, clean VRM output; official VRM node material path confirmed | macOS / WKWebView and OBS WebGPU | [Camera frame check](evaluation/camera-frame.md) | Independent editor camera, overscan, broader material parity, Windows, and concert benchmark remain separate |
 
