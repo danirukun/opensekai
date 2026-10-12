@@ -64,7 +64,7 @@ export function createBlueprintRuntime(): BlueprintRuntime {
   },
   keystrokes: () => activeAccelerators(active.map(entry => entry.compiled.graph)),
   heldKeys: () => activeHeldKeys(active.map(entry => entry.compiled.graph)),
-  step(events, nowMs, gate = () => null, base: StepEnv = { held: new Set<string>(), scene: null }) {
+  step(events, nowMs, gate = () => null, base: StepEnv = { held: new Set<string>(), scene: () => null }) {
    const budget: FlowBudget = { visits: TICK_VISITS, effects: TICK_EFFECTS };
    const instant: RunEnv = { ...base, deltaSeconds: 0 };
    const runs: GraphRun[] = [];

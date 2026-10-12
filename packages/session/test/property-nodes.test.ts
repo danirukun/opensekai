@@ -83,3 +83,24 @@ it('clears overrides when a show opens', () => {
  expect(session.replaceScene(makeSmokeScene(), scene.revision).ok).toBe(true);
  expect(z(session.advance(32).scene)).toBe(0);
 });
+
+it('reads the property values that earlier runs of the same tick wrote', () => {
+ // Graph A sets Position to (5, 0, 0); graph B then sets Position = Get Position + (0, 0, 1).
+ const reset = { schemaVersion: 1, id: 'a', name: 'A', enabled: true, variables: [], nodes: [
+  { id: 'tick', version: 1, type: 'event.update', settings: {}, position: at }, num('five', 5), num('zero', 0),
+  { id: 'make', version: 1, type: 'vector3.make', settings: {}, position: at },
+  { id: 'set', version: 1, type: 'property.set', settings: { entityId: 'reference', property: 'position' }, position: at },
+ ], connections: [wire('a', 'tick', 'flow', 'set', 'flow'), wire('b', 'five', 'value', 'make', 'x'), wire('c', 'zero', 'value', 'make', 'y'), wire('d', 'zero', 'value', 'make', 'z'), wire('e', 'make', 'value', 'set', 'value')] } as BlueprintGraph;
+ const step = { schemaVersion: 1, id: 'b', name: 'B', enabled: true, variables: [], nodes: [
+  { id: 'tick', version: 1, type: 'event.update', settings: {}, position: at }, num('zero', 0), num('one', 1),
+  { id: 'get', version: 1, type: 'property.get', settings: { entityId: 'reference', property: 'position' }, position: at },
+  { id: 'make', version: 1, type: 'vector3.make', settings: {}, position: at },
+  { id: 'add', version: 1, type: 'vector3.add', settings: {}, position: at },
+  { id: 'set', version: 1, type: 'property.set', settings: { entityId: 'reference', property: 'position' }, position: at },
+ ], connections: [wire('a', 'tick', 'flow', 'set', 'flow'), wire('b', 'zero', 'value', 'make', 'x'), wire('c', 'zero', 'value', 'make', 'y'), wire('d', 'one', 'value', 'make', 'z'),
+  wire('e', 'get', 'value', 'add', 'a'), wire('f', 'make', 'value', 'add', 'b'), wire('g', 'add', 'result', 'set', 'value')] } as BlueprintGraph;
+ const session = createSession(makeSmokeScene(), 's');
+ session.editBlueprints({ clientId: 't', batchId: 'b', ops: [{ kind: 'replaceAll', graphs: [reset, step] }] });
+ const frame = session.advance(0);
+ expect(frame.scene.entities.find(e => e.id === 'reference')!.transform.position).toEqual([5, 0, 1]);
+});

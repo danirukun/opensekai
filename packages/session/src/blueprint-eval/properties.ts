@@ -3,7 +3,7 @@ import type { EvaluatorTable } from './types';
 
 export const PROPERTY_EVALUATORS = {
  'property.get': { data: (node, _o, _r, _s, env) => {
-  const entity = env.scene?.entities.find(item => item.id === node.settings.entityId);
+  const entity = env.scene()?.entities.find(item => item.id === node.settings.entityId);
   const value = entity && readProperty(entity, node.settings.property);
   if (value === undefined) throw new RangeError('Property is unavailable');
   return value;

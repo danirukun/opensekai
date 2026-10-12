@@ -57,9 +57,10 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
         console.error('Blueprint step failed', error);
     };
     // Each run's effects go onto a scratch copy first, so a run whose effects fail leaves no Flip Flop or delay change behind.
-    const stepBlueprints = (events: BlueprintEvent[], nowMs: number, env: StepEnv): { runs: GraphRun[]; committed: Reply<{ revision: number }> } => {
+    const stepBlueprints = (events: BlueprintEvent[], nowMs: number, held: ReadonlySet<string>): { runs: GraphRun[]; committed: Reply<{ revision: number }> } => {
         let working: SceneView | null = null;
         let layer = overrides;
+        const env: StepEnv = { held, scene: () => applyOverrides(working ?? persistent, layer) };
         const runs = runtime.step(events, nowMs, run => {
             if (run.effects.length === 0) return null;
             const sceneEffects = run.effects.filter((effect): effect is SceneEffect => !isOverrideEffect(effect));
@@ -117,7 +118,7 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
             if (!graph.enabled) return failure('INVALID_INPUT', 'Blueprint is disabled', [graphId]);
             if (!graph.nodes.some(node => node.id === triggerNodeId && node.type === 'event.manual')) return failure('INVALID_INPUT', 'Manual trigger not found', [triggerNodeId]);
             try {
-                const { runs, committed } = stepBlueprints([{ kind: 'manual', graphId, nodeId: triggerNodeId }], elapsed, { held: new Set(), scene: applyOverrides(persistent, overrides) });
+                const { runs, committed } = stepBlueprints([{ kind: 'manual', graphId, nodeId: triggerNodeId }], elapsed, new Set());
                 const own = runs.at(-1);
                 if (own?.error) return { ok: false, error: own.error };
                 return committed;
@@ -169,7 +170,7 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
             failedThisTick = false;
             try {
                 const events: BlueprintEvent[] = [...(input?.events?.map(event => ({ kind: 'keystroke' as const, accelerator: event.accelerator })) ?? []), { kind: 'update' }];
-                stepBlueprints(events, elapsedMs, { held: new Set(input?.held ?? []), scene: applyOverrides(persistent, overrides) });
+                stepBlueprints(events, elapsedMs, new Set(input?.held ?? []));
                 commitIdle(elapsedMs);
             } catch (error) {
                 // An unexpected Blueprint failure must not abort the frame.
