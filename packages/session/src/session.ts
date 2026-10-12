@@ -143,7 +143,7 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
             }
             failedThisTick = false;
             try {
-                stepBlueprints(input?.events.map(event => ({ kind: 'keystroke' as const, accelerator: event.accelerator })) ?? [], elapsedMs);
+                stepBlueprints(input?.events?.map(event => ({ kind: 'keystroke' as const, accelerator: event.accelerator })) ?? [], elapsedMs);
             } catch (error) {
                 // An unexpected Blueprint failure must not abort the frame.
                 logOnce(error);

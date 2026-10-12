@@ -310,7 +310,14 @@ object!(BlueprintRunParams {
     trigger_node_id: Id
 });
 object!(BlueprintEditParams { client_id: Id, batch_id: Id, ops: Vec<Value> });
-object!(BlueprintEditResult { revision: u64, keystrokes: Vec<String> });
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BlueprintEditResult {
+    pub revision: u64,
+    pub keystrokes: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub held_keys: Vec<String>,
+}
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BlueprintInspectParams {
@@ -323,17 +330,28 @@ pub struct BlueprintInspectParams {
 pub enum InputEvent {
     Keystroke { accelerator: String },
 }
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(deny_unknown_fields)]
 pub struct InputUpdate {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub events: Vec<InputEvent>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub held: Vec<String>,
 }
 impl InputUpdate {
     pub fn validate(&self) -> Result<(), AppError> {
         require(
-            (1..=16).contains(&self.events.len()),
+            self.events.len() <= 16
+                && self.held.len() <= 16
+                && !(self.events.is_empty() && self.held.is_empty()),
             "invalid input event count",
         )?;
+        for code in &self.held {
+            require(
+                !code.is_empty() && code.chars().count() <= 32,
+                "invalid held key",
+            )?;
+        }
         for InputEvent::Keystroke { accelerator } in &self.events {
             require(
                 !accelerator.is_empty() && accelerator.chars().count() <= 64,
@@ -1143,6 +1161,13 @@ pub fn validate_result(method: &str, result: &Value) -> Result<(), AppError> {
                         .iter()
                         .all(|k| (1..=64).contains(&k.chars().count())),
                 "invalid keystrokes",
+            )?;
+            require(
+                r.held_keys.len() <= 16
+                    && r.held_keys
+                        .iter()
+                        .all(|k| (1..=32).contains(&k.chars().count())),
+                "invalid held keys",
             )
         }
         "blueprintInspect" => validate_blueprint_inspect(data),

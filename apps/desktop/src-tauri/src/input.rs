@@ -52,6 +52,7 @@ impl InputQueue {
                 .drain(..n)
                 .map(|accelerator| InputEvent::Keystroke { accelerator })
                 .collect(),
+            held: vec![],
         })
     }
 }
