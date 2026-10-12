@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { BlueprintConnectionSchema, BlueprintGraphSchema, BlueprintSetSchema, BlueprintVariableSchema, type BlueprintGraph } from './blueprint';
-import { BlueprintNodeSchema, BlueprintPositionSchema, blueprintPorts, connectionType, ownPort } from './blueprint-nodes';
+import { BlueprintNodeSchema, BlueprintPositionSchema, connectionType } from './blueprint-nodes';
 import type { Reply } from './types';
 
 const IdSchema = z.string().min(1).max(256);
@@ -61,9 +61,12 @@ export function applyBlueprintOps(graphs: readonly BlueprintGraph[], ops: readon
     const parsed = BlueprintNodeSchema.safeParse({ ...graph.nodes[i], settings: op.settings });
     if (!parsed.success) return reject('INVALID_INPUT', 'Invalid node settings', [op.nodeId]);
     graph.nodes[i] = parsed.data;
-    const ports = blueprintPorts(parsed.data);
-    graph.connections = graph.connections.filter(c =>
-     (c.sourceNodeId !== op.nodeId || ownPort(ports, 'outputs', c.sourcePort)) && (c.targetNodeId !== op.nodeId || ownPort(ports, 'inputs', c.targetPort)));
+    // A settings change can remove a port or change its type; wires that no longer type-check go.
+    graph.connections = graph.connections.filter(c => {
+     if (c.sourceNodeId !== op.nodeId && c.targetNodeId !== op.nodeId) return true;
+     const source = graph.nodes.find(n => n.id === c.sourceNodeId), target = graph.nodes.find(n => n.id === c.targetNodeId);
+     return !!source && !!target && connectionType(source, c.sourcePort, target, c.targetPort) !== null;
+    });
     break;
    }
    case 'connect': {

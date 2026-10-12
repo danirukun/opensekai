@@ -1,10 +1,13 @@
+import type { OverrideWrite } from './overrides';
 import { cloneState, EVALUATORS, NO_ENV, type BlueprintValue, type Evaluator, type RunEnv, type RunState } from './blueprint-eval';
 import { BlueprintGraphSchema, blueprintPorts, nodeDefinition, connectionType, type BlueprintConnection, type BlueprintGraph, type BlueprintNode, type Id, type Reply } from '@opensekai/contracts';
 
-export type BlueprintEffect =
+export type SceneEffect =
  | { kind: 'setVisibility'; entityId: Id; visible: boolean }
  | { kind: 'toggleVisibility'; entityId: Id }
  | { kind: 'selectCamera'; outputId: Id; cameraId: Id };
+export type BlueprintEffect = SceneEffect | OverrideWrite;
+export const isOverrideEffect = (effect: BlueprintEffect): effect is OverrideWrite => effect.kind === 'setProperty' || effect.kind === 'moveEntity';
 export interface CompiledBlueprint { graph: BlueprintGraph; nodes: Map<Id, BlueprintNode>; dataIn: Map<string, BlueprintConnection>; flowNext: Map<string, BlueprintConnection> }
 export interface PendingDelay { nodeId: Id; dueMs: number }
 export interface FlowBudget { visits: number; effects: number }

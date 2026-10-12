@@ -14,6 +14,7 @@ const sockets: Record<PortType, ClassicPreset.Socket> = {
  flow: new ClassicPreset.Socket('Flow'),
  number: new ClassicPreset.Socket('Number'),
  boolean: new ClassicPreset.Socket('Boolean'),
+ vector3: new ClassicPreset.Socket('Vector3'),
 };
 
 class GraphNode extends ClassicPreset.Node {

@@ -59,3 +59,11 @@ it('drops overrides that an explicit edit changes', () => {
  expect(after.has('marker')).toBe(false);
  expect(dropOverrides(layer, [{ kind: 'renameEntity', entityId: 'reference', name: 'R' }])).toBe(layer);
 });
+
+it('ignores a write that does not change the value, so motion that stops can commit', () => {
+ const moved = ok(set(EMPTY_OVERRIDES, 'reference', 'position', [1, 2, 3] as never, 0));
+ const still = ok(writeOverride(moved, scene, { kind: 'moveEntity', entityId: 'reference', space: 'world', delta: [0, 0, 0] }, 'g', 200));
+ expect(still).toBe(moved);
+ expect(takeIdle(scene, still, 250).operations).toHaveLength(1);
+ expect(ok(set(EMPTY_OVERRIDES, 'reference', 'visible', true as never))).toBe(EMPTY_OVERRIDES);
+});

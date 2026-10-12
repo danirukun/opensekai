@@ -4,6 +4,8 @@ import {createTrackingComposer} from "./tracking";
 import { createBlueprintRuntime, logicKey, type BlueprintEvent, type GraphRun, type StepEnv } from './blueprint-runtime';
 import { createBlueprintStore } from './blueprint-store';
 import { applyEffects, applyOperations } from './scene-ops';
+import { isOverrideEffect, type SceneEffect } from './blueprint';
+import { applyOverrides, dropOverrides, EMPTY_OVERRIDES, takeIdle, writeOverride, type OverrideLayer } from './overrides';
 export interface Session {
     inspect(): SceneView;
     replaceScene(scene: SceneView, expectedRevision: number): Reply<SceneView>;
@@ -29,6 +31,7 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
     let persistent: SceneView = structuredClone(SceneViewSchema.parse(scene));
     const adapter = createTransformAdapter(persistent);
     let tracking=createTrackingComposer();
+    let overrides: OverrideLayer = EMPTY_OVERRIDES;
     let elapsed = 0;
     let sequence = 0;
     function commit(next: SceneView): Reply<{
@@ -56,16 +59,35 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
     // Each run's effects go onto a scratch copy first, so a run whose effects fail leaves no Flip Flop or delay change behind.
     const stepBlueprints = (events: BlueprintEvent[], nowMs: number, env: StepEnv): { runs: GraphRun[]; committed: Reply<{ revision: number }> } => {
         let working: SceneView | null = null;
+        let layer = overrides;
         const runs = runtime.step(events, nowMs, run => {
             if (run.effects.length === 0) return null;
-            const next = applyEffects(working ?? persistent, run.effects);
-            if (!next.ok) return next.error;
-            working = next.data;
+            const sceneEffects = run.effects.filter((effect): effect is SceneEffect => !isOverrideEffect(effect));
+            let scene = working ?? persistent;
+            if (sceneEffects.length) { const next = applyEffects(scene, sceneEffects); if (!next.ok) return next.error; scene = next.data; }
+            let nextLayer = layer;
+            for (const effect of run.effects.filter(isOverrideEffect)) {
+                const written = writeOverride(nextLayer, scene, effect, run.graphId, nowMs);
+                if (!written.ok) return written.error;
+                nextLayer = written.data;
+            }
+            if (sceneEffects.length) working = scene;
+            layer = nextLayer;
             return null;
         }, env);
+        overrides = layer;
         for (const run of runs) if (run.error) runtimeErrors.set(run.graphId, run.error); else runtimeErrors.delete(run.graphId);
         const changed = working !== null && JSON.stringify(working) !== JSON.stringify(persistent);
         return { runs, committed: changed ? commit(working!) : { ok: true, data: { revision: persistent.revision } } };
+    };
+    // Overrides with no write for 250 ms go to the persistent scene in one commit.
+    const commitIdle = (nowMs: number) => {
+        const idle = takeIdle(persistent, overrides, nowMs);
+        overrides = idle.remaining;
+        if (idle.operations.length === 0) return;
+        const applied = applyOperations(persistent, idle.operations, persistent.revision + 1);
+        const committed = applied.ok ? commit(applied.data) : applied;
+        if (!committed.ok) for (const graphId of idle.graphIds) runtimeErrors.set(graphId, committed.error);
     };
     const api: Session = {
         inspect: () => structuredClone(persistent),
@@ -75,6 +97,7 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
             if (!parsed.success || !Number.isSafeInteger(persistent.revision + 1)) return failure('INVALID_INPUT', 'Invalid show scene');
             persistent = structuredClone({ ...parsed.data, revision: persistent.revision + 1 });
             tracking = createTrackingComposer();
+            overrides = EMPTY_OVERRIDES;
             return { ok: true, data: structuredClone(persistent) };
         },
         editBlueprints(batch) {
@@ -94,7 +117,7 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
             if (!graph.enabled) return failure('INVALID_INPUT', 'Blueprint is disabled', [graphId]);
             if (!graph.nodes.some(node => node.id === triggerNodeId && node.type === 'event.manual')) return failure('INVALID_INPUT', 'Manual trigger not found', [triggerNodeId]);
             try {
-                const { runs, committed } = stepBlueprints([{ kind: 'manual', graphId, nodeId: triggerNodeId }], elapsed, { held: new Set(), scene: persistent });
+                const { runs, committed } = stepBlueprints([{ kind: 'manual', graphId, nodeId: triggerNodeId }], elapsed, { held: new Set(), scene: applyOverrides(persistent, overrides) });
                 const own = runs.at(-1);
                 if (own?.error) return { ok: false, error: own.error };
                 return committed;
@@ -114,7 +137,9 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
                 return failure("CONFLICT", "Scene revision changed");
             const applied = applyOperations(persistent, value.operations, persistent.revision + 1);
             if (!applied.ok) return applied;
-            return commit(applied.data);
+            const committed = commit(applied.data);
+            if (committed.ok) overrides = dropOverrides(overrides, value.operations);
+            return committed;
         },
         selectCamera(params) {
             const parsed = ParamSchemas.cameraSelect.safeParse(params);
@@ -144,16 +169,18 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
             failedThisTick = false;
             try {
                 const events: BlueprintEvent[] = [...(input?.events?.map(event => ({ kind: 'keystroke' as const, accelerator: event.accelerator })) ?? []), { kind: 'update' }];
-                stepBlueprints(events, elapsedMs, { held: new Set(input?.held ?? []), scene: persistent });
+                stepBlueprints(events, elapsedMs, { held: new Set(input?.held ?? []), scene: applyOverrides(persistent, overrides) });
+                commitIdle(elapsedMs);
             } catch (error) {
                 // An unexpected Blueprint failure must not abort the frame.
                 logOnce(error);
             }
             if (!failedThisTick) loggedFailures.clear();
-            const scene = adapter.evaluate(persistent, elapsedMs);
+            const shown = applyOverrides(persistent, overrides);
+            const scene = adapter.evaluate(shown, elapsedMs);
             elapsed = elapsedMs;
             sequence += 1;
-            const live=tracking.evaluate(persistent,trackingNowMs??elapsedMs,elapsedMs);
+            const live=tracking.evaluate(shown,trackingNowMs??elapsedMs,elapsedMs);
             return { schemaVersion: 1, sessionId, sequence, tick, elapsedMs, scene, blueprintRevision: store.revision(), ...(live.avatarPoses.length?{avatarPoses:live.avatarPoses}:{}),...(live.trackingStatus.length?{trackingStatus:live.trackingStatus}:{}) };
         },
     };

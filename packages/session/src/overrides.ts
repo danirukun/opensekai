@@ -38,6 +38,8 @@ export function writeOverride(layer: OverrideLayer, scene: SceneView, write: Ove
  }
  const checked = writeProperty(entity, property, value);
  if (!checked.ok) return checked;
+ // A write that does not change the value keeps the last write time, so On Update graphs can stop.
+ if (JSON.stringify(checked.data) === JSON.stringify(entity)) return { ok: true, data: layer };
  const own = layer.get(write.entityId), previous = own?.get(property);
  if (!previous && size(layer) >= MAX_OVERRIDES) return fail('Override limit reached', [write.entityId]);
  const graphIds = previous?.graphIds.includes(graphId) ? previous.graphIds : [...(previous?.graphIds ?? []), graphId];
