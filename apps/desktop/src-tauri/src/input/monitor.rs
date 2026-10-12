@@ -41,6 +41,10 @@ impl HeldKeys {
     pub fn clear(&mut self) {
         self.down.clear();
     }
+    /// Drops held keys that the system reports up, for key ups the tap did not see.
+    pub fn retain_pressed(&mut self, pressed: impl Fn(&str) -> bool) {
+        self.down.retain(|code| pressed(code));
+    }
     pub fn snapshot(&self) -> Vec<String> {
         self.down.iter().take(MAX_HELD).cloned().collect()
     }
@@ -127,6 +131,40 @@ pub fn dom_code(keycode: u16) -> Option<&'static str> {
     })
 }
 
+pub fn mac_keycode(code: &str) -> Option<u16> {
+    (0u16..128).find(|keycode| dom_code(*keycode) == Some(code))
+}
+
+/// When the tap thread must start, keep running, or exit. A start that arrives while the
+/// thread shuts down keeps that thread running instead of being lost.
+#[derive(Default)]
+pub struct Lifecycle {
+    desired: bool,
+    running: bool,
+}
+impl Lifecycle {
+    /// Returns true when the caller must spawn a tap thread.
+    pub fn request_start(&mut self) -> bool {
+        self.desired = true;
+        !std::mem::replace(&mut self.running, true)
+    }
+    pub fn request_stop(&mut self) {
+        self.desired = false;
+    }
+    /// Called by the tap thread between run loop slices; false means it must exit now.
+    pub fn keep_running(&mut self) -> bool {
+        self.running = self.desired;
+        self.running
+    }
+    /// The thread could not create its tap.
+    pub fn abandon(&mut self) {
+        self.running = false;
+    }
+    pub fn running(&self) -> bool {
+        self.running
+    }
+}
+
 pub struct NoKeyMonitor;
 impl KeyMonitor for NoKeyMonitor {
     fn set_watched(&self, _: &BTreeSet<String>) {}
@@ -151,7 +189,7 @@ pub fn platform_monitor() -> Arc<dyn KeyMonitor> {
 
 #[cfg(target_os = "macos")]
 mod macos {
-    use super::{dom_code, HeldKeys, KeyMonitor, MonitorStatus};
+    use super::{dom_code, mac_keycode, HeldKeys, KeyMonitor, Lifecycle, MonitorStatus};
     use std::collections::BTreeSet;
     use std::ffi::c_void;
     use std::sync::{Arc, Mutex, MutexGuard};
@@ -172,17 +210,18 @@ mod macos {
         fn CGEventTapEnable(tap: Ref, enable: bool);
         fn CGEventGetIntegerValueField(event: Ref, field: u32) -> i64;
         fn CGPreflightListenEventAccess() -> bool;
+        fn CGEventSourceKeyState(state: i32, key: u16) -> bool;
         fn CGRequestListenEventAccess() -> bool;
     }
     #[link(name = "CoreFoundation", kind = "framework")]
     extern "C" {
         static kCFRunLoopCommonModes: *const c_void;
+        static kCFRunLoopDefaultMode: *const c_void;
+        fn CFRunLoopRunInMode(mode: *const c_void, seconds: f64, return_after_source: u8) -> i32;
         fn CFMachPortCreateRunLoopSource(allocator: *const c_void, port: Ref, order: isize) -> Ref;
         fn CFMachPortInvalidate(port: Ref);
         fn CFRunLoopGetCurrent() -> Ref;
         fn CFRunLoopAddSource(run_loop: Ref, source: Ref, mode: *const c_void);
-        fn CFRunLoopRun();
-        fn CFRunLoopStop(run_loop: Ref);
         fn CFRelease(object: *const c_void);
     }
     const SESSION_TAP: u32 = 1; // kCGSessionEventTap
@@ -193,6 +232,9 @@ mod macos {
     const DISABLED_BY_TIMEOUT: u32 = 0xFFFF_FFFE;
     const DISABLED_BY_USER_INPUT: u32 = 0xFFFF_FFFF;
     const KEYCODE_FIELD: u32 = 9; // kCGKeyboardEventKeycode
+    const HID_STATE: i32 = 1; // kCGEventSourceStateHIDSystemState
+    /// The tap thread checks the lifecycle at this interval.
+    const SLICE_SECONDS: f64 = 0.25;
 
     fn locked<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
         m.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -233,8 +275,7 @@ mod macos {
 
     #[derive(Default)]
     struct State {
-        run_loop: Option<Shared>,
-        running: bool,
+        life: Lifecycle,
         requested: bool,
         no_access: bool,
         last_check: Option<Instant>,
@@ -250,9 +291,6 @@ mod macos {
     impl MacKeyMonitor {
         fn start(&self) {
             let mut state = locked(&self.state);
-            if state.running {
-                return;
-            }
             if !unsafe { CGPreflightListenEventAccess() } {
                 if !state.requested {
                     state.requested = true;
@@ -262,25 +300,22 @@ mod macos {
                 return;
             }
             state.no_access = false;
-            state.running = true;
+            if !state.life.request_start() {
+                return;
+            }
             let (keys, shared_state) = (self.keys.clone(), self.state.clone());
             let spawned = std::thread::Builder::new()
                 .name("opensekai-key-monitor".into())
                 .spawn(move || run_tap(keys, shared_state));
             if spawned.is_err() {
-                state.running = false;
-            }
-        }
-        fn stop(&self) {
-            if let Some(Shared(run_loop)) = locked(&self.state).run_loop {
-                unsafe { CFRunLoopStop(run_loop) };
+                state.life.abandon();
             }
         }
     }
 
     fn run_tap(keys: Arc<Mutex<HeldKeys>>, state: Arc<Mutex<State>>) {
         let tap = Box::new(Tap {
-            keys: keys.clone(),
+            keys,
             port: Mutex::new(None),
         });
         let refcon = &*tap as *const Tap as *mut c_void;
@@ -297,26 +332,25 @@ mod macos {
         };
         if port.is_null() {
             let mut state = locked(&state);
-            state.running = false;
+            state.life.abandon();
             state.no_access = true;
             return;
         }
         *locked(&tap.port) = Some(Shared(port));
         unsafe {
             let source = CFMachPortCreateRunLoopSource(std::ptr::null(), port, 0);
-            let run_loop = CFRunLoopGetCurrent();
-            CFRunLoopAddSource(run_loop, source, kCFRunLoopCommonModes);
+            CFRunLoopAddSource(CFRunLoopGetCurrent(), source, kCFRunLoopCommonModes);
             CGEventTapEnable(port, true);
-            locked(&state).run_loop = Some(Shared(run_loop));
-            CFRunLoopRun();
-            locked(&state).run_loop = None;
+            // Short slices instead of CFRunLoopStop: the lifecycle decides under one lock.
+            while locked(&state).life.keep_running() {
+                CFRunLoopRunInMode(kCFRunLoopDefaultMode, SLICE_SECONDS, 0);
+            }
             CGEventTapEnable(port, false);
             CFMachPortInvalidate(port);
             CFRelease(source);
             CFRelease(port);
         }
-        locked(&keys).clear();
-        locked(&state).running = false;
+        // The callback cannot run after the tap is invalidated, so the refcon can go.
         drop(tap);
     }
 
@@ -325,29 +359,37 @@ mod macos {
             *locked(&self.watched) = codes.clone();
             locked(&self.keys).set_watched(codes);
             if codes.is_empty() {
-                self.stop();
+                locked(&self.state).life.request_stop();
             } else {
                 self.start();
             }
         }
         fn held(&self) -> Vec<String> {
             // After the operator grants access, a clock tick (at most once a second) starts the tap.
-            let retry = {
+            let (retry, running) = {
                 let mut state = locked(&self.state);
                 let due = state.no_access
-                    && !state.running
+                    && !state.life.running()
                     && state
                         .last_check
                         .map_or(true, |t| t.elapsed() >= Duration::from_secs(1));
                 if due {
                     state.last_check = Some(Instant::now());
                 }
-                due
+                (due, state.life.running())
             };
             if retry && !locked(&self.watched).is_empty() {
                 self.start();
             }
-            locked(&self.keys).snapshot()
+            let mut keys = locked(&self.keys);
+            if running {
+                // Secure input can hide a key up from the tap without disabling it.
+                keys.retain_pressed(|code| {
+                    mac_keycode(code)
+                        .is_some_and(|keycode| unsafe { CGEventSourceKeyState(HID_STATE, keycode) })
+                });
+            }
+            keys.snapshot()
         }
         fn status(&self) -> MonitorStatus {
             if locked(&self.state).no_access {
@@ -399,6 +441,43 @@ mod tests {
         assert_eq!(dom_code(0x31), Some("Space"));
         assert_eq!(dom_code(0x7E), Some("ArrowUp"));
         assert_eq!(dom_code(0x38), None); // Shift is not in the code list
+    }
+
+    #[test]
+    fn a_start_during_shutdown_keeps_the_tap_running() {
+        let mut life = Lifecycle::default();
+        assert!(life.request_start()); // spawn the tap thread
+        assert!(!life.request_start()); // already running
+        life.request_stop();
+        assert!(!life.request_start()); // the thread has not exited yet
+        assert!(life.keep_running()); // so it keeps running instead of exiting
+        life.request_stop();
+        assert!(!life.keep_running()); // now it exits
+        assert!(life.request_start()); // and a later start spawns a new thread
+    }
+
+    #[test]
+    fn a_stop_before_the_thread_runs_ends_it() {
+        let mut life = Lifecycle::default();
+        assert!(life.request_start());
+        life.request_stop();
+        assert!(!life.keep_running());
+    }
+
+    #[test]
+    fn drops_keys_that_the_system_reports_up() {
+        let mut keys = HeldKeys::default();
+        keys.set_watched(&set(&["KeyW", "KeyS"]));
+        keys.key("KeyW", true);
+        keys.key("KeyS", true);
+        keys.retain_pressed(|code| code == "KeyS");
+        assert_eq!(keys.snapshot(), vec!["KeyS".to_string()]);
+    }
+
+    #[test]
+    fn maps_dom_codes_back_to_mac_keycodes() {
+        assert_eq!(mac_keycode("KeyW"), Some(0x0D));
+        assert_eq!(mac_keycode("F21"), None);
     }
 
     #[test]
