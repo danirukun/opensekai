@@ -39,6 +39,7 @@ fn main() {
             "show_scene",
             "hide_editor",
             "set_keystroke_capture",
+            "open_input_monitoring_settings",
             "import_avatar",
             "save_show_as",
             "open_show",
