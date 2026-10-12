@@ -629,12 +629,23 @@ fn validate_blueprint_inspect(data: &Value) -> Result<(), AppError> {
         data["revision"].as_u64().is_some(),
         "invalid Blueprint revision",
     )?;
+    if let Some(held) = data.get("heldKeys") {
+        require(
+            held.as_array().is_some_and(|codes| {
+                (1..=16).contains(&codes.len())
+                    && codes
+                        .iter()
+                        .all(|c| c.as_str().is_some_and(|c| (1..=32).contains(&c.chars().count())))
+            }),
+            "invalid held keys",
+        )?;
+    }
     match data["kind"].as_str() {
         Some("snapshot") => {
             require(
                 keys_within(
                     data,
-                    &["kind", "revision", "blueprints", "errors", "keystrokes"],
+                    &["kind", "revision", "blueprints", "errors", "keystrokes", "heldKeys"],
                 ),
                 "invalid Blueprint snapshot",
             )?;
@@ -648,7 +659,7 @@ fn validate_blueprint_inspect(data: &Value) -> Result<(), AppError> {
             require(
                 keys_within(
                     data,
-                    &["kind", "revision", "batches", "errors", "keystrokes"],
+                    &["kind", "revision", "batches", "errors", "keystrokes", "heldKeys"],
                 ),
                 "invalid Blueprint delta",
             )?;
