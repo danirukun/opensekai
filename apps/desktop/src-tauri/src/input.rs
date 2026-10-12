@@ -1,3 +1,4 @@
+pub mod monitor;
 use opensekai_contracts::{InputEvent, InputUpdate};
 use std::collections::{BTreeSet, HashMap, VecDeque};
 use std::sync::Mutex;
