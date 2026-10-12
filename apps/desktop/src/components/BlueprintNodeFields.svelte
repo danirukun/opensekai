@@ -2,7 +2,7 @@
  import { Input, Select } from '@oshi-connect/ui';
  import { nodeDefinition, type BlueprintField, type BlueprintNode, type BlueprintVariable, type KeystrokeSettings, type SceneView } from '@opensekai/contracts';
  import KeystrokeField from './KeystrokeField.svelte';
- import { formatCases, parseCases } from '../blueprints/fields';
+ import { fitPropertySettings, formatCases, keyOptions, parseCases, propertyOptions } from '../blueprints/fields';
 
  let { node, scene, variables, platform, unavailable, onsettings }: {
   node: BlueprintNode; scene: SceneView | null; variables: readonly BlueprintVariable[]; platform: string; unavailable: boolean;
@@ -10,7 +10,11 @@
  } = $props();
  const settings = $derived(node.settings as Record<string, unknown>);
  const fields = $derived(nodeDefinition(node.type).fields);
- const set = (key: string, value: unknown) => onsettings({ ...settings, [key]: value } as BlueprintNode['settings']);
+ const set = (key: string, value: unknown) => {
+  const next = { ...settings, [key]: value } as BlueprintNode['settings'];
+  onsettings(node.type === 'property.get' || node.type === 'property.set' ? fitPropertySettings(next as never, scene) : next);
+ };
+ const spaces = [{ value: 'world', label: 'World' }, { value: 'local', label: 'Local' }];
  const numberInput = (field: Extract<BlueprintField, { kind: 'number' }>, text: string) => {
   const value = Number(text);
   if (text !== '' && Number.isFinite(value) && (field.min === undefined || value >= field.min) && (field.max === undefined || value <= field.max)) set(field.key, value);
@@ -33,6 +37,12 @@
   <Select label={field.label} value={String(settings[field.key])} options={choices(field)} onchange={event => set(field.key, Number(event.currentTarget.value))} />
  {:else if field.kind === 'cases'}
   <Input label={field.label} value={formatCases(settings[field.key] as number[])} onchange={event => { const cases = parseCases(event.currentTarget.value); if (cases) set(field.key, cases); else event.currentTarget.value = formatCases(settings[field.key] as number[]); }} />
+ {:else if field.kind === 'key'}
+  <Select label={field.label} value={String(settings[field.key])} options={keyOptions()} onchange={event => set(field.key, event.currentTarget.value)} />
+ {:else if field.kind === 'property'}
+  <Select label={field.label} value={String(settings[field.key])} options={propertyOptions(scene, String(settings.entityId))} onchange={event => set(field.key, event.currentTarget.value)} />
+ {:else if field.kind === 'space'}
+  <Select label={field.label} value={String(settings[field.key])} options={spaces} onchange={event => set(field.key, event.currentTarget.value)} />
  {:else if field.kind === 'keystroke'}
   <KeystrokeField value={settings as KeystrokeSettings} {platform} {unavailable} onchange={next => onsettings(next)} />
  {:else}
