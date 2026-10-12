@@ -21,6 +21,8 @@ it('initializes and calls a real stdio process, then closes it',async()=>{
   expect((await client.listResources()).resources.map(r=>r.uri)).toContain('opensekai://blueprint-nodes');
   const catalog=JSON.parse(((await client.readResource({uri:'opensekai://blueprint-nodes'})).contents[0] as {text:string}).text);
   expect(catalog.nodes.map((n:{type:string})=>n.type)).toContain('variable.addNumber');
+  expect(catalog.properties).toContainEqual({ key: 'fovDegrees', label: 'Field of View', kinds: ['camera'], type: 'number', rule: { kind: 'range', min: 1, max: 179 } });
+  expect(catalog.nodes.map((n:{type:string})=>n.type)).toEqual(expect.arrayContaining(['event.update', 'input.keyAxis', 'entity.move', 'property.set']));
   expect((await client.callTool({name:'blueprint_edit',arguments:{clientId:'mcp',batchId:'v1',ops:[{kind:'addVariable',graphId:'g',variable:{id:'n',name:'N',type:'number',default:0}},{kind:'addNode',graphId:'g',node:{id:'add',version:1,type:'variable.addNumber',settings:{variableId:'n'},position:{x:0,y:0}}}]}})).isError).toBe(false);
   expect((await client.callTool({name:'blueprint_inspect',arguments:{}})).isError).toBe(false);
   expect((await client.callTool({name:'evidence_read',arguments:{evidenceId:'opaque'}})).isError).toBe(false);

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { McpServer, type RegisteredResource } from '@modelcontextprotocol/server';
-import { blueprintNodeCatalog, LIMITS, type AppApi } from '@opensekai/contracts';
+import { blueprintNodeCatalog, blueprintPropertyCatalog, LIMITS, type AppApi } from '@opensekai/contracts';
 export function validEvidenceUri(uri: string): boolean {
  const match = /^opensekai:\/\/evidence\/[A-Za-z0-9_-]{1,256}\/(?:capture\.png|summary\.json)$/.exec(uri);
  return match !== null && match[0] === uri;
@@ -18,7 +18,7 @@ export function registerResources(server: McpServer, api: AppApi, readResource: 
   return {contents:[{uri:uri.href,mimeType:'application/json',text:JSON.stringify(reply.data)}]};
  });
  server.registerResource('blueprint-nodes', 'opensekai://blueprint-nodes', {mimeType:'application/json'}, async uri =>
-  ({contents:[{uri:uri.href,mimeType:'application/json',text:JSON.stringify({nodes:blueprintNodeCatalog()})}]}));
+  ({contents:[{uri:uri.href,mimeType:'application/json',text:JSON.stringify({nodes:blueprintNodeCatalog(),properties:blueprintPropertyCatalog()})}]}));
  const registerScene = (sceneId: string) => {
   const uri = `opensekai://scene/${encodeURIComponent(sceneId)}`;
   if (retained.has(uri)) return;
