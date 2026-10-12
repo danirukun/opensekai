@@ -1,4 +1,4 @@
-import { cloneState, EVALUATORS, type BlueprintValue, type Evaluator, type RunState } from './blueprint-eval';
+import { cloneState, EVALUATORS, NO_ENV, type BlueprintValue, type Evaluator, type RunEnv, type RunState } from './blueprint-eval';
 import { BlueprintGraphSchema, blueprintPorts, nodeDefinition, connectionType, type BlueprintConnection, type BlueprintGraph, type BlueprintNode, type Id, type Reply } from '@opensekai/contracts';
 
 export type BlueprintEffect =
@@ -70,7 +70,7 @@ export function compileBlueprint(input: unknown): Reply<CompiledBlueprint> {
  return { ok: true, data: { graph, nodes, dataIn, flowNext } };
 }
 
-const readInput = (compiled: CompiledBlueprint, state: RunState, nodeId: Id, port: string): BlueprintValue => {
+const readInput = (compiled: CompiledBlueprint, state: RunState, nodeId: Id, port: string, env: RunEnv): BlueprintValue => {
  const cache = new Map<string, BlueprintValue>();
  const evaluate = (id: Id, out: string): BlueprintValue => {
   const cached = cache.get(key(id, out));
@@ -78,8 +78,8 @@ const readInput = (compiled: CompiledBlueprint, state: RunState, nodeId: Id, por
   const node = compiled.nodes.get(id)!;
   const data = evaluator(node).data;
   if (!data) throw new Error('Blueprint has an invalid data source');
-  const result = data(node, out, name => { const wire = compiled.dataIn.get(key(id, name))!; return evaluate(wire.sourceNodeId, wire.sourcePort); }, state);
-  if (typeof result === 'number' && !Number.isFinite(result)) throw new RangeError('Blueprint number is not finite');
+  const result = data(node, out, name => { const wire = compiled.dataIn.get(key(id, name))!; return evaluate(wire.sourceNodeId, wire.sourcePort); }, state, env);
+  if (Array.isArray(result) ? !result.every(Number.isFinite) : typeof result === 'number' && !Number.isFinite(result)) throw new RangeError('Blueprint number is not finite');
   cache.set(key(id, out), result);
   return result;
  };
@@ -87,7 +87,7 @@ const readInput = (compiled: CompiledBlueprint, state: RunState, nodeId: Id, por
  return evaluate(wire.sourceNodeId, wire.sourcePort);
 };
 
-export function runFlow(compiled: CompiledBlueprint, start: { nodeId: Id; port: string }, state: RunState, budget: FlowBudget, nowMs: number): Reply<FlowResult> {
+export function runFlow(compiled: CompiledBlueprint, start: { nodeId: Id; port: string }, state: RunState, budget: FlowBudget, nowMs: number, env: RunEnv = NO_ENV): Reply<FlowResult> {
  const next = cloneState(state);
  const effects: BlueprintEffect[] = [], delays: PendingDelay[] = [], stack: Frame[] = [];
  const follow = (nodeId: Id, ports: string[]) => {
@@ -112,8 +112,8 @@ export function runFlow(compiled: CompiledBlueprint, start: { nodeId: Id; port: 
   let failure: Reply<never> | null = null;
   try {
    flow(node, {
-    port: frame.port, state: next, nowMs,
-    read: port => readInput(compiled, next, node.id, port),
+    port: frame.port, state: next, nowMs, env,
+    read: port => readInput(compiled, next, node.id, port, env),
     follow: (...ports) => follow(node.id, ports),
     emit: effect => {
      if (--budget.effects < 0) { failure ??= fail('Blueprint run exceeded its operation limit', [node.id]); return; }

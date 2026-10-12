@@ -1,7 +1,7 @@
 import { IdSchema, ParamSchemas, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate, type AppError, type InputUpdate, type BlueprintInspect } from "@opensekai/contracts";
 import { createTransformAdapter } from "./ecs";
 import {createTrackingComposer} from "./tracking";
-import { createBlueprintRuntime, logicKey, type BlueprintEvent, type GraphRun } from './blueprint-runtime';
+import { createBlueprintRuntime, logicKey, type BlueprintEvent, type GraphRun, type StepEnv } from './blueprint-runtime';
 import { createBlueprintStore } from './blueprint-store';
 import { applyEffects, applyOperations } from './scene-ops';
 export interface Session {
@@ -19,7 +19,7 @@ export interface Session {
     }>;
     ingestTracking(update:TrackingUpdate):Reply<null>;
     advance(elapsedMs: number, trackingNowMs?:number, input?: InputUpdate): RuntimeFrame;
-    editBlueprints(batch: unknown): Reply<{ revision: number; keystrokes: string[] }>;
+    editBlueprints(batch: unknown): Reply<{ revision: number; keystrokes: string[]; heldKeys?: string[] }>;
     inspectBlueprints(sinceRevision?: number): BlueprintInspect;
     runBlueprint(graphId: Id, triggerNodeId: Id): Reply<{revision: number}>;
 }
@@ -54,7 +54,7 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
         console.error('Blueprint step failed', error);
     };
     // Each run's effects go onto a scratch copy first, so a run whose effects fail leaves no Flip Flop or delay change behind.
-    const stepBlueprints = (events: BlueprintEvent[], nowMs: number): { runs: GraphRun[]; committed: Reply<{ revision: number }> } => {
+    const stepBlueprints = (events: BlueprintEvent[], nowMs: number, env: StepEnv): { runs: GraphRun[]; committed: Reply<{ revision: number }> } => {
         let working: SceneView | null = null;
         const runs = runtime.step(events, nowMs, run => {
             if (run.effects.length === 0) return null;
@@ -62,7 +62,7 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
             if (!next.ok) return next.error;
             working = next.data;
             return null;
-        });
+        }, env);
         for (const run of runs) if (run.error) runtimeErrors.set(run.graphId, run.error); else runtimeErrors.delete(run.graphId);
         const changed = working !== null && JSON.stringify(working) !== JSON.stringify(persistent);
         return { runs, committed: changed ? commit(working!) : { ok: true, data: { revision: persistent.revision } } };
@@ -94,7 +94,7 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
             if (!graph.enabled) return failure('INVALID_INPUT', 'Blueprint is disabled', [graphId]);
             if (!graph.nodes.some(node => node.id === triggerNodeId && node.type === 'event.manual')) return failure('INVALID_INPUT', 'Manual trigger not found', [triggerNodeId]);
             try {
-                const { runs, committed } = stepBlueprints([{ kind: 'manual', graphId, nodeId: triggerNodeId }], elapsed);
+                const { runs, committed } = stepBlueprints([{ kind: 'manual', graphId, nodeId: triggerNodeId }], elapsed, { held: new Set(), scene: persistent });
                 const own = runs.at(-1);
                 if (own?.error) return { ok: false, error: own.error };
                 return committed;
@@ -143,7 +143,8 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
             }
             failedThisTick = false;
             try {
-                stepBlueprints(input?.events?.map(event => ({ kind: 'keystroke' as const, accelerator: event.accelerator })) ?? [], elapsedMs);
+                const events: BlueprintEvent[] = [...(input?.events?.map(event => ({ kind: 'keystroke' as const, accelerator: event.accelerator })) ?? []), { kind: 'update' }];
+                stepBlueprints(events, elapsedMs, { held: new Set(input?.held ?? []), scene: persistent });
             } catch (error) {
                 // An unexpected Blueprint failure must not abort the frame.
                 logOnce(error);
