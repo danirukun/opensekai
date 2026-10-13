@@ -20,7 +20,7 @@
 - Rust contracts compare key sets exactly (`shape` in `crates/contracts/src/lib.rs`). An optional key must be absent when unset, never `null`: use `#[serde(default, skip_serializing_if = "Option::is_none")]` in Rust and `.optional()` in zod.
 - Do not loosen `validate_glb`, `inspectContainer`, or the `/assets/{id}` checks. Do not accept a file path from the frontend or MCP.
 - Do not set `scene.environment`. Do not change avatar materials. Do not import `KHR_lights_punctual` lights.
-- UI copy is limited to: `Environment`, `Source`, `Choose model…`, `Missing model`, `Import file…`, `Importing…`, `Title`, `Author`, `License`, `Copy credit`, `Copied`, `Render Environment`. Use `@oshi-connect/ui` controls where the kit has them; follow the existing native checkbox pattern for boolean rows.
+- UI copy is limited to: `Environment`, `Source`, `Choose model…`, `Missing model`, `Import file…`, `Importing…`, `Title`, `Author`, `License`, `Copy credit`, `Copied`, `Render Environment`, `Could not import model`. Use `@oshi-connect/ui` controls where the kit has them; follow the existing native checkbox pattern for boolean rows.
 - Prose (commit bodies, docs, evaluation) in ASD-STE100. Commit messages end with:
   ```
   Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>

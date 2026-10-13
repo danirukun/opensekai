@@ -47,7 +47,7 @@ Editor and MCP edits use the same route: a call (for example `scenePatch`) goes 
 2. **Serve.** `GET /assets/{id}` with a bearer token. The registry resolves the ID inside the library, checks size and SHA-256, and runs `validate_glb` again.
 3. **Load.** `createAssetLoader` (`renderer/src/assets.ts`) runs `inspectContainer`, then `GLTFLoader` with the VRM plugin. Load jobs (`load-jobs.ts`) run outside frame submission and report status to the overlay.
 
-Trust rule: a stored asset is one self-contained GLB container. The importer, `validate_glb`, and `inspectContainer` each reject external URIs. Do not loosen one of these checks without a design change to all three.
+Trust rule: a stored asset is one self-contained GLB container. The importers embed or reject every external URI before they store the asset. The asset service (`validate_glb`) and the renderer (`inspectContainer`) reject any external URI. Do not loosen one of these checks without a design change to all three.
 
 ## Output path
 

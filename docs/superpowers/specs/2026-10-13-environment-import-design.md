@@ -24,7 +24,7 @@ Slice 3 depends on slice 1. Slice 2 is independent of slice 3.
 2. **Shared scene asset.** The importer makes a general GLB scene asset with the ID `scene_<sha256>`. It does not make an environment-only format. ENV-03 props can use the same assets later.
 3. **Pack to one GLB in Rust.** The importer resolves each external buffer and image, embeds it, and writes one self-contained GLB. The asset service, `validate_glb`, and the renderer `inspectContainer` continue to reject external URIs. Thus the trusted load path does not change.
 4. **Editor import only.** A new editor-only command `import_scene` opens a native dialog for `.glb`, `.gltf`, and `.zip`. The frontend cannot send a path. MCP cannot import a file. MCP can set an imported asset on the environment through `scene_patch`.
-5. **Neutral lighting for the environment.** The existing ambient and directional lights stay. Each renderer client makes one neutral prefiltered environment map from three.js `RoomEnvironment` and sets it as `envMap` on the environment materials only. `scene.environment` stays null. The character appearance does not change. Lights from the file (`KHR_lights_punctual`) are not imported; ENV-07 owns light entities.
+5. **Neutral lighting for the environment.** The existing ambient and directional lights stay. Each renderer client makes one neutral prefiltered environment map from three.js `RoomEnvironment` and sets it as `envMap` on the lit (standard or physical) environment materials only. Unlit materials keep their look. `scene.environment` stays null. The character appearance does not change. Lights from the file (`KHR_lights_punctual`) are not imported; ENV-07 owns light entities.
 6. **Render Environment for each camera.** A camera has an optional `renderEnvironment` flag. Absent means true. Each renderer client (the Scene window preview and the OBS output) draws through its output camera, and hides the environment when that camera's flag is false.
 7. **Credits.** The asset record keeps an optional `credits: { title, author, license, sourceUrl }` from `asset.extras`. The Inspector shows the title, the author, and the license, and has one **Copy credit** action. The copied line includes the source URL. The app has no link opener, so the Inspector shows no link. CC-BY requires credit wherever the work is shared, and that includes a stream.
 8. **Import size.** The packed GLB limit is 256 MB for every import, VRM included (was 128 MB). The GLB JSON limit stays 16 MB. The real limit is decoded texture memory in the WebKit process (4 GB). The live check measures it.
@@ -50,7 +50,7 @@ TypeScript (`packages/contracts`) and Rust (`crates/contracts`) change together 
 5. **Required extensions.** The importer rejects a file with an entry in `extensionsRequired` that the renderer does not support, and names it. It rejects `KHR_draco_mesh_compression`, `EXT_meshopt_compression`, and `KHR_texture_basisu` in this slice. Optional extensions pass through. The importer removes `KHR_lights_punctual`, so the file lights do not load (ENV-07 owns lights).
 6. **Pack.** All buffers and images go into one BIN chunk with 4-byte alignment. Image references become `bufferView` plus `mimeType`. No `uri` remains. The result must pass `validate_glb`.
 7. **Store.** The file is `scene_<sha256>.glb` with its JSON record, written to a temporary file and renamed. An import of the same content returns the existing record. The name is `credits.title`, else the root file stem. The importer does not change the source files.
-8. **Work.** The import runs on a blocking task, not on the UI thread or the render path. Peak memory is about one copy of the packed output in the Rust process.
+8. **Work.** The import runs on a blocking task, not on the UI thread or the render path. Peak memory is a few copies of the packed output (source bytes, buffers, and the output), bounded by the 256 MiB read budget.
 
 The importer returns typed `AppError` codes. This slice has no cancel control. A local import of the sample is expected to take a few seconds; the evaluation records the measured time.
 
@@ -58,6 +58,7 @@ The importer returns typed `AppError` codes. This slice has no cancel control. A
 
 - `submit` reconciles the environment like an asset mesh: a background load job, the load status overlay, `compileAsync` before the model joins the scene, and stale-result disposal. The existing texture limits apply (1024 pixels for the preview, 2048 pixels for the output).
 - A failed load shows in the overlay and in the frame warnings. The scene continues without the environment.
+- The map applies to lit (standard or physical) materials. Unlit materials keep their look.
 - The neutral environment map is made once for each renderer client and released with the renderer.
 - The environment is not a pick target in the viewport. The operator selects it in the Hierarchy. The transform gizmo then applies.
 - Output alpha is 1 where the environment covers a pixel. Pixels that the environment does not cover stay transparent until slice 2.

@@ -52,4 +52,6 @@ The footprint values are WebKit process samples, not whole-app or GPU totals. Ap
 - Only one sample environment was checked. Draco, meshopt, and KTX2 files are rejected by design and were not tried live.
 - Import has no cancel control. The packed GLB, the source on disk, and the WebKit footprint of larger environments were not measured.
 - The default camera at (0, 1.2, 3) is outside this room. The check moved the camera to (1.7, 1.3, 1.9) with a 60° field of view through MCP. The slice adds no automatic placement.
+- On macOS the dialog shows no file-type filter (the project-wide workaround for rfd), so the importer checks the extension instead. This is different from R6.
+- `setEnvironmentModel` through MCP was not exercised live, because no MCP reply lists asset records.
 - The failed-load overlay row for the missing model was not seen; the warning is in the frame warnings only.
