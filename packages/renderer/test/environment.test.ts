@@ -1,4 +1,4 @@
-import { it, expect, vi, beforeEach } from 'vitest';
+import { it, expect, vi, beforeEach, describe } from 'vitest';
 import { Group, Mesh, MeshStandardMaterial, BoxGeometry, Texture, type Object3D } from 'three/webgpu';
 import { makeSmokeFrame, type RuntimeFrame, type SceneEntity } from '@opensekai/contracts';
 const ports = vi.hoisted(() => ({ load: vi.fn(), render: vi.fn(), compile: vi.fn(), light: { apply: vi.fn(), dispose: vi.fn() } }));
@@ -65,6 +65,45 @@ it('follows the flag of its own output camera', async () => {
         expect(rendered().getObjectByName('room')?.visible).toBe(visible);
         r.dispose();
     }
+});
+describe('releases material copies with the installed instance', () => {
+    const install = async () => {
+        const release = vi.fn();
+        ports.light.apply.mockReturnValue(release);
+        ports.load.mockResolvedValue(room());
+        const r = await make();
+        await r.applyFrame(frame()); await settle();
+        await r.applyFrame(frame());
+        expect(ports.light.apply).toHaveBeenCalledTimes(1);
+        expect(release).not.toHaveBeenCalled();
+        return { r, release };
+    };
+    it('on model replacement', async () => {
+        const { r, release } = await install();
+        await r.applyFrame(frame({ assetId: 'scene_b' })); await settle();
+        await r.applyFrame(frame({ assetId: 'scene_b' }));
+        expect(release).toHaveBeenCalledTimes(1);
+        r.dispose();
+    });
+    it('when the model is cleared', async () => {
+        const { r, release } = await install();
+        await r.applyFrame(frame({ assetId: null }));
+        expect(release).toHaveBeenCalledTimes(1);
+        r.dispose();
+        expect(release).toHaveBeenCalledTimes(1);
+    });
+    it('when the entity is removed', async () => {
+        const { r, release } = await install();
+        const f = frame(); f.scene.entities = f.scene.entities.filter(e => e.kind === 'camera');
+        await r.applyFrame(f);
+        expect(release).toHaveBeenCalledTimes(1);
+        r.dispose();
+    });
+    it('when the renderer is disposed', async () => {
+        const { r, release } = await install();
+        r.dispose(); await settle();
+        expect(release).toHaveBeenCalledTimes(1);
+    });
 });
 it('puts the map on instance clones only and releases it once', async () => {
     const { createEnvironmentLight } = await vi.importActual<typeof import('../src/environment-light')>('../src/environment-light');

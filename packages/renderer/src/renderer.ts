@@ -44,7 +44,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     const loadAsset = createAssetLoader(options.resources, {maxTextureSize: options.resolutionScale === 0.5 ? 1024 : 2048});
     const assets = createAssetCache(loadAsset);
     const environmentLight = createEnvironmentLight(roomEnvironmentMap(renderer));
-    type Ready = { root: Object3D; avatar?: ReturnType<typeof createAvatarBinding>; assetId?: string; assetDispose?: () => void; warnings: AppError[]; dispose(): void };
+    type Ready = { root: Object3D; avatar?: ReturnType<typeof createAvatarBinding>; assetId?: string; assetDispose?: () => void; instanceDispose?: () => void; warnings: AppError[]; dispose(): void };
     const loadListeners = new Set<(entries: AssetLoadStatus[]) => void>();
     const prepare = async (root: Object3D, report: (r: LoadReport) => void, cancelled: () => boolean) => {
         if (cancelled() || disposed) throw failure("CANCELLED", "Asset load cancelled");
@@ -71,7 +71,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         const release = () => { disposeInstance(root); releaseLight?.(); };
         try { await prepare(root, report, cancelled); }
         catch (error) { release(); throw error; }
-        return { root, assetId: request.assetId, warnings: asset.warnings, dispose: release };
+        return { root, assetId: request.assetId, warnings: asset.warnings, instanceDispose: releaseLight, dispose: release };
     };
     const jobs = createLoadJobs<Ready>(build, entries => { for (const listener of loadListeners) listener(entries); });
     const marker = options.diagnostics ? createDiagnosticMarker() : null;
@@ -84,11 +84,13 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         pickable?: boolean;
         avatar?: ReturnType<typeof createAvatarBinding>;
         assetDispose?: () => void;
+        instanceDispose?: () => void;
         warnings?: AppError[];
     }>();
     const editor = options.editor ? createEditorViewport(options.canvas, camera, scene, objects, options.editor) : null;
     let disposed = false, cleaned = false, accepted: RuntimeFrame | null = null, displayed: FrameApplied | null = null, displayFrame: RuntimeFrame | null = null;
-    const releaseObject = (value: {root: Object3D; owned: boolean; assetDispose?: () => void}) => {
+    const releaseObject = (value: {root: Object3D; owned: boolean; assetDispose?: () => void; instanceDispose?: () => void}) => {
+        value.instanceDispose?.();
         if (value.assetDispose) {value.root.removeFromParent(); value.assetDispose();}
         else if (value.owned) disposeObject(value.root);
         else {
@@ -179,7 +181,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             const entity = frame.scene.entities.find(item => item.id === entityId)!;
             const old = objects.get(entityId);
             if (old) releaseObject(old);
-            const installed = { signature: entity.kind + ":" + request.assetId, root: ready.root, owned: false, avatar: ready.avatar, assetId: ready.assetId, assetDispose: ready.assetDispose, warnings: ready.warnings, pickable: entity.kind !== "environment" };
+            const installed = { signature: entity.kind + ":" + request.assetId, root: ready.root, owned: false, avatar: ready.avatar, assetId: ready.assetId, assetDispose: ready.assetDispose, instanceDispose: ready.instanceDispose, warnings: ready.warnings, pickable: entity.kind !== "environment" };
             scene.add(installed.root);
             objects.set(entityId, installed);
             installed.avatar?.apply(frame.avatarPoses?.find(pose => pose.avatarId === entityId));
