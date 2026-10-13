@@ -36,6 +36,7 @@ After the run, the app scene had only `camera_main` and 0 Blueprints (read throu
 
 - Physical WASD after an import into the show was not checked. The `wasd` graph was already in the operator's show from the previous slice, and it was not imported again. The runner imports `wasd`, but it does not press keys.
 - The runner registered the keys of `camera-flip` and `counter` but did not fire them, because it cannot send a global hotkey. The session integration test covers their effect.
+- The operator imported the exported file again in the same show, without an app restart. A restart and a second show were not checked.
 - OBS was not running. The `drift` motion in the OBS output, alpha, and OBS timing were not checked.
 - Windows was not checked.
 - Different: on macOS the file dialogs do not filter to `.json`. The existing Open and Import dialogs have the same behavior (an `rfd` file-type filter issue).
