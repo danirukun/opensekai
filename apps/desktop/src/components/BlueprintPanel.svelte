@@ -3,7 +3,7 @@
  import { invoke } from '@tauri-apps/api/core';
  import { Button } from '@oshi-connect/ui';
  import { Play, Search, Trash2, Variable } from '@lucide/svelte';
- import { BLUEPRINT_LABELS, blueprintPorts, nodeDefinition, defaultBlueprintSettings, keystrokeAccelerator, type AppApi, type AppStatus, type BlueprintGraph, type BlueprintNode, type BlueprintOp, type BlueprintStatus, type DefaultRefs, type SceneView } from '@opensekai/contracts';
+ import { BLUEPRINT_LABELS, blueprintPorts, exportBlueprint, importBlueprint, serializeBlueprintFile, nodeDefinition, defaultBlueprintSettings, keystrokeAccelerator, type AppApi, type AppStatus, type BlueprintGraph, type BlueprintNode, type BlueprintOp, type BlueprintStatus, type DefaultRefs, type SceneView } from '@opensekai/contracts';
  import { issueText, type BlueprintSync, type SyncIssue } from '../blueprints/blueprint-sync';
  import { currentPlatform, defaultKeystroke } from '../blueprints/keystroke-format';
  import type { MenuTarget, ReteBlueprintEditor } from '../blueprints/rete-editor';
@@ -33,6 +33,7 @@
  let issue = $state.raw<SyncIssue>(null);
  let selectedId = $state<string | null>(null);
  let nodeId = $state<string | null>(null);
+ let missing = $state<string[]>([]);
  let runError = $state<string | null>(null), busy = $state(false);
  type Drawer = 'nodes' | 'variables' | null;
  const DRAWER_KEY = 'opensekai.blueprint.drawer';
@@ -55,7 +56,7 @@
  const targets = $derived(scene?.entities.filter(entity => entity.kind !== 'tracking') ?? []);
  const cameras = $derived(scene?.entities.filter(entity => entity.kind === 'camera') ?? []);
  const failure = $derived(errors.find(item => item.graphId === selectedId));
- const problem = $derived(runError ?? failure?.error.message ?? (issueText(issue) || (changedElsewhere ? 'Changed elsewhere' : null)));
+ const problem = $derived(runError ?? failure?.error.message ?? (issueText(issue) || (changedElsewhere ? 'Changed elsewhere' : null)) ?? (missing.length ? `Missing: ${missing.join(', ')}` : null));
  const outputId = $derived(scene?.outputs[0]?.id);
  const refs = $derived<DefaultRefs>({ entityId: targets[0]?.id, cameraId: cameras[0]?.id, outputId, keystroke: defaultKeystroke(platform), variables: graph?.variables ?? [] });
  const taken = $derived(new Set((status?.warnings ?? []).flatMap(warning => warning.ids)));
@@ -69,6 +70,7 @@
  };
 
  const act = (ops: BlueprintOp[]) => {
+  missing = [];
   const before = sync.view().find(item => item.id === selectedId);
   if (ops.length === 0 || !before) return { ok: true, data: sync.view() } as const;
   const result = edit(ops);
@@ -117,7 +119,7 @@
    if (latest) void mounted.show(latest);
   } catch { if (mine === generation) runError = 'Blueprint canvas unavailable'; }
  }
- function choose(id: string | null) { selectedId = id; if (id !== mountedFor) void mount(id); }
+ function choose(id: string | null) { missing = []; selectedId = id; if (id !== mountedFor) void mount(id); }
  function revealError() {
   const first = errors.find(item => item.graphId === selectedId);
   const key = first ? JSON.stringify([first.graphId, first.kind, first.error.message, first.error.ids]) : '';
@@ -151,6 +153,30 @@
    connections: [{ id: crypto.randomUUID(), sourceNodeId: key, sourcePort: 'flow', targetNodeId: act, targetPort: 'flow' }],
   } }]);
   if (result.ok) choose(id);
+ }
+ const message = (error: unknown, fallback: string) => typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string' ? error.message : fallback;
+ async function importFile() {
+  if (!scene || disabled) return;
+  let text: string | null;
+  try { text = await invoke<string | null>('import_blueprint_file'); } catch (error) { runError = message(error, 'Import failed'); return; }
+  if (text === null) return;
+  const imported = importBlueprint(text, scene, () => crypto.randomUUID());
+  if (!imported.ok) { runError = imported.error.message; return; }
+  const result = edit([{ kind: 'createGraph', graph: imported.data.graph }]);
+  if (!result.ok) { runError = result.error.message; return; }
+  runError = null;
+  choose(imported.data.graph.id);
+  missing = imported.data.report.missing.map(item => item.name);
+ }
+ async function exportFile(id: string) {
+  if (!api || !scene) return;
+  try {
+   const reply = await api.blueprintInspect({});
+   const stored = reply.ok && reply.data.kind === 'snapshot' ? reply.data.blueprints.find(item => item.id === id) : undefined;
+   if (!stored) { runError = 'Blueprint not found'; return; }
+   await invoke('export_blueprint_file', { name: stored.name, text: serializeBlueprintFile(exportBlueprint(stored, scene)) });
+   runError = null;
+  } catch (error) { runError = message(error, 'Export failed'); }
  }
  type Wire = { nodeId: string; port: string; side: 'input' | 'output' };
  type Menu = { x: number; y: number; at: { x: number; y: number } } & ({ kind: 'canvas' } | { kind: 'node'; nodeIds: string[] } | { kind: 'wire'; connectionId: string } | { kind: 'drop'; from: Wire; need: WireNeed });
@@ -235,7 +261,7 @@
  <header class="blueprint-toolbar"><h2>Blueprints</h2><span class="blueprint-state" role="status">{problem}</span><div class="spacer"></div>{#if trigger}<Button variant="secondary" disabled={disabled || busy || !graph} onclick={() => run()}><Play size={14}/>Run</Button>{/if}</header>
  {#if inputWarning}<div class="blueprint-warning" role="alert">{inputWarning.message}{#if inputWarning.code === 'FORBIDDEN'}<Button variant="secondary" onclick={openInputSettings}>Open Settings</Button>{/if}</div>{/if}
  <div class="blueprint-workspace">
-  <BlueprintList {graphs} {selectedId} {disabled} creatable={targets.length > 0} onselect={choose} onops={edit} oncreate={create} />
+  <BlueprintList {graphs} {selectedId} {disabled} creatable={targets.length > 0} onselect={choose} onops={edit} oncreate={create} onimport={importFile} onexport={exportFile} />
   <nav class="blueprint-tools" aria-label="Blueprint tools">
    <button type="button" class:active={drawer === 'nodes'} aria-pressed={drawer === 'nodes'} title="Nodes" aria-label="Nodes" onclick={() => toggleDrawer('nodes')}><Search size={16} /></button>
    <button type="button" class:active={drawer === 'variables'} aria-pressed={drawer === 'variables'} title="Variables" aria-label="Variables" onclick={() => toggleDrawer('variables')}><Variable size={16} /></button>

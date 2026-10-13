@@ -26,6 +26,11 @@
   : field.kind === 'variable' ? variables.filter(variable => variable.type === field.variableType).map(variable => ({ value: variable.id, label: variable.name }))
   : field.kind === 'count' ? Array.from({ length: field.max - field.min + 1 }, (_, i) => ({ value: String(field.min + i), label: String(field.min + i) }))
   : [];
+ const options = (field: BlueprintField) => {
+  const list = choices(field), value = settings[field.key];
+  return (field.kind === 'entity' || field.kind === 'camera' || field.kind === 'output') && typeof value === 'string' && !list.some(item => item.value === value)
+   ? [{ value, label: 'Missing' }, ...list] : list;
+ };
 </script>
 
 {#each fields as field (field.key)}
@@ -34,7 +39,7 @@
  {:else if field.kind === 'boolean'}
   <label class="blueprint-checkbox"><input type="checkbox" checked={Boolean(settings[field.key])} onchange={event => set(field.key, event.currentTarget.checked)} />{field.label}</label>
  {:else if field.kind === 'count'}
-  <Select label={field.label} value={String(settings[field.key])} options={choices(field)} onchange={event => set(field.key, Number(event.currentTarget.value))} />
+  <Select label={field.label} value={String(settings[field.key])} options={options(field)} onchange={event => set(field.key, Number(event.currentTarget.value))} />
  {:else if field.kind === 'cases'}
   <Input label={field.label} value={formatCases(settings[field.key] as number[])} onchange={event => { const cases = parseCases(event.currentTarget.value); if (cases) set(field.key, cases); else event.currentTarget.value = formatCases(settings[field.key] as number[]); }} />
  {:else if field.kind === 'key'}
@@ -46,6 +51,6 @@
  {:else if field.kind === 'keystroke'}
   <KeystrokeField value={settings as KeystrokeSettings} {platform} {unavailable} onchange={next => onsettings(next)} />
  {:else}
-  <Select label={field.label} value={String(settings[field.key])} options={choices(field)} onchange={event => set(field.key, event.currentTarget.value)} />
+  <Select label={field.label} value={String(settings[field.key])} options={options(field)} onchange={event => set(field.key, event.currentTarget.value)} />
  {/if}
 {/each}
