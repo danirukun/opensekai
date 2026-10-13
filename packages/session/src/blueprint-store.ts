@@ -1,11 +1,12 @@
 import { applyBlueprintOps, BlueprintBatchSchema, type AppError, type BlueprintBatch, type BlueprintGraph, type BlueprintInspect, type Id, type Reply } from '@opensekai/contracts';
 import { compileBlueprint, fail, type CompiledBlueprint } from './blueprint';
-import { activeAccelerators, type BlueprintRuntime } from './blueprint-runtime';
+import { activeAccelerators, activeHeldKeys, type BlueprintRuntime } from './blueprint-runtime';
 
-const JOURNAL = 64, DELTA = 32, MAX_ACCELERATORS = 64, MAX_BYTES = 192 * 1024, DELTA_BYTES = 160 * 1024;
+const heldKeysField = (keys: string[]) => (keys.length ? { heldKeys: keys } : {});
+const JOURNAL = 64, DELTA = 32, MAX_ACCELERATORS = 64, MAX_HELD_KEYS = 16, MAX_BYTES = 192 * 1024, DELTA_BYTES = 160 * 1024;
 const encoder = new TextEncoder();
 export interface BlueprintStore {
- edit(batch: unknown): Reply<{ revision: number; keystrokes: string[] }>;
+ edit(batch: unknown): Reply<{ revision: number; keystrokes: string[]; heldKeys?: string[] }>;
  inspect(sinceRevision?: number, runtimeErrors?: ReadonlyMap<Id, AppError>): BlueprintInspect;
  revision(): number;
  active(graphId: Id): BlueprintGraph | undefined;
@@ -50,6 +51,7 @@ export function createBlueprintStore(runtime: BlueprintRuntime): BlueprintStore 
    }
    const nextActive = withEnabled(next.data, nextValid);
    if (activeAccelerators(nextActive.map(entry => entry.graph)).length > MAX_ACCELERATORS) return fail('Too many active keystrokes');
+   if (activeHeldKeys(nextActive.map(entry => entry.graph)).length > MAX_HELD_KEYS) return fail('Too many held keys');
    runtime.installCompiled(nextActive, opened);
    documents = next.data;
    valid.clear(); for (const [id, compiled] of nextValid) valid.set(id, compiled);
@@ -57,7 +59,7 @@ export function createBlueprintStore(runtime: BlueprintRuntime): BlueprintStore 
    keys.clear(); for (const [id, key] of nextKeys) keys.set(id, key);
    revision += 1;
    journal = [...journal, { ...batch.data, revision }].slice(-JOURNAL);
-   return { ok: true, data: { revision, keystrokes: runtime.keystrokes() } };
+   return { ok: true, data: { revision, keystrokes: runtime.keystrokes(), ...heldKeysField(runtime.heldKeys()) } };
   },
   inspect(since, runtimeErrors = new Map()) {
    const errors = [
@@ -68,12 +70,12 @@ export function createBlueprintStore(runtime: BlueprintRuntime): BlueprintStore 
    const range = since === undefined ? [] : journal.filter(entry => entry.revision > since);
    const delta = since !== undefined && since <= revision && since >= oldest - 1 && range.length <= DELTA
     && !range.some(entry => entry.ops.some(op => op.kind === 'replaceAll' || op.kind === 'createGraph'));
-   const keystrokes = runtime.keystrokes();
+   const keystrokes = runtime.keystrokes(), held = heldKeysField(runtime.heldKeys());
    const reply: BlueprintInspect = delta
-    ? { kind: 'delta', revision, batches: structuredClone(range), errors, keystrokes }
-    : { kind: 'snapshot', revision, blueprints: structuredClone(documents), errors, keystrokes };
+    ? { kind: 'delta', revision, batches: structuredClone(range), errors, keystrokes, ...held }
+    : { kind: 'snapshot', revision, blueprints: structuredClone(documents), errors, keystrokes, ...held };
    return reply.kind === 'delta' && encoder.encode(JSON.stringify(reply)).length > DELTA_BYTES
-    ? { kind: 'snapshot', revision, blueprints: structuredClone(documents), errors, keystrokes }
+    ? { kind: 'snapshot', revision, blueprints: structuredClone(documents), errors, keystrokes, ...held }
     : reply;
   },
   revision: () => revision,

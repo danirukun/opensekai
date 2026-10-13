@@ -8,3 +8,4 @@ export * from './blueprint';
 export * from './blueprint-nodes';
 export * from './blueprint-ops';
 export * from './show';
+export * from './property-registry';

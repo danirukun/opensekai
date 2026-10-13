@@ -197,6 +197,21 @@ async fn set_keystroke_capture(
     state.set_keystroke_capture(active).await;
     Ok(())
 }
+/// Opens the macOS Input Monitoring pane, where the operator allows held-key input.
+#[tauri::command]
+fn open_input_monitoring_settings(window: tauri::WebviewWindow) -> Result<(), AppError> {
+    require_window_label(window.label(), "editor")?;
+    #[cfg(target_os = "macos")]
+    std::process::Command::new("open")
+        .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")
+        .spawn()
+        .map_err(|_| AppError {
+            code: ErrorCode::Unavailable,
+            message: "Settings unavailable".into(),
+            ids: vec![],
+        })?;
+    Ok(())
+}
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let state = DesktopState::new();
@@ -262,6 +277,7 @@ pub fn run() {
             show_scene,
             hide_editor,
             set_keystroke_capture,
+            open_input_monitoring_settings,
             import_avatar,
             save_show_as,
             open_show

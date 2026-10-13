@@ -1,5 +1,6 @@
 <script lang="ts">
  import { onMount } from 'svelte';
+ import { invoke } from '@tauri-apps/api/core';
  import { Button } from '@oshi-connect/ui';
  import { Play, Search, Trash2, Variable } from '@lucide/svelte';
  import { BLUEPRINT_LABELS, blueprintPorts, nodeDefinition, defaultBlueprintSettings, keystrokeAccelerator, type AppApi, type AppStatus, type BlueprintGraph, type BlueprintNode, type BlueprintOp, type BlueprintStatus, type DefaultRefs, type SceneView } from '@opensekai/contracts';
@@ -58,6 +59,8 @@
  const outputId = $derived(scene?.outputs[0]?.id);
  const refs = $derived<DefaultRefs>({ entityId: targets[0]?.id, cameraId: cameras[0]?.id, outputId, keystroke: defaultKeystroke(platform), variables: graph?.variables ?? [] });
  const taken = $derived(new Set((status?.warnings ?? []).flatMap(warning => warning.ids)));
+ const inputWarning = $derived(status?.warnings.find(warning => warning.ids.includes('input-monitoring')));
+ function openInputSettings() { try { void invoke('open_input_monitoring_settings').catch(() => {}); } catch { /* outside Tauri */ } }
 
  const edit = (ops: Parameters<BlueprintSync['edit']>[0]) => {
   const result = sync.edit(ops);
@@ -230,6 +233,7 @@
 
 <section class="blueprint-panel" aria-label="Blueprint editor">
  <header class="blueprint-toolbar"><h2>Blueprints</h2><span class="blueprint-state" role="status">{problem}</span><div class="spacer"></div>{#if trigger}<Button variant="secondary" disabled={disabled || busy || !graph} onclick={() => run()}><Play size={14}/>Run</Button>{/if}</header>
+ {#if inputWarning}<div class="blueprint-warning" role="alert">{inputWarning.message}{#if inputWarning.code === 'FORBIDDEN'}<Button variant="secondary" onclick={openInputSettings}>Open Settings</Button>{/if}</div>{/if}
  <div class="blueprint-workspace">
   <BlueprintList {graphs} {selectedId} {disabled} creatable={targets.length > 0} onselect={choose} onops={edit} oncreate={create} />
   <nav class="blueprint-tools" aria-label="Blueprint tools">

@@ -10,6 +10,7 @@
     "allow-editor-connection",
     "allow-hide-editor",
     "allow-set-keystroke-capture",
+    "allow-open-input-monitoring-settings",
     "allow-show-scene",
     "allow-import-avatar",
     "allow-save-show-as",

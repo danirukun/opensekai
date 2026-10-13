@@ -76,3 +76,14 @@ it('names the failing rule and graph when the final set does not parse', () => {
  expect(applyBlueprintOps([], [{ kind: 'createGraph', graph: { schemaVersion: 1, id: 'big', name: 'Big', enabled: true, nodes, connections: [], variables: [] } }]))
   .toMatchObject({ ok: false, error: { message: 'Blueprint set exceeds its limits' } });
 });
+
+it('setNodeSettings drops a property value wire when the property type changes', () => {
+ const graph = { schemaVersion: 1, id: 'g', name: 'G', enabled: true, variables: [], nodes: [
+  { id: 'make', version: 1, type: 'vector3.make', settings: {}, position: { x: 0, y: 0 } },
+  { id: 'set', version: 1, type: 'property.set', settings: { entityId: 'e', property: 'position' }, position: { x: 0, y: 0 } },
+ ], connections: [{ id: 'c', sourceNodeId: 'make', sourcePort: 'value', targetNodeId: 'set', targetPort: 'value' }] };
+ const same = applyBlueprintOps([graph as never], [{ kind: 'setNodeSettings', graphId: 'g', nodeId: 'set', settings: { entityId: 'e', property: 'scale' } }]);
+ expect(same.ok && same.data[0]!.connections).toHaveLength(1);
+ const retyped = applyBlueprintOps([graph as never], [{ kind: 'setNodeSettings', graphId: 'g', nodeId: 'set', settings: { entityId: 'e', property: 'visible' } }]);
+ expect(retyped.ok && retyped.data[0]!.connections).toEqual([]);
+});

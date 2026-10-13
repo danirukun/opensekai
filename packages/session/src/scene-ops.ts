@@ -1,5 +1,5 @@
 import { SceneViewSchema, type ErrorCode, type Id, type Reply, type ScenePatch, type SceneView } from "@opensekai/contracts";
-import type { BlueprintEffect } from "./blueprint";
+import type { SceneEffect } from "./blueprint";
 
 const failure = (code: ErrorCode, message: string, ids: Id[] = []): Reply<never> => ({ ok: false, error: { code, message, ids } });
 
@@ -33,7 +33,7 @@ export function applyOperations(scene: SceneView, operations: ScenePatch["operat
             return { ok: true, data: next };
 }
 
-export function applyEffects(scene: SceneView, effects: BlueprintEffect[]): Reply<SceneView> {
+export function applyEffects(scene: SceneView, effects: SceneEffect[]): Reply<SceneView> {
  let next = structuredClone(scene);
  for (const effect of effects) {
   if (effect.kind === 'selectCamera') {

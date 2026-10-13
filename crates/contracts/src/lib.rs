@@ -310,7 +310,14 @@ object!(BlueprintRunParams {
     trigger_node_id: Id
 });
 object!(BlueprintEditParams { client_id: Id, batch_id: Id, ops: Vec<Value> });
-object!(BlueprintEditResult { revision: u64, keystrokes: Vec<String> });
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BlueprintEditResult {
+    pub revision: u64,
+    pub keystrokes: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub held_keys: Vec<String>,
+}
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BlueprintInspectParams {
@@ -323,17 +330,28 @@ pub struct BlueprintInspectParams {
 pub enum InputEvent {
     Keystroke { accelerator: String },
 }
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(deny_unknown_fields)]
 pub struct InputUpdate {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub events: Vec<InputEvent>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub held: Vec<String>,
 }
 impl InputUpdate {
     pub fn validate(&self) -> Result<(), AppError> {
         require(
-            (1..=16).contains(&self.events.len()),
+            self.events.len() <= 16
+                && self.held.len() <= 16
+                && !(self.events.is_empty() && self.held.is_empty()),
             "invalid input event count",
         )?;
+        for code in &self.held {
+            require(
+                !code.is_empty() && code.chars().count() <= 32,
+                "invalid held key",
+            )?;
+        }
         for InputEvent::Keystroke { accelerator } in &self.events {
             require(
                 !accelerator.is_empty() && accelerator.chars().count() <= 64,
@@ -611,12 +629,23 @@ fn validate_blueprint_inspect(data: &Value) -> Result<(), AppError> {
         data["revision"].as_u64().is_some(),
         "invalid Blueprint revision",
     )?;
+    if let Some(held) = data.get("heldKeys") {
+        require(
+            held.as_array().is_some_and(|codes| {
+                (1..=16).contains(&codes.len())
+                    && codes
+                        .iter()
+                        .all(|c| c.as_str().is_some_and(|c| (1..=32).contains(&c.chars().count())))
+            }),
+            "invalid held keys",
+        )?;
+    }
     match data["kind"].as_str() {
         Some("snapshot") => {
             require(
                 keys_within(
                     data,
-                    &["kind", "revision", "blueprints", "errors", "keystrokes"],
+                    &["kind", "revision", "blueprints", "errors", "keystrokes", "heldKeys"],
                 ),
                 "invalid Blueprint snapshot",
             )?;
@@ -630,7 +659,7 @@ fn validate_blueprint_inspect(data: &Value) -> Result<(), AppError> {
             require(
                 keys_within(
                     data,
-                    &["kind", "revision", "batches", "errors", "keystrokes"],
+                    &["kind", "revision", "batches", "errors", "keystrokes", "heldKeys"],
                 ),
                 "invalid Blueprint delta",
             )?;
@@ -1143,6 +1172,13 @@ pub fn validate_result(method: &str, result: &Value) -> Result<(), AppError> {
                         .iter()
                         .all(|k| (1..=64).contains(&k.chars().count())),
                 "invalid keystrokes",
+            )?;
+            require(
+                r.held_keys.len() <= 16
+                    && r.held_keys
+                        .iter()
+                        .all(|k| (1..=32).contains(&k.chars().count())),
+                "invalid held keys",
             )
         }
         "blueprintInspect" => validate_blueprint_inspect(data),

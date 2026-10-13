@@ -1,3 +1,4 @@
+pub mod monitor;
 use opensekai_contracts::{InputEvent, InputUpdate};
 use std::collections::{BTreeSet, HashMap, VecDeque};
 use std::sync::Mutex;
@@ -52,6 +53,7 @@ impl InputQueue {
                 .drain(..n)
                 .map(|accelerator| InputEvent::Keystroke { accelerator })
                 .collect(),
+            held: vec![],
         })
     }
 }

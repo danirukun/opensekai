@@ -1,6 +1,7 @@
 import {TrackingConfigSchema,TrackingSmoothingSchema,AvatarIdleSchema,AvatarTrackingSchema,AvatarPoseSchema,TrackingStatusSchema,TrackingUpdateSchema} from './tracking';
 import { BlueprintGraphSchema, BlueprintSetSchema } from './blueprint';
 import { BlueprintBatchSchema } from './blueprint-ops';
+import { KEYSTROKE_CODES } from './blueprint-nodes';
 import { z } from "zod";
 import type { AppApi, Capability, Reply, ValidatedCall } from "./types";
 export const LIMITS = {
@@ -319,14 +320,16 @@ export const CaptureBytesSchema = z.strictObject({
     width: u.positive().max(1920),
     height: u.positive().max(1080)
 });
+export const HeldCodeListSchema = z.array(z.enum(KEYSTROKE_CODES as [string, ...string[]])).min(1).max(16);
 export const InputUpdateSchema = z.strictObject({
-    events: z.array(z.strictObject({ kind: z.literal('keystroke'), accelerator: z.string().min(1).max(64) })).min(1).max(16)
-});
+    events: z.array(z.strictObject({ kind: z.literal('keystroke'), accelerator: z.string().min(1).max(64) })).min(1).max(16).optional(),
+    held: HeldCodeListSchema.optional(),
+}).refine(update => update.events !== undefined || update.held !== undefined, 'Input update is empty');
 export const BlueprintStatusSchema = z.strictObject({ graphId: IdSchema, kind: z.enum(['compile', 'runtime']), error: AppErrorSchema });
 const KeystrokeListSchema = z.array(z.string().min(1).max(64)).max(64);
 export const BlueprintInspectSchema = z.discriminatedUnion('kind', [
-    z.strictObject({ kind: z.literal('snapshot'), revision: u, blueprints: BlueprintSetSchema, errors: z.array(BlueprintStatusSchema).max(16), keystrokes: KeystrokeListSchema.optional() }),
-    z.strictObject({ kind: z.literal('delta'), revision: u, batches: z.array(BlueprintBatchSchema.extend({ revision: u })).max(32).refine(batches => batches.every(b => b.ops.every(op => op.kind !== 'replaceAll' && op.kind !== 'createGraph')), 'A delta cannot carry replaceAll or createGraph'), errors: z.array(BlueprintStatusSchema).max(16), keystrokes: KeystrokeListSchema.optional() }),
+    z.strictObject({ kind: z.literal('snapshot'), revision: u, blueprints: BlueprintSetSchema, errors: z.array(BlueprintStatusSchema).max(16), keystrokes: KeystrokeListSchema.optional(), heldKeys: HeldCodeListSchema.optional() }),
+    z.strictObject({ kind: z.literal('delta'), revision: u, batches: z.array(BlueprintBatchSchema.extend({ revision: u })).max(32).refine(batches => batches.every(b => b.ops.every(op => op.kind !== 'replaceAll' && op.kind !== 'createGraph')), 'A delta cannot carry replaceAll or createGraph'), errors: z.array(BlueprintStatusSchema).max(16), keystrokes: KeystrokeListSchema.optional(), heldKeys: HeldCodeListSchema.optional() }),
 ]);
 export type InputUpdate = z.infer<typeof InputUpdateSchema>;
 export type BlueprintStatus = z.infer<typeof BlueprintStatusSchema>;
@@ -369,7 +372,7 @@ export const ResultSchemas = {
         revision: u
     }),
     blueprintRun: z.strictObject({ revision: u }),
-    blueprintEdit: z.strictObject({ revision: u, keystrokes: KeystrokeListSchema }),
+    blueprintEdit: z.strictObject({ revision: u, keystrokes: KeystrokeListSchema, heldKeys: HeldCodeListSchema.optional() }),
     blueprintInspect: BlueprintInspectSchema,
     captureFrame: CaptureRecordSchema,
     benchmarkStart: BenchmarkRunSchema,

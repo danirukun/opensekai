@@ -1,6 +1,23 @@
 use super::*;
 use base64::{engine::general_purpose::STANDARD, Engine};
+use crate::input::monitor::MonitorStatus;
 use std::{future::Future, pin::Pin};
+
+/// The status warning while held-key nodes are active but keys cannot be observed.
+fn monitor_warning(watching: bool, status: MonitorStatus) -> Option<AppError> {
+    let (code, message) = match (watching, status) {
+        (true, MonitorStatus::NoAccess) => (ErrorCode::Forbidden, "Input Monitoring is off"),
+        (true, MonitorStatus::Unsupported) => {
+            (ErrorCode::Unsupported, "Held keys are unavailable on this platform")
+        }
+        _ => return None,
+    };
+    Some(AppError {
+        code,
+        message: message.into(),
+        ids: vec!["input-monitoring".into()],
+    })
+}
 #[derive(Debug, Clone)]
 pub struct RpcContext {
     pub client_id: String,
@@ -131,6 +148,7 @@ impl Shared {
                                 &publisher_id,
                                 data.revision,
                                 data.keystrokes.into_iter().collect(),
+                                data.held_keys.into_iter().collect(),
                             )
                         {
                             self.sync_keystrokes().await;
@@ -168,6 +186,9 @@ impl Shared {
             return Reply::failure(err(ErrorCode::Forbidden, "Capability denied"));
         }
         if call.method == "appStatus" {
+            // Read before `inner`: relearn_keystrokes takes keystrokes_known before inner.
+            let watching = !lock(&self.keystrokes_known).watched.is_empty();
+            let monitor = lock(&self.monitor).clone().status();
             let inner = lock(&self.inner);
             let outputs = inner
                 .tickets
@@ -206,6 +227,7 @@ impl Shared {
                         message: "Keystroke unavailable".into(),
                         ids: vec![accelerator.clone()],
                     })
+                    .chain(monitor_warning(watching && inner.publisher.is_some(), monitor))
                     .collect(),
                 outputs,
                 tracking_status: inner

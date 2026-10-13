@@ -4,7 +4,7 @@ import { AreaExtensions, AreaPlugin } from 'rete-area-plugin';
 import { getDOMSocketPosition } from 'rete-render-utils';
 import { ConnectionPlugin, Presets as ConnectionPresets } from 'rete-connection-plugin';
 import { Presets, SveltePlugin, type SvelteArea2D } from 'rete-svelte-plugin/5';
-import { BLUEPRINT_LABELS, blueprintPorts, ownPort, type BlueprintConnection, type BlueprintGraph, type BlueprintNode, type BlueprintOp, type PortType } from '@opensekai/contracts';
+import { BLUEPRINT_LABELS, blueprintPorts, connectionType, ownPort, type BlueprintConnection, type BlueprintGraph, type BlueprintNode, type BlueprintOp, type PortType } from '@opensekai/contracts';
 import { graphPatch } from './graph-patch';
 
 export { graphPatch } from './graph-patch';
@@ -14,6 +14,7 @@ const sockets: Record<PortType, ClassicPreset.Socket> = {
  flow: new ClassicPreset.Socket('Flow'),
  number: new ClassicPreset.Socket('Number'),
  boolean: new ClassicPreset.Socket('Boolean'),
+ vector3: new ClassicPreset.Socket('Vector3'),
 };
 
 class GraphNode extends ClassicPreset.Node {
@@ -27,8 +28,9 @@ class GraphNode extends ClassicPreset.Node {
  // Flow inputs take many wires and flow outputs one; data inputs take one wire and data outputs many.
  syncPorts() {
   const ports = blueprintPorts(this.data);
-  for (const name of Object.keys(this.inputs)) if (!ownPort(ports, 'inputs', name)) this.removeInput(name);
-  for (const name of Object.keys(this.outputs)) if (!ownPort(ports, 'outputs', name)) this.removeOutput(name);
+  // A port whose type changed is removed here and added again below with its new socket.
+  for (const name of Object.keys(this.inputs)) { const type = ownPort(ports, 'inputs', name); if (!type || this.inputs[name]!.socket !== sockets[type]) this.removeInput(name); }
+  for (const name of Object.keys(this.outputs)) { const type = ownPort(ports, 'outputs', name); if (!type || this.outputs[name]!.socket !== sockets[type]) this.removeOutput(name); }
   for (const [name, type] of Object.entries(ports.inputs)) if (!Object.hasOwn(this.inputs, name)) this.addInput(name, new ClassicPreset.Input(sockets[type], name, type === 'flow'));
   for (const [name, type] of Object.entries(ports.outputs)) if (!Object.hasOwn(this.outputs, name)) this.addOutput(name, new ClassicPreset.Output(sockets[type], name, type !== 'flow'));
   // Ports keep the definition's order, also when a settings change adds one (a new Switch case goes before default).
@@ -158,10 +160,12 @@ export async function mountReteBlueprint(container: HTMLElement, initial: Bluepr
  const updateNode = async (data: BlueprintNode) => {
   const node = editor.getNode(data.id) as GraphNode | undefined;
   if (!node) return;
-  const ports = blueprintPorts(data);
-  // A wire on a port that no longer exists must leave the canvas before the port does.
+  // A wire on a port that is gone or retyped must leave the canvas before the port does.
   for (const c of editor.getConnections()) {
-   if ((c.source === data.id && !ownPort(ports, 'outputs', String(c.sourceOutput))) || (c.target === data.id && !ownPort(ports, 'inputs', String(c.targetInput)))) await removeWire(c.id);
+   if (c.source !== data.id && c.target !== data.id) continue;
+   const source = c.source === data.id ? data : (editor.getNode(c.source) as GraphNode | undefined)?.data;
+   const target = c.target === data.id ? data : (editor.getNode(c.target) as GraphNode | undefined)?.data;
+   if (!source || !target || !connectionType(source, String(c.sourceOutput), target, String(c.targetInput))) await removeWire(c.id);
   }
   node.data = data;
   node.syncPorts();

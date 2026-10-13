@@ -169,6 +169,9 @@ impl DesktopState {
                 if let Some(keystrokes) = self.keystrokes.get() {
                     service.ports().set_keystroke_registrar(keystrokes.clone());
                 }
+                service
+                    .ports()
+                    .set_key_monitor(crate::input::monitor::platform_monitor());
                 *self.ports.lock().unwrap_or_else(|e| e.into_inner()) = Some(service.ports());
                 owned.service = Some(service);
                 owned.evaluation = evaluation;

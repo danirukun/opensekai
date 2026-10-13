@@ -5,4 +5,5 @@ export const EVENT_EVALUATORS = {
  'event.manual': {},
  'event.keystroke': {},
  'event.enable': {},
+ 'event.update': { data: (_n, _o, _r, _s, env) => env.deltaSeconds },
 } satisfies Partial<EvaluatorTable>;
