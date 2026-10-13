@@ -26,7 +26,7 @@ Slice 3 depends on slice 1. Slice 2 is independent of slice 3.
 4. **Editor import only.** A new editor-only command `import_scene` opens a native dialog for `.glb`, `.gltf`, and `.zip`. The frontend cannot send a path. MCP cannot import a file. MCP can set an imported asset on the environment through `scene_patch`.
 5. **Neutral lighting for the environment.** The existing ambient and directional lights stay. Each renderer client makes one neutral prefiltered environment map from three.js `RoomEnvironment` and sets it as `envMap` on the environment materials only. `scene.environment` stays null. The character appearance does not change. Lights from the file (`KHR_lights_punctual`) are not imported; ENV-07 owns light entities.
 6. **Render Environment for each camera.** A camera has an optional `renderEnvironment` flag. Absent means true. Each renderer client (the Scene window preview and the OBS output) draws through its output camera, and hides the environment when that camera's flag is false.
-7. **Credits.** The asset record keeps `credits: { title, author, license, sourceUrl } | null` from `asset.extras`. The Inspector shows the title, the author, and the license, and has one **Copy credit** action. The copied line includes the source URL. The app has no link opener, so the Inspector shows no link. CC-BY requires credit wherever the work is shared, and that includes a stream.
+7. **Credits.** The asset record keeps an optional `credits: { title, author, license, sourceUrl }` from `asset.extras`. The Inspector shows the title, the author, and the license, and has one **Copy credit** action. The copied line includes the source URL. The app has no link opener, so the Inspector shows no link. CC-BY requires credit wherever the work is shared, and that includes a stream.
 8. **Import size.** The packed GLB limit is 256 MB for every import, VRM included (was 128 MB). The GLB JSON limit stays 16 MB. The real limit is decoded texture memory in the WebKit process (4 GB). The live check measures it.
 
 ## Data model
@@ -36,7 +36,7 @@ TypeScript (`packages/contracts`) and Rust (`crates/contracts`) change together 
 - `SceneEntity` adds `{ kind: 'environment', assetId: Id | null }` on the base fields.
 - Camera adds optional `renderEnvironment: boolean`.
 - `PatchOp` adds `setEnvironmentModel { entityId, assetId: Id | null }` and `setCameraRenderEnvironment { entityId, renderEnvironment }`. Transform and visibility use the existing `setTransform` and `setVisibility`.
-- `AssetRecord` adds `credits: { title: string | null, author: string | null, license: string | null, sourceUrl: string | null } | null`. The existing `sourceUrl` and `licenseLabel` stay and get the same values, so older code that reads them still works. `importerVersion` stays 1.
+- `AssetRecord` adds an optional key `credits: { title: string | null, author: string | null, license: string | null, sourceUrl: string | null }`. An absent key means no credits. The existing `sourceUrl` and `licenseLabel` stay and get the same values, so older code that reads them still works. `importerVersion` stays 1.
 - A show keeps an environment with an unknown `assetId` as a repairable reference, as for characters.
 
 ## Import
