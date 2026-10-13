@@ -38,6 +38,7 @@ export const BlueprintGraphSchema = z.strictObject({
    context.addIssue({ code: 'custom', message: 'Keystroke needs Control, Alt, or Meta', path: ['nodes'] });
 });
 
+export const MAX_BLUEPRINT_SET_BYTES = 192 * 1024;
 export const BlueprintSetSchema = z.array(BlueprintGraphSchema).max(8)
  .refine(graphs => new Set(graphs.map(graph => graph.id)).size === graphs.length, 'Duplicate graph ID');
 

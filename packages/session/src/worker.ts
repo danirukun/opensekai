@@ -1,6 +1,7 @@
 import { connectPublisher } from "@opensekai/browser-client";
 import { ConnectionDescriptorSchema, SceneViewSchema, TrackingUpdateSchema, type TrackingUpdate, type ConnectionDescriptor, type PublisherClient, type Reply, type SceneView } from "@opensekai/contracts";
 import { createSession } from "./session";
+import { isSessionMethod, sessionApi } from "./session-api";
 export interface WorkerPorts {
     connect(descriptor: ConnectionDescriptor): Promise<PublisherClient>;
     post?(message:{kind:"clockSync";elapsedMs:number}):void;
@@ -66,21 +67,10 @@ export function createWorkerHost(ports: WorkerPorts) {
                     return {samples:update.samples.filter(accepts),statuses:update.statuses.filter(accepts)};
                 };
                 ingestLocal=update=>session.ingestTracking(filterTracking(update,true));
-                remove = client.onCall(async (call) => {
-                    switch (call.method) {
-                        case "sceneInspect":
-                            return call.params.sceneId === session.inspect().sceneId
-                                ? { ok: true, data: session.inspect() }
-                                : { ok: false, error: { code: "NOT_FOUND", message: "Scene not found", ids: [call.params.sceneId] } };
-                        case "scenePatch": return session.applyPatch(call.params);
-                        case "sceneReplace": return session.replaceScene(call.params.scene, call.params.expectedRevision);
-                        case "cameraSelect": return session.selectCamera(call.params);
-                        case "blueprintRun": return session.runBlueprint(call.params.graphId, call.params.triggerNodeId);
-                        case "blueprintEdit": return session.editBlueprints(call.params);
-                        case "blueprintInspect": return { ok: true, data: session.inspectBlueprints(call.params.sinceRevision) };
-                        default: return { ok: false, error: { code: "UNSUPPORTED", message: "Method is not owned by the session", ids: [] } } satisfies Reply<never>;
-                    }
-                });
+                const calls = sessionApi(session);
+                remove = client.onCall(async (call) => isSessionMethod(call.method)
+                    ? (calls[call.method] as (params: unknown) => Promise<Reply<unknown>>)(call.params)
+                    : { ok: false, error: { code: "UNSUPPORTED", message: "Method is not owned by the session", ids: [] } } satisfies Reply<never>);
                 removeClock = client.onClock((elapsedMs,tracking,input) => {
                     if (generation !== current || !active || (last !== undefined && elapsedMs <= last)) return;
                     origin ??= elapsedMs;

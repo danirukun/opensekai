@@ -1,0 +1,51 @@
+{
+  "format": "opensekai.blueprint",
+  "formatVersion": 1,
+  "graph": {
+    "schemaVersion": 1,
+    "id": "fixture-missing-ref",
+    "name": "Missing Reference",
+    "enabled": true,
+    "nodes": [
+      {
+        "id": "run",
+        "version": 1,
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "type": "event.manual",
+        "settings": {}
+      },
+      {
+        "id": "hide",
+        "version": 1,
+        "position": {
+          "x": 240,
+          "y": 0
+        },
+        "type": "scene.toggleVisibility",
+        "settings": {
+          "entityId": "ghost"
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "run.flow-hide.flow",
+        "sourceNodeId": "run",
+        "sourcePort": "flow",
+        "targetNodeId": "hide",
+        "targetPort": "flow"
+      }
+    ],
+    "variables": []
+  },
+  "references": [
+    {
+      "id": "ghost",
+      "kind": "mesh",
+      "name": "Ghost"
+    }
+  ]
+}

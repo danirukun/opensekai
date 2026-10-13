@@ -1,7 +1,9 @@
 pub mod assets;
+pub mod blueprint_file;
 mod bootstrap;
 pub mod evaluation;
 pub mod input;
+mod local_file;
 pub mod service;
 mod show;
 pub mod tracking;
@@ -145,6 +147,78 @@ async fn open_show(window: tauri::WebviewWindow) -> Result<Option<serde_json::Va
         ids: vec![],
     })?
 }
+#[tauri::command]
+async fn import_blueprint_file(window: tauri::WebviewWindow) -> Result<Option<String>, AppError> {
+    require_window_label(window.label(), "editor")?;
+    let app = window.app_handle().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let dialog = app
+            .dialog()
+            .file()
+            .set_title("Import Blueprint")
+            .set_parent(&window);
+        #[cfg(not(target_os = "macos"))]
+        let dialog = dialog.add_filter("OpenSekai Blueprint", &["json"]);
+        let Some(path) = dialog.blocking_pick_file() else {
+            return Ok(None);
+        };
+        let path = path.into_path().map_err(|_| AppError {
+            code: ErrorCode::InvalidInput,
+            message: "Local file required".into(),
+            ids: vec![],
+        })?;
+        blueprint_file::read_blueprint_file(&path).map(Some)
+    })
+    .await
+    .map_err(|_| AppError {
+        code: ErrorCode::Unavailable,
+        message: "File chooser unavailable".into(),
+        ids: vec![],
+    })?
+}
+#[tauri::command]
+async fn export_blueprint_file(
+    window: tauri::WebviewWindow,
+    name: String,
+    text: String,
+) -> Result<Option<String>, AppError> {
+    require_window_label(window.label(), "editor")?;
+    if text.len() as u64 > blueprint_file::MAX_BLUEPRINT_FILE_BYTES {
+        return Err(AppError {
+            code: ErrorCode::InvalidInput,
+            message: "Blueprint file is too large".into(),
+            ids: vec![],
+        });
+    }
+    let filename = blueprint_file::blueprint_file_name(&name);
+    let app = window.app_handle().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let dialog = app
+            .dialog()
+            .file()
+            .set_title("Export Blueprint")
+            .set_parent(&window)
+            .set_file_name(&filename);
+        #[cfg(not(target_os = "macos"))]
+        let dialog = dialog.add_filter("OpenSekai Blueprint", &["json"]);
+        let Some(path) = dialog.blocking_save_file() else {
+            return Ok(None);
+        };
+        let path = path.into_path().map_err(|_| AppError {
+            code: ErrorCode::InvalidInput,
+            message: "Local file required".into(),
+            ids: vec![],
+        })?;
+        blueprint_file::write_blueprint_file(&path, &text)?;
+        Ok(Some(path.to_string_lossy().into_owned()))
+    })
+    .await
+    .map_err(|_| AppError {
+        code: ErrorCode::Unavailable,
+        message: "File chooser unavailable".into(),
+        ids: vec![],
+    })?
+}
 fn window_error(_: tauri::Error) -> AppError {
     AppError {
         code: ErrorCode::Unavailable,
@@ -280,7 +354,9 @@ pub fn run() {
             open_input_monitoring_settings,
             import_avatar,
             save_show_as,
-            open_show
+            open_show,
+            import_blueprint_file,
+            export_blueprint_file
         ])
         .build(tauri::generate_context!())
         .expect("OpenSekai failed to start");

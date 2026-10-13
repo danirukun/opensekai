@@ -1,11 +1,8 @@
+use crate::local_file::{read_bounded, write_atomic, ReadError};
 use opensekai_contracts::{AppError, ErrorCode, SceneView, Validate, MAX_MESSAGE_BYTES};
 use serde::Deserialize;
 use serde_json::Value;
-use std::{
-    fs::File,
-    io::{Read, Write},
-    path::Path,
-};
+use std::path::Path;
 
 fn invalid(message: impl Into<String>) -> AppError {
     AppError {
@@ -59,14 +56,11 @@ pub fn validate_show(value: &Value) -> Result<(), AppError> {
 }
 
 pub fn read_show(path: &Path) -> Result<Value, AppError> {
-    let file = File::open(path).map_err(|_| unavailable("Show file could not be opened"))?;
-    let mut bytes = Vec::new();
-    file.take((MAX_MESSAGE_BYTES + 1) as u64)
-        .read_to_end(&mut bytes)
-        .map_err(|_| unavailable("Show file could not be read"))?;
-    if bytes.len() > MAX_MESSAGE_BYTES {
-        return Err(invalid("Show file is too large"));
-    }
+    let bytes = read_bounded(path, MAX_MESSAGE_BYTES as u64).map_err(|failure| match failure {
+        ReadError::Open => unavailable("Show file could not be opened"),
+        ReadError::Read => unavailable("Show file could not be read"),
+        ReadError::TooLarge => invalid("Show file is too large"),
+    })?;
     let value = serde_json::from_slice(&bytes).map_err(|_| invalid("Invalid show JSON"))?;
     validate_show(&value)?;
     Ok(value)
@@ -75,17 +69,13 @@ pub fn read_show(path: &Path) -> Result<Value, AppError> {
 pub fn write_show(path: &Path, value: &Value) -> Result<(), AppError> {
     validate_show(value)?;
     let bytes = serde_json::to_vec(value).map_err(|_| invalid("Invalid show document"))?;
-    let parent = path.parent().ok_or_else(|| invalid("Invalid show path"))?;
-    let mut temp = tempfile::NamedTempFile::new_in(parent)
-        .map_err(|_| unavailable("Show file could not be saved"))?;
-    temp.write_all(&bytes)
-        .map_err(|_| unavailable("Show file could not be saved"))?;
-    temp.as_file()
-        .sync_all()
-        .map_err(|_| unavailable("Show file could not be saved"))?;
-    temp.persist(path)
-        .map_err(|_| unavailable("Show file could not be saved"))?;
-    Ok(())
+    if path
+        .parent()
+        .is_none_or(|parent| parent.as_os_str().is_empty())
+    {
+        return Err(invalid("Invalid show path"));
+    }
+    write_atomic(path, &bytes).map_err(|_| unavailable("Show file could not be saved"))
 }
 
 #[cfg(test)]

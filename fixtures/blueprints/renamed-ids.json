@@ -1,0 +1,126 @@
+{
+  "format": "opensekai.blueprint",
+  "formatVersion": 1,
+  "graph": {
+    "schemaVersion": 1,
+    "id": "fixture-renamed-ids",
+    "name": "Renamed IDs",
+    "enabled": true,
+    "nodes": [
+      {
+        "id": "run",
+        "version": 1,
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "type": "event.manual",
+        "settings": {}
+      },
+      {
+        "id": "x",
+        "version": 1,
+        "position": {
+          "x": 0,
+          "y": 120
+        },
+        "type": "value.number",
+        "settings": {
+          "value": 0.2
+        }
+      },
+      {
+        "id": "y",
+        "version": 1,
+        "position": {
+          "x": 0,
+          "y": 200
+        },
+        "type": "value.number",
+        "settings": {
+          "value": 1.1
+        }
+      },
+      {
+        "id": "z",
+        "version": 1,
+        "position": {
+          "x": 0,
+          "y": 280
+        },
+        "type": "value.number",
+        "settings": {
+          "value": -0.5
+        }
+      },
+      {
+        "id": "make",
+        "version": 1,
+        "position": {
+          "x": 240,
+          "y": 160
+        },
+        "type": "vector3.make",
+        "settings": {}
+      },
+      {
+        "id": "set",
+        "version": 1,
+        "position": {
+          "x": 480,
+          "y": 0
+        },
+        "type": "property.set",
+        "settings": {
+          "entityId": "old-reference",
+          "property": "position"
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "x.value-make.x",
+        "sourceNodeId": "x",
+        "sourcePort": "value",
+        "targetNodeId": "make",
+        "targetPort": "x"
+      },
+      {
+        "id": "y.value-make.y",
+        "sourceNodeId": "y",
+        "sourcePort": "value",
+        "targetNodeId": "make",
+        "targetPort": "y"
+      },
+      {
+        "id": "z.value-make.z",
+        "sourceNodeId": "z",
+        "sourcePort": "value",
+        "targetNodeId": "make",
+        "targetPort": "z"
+      },
+      {
+        "id": "make.value-set.value",
+        "sourceNodeId": "make",
+        "sourcePort": "value",
+        "targetNodeId": "set",
+        "targetPort": "value"
+      },
+      {
+        "id": "run.flow-set.flow",
+        "sourceNodeId": "run",
+        "sourcePort": "flow",
+        "targetNodeId": "set",
+        "targetPort": "flow"
+      }
+    ],
+    "variables": []
+  },
+  "references": [
+    {
+      "id": "old-reference",
+      "kind": "mesh",
+      "name": "reference"
+    }
+  ]
+}

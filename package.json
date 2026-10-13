@@ -15,7 +15,8 @@
     "dev:desktop": "pnpm build && pnpm --filter @opensekai/desktop tauri dev",
     "build:mac": "pnpm build && CARGO_PROFILE_RELEASE_STRIP=none pnpm --filter @opensekai/desktop tauri build --bundles app",
     "mcp": "tsx apps/mcp/src/cli.ts",
-    "evaluate:smoke": "tsx tools/evaluation/src/run-smoke.ts"
+    "evaluate:smoke": "tsx tools/evaluation/src/run-smoke.ts",
+    "evaluate:blueprints": "tsx tools/evaluation/src/run-blueprints.ts"
   },
   "devDependencies": {
     "typescript": "6.0.3",

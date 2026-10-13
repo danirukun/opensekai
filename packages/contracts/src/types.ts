@@ -224,7 +224,7 @@ export interface AppApi {
         revision: number;
     }>>;
     blueprintRun(params: { graphId: Id; triggerNodeId: Id }): Promise<Reply<{ revision: number }>>;
-    blueprintEdit(params: BlueprintBatch): Promise<Reply<{ revision: number; keystrokes: string[] }>>;
+    blueprintEdit(params: BlueprintBatch): Promise<Reply<{ revision: number; keystrokes: string[]; heldKeys?: string[] }>>;
     blueprintInspect(params: { sinceRevision?: number }): Promise<Reply<BlueprintInspect>>;
     captureFrame(params: CaptureParams): Promise<Reply<CaptureRecord>>;
     benchmarkStart(params: BenchmarkParams): Promise<Reply<BenchmarkRun>>;

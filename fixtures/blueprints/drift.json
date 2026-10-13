@@ -1,0 +1,138 @@
+{
+  "format": "opensekai.blueprint",
+  "formatVersion": 1,
+  "graph": {
+    "schemaVersion": 1,
+    "id": "fixture-drift",
+    "name": "Drift",
+    "enabled": true,
+    "nodes": [
+      {
+        "id": "tick",
+        "version": 1,
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "type": "event.update",
+        "settings": {}
+      },
+      {
+        "id": "speed",
+        "version": 1,
+        "position": {
+          "x": 0,
+          "y": 120
+        },
+        "type": "value.number",
+        "settings": {
+          "value": 0.5
+        }
+      },
+      {
+        "id": "zero",
+        "version": 1,
+        "position": {
+          "x": 0,
+          "y": 200
+        },
+        "type": "value.number",
+        "settings": {
+          "value": 0
+        }
+      },
+      {
+        "id": "make",
+        "version": 1,
+        "position": {
+          "x": 240,
+          "y": 120
+        },
+        "type": "vector3.make",
+        "settings": {}
+      },
+      {
+        "id": "scale",
+        "version": 1,
+        "position": {
+          "x": 480,
+          "y": 120
+        },
+        "type": "vector3.scale",
+        "settings": {}
+      },
+      {
+        "id": "move",
+        "version": 1,
+        "position": {
+          "x": 720,
+          "y": 0
+        },
+        "type": "entity.move",
+        "settings": {
+          "entityId": "reference",
+          "space": "world"
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "speed.value-make.x",
+        "sourceNodeId": "speed",
+        "sourcePort": "value",
+        "targetNodeId": "make",
+        "targetPort": "x"
+      },
+      {
+        "id": "zero.value-make.y",
+        "sourceNodeId": "zero",
+        "sourcePort": "value",
+        "targetNodeId": "make",
+        "targetPort": "y"
+      },
+      {
+        "id": "zero.value-make.z",
+        "sourceNodeId": "zero",
+        "sourcePort": "value",
+        "targetNodeId": "make",
+        "targetPort": "z"
+      },
+      {
+        "id": "make.value-scale.value",
+        "sourceNodeId": "make",
+        "sourcePort": "value",
+        "targetNodeId": "scale",
+        "targetPort": "value"
+      },
+      {
+        "id": "tick.deltaSeconds-scale.factor",
+        "sourceNodeId": "tick",
+        "sourcePort": "deltaSeconds",
+        "targetNodeId": "scale",
+        "targetPort": "factor"
+      },
+      {
+        "id": "scale.result-move.delta",
+        "sourceNodeId": "scale",
+        "sourcePort": "result",
+        "targetNodeId": "move",
+        "targetPort": "delta"
+      },
+      {
+        "id": "tick.flow-move.flow",
+        "sourceNodeId": "tick",
+        "sourcePort": "flow",
+        "targetNodeId": "move",
+        "targetPort": "flow"
+      }
+    ],
+    "variables": []
+  },
+  "references": [
+    {
+      "id": "reference",
+      "kind": "mesh",
+      "name": "reference"
+    }
+  ]
+}
