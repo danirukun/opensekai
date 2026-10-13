@@ -213,6 +213,17 @@ impl DesktopState {
             .ok_or_else(|| error(ErrorCode::Unavailable, "Session unavailable"))?;
         service.import_avatar(path).await
     }
+    pub async fn import_scene(
+        &self,
+        path: PathBuf,
+    ) -> Result<crate::assets::ImportResult, AppError> {
+        let owned = self.owned.lock().await;
+        let service = owned
+            .service
+            .as_ref()
+            .ok_or_else(|| error(ErrorCode::Unavailable, "Session unavailable"))?;
+        service.import_scene(path).await
+    }
     pub async fn wait_ready(&self) -> Result<NativeBootstrap, AppError> {
         let mut receiver = self.ready.subscribe();
         tokio::time::timeout(Duration::from_secs(5), async {

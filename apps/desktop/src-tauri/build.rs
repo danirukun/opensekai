@@ -41,6 +41,7 @@ fn main() {
             "set_keystroke_capture",
             "open_input_monitoring_settings",
             "import_avatar",
+            "import_scene",
             "save_show_as",
             "open_show",
             "import_blueprint_file",
