@@ -33,7 +33,7 @@ import { createEditorMemory } from './blueprints/editor-memory';
  let api=$state.raw<AppApi|null>(null),sync=$state.raw<BlueprintSync|null>(null);
  const memory=createEditorMemory();
  let showName=$state('Untitled Show'),showBusy=$state(false),showError=$state<string|null>(null);
- let importError=$state<string|null>(null),trackingError=$state<string|null>(null);
+ let importError=$state<{entityId:string;message:string}|null>(null),trackingError=$state<string|null>(null);
  let importingId=$state<string|null>(null);const importing=$derived(importingId!==null);let loads=$state<AssetLoadStatus[]>([]);
  let devices=$state<{deviceId:string;label:string}[]>([]);
  let liveTransform:ReturnType<typeof createLiveTransform>|undefined,transformError=$state<string|null>(null),livePending=$state(false);
@@ -41,7 +41,7 @@ import { createEditorMemory } from './blueprints/editor-memory';
  let draft=$state<Draft>(null),tool=$state<Tool>('translate');
  const warnings=$derived(collectWarnings(status));
  function notify(message:Parameters<typeof sendUI>[1]){void sendUI('main',message).catch(()=>{error='Scene unavailable';});}
- function select(id:string|null){liveTransform?.cancel();transformError=null;draft=null;notify({kind:'selection',entityId:id});}
+ function select(id:string|null){if(importError&&importError.entityId!==id)importError=null;liveTransform?.cancel();transformError=null;draft=null;notify({kind:'selection',entityId:id});}
  async function add(kind:AddKind,revision:number){if(!model||!view.scene)return;const entity=makeAuthoringEntity(kind,crypto.randomUUID(),model.read().scene!.entities);const reply=await model.createEntity(entity,revision);if(reply.ok)select(entity.id);}
  async function chooseModel(entityId:string){
   if(importingId||!model||!view.scene)return;importingId=entityId;importError=null;
@@ -49,7 +49,7 @@ import { createEditorMemory } from './blueprints/editor-memory';
    const result=await invoke<{record:AssetRecord;name:string}|null>('import_avatar');if(!result)return;
    const record=AssetRecordSchema.parse(result.record);assets=[...assets.filter(asset=>asset.id!==record.id),record];
    await model.setAvatarModel(entityId,record.id,model.read().scene?.revision);
-  }catch(cause){importError=importFailure(cause);}finally{importingId=null;}
+  }catch(cause){importError={entityId,message:importFailure(cause)};}finally{importingId=null;}
  }
  async function chooseScene(entityId:string){
   if(importingId||!model||!view.scene)return;importingId=entityId;importError=null;
@@ -57,7 +57,7 @@ import { createEditorMemory } from './blueprints/editor-memory';
    const result=await invoke<{record:AssetRecord;name:string}|null>('import_scene');if(!result)return;
    const record=AssetRecordSchema.parse(result.record);assets=[...assets.filter(asset=>asset.id!==record.id),record];
    await model.setEnvironmentModel(entityId,record.id,model.read().scene?.revision);
-  }catch(cause){importError=importFailure(cause,'Could not import model');}finally{importingId=null;}
+  }catch(cause){importError={entityId,message:importFailure(cause,'Could not import model')};}finally{importingId=null;}
  }
  async function configureTracking(id:string,config:TrackingConfig,revision:number){
   if(!model)return;trackingError=null;
@@ -132,6 +132,6 @@ import { createEditorMemory } from './blueprints/editor-memory';
    {:else if panel==='blueprints'}{#if sync}<BlueprintPanel {api} {sync} {memory} {status} scene={view.scene} disabled={!canEdit||!available||view.pending} onrun={()=>{void model?.load();notify({kind:'refresh'});}}/>{/if}
    {:else}<AssetList {assets} {warnings}/>{/if}
   </div>
-  <footer><span>{showError??importError??trackingError??transformError??error??view.error??(view.scene?'Session connected':'Starting…')}</span><span>{canEdit ? (tool==='translate'?'Move':tool==='rotate'?'Rotate':'Scale'):'Read only'}</span></footer>
+  <footer><span>{showError??importError?.message??trackingError??transformError??error??view.error??(view.scene?'Session connected':'Starting…')}</span><span>{canEdit ? (tool==='translate'?'Move':tool==='rotate'?'Rotate':'Scale'):'Read only'}</span></footer>
  </div>
 </main>
