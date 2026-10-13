@@ -8,7 +8,7 @@ R1. A Blueprint file is UTF-8 JSON of at most 1 MiB with this shape:
     - `format`: the string `opensekai.blueprint`.
     - `formatVersion`: the integer `1`.
     - `graph`: one `BlueprintGraph` (schema version 1), not changed.
-    - `references`: at most 64 entries `{ id, kind, name }`, one for each distinct value in the graph's `entity`, `camera`, and `output` fields. `kind` is `avatar`, `mesh`, `camera`, `output`, or `unknown`. `name` has 1 to 256 characters, because an output ID can have 256.
+    - `references`: at most 256 entries `{ id, kind, name }`, the largest number of reference values a graph can hold, one for each distinct value in the graph's `entity`, `camera`, and `output` fields. `kind` is `avatar`, `mesh`, `camera`, `output`, or `unknown`. `name` has 1 to 256 characters, because an output ID can have 256.
     - The file has no other keys. It does not store the view, the export time, or the app version.
 R2. `exportBlueprint(graph, scene)` makes the file object. Each entity reference gets the kind and name of the entity in the scene. Each output reference gets the kind `output` and the output ID as its name. A value that is not in the scene gets the kind `unknown` and its ID as its name. Entries are in the order of first use (nodes in graph order, fields in catalog order). `serializeBlueprintFile(file)` writes JSON with two-space indentation and a final newline.
 R3. `importBlueprint(input, scene, newId)` checks the input in this order and stops at the first failure. No part of a failed file is added.
@@ -17,6 +17,7 @@ R3. `importBlueprint(input, scene, newId)` checks the input in this order and st
     3. `formatVersion` is not a positive integer: the same error. A `formatVersion` above 1: `VERSION_MISMATCH`, `Blueprint file needs a newer OpenSekai`.
     4. A node type that is not in the catalog: `UNSUPPORTED`, `Unknown node types: <types>`, with at most five distinct types in file order of first use, and the IDs of those nodes as `ids`.
     5. The file schema (R1) and `BlueprintGraphSchema`: `INVALID_INPUT` with the first issue message.
+    A graph larger than the Blueprint store limit (192 KiB of compact JSON) gives `INVALID_INPUT`, `Blueprint file is too large`, the same as step 1.
 R4. Import gives the graph a new ID from `newId`. Node, connection, and variable IDs, the name, the positions, and the settings stay the same, except for the references in R5.
 R5. Import resolves each distinct reference value one time and changes every field that uses it:
     - **ID.** The scene has an entity with the same ID that the field kind accepts (`entity`: avatar, mesh, or camera; `camera`: camera), or an output with the same ID for an `output` field. The value stays.

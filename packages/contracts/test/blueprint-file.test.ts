@@ -103,3 +103,36 @@ it('keeps a disabled graph disabled', () => {
  const imported = ok(importBlueprint(exportBlueprint({ ...sample, enabled: false }, scene), scene, ids()));
  expect(imported.report.enabled).toBe(false);
 });
+
+it('round-trips a graph with more than 64 distinct references', () => {
+ const nodes = Array.from({ length: 70 }, (_, i) => toggle(`t${i}`, `ghost${i}`));
+ const file = exportBlueprint(graph(nodes), scene);
+ expect(file.references).toHaveLength(70);
+ const imported = ok(importBlueprint(serializeBlueprintFile(file), scene, ids()));
+ expect(imported.report.missing).toHaveLength(70);
+});
+
+it('rejects 257 references and duplicate reference IDs', () => {
+ const file = exportBlueprint(sample, scene);
+ const many = Array.from({ length: 257 }, (_, i) => ({ id: `r${i}`, kind: 'unknown', name: `r${i}` }));
+ expect(importBlueprint({ ...file, references: many }, scene, ids())).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+ const twice = [file.references[0], file.references[0]];
+ expect(importBlueprint({ ...file, references: twice }, scene, ids())).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', message: 'Duplicate reference ID' } });
+});
+
+it('reports an output that is not in the scene as a missing output', () => {
+ const lost = { id: 'cut', version: 1, type: 'camera.switch', settings: { outputId: 'gone_output', cameraId: 'camera_close' }, position: at };
+ const file = exportBlueprint(graph([lost]), scene);
+ const references = file.references.map(entry => entry.id === 'gone_output' ? { ...entry, kind: 'output' as const } : entry);
+ const imported = ok(importBlueprint({ ...file, references }, scene, ids()));
+ expect(imported.report.missing).toMatchObject([{ kind: 'output', id: 'gone_output' }]);
+});
+
+it('rejects a file whose graph is larger than the Blueprint store limit', () => {
+ const long = (prefix: string, i: number) => `${prefix}${i}`.padEnd(256, '_');
+ const nodes = [{ ...manual, id: long('n', 0) }, ...Array.from({ length: 127 }, (_, i) => toggle(long('n', i + 1), 'marker'))];
+ const connections = Array.from({ length: 256 }, (_, i) => wire(long('c', i), nodes[0]!.id, nodes[1 + (i % 127)]!.id));
+ const text = serializeBlueprintFile(exportBlueprint(graph(nodes, connections), scene));
+ expect(text.length).toBeLessThan(1024 * 1024);
+ expect(importBlueprint(text, scene, ids())).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', message: 'Blueprint file is too large' } });
+});

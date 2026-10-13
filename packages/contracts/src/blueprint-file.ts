@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BlueprintGraphSchema, type BlueprintGraph } from './blueprint';
+import { BlueprintGraphSchema, MAX_BLUEPRINT_SET_BYTES, type BlueprintGraph } from './blueprint';
 import { BLUEPRINT_LABELS, nodeDefinition, type BlueprintNode } from './blueprint-nodes';
 import type { ErrorCode, Id, Reply, SceneEntity, SceneView } from './types';
 
@@ -11,7 +11,7 @@ export const BlueprintFileSchema = z.strictObject({
  format: z.literal(BLUEPRINT_FILE_FORMAT),
  formatVersion: z.literal(1),
  graph: BlueprintGraphSchema,
- references: z.array(BlueprintReferenceSchema).max(64),
+ references: z.array(BlueprintReferenceSchema).max(256),
 }).refine(file => new Set(file.references.map(entry => entry.id)).size === file.references.length, 'Duplicate reference ID');
 export type BlueprintReference = z.infer<typeof BlueprintReferenceSchema>;
 export type BlueprintFile = z.infer<typeof BlueprintFileSchema>;
@@ -75,6 +75,7 @@ export function importBlueprint(input: unknown, scene: SceneView, newId: () => I
  if (unknown.types.length > 0) return fail('UNSUPPORTED', `Unknown node types: ${unknown.types.slice(0, 5).join(', ')}`, unknown.nodeIds);
  const parsed = BlueprintFileSchema.safeParse(raw);
  if (!parsed.success) return fail('INVALID_INPUT', parsed.error.issues[0]?.message ?? NOT_OURS);
+ if (new TextEncoder().encode(JSON.stringify(parsed.data.graph)).length > MAX_BLUEPRINT_SET_BYTES) return fail('INVALID_INPUT', 'Blueprint file is too large');
  return { ok: true, data: resolveReferences(parsed.data, scene, newId()) };
 }
 

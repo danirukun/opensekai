@@ -64,13 +64,13 @@
  function openInputSettings() { try { void invoke('open_input_monitoring_settings').catch(() => {}); } catch { /* outside Tauri */ } }
 
  const edit = (ops: Parameters<BlueprintSync['edit']>[0]) => {
+  missing = [];
   const result = sync.edit(ops);
   if (!result.ok && graph) { const current = sync.view().find(item => item.id === graph.id); if (current) void editor?.show(current); }
   return result;
  };
 
  const act = (ops: BlueprintOp[]) => {
-  missing = [];
   const before = sync.view().find(item => item.id === selectedId);
   if (ops.length === 0 || !before) return { ok: true, data: sync.view() } as const;
   const result = edit(ops);

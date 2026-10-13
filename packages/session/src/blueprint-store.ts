@@ -1,9 +1,9 @@
-import { applyBlueprintOps, BlueprintBatchSchema, type AppError, type BlueprintBatch, type BlueprintGraph, type BlueprintInspect, type Id, type Reply } from '@opensekai/contracts';
+import { applyBlueprintOps, MAX_BLUEPRINT_SET_BYTES, BlueprintBatchSchema, type AppError, type BlueprintBatch, type BlueprintGraph, type BlueprintInspect, type Id, type Reply } from '@opensekai/contracts';
 import { compileBlueprint, fail, type CompiledBlueprint } from './blueprint';
 import { activeAccelerators, activeHeldKeys, type BlueprintRuntime } from './blueprint-runtime';
 
 const heldKeysField = (keys: string[]) => (keys.length ? { heldKeys: keys } : {});
-const JOURNAL = 64, DELTA = 32, MAX_ACCELERATORS = 64, MAX_HELD_KEYS = 16, MAX_BYTES = 192 * 1024, DELTA_BYTES = 160 * 1024;
+const JOURNAL = 64, DELTA = 32, MAX_ACCELERATORS = 64, MAX_HELD_KEYS = 16, DELTA_BYTES = 160 * 1024;
 const encoder = new TextEncoder();
 export interface BlueprintStore {
  edit(batch: unknown): Reply<{ revision: number; keystrokes: string[]; heldKeys?: string[] }>;
@@ -37,7 +37,7 @@ export function createBlueprintStore(runtime: BlueprintRuntime): BlueprintStore 
    if (!Number.isSafeInteger(revision + 1)) return fail('Revision limit reached');
    const next = applyBlueprintOps(documents, batch.data.ops);
    if (!next.ok) return next;
-   if (encoder.encode(JSON.stringify(next.data)).length > MAX_BYTES) return fail('Blueprint set is too large');
+   if (encoder.encode(JSON.stringify(next.data)).length > MAX_BLUEPRINT_SET_BYTES) return fail('Blueprint set is too large');
    const opened = batch.data.ops.some(op => op.kind === 'replaceAll');
    const recreated = new Set(batch.data.ops.flatMap(op => op.kind === 'createGraph' ? [op.graph.id] : []));
    const nextKeys = new Map(next.data.map(doc => [doc.id, JSON.stringify(doc)] as const));

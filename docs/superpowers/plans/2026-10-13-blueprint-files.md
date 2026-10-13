@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- File: UTF-8 JSON, at most 1 MiB (`1024 * 1024` bytes); `format` = `opensekai.blueprint`; `formatVersion` = `1`; `references` at most 64 entries `{ id, kind, name }`; kind is `avatar`, `mesh`, `camera`, `output`, or `unknown`.
+- File: UTF-8 JSON, at most 1 MiB (`1024 * 1024` bytes); `format` = `opensekai.blueprint`; `formatVersion` = `1`; `references` at most 256 entries `{ id, kind, name }`; kind is `avatar`, `mesh`, `camera`, `output`, or `unknown`.
 - Error strings, exactly: `Blueprint file is too large`, `Not an OpenSekai Blueprint file`, `Blueprint file needs a newer OpenSekai` (`VERSION_MISMATCH`), `Unknown node types: <types>` (`UNSUPPORTED`).
 - UI strings, exactly: dialog titles `Import Blueprint` and `Export Blueprint`, filter name `OpenSekai Blueprint`, panel text `Missing: <names>`, option label `Missing`. No other new UI copy (constitution 1).
 - Imported graph: new graph ID; `enabled: false` when any reference is missing.
@@ -221,7 +221,7 @@ export const BlueprintFileSchema = z.strictObject({
  format: z.literal(BLUEPRINT_FILE_FORMAT),
  formatVersion: z.literal(1),
  graph: BlueprintGraphSchema,
- references: z.array(BlueprintReferenceSchema).max(64),
+ references: z.array(BlueprintReferenceSchema).max(256),
 }).refine(file => new Set(file.references.map(entry => entry.id)).size === file.references.length, 'Duplicate reference ID');
 export type BlueprintReference = z.infer<typeof BlueprintReferenceSchema>;
 export type BlueprintFile = z.infer<typeof BlueprintFileSchema>;
