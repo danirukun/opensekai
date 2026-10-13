@@ -63,7 +63,7 @@ function unknownNodes(graph: unknown): { types: string[]; nodeIds: Id[] } {
 }
 
 export function importBlueprint(input: unknown, scene: SceneView, newId: () => Id): Reply<BlueprintImport> {
- const text = typeof input === 'string' ? input.replace(/^﻿/, '') : JSON.stringify(input) ?? '';
+ const text = typeof input === 'string' ? input.replace(/^\uFEFF/, '') : JSON.stringify(input) ?? '';
  if (new TextEncoder().encode(text).length > MAX_BLUEPRINT_FILE_BYTES) return fail('INVALID_INPUT', 'Blueprint file is too large');
  let raw: unknown = input;
  if (typeof input === 'string') { try { raw = JSON.parse(text); } catch { return fail('INVALID_INPUT', NOT_OURS); } }

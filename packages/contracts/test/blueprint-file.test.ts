@@ -38,7 +38,7 @@ it('imports an export as a new graph with the same content', () => {
 it('accepts the parsed object and a leading byte order mark', () => {
  const file = exportBlueprint(sample, scene);
  expect(ok(importBlueprint(file, scene, ids())).graph.nodes).toEqual(sample.nodes);
- expect(ok(importBlueprint(`﻿${serializeBlueprintFile(file)}`, scene, ids())).graph.nodes).toEqual(sample.nodes);
+ expect(ok(importBlueprint(`\uFEFF${serializeBlueprintFile(file)}`, scene, ids())).graph.nodes).toEqual(sample.nodes);
 });
 
 it('rejects files in the order of the checks', () => {
