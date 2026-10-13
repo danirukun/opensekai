@@ -47,7 +47,7 @@ TypeScript (`packages/contracts`) and Rust (`crates/contracts`) change together 
 2. **References.** `data:` URIs are decoded. A relative URI is percent-decoded and resolved below the root folder (or the zip folder of the root file). The importer rejects an absolute path, a `..` that leaves the root, a symlink to a target outside the root, any other URI scheme, and a zip entry name that leaves the archive.
 3. **Zip limits.** At most 4096 entries and at most 1 GiB uncompressed. The importer reads only the entries that the root file refers to.
 4. **Images.** PNG, JPEG, and WebP, checked by magic bytes. The importer rejects other types.
-5. **Required extensions.** The importer rejects a file with an entry in `extensionsRequired` that the renderer does not support, and names it. It rejects `KHR_draco_mesh_compression`, `EXT_meshopt_compression`, and `KHR_texture_basisu` in this slice. Optional extensions pass through.
+5. **Required extensions.** The importer rejects a file with an entry in `extensionsRequired` that the renderer does not support, and names it. It rejects `KHR_draco_mesh_compression`, `EXT_meshopt_compression`, and `KHR_texture_basisu` in this slice. Optional extensions pass through. The importer removes `KHR_lights_punctual`, so the file lights do not load (ENV-07 owns lights).
 6. **Pack.** All buffers and images go into one BIN chunk with 4-byte alignment. Image references become `bufferView` plus `mimeType`. No `uri` remains. The result must pass `validate_glb`.
 7. **Store.** The file is `scene_<sha256>.glb` with its JSON record, written to a temporary file and renamed. An import of the same content returns the existing record. The name is `credits.title`, else the root file stem. The importer does not change the source files.
 8. **Work.** The import runs on a blocking task, not on the UI thread or the render path. Peak memory is about one copy of the packed output in the Rust process.
@@ -67,7 +67,7 @@ The importer returns typed `AppError` codes. This slice has no cancel control. A
 
 - **Add › Environment** creates `Environment` with `assetId: null`. The item is disabled while the scene has an environment.
 - The Hierarchy has an **Environment** group before **Cameras**.
-- The Inspector for an environment shows Name, Visible, Transform, and **Source**. Source shows the asset name, `Choose model…` when empty, and `Missing model` for an unknown asset. Activation opens `import_scene`. A menu on the row lists imported scene assets. A selection sends `setEnvironmentModel`.
+- The Inspector for an environment shows Name, Visible, Transform, and a **Source** select. The options are `Choose model…`, the imported scene assets, `Missing model` for an unknown asset, and `Import file…`, which opens `import_scene`. A selection sends `setEnvironmentModel`.
 - When the asset has credits, the Inspector shows the title, the author, the license, and **Copy credit**. The copied line uses the CC form from the sample `license.txt`: `This work is based on "<title>" (<source>) by <author> licensed under <license>`.
 - The camera Inspector adds a **Render Environment** switch.
 - MCP uses `scene_patch` for the new operations. `scene_inspect` and asset records show the environment, the flag, and the credits.
