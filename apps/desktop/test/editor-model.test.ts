@@ -227,3 +227,16 @@ it('sets or clears an avatar model and rejects non-avatars and bad IDs',async()=
  expect(await model.setAvatarModel('performer','',2)).toMatchObject({ok:false,error:{code:'INVALID_INPUT'}});
  expect(api.scenePatch).toHaveBeenCalledTimes(2);
 });
+it('sets an environment model and a camera Render Environment flag through patches', async () => {
+ const { model, session } = fixture();
+ await model.load();
+ const stage = { id: 'stage', name: 'Environment', visible: true, transform: { position: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] }, kind: 'environment', assetId: null } as SceneEntity;
+ expect((await model.createEntity(stage, model.read().scene!.revision)).ok).toBe(true);
+ expect((await model.setEnvironmentModel('stage', 'scene_a', model.read().scene!.revision)).ok).toBe(true);
+ expect(session.inspect().entities.find(e => e.id === 'stage')).toMatchObject({ assetId: 'scene_a' });
+ const camera = session.inspect().entities.find(e => e.kind === 'camera')!;
+ expect((await model.setCameraRenderEnvironment(camera.id, false, model.read().scene!.revision)).ok).toBe(true);
+ expect(session.inspect().entities.find(e => e.id === camera.id)).toMatchObject({ renderEnvironment: false });
+ expect((await model.setEnvironmentModel('performer', 'scene_a')).ok).toBe(false);
+ expect((await model.setCameraRenderEnvironment('stage', true)).ok).toBe(false);
+});
