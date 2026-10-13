@@ -2468,5 +2468,27 @@
         "sourceUrl": "ftp://example.com/room"
       }
     }
+  },
+  {
+    "name": "asset-credits-uppercase-scheme",
+    "target": "asset",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "id": "fixture_glb_1",
+      "format": "glb",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bytes": 1,
+      "sourceUrl": null,
+      "licenseLabel": "CC0",
+      "importerVersion": 1,
+      "name": "Fixture",
+      "credits": {
+        "title": null,
+        "author": null,
+        "license": null,
+        "sourceUrl": "HTTPS://example.com/room"
+      }
+    }
   }
 ]

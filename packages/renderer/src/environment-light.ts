@@ -2,7 +2,7 @@ import { PMREMGenerator, type Material, type Object3D, type Texture, type WebGPU
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 export interface EnvironmentMap { texture: Texture; dispose(): void }
 export interface EnvironmentLight { apply(root: Object3D): () => void; dispose(): void }
-// Lights only environment materials; scene.environment stays null so avatar materials keep their look.
+// Lights only lit (standard or physical) environment materials; unlit materials keep their look; scene.environment stays null so avatar materials keep their look.
 // The instance gets its own material clones because the cached asset shares materials with other instances.
 // The returned function disposes those clones only. Textures stay with the asset cache and the map stays with this light.
 export function createEnvironmentLight(makeMap: () => EnvironmentMap): EnvironmentLight {
@@ -11,12 +11,15 @@ export function createEnvironmentLight(makeMap: () => EnvironmentMap): Environme
         apply(root) {
             map ??= makeMap();
             const texture = map.texture;
-            const clones: Material[] = [];
+            const copies = new Map<Material, Material>();
             const light = (material: Material) => {
-                if (!('envMap' in material)) return material;
-                const copy = material.clone() as Material & { envMap: Texture | null };
-                copy.envMap = texture;
-                clones.push(copy);
+                if ((material as { isMeshStandardMaterial?: boolean }).isMeshStandardMaterial !== true) return material;
+                let copy = copies.get(material);
+                if (!copy) {
+                    copy = material.clone();
+                    (copy as Material & { envMap: Texture | null }).envMap = texture;
+                    copies.set(material, copy);
+                }
                 return copy;
             };
             root.traverse(object => {
@@ -24,7 +27,7 @@ export function createEnvironmentLight(makeMap: () => EnvironmentMap): Environme
                 if (Array.isArray(holder.material)) holder.material = holder.material.map(light);
                 else if (holder.material) holder.material = light(holder.material);
             });
-            return () => { for (const copy of clones.splice(0)) copy.dispose(); };
+            return () => { for (const copy of copies.values()) copy.dispose(); copies.clear(); };
         },
         dispose() { map?.dispose(); map = null; }
     };

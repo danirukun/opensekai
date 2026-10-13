@@ -217,7 +217,8 @@ impl AssetRegistry {
         validate_glb(&packed.glb)?;
         let sha256 = hex(&Sha256::digest(&packed.glb));
         let id = format!("scene_{sha256}");
-        if let Some(entry) = self.entries.get(&id) {
+        let intact = |entry: &Entry| std::fs::metadata(&entry.path).is_ok_and(|m| m.is_file() && m.len() == entry.record.bytes);
+        if let Some(entry) = self.entries.get(&id).filter(|entry| intact(entry)) {
             return Ok(ImportResult { name: entry.record.name.clone(), record: entry.record.clone() });
         }
         let credits = packed.credits;
@@ -491,6 +492,19 @@ mod boundary_tests {
         let first = registry.store_scene(packed(Some("Room"), glb())).unwrap();
         let second = registry.store_scene(packed(Some("Other"), glb())).unwrap();
         assert_eq!(first.record, second.record);
+        assert_eq!(registry.records().len(), 1);
+    }
+    #[test]
+    fn storing_again_repairs_a_missing_scene_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut registry = AssetRegistry::empty(dir.path()).unwrap();
+        let id = registry.store_scene(packed(Some("Room"), glb())).unwrap().record.id;
+        let file = registry.entries.get(&id).unwrap().path.clone();
+        std::fs::remove_file(&file).unwrap();
+        assert!(registry.read(&id).is_err());
+        registry.store_scene(packed(Some("Room"), glb())).unwrap();
+        assert!(file.is_file());
+        assert_eq!(registry.read(&id).unwrap(), glb());
         assert_eq!(registry.records().len(), 1);
     }
     #[test]

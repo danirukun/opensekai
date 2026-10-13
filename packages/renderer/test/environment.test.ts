@@ -1,5 +1,5 @@
 import { it, expect, vi, beforeEach, describe } from 'vitest';
-import { Group, Mesh, MeshStandardMaterial, BoxGeometry, Texture, type Object3D } from 'three/webgpu';
+import { Group, Mesh, MeshStandardMaterial, MeshBasicMaterial, BoxGeometry, Texture, type Object3D } from 'three/webgpu';
 import { makeSmokeFrame, type RuntimeFrame, type SceneEntity } from '@opensekai/contracts';
 const ports = vi.hoisted(() => ({ load: vi.fn(), render: vi.fn(), compile: vi.fn(), light: { apply: vi.fn(), dispose: vi.fn() } }));
 vi.mock('../src/backend', () => ({ initializeBackend: async () => ({ backend: 'webgl2', renderer: { info: { memory: { geometries: 0, textures: 0 } }, setSize: vi.fn(), renderAsync: ports.render, compileAsync: ports.compile, dispose: vi.fn() } }) }));
@@ -133,4 +133,37 @@ it('puts the map on instance clones only and releases it once', async () => {
     expect(make).toHaveBeenCalledTimes(1);
     light.dispose(); light.dispose();
     expect(dispose).toHaveBeenCalledTimes(1);
+});
+it('lights standard materials only and leaves unlit materials alone', async () => {
+    const { createEnvironmentLight } = await vi.importActual<typeof import('../src/environment-light')>('../src/environment-light');
+    const texture = new Texture();
+    const light = createEnvironmentLight(() => ({ texture, dispose() {} }));
+    const unlit = new MeshBasicMaterial();
+    const root = new Group(); root.add(new Mesh(new BoxGeometry(), unlit));
+    light.apply(root);
+    const after = (root.children[0] as Mesh).material as MeshBasicMaterial;
+    expect(after).toBe(unlit);
+    expect(after.envMap).toBeNull();
+    const lit = new MeshStandardMaterial();
+    const other = new Group(); other.add(new Mesh(new BoxGeometry(), lit));
+    light.apply(other);
+    const copy = (other.children[0] as Mesh).material as MeshStandardMaterial;
+    expect(copy).not.toBe(lit);
+    expect(copy.envMap).toBe(texture);
+});
+it('copies each distinct material once per instance', async () => {
+    const { createEnvironmentLight } = await vi.importActual<typeof import('../src/environment-light')>('../src/environment-light');
+    const light = createEnvironmentLight(() => ({ texture: new Texture(), dispose() {} }));
+    const shared = new MeshStandardMaterial();
+    const root = new Group();
+    root.add(new Mesh(new BoxGeometry(), shared), new Mesh(new BoxGeometry(), shared));
+    const clone = vi.spyOn(shared, 'clone');
+    const release = light.apply(root);
+    const [a, b] = root.children.map(c => (c as Mesh).material as MeshStandardMaterial);
+    expect(clone).toHaveBeenCalledTimes(1);
+    expect(a).toBe(b);
+    expect(a).not.toBe(shared);
+    const copyDispose = vi.spyOn(a!, 'dispose');
+    release();
+    expect(copyDispose).toHaveBeenCalledTimes(1);
 });

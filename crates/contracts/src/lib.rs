@@ -1144,7 +1144,7 @@ impl Validate for AssetRecord {
                 .as_ref()
                 .and_then(|c| c.source_url.as_ref())
                 .is_none_or(|s| {
-                    url::Url::parse(s).is_ok_and(|u| matches!(u.scheme(), "http" | "https"))
+                    (s.starts_with("http://") || s.starts_with("https://")) && url::Url::parse(s).is_ok()
                 }),
             "invalid credits source URL",
         )?;

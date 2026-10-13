@@ -80,14 +80,16 @@ fn normalize(relative: &str) -> Result<String, AppError> {
     Ok(parts.join("/"))
 }
 
-fn read_bounded(reader: impl Read, max: u64) -> Result<Vec<u8>, AppError> {
+const BUDGET: &str = "Scene exceeds import budget";
+const GLTF_BUDGET: &str = "glTF JSON exceeds budget";
+fn read_bounded(reader: impl Read, max: u64, over: &str) -> Result<Vec<u8>, AppError> {
     let mut bytes = Vec::new();
     reader
         .take(max + 1)
         .read_to_end(&mut bytes)
         .map_err(|_| invalid("File unavailable"))?;
     if bytes.len() as u64 > max {
-        return Err(invalid("Scene exceeds import budget"));
+        return Err(invalid(over));
     }
     Ok(bytes)
 }
@@ -110,7 +112,7 @@ impl SceneSource for FolderSource {
             return Err(named("Missing file", &relative));
         }
         let file = std::fs::File::open(&path).map_err(|_| named("Missing file", &relative))?;
-        read_bounded(file, max)
+        read_bounded(file, max, BUDGET)
     }
 }
 
@@ -156,19 +158,19 @@ impl ZipSource {
             .unwrap_or_default();
         Ok((Self { archive, base }, root))
     }
-    fn entry(&mut self, name: &str, max: u64) -> Result<Vec<u8>, AppError> {
+    fn entry(&mut self, name: &str, max: u64, over: &str) -> Result<Vec<u8>, AppError> {
         let entry = self.archive.by_name(name).map_err(|error| match error {
             zip::result::ZipError::FileNotFound => named("Missing file", name),
             _ => invalid("Invalid zip archive"),
         })?;
-        read_bounded(entry, max)
+        read_bounded(entry, max, over)
     }
 }
 impl SceneSource for ZipSource {
     fn read(&mut self, relative: &str, max: u64) -> Result<Vec<u8>, AppError> {
         let relative = normalize(relative)?;
         let name = format!("{}{relative}", self.base);
-        self.entry(&name, max)
+        self.entry(&name, max, BUDGET)
     }
 }
 
@@ -180,7 +182,7 @@ pub fn pack_scene(path: &Path, limits: Limits) -> Result<PackedScene, AppError> 
             let (mut source, root) = ZipSource::open(path, limits)?;
             let binary = root.to_ascii_lowercase().ends_with(".glb");
             let max = if binary { limits.max_glb } else { limits.max_json as u64 };
-            let bytes = source.entry(&root, max)?;
+            let bytes = source.entry(&root, max, if binary { BUDGET } else { GLTF_BUDGET })?;
             pack_root(&bytes, binary, &mut source, limits, stem(Path::new(&root)))
         }
         Some(kind @ ("glb" | "gltf")) => {
@@ -188,7 +190,7 @@ pub fn pack_scene(path: &Path, limits: Limits) -> Result<PackedScene, AppError> 
             let root = folder.canonicalize().map_err(|_| invalid("Model folder unavailable"))?;
             let max = if kind == "glb" { limits.max_glb } else { limits.max_json as u64 };
             let file = std::fs::File::open(path).map_err(|_| invalid("File unavailable"))?;
-            let bytes = read_bounded(file, max)?;
+            let bytes = read_bounded(file, max, if kind == "glb" { BUDGET } else { GLTF_BUDGET })?;
             let mut source = FolderSource { root };
             pack_root(&bytes, kind == "glb", &mut source, limits, stem(path))
         }
@@ -450,9 +452,8 @@ fn read_credits(json: &Value) -> Option<AssetCredits> {
             .filter(|s| !s.is_empty() && s.encode_utf16().count() <= 512)
             .map(str::to_owned)
     };
-    let source_url = text("source").filter(|s| {
-        url::Url::parse(s).is_ok_and(|u| matches!(u.scheme(), "http" | "https"))
-    });
+    let source_url = text("source")
+        .filter(|s| (s.starts_with("http://") || s.starts_with("https://")) && url::Url::parse(s).is_ok());
     let credits = AssetCredits {
         title: text("title"),
         author: text("author"),
@@ -675,6 +676,20 @@ mod tests {
         let zip = zip_file(dir.path(), &[("scene.gltf", json), ("scene.bin", vec![1; 8]), ("a.png", [PNG, &vec![0u8; 1 << 20]].concat())]);
         let limits = Limits { max_glb: 4096, ..Limits::DEFAULT };
         assert!(message(pack_scene(&zip, limits)).contains("exceeds import budget"));
+    }
+    #[test]
+    fn rejects_gltf_json_over_budget() {
+        let dir = folder(&room("a.png"), &[("a.png", PNG)]);
+        let limits = Limits { max_json: 64, ..Limits::DEFAULT };
+        assert!(message(pack_scene(&dir.path().join("scene.gltf"), limits)).contains("glTF JSON exceeds budget"));
+    }
+    #[test]
+    fn drops_a_source_with_an_uppercase_scheme() {
+        let mut json = room("a.png");
+        json["asset"]["extras"]["source"] = json!("HTTPS://example.com/room");
+        assert!(read_credits(&json).unwrap().source_url.is_none());
+        json["asset"]["extras"]["source"] = json!("https://example.com/room");
+        assert!(read_credits(&json).unwrap().source_url.is_some());
     }
     #[test]
     fn rejects_glb_json_over_budget() {
