@@ -1,10 +1,12 @@
 # Environment import check
 
-Checked 2026-10-13 on macOS at commit `74971b1` (branch `opensekai/environment-import`). Contract: [environment import](../../spdd/prompt/2026-10-13-environment-import.md). The app ran with `pnpm dev:desktop` (debug build, WKWebView). The Scene preview reported the `webgpu` backend. The quality profile was the default (preview textures at most 1024 pixels, output textures at most 2048 pixels). OBS was 32.2.2 with obs-websocket 5.7.4; the OBS browser source renderer backend was not recorded.
+Checked 2026-10-13 on macOS with the code at commit `74971b1` (branch `opensekai/environment-import`); the app was built from that commit, and the later commit that adds this record changes only documentation. Contract: [environment import](../../spdd/prompt/2026-10-13-environment-import.md). The app ran with `pnpm dev:desktop` (debug build, WKWebView). The Scene preview reported the `webgpu` backend. The quality profile was the default (preview textures at most 1024 pixels, output textures at most 2048 pixels). OBS was 32.2.2 with obs-websocket 5.7.4; the OBS browser source renderer backend was not recorded.
 
 The agent drove the editor with synthetic macOS pointer and key events (CGEvent and System Events), read and changed the scene through the MCP stdio server (`scene_inspect`, `scene_patch`), and captured OBS output through the evaluation OBS adapter in an isolated owned scene. The adapter restored the prior OBS program scene and removed its test sources. OBS did not stream or record.
 
 The sample was "Anime stylized room free" by CG Lads, CC-BY-4.0 ([source](https://sketchfab.com/3d-models/anime-stylized-room-free-223df82515de41e684720e2eaa02e93d)): `scene.gltf`, `scene.bin`, and 37 PNG textures, 138 MB on disk. The character was the library VRM "Rem Kanashibari" (78.7 MB).
+
+The raw outputs (window captures, OBS logs, alpha samples, `footprint` output, and the clipboard text) are not committed. The committed images below are downscaled copies of the captures.
 
 ## Automated checks
 
