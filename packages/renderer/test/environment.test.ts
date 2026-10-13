@@ -66,17 +66,31 @@ it('follows the flag of its own output camera', async () => {
         r.dispose();
     }
 });
-it('sets the map on environment materials only and releases it once', async () => {
+it('puts the map on instance clones only and releases it once', async () => {
     const { createEnvironmentLight } = await vi.importActual<typeof import('../src/environment-light')>('../src/environment-light');
+    const { disposeObject } = await vi.importActual<typeof import('../src/assets')>('../src/assets');
     const dispose = vi.fn();
-    const make = vi.fn(() => ({ texture: new Texture(), dispose }));
+    const texture = new Texture();
+    const textureDispose = vi.spyOn(texture, 'dispose');
+    const make = vi.fn(() => ({ texture, dispose }));
     const light = createEnvironmentLight(make);
-    const material = new MeshStandardMaterial();
-    const root = new Group(); root.add(new Mesh(new BoxGeometry(), material));
-    const other = new MeshStandardMaterial();
-    light.apply(root); light.apply(root);
-    expect(material.envMap).toBeInstanceOf(Texture);
-    expect(other.envMap).toBeNull();
+    const source = new MeshStandardMaterial();
+    const cached = new Group(); cached.add(new Mesh(new BoxGeometry(), source));
+    const instance = cached.clone();
+    const release = light.apply(instance);
+    const lit = (instance.children[0] as Mesh).material as MeshStandardMaterial;
+    expect(lit.envMap).toBe(texture);
+    expect(lit).not.toBe(source);
+    expect(source.envMap).toBeNull();
+    expect(((cached.clone().children[0]) as Mesh).material).toBe(source);
+    expect(((cached.clone().children[0]) as Mesh).material).toHaveProperty('envMap', null);
+    const litDispose = vi.spyOn(lit, 'dispose');
+    release(); release();
+    expect(litDispose).toHaveBeenCalledTimes(1);
+    disposeObject(cached);
+    expect(textureDispose).not.toHaveBeenCalled();
+    expect(dispose).not.toHaveBeenCalled();
+    light.apply(new Group());
     expect(make).toHaveBeenCalledTimes(1);
     light.dispose(); light.dispose();
     expect(dispose).toHaveBeenCalledTimes(1);

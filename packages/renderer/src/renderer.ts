@@ -67,10 +67,11 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         const asset = await assets.get(request.assetId);
         if (cancelled() || disposed) throw failure("CANCELLED", "Asset load cancelled");
         const root = clone(asset.scene);
-        if (request.kind === "environment") environmentLight.apply(root);
+        const releaseLight = request.kind === "environment" ? environmentLight.apply(root) : undefined;
+        const release = () => { disposeInstance(root); releaseLight?.(); };
         try { await prepare(root, report, cancelled); }
-        catch (error) { disposeInstance(root); throw error; }
-        return { root, assetId: request.assetId, warnings: asset.warnings, dispose: () => disposeInstance(root) };
+        catch (error) { release(); throw error; }
+        return { root, assetId: request.assetId, warnings: asset.warnings, dispose: release };
     };
     const jobs = createLoadJobs<Ready>(build, entries => { for (const listener of loadListeners) listener(entries); });
     const marker = options.diagnostics ? createDiagnosticMarker() : null;
