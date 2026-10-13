@@ -59,7 +59,11 @@ export type SceneEntity = (EntityBase & {
     smoothing?: TrackingSmoothing;
     generation: number;
 }) | (EntityBase & {
+    kind: "environment";
+    assetId: Id | null;
+}) | (EntityBase & {
     kind: "camera";
+    renderEnvironment?: boolean;
     lens: {
         fovDegrees: number;
         near: number;
@@ -89,7 +93,7 @@ type ExistingPatchOp = {
     entityId: Id;
     visible: boolean;
 };
-export type LivePatchOp = {kind:'setTrackingSmoothing';entityId:Id;smoothing:TrackingSmoothing}| {kind:'setAvatarIdle';entityId:Id;idleAnimation:AvatarIdle}|{kind:'createEntity';entity:SceneEntity}|{kind:'setCameraLens';entityId:Id;lens:Extract<SceneEntity,{kind:'camera'}>['lens']}|{kind:'setAvatarTracking';entityId:Id;tracking:AvatarTracking}|{kind:'setTrackingConfig';entityId:Id;config:TrackingConfig}|{kind:'setAvatarModel';entityId:Id;assetId:Id|null};
+export type LivePatchOp = {kind:'setTrackingSmoothing';entityId:Id;smoothing:TrackingSmoothing}| {kind:'setAvatarIdle';entityId:Id;idleAnimation:AvatarIdle}|{kind:'createEntity';entity:SceneEntity}|{kind:'setCameraLens';entityId:Id;lens:Extract<SceneEntity,{kind:'camera'}>['lens']}|{kind:'setAvatarTracking';entityId:Id;tracking:AvatarTracking}|{kind:'setTrackingConfig';entityId:Id;config:TrackingConfig}|{kind:'setAvatarModel';entityId:Id;assetId:Id|null}|{kind:'setEnvironmentModel';entityId:Id;assetId:Id|null}|{kind:'setCameraRenderEnvironment';entityId:Id;renderEnvironment:boolean};
 export type AssetManagementPatchOp = {kind:'renameEntity';entityId:Id;name:string}|{kind:'removeEntity';entityId:Id};
 export type PatchOp = ExistingPatchOp | LivePatchOp | AssetManagementPatchOp;
 export interface ScenePatch {
@@ -97,6 +101,7 @@ export interface ScenePatch {
     expectedRevision: number;
     operations: PatchOp[];
 }
+export interface AssetCredits { title: string | null; author: string | null; license: string | null; sourceUrl: string | null; }
 export interface AssetRecord {
     id: Id;
     format: "glb" | "vrm";
@@ -106,6 +111,7 @@ export interface AssetRecord {
     licenseLabel: string;
     importerVersion: 1;
     name: string;
+    credits?: AssetCredits;
 }
 export interface ConnectionDescriptor {
     schemaVersion: 1;

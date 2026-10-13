@@ -109,8 +109,13 @@ export const SceneEntitySchema = z.discriminatedUnion("kind", [
     }),
     EntityBaseSchema.extend({kind:z.literal('tracking'),config:TrackingConfigSchema,generation:u,smoothing:TrackingSmoothingSchema.optional()}),
     EntityBaseSchema.extend({
+        kind: z.literal("environment"),
+        assetId: IdSchema.nullable()
+    }),
+    EntityBaseSchema.extend({
         kind: z.literal("camera"),
-        lens: LensSchema
+        lens: LensSchema,
+        renderEnvironment: z.boolean().optional()
     })
 ]);
 export const OutputSpecSchema = z.strictObject({
@@ -128,6 +133,7 @@ export const SceneViewSchema = z.strictObject({
     outputs: z.array(OutputSpecSchema).max(64)
 }).refine(s => {
  const sources=s.entities.filter(e=>e.kind==='tracking');
+ if(s.entities.filter(e=>e.kind==='environment').length>1)return false;
  if(sources.length>4||s.entities.filter(e=>e.kind==='avatar').length>2)return false;
  if(new Set(s.entities.map(e=>e.id)).size!==s.entities.length||new Set(s.outputs.map(o=>o.id)).size!==s.outputs.length||!s.outputs.every(o=>s.entities.some(e=>e.id===o.cameraId&&e.kind==='camera')))return false;
  return s.entities.every(e=>e.kind!=='avatar'||!e.tracking||[e.tracking.bodySourceId,e.tracking.faceSourceId].every((id,index)=>id===null||sources.some(source=>source.id===id&&(index===1||source.config.kind!=='ifacialmocap'))));
@@ -151,6 +157,8 @@ export const PatchOpSchema = z.discriminatedUnion("kind", [
     z.strictObject({kind:z.literal('setAvatarIdle'),entityId:IdSchema,idleAnimation:AvatarIdleSchema}),
     z.strictObject({kind:z.literal('setAvatarTracking'),entityId:IdSchema,tracking:AvatarTrackingSchema}),
     z.strictObject({kind:z.literal('setAvatarModel'),entityId:IdSchema,assetId:IdSchema.nullable()}),
+    z.strictObject({kind:z.literal('setEnvironmentModel'),entityId:IdSchema,assetId:IdSchema.nullable()}),
+    z.strictObject({kind:z.literal('setCameraRenderEnvironment'),entityId:IdSchema,renderEnvironment:z.boolean()}),
     z.strictObject({kind:z.literal('setTrackingConfig'),entityId:IdSchema,config:TrackingConfigSchema}),
     z.strictObject({
         kind: z.literal("setTransform"),
@@ -169,6 +177,13 @@ export const ScenePatchSchema = z.strictObject({
     operations: z.array(PatchOpSchema).min(1).max(32)
 });
 const sha = z.string().regex(/^[a-f0-9]{64}$/);
+const creditText = z.string().nullable();
+export const AssetCreditsSchema = z.strictObject({
+    title: creditText,
+    author: creditText,
+    license: creditText,
+    sourceUrl: z.url().refine(value => /^https?:\/\//.test(value), 'Invalid source URL').nullable()
+});
 export const AssetRecordSchema = z.strictObject({
     id: IdSchema,
     format: z.enum([
@@ -180,7 +195,8 @@ export const AssetRecordSchema = z.strictObject({
     sourceUrl: z.url().nullable(),
     licenseLabel: z.string(),
     importerVersion: z.literal(1),
-    name: z.string().refine(name => name.trim().length > 0 && name.length <= 128, 'Invalid asset name')
+    name: z.string().refine(name => name.trim().length > 0 && name.length <= 128, 'Invalid asset name'),
+    credits: AssetCreditsSchema.optional()
 });
 export const ConnectionDescriptorSchema = z.strictObject({
     schemaVersion: z.literal(1),

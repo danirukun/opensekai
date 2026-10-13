@@ -171,6 +171,7 @@ impl AssetRegistry {
             license_label: "User supplied".into(),
             importer_version: 1,
             name: name.clone(),
+            credits: None,
         };
         let target = library.join(format!("{id}.vrm"));
         copy.as_file()

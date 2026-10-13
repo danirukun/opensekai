@@ -103,12 +103,26 @@ pub enum SceneEntity {
         smoothing: Option<TrackingSmoothing>,
         generation: u64,
     },
+    Environment {
+        id: Id,
+        name: String,
+        visible: bool,
+        transform: Transform,
+        #[serde(rename = "assetId")]
+        asset_id: Option<Id>,
+    },
     Camera {
         id: Id,
         name: String,
         visible: bool,
         transform: Transform,
         lens: Lens,
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            rename = "renderEnvironment"
+        )]
+        render_environment: Option<bool>,
     },
 }
 impl SceneEntity {
@@ -116,6 +130,7 @@ impl SceneEntity {
         match self {
             Self::Mesh { id, .. }
             | Self::Avatar { id, .. }
+            | Self::Environment { id, .. }
             | Self::Camera { id, .. }
             | Self::Tracking { id, .. } => id,
         }
@@ -124,6 +139,7 @@ impl SceneEntity {
         match self {
             Self::Mesh { transform, .. }
             | Self::Avatar { transform, .. }
+            | Self::Environment { transform, .. }
             | Self::Camera { transform, .. }
             | Self::Tracking { transform, .. } => transform,
         }
@@ -174,6 +190,18 @@ pub enum PatchOp {
         #[serde(rename = "assetId")]
         asset_id: Option<Id>,
     },
+    SetEnvironmentModel {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+        #[serde(rename = "assetId")]
+        asset_id: Option<Id>,
+    },
+    SetCameraRenderEnvironment {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+        #[serde(rename = "renderEnvironment")]
+        render_environment: bool,
+    },
     SetTrackingSmoothing {
         #[serde(rename = "entityId")]
         entity_id: Id,
@@ -196,7 +224,26 @@ pub enum PatchOp {
     },
 }
 object!(ScenePatch {scene_id:Id,expected_revision:u64,operations:Vec<PatchOp>});
-object!(AssetRecord {id:Id,format:AssetFormat,sha256:String,bytes:u64,source_url:Option<String>,license_label:String,importer_version:u32,name:String});
+object!(AssetCredits {
+    title: Option<String>,
+    author: Option<String>,
+    license: Option<String>,
+    source_url: Option<String>
+});
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AssetRecord {
+    pub id: Id,
+    pub format: AssetFormat,
+    pub sha256: String,
+    pub bytes: u64,
+    pub source_url: Option<String>,
+    pub license_label: String,
+    pub importer_version: u32,
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub credits: Option<AssetCredits>,
+}
 object!(ConnectionDescriptor {schema_version:u32,session_id:Id,http_origin:String,ws_url:String,role:Role,token:String,capabilities:Vec<Capability>,output_id:Option<Id>});
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -879,6 +926,14 @@ impl Validate for SceneView {
                     <= 2,
             "too many live entities",
         )?;
+        require(
+            self.entities
+                .iter()
+                .filter(|e| matches!(e, SceneEntity::Environment { .. }))
+                .count()
+                <= 1,
+            "too many environments",
+        )?;
         for e in &self.entities {
             if let SceneEntity::Avatar {
                 tracking: Some(t), ..
@@ -1083,6 +1138,15 @@ impl Validate for AssetRecord {
                 .as_ref()
                 .is_none_or(|s| url::Url::parse(s).is_ok()),
             "invalid source URL",
+        )?;
+        require(
+            self.credits
+                .as_ref()
+                .and_then(|c| c.source_url.as_ref())
+                .is_none_or(|s| {
+                    url::Url::parse(s).is_ok_and(|u| matches!(u.scheme(), "http" | "https"))
+                }),
+            "invalid credits source URL",
         )?;
         hash(&self.sha256)
     }
