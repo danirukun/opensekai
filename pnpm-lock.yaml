@@ -357,6 +357,10 @@ importers:
       ws:
         specifier: 8.22.0
         version: 8.22.0
+    devDependencies:
+      '@opensekai/session':
+        specifier: workspace:*
+        version: link:../../packages/session
 
 packages:
 
