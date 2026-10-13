@@ -11,6 +11,7 @@ import { countLiveMaterials } from "./diagnostics";
 import { initializeBackend } from "./backend";
 import { createCapturePolicy, readPng } from "./capture";
 import { createLoadJobs, type AssetLoadStatus, type LoadReport, type LoadRequest } from "./load-jobs";
+import { createEnvironmentLight, roomEnvironmentMap } from "./environment-light";
 import { createDiagnosticMarker } from "./diagnostic-marker";
 export interface RendererHandle {
     editor?: EditorHandle;
@@ -42,6 +43,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     scene.add(light);
     const loadAsset = createAssetLoader(options.resources, {maxTextureSize: options.resolutionScale === 0.5 ? 1024 : 2048});
     const assets = createAssetCache(loadAsset);
+    const environmentLight = createEnvironmentLight(roomEnvironmentMap(renderer));
     type Ready = { root: Object3D; avatar?: ReturnType<typeof createAvatarBinding>; assetId?: string; assetDispose?: () => void; warnings: AppError[]; dispose(): void };
     const loadListeners = new Set<(entries: AssetLoadStatus[]) => void>();
     const prepare = async (root: Object3D, report: (r: LoadReport) => void, cancelled: () => boolean) => {
@@ -65,6 +67,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         const asset = await assets.get(request.assetId);
         if (cancelled() || disposed) throw failure("CANCELLED", "Asset load cancelled");
         const root = clone(asset.scene);
+        if (request.kind === "environment") environmentLight.apply(root);
         try { await prepare(root, report, cancelled); }
         catch (error) { disposeInstance(root); throw error; }
         return { root, assetId: request.assetId, warnings: asset.warnings, dispose: () => disposeInstance(root) };
@@ -77,6 +80,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         root: Object3D;
         owned: boolean;
         assetId?: string;
+        pickable?: boolean;
         avatar?: ReturnType<typeof createAvatarBinding>;
         assetDispose?: () => void;
         warnings?: AppError[];
@@ -99,6 +103,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         objects.clear();
         jobs.dispose();
         assets.dispose();
+        environmentLight.dispose();
         marker?.dispose();
         scene.clear();
         renderer.dispose();
@@ -114,6 +119,8 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         const cameraEntity = frame.scene.entities.find(x => x.id === output.cameraId && x.kind === "camera");
         if (!cameraEntity || cameraEntity.kind !== "camera")
             throw failure("NOT_FOUND", "Output camera not found", [output.cameraId]);
+        const showEnvironment = cameraEntity.renderEnvironment !== false;
+        const place = (root: Object3D, entity: SceneEntity) => { applyTransform(root, entity); if (entity.kind === "environment" && !showEnvironment) root.visible = false; };
         const width = output.width * options.resolutionScale, height = output.height * options.resolutionScale;
         if (options.canvas.width !== width || options.canvas.height !== height)
             renderer.setSize(width, height, false);
@@ -140,9 +147,9 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
                 }
                 continue;
             }
-            const assetId = entity.kind === "avatar" ? entity.assetId : entity.source.kind === "asset" ? entity.source.assetId : null;
+            const assetId = entity.kind === "avatar" || entity.kind === "environment" ? entity.assetId : entity.source.kind === "asset" ? entity.source.assetId : null;
             let value = objects.get(entity.id);
-            if (entity.kind === "avatar" && assetId === null) {
+            if ((entity.kind === "avatar" || entity.kind === "environment") && assetId === null) {
                 if (value) { releaseObject(value); objects.delete(entity.id); }
                 continue;
             }
@@ -155,14 +162,14 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
                     objects.set(entity.id, value);
                 } else {
                     // The new model is still loading: keep posing the old model, if any, until the job installs the new one.
-                    needed.set(entity.id, { kind: entity.kind === "avatar" ? "avatar" : "mesh", assetId });
+                    needed.set(entity.id, { kind: entity.kind === "avatar" ? "avatar" : entity.kind === "environment" ? "environment" : "mesh", assetId });
                     if (!value) continue;
                 }
             }
             for (const warning of value.warnings ?? [])
                 if (!warnings.some(x => x.message === warning.message && x.ids[0] === warning.ids[0])) warnings.push(warning);
             value.avatar?.apply(frame.avatarPoses?.find(pose => pose.avatarId === entity.id));
-            if (!editor?.frozen(entity.id)) applyTransform(value.root, entity);
+            if (!editor?.frozen(entity.id)) place(value.root, entity);
         }
         jobs.reconcile(needed, frame.scene.revision);
         for (const [entityId, request] of needed) {
@@ -171,11 +178,11 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             const entity = frame.scene.entities.find(item => item.id === entityId)!;
             const old = objects.get(entityId);
             if (old) releaseObject(old);
-            const installed = { signature: entity.kind + ":" + request.assetId, root: ready.root, owned: false, avatar: ready.avatar, assetId: ready.assetId, assetDispose: ready.assetDispose, warnings: ready.warnings };
+            const installed = { signature: entity.kind + ":" + request.assetId, root: ready.root, owned: false, avatar: ready.avatar, assetId: ready.assetId, assetDispose: ready.assetDispose, warnings: ready.warnings, pickable: entity.kind !== "environment" };
             scene.add(installed.root);
             objects.set(entityId, installed);
             installed.avatar?.apply(frame.avatarPoses?.find(pose => pose.avatarId === entityId));
-            if (!editor?.frozen(entityId)) applyTransform(installed.root, entity);
+            if (!editor?.frozen(entityId)) place(installed.root, entity);
             warnings.push(...ready.warnings);
         }
         for (const [entityId, request] of needed) {

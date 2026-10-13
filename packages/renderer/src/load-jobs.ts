@@ -1,7 +1,7 @@
 export type LoadStage = 'download' | 'textures' | 'prepare' | 'failed';
 export interface LoadReport { stage: Exclude<LoadStage, 'failed'>; progress: number | null; count?: { done: number; total: number } }
 export interface AssetLoadStatus { entityId: string; assetId: string; stage: LoadStage; progress: number | null; count?: { done: number; total: number }; message?: string }
-export interface LoadRequest { kind: 'avatar' | 'mesh'; assetId: string }
+export interface LoadRequest { kind: 'avatar' | 'mesh' | 'environment'; assetId: string }
 
 type Job<T> = { request: LoadRequest; state: 'loading' | 'ready' | 'failed'; status: AssetLoadStatus; value?: T; cancelled: boolean; dismissed: boolean; failed?: { revision: number; time: number } };
 const sameRequest = (a: LoadRequest, b: LoadRequest) => a.kind === b.kind && a.assetId === b.assetId;

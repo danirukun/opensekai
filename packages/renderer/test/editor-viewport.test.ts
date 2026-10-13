@@ -1,7 +1,7 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 import { Scene, PerspectiveCamera, Object3D } from 'three/webgpu';
 import { makeSmokeScene } from '@opensekai/contracts';
-import { assertEditorScope, createEditorViewport } from '../src/editor-viewport';
+import { assertEditorScope, createEditorViewport, pickRoots } from '../src/editor-viewport';
 const mock=vi.hoisted(()=>({controls:null as any}));
 vi.mock('three/addons/controls/TransformControls.js',()=>({TransformControls:class {
  listeners=new Map<string,()=>void>(); dragging=false;enabled=false;axis=null;helper=new Object3D();
@@ -21,3 +21,4 @@ it('consumes gesture cancellation Escape while idle Escape can reopen the editor
  const x=setup();const idle=new Event('keydown',{cancelable:true});Object.defineProperty(idle,'key',{value:'Escape'});x.canvas.dispatchEvent(idle);expect(idle.defaultPrevented).toBe(false);
  mock.controls.emit('mouseDown');const active=new Event('keydown',{cancelable:true});Object.defineProperty(active,'key',{value:'Escape'});x.canvas.dispatchEvent(active);expect(active.defaultPrevented).toBe(true);expect(x.editor.frozen(x.id)).toBe(false);mock.controls.emit('mouseUp');expect(x.onCommit).not.toHaveBeenCalled();x.editor.dispose();
 });
+it('does not pick environment roots',()=>{const avatar=new Object3D(),stage=new Object3D(),hidden=new Object3D();hidden.visible=false;expect(pickRoots(new Map([['avatar',{root:avatar}],['stage',{root:stage,pickable:false}],['hidden',{root:hidden}]])).map(([id])=>id)).toEqual(['avatar']);});
