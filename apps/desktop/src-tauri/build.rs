@@ -43,6 +43,8 @@ fn main() {
             "import_avatar",
             "save_show_as",
             "open_show",
+            "import_blueprint_file",
+            "export_blueprint_file",
         ]),
     ))
     .expect("OpenSekai build configuration failed");
