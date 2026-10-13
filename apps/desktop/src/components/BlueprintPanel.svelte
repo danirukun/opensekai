@@ -34,6 +34,7 @@
  let selectedId = $state<string | null>(null);
  let nodeId = $state<string | null>(null);
  let missing = $state<string[]>([]);
+ let importing = false;
  let runError = $state<string | null>(null), busy = $state(false);
  type Drawer = 'nodes' | 'variables' | null;
  const DRAWER_KEY = 'opensekai.blueprint.drawer';
@@ -156,10 +157,12 @@
  }
  const message = (error: unknown, fallback: string) => typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string' ? error.message : fallback;
  async function importFile() {
-  if (!scene || disabled) return;
+  if (!scene || disabled || importing) return;
   let text: string | null;
-  try { text = await invoke<string | null>('import_blueprint_file'); } catch (error) { runError = message(error, 'Import failed'); return; }
-  if (text === null) return;
+  importing = true;
+  try { text = await invoke<string | null>('import_blueprint_file'); } catch (error) { runError = message(error, 'Import failed'); return; } finally { importing = false; }
+  // The session can go away while the dialog is open.
+  if (text === null || !scene || disabled) return;
   const imported = importBlueprint(text, scene, () => crypto.randomUUID());
   if (!imported.ok) { runError = imported.error.message; return; }
   const result = edit([{ kind: 'createGraph', graph: imported.data.graph }]);

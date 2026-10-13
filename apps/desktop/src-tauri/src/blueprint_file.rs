@@ -1,11 +1,10 @@
+use crate::local_file::{read_bounded, write_atomic, ReadError};
 use opensekai_contracts::{AppError, ErrorCode};
-use std::{
-    fs::File,
-    io::{Read, Write},
-    path::Path,
-};
+use std::path::Path;
 
 pub const MAX_BLUEPRINT_FILE_BYTES: u64 = 1_048_576;
+// File systems limit a name to 255 bytes; the stem leaves room for ".json".
+const MAX_STEM_BYTES: usize = 255 - ".json".len();
 
 fn error(code: ErrorCode, message: &str) -> AppError {
     AppError {
@@ -32,27 +31,23 @@ pub fn blueprint_file_name(name: &str) -> String {
     } else {
         safe
     };
-    let safe = if let Some(rest) = safe.strip_prefix('.') {
+    let mut safe = if let Some(rest) = safe.strip_prefix('.') {
         format!("_{rest}")
     } else {
         safe
     };
+    while safe.len() > MAX_STEM_BYTES {
+        safe.pop();
+    }
     format!("{safe}.json")
 }
 
 pub fn read_blueprint_file(path: &Path) -> Result<String, AppError> {
-    let file = File::open(path)
-        .map_err(|_| error(ErrorCode::Unavailable, "Blueprint file could not be opened"))?;
-    let mut bytes = Vec::new();
-    file.take(MAX_BLUEPRINT_FILE_BYTES + 1)
-        .read_to_end(&mut bytes)
-        .map_err(|_| error(ErrorCode::Unavailable, "Blueprint file could not be read"))?;
-    if bytes.len() as u64 > MAX_BLUEPRINT_FILE_BYTES {
-        return Err(error(
-            ErrorCode::InvalidInput,
-            "Blueprint file is too large",
-        ));
-    }
+    let bytes = read_bounded(path, MAX_BLUEPRINT_FILE_BYTES).map_err(|failure| match failure {
+        ReadError::Open => error(ErrorCode::Unavailable, "Blueprint file could not be opened"),
+        ReadError::Read => error(ErrorCode::Unavailable, "Blueprint file could not be read"),
+        ReadError::TooLarge => error(ErrorCode::InvalidInput, "Blueprint file is too large"),
+    })?;
     String::from_utf8(bytes)
         .map_err(|_| error(ErrorCode::InvalidInput, "Not an OpenSekai Blueprint file"))
 }
@@ -64,14 +59,8 @@ pub fn write_blueprint_file(path: &Path, text: &str) -> Result<(), AppError> {
             "Blueprint file is too large",
         ));
     }
-    let parent = path
-        .parent()
-        .ok_or_else(|| error(ErrorCode::InvalidInput, "Invalid Blueprint file path"))?;
-    let save_error = || error(ErrorCode::Unavailable, "Blueprint file could not be saved");
-    let mut temp = tempfile::NamedTempFile::new_in(parent).map_err(|_| save_error())?;
-    temp.write_all(text.as_bytes()).map_err(|_| save_error())?;
-    temp.persist(path).map_err(|_| save_error())?;
-    Ok(())
+    write_atomic(path, text.as_bytes())
+        .map_err(|_| error(ErrorCode::Unavailable, "Blueprint file could not be saved"))
 }
 
 #[cfg(test)]
@@ -88,6 +77,19 @@ mod tests {
         assert_eq!(blueprint_file_name("tab\there"), "tab_here.json");
         assert_eq!(blueprint_file_name("   "), "Blueprint.json");
         assert_eq!(blueprint_file_name(".hidden"), "_hidden.json");
+    }
+
+    #[test]
+    fn file_name_fits_the_file_system_limit() {
+        let long = "日".repeat(128);
+        let name = blueprint_file_name(&long);
+        assert!(name.len() <= 255, "{} bytes", name.len());
+        assert!(name.ends_with(".json"));
+        assert!(name.starts_with("日日日"));
+        assert_eq!(
+            blueprint_file_name(&"a".repeat(128)),
+            format!("{}.json", "a".repeat(128))
+        );
     }
 
     #[test]

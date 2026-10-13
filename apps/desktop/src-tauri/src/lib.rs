@@ -3,6 +3,7 @@ pub mod blueprint_file;
 mod bootstrap;
 pub mod evaluation;
 pub mod input;
+mod local_file;
 pub mod service;
 mod show;
 pub mod tracking;
@@ -151,7 +152,11 @@ async fn import_blueprint_file(window: tauri::WebviewWindow) -> Result<Option<St
     require_window_label(window.label(), "editor")?;
     let app = window.app_handle().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let dialog = app.dialog().file().set_title("Import Blueprint");
+        let dialog = app
+            .dialog()
+            .file()
+            .set_title("Import Blueprint")
+            .set_parent(&window);
         #[cfg(not(target_os = "macos"))]
         let dialog = dialog.add_filter("OpenSekai Blueprint", &["json"]);
         let Some(path) = dialog.blocking_pick_file() else {

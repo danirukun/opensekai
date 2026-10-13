@@ -38,9 +38,9 @@ export function exportBlueprint(graph: BlueprintGraph, scene: SceneView): Bluepr
  const references = new Map<Id, BlueprintReference>();
  for (const use of uses(graph)) {
   if (references.has(use.value)) continue;
-  const entity = use.kind === 'output' ? undefined : scene.entities.find(item => item.id === use.value && referable(item));
+  const entity = use.kind === 'output' ? undefined : scene.entities.find((item): item is Exclude<SceneEntity, { kind: 'tracking' }> => item.id === use.value && referable(item));
   const output = use.kind === 'output' && scene.outputs.some(item => item.id === use.value);
-  references.set(use.value, entity && referable(entity) ? { id: use.value, kind: entity.kind, name: entity.name }
+  references.set(use.value, entity ? { id: use.value, kind: entity.kind, name: entity.name }
    : output ? { id: use.value, kind: 'output', name: use.value }
    : { id: use.value, kind: 'unknown', name: use.value });
  }

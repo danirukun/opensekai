@@ -39,7 +39,7 @@
  {:else if field.kind === 'boolean'}
   <label class="blueprint-checkbox"><input type="checkbox" checked={Boolean(settings[field.key])} onchange={event => set(field.key, event.currentTarget.checked)} />{field.label}</label>
  {:else if field.kind === 'count'}
-  <Select label={field.label} value={String(settings[field.key])} options={options(field)} onchange={event => set(field.key, Number(event.currentTarget.value))} />
+  <Select label={field.label} value={String(settings[field.key])} options={choices(field)} onchange={event => set(field.key, Number(event.currentTarget.value))} />
  {:else if field.kind === 'cases'}
   <Input label={field.label} value={formatCases(settings[field.key] as number[])} onchange={event => { const cases = parseCases(event.currentTarget.value); if (cases) set(field.key, cases); else event.currentTarget.value = formatCases(settings[field.key] as number[]); }} />
  {:else if field.kind === 'key'}

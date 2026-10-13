@@ -10,9 +10,8 @@ const invalid: Reply<never> = { ok: false, error: { code: 'INVALID_INPUT', messa
 export async function exportBlueprintTool(api: AppApi, params: unknown): Promise<Reply<{ file: BlueprintFile }>> {
  const valid = BlueprintExportParams.safeParse(params);
  if (!valid.success) return invalid;
- const scene = await invokeTool(api, 'sceneInspect', { sceneId: valid.data.sceneId });
+ const [scene, inspect] = await Promise.all([invokeTool(api, 'sceneInspect', { sceneId: valid.data.sceneId }), invokeTool(api, 'blueprintInspect', {})]);
  if (!scene.ok) return scene;
- const inspect = await invokeTool(api, 'blueprintInspect', {});
  if (!inspect.ok) return inspect;
  const stored = inspect.data as BlueprintInspect;
  const graph = stored.kind === 'snapshot' ? stored.blueprints.find(item => item.id === valid.data.graphId) : undefined;
