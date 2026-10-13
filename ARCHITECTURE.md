@@ -43,7 +43,7 @@ Editor and MCP edits use the same route: a call (for example `scenePatch`) goes 
 
 ## Asset path
 
-1. **Import.** Editor-only Tauri commands open a native dialog. The frontend never sends a file path. `import_avatar` accepts `.vrm`. The registry (`assets/registry.rs`) validates the file and copies it to `<app local data>/assets/library/<id>.<ext>` with a JSON `AssetRecord`. The ID is the kind prefix plus the SHA-256 of the stored bytes.
+1. **Import.** Editor-only Tauri commands open a native dialog. The frontend never sends a file path. `import_avatar` accepts `.vrm`. `import_scene` accepts `.glb`, `.gltf`, and `.zip`: `assets/scene_import.rs` packs every external buffer and image into one GLB under one shared read budget (256 MiB) before the registry stores it, and keeps `asset.extras` credits on the record. The registry (`assets/registry.rs`) validates the file and writes `<app local data>/assets/library/<id>.<ext>` with a JSON `AssetRecord`. The ID is the kind prefix (`avatar_`, `scene_`) plus the SHA-256 of the stored bytes.
 2. **Serve.** `GET /assets/{id}` with a bearer token. The registry resolves the ID inside the library, checks size and SHA-256, and runs `validate_glb` again.
 3. **Load.** `createAssetLoader` (`renderer/src/assets.ts`) runs `inspectContainer`, then `GLTFLoader` with the VRM plugin. Load jobs (`load-jobs.ts`) run outside frame submission and report status to the overlay.
 
@@ -51,7 +51,7 @@ Trust rule: a stored asset is one self-contained GLB container. The importer, `v
 
 ## Output path
 
-The OBS page draws with `alpha: true`, a clear color with alpha 0, and `scene.background = null`. Lights are one ambient and one directional light in `renderer.ts`. Frame acknowledgments carry warnings such as `Asset loading`. No image data goes through Tauri IPC in the production output path.
+The OBS page draws with `alpha: true`, a clear color with alpha 0, and `scene.background = null`. Lights are one ambient and one directional light in `renderer.ts`. The one `environment` entity gets a PMREM `RoomEnvironment` map on per-instance copies of its own materials (`environment-light.ts`); `scene.environment` stays null, so avatar materials do not change. Each renderer client hides the environment when its output camera has `renderEnvironment: false`, and the viewport never picks it. Frame acknowledgments carry warnings such as `Asset loading`. No image data goes through Tauri IPC in the production output path.
 
 ## Persistence
 

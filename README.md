@@ -14,6 +14,7 @@ The app has these features on macOS:
   - Cameras, avatars, and tracking sources can be added, renamed, duplicated, and removed.
   - The editor has live transform controls, gizmos, and an exact preview camera frame.
   - Shows can be saved and opened, with missing assets kept as repairable references.
+  - An environment (glTF, GLB, or zip) behind the characters, with Render Environment for each camera.
   - A Scene performance monitor is available.
 - **Live tracking:**
   - VMC body, iFacialMocap face, and bundled MediaPipe webcam tracking.
