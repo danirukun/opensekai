@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "commit": "07bda9f75545f4667d007d84bb4b07238e8a1557",
+  "sessionId": "cc7613f0-79a9-4ad2-b55e-4f3cde8bfb21",
+  "startedAt": "2026-10-13T17:26:55.503Z",
+  "checks": [
+    {
+      "name": "rejects future-version",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "rejects unknown-node",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "rejects warudo-shaped",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "nudge",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "drift",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "wasd",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "camera-flip",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "counter",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "renamed-ids",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "missing-ref",
+      "ok": true,
+      "detail": "ok"
+    }
+  ]
+}
