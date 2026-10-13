@@ -81,8 +81,8 @@ Sources: [Motion capture overview](https://docs.warudo.app/docs/mocap/overview),
 
 Sources: [Asset categories](https://docs.warudo.app/docs/assets/overview), [Environment](https://docs.warudo.app/docs/assets/environment), [Lights](https://docs.warudo.app/docs/assets/lights).
 
-- [ ] ENV-01 — Environment import and placement. First. [GitHub #39](https://github.com/danirukun/opensekai/issues/39)
-- [ ] ENV-02 — Environment settings and sky/background controls. Later. [GitHub #40](https://github.com/danirukun/opensekai/issues/40)
+- [ ] ENV-01 — Environment import and placement. First. Planned slice 1: one environment for each scene from a local glTF, GLB, or zip, and Render Environment for each camera, on macOS ([contract](../spdd/prompt/2026-10-13-environment-import.md), [GitHub #147](https://github.com/danirukun/opensekai/issues/147)). Not verified. [GitHub #39](https://github.com/danirukun/opensekai/issues/39)
+- [ ] ENV-02 — Environment settings and sky/background controls. Later. The sky subset (solid color, equirectangular image, and HDR background with optional image-based lighting) is First by operator request and needs its own contract ([GitHub #148](https://github.com/danirukun/opensekai/issues/148)). [GitHub #40](https://github.com/danirukun/opensekai/issues/40)
 - [ ] ENV-03 — Prop import, transforms, attachments, and reuse. First subset. [GitHub #41](https://github.com/danirukun/opensekai/issues/41)
 - [ ] ENV-04 — Tail asset and tail interaction. Later. [GitHub #42](https://github.com/danirukun/opensekai/issues/42)
 - [ ] ENV-05 — Keyboard/trackpad visualization. Later. [GitHub #43](https://github.com/danirukun/opensekai/issues/43)
@@ -91,6 +91,7 @@ Sources: [Asset categories](https://docs.warudo.app/docs/assets/overview), [Envi
 - [ ] ENV-08 — Volumetric light and stage beam behavior. First benchmark subset; Approximate. [GitHub #46](https://github.com/danirukun/opensekai/issues/46)
 - [ ] ENV-09 — Wind controls. Later. [GitHub #47](https://github.com/danirukun/opensekai/issues/47)
 - [ ] ENV-10 — Particle effects and triggers. Later; benchmark includes a bounded sample. [GitHub #48](https://github.com/danirukun/opensekai/issues/48)
+- [ ] ENV-11 — Sketchfab model search, sign-in, download, and attribution. Later; Different API; additional OpenSekai goal, not a Warudo feature. Depends on ENV-01 slice 1. [GitHub #149](https://github.com/danirukun/opensekai/issues/149)
 
 ## Cameras and output
 
