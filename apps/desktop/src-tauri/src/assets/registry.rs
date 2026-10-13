@@ -49,7 +49,7 @@ pub struct ImportResult {
     pub record: AssetRecord,
     pub name: String,
 }
-pub const MAX_IMPORT_BYTES: u64 = 128 * 1024 * 1024;
+pub const MAX_IMPORT_BYTES: u64 = 256 * 1024 * 1024;
 pub const MAX_GLB_JSON_BYTES: usize = 16 * 1024 * 1024;
 impl AssetRegistry {
     pub fn empty(root: &Path) -> Result<Self, AppError> {
@@ -297,7 +297,7 @@ pub fn resolve_asset(id: &str, registry: &AssetRegistry) -> Result<PathBuf, AppE
     }
     Ok(path)
 }
-fn validate_glb(bytes: &[u8]) -> Result<(), AppError> {
+pub(super) fn validate_glb(bytes: &[u8]) -> Result<(), AppError> {
     let word = |offset: usize| -> Result<u32, AppError> {
         let raw: [u8; 4] = bytes
             .get(offset..offset + 4)
