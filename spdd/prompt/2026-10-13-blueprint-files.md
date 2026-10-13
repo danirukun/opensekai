@@ -57,9 +57,9 @@ R13. Tests:
     - Integration, session: each valid fixture is imported into a real `createSession` with the smoke scene, and the clock advances. `nudge` sets the position after `runBlueprint` and commits 250 ms later. `drift` moves `reference` by speed × time and commits 250 ms after the graph is disabled. `wasd` moves `performer` while `held` has W. `camera-flip` switches the camera on each keystroke event. `counter` counts. This is an integration test because it crosses the file, the contracts, the compiler, the runtime, and the override layer.
     - Integration, MCP: the real MCP CLI process runs against a fixture API backed by a real session. `blueprint_import` then `blueprint_export` gives back the fixture except the graph ID. The missing, rejected, and graph-limit cases give the R3 and R7 results. This is an integration test because it crosses the stdio protocol boundary.
 R14. End-to-end: `pnpm evaluate:blueprints` connects to the running app with the operator connection file, as `evaluate:smoke` does.
-    - It requires the scene ID `scene_smoke` and stops with an error for any other scene. It never calls `sceneReplace`.
+    - It requires the scene ID `scene_smoke` and no Blueprints, and stops with an error otherwise. It never calls `sceneReplace`. It adds the smoke entities it needs that are missing (`reference` as a box mesh, `performer` as an avatar with no model, `camera_wide`, `camera_close`) and removes them at the end.
     - It imports each fixture through the app commands and checks: the invalid files give the R3 codes; `renamed-ids` changes each reference; `missing-ref` is imported disabled; `nudge` sets the position after a run; `drift` moves `reference` while enabled and commits after it is disabled; `camera-flip` and `wasd` register their keystrokes and `heldKeys`; export gives back each import.
-    - At the end it removes the graphs it added and restores the transforms it changed.
+    - At the end it removes the graphs it added and restores the transforms it changed and removes the entities it added.
     - It writes a JSON report to `artifacts/evaluation/blueprint-files/<timestamp>.json` with the app commit, the session ID, and the result of each check.
 R15. A live macOS check covers what the runner cannot: the dialogs, the Import and Export controls, the `Missing` display, physical WASD after an import, and the `drift` motion in the OBS output when OBS runs.
 
@@ -108,5 +108,5 @@ Use `@oshi-connect/ui` controls and lucide icons. Keep UI copy to the strings in
 - Do not enable an imported graph that has a missing reference.
 - Do not read a file above 1 MiB into memory.
 - Do not add a host method for import or export. Use `blueprintEdit` and `blueprintInspect`.
-- The evaluation runner must not replace the scene, must not run on a scene other than `scene_smoke`, and must remove what it added.
+- The evaluation runner must not replace the scene, must not run on a scene other than `scene_smoke` or on a scene with Blueprints, and must remove what it added.
 - Do not commit Warudo content to the repository.

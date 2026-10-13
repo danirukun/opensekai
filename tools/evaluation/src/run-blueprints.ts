@@ -3,7 +3,7 @@ import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { connectClient } from '@opensekai/browser-client';
-import { ConnectionDescriptorSchema, exportBlueprint, importBlueprint, serializeBlueprintFile, type AppApi, type BlueprintGraph, type BlueprintImport, type Reply, type SceneView, type Vec3 } from '@opensekai/contracts';
+import { ConnectionDescriptorSchema, makeSmokeScene, exportBlueprint, importBlueprint, serializeBlueprintFile, type AppApi, type BlueprintGraph, type BlueprintImport, type Reply, type SceneEntity, type SceneView, type Vec3 } from '@opensekai/contracts';
 
 export interface BlueprintCheck { name: string; ok: boolean; detail: string }
 export interface BlueprintEvalPorts { sleep(ms: number): Promise<void>; newId(): string }
@@ -15,7 +15,22 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 export async function evaluateBlueprintFiles(api: AppApi, files: ReadonlyMap<string, string>, ports: BlueprintEvalPorts): Promise<BlueprintCheck[]> {
  const first = await api.sceneInspect({ sceneId: SCENE });
  if (!first.ok) throw new Error('Open the smoke scene first');
- const original = structuredClone(first.data.entities.find(e => e.id === 'reference')!.transform);
+ const existing = unwrap(await api.blueprintInspect({}), 'blueprintInspect');
+ if (existing.kind !== 'snapshot' || existing.blueprints.length > 0) throw new Error('Remove the Blueprints first');
+ const smoke = makeSmokeScene().entities;
+ const wanted = ['reference', 'performer', 'camera_wide', 'camera_close'].map(id => {
+  const entity = structuredClone(smoke.find(e => e.id === id)!);
+  return entity.kind === 'mesh' ? { ...entity, source: { kind: 'box' } } : entity.kind === 'avatar' ? { ...entity, assetId: null } : entity;
+ }) as SceneEntity[];
+ for (const entity of wanted) {
+  const found = first.data.entities.find(e => e.id === entity.id);
+  if (found && found.kind !== entity.kind) throw new Error(`Smoke entity ${entity.id} has another kind`);
+ }
+ const missing = wanted.filter(entity => !first.data.entities.some(e => e.id === entity.id));
+ const hadReference = first.data.entities.some(e => e.id === 'reference');
+ const original = hadReference ? structuredClone(first.data.entities.find(e => e.id === 'reference')!.transform) : null;
+ if (missing.length)
+  unwrap(await api.scenePatch({ sceneId: SCENE, expectedRevision: first.data.revision, operations: missing.map(entity => ({ kind: 'createEntity', entity })) } as never), 'create smoke entities');
  const added: string[] = [], checks: BlueprintCheck[] = [];
  const scene = async () => unwrap(await api.sceneInspect({ sceneId: SCENE }), 'sceneInspect');
  const position = async (id: string) => (await scene()).entities.find(e => e.id === id)!.transform.position;
@@ -42,6 +57,7 @@ export async function evaluateBlueprintFiles(api: AppApi, files: ReadonlyMap<str
  const check = async (name: string, run: () => Promise<string | null>) => {
   try { const failure = await run(); checks.push({ name, ok: failure === null, detail: failure ?? 'ok' }); }
   catch (error) { checks.push({ name, ok: false, detail: error instanceof Error ? error.message : String(error) }); }
+  finally { for (const id of [...added]) await unload(id).catch(() => {}); }
  };
  const expectCode = (name: string, code: string) => check(`rejects ${name}`, async () => {
   const result = importBlueprint(text(name), await scene(), ports.newId);
@@ -60,7 +76,6 @@ export async function evaluateBlueprintFiles(api: AppApi, files: ReadonlyMap<str
    const { graph } = await load('nudge');
    if (!(await roundTrip('nudge', graph.id))) return 'export differs';
    const failure = await runNudge(graph.id);
-   await unload(graph.id);
    return failure;
   });
   await check('drift', async () => {
@@ -74,40 +89,41 @@ export async function evaluateBlueprintFiles(api: AppApi, files: ReadonlyMap<str
    await edit([{ kind: 'updateGraph', graphId: graph.id, enabled: false }]);
    await ports.sleep(600);
    const [x, y, z] = await position('reference');
-   await unload(graph.id);
    return x - from[0] > 0.2 && y === from[1] && z === from[2] ? null : `moved from ${JSON.stringify(from)} to ${JSON.stringify([x, y, z])}`;
   });
   await check('wasd', async () => {
    const { graph, edit: result } = await load('wasd');
    const ok = await roundTrip('wasd', graph.id) && same([...(result.heldKeys ?? [])].sort(), ['KeyA', 'KeyD', 'KeyS', 'KeyW']);
-   await unload(graph.id);
    return ok ? null : `heldKeys ${JSON.stringify(result.heldKeys)}`;
   });
   for (const [name, accelerator] of [['camera-flip', 'Control+Alt+KeyH'], ['counter', 'Control+Alt+KeyJ']] as const)
    await check(name, async () => {
     const { graph, edit: result } = await load(name);
     const ok = await roundTrip(name, graph.id) && result.keystrokes.includes(accelerator);
-    await unload(graph.id);
     return ok ? null : `keystrokes ${JSON.stringify(result.keystrokes)}`;
    });
   await check('renamed-ids', async () => {
    const { graph, report } = await load('renamed-ids');
    if (!same(report.remapped, [{ name: 'reference', kind: 'mesh', from: 'old-reference', to: 'reference' }])) return `remapped ${JSON.stringify(report.remapped)}`;
    const failure = await runNudge(graph.id);
-   await unload(graph.id);
    return failure;
   });
   await check('missing-ref', async () => {
    const { graph, report } = await load('missing-ref');
    const ok = !(await stored(graph.id)).enabled && same(report.missing.map(item => item.name), ['Ghost']);
-   await unload(graph.id);
    return ok ? null : `report ${JSON.stringify(report)}`;
   });
  } finally {
   for (const id of [...added]) await unload(id).catch(() => {});
-  const now = await scene();
-  if (!same(now.entities.find(e => e.id === 'reference')!.transform, original))
-   unwrap(await api.scenePatch({ sceneId: SCENE, expectedRevision: now.revision, operations: [{ kind: 'setTransform', entityId: 'reference', transform: original }] } as never), 'restore reference');
+  try {
+   const now = await scene();
+   if (original && !same(now.entities.find(e => e.id === 'reference')!.transform, original))
+    unwrap(await api.scenePatch({ sceneId: SCENE, expectedRevision: now.revision, operations: [{ kind: 'setTransform', entityId: 'reference', transform: original }] } as never), 'restore reference');
+   if (missing.length) {
+    const latest = await scene();
+    unwrap(await api.scenePatch({ sceneId: SCENE, expectedRevision: latest.revision, operations: missing.map(entity => ({ kind: 'removeEntity', entityId: entity.id })) } as never), 'remove smoke entities');
+   }
+  } catch (error) { checks.push({ name: 'cleanup', ok: false, detail: error instanceof Error ? error.message : String(error) }); }
  }
  return checks;
 }
