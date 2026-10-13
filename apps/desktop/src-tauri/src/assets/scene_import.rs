@@ -55,7 +55,7 @@ fn named(message: &str, reference: &str) -> AppError {
 }
 
 trait SceneSource {
-    fn read(&mut self, relative: &str) -> Result<Vec<u8>, AppError>;
+    fn read(&mut self, relative: &str, max: u64) -> Result<Vec<u8>, AppError>;
 }
 
 fn normalize(relative: &str) -> Result<String, AppError> {
@@ -94,10 +94,9 @@ fn read_bounded(reader: impl Read, max: u64) -> Result<Vec<u8>, AppError> {
 
 struct FolderSource {
     root: PathBuf,
-    max: u64,
 }
 impl SceneSource for FolderSource {
-    fn read(&mut self, relative: &str) -> Result<Vec<u8>, AppError> {
+    fn read(&mut self, relative: &str, max: u64) -> Result<Vec<u8>, AppError> {
         let relative = normalize(relative)?;
         let path = self
             .root
@@ -111,14 +110,13 @@ impl SceneSource for FolderSource {
             return Err(named("Missing file", &relative));
         }
         let file = std::fs::File::open(&path).map_err(|_| named("Missing file", &relative))?;
-        read_bounded(file, self.max)
+        read_bounded(file, max)
     }
 }
 
 struct ZipSource {
     archive: zip::ZipArchive<std::fs::File>,
     base: String,
-    max: u64,
 }
 impl ZipSource {
     fn open(path: &Path, limits: Limits) -> Result<(Self, String), AppError> {
@@ -156,19 +154,21 @@ impl ZipSource {
             .rsplit_once('/')
             .map(|(folder, _)| format!("{folder}/"))
             .unwrap_or_default();
-        Ok((Self { archive, base, max: limits.max_glb }, root))
+        Ok((Self { archive, base }, root))
     }
-    fn entry(&mut self, name: &str) -> Result<Vec<u8>, AppError> {
-        let max = self.max;
-        let entry = self.archive.by_name(name).map_err(|_| named("Missing file", name))?;
+    fn entry(&mut self, name: &str, max: u64) -> Result<Vec<u8>, AppError> {
+        let entry = self.archive.by_name(name).map_err(|error| match error {
+            zip::result::ZipError::FileNotFound => named("Missing file", name),
+            _ => invalid("Invalid zip archive"),
+        })?;
         read_bounded(entry, max)
     }
 }
 impl SceneSource for ZipSource {
-    fn read(&mut self, relative: &str) -> Result<Vec<u8>, AppError> {
+    fn read(&mut self, relative: &str, max: u64) -> Result<Vec<u8>, AppError> {
         let relative = normalize(relative)?;
         let name = format!("{}{relative}", self.base);
-        self.entry(&name).map_err(|_| named("Missing file", &relative))
+        self.entry(&name, max)
     }
 }
 
@@ -178,8 +178,9 @@ pub fn pack_scene(path: &Path, limits: Limits) -> Result<PackedScene, AppError> 
     match extension.as_deref() {
         Some("zip") => {
             let (mut source, root) = ZipSource::open(path, limits)?;
-            let bytes = source.entry(&root)?;
             let binary = root.to_ascii_lowercase().ends_with(".glb");
+            let max = if binary { limits.max_glb } else { limits.max_json as u64 };
+            let bytes = source.entry(&root, max)?;
             pack_root(&bytes, binary, &mut source, limits, stem(Path::new(&root)))
         }
         Some(kind @ ("glb" | "gltf")) => {
@@ -188,7 +189,7 @@ pub fn pack_scene(path: &Path, limits: Limits) -> Result<PackedScene, AppError> 
             let max = if kind == "glb" { limits.max_glb } else { limits.max_json as u64 };
             let file = std::fs::File::open(path).map_err(|_| invalid("File unavailable"))?;
             let bytes = read_bounded(file, max)?;
-            let mut source = FolderSource { root, max: limits.max_glb };
+            let mut source = FolderSource { root };
             pack_root(&bytes, kind == "glb", &mut source, limits, stem(path))
         }
         _ => Err(invalid("Choose a .glb, .gltf, or .zip file")),
@@ -203,16 +204,17 @@ fn pack_root(
     stem: String,
 ) -> Result<PackedScene, AppError> {
     let (json, bin) = if binary {
-        split_glb(bytes)?
+        split_glb(bytes, limits.max_json)?
     } else {
         (serde_json::from_slice(bytes).map_err(|_| invalid("Invalid glTF JSON"))?, None)
     };
     let credits = read_credits(&json);
-    let glb = pack(json, bin, source, limits)?;
+    let budget = Budget(limits.max_glb.saturating_sub(bytes.len() as u64));
+    let glb = pack(json, bin, source, limits, budget)?;
     Ok(PackedScene { glb, credits, stem })
 }
 
-fn split_glb(bytes: &[u8]) -> Result<(Value, Option<Vec<u8>>), AppError> {
+fn split_glb(bytes: &[u8], max_json: usize) -> Result<(Value, Option<Vec<u8>>), AppError> {
     let word = |offset: usize| -> Result<u32, AppError> {
         bytes
             .get(offset..offset + 4)
@@ -229,6 +231,9 @@ fn split_glb(bytes: &[u8]) -> Result<(Value, Option<Vec<u8>>), AppError> {
         .checked_add(word(12)? as usize)
         .filter(|end| *end <= bytes.len())
         .ok_or_else(|| invalid("Invalid GLB JSON"))?;
+    if json_end - 20 > max_json {
+        return Err(invalid("GLB JSON exceeds budget"));
+    }
     let json = serde_json::from_slice(&bytes[20..json_end]).map_err(|_| invalid("Invalid GLB JSON"))?;
     let bin = if json_end + 8 <= bytes.len() {
         if word(json_end + 4)? != BIN_CHUNK {
@@ -246,11 +251,31 @@ fn split_glb(bytes: &[u8]) -> Result<(Value, Option<Vec<u8>>), AppError> {
     Ok((json, bin))
 }
 
-fn resolve(uri: &str, source: &mut dyn SceneSource) -> Result<Vec<u8>, AppError> {
+struct Budget(u64);
+impl Budget {
+    fn spend(&mut self, bytes: usize) -> Result<(), AppError> {
+        self.0 = self
+            .0
+            .checked_sub(bytes as u64)
+            .ok_or_else(|| invalid("Scene exceeds import budget"))?;
+        Ok(())
+    }
+}
+
+fn resolve(uri: &str, source: &mut dyn SceneSource, budget: &mut Budget) -> Result<Vec<u8>, AppError> {
+    let bytes = resolve_uncounted(uri, source, budget.0)?;
+    budget.spend(bytes.len())?;
+    Ok(bytes)
+}
+
+fn resolve_uncounted(uri: &str, source: &mut dyn SceneSource, max: u64) -> Result<Vec<u8>, AppError> {
     if let Some(rest) = uri.strip_prefix("data:") {
         let (_, payload) = rest
             .split_once(";base64,")
             .ok_or_else(|| named("Unsupported data URI", "data:"))?;
+        if (payload.len() as u64 / 4 * 3) > max.saturating_add(3) {
+            return Err(invalid("Scene exceeds import budget"));
+        }
         return STANDARD.decode(payload).map_err(|_| named("Invalid data URI", "data:"));
     }
     if let Some(colon) = uri.find(':') {
@@ -261,7 +286,7 @@ fn resolve(uri: &str, source: &mut dyn SceneSource) -> Result<Vec<u8>, AppError>
     let decoded = percent_decode_str(uri)
         .decode_utf8()
         .map_err(|_| named("Invalid file reference", uri))?;
-    source.read(&decoded)
+    source.read(&decoded, max)
 }
 
 fn image_mime(bytes: &[u8]) -> Option<&'static str> {
@@ -276,13 +301,14 @@ fn image_mime(bytes: &[u8]) -> Option<&'static str> {
     }
 }
 
-fn append(bin: &mut Vec<u8>, data: &[u8]) -> usize {
-    while !bin.len().is_multiple_of(4) {
-        bin.push(0);
+fn append(bin: &mut Vec<u8>, data: &[u8], max: u64) -> Result<usize, AppError> {
+    let offset = bin.len().next_multiple_of(4);
+    if (offset as u64).saturating_add(data.len() as u64) > max {
+        return Err(invalid("Scene exceeds import budget"));
     }
-    let offset = bin.len();
+    bin.resize(offset, 0);
     bin.extend_from_slice(data);
-    offset
+    Ok(offset)
 }
 
 fn pack(
@@ -290,6 +316,7 @@ fn pack(
     glb_bin: Option<Vec<u8>>,
     source: &mut dyn SceneSource,
     limits: Limits,
+    mut budget: Budget,
 ) -> Result<Vec<u8>, AppError> {
     if !json.is_object() || json.pointer("/asset/version").and_then(Value::as_str) != Some("2.0") {
         return Err(invalid("Unsupported glTF version"));
@@ -304,7 +331,7 @@ fn pack(
     let mut sources = Vec::new();
     for (index, buffer) in json.get("buffers").and_then(Value::as_array).into_iter().flatten().enumerate() {
         let bytes = match buffer.get("uri").and_then(Value::as_str) {
-            Some(uri) => resolve(uri, source)?,
+            Some(uri) => resolve(uri, source, &mut budget)?,
             None if index == 0 => glb_bin.take().ok_or_else(|| invalid("Missing GLB binary chunk"))?,
             None => return Err(invalid("Buffer has no data")),
         };
@@ -326,7 +353,7 @@ fn pack(
             .get(buffer)
             .and_then(|b| b.get(offset..offset.checked_add(length)?))
             .ok_or_else(|| invalid("Buffer view outside its buffer"))?;
-        let at = append(&mut bin, data);
+        let at = append(&mut bin, data, limits.max_glb)?;
         view["buffer"] = json!(0);
         view["byteOffset"] = json!(at);
     }
@@ -336,9 +363,9 @@ fn pack(
     for image in &mut images {
         let object = image.as_object_mut().ok_or_else(|| invalid("Invalid image"))?;
         if let Some(uri) = object.get("uri").and_then(Value::as_str).map(str::to_owned) {
-            let bytes = resolve(&uri, source)?;
+            let bytes = resolve(&uri, source, &mut budget)?;
             let mime = image_mime(&bytes).ok_or_else(|| named("Unsupported image type", &uri))?;
-            let at = append(&mut bin, &bytes);
+            let at = append(&mut bin, &bytes, limits.max_glb)?;
             views.push(json!({"buffer": 0, "byteOffset": at, "byteLength": bytes.len()}));
             object.remove("uri");
             object.insert("bufferView".into(), json!(views.len() - 1));
@@ -350,7 +377,9 @@ fn pack(
                 .and_then(|index| views.get(index as usize))
                 .ok_or_else(|| invalid("Image has no data"))?;
             let start = view["byteOffset"].as_u64().unwrap_or(0) as usize;
-            let end = start + view["byteLength"].as_u64().unwrap_or(0) as usize;
+            let end = start
+                .checked_add(view["byteLength"].as_u64().unwrap_or(0) as usize)
+                .ok_or_else(|| invalid("Image has no data"))?;
             let mime = bin.get(start..end).and_then(image_mime).ok_or_else(|| invalid("Unsupported image type"))?;
             object.insert("mimeType".into(), json!(mime));
         }
@@ -479,7 +508,7 @@ mod tests {
         path
     }
     fn json_of(glb: &[u8]) -> Value {
-        split_glb(glb).unwrap().0
+        split_glb(glb, usize::MAX).unwrap().0
     }
     fn has_uri(value: &Value) -> bool {
         match value {
@@ -620,6 +649,49 @@ mod tests {
     fn rejects_output_over_budget() {
         let dir = folder(&room("a.png"), &[("a.png", PNG)]);
         assert!(message(pack_scene(&dir.path().join("scene.gltf"), Limits { max_glb: 64, ..Limits::DEFAULT })).contains("exceeds import budget"));
+    }
+    #[test]
+    fn rejects_repeated_references_over_budget() {
+        let mut json = room("a.png");
+        json["images"] = json!((0..50).map(|_| json!({"uri": "a.png"})).collect::<Vec<_>>());
+        let dir = folder(&json, &[("a.png", &[PNG, &[0u8; 400]].concat())]);
+        let limits = Limits { max_glb: 4096, ..Limits::DEFAULT };
+        assert!(message(pack_scene(&dir.path().join("scene.gltf"), limits)).contains("exceeds import budget"));
+    }
+    #[test]
+    fn rejects_overlapping_buffer_views_over_budget() {
+        let mut json = room("a.png");
+        json["buffers"][0]["byteLength"] = json!(1000);
+        json["bufferViews"] = json!((0..50).map(|_| json!({"buffer": 0, "byteOffset": 0, "byteLength": 1000})).collect::<Vec<_>>());
+        let dir = folder(&json, &[("a.png", PNG)]);
+        std::fs::write(dir.path().join("scene.bin"), [1u8; 1000]).unwrap();
+        let limits = Limits { max_glb: 4096, ..Limits::DEFAULT };
+        assert!(message(pack_scene(&dir.path().join("scene.gltf"), limits)).contains("exceeds import budget"));
+    }
+    #[test]
+    fn rejects_zip_entry_larger_than_remaining_budget() {
+        let json = serde_json::to_vec(&room("a.png")).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let zip = zip_file(dir.path(), &[("scene.gltf", json), ("scene.bin", vec![1; 8]), ("a.png", [PNG, &vec![0u8; 1 << 20]].concat())]);
+        let limits = Limits { max_glb: 4096, ..Limits::DEFAULT };
+        assert!(message(pack_scene(&zip, limits)).contains("exceeds import budget"));
+    }
+    #[test]
+    fn rejects_glb_json_over_budget() {
+        let dir = folder(&room("a.png"), &[("a.png", PNG)]);
+        let mut json = room("a.png");
+        json["buffers"][0].as_object_mut().unwrap().remove("uri");
+        let mut text = serde_json::to_vec(&json).unwrap();
+        while !text.len().is_multiple_of(4) { text.push(b' '); }
+        let mut glb = b"glTF".to_vec();
+        glb.extend(2u32.to_le_bytes());
+        glb.extend(((12 + 8 + text.len()) as u32).to_le_bytes());
+        glb.extend((text.len() as u32).to_le_bytes());
+        glb.extend(0x4e4f534au32.to_le_bytes());
+        glb.extend(&text);
+        std::fs::write(dir.path().join("room.glb"), glb).unwrap();
+        let limits = Limits { max_json: 64, ..Limits::DEFAULT };
+        assert!(message(pack_scene(&dir.path().join("room.glb"), limits)).contains("GLB JSON exceeds budget"));
     }
     #[test]
     fn strips_file_lights() {
