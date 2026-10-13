@@ -1,12 +1,12 @@
-import { exportBlueprint, keystrokeAccelerator, makeSmokeScene, serializeBlueprintFile, type BlueprintFile, type BlueprintGraph, type KeystrokeSettings, type SceneView } from '../src';
+import { BlueprintGraphSchema, exportBlueprint, keystrokeAccelerator, makeSmokeScene, serializeBlueprintFile, type BlueprintFile, type BlueprintGraph, type KeystrokeSettings, type SceneView } from '../src';
 
 const at = (x: number, y: number) => ({ x, y });
-const node = (id: string, type: string, settings: object, x = 0, y = 0) => ({ id, version: 1, type, settings, position: at(x, y) });
+const node = (id: string, type: string, settings: object, x = 0, y = 0) => ({ id, version: 1, position: at(x, y), type, settings });
 const num = (id: string, value: number, x = 0, y = 0) => node(id, 'value.number', { value }, x, y);
 const wire = (sourceNodeId: string, sourcePort: string, targetNodeId: string, targetPort: string) =>
  ({ id: `${sourceNodeId}.${sourcePort}-${targetNodeId}.${targetPort}`, sourceNodeId, sourcePort, targetNodeId, targetPort });
 const graph = (file: string, name: string, nodes: unknown[], connections: unknown[], variables: unknown[] = []): BlueprintGraph =>
- ({ schemaVersion: 1, id: `fixture-${file}`, name, enabled: true, nodes, connections, variables } as BlueprintGraph);
+ BlueprintGraphSchema.parse({ schemaVersion: 1, id: `fixture-${file}`, name, enabled: true, nodes, connections, variables });
 export const hotkey = (code: string): KeystrokeSettings => ({ code, control: true, alt: true, shift: false, meta: false } as KeystrokeSettings);
 export const accelerator = (code: string) => keystrokeAccelerator(hotkey(code));
 const renamed = (scene: SceneView, id: string, next: { id?: string; name?: string }): SceneView =>

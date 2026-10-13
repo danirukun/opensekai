@@ -10,70 +10,70 @@
       {
         "id": "run",
         "version": 1,
-        "type": "event.manual",
-        "settings": {},
         "position": {
           "x": 0,
           "y": 0
-        }
+        },
+        "type": "event.manual",
+        "settings": {}
       },
       {
         "id": "x",
         "version": 1,
-        "type": "value.number",
-        "settings": {
-          "value": 0.2
-        },
         "position": {
           "x": 0,
           "y": 120
+        },
+        "type": "value.number",
+        "settings": {
+          "value": 0.2
         }
       },
       {
         "id": "y",
         "version": 1,
-        "type": "value.number",
-        "settings": {
-          "value": 1.1
-        },
         "position": {
           "x": 0,
           "y": 200
+        },
+        "type": "value.number",
+        "settings": {
+          "value": 1.1
         }
       },
       {
         "id": "z",
         "version": 1,
-        "type": "value.number",
-        "settings": {
-          "value": -0.5
-        },
         "position": {
           "x": 0,
           "y": 280
+        },
+        "type": "value.number",
+        "settings": {
+          "value": -0.5
         }
       },
       {
         "id": "make",
         "version": 1,
-        "type": "vector3.make",
-        "settings": {},
         "position": {
           "x": 240,
           "y": 160
-        }
+        },
+        "type": "vector3.make",
+        "settings": {}
       },
       {
         "id": "set",
         "version": 1,
+        "position": {
+          "x": 480,
+          "y": 0
+        },
         "type": "property.set",
         "settings": {
           "entityId": "reference",
           "property": "position"
-        },
-        "position": {
-          "x": 480,
-          "y": 0
         }
       }
     ],

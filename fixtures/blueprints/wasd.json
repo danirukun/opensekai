@@ -10,104 +10,104 @@
       {
         "id": "tick",
         "version": 1,
-        "type": "event.update",
-        "settings": {},
         "position": {
           "x": 0,
           "y": 0
-        }
+        },
+        "type": "event.update",
+        "settings": {}
       },
       {
         "id": "ax",
         "version": 1,
+        "position": {
+          "x": 0,
+          "y": 120
+        },
         "type": "input.keyAxis",
         "settings": {
           "negative": "KeyD",
           "positive": "KeyA"
-        },
-        "position": {
-          "x": 0,
-          "y": 120
         }
       },
       {
         "id": "az",
         "version": 1,
+        "position": {
+          "x": 0,
+          "y": 200
+        },
         "type": "input.keyAxis",
         "settings": {
           "negative": "KeyS",
           "positive": "KeyW"
-        },
-        "position": {
-          "x": 0,
-          "y": 200
         }
       },
       {
         "id": "zero",
         "version": 1,
-        "type": "value.number",
-        "settings": {
-          "value": 0
-        },
         "position": {
           "x": 0,
           "y": 280
+        },
+        "type": "value.number",
+        "settings": {
+          "value": 0
         }
       },
       {
         "id": "speed",
         "version": 1,
-        "type": "value.number",
-        "settings": {
-          "value": 1.5
-        },
         "position": {
           "x": 0,
           "y": 360
+        },
+        "type": "value.number",
+        "settings": {
+          "value": 1.5
         }
       },
       {
         "id": "dir",
         "version": 1,
-        "type": "vector3.make",
-        "settings": {},
         "position": {
           "x": 240,
           "y": 160
-        }
+        },
+        "type": "vector3.make",
+        "settings": {}
       },
       {
         "id": "rate",
         "version": 1,
-        "type": "math.multiply",
-        "settings": {},
         "position": {
           "x": 240,
           "y": 320
-        }
+        },
+        "type": "math.multiply",
+        "settings": {}
       },
       {
         "id": "step",
         "version": 1,
-        "type": "vector3.scale",
-        "settings": {},
         "position": {
           "x": 480,
           "y": 200
-        }
+        },
+        "type": "vector3.scale",
+        "settings": {}
       },
       {
         "id": "move",
         "version": 1,
+        "position": {
+          "x": 720,
+          "y": 0
+        },
         "type": "entity.move",
         "settings": {
           "entityId": "performer",
           "space": "local"
-        },
-        "position": {
-          "x": 720,
-          "y": 0
         }
       }
     ],

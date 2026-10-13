@@ -10,24 +10,24 @@
       {
         "id": "run",
         "version": 1,
-        "type": "event.manual",
-        "settings": {},
         "position": {
           "x": 0,
           "y": 0
-        }
+        },
+        "type": "event.manual",
+        "settings": {}
       },
       {
         "id": "cut",
         "version": 1,
+        "position": {
+          "x": 240,
+          "y": 0
+        },
         "type": "camera.switch",
         "settings": {
           "outputId": "preview_main",
           "cameraId": "old-camera"
-        },
-        "position": {
-          "x": 240,
-          "y": 0
         }
       }
     ],

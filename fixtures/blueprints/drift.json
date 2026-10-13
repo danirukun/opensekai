@@ -10,68 +10,68 @@
       {
         "id": "tick",
         "version": 1,
-        "type": "event.update",
-        "settings": {},
         "position": {
           "x": 0,
           "y": 0
-        }
+        },
+        "type": "event.update",
+        "settings": {}
       },
       {
         "id": "speed",
         "version": 1,
-        "type": "value.number",
-        "settings": {
-          "value": 0.5
-        },
         "position": {
           "x": 0,
           "y": 120
+        },
+        "type": "value.number",
+        "settings": {
+          "value": 0.5
         }
       },
       {
         "id": "zero",
         "version": 1,
-        "type": "value.number",
-        "settings": {
-          "value": 0
-        },
         "position": {
           "x": 0,
           "y": 200
+        },
+        "type": "value.number",
+        "settings": {
+          "value": 0
         }
       },
       {
         "id": "make",
         "version": 1,
-        "type": "vector3.make",
-        "settings": {},
         "position": {
           "x": 240,
           "y": 120
-        }
+        },
+        "type": "vector3.make",
+        "settings": {}
       },
       {
         "id": "scale",
         "version": 1,
-        "type": "vector3.scale",
-        "settings": {},
         "position": {
           "x": 480,
           "y": 120
-        }
+        },
+        "type": "vector3.scale",
+        "settings": {}
       },
       {
         "id": "move",
         "version": 1,
+        "position": {
+          "x": 720,
+          "y": 0
+        },
         "type": "entity.move",
         "settings": {
           "entityId": "reference",
           "space": "world"
-        },
-        "position": {
-          "x": 720,
-          "y": 0
         }
       }
     ],

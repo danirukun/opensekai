@@ -10,23 +10,23 @@
       {
         "id": "run",
         "version": 1,
-        "type": "event.manual",
-        "settings": {},
         "position": {
           "x": 0,
           "y": 0
-        }
+        },
+        "type": "event.manual",
+        "settings": {}
       },
       {
         "id": "hide",
         "version": 1,
-        "type": "scene.toggleVisibility",
-        "settings": {
-          "entityId": "ghost"
-        },
         "position": {
           "x": 240,
           "y": 0
+        },
+        "type": "scene.toggleVisibility",
+        "settings": {
+          "entityId": "ghost"
         }
       }
     ],

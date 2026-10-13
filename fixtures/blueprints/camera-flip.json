@@ -10,6 +10,10 @@
       {
         "id": "key",
         "version": 1,
+        "position": {
+          "x": 0,
+          "y": 0
+        },
         "type": "event.keystroke",
         "settings": {
           "code": "KeyH",
@@ -17,46 +21,42 @@
           "alt": true,
           "shift": false,
           "meta": false
-        },
-        "position": {
-          "x": 0,
-          "y": 0
         }
       },
       {
         "id": "flip",
         "version": 1,
-        "type": "flow.flipFlop",
-        "settings": {},
         "position": {
           "x": 240,
           "y": 0
-        }
+        },
+        "type": "flow.flipFlop",
+        "settings": {}
       },
       {
         "id": "close",
         "version": 1,
+        "position": {
+          "x": 480,
+          "y": 0
+        },
         "type": "camera.switch",
         "settings": {
           "outputId": "preview_main",
           "cameraId": "camera_close"
-        },
-        "position": {
-          "x": 480,
-          "y": 0
         }
       },
       {
         "id": "wide",
         "version": 1,
+        "position": {
+          "x": 480,
+          "y": 120
+        },
         "type": "camera.switch",
         "settings": {
           "outputId": "preview_main",
           "cameraId": "camera_wide"
-        },
-        "position": {
-          "x": 480,
-          "y": 120
         }
       }
     ],

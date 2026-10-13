@@ -10,6 +10,10 @@
       {
         "id": "key",
         "version": 1,
+        "position": {
+          "x": 0,
+          "y": 0
+        },
         "type": "event.keystroke",
         "settings": {
           "code": "KeyJ",
@@ -17,87 +21,83 @@
           "alt": true,
           "shift": false,
           "meta": false
-        },
-        "position": {
-          "x": 0,
-          "y": 0
         }
       },
       {
         "id": "one",
         "version": 1,
-        "type": "value.number",
-        "settings": {
-          "value": 1
-        },
         "position": {
           "x": 0,
           "y": 120
+        },
+        "type": "value.number",
+        "settings": {
+          "value": 1
         }
       },
       {
         "id": "add",
         "version": 1,
-        "type": "variable.addNumber",
-        "settings": {
-          "variableId": "count"
-        },
         "position": {
           "x": 240,
           "y": 0
+        },
+        "type": "variable.addNumber",
+        "settings": {
+          "variableId": "count"
         }
       },
       {
         "id": "get",
         "version": 1,
-        "type": "variable.getNumber",
-        "settings": {
-          "variableId": "count"
-        },
         "position": {
           "x": 240,
           "y": 120
+        },
+        "type": "variable.getNumber",
+        "settings": {
+          "variableId": "count"
         }
       },
       {
         "id": "pick",
         "version": 1,
+        "position": {
+          "x": 480,
+          "y": 0
+        },
         "type": "flow.switch",
         "settings": {
           "cases": [
             1,
             2
           ]
-        },
-        "position": {
-          "x": 480,
-          "y": 0
         }
       },
       {
         "id": "close",
         "version": 1,
+        "position": {
+          "x": 720,
+          "y": 0
+        },
         "type": "camera.switch",
         "settings": {
           "outputId": "preview_main",
           "cameraId": "camera_close"
-        },
-        "position": {
-          "x": 720,
-          "y": 0
         }
       },
       {
         "id": "wide",
         "version": 1,
+        "position": {
+          "x": 720,
+          "y": 120
+        },
         "type": "camera.switch",
         "settings": {
           "outputId": "preview_main",
           "cameraId": "camera_wide"
-        },
-        "position": {
-          "x": 720,
-          "y": 120
         }
       }
     ],

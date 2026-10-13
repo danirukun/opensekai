@@ -11,7 +11,6 @@ const SCENE = 'scene_smoke', NUDGE: Vec3 = [0.2, 1.1, -0.5];
 
 const unwrap = <T>(reply: Reply<T>, what: string): T => { if (!reply.ok) throw new Error(`${what}: ${reply.error.code} ${reply.error.message}`); return reply.data; };
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
-const sorted = (value: unknown): unknown => Array.isArray(value) ? value.map(sorted) : value && typeof value === 'object' ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a < b ? -1 : 1).map(([key, item]) => [key, sorted(item)])) : value;
 
 export async function evaluateBlueprintFiles(api: AppApi, files: ReadonlyMap<string, string>, ports: BlueprintEvalPorts): Promise<BlueprintCheck[]> {
  const first = await api.sceneInspect({ sceneId: SCENE });
@@ -38,7 +37,7 @@ export async function evaluateBlueprintFiles(api: AppApi, files: ReadonlyMap<str
  // Export of the stored graph gives the fixture back, except the new graph ID.
  const roundTrip = async (name: string, id: string) => {
   const file = JSON.parse(text(name));
-  return same(sorted(JSON.parse(serializeBlueprintFile(exportBlueprint(await stored(id), await scene())))), sorted({ ...file, graph: { ...file.graph, id } }));
+  return serializeBlueprintFile(exportBlueprint(await stored(id), await scene())) === serializeBlueprintFile({ ...file, graph: { ...file.graph, id } });
  };
  const check = async (name: string, run: () => Promise<string | null>) => {
   try { const failure = await run(); checks.push({ name, ok: failure === null, detail: failure ?? 'ok' }); }
