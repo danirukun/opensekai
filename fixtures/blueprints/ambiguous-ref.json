@@ -1,0 +1,57 @@
+{
+  "format": "opensekai.blueprint",
+  "formatVersion": 1,
+  "graph": {
+    "schemaVersion": 1,
+    "id": "fixture-ambiguous-ref",
+    "name": "Ambiguous Reference",
+    "enabled": true,
+    "nodes": [
+      {
+        "id": "run",
+        "version": 1,
+        "type": "event.manual",
+        "settings": {},
+        "position": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      {
+        "id": "cut",
+        "version": 1,
+        "type": "camera.switch",
+        "settings": {
+          "outputId": "preview_main",
+          "cameraId": "old-camera"
+        },
+        "position": {
+          "x": 240,
+          "y": 0
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "run.flow-cut.flow",
+        "sourceNodeId": "run",
+        "sourcePort": "flow",
+        "targetNodeId": "cut",
+        "targetPort": "flow"
+      }
+    ],
+    "variables": []
+  },
+  "references": [
+    {
+      "id": "preview_main",
+      "kind": "output",
+      "name": "preview_main"
+    },
+    {
+      "id": "old-camera",
+      "kind": "camera",
+      "name": "camera_wide"
+    }
+  ]
+}

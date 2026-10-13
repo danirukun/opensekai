@@ -1,0 +1,136 @@
+{
+  "format": "opensekai.blueprint",
+  "formatVersion": 1,
+  "graph": {
+    "schemaVersion": 1,
+    "id": "fixture-nudge",
+    "name": "Nudge",
+    "enabled": true,
+    "nodes": [
+      {
+        "id": "run",
+        "version": 1,
+        "type": "event.manual",
+        "settings": {},
+        "position": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      {
+        "id": "x",
+        "version": 1,
+        "type": "value.number",
+        "settings": {
+          "value": 0.2
+        },
+        "position": {
+          "x": 0,
+          "y": 120
+        }
+      },
+      {
+        "id": "y",
+        "version": 1,
+        "type": "value.number",
+        "settings": {
+          "value": 1.1
+        },
+        "position": {
+          "x": 0,
+          "y": 200
+        }
+      },
+      {
+        "id": "z",
+        "version": 1,
+        "type": "value.number",
+        "settings": {
+          "value": -0.5
+        },
+        "position": {
+          "x": 0,
+          "y": 280
+        }
+      },
+      {
+        "id": "make",
+        "version": 1,
+        "type": "vector3.make",
+        "settings": {},
+        "position": {
+          "x": 240,
+          "y": 160
+        }
+      },
+      {
+        "id": "set",
+        "version": 1,
+        "type": "property.set",
+        "settings": {
+          "entityId": "reference",
+          "property": "position"
+        },
+        "position": {
+          "x": 480,
+          "y": 0
+        }
+      },
+      {
+        "id": "wave",
+        "version": 1,
+        "type": "character.wave",
+        "settings": {},
+        "position": {
+          "x": 720,
+          "y": 0
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "x.value-make.x",
+        "sourceNodeId": "x",
+        "sourcePort": "value",
+        "targetNodeId": "make",
+        "targetPort": "x"
+      },
+      {
+        "id": "y.value-make.y",
+        "sourceNodeId": "y",
+        "sourcePort": "value",
+        "targetNodeId": "make",
+        "targetPort": "y"
+      },
+      {
+        "id": "z.value-make.z",
+        "sourceNodeId": "z",
+        "sourcePort": "value",
+        "targetNodeId": "make",
+        "targetPort": "z"
+      },
+      {
+        "id": "make.value-set.value",
+        "sourceNodeId": "make",
+        "sourcePort": "value",
+        "targetNodeId": "set",
+        "targetPort": "value"
+      },
+      {
+        "id": "run.flow-set.flow",
+        "sourceNodeId": "run",
+        "sourcePort": "flow",
+        "targetNodeId": "set",
+        "targetPort": "flow"
+      }
+    ],
+    "variables": []
+  },
+  "references": [
+    {
+      "id": "reference",
+      "kind": "mesh",
+      "name": "reference"
+    }
+  ]
+}

@@ -1,0 +1,188 @@
+{
+  "format": "opensekai.blueprint",
+  "formatVersion": 1,
+  "graph": {
+    "schemaVersion": 1,
+    "id": "fixture-wasd",
+    "name": "WASD",
+    "enabled": true,
+    "nodes": [
+      {
+        "id": "tick",
+        "version": 1,
+        "type": "event.update",
+        "settings": {},
+        "position": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      {
+        "id": "ax",
+        "version": 1,
+        "type": "input.keyAxis",
+        "settings": {
+          "negative": "KeyD",
+          "positive": "KeyA"
+        },
+        "position": {
+          "x": 0,
+          "y": 120
+        }
+      },
+      {
+        "id": "az",
+        "version": 1,
+        "type": "input.keyAxis",
+        "settings": {
+          "negative": "KeyS",
+          "positive": "KeyW"
+        },
+        "position": {
+          "x": 0,
+          "y": 200
+        }
+      },
+      {
+        "id": "zero",
+        "version": 1,
+        "type": "value.number",
+        "settings": {
+          "value": 0
+        },
+        "position": {
+          "x": 0,
+          "y": 280
+        }
+      },
+      {
+        "id": "speed",
+        "version": 1,
+        "type": "value.number",
+        "settings": {
+          "value": 1.5
+        },
+        "position": {
+          "x": 0,
+          "y": 360
+        }
+      },
+      {
+        "id": "dir",
+        "version": 1,
+        "type": "vector3.make",
+        "settings": {},
+        "position": {
+          "x": 240,
+          "y": 160
+        }
+      },
+      {
+        "id": "rate",
+        "version": 1,
+        "type": "math.multiply",
+        "settings": {},
+        "position": {
+          "x": 240,
+          "y": 320
+        }
+      },
+      {
+        "id": "step",
+        "version": 1,
+        "type": "vector3.scale",
+        "settings": {},
+        "position": {
+          "x": 480,
+          "y": 200
+        }
+      },
+      {
+        "id": "move",
+        "version": 1,
+        "type": "entity.move",
+        "settings": {
+          "entityId": "performer",
+          "space": "local"
+        },
+        "position": {
+          "x": 720,
+          "y": 0
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "ax.value-dir.x",
+        "sourceNodeId": "ax",
+        "sourcePort": "value",
+        "targetNodeId": "dir",
+        "targetPort": "x"
+      },
+      {
+        "id": "zero.value-dir.y",
+        "sourceNodeId": "zero",
+        "sourcePort": "value",
+        "targetNodeId": "dir",
+        "targetPort": "y"
+      },
+      {
+        "id": "az.value-dir.z",
+        "sourceNodeId": "az",
+        "sourcePort": "value",
+        "targetNodeId": "dir",
+        "targetPort": "z"
+      },
+      {
+        "id": "speed.value-rate.a",
+        "sourceNodeId": "speed",
+        "sourcePort": "value",
+        "targetNodeId": "rate",
+        "targetPort": "a"
+      },
+      {
+        "id": "tick.deltaSeconds-rate.b",
+        "sourceNodeId": "tick",
+        "sourcePort": "deltaSeconds",
+        "targetNodeId": "rate",
+        "targetPort": "b"
+      },
+      {
+        "id": "dir.value-step.value",
+        "sourceNodeId": "dir",
+        "sourcePort": "value",
+        "targetNodeId": "step",
+        "targetPort": "value"
+      },
+      {
+        "id": "rate.result-step.factor",
+        "sourceNodeId": "rate",
+        "sourcePort": "result",
+        "targetNodeId": "step",
+        "targetPort": "factor"
+      },
+      {
+        "id": "step.result-move.delta",
+        "sourceNodeId": "step",
+        "sourcePort": "result",
+        "targetNodeId": "move",
+        "targetPort": "delta"
+      },
+      {
+        "id": "tick.flow-move.flow",
+        "sourceNodeId": "tick",
+        "sourcePort": "flow",
+        "targetNodeId": "move",
+        "targetPort": "flow"
+      }
+    ],
+    "variables": []
+  },
+  "references": [
+    {
+      "id": "performer",
+      "kind": "avatar",
+      "name": "performer"
+    }
+  ]
+}

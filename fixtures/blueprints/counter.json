@@ -1,0 +1,174 @@
+{
+  "format": "opensekai.blueprint",
+  "formatVersion": 1,
+  "graph": {
+    "schemaVersion": 1,
+    "id": "fixture-counter",
+    "name": "Counter",
+    "enabled": true,
+    "nodes": [
+      {
+        "id": "key",
+        "version": 1,
+        "type": "event.keystroke",
+        "settings": {
+          "code": "KeyJ",
+          "control": true,
+          "alt": true,
+          "shift": false,
+          "meta": false
+        },
+        "position": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      {
+        "id": "one",
+        "version": 1,
+        "type": "value.number",
+        "settings": {
+          "value": 1
+        },
+        "position": {
+          "x": 0,
+          "y": 120
+        }
+      },
+      {
+        "id": "add",
+        "version": 1,
+        "type": "variable.addNumber",
+        "settings": {
+          "variableId": "count"
+        },
+        "position": {
+          "x": 240,
+          "y": 0
+        }
+      },
+      {
+        "id": "get",
+        "version": 1,
+        "type": "variable.getNumber",
+        "settings": {
+          "variableId": "count"
+        },
+        "position": {
+          "x": 240,
+          "y": 120
+        }
+      },
+      {
+        "id": "pick",
+        "version": 1,
+        "type": "flow.switch",
+        "settings": {
+          "cases": [
+            1,
+            2
+          ]
+        },
+        "position": {
+          "x": 480,
+          "y": 0
+        }
+      },
+      {
+        "id": "close",
+        "version": 1,
+        "type": "camera.switch",
+        "settings": {
+          "outputId": "preview_main",
+          "cameraId": "camera_close"
+        },
+        "position": {
+          "x": 720,
+          "y": 0
+        }
+      },
+      {
+        "id": "wide",
+        "version": 1,
+        "type": "camera.switch",
+        "settings": {
+          "outputId": "preview_main",
+          "cameraId": "camera_wide"
+        },
+        "position": {
+          "x": 720,
+          "y": 120
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "key.flow-add.flow",
+        "sourceNodeId": "key",
+        "sourcePort": "flow",
+        "targetNodeId": "add",
+        "targetPort": "flow"
+      },
+      {
+        "id": "one.value-add.amount",
+        "sourceNodeId": "one",
+        "sourcePort": "value",
+        "targetNodeId": "add",
+        "targetPort": "amount"
+      },
+      {
+        "id": "add.exit-pick.flow",
+        "sourceNodeId": "add",
+        "sourcePort": "exit",
+        "targetNodeId": "pick",
+        "targetPort": "flow"
+      },
+      {
+        "id": "get.value-pick.value",
+        "sourceNodeId": "get",
+        "sourcePort": "value",
+        "targetNodeId": "pick",
+        "targetPort": "value"
+      },
+      {
+        "id": "pick.case0-close.flow",
+        "sourceNodeId": "pick",
+        "sourcePort": "case0",
+        "targetNodeId": "close",
+        "targetPort": "flow"
+      },
+      {
+        "id": "pick.case1-wide.flow",
+        "sourceNodeId": "pick",
+        "sourcePort": "case1",
+        "targetNodeId": "wide",
+        "targetPort": "flow"
+      }
+    ],
+    "variables": [
+      {
+        "id": "count",
+        "name": "Count",
+        "type": "number",
+        "default": 0
+      }
+    ]
+  },
+  "references": [
+    {
+      "id": "preview_main",
+      "kind": "output",
+      "name": "preview_main"
+    },
+    {
+      "id": "camera_close",
+      "kind": "camera",
+      "name": "camera_close"
+    },
+    {
+      "id": "camera_wide",
+      "kind": "camera",
+      "name": "camera_wide"
+    }
+  ]
+}

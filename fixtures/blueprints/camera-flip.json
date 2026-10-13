@@ -1,0 +1,105 @@
+{
+  "format": "opensekai.blueprint",
+  "formatVersion": 1,
+  "graph": {
+    "schemaVersion": 1,
+    "id": "fixture-camera-flip",
+    "name": "Camera Flip",
+    "enabled": true,
+    "nodes": [
+      {
+        "id": "key",
+        "version": 1,
+        "type": "event.keystroke",
+        "settings": {
+          "code": "KeyH",
+          "control": true,
+          "alt": true,
+          "shift": false,
+          "meta": false
+        },
+        "position": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      {
+        "id": "flip",
+        "version": 1,
+        "type": "flow.flipFlop",
+        "settings": {},
+        "position": {
+          "x": 240,
+          "y": 0
+        }
+      },
+      {
+        "id": "close",
+        "version": 1,
+        "type": "camera.switch",
+        "settings": {
+          "outputId": "preview_main",
+          "cameraId": "camera_close"
+        },
+        "position": {
+          "x": 480,
+          "y": 0
+        }
+      },
+      {
+        "id": "wide",
+        "version": 1,
+        "type": "camera.switch",
+        "settings": {
+          "outputId": "preview_main",
+          "cameraId": "camera_wide"
+        },
+        "position": {
+          "x": 480,
+          "y": 120
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "key.flow-flip.flow",
+        "sourceNodeId": "key",
+        "sourcePort": "flow",
+        "targetNodeId": "flip",
+        "targetPort": "flow"
+      },
+      {
+        "id": "flip.a-close.flow",
+        "sourceNodeId": "flip",
+        "sourcePort": "a",
+        "targetNodeId": "close",
+        "targetPort": "flow"
+      },
+      {
+        "id": "flip.b-wide.flow",
+        "sourceNodeId": "flip",
+        "sourcePort": "b",
+        "targetNodeId": "wide",
+        "targetPort": "flow"
+      }
+    ],
+    "variables": []
+  },
+  "references": [
+    {
+      "id": "preview_main",
+      "kind": "output",
+      "name": "preview_main"
+    },
+    {
+      "id": "camera_close",
+      "kind": "camera",
+      "name": "camera_close"
+    },
+    {
+      "id": "camera_wide",
+      "kind": "camera",
+      "name": "camera_wide"
+    }
+  ]
+}
