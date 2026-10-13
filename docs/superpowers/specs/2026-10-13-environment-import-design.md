@@ -25,8 +25,8 @@ Slice 3 depends on slice 1. Slice 2 is independent of slice 3.
 3. **Pack to one GLB in Rust.** The importer resolves each external buffer and image, embeds it, and writes one self-contained GLB. The asset service, `validate_glb`, and the renderer `inspectContainer` continue to reject external URIs. Thus the trusted load path does not change.
 4. **Editor import only.** A new editor-only command `import_scene` opens a native dialog for `.glb`, `.gltf`, and `.zip`. The frontend cannot send a path. MCP cannot import a file. MCP can set an imported asset on the environment through `scene_patch`.
 5. **Neutral lighting for the environment.** The existing ambient and directional lights stay. Each renderer client makes one neutral prefiltered environment map from three.js `RoomEnvironment` and sets it as `envMap` on the environment materials only. `scene.environment` stays null. The character appearance does not change. Lights from the file (`KHR_lights_punctual`) are not imported; ENV-07 owns light entities.
-6. **Render Environment for each camera.** A camera has an optional `renderEnvironment` flag. Absent means true. A client that draws through a scene camera (OBS output, camera preview) hides the environment when the flag is false. The free editor viewport always draws the environment.
-7. **Credits.** The asset record keeps `credits: { title, author, license, sourceUrl } | null` from `asset.extras`. The Inspector shows the credits and has one **Copy credit** action. CC-BY requires credit wherever the work is shared, and that includes a stream.
+6. **Render Environment for each camera.** A camera has an optional `renderEnvironment` flag. Absent means true. Each renderer client (the Scene window preview and the OBS output) draws through its output camera, and hides the environment when that camera's flag is false.
+7. **Credits.** The asset record keeps `credits: { title, author, license, sourceUrl } | null` from `asset.extras`. The Inspector shows the title, the author, and the license, and has one **Copy credit** action. The copied line includes the source URL. The app has no link opener, so the Inspector shows no link. CC-BY requires credit wherever the work is shared, and that includes a stream.
 8. **Import size.** The packed GLB limit is 256 MB for every import, VRM included (was 128 MB). The GLB JSON limit stays 16 MB. The real limit is decoded texture memory in the WebKit process (4 GB). The live check measures it.
 
 ## Data model
@@ -68,7 +68,7 @@ The importer returns typed `AppError` codes. This slice has no cancel control. A
 - **Add › Environment** creates `Environment` with `assetId: null`. The item is disabled while the scene has an environment.
 - The Hierarchy has an **Environment** group before **Cameras**.
 - The Inspector for an environment shows Name, Visible, Transform, and **Source**. Source shows the asset name, `Choose model…` when empty, and `Missing model` for an unknown asset. Activation opens `import_scene`. A menu on the row lists imported scene assets. A selection sends `setEnvironmentModel`.
-- When the asset has credits, the Inspector shows the title (a link to the source), the author, the license, and **Copy credit**. The copied line uses the CC form from the sample `license.txt`: `This work is based on "<title>" (<source>) by <author> licensed under <license>`.
+- When the asset has credits, the Inspector shows the title, the author, the license, and **Copy credit**. The copied line uses the CC form from the sample `license.txt`: `This work is based on "<title>" (<source>) by <author> licensed under <license>`.
 - The camera Inspector adds a **Render Environment** switch.
 - MCP uses `scene_patch` for the new operations. `scene_inspect` and asset records show the environment, the flag, and the credits.
 
@@ -76,7 +76,7 @@ The importer returns typed `AppError` codes. This slice has no cancel control. A
 
 - **Rust unit tests** for `pack_scene`: multi-file glTF, `data:` URIs, percent-encoded names, Sketchfab zip layout, each rejection in the Import list, credits, the name fallback, and deduplication.
 - **TypeScript unit tests**: one-environment validation, the `renderEnvironment` default, the two operations, and the credit line.
-- **Integration test** (real file and loopback service boundary): import a small generated multi-file fixture in `fixtures/`, read it through `GET /assets/{id}`, and pass it to `inspectContainer`. The sample room is not committed because of its size.
+- **Integration test** (real file and loopback service boundary): the test writes a small multi-file glTF (JSON, `.bin`, and a PNG made with the `png` crate) to a temporary folder, imports it through the service, reads it through `GET /assets/{id}`, and checks that the served GLB has no `uri`, that each image has a `bufferView` and a `mimeType`, and that the record survives a service restart. The renderer `inspectContainer` makes the same no-URI check. The sample room is not committed because of its size.
 - **Live macOS check** with computer use and MCP: Add › Environment; import the sample `scene.gltf`, then the same sample as a zip; check reflections on glossy surfaces and an unchanged character; Save As and Open; remove the library file and see `Missing model`; OBS capture with Render Environment on and off (off must match the current transparent alpha); WebKit memory with the operator avatar and the sample loaded; app and OBS timing kept separate; motion while the editor is minimized. Record the backend, quality profile, commit, and sample source URL. A value that is not measured is unknown.
 
 ## Out of scope (slice 1)
