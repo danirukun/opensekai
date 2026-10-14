@@ -298,8 +298,44 @@ fn image_mime(bytes: &[u8]) -> Option<&'static str> {
         Some("image/jpeg")
     } else if bytes.len() >= 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"WEBP" {
         Some("image/webp")
+    } else if bytes.starts_with(b"\xabKTX 20\xbb\r\n\x1a\n") {
+        Some("image/ktx2")
+    } else if bytes.len() >= 12 && &bytes[4..8] == b"ftyp" && matches!(&bytes[8..12], b"avif" | b"avis") {
+        Some("image/avif")
     } else {
         None
+    }
+}
+
+// A core texture source must be a type that every renderer decodes; KTX2 and AVIF only pass behind an optional extension.
+fn core_image(mime: &str) -> bool {
+    matches!(mime, "image/png" | "image/jpeg" | "image/webp")
+}
+
+// validate_glb rejects every non-data `uri`, so the importer names one that it does not embed before it reads any file.
+fn stray_uri(value: &Value, path: &mut Vec<String>) -> Option<String> {
+    let embedded = |path: &[String]| path.len() == 2 && matches!(path[0].as_str(), "buffers" | "images");
+    match value {
+        Value::Object(object) => object.iter().find_map(|(key, value)| {
+            path.push(key.replace('~', "~0").replace('/', "~1"));
+            let found = if key == "uri"
+                && !(embedded(&path[..path.len() - 1]) && value.is_string())
+                && !value.as_str().is_some_and(|s| s.starts_with("data:"))
+            {
+                Some(format!("/{}", path.join("/")))
+            } else {
+                stray_uri(value, path)
+            };
+            path.pop();
+            found
+        }),
+        Value::Array(items) => items.iter().enumerate().find_map(|(index, value)| {
+            path.push(index.to_string());
+            let found = stray_uri(value, path);
+            path.pop();
+            found
+        }),
+        _ => None,
     }
 }
 
@@ -329,6 +365,16 @@ fn pack(
             return Err(named("Unsupported required extension", name));
         }
     }
+    if let Some(path) = stray_uri(&json, &mut Vec::new()) {
+        return Err(named("Unsupported file reference", &path));
+    }
+    let core: std::collections::HashSet<u64> = json
+        .get("textures")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|texture| texture.get("source").and_then(Value::as_u64))
+        .collect();
     let mut glb_bin = glb_bin;
     let mut sources = Vec::new();
     for (index, buffer) in json.get("buffers").and_then(Value::as_array).into_iter().flatten().enumerate() {
@@ -362,15 +408,29 @@ fn pack(
     drop(sources);
     let mut views: Vec<Value> = json.get("bufferViews").and_then(Value::as_array).cloned().unwrap_or_default();
     let mut images: Vec<Value> = json.get("images").and_then(Value::as_array).cloned().unwrap_or_default();
-    for image in &mut images {
+    let mut packed: std::collections::HashMap<String, (usize, &'static str)> = std::collections::HashMap::new();
+    for (index, image) in images.iter_mut().enumerate() {
+        let core = core.contains(&(index as u64));
         let object = image.as_object_mut().ok_or_else(|| invalid("Invalid image"))?;
         if let Some(uri) = object.get("uri").and_then(Value::as_str).map(str::to_owned) {
-            let bytes = resolve(&uri, source, &mut budget)?;
-            let mime = image_mime(&bytes).ok_or_else(|| named("Unsupported image type", &uri))?;
-            let at = append(&mut bin, &bytes, limits.max_glb)?;
-            views.push(json!({"buffer": 0, "byteOffset": at, "byteLength": bytes.len()}));
+            let (view, mime) = match packed.get(&uri) {
+                Some(found) => *found,
+                None => {
+                    let bytes = resolve(&uri, source, &mut budget)?;
+                    let mime = image_mime(&bytes).ok_or_else(|| named("Unsupported image type", &uri))?;
+                    let at = append(&mut bin, &bytes, limits.max_glb)?;
+                    views.push(json!({"buffer": 0, "byteOffset": at, "byteLength": bytes.len()}));
+                    if !uri.starts_with("data:") {
+                        packed.insert(uri.clone(), (views.len() - 1, mime));
+                    }
+                    (views.len() - 1, mime)
+                }
+            };
+            if core && !core_image(mime) {
+                return Err(named("Unsupported image type", &uri));
+            }
             object.remove("uri");
-            object.insert("bufferView".into(), json!(views.len() - 1));
+            object.insert("bufferView".into(), json!(view));
             object.insert("mimeType".into(), json!(mime));
         } else {
             let view = object
@@ -382,7 +442,11 @@ fn pack(
             let end = start
                 .checked_add(view["byteLength"].as_u64().unwrap_or(0) as usize)
                 .ok_or_else(|| invalid("Image has no data"))?;
-            let mime = bin.get(start..end).and_then(image_mime).ok_or_else(|| invalid("Unsupported image type"))?;
+            let mime = bin
+                .get(start..end)
+                .and_then(image_mime)
+                .filter(|mime| !core || core_image(mime))
+                .ok_or_else(|| invalid("Unsupported image type"))?;
             object.insert("mimeType".into(), json!(mime));
         }
     }
@@ -440,6 +504,9 @@ fn strip_lights(json: &mut Value) {
     for key in ["extensionsUsed", "extensionsRequired"] {
         if let Some(list) = json.get_mut(key).and_then(Value::as_array_mut) {
             list.retain(|value| value.as_str() != Some(LIGHTS));
+            if list.is_empty() {
+                json.as_object_mut().expect("checked object").remove(key);
+            }
         }
     }
 }
@@ -654,7 +721,8 @@ mod tests {
     #[test]
     fn rejects_repeated_references_over_budget() {
         let mut json = room("a.png");
-        json["images"] = json!((0..50).map(|_| json!({"uri": "a.png"})).collect::<Vec<_>>());
+        // Each spelling of the same file is a separate read, so the shared budget still applies.
+        json["images"] = json!((0..50).map(|i| json!({"uri": format!("{}a.png", "./".repeat(i))})).collect::<Vec<_>>());
         let dir = folder(&json, &[("a.png", &[PNG, &[0u8; 400]].concat())]);
         let limits = Limits { max_glb: 4096, ..Limits::DEFAULT };
         assert!(message(pack_scene(&dir.path().join("scene.gltf"), limits)).contains("exceeds import budget"));
@@ -726,5 +794,53 @@ mod tests {
         json["asset"]["extras"] = json!({"title": "  ", "author": 7, "license": "x".repeat(513), "source": "javascript:alert(1)"});
         let dir = folder(&json, &[("a.png", PNG)]);
         assert!(pack_scene(&dir.path().join("scene.gltf"), Limits::DEFAULT).unwrap().credits.is_none());
+    }
+    const KTX2: &[u8] = b"\xabKTX 20\xbb\r\n\x1a\nfake-ktx2-body";
+    #[test]
+    fn keeps_images_that_only_an_optional_extension_uses() {
+        let mut json = room("a.png");
+        json["images"] = json!([{"uri": "a.png"}, {"uri": "a.ktx2"}]);
+        json["textures"][0]["extensions"] = json!({"KHR_texture_basisu": {"source": 1}});
+        json["extensionsUsed"] = json!(["KHR_texture_basisu"]);
+        let dir = folder(&json, &[("a.png", PNG), ("a.ktx2", KTX2)]);
+        let out = json_of(&pack_scene(&dir.path().join("scene.gltf"), Limits::DEFAULT).unwrap().glb);
+        assert_eq!(out["images"][0]["mimeType"], "image/png");
+        assert_eq!(out["images"][1]["mimeType"], "image/ktx2");
+        assert!(!has_uri(&out));
+    }
+    #[test]
+    fn rejects_core_texture_source_that_is_not_png_jpeg_or_webp() {
+        let dir = folder(&room("a.ktx2"), &[("a.ktx2", KTX2)]);
+        assert!(message(pack_scene(&dir.path().join("scene.gltf"), Limits::DEFAULT)).starts_with("Unsupported image type"));
+    }
+    #[test]
+    fn shares_one_buffer_view_for_a_repeated_image_uri() {
+        let mut json = room("a.png");
+        json["images"] = json!([{"uri": "a.png"}, {"uri": "a.png"}]);
+        json["textures"] = json!([{"source": 0}, {"source": 1}]);
+        let dir = folder(&json, &[("a.png", PNG)]);
+        let packed = pack_scene(&dir.path().join("scene.gltf"), Limits::DEFAULT).unwrap();
+        let out = json_of(&packed.glb);
+        assert_eq!(out["images"][0]["bufferView"], out["images"][1]["bufferView"]);
+        assert_eq!(out["bufferViews"].as_array().unwrap().len(), 2);
+        assert!(packed.glb.windows(PNG.len()).filter(|w| *w == PNG).count() == 1);
+    }
+    #[test]
+    fn rejects_an_external_uri_outside_buffers_and_images_and_names_it() {
+        let mut json = room("a.png");
+        json["extensions"] = json!({"KHR_audio": {"sources": [{"uri": "a.mp3"}]}});
+        let dir = folder(&json, &[("a.png", PNG)]);
+        let error = message(pack_scene(&dir.path().join("scene.gltf"), Limits::DEFAULT));
+        assert_eq!(error, "Unsupported file reference: /extensions/KHR_audio/sources/0/uri");
+    }
+    #[test]
+    fn removes_extension_lists_that_only_held_file_lights() {
+        let mut json = room("a.png");
+        json["extensionsUsed"] = json!(["KHR_lights_punctual"]);
+        json["extensionsRequired"] = json!(["KHR_lights_punctual"]);
+        let dir = folder(&json, &[("a.png", PNG)]);
+        let out = json_of(&pack_scene(&dir.path().join("scene.gltf"), Limits::DEFAULT).unwrap().glb);
+        assert!(out.get("extensionsUsed").is_none());
+        assert!(out.get("extensionsRequired").is_none());
     }
 }
