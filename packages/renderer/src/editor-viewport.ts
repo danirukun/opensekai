@@ -16,7 +16,10 @@ const read = (object: Object3D): Transform => ({position:object.position.toArray
 export function assertEditorScope(outputId: Id, diagnostics: boolean) {
     if (outputId !== 'preview_main' || diagnostics) throw new Error('Editor requires preview_main without diagnostics');
 }
-export function createEditorViewport(canvas: HTMLCanvasElement, camera: PerspectiveCamera, scene: Scene, objects: Map<string,{root:Object3D}>, options: EditorOptions) {
+export function pickRoots<T extends {root:Object3D;pickable?:boolean}>(objects: Map<string,T>): [string,T][] {
+    return [...objects.entries()].filter(([,value])=>value.root.visible&&value.pickable!==false);
+}
+export function createEditorViewport(canvas: HTMLCanvasElement, camera: PerspectiveCamera, scene: Scene, objects: Map<string,{root:Object3D;pickable?:boolean}>, options: EditorOptions) {
     const controls = new TransformControls(camera,canvas);
     const helper = controls.getHelper();
     scene.add(helper);
@@ -69,7 +72,7 @@ export function createEditorViewport(canvas: HTMLCanvasElement, camera: Perspect
         const rect=canvas.getBoundingClientRect();
         if(!rect.width || !rect.height)return;
         const ray=new Raycaster();ray.setFromCamera(new Vector2((event.clientX-rect.left)/rect.width*2-1,-(event.clientY-rect.top)/rect.height*2+1),camera);
-        const roots=[...objects.entries()].filter(([,v])=>v.root.visible);
+        const roots=pickRoots(objects);
         const hit=ray.intersectObjects(roots.map(([,v])=>v.root),true)[0];
         let node: Object3D | undefined=hit?.object;
         while(node){const match=roots.find(([,v])=>v.root===node);if(match){options.onSelect(match[0]);return;}node=node.parent??undefined;}

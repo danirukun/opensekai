@@ -1,3 +1,5 @@
+use super::scene_import::PackedScene;
+use opensekai_contracts::AssetFormat;
 use opensekai_contracts::{invalid, AppError, AssetRecord, ErrorCode, Validate};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -49,7 +51,17 @@ pub struct ImportResult {
     pub record: AssetRecord,
     pub name: String,
 }
-pub const MAX_IMPORT_BYTES: u64 = 128 * 1024 * 1024;
+fn hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+fn write_atomic(dir: &Path, name: &str, bytes: &[u8]) -> Result<(), AppError> {
+    let mut temp = tempfile::NamedTempFile::new_in(dir).map_err(|_| error(ErrorCode::Unavailable, ""))?;
+    temp.write_all(bytes).map_err(|_| error(ErrorCode::Unavailable, ""))?;
+    temp.as_file().sync_all().map_err(|_| error(ErrorCode::Unavailable, ""))?;
+    temp.persist(dir.join(name)).map_err(|_| error(ErrorCode::Unavailable, ""))?;
+    Ok(())
+}
+pub const MAX_IMPORT_BYTES: u64 = 256 * 1024 * 1024;
 pub const MAX_GLB_JSON_BYTES: usize = 16 * 1024 * 1024;
 impl AssetRegistry {
     pub fn empty(root: &Path) -> Result<Self, AppError> {
@@ -94,10 +106,14 @@ impl AssetRegistry {
                 let Ok(record) = serde_json::from_value::<AssetRecord>(value) else {
                     continue;
                 };
-                if record.validate().is_ok()
-                    && opaque(&record.id)
-                    && record.id == format!("avatar_{}", record.sha256)
-                {
+                let extension = if record.format == AssetFormat::Vrm && record.id == format!("avatar_{}", record.sha256) {
+                    Some("vrm")
+                } else if record.format == AssetFormat::Glb && record.id == format!("scene_{}", record.sha256) {
+                    Some("glb")
+                } else {
+                    None
+                };
+                if let (true, true, Some(extension)) = (record.validate().is_ok(), opaque(&record.id), extension) {
                     if backfilled {
                         if let Ok(bytes) = serde_json::to_vec(&record) {
                             if let Ok(mut temp) = tempfile::NamedTempFile::new_in(&library) {
@@ -108,10 +124,7 @@ impl AssetRegistry {
                     }
                     self.entries.insert(
                         record.id.clone(),
-                        Entry {
-                            path: library.join(format!("{}.vrm", record.id)),
-                            record,
-                        },
+                        Entry { path: library.join(format!("{}.{extension}", record.id)), record },
                     );
                 }
             }
@@ -171,6 +184,7 @@ impl AssetRegistry {
             license_label: "User supplied".into(),
             importer_version: 1,
             name: name.clone(),
+            credits: None,
         };
         let target = library.join(format!("{id}.vrm"));
         copy.as_file()
@@ -197,6 +211,45 @@ impl AssetRegistry {
                 path: target,
             },
         );
+        Ok(ImportResult { record, name })
+    }
+    pub fn store_scene(&mut self, packed: PackedScene) -> Result<ImportResult, AppError> {
+        validate_glb(&packed.glb)?;
+        let sha256 = hex(&Sha256::digest(&packed.glb));
+        let id = format!("scene_{sha256}");
+        let intact = |entry: &Entry| std::fs::metadata(&entry.path).is_ok_and(|m| m.is_file() && m.len() == entry.record.bytes);
+        if let Some(entry) = self.entries.get(&id).filter(|entry| intact(entry)) {
+            return Ok(ImportResult { name: entry.record.name.clone(), record: entry.record.clone() });
+        }
+        let credits = packed.credits;
+        let name = credits
+            .as_ref()
+            .and_then(|c| c.title.as_deref())
+            .filter(|t| t.encode_utf16().count() <= 128)
+            .and_then(bounded_name)
+            .or_else(|| bounded_name(&packed.stem))
+            .unwrap_or_else(|| "Scene".into());
+        let record = AssetRecord {
+            id: id.clone(),
+            format: AssetFormat::Glb,
+            sha256,
+            bytes: packed.glb.len() as u64,
+            source_url: credits.as_ref().and_then(|c| c.source_url.clone()),
+            license_label: credits.as_ref().and_then(|c| c.license.clone()).unwrap_or_default(),
+            importer_version: 1,
+            name: name.clone(),
+            credits,
+        };
+        record.validate()?;
+        let library = self.library.clone();
+        std::fs::create_dir_all(&library).map_err(|_| error(ErrorCode::Unavailable, ""))?;
+        write_atomic(&library, &format!("{id}.glb"), &packed.glb)?;
+        write_atomic(
+            &library,
+            &format!("{id}.json"),
+            &serde_json::to_vec(&record).map_err(|_| invalid("Invalid scene record"))?,
+        )?;
+        self.entries.insert(id.clone(), Entry { path: library.join(format!("{id}.glb")), record: record.clone() });
         Ok(ImportResult { record, name })
     }
     pub fn load(manifest: &Path) -> Result<Self, AppError> {
@@ -249,7 +302,7 @@ impl AssetRegistry {
     pub fn fixture_records(&self) -> Vec<AssetRecord> {
         self.records()
             .into_iter()
-            .filter(|r| !r.id.starts_with("avatar_"))
+            .filter(|r| !r.id.starts_with("avatar_") && !r.id.starts_with("scene_"))
             .collect()
     }
     pub fn records(&self) -> Vec<AssetRecord> {
@@ -296,7 +349,7 @@ pub fn resolve_asset(id: &str, registry: &AssetRegistry) -> Result<PathBuf, AppE
     }
     Ok(path)
 }
-fn validate_glb(bytes: &[u8]) -> Result<(), AppError> {
+pub(super) fn validate_glb(bytes: &[u8]) -> Result<(), AppError> {
     let word = |offset: usize| -> Result<u32, AppError> {
         let raw: [u8; 4] = bytes
             .get(offset..offset + 4)
@@ -403,6 +456,91 @@ mod boundary_tests {
         bytes.extend(0x4e4f534au32.to_le_bytes());
         bytes.extend(json);
         bytes
+    }
+    fn packed(title: Option<&str>, glb: Vec<u8>) -> super::super::PackedScene {
+        super::super::PackedScene {
+            glb,
+            credits: title.map(|t| opensekai_contracts::AssetCredits {
+                title: Some(t.into()),
+                author: Some("CG Lads".into()),
+                license: Some("CC-BY-4.0".into()),
+                source_url: Some("https://sketchfab.com/3d-models/room".into()),
+            }),
+            stem: "scene".into(),
+        }
+    }
+    #[test]
+    fn stores_scene_with_credits_and_reloads_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut registry = AssetRegistry::empty(dir.path()).unwrap();
+        let result = registry.store_scene(packed(Some("Room"), glb())).unwrap();
+        let record = &result.record;
+        assert!(record.id.starts_with("scene_"));
+        assert_eq!(record.format, opensekai_contracts::AssetFormat::Glb);
+        assert_eq!(record.name, "Room");
+        assert_eq!(record.license_label, "CC-BY-4.0");
+        assert_eq!(record.source_url.as_deref(), Some("https://sketchfab.com/3d-models/room"));
+        assert_eq!(registry.read(&record.id).unwrap(), glb());
+        let reopened = AssetRegistry::empty(dir.path()).unwrap();
+        assert_eq!(reopened.records(), vec![record.clone()]);
+        assert_eq!(reopened.read(&record.id).unwrap(), glb());
+    }
+    #[test]
+    fn same_scene_returns_the_existing_record() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut registry = AssetRegistry::empty(dir.path()).unwrap();
+        let first = registry.store_scene(packed(Some("Room"), glb())).unwrap();
+        let second = registry.store_scene(packed(Some("Other"), glb())).unwrap();
+        assert_eq!(first.record, second.record);
+        assert_eq!(registry.records().len(), 1);
+    }
+    #[test]
+    fn storing_again_repairs_a_missing_scene_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut registry = AssetRegistry::empty(dir.path()).unwrap();
+        let id = registry.store_scene(packed(Some("Room"), glb())).unwrap().record.id;
+        let file = registry.entries.get(&id).unwrap().path.clone();
+        std::fs::remove_file(&file).unwrap();
+        assert!(registry.read(&id).is_err());
+        registry.store_scene(packed(Some("Room"), glb())).unwrap();
+        assert!(file.is_file());
+        assert_eq!(registry.read(&id).unwrap(), glb());
+        assert_eq!(registry.records().len(), 1);
+    }
+    #[test]
+    fn scene_name_falls_back_to_stem_then_scene() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut registry = AssetRegistry::empty(dir.path()).unwrap();
+        let long = "x".repeat(129);
+        assert_eq!(registry.store_scene(packed(Some(&long), glb())).unwrap().record.name, "scene");
+        let mut other = glb();
+        other.extend([b' '; 4]);
+        let len = other.len() as u32;
+        other[8..12].copy_from_slice(&len.to_le_bytes());
+        other[12..16].copy_from_slice(&(len - 20).to_le_bytes());
+        let mut nameless = packed(None, other);
+        nameless.stem = "   ".into();
+        let record = registry.store_scene(nameless).unwrap().record;
+        assert_eq!(record.name, "Scene");
+        assert!(record.credits.is_none());
+        assert_eq!(record.license_label, "");
+    }
+    #[test]
+    fn scene_with_external_uri_is_not_stored() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut registry = AssetRegistry::empty(dir.path()).unwrap();
+        let mut json = br#"{"images":[{"uri":"secret.png"}]}"#.to_vec();
+        while !json.len().is_multiple_of(4) {
+            json.push(b' ');
+        }
+        let mut bytes = b"glTF".to_vec();
+        bytes.extend(2u32.to_le_bytes());
+        bytes.extend((20 + json.len() as u32).to_le_bytes());
+        bytes.extend((json.len() as u32).to_le_bytes());
+        bytes.extend(0x4e4f534au32.to_le_bytes());
+        bytes.extend(json);
+        assert!(registry.store_scene(packed(Some("Room"), bytes)).is_err());
+        assert!(registry.records().is_empty());
     }
     fn registry(root: &Path, path: &Path, bytes: &[u8]) -> AssetRegistry {
         let hash = Sha256::digest(bytes)

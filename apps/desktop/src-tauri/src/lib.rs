@@ -86,6 +86,34 @@ async fn import_avatar(
     state.import_avatar(path).await.map(Some)
 }
 #[tauri::command]
+async fn import_scene(
+    window: tauri::WebviewWindow,
+    state: tauri::State<'_, Arc<DesktopState>>,
+) -> Result<Option<crate::assets::ImportResult>, AppError> {
+    require_window_label(window.label(), "editor")?;
+    let app = window.app_handle().clone();
+    let path = tauri::async_runtime::spawn_blocking(move || {
+        let dialog = app.dialog().file().set_title("Import environment");
+        // macOS can disable custom extensions through rfd's deprecated file-type filter.
+        #[cfg(not(target_os = "macos"))]
+        let dialog = dialog.add_filter("Environment", &["glb", "gltf", "zip"]);
+        dialog.blocking_pick_file()
+    })
+    .await
+    .map_err(|_| AppError {
+        code: ErrorCode::Unavailable,
+        message: "File chooser unavailable".into(),
+        ids: vec![],
+    })?;
+    let Some(path) = path else { return Ok(None) };
+    let path = path.into_path().map_err(|_| AppError {
+        code: ErrorCode::InvalidInput,
+        message: "Local file required".into(),
+        ids: vec![],
+    })?;
+    state.import_scene(path).await.map(Some)
+}
+#[tauri::command]
 async fn save_show_as(
     window: tauri::WebviewWindow,
     document: serde_json::Value,
@@ -353,6 +381,7 @@ pub fn run() {
             set_keystroke_capture,
             open_input_monitoring_settings,
             import_avatar,
+            import_scene,
             save_show_as,
             open_show,
             import_blueprint_file,

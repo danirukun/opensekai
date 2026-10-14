@@ -620,6 +620,19 @@ impl ServicePorts {
             .await
             .map_err(|_| err(ErrorCode::Unavailable, "Avatar import failed"))?
     }
+    pub async fn import_scene(
+        &self,
+        path: PathBuf,
+    ) -> Result<crate::assets::ImportResult, AppError> {
+        let shared = self.shared.clone();
+        // Pack outside the registry lock so that asset reads continue during a long import.
+        tokio::task::spawn_blocking(move || {
+            let packed = crate::assets::pack_scene(&path, crate::assets::Limits::DEFAULT)?;
+            lock(&shared.registry).store_scene(packed)
+        })
+        .await
+        .map_err(|_| err(ErrorCode::Unavailable, "Scene import failed"))?
+    }
     pub fn asset_records(&self) -> Vec<AssetRecord> {
         lock(&self.shared.registry).records()
     }
@@ -758,6 +771,12 @@ impl ServiceHandle {
         path: PathBuf,
     ) -> Result<crate::assets::ImportResult, AppError> {
         self.ports().import_avatar(path).await
+    }
+    pub async fn import_scene(
+        &self,
+        path: PathBuf,
+    ) -> Result<crate::assets::ImportResult, AppError> {
+        self.ports().import_scene(path).await
     }
     pub fn asset_records(&self) -> Vec<AssetRecord> {
         lock(&self.shared.registry).records()

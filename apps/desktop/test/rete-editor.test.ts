@@ -4,11 +4,18 @@ import { applyBlueprintOps, BlueprintSetSchema, type BlueprintOp } from '@opense
 import { mountReteBlueprint } from '../src/blueprints/rete-editor';
 
 // A minimal DOM: enough for the Rete area plugin, which the adapter drives without the Svelte renderer here.
+// Children are tracked, because the adapter reorders each new wire view inside the area content.
 const element = (): Record<string, unknown> => {
+ const children: unknown[] = [];
+ const detach = (child: unknown) => { const at = children.indexOf(child); if (at >= 0) children.splice(at, 1); };
  const node: Record<string, unknown> = {
-  style: {}, classList: { add() {}, remove() {} }, children: [],
+  style: {}, classList: { add() {}, remove() {} }, children,
   addEventListener() {}, removeEventListener() {}, setAttribute() {},
-  appendChild: (child: unknown) => child, removeChild: (child: unknown) => child, contains: () => false,
+  appendChild: (child: unknown) => { detach(child); children.push(child); return child; },
+  insertBefore: (child: unknown, next: unknown) => { detach(child); const at = children.indexOf(next); children.splice(at < 0 ? children.length : at, 0, child); return child; },
+  removeChild: (child: unknown) => { detach(child); return child; },
+  contains: (child: unknown) => child === node || children.includes(child),
+  get firstChild() { return children[0] ?? null; },
   getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 }),
   clientWidth: 800, clientHeight: 600,
  };
@@ -71,4 +78,14 @@ it('retypes a port and removes its wire when a property changes type', async () 
  await editor.show(next.data[0]!);
  expect(area.parentScope().getConnections()).toEqual([]);
  expect(area.parentScope().getNode('set').inputs.value!.socket.name).toBe('Boolean');
+});
+
+it('puts each wire view behind every node view', async () => {
+ let area!: { area: { content: { holder: { children: unknown[] } } }; nodeViews: Map<string, { element: unknown }>; connectionViews: Map<string, { element: unknown }> };
+ await mountReteBlueprint(element() as unknown as HTMLElement, graph!, { onSelect() {}, onOps() {} }, { render: false, inspect: value => { area = value as never; } });
+ const order = area.area.content.holder.children;
+ const wires = [...area.connectionViews.values()].map(view => order.indexOf(view.element));
+ const nodes = [...area.nodeViews.values()].map(view => order.indexOf(view.element));
+ expect(wires.length).toBeGreaterThan(0);
+ expect(Math.max(...wires)).toBeLessThan(Math.min(...nodes));
 });

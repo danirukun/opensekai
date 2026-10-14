@@ -81,8 +81,8 @@ Sources: [Motion capture overview](https://docs.warudo.app/docs/mocap/overview),
 
 Sources: [Asset categories](https://docs.warudo.app/docs/assets/overview), [Environment](https://docs.warudo.app/docs/assets/environment), [Lights](https://docs.warudo.app/docs/assets/lights).
 
-- [ ] ENV-01 — Environment import and placement. First. [GitHub #39](https://github.com/danirukun/opensekai/issues/39)
-- [ ] ENV-02 — Environment settings and sky/background controls. Later. [GitHub #40](https://github.com/danirukun/opensekai/issues/40)
+- [ ] ENV-01 — Environment import and placement. First. Partial: one environment for each scene from a local glTF, GLB, or zip, a neutral environment map on its materials, credits with Copy credit, and Render Environment for each camera, verified on macOS (debug build, WebGPU preview, OBS 32.2.2) with one Sketchfab sample ([check](evaluation/environment-import.md), [contract](../spdd/prompt/2026-10-13-environment-import.md), [GitHub #147](https://github.com/danirukun/opensekai/issues/147)). Placement aids, the Warudo environment lighting settings, compressed formats, import cancel, the WebGL 2 fallback, and Windows remain. [GitHub #39](https://github.com/danirukun/opensekai/issues/39)
+- [ ] ENV-02 — Environment settings and sky/background controls. Later. The sky subset (solid color, equirectangular image, and HDR background with optional image-based lighting) is First by operator request and needs its own contract ([GitHub #148](https://github.com/danirukun/opensekai/issues/148)). [GitHub #40](https://github.com/danirukun/opensekai/issues/40)
 - [ ] ENV-03 — Prop import, transforms, attachments, and reuse. First subset. [GitHub #41](https://github.com/danirukun/opensekai/issues/41)
 - [ ] ENV-04 — Tail asset and tail interaction. Later. [GitHub #42](https://github.com/danirukun/opensekai/issues/42)
 - [ ] ENV-05 — Keyboard/trackpad visualization. Later. [GitHub #43](https://github.com/danirukun/opensekai/issues/43)
@@ -91,6 +91,7 @@ Sources: [Asset categories](https://docs.warudo.app/docs/assets/overview), [Envi
 - [ ] ENV-08 — Volumetric light and stage beam behavior. First benchmark subset; Approximate. [GitHub #46](https://github.com/danirukun/opensekai/issues/46)
 - [ ] ENV-09 — Wind controls. Later. [GitHub #47](https://github.com/danirukun/opensekai/issues/47)
 - [ ] ENV-10 — Particle effects and triggers. Later; benchmark includes a bounded sample. [GitHub #48](https://github.com/danirukun/opensekai/issues/48)
+- [ ] ENV-11 — Sketchfab model search, sign-in, download, and attribution. Later; Different API; additional OpenSekai goal, not a Warudo feature. Depends on ENV-01 slice 1. [GitHub #149](https://github.com/danirukun/opensekai/issues/149)
 
 ## Cameras and output
 
@@ -238,6 +239,7 @@ The desktop shell, shared contracts, scene worker, renderer, editor, and MCP hav
 | SCN-01, CHR-01, UI-11 (partial) | d82a724 | Add › Character without a model and the Model row; Scene preview at display rate (56 FPS on the monitor); Safari load of a 75 MB VRM in about 2 s while frames continue | macOS dev build / WKWebView, synthetic input; Safari 27, backend not recorded | [Character check](evaluation/character-model-editor.md), [load timing](evaluation/character-model-loading.md), [avatar performance](evaluation/avatar-performance.md) | No VRM loaded through the editor; frames over 100 ms during a load; cold pipeline cache unknown; OBS not connected; UI-11 toggle, persistence, and OBS isolation remain |
 
 | UI-10 (scoped verified), MAT-01 (partial) | 47b7fd0 | Exact preview frame, resize, pointer selection, clean VRM output; official VRM node material path confirmed | macOS / WKWebView and OBS WebGPU | [Camera frame check](evaluation/camera-frame.md) | Independent editor camera, overscan, broader material parity, Windows, and concert benchmark remain separate |
+| ENV-01 (partial) | 74971b1 | Add › Environment, folder and zip import of a 138 MB Sketchfab room packed to one GLB, credits and Copy credit, neutral environment map, Render Environment through the editor and MCP, OBS alpha on and off, Save As/Open, Missing model, motion with the Editor minimized; Scene WebContent 1415 MB with the room and one VRM | macOS debug / WKWebView, WebGPU preview; OBS 32.2.2, OBS backend not recorded | [Environment import check](evaluation/environment-import.md) | Synthetic input; one sample; WebGL 2, release build, Windows, import cancel, compressed formats, placement aids, and Warudo lighting settings remain |
 
 The [shared contract check](evaluation/macOS-feasibility/contracts.md) records validation and client lifecycle evidence. It does not establish an OBS or MCP production feature.
 

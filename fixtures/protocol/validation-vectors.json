@@ -2328,5 +2328,167 @@
       "licenseLabel": "CC0",
       "importerVersion": 1
     }
+  },
+  {
+    "name": "two-environments",
+    "target": "scene",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "camera_main",
+          "name": "Camera",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 40,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "stage",
+          "name": "Environment",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "environment",
+          "assetId": null
+        },
+        {
+          "id": "stage_2",
+          "name": "Environment 2",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "environment",
+          "assetId": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_main",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "asset-null-credits",
+    "target": "asset",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "id": "fixture_glb_1",
+      "format": "glb",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bytes": 1,
+      "sourceUrl": null,
+      "licenseLabel": "CC0",
+      "importerVersion": 1,
+      "name": "Fixture",
+      "credits": null
+    }
+  },
+  {
+    "name": "asset-credits-ftp-source",
+    "target": "asset",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "id": "fixture_glb_1",
+      "format": "glb",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bytes": 1,
+      "sourceUrl": null,
+      "licenseLabel": "CC0",
+      "importerVersion": 1,
+      "name": "Fixture",
+      "credits": {
+        "title": null,
+        "author": null,
+        "license": null,
+        "sourceUrl": "ftp://example.com/room"
+      }
+    }
+  },
+  {
+    "name": "asset-credits-uppercase-scheme",
+    "target": "asset",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "id": "fixture_glb_1",
+      "format": "glb",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bytes": 1,
+      "sourceUrl": null,
+      "licenseLabel": "CC0",
+      "importerVersion": 1,
+      "name": "Fixture",
+      "credits": {
+        "title": null,
+        "author": null,
+        "license": null,
+        "sourceUrl": "HTTPS://example.com/room"
+      }
+    }
   }
 ]

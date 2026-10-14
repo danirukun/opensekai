@@ -1,7 +1,7 @@
 import {LensSchema,TrackingConfigSchema,TrackingSmoothingSchema} from '@opensekai/contracts';
 import type {SceneEntity,TrackingConfig,AvatarIdle,AvatarTracking,TrackingStatus,TrackingSmoothing} from '@opensekai/contracts';
 export type CameraLens=Extract<SceneEntity,{kind:'camera'}>['lens'];
-export type AddKind='camera'|'character'|TrackingConfig['kind'];
+export type AddKind='camera'|'character'|'environment'|TrackingConfig['kind'];
 export type Commit<T>=(id:string,value:T,revision:number)=>Promise<unknown>;
 export interface LivePropertyCallbacks {onlens?:Commit<CameraLens>;onavatartracking?:Commit<AvatarTracking>;onavataridle?:Commit<AvatarIdle>;ontrackingsmoothing?:Commit<TrackingSmoothing>;ontrackingconfig?:Commit<TrackingConfig>;ontrackingtoggle?:(id:string,enabled:boolean,revision:number)=>Promise<unknown>;trackingStatus?:TrackingStatus[];devices?:{deviceId:string;label:string}[]}
 export function parseLens(values:Record<keyof CameraLens,string>):CameraLens|null {const parsed=LensSchema.safeParse(Object.fromEntries(Object.entries(values).map(([key,value])=>[key,value.trim()===''?NaN:Number(value)])));return parsed.success?parsed.data:null;}

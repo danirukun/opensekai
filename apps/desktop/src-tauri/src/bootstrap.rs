@@ -206,12 +206,30 @@ impl DesktopState {
         &self,
         path: PathBuf,
     ) -> Result<crate::assets::ImportResult, AppError> {
-        let owned = self.owned.lock().await;
-        let service = owned
+        // Release the lifecycle lock before the import, so shutdown does not wait for a long pack.
+        let ports = self
+            .owned
+            .lock()
+            .await
             .service
             .as_ref()
+            .map(|service| service.ports())
             .ok_or_else(|| error(ErrorCode::Unavailable, "Session unavailable"))?;
-        service.import_avatar(path).await
+        ports.import_avatar(path).await
+    }
+    pub async fn import_scene(
+        &self,
+        path: PathBuf,
+    ) -> Result<crate::assets::ImportResult, AppError> {
+        let ports = self
+            .owned
+            .lock()
+            .await
+            .service
+            .as_ref()
+            .map(|service| service.ports())
+            .ok_or_else(|| error(ErrorCode::Unavailable, "Session unavailable"))?;
+        ports.import_scene(path).await
     }
     pub async fn wait_ready(&self) -> Result<NativeBootstrap, AppError> {
         let mut receiver = self.ready.subscribe();
@@ -334,6 +352,48 @@ mod tests {
             state.wait_ready().await.err().unwrap().code,
             ErrorCode::NotFound
         );
+    }
+    // Real file boundary: a named pipe holds the import inside its read until the test closes the writer.
+    #[cfg(unix)]
+    #[tokio::test(flavor = "multi_thread")]
+    async fn shutdown_does_not_wait_for_a_running_scene_import() {
+        let dir = tempfile::tempdir().unwrap();
+        let manifest = dir.path().join("manifest.json");
+        std::fs::write(
+            &manifest,
+            r#"{"schemaVersion":1,"fixtureId":"smoke_v1","assets":[]}"#,
+        )
+        .unwrap();
+        let state = DesktopState::new();
+        state
+            .clone()
+            .initialize(
+                ServiceConfig {
+                    output_root: dir.path().into(),
+                    asset_manifest: manifest,
+                    evidence_root: dir.path().join("evidence"),
+                    evaluation_enabled: false,
+                },
+                dir.path().join("descriptors"),
+            )
+            .await;
+        state.wait_ready().await.unwrap();
+        let pipe = dir.path().join("room.glb");
+        assert!(std::process::Command::new("mkfifo").arg(&pipe).status().unwrap().success());
+        let import = tokio::spawn({
+            let (state, pipe) = (state.clone(), pipe.clone());
+            async move { state.import_scene(pipe).await }
+        });
+        // Opening the write end returns only after the import opened the read end.
+        let writer = tokio::task::spawn_blocking(move || std::fs::OpenOptions::new().write(true).open(pipe).unwrap())
+            .await
+            .unwrap();
+        tokio::time::timeout(Duration::from_secs(5), state.shutdown())
+            .await
+            .expect("shutdown waited for the import")
+            .unwrap();
+        drop(writer);
+        assert_eq!(import.await.unwrap().unwrap_err().code, ErrorCode::InvalidInput);
     }
     // Real RPC boundary: bootstrap must install evaluation before readiness.
     #[tokio::test]

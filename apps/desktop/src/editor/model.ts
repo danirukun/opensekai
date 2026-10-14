@@ -110,6 +110,14 @@ export function createEditorModel(api: AppApi) {
    const parsed=IdSchema.nullable().safeParse(assetId);if(!ofKind(entityId,'avatar')||!parsed.success)return invalid();
    return patch({kind:'setAvatarModel',entityId,assetId:parsed.data},expectedRevision);
   },
+  setEnvironmentModel(entityId:Id,assetId:Id|null,expectedRevision?:number):Promise<Reply<{revision:number}>> {
+   const parsed=IdSchema.nullable().safeParse(assetId);if(!ofKind(entityId,'environment')||!parsed.success)return invalid();
+   return patch({kind:'setEnvironmentModel',entityId,assetId:parsed.data},expectedRevision);
+  },
+  setCameraRenderEnvironment(entityId:Id,renderEnvironment:boolean,expectedRevision?:number):Promise<Reply<{revision:number}>> {
+   if(!ofKind(entityId,'camera'))return invalid();
+   return patch({kind:'setCameraRenderEnvironment',entityId,renderEnvironment},expectedRevision);
+  },
   setTrackingSmoothing(entityId:Id,smoothing:TrackingSmoothing,expectedRevision?:number):Promise<Reply<{revision:number}>> {
    const parsed=TrackingSmoothingSchema.safeParse(smoothing);if(!ofKind(entityId,'tracking')||!parsed.success)return invalid();
    return patch({kind:'setTrackingSmoothing',entityId,smoothing:parsed.data},expectedRevision);

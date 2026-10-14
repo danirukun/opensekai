@@ -17,3 +17,7 @@ it('omits empty groups and retains hidden matches in case-insensitive search',()
  expect(groupEntities([hidden],'absent')).toEqual([]);
  expect(groupEntities([])).toEqual([]);
 });
+it('puts the environment group before cameras',()=>{
+ const stage=makeAuthoringEntity('environment','stage',[]);
+ expect(groupEntities([camera('c'),stage]).map(group=>group.key)).toEqual(['environment','camera']);
+});

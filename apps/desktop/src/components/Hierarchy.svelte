@@ -1,7 +1,7 @@
 <script lang="ts">
  import {tick} from 'svelte';
  import { Button, Input, Spinner } from '@oshi-connect/ui';
- import { Camera, User, Box, Search, Radio, Eye, EyeOff, ChevronRight, ChevronDown, Video, Plus } from '@lucide/svelte';
+ import { Camera, User, Box, Search, Radio, Eye, EyeOff, ChevronRight, ChevronDown, Video, Plus, Mountain } from '@lucide/svelte';
  import type { Transform, Reply } from '@opensekai/contracts';
  import type {AddKind} from '../editor/live-fields';
  import type { EditorPanelProps } from '../editor/model';
@@ -50,12 +50,12 @@
    ?[ {...action(entity.config.enabled?'Stop':'Start',()=>{void ontrackingtoggle?.(id,!entity.config.enabled,revision);}),disabled:disabled||view.pending||!ontrackingtoggle} ]
    :[...(ontool?(['translate','rotate','scale'] as Tool[]).map((tool,i)=>action(['Move','Rotate','Scale'][i],()=>ontool?.(tool))):[]),action(entity.visible?'Hide':'Show',()=>{void model.setVisibility(id,!entity.visible,revision);}),...(['position','rotation','scale'] as const).map(row=>action(`Reset ${row}`,()=>{void model.setTransform?.(id,{...copyTransform(entity.transform),[row]:row==='rotation'?[0,0,0,1]:row==='scale'?[1,1,1]:[0,0,0]},revision);})),...(entity.kind==='camera'?[action('Use as output camera',()=>{void model.selectCamera(id,revision);})]:[])];
   const referenced=scene!.outputs.some(output=>output.cameraId===id);
-  const budgetFull=scene!.entities.length>=64||(entity.kind==='avatar'&&scene!.entities.filter(item=>item.kind==='avatar').length>=2)||(entity.kind==='tracking'&&scene!.entities.filter(item=>item.kind==='tracking').length>=4);
+  const budgetFull=scene!.entities.length>=64||(entity.kind==='avatar'&&scene!.entities.filter(item=>item.kind==='avatar').length>=2)||entity.kind==='environment'||(entity.kind==='tracking'&&scene!.entities.filter(item=>item.kind==='tracking').length>=4);
   menu={x:event.clientX,y:event.clientY,actions:[...typeActions,action('Rename',()=>{void beginRename(id,revision);}),{...action('Duplicate',()=>{void duplicate(id,revision);}),disabled:disabled||view.pending||budgetFull,title:budgetFull?'Scene asset limit reached':undefined},{...action('Remove',()=>{void remove(id,revision);}),disabled:disabled||view.pending||referenced,title:referenced?'Choose another output camera before removal':undefined}]};
  }
 
 </script>
-<section class="editor-panel hierarchy" aria-labelledby="hierarchy-heading"><div class="asset-heading"><h2 id="hierarchy-heading">Assets</h2><div class="asset-actions"><Button variant="ghost" disabled={disabled||view.pending||!view.scene||!onadd} onclick={event=>{const revision=view.scene?.revision;if(revision===undefined)return;menu={x:event.currentTarget.getBoundingClientRect().left,y:event.currentTarget.getBoundingClientRect().bottom,actions:([['camera','Camera'],['character','Character'],['vmc','VMC Receiver'],['ifacialmocap','iFacialMocap Receiver'],['mediapipe','MediaPipe Tracker']] as [AddKind,string][]).map(([kind,label])=>{const full=kind==='character'&&(view.scene?.entities.filter(e=>e.kind==='avatar').length??0)>=2;return {label,disabled:full,title:full?'Scene asset limit reached':undefined,run:()=>{if(view.scene?.revision===revision&&!view.pending&&!disabled)void onadd?.(kind,revision);}};})};}} title="Add asset"><Plus size={14}/></Button></div></div><div class="asset-search"><Search size={14}/><Input label="Search assets" placeholder="Search" bind:value={search}/></div>
+<section class="editor-panel hierarchy" aria-labelledby="hierarchy-heading"><div class="asset-heading"><h2 id="hierarchy-heading">Assets</h2><div class="asset-actions"><Button variant="ghost" disabled={disabled||view.pending||!view.scene||!onadd} onclick={event=>{const revision=view.scene?.revision;if(revision===undefined)return;menu={x:event.currentTarget.getBoundingClientRect().left,y:event.currentTarget.getBoundingClientRect().bottom,actions:([['camera','Camera'],['character','Character'],['environment','Environment'],['vmc','VMC Receiver'],['ifacialmocap','iFacialMocap Receiver'],['mediapipe','MediaPipe Tracker']] as [AddKind,string][]).map(([kind,label])=>{const full=(kind==='character'&&(view.scene?.entities.filter(e=>e.kind==='avatar').length??0)>=2)||(kind==='environment'&&(view.scene?.entities.some(e=>e.kind==='environment')??false));return {label,disabled:full,title:full?'Scene asset limit reached':undefined,run:()=>{if(view.scene?.revision===revision&&!view.pending&&!disabled)void onadd?.(kind,revision);}};})};}} title="Add asset"><Plus size={14}/></Button></div></div><div class="asset-search"><Search size={14}/><Input label="Search assets" placeholder="Search" bind:value={search}/></div>
  <div class="entity-list" role="toolbar" aria-label="Scene assets" tabindex="0" onkeydown={navigate}>
   {#each groups as group (group.key)}
    <div class="asset-group">
@@ -68,7 +68,7 @@
        {#if renaming?.id===entity.id}
         <div class="asset-rename" onfocusout={()=>{if(!renamePending)renaming=null;}}><Input label="Asset name" onkeydown={renameKeys} bind:value={renaming.name} disabled={renamePending||disabled||view.pending}/></div>
        {:else}<button type="button" data-asset-id={entity.id} class={`entity-row${view.selectedId===entity.id?' selected':''}${entity.visible?'':' hidden-asset'}`} onclick={()=>select(entity.id)}>
-        {#if loading.has(entity.id)}<Spinner size="sm" variant="muted" aria-hidden="true"/>{:else if entity.kind==='camera'}<Camera size={15}/>{:else if entity.kind==='avatar'}<User size={15}/>{:else if entity.kind==='tracking'}<Radio size={15}/>{:else}<Box size={15}/>{/if}<span>{entity.name}</span>
+        {#if loading.has(entity.id)}<Spinner size="sm" variant="muted" aria-hidden="true"/>{:else if entity.kind==='camera'}<Camera size={15}/>{:else if entity.kind==='avatar'}<User size={15}/>{:else if entity.kind==='tracking'}<Radio size={15}/>{:else if entity.kind==='environment'}<Mountain size={15}/>{:else}<Box size={15}/>{/if}<span>{entity.name}</span>
        </button>{/if}
        <div class="row-actions">
         {#if entity.kind==='camera'}<button type="button" class={`row-action${activeCamera===entity.id?' active-camera':''}`} aria-label={`Use ${entity.name} as output camera`} aria-pressed={activeCamera===entity.id} disabled={disabled||view.pending} onclick={()=>activateCamera(entity.id)}><Video size={14}/></button>{/if}

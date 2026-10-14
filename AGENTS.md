@@ -60,4 +60,6 @@ Make small verified commits at coherent milestones. Each checkpoint includes spe
 
 ## Documentation authority
 
+[ARCHITECTURE.md](ARCHITECTURE.md) is the map of the code as it is now. Read it before you change a boundary. You MUST update it in the same commit when you add, remove, or move a package, crate, process, window, data path, or trust check, or when its text becomes false. Keep it a short map; put direction in the architecture design and status in the parity checklist.
+
 The architecture owns overall direction. The parity checklist owns feature status. Slice contracts own implementation requirements. The benchmark contract owns performance measurement. Record unresolved technical choices as candidates with a selection gate; do not convert them into implemented claims.
