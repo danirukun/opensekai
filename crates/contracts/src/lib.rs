@@ -680,9 +680,10 @@ fn validate_blueprint_inspect(data: &Value) -> Result<(), AppError> {
         require(
             held.as_array().is_some_and(|codes| {
                 (1..=16).contains(&codes.len())
-                    && codes
-                        .iter()
-                        .all(|c| c.as_str().is_some_and(|c| (1..=32).contains(&c.chars().count())))
+                    && codes.iter().all(|c| {
+                        c.as_str()
+                            .is_some_and(|c| (1..=32).contains(&c.chars().count()))
+                    })
             }),
             "invalid held keys",
         )?;
@@ -692,7 +693,14 @@ fn validate_blueprint_inspect(data: &Value) -> Result<(), AppError> {
             require(
                 keys_within(
                     data,
-                    &["kind", "revision", "blueprints", "errors", "keystrokes", "heldKeys"],
+                    &[
+                        "kind",
+                        "revision",
+                        "blueprints",
+                        "errors",
+                        "keystrokes",
+                        "heldKeys",
+                    ],
                 ),
                 "invalid Blueprint snapshot",
             )?;
@@ -706,7 +714,14 @@ fn validate_blueprint_inspect(data: &Value) -> Result<(), AppError> {
             require(
                 keys_within(
                     data,
-                    &["kind", "revision", "batches", "errors", "keystrokes", "heldKeys"],
+                    &[
+                        "kind",
+                        "revision",
+                        "batches",
+                        "errors",
+                        "keystrokes",
+                        "heldKeys",
+                    ],
                 ),
                 "invalid Blueprint delta",
             )?;
@@ -778,13 +793,21 @@ impl AssetSummary {
         } else {
             AssetKind::Fixture
         };
-        Self { id: record.id.clone(), kind, name: record.name.clone(), credits: record.credits.clone() }
+        Self {
+            id: record.id.clone(),
+            kind,
+            name: record.name.clone(),
+            credits: record.credits.clone(),
+        }
     }
 }
 impl AssetList {
     /// One page of summaries in ascending ID order after `after`, bounded by `ASSET_LIST_PAGE` and `ASSET_LIST_BYTES`.
     pub fn page(records: &[AssetRecord], after: Option<&str>) -> Self {
-        let mut sorted: Vec<&AssetRecord> = records.iter().filter(|r| after.is_none_or(|a| r.id.as_str() > a)).collect();
+        let mut sorted: Vec<&AssetRecord> = records
+            .iter()
+            .filter(|r| after.is_none_or(|a| r.id.as_str() > a))
+            .collect();
         sorted.sort_by(|a, b| a.id.cmp(&b.id));
         let mut assets = Vec::new();
         let mut bytes = 0usize;
@@ -797,15 +820,21 @@ impl AssetList {
             bytes += size;
             assets.push(summary);
         }
-        let next = (assets.len() < sorted.len()).then(|| assets.last().map(|a| a.id.clone())).flatten();
+        let next = (assets.len() < sorted.len())
+            .then(|| assets.last().map(|a| a.id.clone()))
+            .flatten();
         Self { assets, next }
     }
 }
 fn credits_ok(credits: &Option<AssetCredits>) -> Result<(), AppError> {
     require(
-        credits.as_ref().and_then(|c| c.source_url.as_ref()).is_none_or(|s| {
-            (s.starts_with("http://") || s.starts_with("https://")) && url::Url::parse(s).is_ok()
-        }),
+        credits
+            .as_ref()
+            .and_then(|c| c.source_url.as_ref())
+            .is_none_or(|s| {
+                (s.starts_with("http://") || s.starts_with("https://"))
+                    && url::Url::parse(s).is_ok()
+            }),
         "invalid credits source URL",
     )
 }

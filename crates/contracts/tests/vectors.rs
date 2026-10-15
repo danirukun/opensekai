@@ -178,7 +178,10 @@ fn asset_list_pages_in_id_order_within_count_and_byte_limits() {
         name: "Room".into(),
         credits,
     };
-    let mut records: Vec<_> = (0..70).rev().map(|i| record(format!("scene_{i:03}"), None)).collect();
+    let mut records: Vec<_> = (0..70)
+        .rev()
+        .map(|i| record(format!("scene_{i:03}"), None))
+        .collect();
     records.push(record("avatar_a".into(), None));
     records.push(record("fixture_glb_1".into(), None));
     let first = AssetList::page(&records, None);
@@ -200,13 +203,21 @@ fn asset_list_pages_in_id_order_within_count_and_byte_limits() {
         .map(|i| {
             record(
                 format!("scene_{i:03}"),
-                Some(AssetCredits { title: Some(long.clone()), author: Some(long.clone()), license: Some(long.clone()), source_url: None }),
+                Some(AssetCredits {
+                    title: Some(long.clone()),
+                    author: Some(long.clone()),
+                    license: Some(long.clone()),
+                    source_url: None,
+                }),
             )
         })
         .collect();
     let page = AssetList::page(&heavy, None);
     assert!(page.assets.len() < 64 && !page.assets.is_empty());
     assert!(serde_json::to_vec(&page.assets).unwrap().len() <= ASSET_LIST_BYTES);
-    assert_eq!(page.next.as_deref(), Some(page.assets.last().unwrap().id.as_str()));
+    assert_eq!(
+        page.next.as_deref(),
+        Some(page.assets.last().unwrap().id.as_str())
+    );
     page.validate().unwrap();
 }

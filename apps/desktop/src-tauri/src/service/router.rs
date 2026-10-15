@@ -1,15 +1,16 @@
 use super::*;
-use base64::{engine::general_purpose::STANDARD, Engine};
 use crate::input::monitor::MonitorStatus;
+use base64::{engine::general_purpose::STANDARD, Engine};
 use std::{future::Future, pin::Pin};
 
 /// The status warning while held-key nodes are active but keys cannot be observed.
 fn monitor_warning(watching: bool, status: MonitorStatus) -> Option<AppError> {
     let (code, message) = match (watching, status) {
         (true, MonitorStatus::NoAccess) => (ErrorCode::Forbidden, "Input Monitoring is off"),
-        (true, MonitorStatus::Unsupported) => {
-            (ErrorCode::Unsupported, "Held keys are unavailable on this platform")
-        }
+        (true, MonitorStatus::Unsupported) => (
+            ErrorCode::Unsupported,
+            "Held keys are unavailable on this platform",
+        ),
         _ => return None,
     };
     Some(AppError {
@@ -227,7 +228,10 @@ impl Shared {
                         message: "Keystroke unavailable".into(),
                         ids: vec![accelerator.clone()],
                     })
-                    .chain(monitor_warning(watching && inner.publisher.is_some(), monitor))
+                    .chain(monitor_warning(
+                        watching && inner.publisher.is_some(),
+                        monitor
+                    ))
                     .collect(),
                 outputs,
                 tracking_status: inner

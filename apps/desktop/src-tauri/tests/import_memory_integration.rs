@@ -73,6 +73,9 @@ fn glb_root_import_peak_is_about_two_times_the_file() {
     let peak = PEAK.load(Ordering::SeqCst) - before;
     let ratio = peak as f64 / size as f64;
     println!("pack_scene peak heap: {peak} bytes for a {size} byte GLB root ({ratio:.3} N)");
-    assert!(packed.glb.len().abs_diff(size) < 256, "the packed GLB keeps the BIN and changes only the JSON");
+    assert!(
+        packed.glb.len().abs_diff(size) < 256,
+        "the packed GLB keeps the BIN and changes only the JSON"
+    );
     assert!(ratio <= 2.05, "peak heap {ratio:.3} N is over about 2 N");
 }

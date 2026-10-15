@@ -1,4 +1,6 @@
-use opensekai_desktop_lib::service::{start_service, AssetHook, AssetStep, ServiceConfig, ServiceHandle};
+use opensekai_desktop_lib::service::{
+    start_service, AssetHook, AssetStep, ServiceConfig, ServiceHandle,
+};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     mpsc, Arc, Mutex,
@@ -36,7 +38,10 @@ struct Gate {
     release: mpsc::Sender<()>,
 }
 // Holds the first step that `select` accepts until the test sends on `release`. Other steps pass.
-fn hold(service: &ServiceHandle, select: impl Fn(&AssetStep) -> bool + Send + Sync + 'static) -> Gate {
+fn hold(
+    service: &ServiceHandle,
+    select: impl Fn(&AssetStep) -> bool + Send + Sync + 'static,
+) -> Gate {
     let (entered_tx, entered) = mpsc::channel();
     let (release, release_rx) = mpsc::channel::<()>();
     let entered_tx = Mutex::new(entered_tx);
@@ -46,7 +51,10 @@ fn hold(service: &ServiceHandle, select: impl Fn(&AssetStep) -> bool + Send + Sy
         if select(&step) && !held.swap(true, Ordering::SeqCst) {
             entered_tx.lock().unwrap().send(step).unwrap();
             // A deadline keeps a failing test from hanging the run.
-            let _ = release_rx.lock().unwrap().recv_timeout(Duration::from_secs(10));
+            let _ = release_rx
+                .lock()
+                .unwrap()
+                .recv_timeout(Duration::from_secs(10));
         }
     });
     service.set_asset_hook(Some(hook));
@@ -58,7 +66,10 @@ async fn wait_entered(gate: &Gate) -> AssetStep {
         if let Ok(step) = gate.entered.try_recv() {
             return step;
         }
-        assert!(std::time::Instant::now() < deadline, "the held asset step was not reached");
+        assert!(
+            std::time::Instant::now() < deadline,
+            "the held asset step was not reached"
+        );
         tokio::time::sleep(Duration::from_millis(5)).await;
     }
 }
@@ -100,7 +111,11 @@ async fn small_asset_is_served_while_a_large_import_is_in_its_store_step() {
     let response = get(&service, &small.id).await;
     assert_eq!(response.status(), 200);
     assert_eq!(response.bytes().await.unwrap().len() as u64, small.bytes);
-    assert_eq!(service.asset_records().len(), 1, "the held import is not committed yet");
+    assert_eq!(
+        service.asset_records().len(),
+        1,
+        "the held import is not committed yet"
+    );
     gate.release.send(()).unwrap();
     let imported = importer.await.unwrap().unwrap().record;
     assert_eq!(service.asset_records().len(), 2);
@@ -119,7 +134,10 @@ async fn small_asset_is_served_while_a_large_import_is_in_its_store_step() {
         .map(|e| e.unwrap().file_name().into_string().unwrap())
         .filter(|name| !name.starts_with("scene_"))
         .collect();
-    assert!(leftovers.is_empty(), "temporary files remain: {leftovers:?}");
+    assert!(
+        leftovers.is_empty(),
+        "temporary files remain: {leftovers:?}"
+    );
     service.shutdown().await.unwrap();
 }
 
@@ -151,7 +169,15 @@ async fn small_asset_is_served_while_an_avatar_import_is_in_its_store_step() {
     assert_eq!(get(&service, &small.id).await.status(), 200);
     gate.release.send(()).unwrap();
     let avatar_record = importer.await.unwrap().unwrap().record;
-    assert_eq!(get(&service, &avatar_record.id).await.bytes().await.unwrap().as_ref(), avatar);
+    assert_eq!(
+        get(&service, &avatar_record.id)
+            .await
+            .bytes()
+            .await
+            .unwrap()
+            .as_ref(),
+        avatar
+    );
     service.shutdown().await.unwrap();
 }
 
@@ -206,12 +232,17 @@ async fn operator_lists_assets_in_pages_without_a_publisher() {
         .send(Message::Text(serde_json::json!({"kind":"auth","role":descriptor.role,"token":descriptor.token,"schemaVersion":1,"outputId":null}).to_string().into()))
         .await
         .unwrap();
-    async fn next(socket: &mut tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>) -> serde_json::Value {
+    async fn next(
+        socket: &mut tokio_tungstenite::WebSocketStream<
+            tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
+        >,
+    ) -> serde_json::Value {
         tokio::time::timeout(Duration::from_secs(3), async {
             loop {
                 let message = socket.next().await.unwrap().unwrap();
                 let text = message.clone().into_text().unwrap();
-                let value: serde_json::Value = serde_json::from_str(&text).unwrap_or_else(|_| panic!("not JSON: {message:?}"));
+                let value: serde_json::Value =
+                    serde_json::from_str(&text).unwrap_or_else(|_| panic!("not JSON: {message:?}"));
                 if value["kind"] != "clock" {
                     return value;
                 }
@@ -224,7 +255,11 @@ async fn operator_lists_assets_in_pages_without_a_publisher() {
     let mut listed = Vec::new();
     let mut after = serde_json::Value::Null;
     for page in 0.. {
-        let params = if after.is_null() { serde_json::json!({}) } else { serde_json::json!({"after": after}) };
+        let params = if after.is_null() {
+            serde_json::json!({})
+        } else {
+            serde_json::json!({"after": after})
+        };
         socket
             .send(Message::Text(serde_json::json!({"kind":"call","requestId":format!("list{page}"),"method":"assetList","params":params}).to_string().into()))
             .await
@@ -235,7 +270,11 @@ async fn operator_lists_assets_in_pages_without_a_publisher() {
         let assets = data["assets"].as_array().unwrap();
         assert!(assets.len() <= 64);
         assert_eq!(assets[0]["kind"], "scene");
-        assert_eq!(assets[0].as_object().unwrap().len(), 3, "a summary without credits has id, kind, and name only");
+        assert_eq!(
+            assets[0].as_object().unwrap().len(),
+            3,
+            "a summary without credits has id, kind, and name only"
+        );
         listed.extend(assets.iter().map(|a| a["id"].as_str().unwrap().to_string()));
         after = data["next"].clone();
         if after.is_null() {
@@ -259,6 +298,9 @@ async fn operator_lists_assets_in_pages_without_a_publisher() {
     })
     .await
     .unwrap();
-    assert!(matches!(closed, None | Some(Err(_)) | Some(Ok(Message::Close(_)))), "{closed:?}");
+    assert!(
+        matches!(closed, None | Some(Err(_)) | Some(Ok(Message::Close(_)))),
+        "{closed:?}"
+    );
     service.shutdown().await.unwrap();
 }

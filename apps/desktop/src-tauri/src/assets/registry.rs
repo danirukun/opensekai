@@ -92,32 +92,42 @@ impl AssetRegistry {
                 let stored = p.with_extension("vrm");
                 let backfilled = value.get("name").is_none() && value.is_object();
                 if backfilled {
-                    value["name"] = Value::String(
-                        stored_meta_name(&stored).unwrap_or_else(|| "Avatar".into()),
-                    );
+                    value["name"] =
+                        Value::String(stored_meta_name(&stored).unwrap_or_else(|| "Avatar".into()));
                 }
                 let Ok(record) = serde_json::from_value::<AssetRecord>(value) else {
                     continue;
                 };
-                let extension = if record.format == AssetFormat::Vrm && record.id == format!("avatar_{}", record.sha256) {
+                let extension = if record.format == AssetFormat::Vrm
+                    && record.id == format!("avatar_{}", record.sha256)
+                {
                     Some("vrm")
-                } else if record.format == AssetFormat::Glb && record.id == format!("scene_{}", record.sha256) {
+                } else if record.format == AssetFormat::Glb
+                    && record.id == format!("scene_{}", record.sha256)
+                {
                     Some("glb")
                 } else {
                     None
                 };
-                if let (true, true, Some(extension)) = (record.validate().is_ok(), opaque(&record.id), extension) {
+                if let (true, true, Some(extension)) =
+                    (record.validate().is_ok(), opaque(&record.id), extension)
+                {
                     if backfilled {
                         if let Ok(bytes) = serde_json::to_vec(&record) {
                             if let Ok(mut temp) = tempfile::NamedTempFile::new_in(&library) {
-                                let _ = temp.write_all(&bytes).and_then(|_| temp.as_file().sync_all());
+                                let _ = temp
+                                    .write_all(&bytes)
+                                    .and_then(|_| temp.as_file().sync_all());
                                 let _ = temp.persist(&p);
                             }
                         }
                     }
                     self.entries.insert(
                         record.id.clone(),
-                        Entry { path: library.join(format!("{}.{extension}", record.id)), record },
+                        Entry {
+                            path: library.join(format!("{}.{extension}", record.id)),
+                            record,
+                        },
                     );
                 }
             }
@@ -131,12 +141,21 @@ impl AssetRegistry {
     pub fn intact(&self, id: &str) -> Option<ImportResult> {
         self.entries
             .get(id)
-            .filter(|entry| std::fs::metadata(&entry.path).is_ok_and(|m| m.is_file() && m.len() == entry.record.bytes))
-            .map(|entry| ImportResult { name: entry.record.name.clone(), record: entry.record.clone() })
+            .filter(|entry| {
+                std::fs::metadata(&entry.path)
+                    .is_ok_and(|m| m.is_file() && m.len() == entry.record.bytes)
+            })
+            .map(|entry| ImportResult {
+                name: entry.record.name.clone(),
+                record: entry.record.clone(),
+            })
     }
     /// Renames the staged files into the library and inserts the record. Keep this step short: callers hold the registry lock.
     pub fn commit(&mut self, staged: StagedAsset) -> Result<ImportResult, AppError> {
-        if let Some(existing) = self.intact(&staged.record.id).filter(|_| staged.deduplicate) {
+        if let Some(existing) = self
+            .intact(&staged.record.id)
+            .filter(|_| staged.deduplicate)
+        {
             return Ok(existing);
         }
         if staged.library != self.library {
@@ -145,12 +164,22 @@ impl AssetRegistry {
         let mut target = None;
         for (temp, name) in staged.files {
             let path = self.library.join(name);
-            temp.persist(&path).map_err(|_| error(ErrorCode::Unavailable, ""))?;
+            temp.persist(&path)
+                .map_err(|_| error(ErrorCode::Unavailable, ""))?;
             target.get_or_insert(path);
         }
         let path = target.ok_or_else(|| error(ErrorCode::Unavailable, ""))?;
-        self.entries.insert(staged.record.id.clone(), Entry { path, record: staged.record.clone() });
-        Ok(ImportResult { record: staged.record, name: staged.name })
+        self.entries.insert(
+            staged.record.id.clone(),
+            Entry {
+                path,
+                record: staged.record.clone(),
+            },
+        );
+        Ok(ImportResult {
+            record: staged.record,
+            name: staged.name,
+        })
     }
     pub fn import_avatar(&mut self, path: &Path) -> Result<ImportResult, AppError> {
         let staged = stage_avatar(&self.library, path)?;
@@ -273,12 +302,19 @@ impl PreparedScene {
     }
 }
 fn temp_file(dir: &Path, bytes: &[u8]) -> Result<tempfile::NamedTempFile, AppError> {
-    let mut temp = tempfile::NamedTempFile::new_in(dir).map_err(|_| error(ErrorCode::Unavailable, ""))?;
-    temp.write_all(bytes).map_err(|_| error(ErrorCode::Unavailable, ""))?;
-    temp.as_file().sync_all().map_err(|_| error(ErrorCode::Unavailable, ""))?;
+    let mut temp =
+        tempfile::NamedTempFile::new_in(dir).map_err(|_| error(ErrorCode::Unavailable, ""))?;
+    temp.write_all(bytes)
+        .map_err(|_| error(ErrorCode::Unavailable, ""))?;
+    temp.as_file()
+        .sync_all()
+        .map_err(|_| error(ErrorCode::Unavailable, ""))?;
     Ok(temp)
 }
-fn record_file(dir: &Path, record: &AssetRecord) -> Result<(tempfile::NamedTempFile, String), AppError> {
+fn record_file(
+    dir: &Path,
+    record: &AssetRecord,
+) -> Result<(tempfile::NamedTempFile, String), AppError> {
     let bytes = serde_json::to_vec(record).map_err(|_| invalid("Invalid asset record"))?;
     Ok((temp_file(dir, &bytes)?, format!("{}.json", record.id)))
 }
@@ -300,20 +336,36 @@ pub fn prepare_scene(packed: PackedScene) -> Result<PreparedScene, AppError> {
         sha256,
         bytes: packed.glb.len() as u64,
         source_url: credits.as_ref().and_then(|c| c.source_url.clone()),
-        license_label: credits.as_ref().and_then(|c| c.license.clone()).unwrap_or_default(),
+        license_label: credits
+            .as_ref()
+            .and_then(|c| c.license.clone())
+            .unwrap_or_default(),
         importer_version: 1,
         name: name.clone(),
         credits,
     };
     record.validate()?;
-    Ok(PreparedScene { record, name, glb: packed.glb })
+    Ok(PreparedScene {
+        record,
+        name,
+        glb: packed.glb,
+    })
 }
 /// Writes and syncs the scene and its record as temporary files in the library. Runs without the registry lock.
 pub fn stage_scene(library: &Path, prepared: PreparedScene) -> Result<StagedAsset, AppError> {
     std::fs::create_dir_all(library).map_err(|_| error(ErrorCode::Unavailable, ""))?;
-    let glb = (temp_file(library, &prepared.glb)?, format!("{}.glb", prepared.record.id));
+    let glb = (
+        temp_file(library, &prepared.glb)?,
+        format!("{}.glb", prepared.record.id),
+    );
     let json = record_file(library, &prepared.record)?;
-    Ok(StagedAsset { record: prepared.record, name: prepared.name, library: library.to_path_buf(), files: vec![glb, json], deduplicate: true })
+    Ok(StagedAsset {
+        record: prepared.record,
+        name: prepared.name,
+        library: library.to_path_buf(),
+        files: vec![glb, json],
+        deduplicate: true,
+    })
 }
 /// Copies, hashes, and validates an avatar into temporary library files. Runs without the registry lock.
 pub fn stage_avatar(library: &Path, path: &Path) -> Result<StagedAsset, AppError> {
@@ -326,8 +378,8 @@ pub fn stage_avatar(library: &Path, path: &Path) -> Result<StagedAsset, AppError
         return Err(invalid("Avatar exceeds import budget"));
     }
     std::fs::create_dir_all(library).map_err(|_| error(ErrorCode::Unavailable, ""))?;
-    let mut copy = tempfile::NamedTempFile::new_in(library)
-        .map_err(|_| error(ErrorCode::Unavailable, ""))?;
+    let mut copy =
+        tempfile::NamedTempFile::new_in(library).map_err(|_| error(ErrorCode::Unavailable, ""))?;
     let mut hash = Sha256::new();
     let mut buffer = [0u8; 65536];
     let mut count = 0u64;
@@ -353,7 +405,11 @@ pub fn stage_avatar(library: &Path, path: &Path) -> Result<StagedAsset, AppError
     let sha256 = hex(&hash.finalize());
     let id = format!("avatar_{sha256}");
     let name = meta_name(&json)
-        .or_else(|| path.file_stem().and_then(|s| s.to_str()).and_then(bounded_name))
+        .or_else(|| {
+            path.file_stem()
+                .and_then(|s| s.to_str())
+                .and_then(bounded_name)
+        })
         .unwrap_or_else(|| "Avatar".into());
     let record = AssetRecord {
         id: id.clone(),
@@ -370,7 +426,13 @@ pub fn stage_avatar(library: &Path, path: &Path) -> Result<StagedAsset, AppError
         .sync_all()
         .map_err(|_| error(ErrorCode::Unavailable, ""))?;
     let json = record_file(library, &record)?;
-    Ok(StagedAsset { record, name, library: library.to_path_buf(), files: vec![(copy, format!("{id}.vrm")), json], deduplicate: false })
+    Ok(StagedAsset {
+        record,
+        name,
+        library: library.to_path_buf(),
+        files: vec![(copy, format!("{id}.vrm")), json],
+        deduplicate: false,
+    })
 }
 pub fn resolve_asset(id: &str, registry: &AssetRegistry) -> Result<PathBuf, AppError> {
     if !opaque(id) {
@@ -521,7 +583,10 @@ mod boundary_tests {
         assert_eq!(record.format, opensekai_contracts::AssetFormat::Glb);
         assert_eq!(record.name, "Room");
         assert_eq!(record.license_label, "CC-BY-4.0");
-        assert_eq!(record.source_url.as_deref(), Some("https://sketchfab.com/3d-models/room"));
+        assert_eq!(
+            record.source_url.as_deref(),
+            Some("https://sketchfab.com/3d-models/room")
+        );
         assert_eq!(registry.read(&record.id).unwrap(), glb());
         let reopened = AssetRegistry::empty(dir.path()).unwrap();
         assert_eq!(reopened.records(), vec![record.clone()]);
@@ -540,7 +605,11 @@ mod boundary_tests {
     fn storing_again_repairs_a_missing_scene_file() {
         let dir = tempfile::tempdir().unwrap();
         let mut registry = AssetRegistry::empty(dir.path()).unwrap();
-        let id = registry.store_scene(packed(Some("Room"), glb())).unwrap().record.id;
+        let id = registry
+            .store_scene(packed(Some("Room"), glb()))
+            .unwrap()
+            .record
+            .id;
         let file = registry.entries.get(&id).unwrap().path.clone();
         std::fs::remove_file(&file).unwrap();
         assert!(registry.read(&id).is_err());
@@ -554,7 +623,14 @@ mod boundary_tests {
         let dir = tempfile::tempdir().unwrap();
         let mut registry = AssetRegistry::empty(dir.path()).unwrap();
         let long = "x".repeat(129);
-        assert_eq!(registry.store_scene(packed(Some(&long), glb())).unwrap().record.name, "scene");
+        assert_eq!(
+            registry
+                .store_scene(packed(Some(&long), glb()))
+                .unwrap()
+                .record
+                .name,
+            "scene"
+        );
         let mut other = glb();
         other.extend([b' '; 4]);
         let len = other.len() as u32;
@@ -722,7 +798,11 @@ mod import_tests {
         let dir = tempfile::tempdir().unwrap();
         let mut r = AssetRegistry::empty(&dir.path().join("managed")).unwrap();
         let named = dir.path().join("named.vrm");
-        std::fs::write(&named, vrm(include_str!("../../tests/fixtures/minimal-vrm1.json"))).unwrap();
+        std::fs::write(
+            &named,
+            vrm(include_str!("../../tests/fixtures/minimal-vrm1.json")),
+        )
+        .unwrap();
         let a = r.import_avatar(&named).unwrap();
         assert_eq!(a.record.name, "Test avatar");
         assert_eq!(a.name, a.record.name);
@@ -734,9 +814,18 @@ mod import_tests {
     fn fills_a_missing_name_from_stored_vrm_meta() {
         let dir = tempfile::tempdir().unwrap();
         let source = dir.path().join("a.vrm");
-        std::fs::write(&source, vrm(include_str!("../../tests/fixtures/minimal-vrm1.json"))).unwrap();
+        std::fs::write(
+            &source,
+            vrm(include_str!("../../tests/fixtures/minimal-vrm1.json")),
+        )
+        .unwrap();
         let managed = dir.path().join("managed");
-        let id = AssetRegistry::empty(&managed).unwrap().import_avatar(&source).unwrap().record.id;
+        let id = AssetRegistry::empty(&managed)
+            .unwrap()
+            .import_avatar(&source)
+            .unwrap()
+            .record
+            .id;
         let json = managed.join("library").join(format!("{id}.json"));
         let mut legacy: Value = serde_json::from_slice(&std::fs::read(&json).unwrap()).unwrap();
         legacy.as_object_mut().unwrap().remove("name");
@@ -750,9 +839,18 @@ mod import_tests {
     fn legacy_record_with_unreadable_file_falls_back_to_avatar() {
         let dir = tempfile::tempdir().unwrap();
         let source = dir.path().join("a.vrm");
-        std::fs::write(&source, vrm(include_str!("../../tests/fixtures/minimal-vrm1.json"))).unwrap();
+        std::fs::write(
+            &source,
+            vrm(include_str!("../../tests/fixtures/minimal-vrm1.json")),
+        )
+        .unwrap();
         let managed = dir.path().join("managed");
-        let id = AssetRegistry::empty(&managed).unwrap().import_avatar(&source).unwrap().record.id;
+        let id = AssetRegistry::empty(&managed)
+            .unwrap()
+            .import_avatar(&source)
+            .unwrap()
+            .record
+            .id;
         let library = managed.join("library");
         let json = library.join(format!("{id}.json"));
         let mut legacy: Value = serde_json::from_slice(&std::fs::read(&json).unwrap()).unwrap();

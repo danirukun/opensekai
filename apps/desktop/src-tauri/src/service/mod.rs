@@ -202,7 +202,12 @@ impl Shared {
         if !held.is_empty() {
             match update.as_mut() {
                 Some(update) => update.held = held,
-                None => update = Some(InputUpdate { events: vec![], held }),
+                None => {
+                    update = Some(InputUpdate {
+                        events: vec![],
+                        held,
+                    })
+                }
             }
         }
         update
@@ -343,7 +348,11 @@ impl Shared {
                         .transpose()
                         .ok()?
                         .unwrap_or_default();
-                    Some((revision, serde_json::from_value::<Vec<String>>(list).ok()?, held))
+                    Some((
+                        revision,
+                        serde_json::from_value::<Vec<String>>(list).ok()?,
+                        held,
+                    ))
                 }),
             None => None,
         };
@@ -353,13 +362,15 @@ impl Shared {
                 && lock(&self.inner).publisher.as_ref().map(|p| &p.id) == asked.as_ref();
             match (reported, asked) {
                 // An edit reply that is newer than the answer wins by revision.
-                (Some((revision, list, held)), Some(asked)) if same_publisher => Self::learn_locked(
-                    &mut known,
-                    &asked,
-                    revision,
-                    list.into_iter().collect(),
-                    held.into_iter().collect(),
-                ),
+                (Some((revision, list, held)), Some(asked)) if same_publisher => {
+                    Self::learn_locked(
+                        &mut known,
+                        &asked,
+                        revision,
+                        list.into_iter().collect(),
+                        held.into_iter().collect(),
+                    )
+                }
                 // A publisher that is gone will be asked again when the next one connects.
                 (Some(_), _) => false,
                 // A publisher that is still here and gave no valid answer has no known set: its
