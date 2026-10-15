@@ -104,3 +104,89 @@ it('reads the property values that earlier runs of the same tick wrote', () => {
  const frame = session.advance(0);
  expect(frame.scene.entities.find(e => e.id === 'reference')!.transform.position).toEqual([5, 0, 1]);
 });
+
+const bool = (id: string, value: boolean) => ({ id, version: 1, type: 'value.boolean', settings: { value }, position: at });
+const stage = { id: 'stage', name: 'Environment', visible: true, transform: { position: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] }, kind: 'environment', assetId: null };
+const withStage = (graph: BlueprintGraph) => {
+ const session = createSession(makeSmokeScene(), 's');
+ expect(session.applyPatch({ sceneId: 'scene_smoke', expectedRevision: 0, operations: [{ kind: 'createEntity', entity: stage as never }] }).ok).toBe(true);
+ session.editBlueprints({ clientId: 't', batchId: 'b', ops: [{ kind: 'replaceAll', graphs: [graph] }] });
+ return session;
+};
+const find = (scene: { entities: { id: string }[] }, id: string) => scene.entities.find(e => e.id === id) as unknown as Record<string, unknown> & { visible: boolean; transform: { position: number[] } };
+
+it('hides and shows the environment with Set Asset Property and commits each change', () => {
+ // Manual Trigger hide → Set Asset Property(stage, Visible, false); show → the same with true; Get Asset Property reads it back.
+ const g = { schemaVersion: 1, id: 'stage-toggle', name: 'Stage', enabled: true, variables: [], nodes: [
+  { id: 'hide', version: 1, type: 'event.manual', settings: {}, position: at }, bool('off', false),
+  { id: 'setOff', version: 1, type: 'property.set', settings: { entityId: 'stage', property: 'visible' }, position: at },
+  { id: 'show', version: 1, type: 'event.manual', settings: {}, position: at }, bool('on', true),
+  { id: 'setOn', version: 1, type: 'property.set', settings: { entityId: 'stage', property: 'visible' }, position: at },
+ ], connections: [wire('a', 'hide', 'flow', 'setOff', 'flow'), wire('b', 'off', 'value', 'setOff', 'value'), wire('c', 'show', 'flow', 'setOn', 'flow'), wire('d', 'on', 'value', 'setOn', 'value')] } as BlueprintGraph;
+ const session = withStage(g);
+ const revision = session.inspect().revision;
+ session.advance(0);
+ expect(session.runBlueprint('stage-toggle', 'hide').ok).toBe(true);
+ expect(find(session.advance(16).scene, 'stage').visible).toBe(false);
+ expect(find(session.inspect(), 'stage').visible).toBe(true);
+ session.advance(300);
+ expect(find(session.inspect(), 'stage')).toMatchObject({ kind: 'environment', visible: false, assetId: null });
+ expect(session.inspect().revision).toBe(revision + 1);
+ expect(session.runBlueprint('stage-toggle', 'show').ok).toBe(true);
+ expect(find(session.advance(316).scene, 'stage').visible).toBe(true);
+ session.advance(600);
+ expect(find(session.inspect(), 'stage').visible).toBe(true);
+ expect(session.inspect().revision).toBe(revision + 2);
+});
+
+it('moves the environment and reads its position', () => {
+ const g = { schemaVersion: 1, id: 'stage-move', name: 'Stage', enabled: true, variables: [], nodes: [
+  { id: 'go', version: 1, type: 'event.manual', settings: {}, position: at }, num('one', 1), num('zero', 0),
+  { id: 'make', version: 1, type: 'vector3.make', settings: {}, position: at },
+  { id: 'move', version: 1, type: 'entity.move', settings: { entityId: 'stage', space: 'world' }, position: at },
+  { id: 'copy', version: 1, type: 'event.manual', settings: {}, position: at },
+  { id: 'get', version: 1, type: 'property.get', settings: { entityId: 'stage', property: 'position' }, position: at },
+  { id: 'set', version: 1, type: 'property.set', settings: { entityId: 'reference', property: 'position' }, position: at },
+ ], connections: [wire('a', 'go', 'flow', 'move', 'flow'), wire('b', 'one', 'value', 'make', 'x'), wire('c', 'zero', 'value', 'make', 'y'), wire('d', 'zero', 'value', 'make', 'z'), wire('e', 'make', 'value', 'move', 'delta'),
+  wire('f', 'copy', 'flow', 'set', 'flow'), wire('g', 'get', 'value', 'set', 'value')] } as BlueprintGraph;
+ const session = withStage(g);
+ session.advance(0);
+ expect(session.runBlueprint('stage-move', 'go').ok).toBe(true);
+ expect(find(session.advance(16).scene, 'stage').transform.position).toEqual([1, 0, 0]);
+ expect(session.runBlueprint('stage-move', 'copy').ok).toBe(true);
+ expect(find(session.advance(32).scene, 'reference').transform.position).toEqual([1, 0, 0]);
+ session.advance(300);
+ expect(find(session.inspect(), 'stage').transform.position).toEqual([1, 0, 0]);
+});
+
+it('sets the camera Render Environment, commits it, and a patch drops the override', () => {
+ const g = { schemaVersion: 1, id: 'render', name: 'Render', enabled: true, variables: [], nodes: [
+  { id: 'off', version: 1, type: 'event.manual', settings: {}, position: at }, bool('no', false),
+  { id: 'setOff', version: 1, type: 'property.set', settings: { entityId: 'camera_wide', property: 'renderEnvironment' }, position: at },
+  { id: 'on', version: 1, type: 'event.manual', settings: {}, position: at }, bool('yes', true),
+  { id: 'setOn', version: 1, type: 'property.set', settings: { entityId: 'camera_wide', property: 'renderEnvironment' }, position: at },
+ ], connections: [wire('a', 'off', 'flow', 'setOff', 'flow'), wire('b', 'no', 'value', 'setOff', 'value'), wire('c', 'on', 'flow', 'setOn', 'flow'), wire('d', 'yes', 'value', 'setOn', 'value')] } as BlueprintGraph;
+ const session = createSession(makeSmokeScene(), 's');
+ session.editBlueprints({ clientId: 't', batchId: 'b', ops: [{ kind: 'replaceAll', graphs: [g] }] });
+ const revision = session.inspect().revision;
+ session.advance(0);
+ // Writing the default true to a camera without the field changes nothing and commits nothing.
+ expect(session.runBlueprint('render', 'on').ok).toBe(true);
+ session.advance(300);
+ expect(session.inspect().revision).toBe(revision);
+ expect(find(session.inspect(), 'camera_wide')).not.toHaveProperty('renderEnvironment');
+ expect(session.runBlueprint('render', 'off').ok).toBe(true);
+ expect(find(session.advance(316).scene, 'camera_wide').renderEnvironment).toBe(false);
+ session.advance(600);
+ expect(find(session.inspect(), 'camera_wide').renderEnvironment).toBe(false);
+ expect(session.inspect().revision).toBe(revision + 1);
+
+ // A pending true override is dropped by an editor patch, so the frame follows the patch.
+ expect(session.runBlueprint('render', 'on').ok).toBe(true);
+ expect(find(session.advance(616).scene, 'camera_wide').renderEnvironment).toBe(true);
+ const scene = session.inspect();
+ expect(session.applyPatch({ sceneId: scene.sceneId, expectedRevision: scene.revision, operations: [{ kind: 'setCameraRenderEnvironment', entityId: 'camera_wide', renderEnvironment: false }] }).ok).toBe(true);
+ expect(find(session.advance(632).scene, 'camera_wide').renderEnvironment).toBe(false);
+ session.advance(1000);
+ expect(find(session.inspect(), 'camera_wide').renderEnvironment).toBe(false);
+});
