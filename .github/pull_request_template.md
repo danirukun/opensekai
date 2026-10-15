@@ -12,13 +12,13 @@
 
 ## Evidence
 
-<!-- Each command and its raw result (counts and failures), the backend, and the commit. -->
+<!-- Each command and its raw result (counts and failures), the backend, and the commit. See docs/qa.md. -->
 
 ## Platform
 
 | Platform | Result |
 | --- | --- |
-| macOS | |
+| macOS | <!-- Required for app, OBS, GPU, and hardware changes. Write "needs owner check" when the cloud cannot run it, or "not affected". --> |
 | Linux cloud | |
 | Windows | Not checked |
 

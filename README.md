@@ -99,6 +99,7 @@ The app writes an owner-only operator descriptor. The MCP server uses the same v
 - [macOS feasibility results](docs/evaluation/macOS-feasibility/results.md) and [desktop shell verification](docs/evaluation/macOS-feasibility/desktop-shell.md)
 - [Observed macOS and OBS baseline](docs/evaluation/2026-10-02-local-baseline.md)
 - [Development and checkpoints](docs/development-workflow.md)
+- [Quality assurance](docs/qa.md) and [testing](docs/testing.md)
 - [Dependencies and licenses](docs/dependencies.md)
 - Specs and plans: `docs/superpowers/specs/` and `docs/superpowers/plans/`
 - SPDD analyses and contracts: `spdd/analysis/` and `spdd/prompt/`
