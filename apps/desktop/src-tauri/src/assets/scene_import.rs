@@ -481,7 +481,9 @@ fn pack(
             view.get("byteLength")
                 .and_then(Value::as_u64)
                 .unwrap_or(0)
-                .next_multiple_of(4)
+                // Untrusted length: round up to 4 without overflow.
+                .saturating_add(3)
+                & !3
         })
         .fold(0u64, u64::saturating_add);
     let mut bin = Vec::with_capacity(view_bytes.min(limits.max_glb) as usize);
@@ -925,6 +927,13 @@ mod tests {
         };
         assert!(message(pack_scene(&dir.path().join("scene.gltf"), limits))
             .contains("exceeds import budget"));
+    }
+    #[test]
+    fn rejects_a_huge_buffer_view_length_without_overflow() {
+        let mut json = room("a.png");
+        json["bufferViews"][0]["byteLength"] = json!(u64::MAX - 1);
+        let dir = folder(&json, &[("a.png", PNG)]);
+        assert!(pack_scene(&dir.path().join("scene.gltf"), Limits::DEFAULT).is_err());
     }
     #[test]
     fn rejects_overlapping_buffer_views_over_budget() {

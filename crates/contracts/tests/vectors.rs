@@ -220,4 +220,25 @@ fn asset_list_pages_in_id_order_within_count_and_byte_limits() {
         Some(page.assets.last().unwrap().id.as_str())
     );
     page.validate().unwrap();
+    // A summary over the byte limit alone still makes progress.
+    let huge = "x".repeat(ASSET_LIST_BYTES);
+    let oversized = vec![
+        record(
+            "scene_a".into(),
+            Some(AssetCredits {
+                title: Some(huge),
+                author: None,
+                license: None,
+                source_url: None,
+            }),
+        ),
+        record("scene_b".into(), None),
+    ];
+    let first = AssetList::page(&oversized, None);
+    assert_eq!(first.assets.len(), 1);
+    assert_eq!(first.next.as_deref(), Some("scene_a"));
+    assert_eq!(
+        AssetList::page(&oversized, Some("scene_a")).assets[0].id,
+        "scene_b"
+    );
 }

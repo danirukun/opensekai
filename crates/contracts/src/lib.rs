@@ -814,7 +814,11 @@ impl AssetList {
         for record in &sorted {
             let summary = AssetSummary::of(record);
             let size = serde_json::to_vec(&summary).map_or(usize::MAX, |b| b.len() + 1);
-            if assets.len() == ASSET_LIST_PAGE || bytes.saturating_add(size) > ASSET_LIST_BYTES {
+            // A page always takes one summary, so paging always advances.
+            if !assets.is_empty()
+                && (assets.len() == ASSET_LIST_PAGE
+                    || bytes.saturating_add(size) > ASSET_LIST_BYTES)
+            {
                 break;
             }
             bytes += size;
