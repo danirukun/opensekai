@@ -29,4 +29,4 @@ One Rust test, `service_ports_retain_all_native_ack_times_and_reject_disconnecte
 
 - A long rules document that agents do not read. Keep each file short and link from `AGENTS.md`.
 - A baseline that becomes old. Record the commit and the date with the counts.
-- A bounded wait that hides a product bug. Use a deadline of a few seconds and a clear failure message, so a disconnect that never arrives still fails.
+- A bounded wait that hides a product bug. The test publisher does not answer clock pulses, so the host drops it after 2 s, and `current_output` then returns the same `Unavailable` error. A deadline of a few seconds would pass even without the renderer close. Keep the deadline under 2 s and prove that the test fails without the close.

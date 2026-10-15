@@ -32,6 +32,14 @@ Recorded 2026-10-15 on `main` at `c395dcc`, Node 26.10.0, pnpm 12.8.1, rustc 1.9
 | `pnpm check` | All packages | 0 | 0 | svelte-check: 0 errors, 0 warnings |
 | `pnpm test:unit` | 671 (100 files) | 0 | 0 | |
 | `pnpm test:integration` | 23 (7 files) | 0 | 0 | |
-| `cargo test --workspace` | CARGO_PASS | CARGO_FAIL | CARGO_SKIP | CARGO_NOTES |
+| `cargo test --workspace --no-fail-fast` | 205 | 1 | 1 | Fail: `service_ports_retain_all_native_ack_times_and_reject_disconnected_output` (#158, fixed after this baseline). Skip: `pinned_fixture_benchmark_cancel_replay_stale_timer_summary_and_history` needs local pinned smoke fixtures. |
+| `cargo clippy --workspace --all-targets` | Clean | 0 | — | 0 warnings |
+| `cargo fmt --all -- --check` | — | 10 files | — | Formatting differences in files that this baseline did not change (`assets/registry.rs`, `assets/scene_import.rs`, `bootstrap.rs`, `service/mod.rs`, `service/router.rs`, `import_integration.rs`, and four `crates/contracts` files). Do not count them against your change. Keep the files you change clean. |
+
+Use `--no-fail-fast` with `cargo test`. Without it, cargo stops at the first failing test binary and the counts are incomplete.
+
+After the #158 fix, `cargo test --workspace --no-fail-fast` gives 206 passed, 0 failed, 1 skipped.
+
+One unexplained failure was seen once in about 70 runs of `evaluation_integration`: `native_capture_produces_registered_evidence_and_http_role_cors_policy` and `capture_export_failure_preserves_registered_records_and_cannot_escape_root` failed together at their first capture. It did not occur again in 65 runs, also under CPU load. If you see it, record the full output on a new issue.
 
 Update this table when a change adds a known failure, removes one, or changes a skip.

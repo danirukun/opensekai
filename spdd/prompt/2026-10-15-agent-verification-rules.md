@@ -13,7 +13,7 @@ Give agents one place that says which evidence a change and a parity item need b
 
 ## A — Approach
 
-Model `docs/qa.md` and `docs/testing.md` on the Paseo documents. Link to the constitution and `AGENTS.md` for rules that they already state. Add a template section and a `Blocked` status row to the parity checklist, and apply the template to LIVE-10. In the Rust test, poll `ServicePorts::current_output` every 5 ms until it returns `Unavailable`, with a 3 s deadline. Panic with the output ID and the last result when the deadline expires.
+Model `docs/qa.md` and `docs/testing.md` on the Paseo documents. Link to the constitution and `AGENTS.md` for rules that they already state. Add a template section and a `Blocked` status row to the parity checklist, and apply the template to LIVE-10. In the Rust test, poll `ServicePorts::current_output` every 5 ms until it returns `Unavailable`, with a 1 s deadline. Panic with the output ID and the last result when the deadline expires. The deadline must stay under the 2 s publisher clock credit: the test publisher does not answer clock pulses, so after 2 s the host drops it, and that also makes the output `Unavailable`. A longer deadline would let the test pass when the renderer close is never processed.
 
 ## S — Structure
 
@@ -39,7 +39,7 @@ Write prose in ASD-STE100 Simplified Technical English. Keep each document short
 
 ## S — Safeguards
 
-- The bounded wait must still fail when the disconnect is never processed. The deadline is 3 s, which is more than 100 times the old sleep.
+- The bounded wait must still fail when the disconnect is never processed. The deadline is 1 s, which is 50 times the old sleep and less than the 2 s publisher clock credit. Prove it: remove the close and see the test fail.
 - Do not change the service code for #158 unless the bounded wait also fails. If it fails, report a product bug on #158.
 - Do not check a parity box. The worked example changes only the text format of an item that is already checked.
 - `CLAUDE.md` must be identical to `AGENTS.md`.
