@@ -113,6 +113,8 @@ export interface AssetRecord {
     name: string;
     credits?: AssetCredits;
 }
+export interface AssetSummary { id: Id; kind: "avatar" | "scene" | "fixture"; name: string; credits?: AssetCredits; }
+export interface AssetList { assets: AssetSummary[]; next: Id | null; }
 export interface ConnectionDescriptor {
     schemaVersion: 1;
     sessionId: Id;
@@ -243,6 +245,7 @@ export interface AppApi {
     evidenceRead(params: {
         evidenceId: Id;
     }): Promise<Reply<EvidenceManifest>>;
+    assetList(params: { after?: Id }): Promise<Reply<AssetList>>;
 }
 export interface CaptureBytes {
     frame: FrameApplied;

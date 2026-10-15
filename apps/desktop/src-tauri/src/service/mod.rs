@@ -69,6 +69,7 @@ struct Shared {
     evaluation: bool,
     output_root: PathBuf,
     registry: Mutex<AssetRegistry>,
+    asset_hook: Mutex<Option<AssetHook>>,
     clock: Instant,
     tracking: crate::tracking::TrackingManager,
     inner: Mutex<Inner>,
@@ -201,7 +202,12 @@ impl Shared {
         if !held.is_empty() {
             match update.as_mut() {
                 Some(update) => update.held = held,
-                None => update = Some(InputUpdate { events: vec![], held }),
+                None => {
+                    update = Some(InputUpdate {
+                        events: vec![],
+                        held,
+                    })
+                }
             }
         }
         update
@@ -342,7 +348,11 @@ impl Shared {
                         .transpose()
                         .ok()?
                         .unwrap_or_default();
-                    Some((revision, serde_json::from_value::<Vec<String>>(list).ok()?, held))
+                    Some((
+                        revision,
+                        serde_json::from_value::<Vec<String>>(list).ok()?,
+                        held,
+                    ))
                 }),
             None => None,
         };
@@ -352,13 +362,15 @@ impl Shared {
                 && lock(&self.inner).publisher.as_ref().map(|p| &p.id) == asked.as_ref();
             match (reported, asked) {
                 // An edit reply that is newer than the answer wins by revision.
-                (Some((revision, list, held)), Some(asked)) if same_publisher => Self::learn_locked(
-                    &mut known,
-                    &asked,
-                    revision,
-                    list.into_iter().collect(),
-                    held.into_iter().collect(),
-                ),
+                (Some((revision, list, held)), Some(asked)) if same_publisher => {
+                    Self::learn_locked(
+                        &mut known,
+                        &asked,
+                        revision,
+                        list.into_iter().collect(),
+                        held.into_iter().collect(),
+                    )
+                }
                 // A publisher that is gone will be asked again when the next one connects.
                 (Some(_), _) => false,
                 // A publisher that is still here and gave no valid answer has no known set: its
@@ -456,6 +468,30 @@ impl Shared {
         })
     }
 }
+/// A long asset step that runs without the registry lock.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AssetStep {
+    /// After `GET /assets/{id}` releases the registry lock and before it reads and checks the file.
+    Read(String),
+    /// After an import is written to temporary files and before the commit.
+    Store,
+}
+/// Called at each `AssetStep`. Tests use it to hold a request in that step. The product sets none.
+pub type AssetHook = Arc<dyn Fn(AssetStep) + Send + Sync>;
+impl Shared {
+    fn asset_step(&self, step: AssetStep) {
+        let hook = lock(&self.asset_hook).clone();
+        if let Some(hook) = hook {
+            hook(step);
+        }
+    }
+    /// Locates under the registry lock, then reads and verifies the file without it.
+    fn read_asset(&self, id: &str) -> Result<Vec<u8>, AppError> {
+        let (path, record) = lock(&self.registry).locate(id)?;
+        self.asset_step(AssetStep::Read(id.into()));
+        crate::assets::read_located(&path, &record)
+    }
+}
 pub async fn start_service(config: ServiceConfig) -> Result<ServiceHandle, AppError> {
     let mut registry = if config.asset_manifest.as_os_str().is_empty() {
         AssetRegistry::empty(
@@ -496,6 +532,7 @@ pub async fn start_service(config: ServiceConfig) -> Result<ServiceHandle, AppEr
         evaluation: config.evaluation_enabled,
         output_root,
         registry: Mutex::new(registry),
+        asset_hook: Mutex::new(None),
         clock,
         tracking: crate::tracking::TrackingManager::new(clock),
         inner: Mutex::new(Inner::default()),
@@ -616,19 +653,35 @@ impl ServicePorts {
         path: PathBuf,
     ) -> Result<crate::assets::ImportResult, AppError> {
         let shared = self.shared.clone();
-        tokio::task::spawn_blocking(move || lock(&shared.registry).import_avatar(&path))
-            .await
-            .map_err(|_| err(ErrorCode::Unavailable, "Avatar import failed"))?
+        // Copy and hash outside the registry lock; only the commit renames under it.
+        tokio::task::spawn_blocking(move || {
+            let library = lock(&shared.registry).library();
+            let staged = crate::assets::stage_avatar(&library, &path)?;
+            shared.asset_step(AssetStep::Store);
+            lock(&shared.registry).commit(staged)
+        })
+        .await
+        .map_err(|_| err(ErrorCode::Unavailable, "Avatar import failed"))?
     }
     pub async fn import_scene(
         &self,
         path: PathBuf,
     ) -> Result<crate::assets::ImportResult, AppError> {
         let shared = self.shared.clone();
-        // Pack outside the registry lock so that asset reads continue during a long import.
+        // Pack, hash, and write outside the registry lock so that asset reads continue during a long import.
         tokio::task::spawn_blocking(move || {
             let packed = crate::assets::pack_scene(&path, crate::assets::Limits::DEFAULT)?;
-            lock(&shared.registry).store_scene(packed)
+            let prepared = crate::assets::prepare_scene(packed)?;
+            let library = {
+                let registry = lock(&shared.registry);
+                if let Some(existing) = registry.intact(prepared.id()) {
+                    return Ok(existing);
+                }
+                registry.library()
+            };
+            let staged = crate::assets::stage_scene(&library, prepared)?;
+            shared.asset_step(AssetStep::Store);
+            lock(&shared.registry).commit(staged)
         })
         .await
         .map_err(|_| err(ErrorCode::Unavailable, "Scene import failed"))?
@@ -712,7 +765,7 @@ impl ServicePorts {
                 ));
             }
             for record in expected {
-                lock(&shared.registry).read(&record.id)?;
+                shared.read_asset(&record.id)?;
             }
             Ok(())
         })
@@ -736,6 +789,10 @@ impl ServiceHandle {
         lock(&self.shared.inner).evidence = Some(reader);
     }
 
+    #[doc(hidden)]
+    pub fn set_asset_hook(&self, hook: Option<AssetHook>) {
+        *lock(&self.shared.asset_hook) = hook;
+    }
     pub fn publisher_descriptor(&self) -> ConnectionDescriptor {
         self.shared
             .descriptor(Role::Publisher, self.shared.publisher_token.clone(), None)
@@ -976,7 +1033,7 @@ async fn asset(
         return StatusCode::UNAUTHORIZED.into_response();
     }
     let registry = shared.clone();
-    let result = tokio::task::spawn_blocking(move || lock(&registry.registry).read(&id)).await;
+    let result = tokio::task::spawn_blocking(move || registry.read_asset(&id)).await;
     let mut response = match result {
         Ok(Ok(bytes)) => (
             [

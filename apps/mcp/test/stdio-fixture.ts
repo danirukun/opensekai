@@ -13,7 +13,9 @@ export function fixtureApi(): AppApi {
   sceneReplace:denied,
   blueprintEdit:async () => ok({revision:1,keystrokes:[]}),
   blueprintInspect:async () => ok({kind:'snapshot' as const,revision:0,blueprints:[],errors:[]}),
-  cameraSelect:denied,blueprintRun:denied,captureFrame:async () => ({ok:false,error:{code:'RATE_LIMITED',message:'Capture limit',ids:[]}}),benchmarkStart:denied,benchmarkStatus:denied,benchmarkCancel:denied,evidenceRead:async () => ok({id:'opaque',kind:'capture',sessionId:'fixture',fixtureId:'smoke_v1',appCommit:'fixture',resources:[{uri:'opensekai://evidence/opaque/capture.png',mimeType:'image/png',bytes:3,sha256:createHash('sha256').update(new Uint8Array([1,2,3])).digest('hex')}]})
+  cameraSelect:denied,blueprintRun:denied,captureFrame:async () => ({ok:false,error:{code:'RATE_LIMITED',message:'Capture limit',ids:[]}}),benchmarkStart:denied,benchmarkStatus:denied,benchmarkCancel:denied,
+  assetList:async () => ok({assets:[{id:'avatar_one',kind:'avatar' as const,name:'One'},{id:'scene_room',kind:'scene' as const,name:'Room',credits:{title:'Room',author:'Ada',license:'CC-BY-4.0',sourceUrl:'https://example.com/room'}}],next:null}),
+  evidenceRead:async () => ok({id:'opaque',kind:'capture',sessionId:'fixture',fixtureId:'smoke_v1',appCommit:'fixture',resources:[{uri:'opensekai://evidence/opaque/capture.png',mimeType:'image/png',bytes:3,sha256:createHash('sha256').update(new Uint8Array([1,2,3])).digest('hex')}]})
  };
 }
 if (process.argv[1]?.endsWith('stdio-fixture.ts')) {

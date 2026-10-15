@@ -63,7 +63,7 @@ it("accepts shared frames and acknowledgements and rejects shared role", () => {
     expect(FrameAppliedSchema.safeParse(validApplied).success).toBe(true);
     expect(ConnectionDescriptorSchema.safeParse(invalidRole).success).toBe(false);
 });
-import { AssetRecordSchema, CaptureRecordSchema } from "../src/index";
+import { AssetListSchema, AssetRecordSchema, CaptureRecordSchema } from "../src/index";
 for (const vector of vectors)
     it(`shared vector ${vector.name}`, () => {
         if (vector.valid) {
@@ -72,6 +72,8 @@ for (const vector of vectors)
         }
         if (vector.target === "asset")
             expect(AssetRecordSchema.safeParse(vector.payload).success).toBe(false);
+        else if (vector.target === "assetList")
+            expect(AssetListSchema.safeParse(vector.payload).success).toBe(false);
         else if (vector.target === "captureRecord")
             expect(CaptureRecordSchema.safeParse(vector.payload).success).toBe(false);
         else if (vector.target === "scene")

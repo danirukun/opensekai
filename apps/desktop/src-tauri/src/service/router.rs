@@ -1,15 +1,16 @@
 use super::*;
-use base64::{engine::general_purpose::STANDARD, Engine};
 use crate::input::monitor::MonitorStatus;
+use base64::{engine::general_purpose::STANDARD, Engine};
 use std::{future::Future, pin::Pin};
 
 /// The status warning while held-key nodes are active but keys cannot be observed.
 fn monitor_warning(watching: bool, status: MonitorStatus) -> Option<AppError> {
     let (code, message) = match (watching, status) {
         (true, MonitorStatus::NoAccess) => (ErrorCode::Forbidden, "Input Monitoring is off"),
-        (true, MonitorStatus::Unsupported) => {
-            (ErrorCode::Unsupported, "Held keys are unavailable on this platform")
-        }
+        (true, MonitorStatus::Unsupported) => (
+            ErrorCode::Unsupported,
+            "Held keys are unavailable on this platform",
+        ),
         _ => return None,
     };
     Some(AppError {
@@ -227,7 +228,10 @@ impl Shared {
                         message: "Keystroke unavailable".into(),
                         ids: vec![accelerator.clone()],
                     })
-                    .chain(monitor_warning(watching && inner.publisher.is_some(), monitor))
+                    .chain(monitor_warning(
+                        watching && inner.publisher.is_some(),
+                        monitor
+                    ))
                     .collect(),
                 outputs,
                 tracking_status: inner
@@ -236,6 +240,12 @@ impl Shared {
                     .and_then(|f| f.tracking_status.clone()),
                 blueprint_revision: inner.latest.as_ref().and_then(|f| f.blueprint_revision)
             }));
+        }
+        if call.method == "assetList" {
+            // The host owns the asset library, so it answers without the publisher.
+            let after = call.params.get("after").and_then(Value::as_str);
+            let records = lock(&self.registry).records();
+            return Reply::success(json!(opensekai_contracts::AssetList::page(&records, after)));
         }
         if matches!(
             call.method.as_str(),
