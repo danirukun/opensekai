@@ -58,6 +58,10 @@ An integrator owns shared schemas, dependency versions, lockfiles, and final mer
 
 Make small verified commits at coherent milestones. Each checkpoint includes spec changes, focused checks, parity changes, and evidence when relevant. Do not commit another agent's unfinished work. Do not reset or delete user changes. Do not push or publish unless requested.
 
+## Cloud agents
+
+[Cloud agent intake](docs/agent-intake.md) is the standing orders for cloud intake, rebase, and review runs. Read it before you start a cloud run. It adds to this file. It does not replace it.
+
 ## Documentation authority
 
 [ARCHITECTURE.md](ARCHITECTURE.md) is the map of the code as it is now. Read it before you change a boundary. You MUST update it in the same commit when you add, remove, or move a package, crate, process, window, data path, or trust check, or when its text becomes false. Keep it a short map; put direction in the architecture design and status in the parity checklist.
