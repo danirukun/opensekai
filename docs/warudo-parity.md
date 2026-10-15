@@ -17,10 +17,31 @@ This is an initial handbook-category inventory. Reviewed feature pages inform th
 | Approximate | Planned behavior or appearance can differ; record the difference |
 | Deferred | Explicitly outside current scope |
 | Different API | Equivalent capability through the OpenSekai API |
+| Blocked | Waits for a human decision. The item text holds `Blocked:`, the exact question, and the issue link. It stays unchecked and unclaimed until a person answers. |
 
 An unchecked box means not verified. A checked box requires an evidence row with the commit, feature scope, platform, renderer backend, test or capture, and remaining gaps. Do not use a macOS check to claim Windows support. Do not count partial or approximate behavior as full coverage. Split a large item when only part is ready.
 
 During implementation, update this file and its linked issue in the same feature checkpoint. Recheck the source page when the feature starts. Add new handbook items rather than silently reducing scope. Close an issue only when its stated scope is checked and has evidence. Keep partial and deferred issues open.
+
+## Acceptance criteria template
+
+Write the acceptance criteria for an item before you implement it. Put them under the item as nested lines, or in the linked slice contract and evidence page. See [quality assurance](qa.md) for the evidence rules.
+
+```md
+- [ ] ID — Short behavior. Status. [GitHub #n](link)
+  - Expected: what the user sees or what the system does.
+  - Verify: the command, the flow, or the OBS check that proves it, and the platform.
+  - Test: the test file and test name that cover it.
+  - Evidence: link to the page in `docs/evaluation/`, with the commit.
+```
+
+When a person must decide before the item can continue, add this line and leave the box unchecked:
+
+```md
+  - Blocked: the exact question, the options, and the recommended default. [GitHub #n](link)
+```
+
+LIVE-10 in [Verified minimum live subset](#verified-minimum-live-subset) is a worked example.
 
 GitHub issues use `parity`, one `area:*` label, one `status:*` label, and a `phase:*` label for foundation or later work. Deferred items use `status:deferred`. `scope:approximate` and `scope:different-api` record explicit scope differences. An issue is a roadmap record; write a bounded slice contract before assigning implementation.
 
@@ -290,5 +311,9 @@ Live editor controls verified on macOS source7084f4a: type groups, collapse/sear
 - [x] LIVE-09 — New VRM imports enable built-in idle; inspector toggle, VMC/iFacial takeover and stale return, clean OBS motion after minimize actions. Actual VRM0 and generated VRM1 rigs verified. Live MediaPipe takeover over idle still needs a detected person. [GitHub #134](https://github.com/danirukun/opensekai/issues/134)
 
 - [x] LIVE-10 — Shared One Euro filtering for VMC, iFacialMocap and MediaPipe; reusable TS API. All 52 named ARKit morph channels supported where present. Selected actual VRM0 facial poses and filtered VMC/iFacial OBS motion checked; MediaPipe smoothing covered by deterministic session tests. [GitHub #135](https://github.com/danirukun/opensekai/issues/135)
+  - Expected: the session filters each accepted VMC, iFacialMocap, and MediaPipe sample once, before body and face routing. Preview and OBS show the same filtered result. All 52 named ARKit channels drive matching morphs.
+  - Verify: unit and session tests on any host; actual VRM0 facial poses and filtered VMC/iFacial motion in OBS on macOS (WebGPU, 1920×1080/60). MediaPipe smoothing with a detected person is not checked live.
+  - Test: `packages/session/test/one-euro-filter.test.ts`, `packages/session/test/tracking-filter.test.ts`, and the ARKit mapping cases in `packages/renderer/test/avatar-pose.test.ts`.
+  - Evidence: [tracking smoothing and ARKit check](evaluation/one-euro-filter.md) and [raw evidence](evaluation/one-euro-filter-evidence.json), packaged source `9686ac3`.
 
 - [x] LIVE-11 — Lighter tracking defaults and per-source smoothing inspector. Actual VMC/iFacial tuning under loopback traffic preserves generation and packet counters; bypass, Reset and invalid draft checked. MediaPipe controls checked with camera stopped; sample behavior covered by session tests. [Check](evaluation/tracking-smoothing-controls.md). [GitHub #136](https://github.com/danirukun/opensekai/issues/136)

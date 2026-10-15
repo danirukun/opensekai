@@ -44,6 +44,8 @@ Write requirements in spdd/analysis/ and the seven REASONS sections in spdd/prom
 
 ## Verification
 
+[Quality assurance](docs/qa.md) lists the evidence each change and each parity item needs. [Testing](docs/testing.md) gives the test levels, the test rules, and the Linux cloud baseline. Read both before you claim a change is done.
+
 The session's explicit test rule requires unit tests for new function behavior. Use them for packet decoding, coordinate conversion, scheduling, state transitions, and other logic. Do not test static copy. Use integration tests at real process, network, file, or protocol boundaries and state the reason. Reserve end-to-end tests for critical user paths.
 
 Check changed UI through the running flow. Use OBS output for alpha, camera, material, and visual performance changes. Record the backend, quality profile, fixture revision, and commit. Keep app timing and OBS timing separate. An unavailable measurement is unknown, never zero.

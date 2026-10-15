@@ -2,7 +2,7 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use futures_util::{SinkExt, StreamExt};
 use opensekai_contracts::*;
 use opensekai_desktop_lib::evaluation::{EvaluationIdentity, NativeEvaluation};
-use opensekai_desktop_lib::service::{start_service, ServiceConfig, ServiceHandle};
+use opensekai_desktop_lib::service::{start_service, ServiceConfig, ServiceHandle, ServicePorts};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{sync::Arc, time::Duration};
@@ -112,6 +112,21 @@ async fn fresh(
         tokio::time::sleep(Duration::from_millis(2)).await;
     }
     panic!("ACK not received");
+}
+// The host handles a socket close in another task, so poll instead of a fixed sleep.
+// Keep the deadline under the 2 s clock credit: after it, the host drops the silent
+// test publisher, and that also makes the output Unavailable.
+async fn wait_unavailable(ports: &ServicePorts, output: &str) {
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(1);
+    loop {
+        match ports.current_output(output) {
+            Err(error) if error.code == ErrorCode::Unavailable => return,
+            last if tokio::time::Instant::now() >= deadline => {
+                panic!("{output} not Unavailable 1 s after disconnect: {last:?}")
+            }
+            _ => tokio::time::sleep(Duration::from_millis(5)).await,
+        }
+    }
 }
 async fn rpc(operator: &mut Socket, method: &str, params: Value) -> Value {
     send(operator, call("request", method, params)).await;
@@ -618,11 +633,7 @@ async fn service_ports_retain_all_native_ack_times_and_reject_disconnected_outpu
         .windows(2)
         .all(|pair| pair[0].1 <= pair[1].1));
     renderer.close(None).await.unwrap();
-    tokio::time::sleep(Duration::from_millis(20)).await;
-    assert_eq!(
-        ports.current_output("output_main").unwrap_err().code,
-        ErrorCode::Unavailable
-    );
+    wait_unavailable(&ports, "output_main").await;
     service.shutdown().await.unwrap();
     assert_eq!(
         ports.current_output("output_main").unwrap_err().code,
