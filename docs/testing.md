@@ -29,7 +29,7 @@ Recorded 2026-10-15 on `main` at `c395dcc`, Node 26.10.0, pnpm 12.8.1, rustc 1.9
 
 | Command | Pass | Fail | Skip | Notes |
 | --- | --- | --- | --- | --- |
-| `pnpm check` | All packages | 0 | 0 | svelte-check: 0 errors, 0 warnings |
+| `pnpm check` | 8 packages and `tsconfig.scripts.json` | 0 | 0 | svelte-check: 0 errors, 0 warnings |
 | `pnpm test:unit` | 671 (100 files) | 0 | 0 | |
 | `pnpm test:integration` | 23 (7 files) | 0 | 0 | |
 | `cargo test --workspace --no-fail-fast` | 205 | 1 | 1 | Fail: `service_ports_retain_all_native_ack_times_and_reject_disconnected_output` (#158, fixed after this baseline). Skip: `pinned_fixture_benchmark_cancel_replay_stale_timer_summary_and_history` needs local pinned smoke fixtures. |
