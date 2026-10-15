@@ -73,6 +73,8 @@ These items remain open:
 
 To make the macOS release app, run `pnpm build:mac`.
 
+In a Linux cloud container, run `bash scripts/cloud-setup.sh` to do the setup and the build. See [Cloud agent intake](docs/agent-intake.md).
+
 ## Checks
 
 ```sh
