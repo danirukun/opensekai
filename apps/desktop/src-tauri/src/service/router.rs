@@ -237,6 +237,12 @@ impl Shared {
                 blueprint_revision: inner.latest.as_ref().and_then(|f| f.blueprint_revision)
             }));
         }
+        if call.method == "assetList" {
+            // The host owns the asset library, so it answers without the publisher.
+            let after = call.params.get("after").and_then(Value::as_str);
+            let records = lock(&self.registry).records();
+            return Reply::success(json!(opensekai_contracts::AssetList::page(&records, after)));
+        }
         if matches!(
             call.method.as_str(),
             "sceneInspect"

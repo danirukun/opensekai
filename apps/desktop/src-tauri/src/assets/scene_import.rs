@@ -82,8 +82,9 @@ fn normalize(relative: &str) -> Result<String, AppError> {
 
 const BUDGET: &str = "Scene exceeds import budget";
 const GLTF_BUDGET: &str = "glTF JSON exceeds budget";
-fn read_bounded(reader: impl Read, max: u64, over: &str) -> Result<Vec<u8>, AppError> {
-    let mut bytes = Vec::new();
+// `hint` is the expected size (file length or zip entry size). It sets the first capacity, so the buffer does not grow by doubling.
+fn read_bounded(reader: impl Read, max: u64, hint: u64, over: &str) -> Result<Vec<u8>, AppError> {
+    let mut bytes = Vec::with_capacity(hint.min(max) as usize);
     reader
         .take(max + 1)
         .read_to_end(&mut bytes)
@@ -112,7 +113,8 @@ impl SceneSource for FolderSource {
             return Err(named("Missing file", &relative));
         }
         let file = std::fs::File::open(&path).map_err(|_| named("Missing file", &relative))?;
-        read_bounded(file, max, BUDGET)
+        let hint = file.metadata().map(|m| m.len()).unwrap_or(0);
+        read_bounded(file, max, hint, BUDGET)
     }
 }
 
@@ -163,7 +165,8 @@ impl ZipSource {
             zip::result::ZipError::FileNotFound => named("Missing file", name),
             _ => invalid("Invalid zip archive"),
         })?;
-        read_bounded(entry, max, over)
+        let hint = entry.size();
+        read_bounded(entry, max, hint, over)
     }
 }
 impl SceneSource for ZipSource {
@@ -183,40 +186,42 @@ pub fn pack_scene(path: &Path, limits: Limits) -> Result<PackedScene, AppError> 
             let binary = root.to_ascii_lowercase().ends_with(".glb");
             let max = if binary { limits.max_glb } else { limits.max_json as u64 };
             let bytes = source.entry(&root, max, if binary { BUDGET } else { GLTF_BUDGET })?;
-            pack_root(&bytes, binary, &mut source, limits, stem(Path::new(&root)))
+            pack_root(bytes, binary, &mut source, limits, stem(Path::new(&root)))
         }
         Some(kind @ ("glb" | "gltf")) => {
             let folder = path.parent().ok_or_else(|| invalid("Model folder unavailable"))?;
             let root = folder.canonicalize().map_err(|_| invalid("Model folder unavailable"))?;
             let max = if kind == "glb" { limits.max_glb } else { limits.max_json as u64 };
             let file = std::fs::File::open(path).map_err(|_| invalid("File unavailable"))?;
-            let bytes = read_bounded(file, max, if kind == "glb" { BUDGET } else { GLTF_BUDGET })?;
+            let hint = file.metadata().map(|m| m.len()).unwrap_or(0);
+            let bytes = read_bounded(file, max, hint, if kind == "glb" { BUDGET } else { GLTF_BUDGET })?;
             let mut source = FolderSource { root };
-            pack_root(&bytes, kind == "glb", &mut source, limits, stem(path))
+            pack_root(bytes, kind == "glb", &mut source, limits, stem(path))
         }
         _ => Err(invalid("Choose a .glb, .gltf, or .zip file")),
     }
 }
 
 fn pack_root(
-    bytes: &[u8],
+    bytes: Vec<u8>,
     binary: bool,
     source: &mut dyn SceneSource,
     limits: Limits,
     stem: String,
 ) -> Result<PackedScene, AppError> {
     let (json, bin) = if binary {
-        split_glb(bytes, limits.max_json)?
+        split_glb(&bytes, limits.max_json)?
     } else {
-        (serde_json::from_slice(bytes).map_err(|_| invalid("Invalid glTF JSON"))?, None)
+        (serde_json::from_slice(&bytes).map_err(|_| invalid("Invalid glTF JSON"))?, None)
     };
     let credits = read_credits(&json);
     let budget = Budget(limits.max_glb.saturating_sub(bytes.len() as u64));
-    let glb = pack(json, bin, source, limits, budget)?;
+    let glb = pack(json, bytes, bin, source, limits, budget)?;
     Ok(PackedScene { glb, credits, stem })
 }
 
-fn split_glb(bytes: &[u8], max_json: usize) -> Result<(Value, Option<Vec<u8>>), AppError> {
+// Returns the JSON and the byte range of the BIN chunk in `bytes`, so the caller can borrow the chunk instead of copying it.
+fn split_glb(bytes: &[u8], max_json: usize) -> Result<(Value, Option<std::ops::Range<usize>>), AppError> {
     let word = |offset: usize| -> Result<u32, AppError> {
         bytes
             .get(offset..offset + 4)
@@ -246,7 +251,7 @@ fn split_glb(bytes: &[u8], max_json: usize) -> Result<(Value, Option<Vec<u8>>), 
             .checked_add(word(json_end)? as usize)
             .filter(|end| *end <= bytes.len())
             .ok_or_else(|| invalid("Invalid GLB chunks"))?;
-        Some(bytes[start..end].to_vec())
+        Some(start..end)
     } else {
         None
     };
@@ -349,9 +354,11 @@ fn append(bin: &mut Vec<u8>, data: &[u8], max: u64) -> Result<usize, AppError> {
     Ok(offset)
 }
 
+// Peak memory for a GLB root of N bytes is about 2N: the root and the new BIN, then the new BIN and the output.
 fn pack(
     mut json: Value,
-    glb_bin: Option<Vec<u8>>,
+    root: Vec<u8>,
+    glb_bin: Option<std::ops::Range<usize>>,
     source: &mut dyn SceneSource,
     limits: Limits,
     mut budget: Budget,
@@ -376,11 +383,13 @@ fn pack(
         .filter_map(|texture| texture.get("source").and_then(Value::as_u64))
         .collect();
     let mut glb_bin = glb_bin;
-    let mut sources = Vec::new();
+    let mut sources: Vec<std::borrow::Cow<[u8]>> = Vec::new();
     for (index, buffer) in json.get("buffers").and_then(Value::as_array).into_iter().flatten().enumerate() {
         let bytes = match buffer.get("uri").and_then(Value::as_str) {
-            Some(uri) => resolve(uri, source, &mut budget)?,
-            None if index == 0 => glb_bin.take().ok_or_else(|| invalid("Missing GLB binary chunk"))?,
+            Some(uri) => std::borrow::Cow::Owned(resolve(uri, source, &mut budget)?),
+            None if index == 0 => std::borrow::Cow::Borrowed(
+                &root[glb_bin.take().ok_or_else(|| invalid("Missing GLB binary chunk"))?],
+            ),
             None => return Err(invalid("Buffer has no data")),
         };
         let length = buffer
@@ -392,7 +401,14 @@ fn pack(
         }
         sources.push(bytes);
     }
-    let mut bin = Vec::new();
+    let view_bytes = json
+        .get("bufferViews")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .map(|view| view.get("byteLength").and_then(Value::as_u64).unwrap_or(0).next_multiple_of(4))
+        .fold(0u64, u64::saturating_add);
+    let mut bin = Vec::with_capacity(view_bytes.min(limits.max_glb) as usize);
     for view in json.get_mut("bufferViews").and_then(Value::as_array_mut).into_iter().flatten() {
         let buffer = view.get("buffer").and_then(Value::as_u64).ok_or_else(|| invalid("Invalid buffer view"))? as usize;
         let offset = view.get("byteOffset").and_then(Value::as_u64).unwrap_or(0) as usize;
@@ -406,6 +422,7 @@ fn pack(
         view["byteOffset"] = json!(at);
     }
     drop(sources);
+    drop(root);
     let mut views: Vec<Value> = json.get("bufferViews").and_then(Value::as_array).cloned().unwrap_or_default();
     let mut images: Vec<Value> = json.get("images").and_then(Value::as_array).cloned().unwrap_or_default();
     let mut packed: std::collections::HashMap<String, (usize, &'static str)> = std::collections::HashMap::new();

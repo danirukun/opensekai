@@ -121,6 +121,7 @@ fn expanded_shared_vectors() {
         let result = match vector["target"].as_str().unwrap() {
             "scene" => validate_value::<SceneView>(p).map(|_| ()),
             "asset" => validate_value::<opensekai_contracts::AssetRecord>(p).map(|_| ()),
+            "assetList" => validate_value::<opensekai_contracts::AssetList>(p).map(|_| ()),
             "captureRecord" => validate_value::<opensekai_contracts::CaptureRecord>(p).map(|_| ()),
             "descriptor" => validate_value::<ConnectionDescriptor>(p).map(|_| ()),
             "marker" => validate_value::<DiagnosticMarker>(p).map(|_| ()),
@@ -159,4 +160,53 @@ fn review_regressions() {
     .is_err());
     let descriptor = json!({"schemaVersion":1,"sessionId":"s","httpOrigin":"http://127.0.0.1:80","wsUrl":"ws://127.0.0.1/ws","role":"operator","token":"t","capabilities":["read"],"outputId":null});
     assert!(validate_value::<ConnectionDescriptor>(&descriptor).is_ok());
+}
+#[test]
+fn asset_list_pages_in_id_order_within_count_and_byte_limits() {
+    use opensekai_contracts::{
+        AssetCredits, AssetFormat, AssetKind, AssetList, AssetRecord, Validate, ASSET_LIST_BYTES,
+        ASSET_LIST_PAGE,
+    };
+    let record = |id: String, credits: Option<AssetCredits>| AssetRecord {
+        id,
+        format: AssetFormat::Glb,
+        sha256: "a".repeat(64),
+        bytes: 1,
+        source_url: None,
+        license_label: String::new(),
+        importer_version: 1,
+        name: "Room".into(),
+        credits,
+    };
+    let mut records: Vec<_> = (0..70).rev().map(|i| record(format!("scene_{i:03}"), None)).collect();
+    records.push(record("avatar_a".into(), None));
+    records.push(record("fixture_glb_1".into(), None));
+    let first = AssetList::page(&records, None);
+    assert_eq!(first.assets.len(), ASSET_LIST_PAGE);
+    assert_eq!(first.assets[0].id, "avatar_a");
+    assert_eq!(first.assets[0].kind, AssetKind::Avatar);
+    assert_eq!(first.assets[1].kind, AssetKind::Fixture);
+    assert_eq!(first.assets[2].kind, AssetKind::Scene);
+    assert_eq!(first.next.as_deref(), Some(first.assets[63].id.as_str()));
+    first.validate().unwrap();
+    let second = AssetList::page(&records, first.next.as_deref());
+    assert_eq!(second.assets.len(), 72 - ASSET_LIST_PAGE);
+    assert_eq!(second.assets[0].id, "scene_062");
+    assert_eq!(second.next, None);
+    assert!(!serde_json::to_string(&second).unwrap().contains("credits"));
+    // Long credits reach the byte limit before the count limit.
+    let long = "\u{3042}".repeat(512);
+    let heavy: Vec<_> = (0..64)
+        .map(|i| {
+            record(
+                format!("scene_{i:03}"),
+                Some(AssetCredits { title: Some(long.clone()), author: Some(long.clone()), license: Some(long.clone()), source_url: None }),
+            )
+        })
+        .collect();
+    let page = AssetList::page(&heavy, None);
+    assert!(page.assets.len() < 64 && !page.assets.is_empty());
+    assert!(serde_json::to_vec(&page.assets).unwrap().len() <= ASSET_LIST_BYTES);
+    assert_eq!(page.next.as_deref(), Some(page.assets.last().unwrap().id.as_str()));
+    page.validate().unwrap();
 }

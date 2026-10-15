@@ -2490,5 +2490,421 @@
         "sourceUrl": "HTTPS://example.com/room"
       }
     }
+  },
+  {
+    "name": "asset-list-empty-after",
+    "target": "call",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "after": ""
+    },
+    "method": "assetList"
+  },
+  {
+    "name": "asset-list-unknown-param",
+    "target": "call",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "cursor": "scene_a"
+    },
+    "method": "assetList"
+  },
+  {
+    "name": "asset-list-unknown-kind",
+    "target": "assetList",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "assets": [
+        {
+          "id": "scene_a",
+          "kind": "prop",
+          "name": "Room"
+        }
+      ],
+      "next": null
+    }
+  },
+  {
+    "name": "asset-list-over-page",
+    "target": "assetList",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "assets": [
+        {
+          "id": "scene_0",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_1",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_2",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_3",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_4",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_5",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_6",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_7",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_8",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_9",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_10",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_11",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_12",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_13",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_14",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_15",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_16",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_17",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_18",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_19",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_20",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_21",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_22",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_23",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_24",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_25",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_26",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_27",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_28",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_29",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_30",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_31",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_32",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_33",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_34",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_35",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_36",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_37",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_38",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_39",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_40",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_41",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_42",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_43",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_44",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_45",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_46",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_47",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_48",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_49",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_50",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_51",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_52",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_53",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_54",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_55",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_56",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_57",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_58",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_59",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_60",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_61",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_62",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_63",
+          "kind": "scene",
+          "name": "Room"
+        },
+        {
+          "id": "scene_64",
+          "kind": "scene",
+          "name": "Room"
+        }
+      ],
+      "next": null
+    }
+  },
+  {
+    "name": "asset-list-missing-next",
+    "target": "assetList",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "assets": [
+        {
+          "id": "scene_a",
+          "kind": "scene",
+          "name": "Room"
+        }
+      ]
+    }
+  },
+  {
+    "name": "asset-list-null-credits",
+    "target": "assetList",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "assets": [
+        {
+          "id": "scene_a",
+          "kind": "scene",
+          "name": "Room",
+          "credits": null
+        }
+      ],
+      "next": null
+    }
+  },
+  {
+    "name": "asset-list-call",
+    "target": "wireText",
+    "valid": true,
+    "payload": "{\"kind\": \"call\", \"requestId\": \"a\", \"method\": \"assetList\", \"params\": {}}"
+  },
+  {
+    "name": "asset-list-call-after",
+    "target": "wireText",
+    "valid": true,
+    "payload": "{\"kind\": \"call\", \"requestId\": \"a\", \"method\": \"assetList\", \"params\": {\"after\": \"scene_a\"}}"
   }
 ]

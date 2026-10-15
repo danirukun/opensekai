@@ -3,7 +3,7 @@ import { type AppApi, type CaptureRecord, type EvidenceManifest, type Reply, typ
 import { failure, invokeTool, ParamSchemas, toolMethods } from './tools';
 import { BlueprintExportParams, BlueprintImportParams, exportBlueprintTool, importBlueprintTool } from './blueprint-files';
 import { registerResources } from './resources';
-const descriptions: Record<string, string> = {blueprint_edit:'Apply ordered Blueprint operations as one batch. Each batch needs a new batchId. Resending the identical batch is safe. Read opensekai://blueprint-nodes for node types, ports, and settings.',blueprint_inspect:'Read Blueprint documents, or the batches after a revision.',blueprint_run:'Fire a Manual Trigger in an enabled Blueprint.'};
+const descriptions: Record<string, string> = {blueprint_edit:'Apply ordered Blueprint operations as one batch. Each batch needs a new batchId. Resending the identical batch is safe. Read opensekai://blueprint-nodes for node types, ports, and settings.',blueprint_inspect:'Read Blueprint documents, or the batches after a revision.',blueprint_run:'Fire a Manual Trigger in an enabled Blueprint.',asset_list:'List stored assets by ID, kind, name, and credits. Use a scene ID with setEnvironmentModel in scene_patch. Pass next as after to read the next page.'};
 const respond = (reply: Reply<unknown>) => ({isError:!reply.ok,content:[{type:'text' as const,text:JSON.stringify(reply)}],structuredContent:reply});
 export function createMcpServer(api: AppApi, readResource: (uri: string) => Promise<Uint8Array>): McpServer {
  const server = new McpServer({name:'opensekai',version:'0.1.0'});

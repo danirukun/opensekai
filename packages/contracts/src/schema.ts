@@ -198,6 +198,17 @@ export const AssetRecordSchema = z.strictObject({
     name: z.string().refine(name => name.trim().length > 0 && name.length <= 128, 'Invalid asset name'),
     credits: AssetCreditsSchema.optional()
 });
+// One page of `assetList`: the host answers it from the asset library, in ascending ID order.
+export const AssetSummarySchema = z.strictObject({
+    id: IdSchema,
+    kind: z.enum(['avatar', 'scene', 'fixture']),
+    name: z.string().refine(name => name.trim().length > 0 && name.length <= 128, 'Invalid asset name'),
+    credits: AssetCreditsSchema.optional()
+});
+export const AssetListSchema = z.strictObject({
+    assets: z.array(AssetSummarySchema).max(64),
+    next: IdSchema.nullable()
+});
 export const ConnectionDescriptorSchema = z.strictObject({
     schemaVersion: z.literal(1),
     sessionId: IdSchema,
@@ -375,7 +386,8 @@ export const ParamSchemas = {
     }),
     evidenceRead: z.strictObject({
         evidenceId: IdSchema
-    })
+    }),
+    assetList: z.strictObject({ after: IdSchema.optional() })
 };
 export const ResultSchemas = {
     appStatus: AppStatusSchema,
@@ -394,7 +406,8 @@ export const ResultSchemas = {
     benchmarkStart: BenchmarkRunSchema,
     benchmarkStatus: BenchmarkRunSchema,
     benchmarkCancel: BenchmarkRunSchema,
-    evidenceRead: EvidenceManifestSchema
+    evidenceRead: EvidenceManifestSchema,
+    assetList: AssetListSchema
 };
 export const MethodSchema = z.enum([
     "appStatus",
@@ -409,7 +422,8 @@ export const MethodSchema = z.enum([
     "benchmarkStart",
     "benchmarkStatus",
     "benchmarkCancel",
-    "evidenceRead"
+    "evidenceRead",
+    "assetList"
 ]);
 export function validateCall(method: unknown, params: unknown): Reply<ValidatedCall> {
     const m = MethodSchema.safeParse(method);

@@ -1,5 +1,5 @@
 import { ParamSchemas, ResultSchemas, replySchema, validateCall, type AppApi, type Reply } from '@opensekai/contracts';
-export const toolMethods = { app_status: 'appStatus', scene_inspect: 'sceneInspect', scene_patch: 'scenePatch', scene_replace: 'sceneReplace', camera_select: 'cameraSelect', blueprint_run: 'blueprintRun', blueprint_edit: 'blueprintEdit', blueprint_inspect: 'blueprintInspect', capture_frame: 'captureFrame', benchmark_start: 'benchmarkStart', benchmark_status: 'benchmarkStatus', benchmark_cancel: 'benchmarkCancel', evidence_read: 'evidenceRead' } as const;
+export const toolMethods = { app_status: 'appStatus', scene_inspect: 'sceneInspect', scene_patch: 'scenePatch', scene_replace: 'sceneReplace', camera_select: 'cameraSelect', blueprint_run: 'blueprintRun', blueprint_edit: 'blueprintEdit', blueprint_inspect: 'blueprintInspect', capture_frame: 'captureFrame', benchmark_start: 'benchmarkStart', benchmark_status: 'benchmarkStatus', benchmark_cancel: 'benchmarkCancel', evidence_read: 'evidenceRead', asset_list: 'assetList' } as const;
 export { ParamSchemas };
 export const failure = (code: 'INVALID_INPUT' | 'UNAVAILABLE' | 'NOT_FOUND', message: string): Reply<never> => ({ok:false,error:{code,message,ids:[]}});
 export async function invokeTool(api: AppApi, method: keyof AppApi, params: unknown): Promise<Reply<unknown>> {

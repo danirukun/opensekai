@@ -54,13 +54,6 @@ pub struct ImportResult {
 fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
-fn write_atomic(dir: &Path, name: &str, bytes: &[u8]) -> Result<(), AppError> {
-    let mut temp = tempfile::NamedTempFile::new_in(dir).map_err(|_| error(ErrorCode::Unavailable, ""))?;
-    temp.write_all(bytes).map_err(|_| error(ErrorCode::Unavailable, ""))?;
-    temp.as_file().sync_all().map_err(|_| error(ErrorCode::Unavailable, ""))?;
-    temp.persist(dir.join(name)).map_err(|_| error(ErrorCode::Unavailable, ""))?;
-    Ok(())
-}
 pub const MAX_IMPORT_BYTES: u64 = 256 * 1024 * 1024;
 pub const MAX_GLB_JSON_BYTES: usize = 16 * 1024 * 1024;
 impl AssetRegistry {
@@ -131,126 +124,45 @@ impl AssetRegistry {
         }
         Ok(())
     }
+    pub fn library(&self) -> PathBuf {
+        self.library.clone()
+    }
+    /// The record of an entry whose library file exists with the recorded length.
+    pub fn intact(&self, id: &str) -> Option<ImportResult> {
+        self.entries
+            .get(id)
+            .filter(|entry| std::fs::metadata(&entry.path).is_ok_and(|m| m.is_file() && m.len() == entry.record.bytes))
+            .map(|entry| ImportResult { name: entry.record.name.clone(), record: entry.record.clone() })
+    }
+    /// Renames the staged files into the library and inserts the record. Keep this step short: callers hold the registry lock.
+    pub fn commit(&mut self, staged: StagedAsset) -> Result<ImportResult, AppError> {
+        if let Some(existing) = self.intact(&staged.record.id).filter(|_| staged.deduplicate) {
+            return Ok(existing);
+        }
+        if staged.library != self.library {
+            return Err(error(ErrorCode::Unavailable, ""));
+        }
+        let mut target = None;
+        for (temp, name) in staged.files {
+            let path = self.library.join(name);
+            temp.persist(&path).map_err(|_| error(ErrorCode::Unavailable, ""))?;
+            target.get_or_insert(path);
+        }
+        let path = target.ok_or_else(|| error(ErrorCode::Unavailable, ""))?;
+        self.entries.insert(staged.record.id.clone(), Entry { path, record: staged.record.clone() });
+        Ok(ImportResult { record: staged.record, name: staged.name })
+    }
     pub fn import_avatar(&mut self, path: &Path) -> Result<ImportResult, AppError> {
-        let mut source = std::fs::File::open(path).map_err(|_| error(ErrorCode::NotFound, ""))?;
-        let size = source
-            .metadata()
-            .map_err(|_| error(ErrorCode::Unavailable, ""))?
-            .len();
-        if size > MAX_IMPORT_BYTES {
-            return Err(invalid("Avatar exceeds import budget"));
-        }
-        let library = self.library.clone();
-        std::fs::create_dir_all(&library).map_err(|_| error(ErrorCode::Unavailable, ""))?;
-        let mut copy = tempfile::NamedTempFile::new_in(&library)
-            .map_err(|_| error(ErrorCode::Unavailable, ""))?;
-        let mut hash = Sha256::new();
-        let mut buffer = [0u8; 65536];
-        let mut count = 0u64;
-        loop {
-            let n = source
-                .read(&mut buffer)
-                .map_err(|_| error(ErrorCode::Unavailable, ""))?;
-            if n == 0 {
-                break;
-            }
-            count += n as u64;
-            if count > MAX_IMPORT_BYTES {
-                return Err(invalid("Avatar exceeds import budget"));
-            }
-            hash.update(&buffer[..n]);
-            copy.write_all(&buffer[..n])
-                .map_err(|_| error(ErrorCode::Unavailable, ""))?;
-        }
-        copy.as_file_mut()
-            .flush()
-            .map_err(|_| error(ErrorCode::Unavailable, ""))?;
-        let json = validate_import_file(copy.as_file_mut(), count)?;
-        let sha256 = hash
-            .finalize()
-            .iter()
-            .map(|b| format!("{b:02x}"))
-            .collect::<String>();
-        let id = format!("avatar_{sha256}");
-        let name = meta_name(&json)
-            .or_else(|| path.file_stem().and_then(|s| s.to_str()).and_then(bounded_name))
-            .unwrap_or_else(|| "Avatar".into());
-        let record = AssetRecord {
-            id: id.clone(),
-            format: opensekai_contracts::AssetFormat::Vrm,
-            sha256,
-            bytes: count,
-            source_url: None,
-            license_label: "User supplied".into(),
-            importer_version: 1,
-            name: name.clone(),
-            credits: None,
-        };
-        let target = library.join(format!("{id}.vrm"));
-        copy.as_file()
-            .sync_all()
-            .map_err(|_| error(ErrorCode::Unavailable, ""))?;
-        copy.persist(&target)
-            .map_err(|_| error(ErrorCode::Unavailable, ""))?;
-        let mut metadata = tempfile::NamedTempFile::new_in(&library)
-            .map_err(|_| error(ErrorCode::Unavailable, ""))?;
-        metadata
-            .write_all(&serde_json::to_vec(&record).map_err(|_| invalid("Invalid avatar record"))?)
-            .map_err(|_| error(ErrorCode::Unavailable, ""))?;
-        metadata
-            .as_file()
-            .sync_all()
-            .map_err(|_| error(ErrorCode::Unavailable, ""))?;
-        metadata
-            .persist(library.join(format!("{id}.json")))
-            .map_err(|_| error(ErrorCode::Unavailable, ""))?;
-        self.entries.insert(
-            id,
-            Entry {
-                record: record.clone(),
-                path: target,
-            },
-        );
-        Ok(ImportResult { record, name })
+        let staged = stage_avatar(&self.library, path)?;
+        self.commit(staged)
     }
     pub fn store_scene(&mut self, packed: PackedScene) -> Result<ImportResult, AppError> {
-        validate_glb(&packed.glb)?;
-        let sha256 = hex(&Sha256::digest(&packed.glb));
-        let id = format!("scene_{sha256}");
-        let intact = |entry: &Entry| std::fs::metadata(&entry.path).is_ok_and(|m| m.is_file() && m.len() == entry.record.bytes);
-        if let Some(entry) = self.entries.get(&id).filter(|entry| intact(entry)) {
-            return Ok(ImportResult { name: entry.record.name.clone(), record: entry.record.clone() });
+        let prepared = prepare_scene(packed)?;
+        if let Some(existing) = self.intact(&prepared.record.id) {
+            return Ok(existing);
         }
-        let credits = packed.credits;
-        let name = credits
-            .as_ref()
-            .and_then(|c| c.title.as_deref())
-            .filter(|t| t.encode_utf16().count() <= 128)
-            .and_then(bounded_name)
-            .or_else(|| bounded_name(&packed.stem))
-            .unwrap_or_else(|| "Scene".into());
-        let record = AssetRecord {
-            id: id.clone(),
-            format: AssetFormat::Glb,
-            sha256,
-            bytes: packed.glb.len() as u64,
-            source_url: credits.as_ref().and_then(|c| c.source_url.clone()),
-            license_label: credits.as_ref().and_then(|c| c.license.clone()).unwrap_or_default(),
-            importer_version: 1,
-            name: name.clone(),
-            credits,
-        };
-        record.validate()?;
-        let library = self.library.clone();
-        std::fs::create_dir_all(&library).map_err(|_| error(ErrorCode::Unavailable, ""))?;
-        write_atomic(&library, &format!("{id}.glb"), &packed.glb)?;
-        write_atomic(
-            &library,
-            &format!("{id}.json"),
-            &serde_json::to_vec(&record).map_err(|_| invalid("Invalid scene record"))?,
-        )?;
-        self.entries.insert(id.clone(), Entry { path: library.join(format!("{id}.glb")), record: record.clone() });
-        Ok(ImportResult { record, name })
+        let staged = stage_scene(&self.library, prepared)?;
+        self.commit(staged)
     }
     pub fn load(manifest: &Path) -> Result<Self, AppError> {
         let path = manifest
@@ -311,24 +223,154 @@ impl AssetRegistry {
         records
     }
     pub fn read(&self, id: &str) -> Result<Vec<u8>, AppError> {
-        let entry = self
+        let (path, record) = self.locate(id)?;
+        read_located(&path, &record)
+    }
+    /// Resolves an ID to its library path and record. Callers read the file with `read_located` after they release the lock.
+    pub fn locate(&self, id: &str) -> Result<(PathBuf, AssetRecord), AppError> {
+        let record = self
             .entries
             .get(id)
-            .ok_or_else(|| error(ErrorCode::NotFound, id))?;
-        let path = resolve_asset(id, self)?;
-        let bytes = std::fs::read(path).map_err(|_| error(ErrorCode::NotFound, id))?;
-        if bytes.len() as u64 != entry.record.bytes
-            || Sha256::digest(&bytes)
-                .iter()
-                .map(|b| format!("{b:02x}"))
-                .collect::<String>()
-                != entry.record.sha256
-        {
-            return Err(error(ErrorCode::InvalidInput, id));
-        }
-        validate_glb(&bytes).map_err(|_| error(ErrorCode::InvalidInput, id))?;
-        Ok(bytes)
+            .ok_or_else(|| error(ErrorCode::NotFound, id))?
+            .record
+            .clone();
+        Ok((resolve_asset(id, self)?, record))
     }
+}
+/// Reads a located asset and checks its length, hash, and container. It does not need the registry.
+pub fn read_located(path: &Path, record: &AssetRecord) -> Result<Vec<u8>, AppError> {
+    let id = record.id.as_str();
+    let bytes = std::fs::read(path).map_err(|_| error(ErrorCode::NotFound, id))?;
+    if bytes.len() as u64 != record.bytes || hex(&Sha256::digest(&bytes)) != record.sha256 {
+        return Err(error(ErrorCode::InvalidInput, id));
+    }
+    validate_glb(&bytes).map_err(|_| error(ErrorCode::InvalidInput, id))?;
+    Ok(bytes)
+}
+/// Temporary library files that `AssetRegistry::commit` renames into place. Dropping it removes the files.
+pub struct StagedAsset {
+    record: AssetRecord,
+    name: String,
+    library: PathBuf,
+    files: Vec<(tempfile::NamedTempFile, String)>,
+    // Scenes keep an intact existing entry (environment import R14). Avatars replace it, as before.
+    deduplicate: bool,
+}
+impl StagedAsset {
+    pub fn id(&self) -> &str {
+        &self.record.id
+    }
+}
+/// A validated scene and its record, before any library write.
+pub struct PreparedScene {
+    record: AssetRecord,
+    name: String,
+    glb: Vec<u8>,
+}
+impl PreparedScene {
+    pub fn id(&self) -> &str {
+        &self.record.id
+    }
+}
+fn temp_file(dir: &Path, bytes: &[u8]) -> Result<tempfile::NamedTempFile, AppError> {
+    let mut temp = tempfile::NamedTempFile::new_in(dir).map_err(|_| error(ErrorCode::Unavailable, ""))?;
+    temp.write_all(bytes).map_err(|_| error(ErrorCode::Unavailable, ""))?;
+    temp.as_file().sync_all().map_err(|_| error(ErrorCode::Unavailable, ""))?;
+    Ok(temp)
+}
+fn record_file(dir: &Path, record: &AssetRecord) -> Result<(tempfile::NamedTempFile, String), AppError> {
+    let bytes = serde_json::to_vec(record).map_err(|_| invalid("Invalid asset record"))?;
+    Ok((temp_file(dir, &bytes)?, format!("{}.json", record.id)))
+}
+pub fn prepare_scene(packed: PackedScene) -> Result<PreparedScene, AppError> {
+    validate_glb(&packed.glb)?;
+    let sha256 = hex(&Sha256::digest(&packed.glb));
+    let id = format!("scene_{sha256}");
+    let credits = packed.credits;
+    let name = credits
+        .as_ref()
+        .and_then(|c| c.title.as_deref())
+        .filter(|t| t.encode_utf16().count() <= 128)
+        .and_then(bounded_name)
+        .or_else(|| bounded_name(&packed.stem))
+        .unwrap_or_else(|| "Scene".into());
+    let record = AssetRecord {
+        id,
+        format: AssetFormat::Glb,
+        sha256,
+        bytes: packed.glb.len() as u64,
+        source_url: credits.as_ref().and_then(|c| c.source_url.clone()),
+        license_label: credits.as_ref().and_then(|c| c.license.clone()).unwrap_or_default(),
+        importer_version: 1,
+        name: name.clone(),
+        credits,
+    };
+    record.validate()?;
+    Ok(PreparedScene { record, name, glb: packed.glb })
+}
+/// Writes and syncs the scene and its record as temporary files in the library. Runs without the registry lock.
+pub fn stage_scene(library: &Path, prepared: PreparedScene) -> Result<StagedAsset, AppError> {
+    std::fs::create_dir_all(library).map_err(|_| error(ErrorCode::Unavailable, ""))?;
+    let glb = (temp_file(library, &prepared.glb)?, format!("{}.glb", prepared.record.id));
+    let json = record_file(library, &prepared.record)?;
+    Ok(StagedAsset { record: prepared.record, name: prepared.name, library: library.to_path_buf(), files: vec![glb, json], deduplicate: true })
+}
+/// Copies, hashes, and validates an avatar into temporary library files. Runs without the registry lock.
+pub fn stage_avatar(library: &Path, path: &Path) -> Result<StagedAsset, AppError> {
+    let mut source = std::fs::File::open(path).map_err(|_| error(ErrorCode::NotFound, ""))?;
+    let size = source
+        .metadata()
+        .map_err(|_| error(ErrorCode::Unavailable, ""))?
+        .len();
+    if size > MAX_IMPORT_BYTES {
+        return Err(invalid("Avatar exceeds import budget"));
+    }
+    std::fs::create_dir_all(library).map_err(|_| error(ErrorCode::Unavailable, ""))?;
+    let mut copy = tempfile::NamedTempFile::new_in(library)
+        .map_err(|_| error(ErrorCode::Unavailable, ""))?;
+    let mut hash = Sha256::new();
+    let mut buffer = [0u8; 65536];
+    let mut count = 0u64;
+    loop {
+        let n = source
+            .read(&mut buffer)
+            .map_err(|_| error(ErrorCode::Unavailable, ""))?;
+        if n == 0 {
+            break;
+        }
+        count += n as u64;
+        if count > MAX_IMPORT_BYTES {
+            return Err(invalid("Avatar exceeds import budget"));
+        }
+        hash.update(&buffer[..n]);
+        copy.write_all(&buffer[..n])
+            .map_err(|_| error(ErrorCode::Unavailable, ""))?;
+    }
+    copy.as_file_mut()
+        .flush()
+        .map_err(|_| error(ErrorCode::Unavailable, ""))?;
+    let json = validate_import_file(copy.as_file_mut(), count)?;
+    let sha256 = hex(&hash.finalize());
+    let id = format!("avatar_{sha256}");
+    let name = meta_name(&json)
+        .or_else(|| path.file_stem().and_then(|s| s.to_str()).and_then(bounded_name))
+        .unwrap_or_else(|| "Avatar".into());
+    let record = AssetRecord {
+        id: id.clone(),
+        format: AssetFormat::Vrm,
+        sha256,
+        bytes: count,
+        source_url: None,
+        license_label: "User supplied".into(),
+        importer_version: 1,
+        name: name.clone(),
+        credits: None,
+    };
+    copy.as_file()
+        .sync_all()
+        .map_err(|_| error(ErrorCode::Unavailable, ""))?;
+    let json = record_file(library, &record)?;
+    Ok(StagedAsset { record, name, library: library.to_path_buf(), files: vec![(copy, format!("{id}.vrm")), json], deduplicate: false })
 }
 pub fn resolve_asset(id: &str, registry: &AssetRegistry) -> Result<PathBuf, AppError> {
     if !opaque(id) {

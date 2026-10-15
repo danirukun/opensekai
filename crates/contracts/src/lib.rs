@@ -750,6 +750,88 @@ fn validate_blueprint_inspect(data: &Value) -> Result<(), AppError> {
     validate_blueprint_errors(data)
 }
 object!(RunParams { run_id: Id });
+strings!(AssetKind { Avatar=>"avatar", Scene=>"scene", Fixture=>"fixture" });
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AssetSummary {
+    pub id: Id,
+    pub kind: AssetKind,
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub credits: Option<AssetCredits>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AssetListParams {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub after: Option<Id>,
+}
+object!(AssetList { assets: Vec<AssetSummary>, next: Option<Id> });
+pub const ASSET_LIST_PAGE: usize = 64;
+pub const ASSET_LIST_BYTES: usize = 192 * 1024;
+impl AssetSummary {
+    pub fn of(record: &AssetRecord) -> Self {
+        let kind = if record.id.starts_with("avatar_") {
+            AssetKind::Avatar
+        } else if record.id.starts_with("scene_") {
+            AssetKind::Scene
+        } else {
+            AssetKind::Fixture
+        };
+        Self { id: record.id.clone(), kind, name: record.name.clone(), credits: record.credits.clone() }
+    }
+}
+impl AssetList {
+    /// One page of summaries in ascending ID order after `after`, bounded by `ASSET_LIST_PAGE` and `ASSET_LIST_BYTES`.
+    pub fn page(records: &[AssetRecord], after: Option<&str>) -> Self {
+        let mut sorted: Vec<&AssetRecord> = records.iter().filter(|r| after.is_none_or(|a| r.id.as_str() > a)).collect();
+        sorted.sort_by(|a, b| a.id.cmp(&b.id));
+        let mut assets = Vec::new();
+        let mut bytes = 0usize;
+        for record in &sorted {
+            let summary = AssetSummary::of(record);
+            let size = serde_json::to_vec(&summary).map_or(usize::MAX, |b| b.len() + 1);
+            if assets.len() == ASSET_LIST_PAGE || bytes.saturating_add(size) > ASSET_LIST_BYTES {
+                break;
+            }
+            bytes += size;
+            assets.push(summary);
+        }
+        let next = (assets.len() < sorted.len()).then(|| assets.last().map(|a| a.id.clone())).flatten();
+        Self { assets, next }
+    }
+}
+fn credits_ok(credits: &Option<AssetCredits>) -> Result<(), AppError> {
+    require(
+        credits.as_ref().and_then(|c| c.source_url.as_ref()).is_none_or(|s| {
+            (s.starts_with("http://") || s.starts_with("https://")) && url::Url::parse(s).is_ok()
+        }),
+        "invalid credits source URL",
+    )
+}
+fn id_text_ok(id: &str) -> bool {
+    !id.is_empty() && id.encode_utf16().count() <= 256
+}
+impl Validate for AssetListParams {
+    fn validate(&self) -> Result<(), AppError> {
+        require(self.after.as_deref().is_none_or(id_text_ok), "invalid ID")
+    }
+}
+impl Validate for AssetList {
+    fn validate(&self) -> Result<(), AppError> {
+        scalar_checks(&serde_json::to_value(self).map_err(|e| invalid(e.to_string()))?)?;
+        require(self.assets.len() <= ASSET_LIST_PAGE, "too many assets")?;
+        require(self.next.as_deref().is_none_or(id_text_ok), "invalid ID")?;
+        for asset in &self.assets {
+            require(
+                !asset.name.trim().is_empty() && asset.name.encode_utf16().count() <= 128,
+                "invalid asset name",
+            )?;
+            credits_ok(&asset.credits)?;
+        }
+        Ok(())
+    }
+}
 object!(EvidenceReadParams { evidence_id: Id });
 object!(RevisionResult { revision: u64 });
 object!(CaptureMetadata {
@@ -1139,15 +1221,7 @@ impl Validate for AssetRecord {
                 .is_none_or(|s| url::Url::parse(s).is_ok()),
             "invalid source URL",
         )?;
-        require(
-            self.credits
-                .as_ref()
-                .and_then(|c| c.source_url.as_ref())
-                .is_none_or(|s| {
-                    (s.starts_with("http://") || s.starts_with("https://")) && url::Url::parse(s).is_ok()
-                }),
-            "invalid credits source URL",
-        )?;
+        credits_ok(&self.credits)?;
         hash(&self.sha256)
     }
 }
@@ -1168,6 +1242,7 @@ pub fn validate_call(method: &str, params: &Value) -> Result<(), AppError> {
         "benchmarkStart" => decode::<BenchmarkParams>(params).map(|_| ()),
         "benchmarkStatus" | "benchmarkCancel" => decode::<RunParams>(params).map(|_| ()),
         "evidenceRead" => decode::<EvidenceReadParams>(params).map(|_| ()),
+        "assetList" => decode::<AssetListParams>(params)?.validate(),
         _ => Err(invalid("unknown method")),
     }
 }
@@ -1216,6 +1291,7 @@ pub fn validate_result(method: &str, result: &Value) -> Result<(), AppError> {
             | "benchmarkStatus"
             | "benchmarkCancel"
             | "evidenceRead"
+            | "assetList"
     );
     require(known, "unknown method")?;
     let Some(data) = reply_data(result)? else {
@@ -1251,6 +1327,7 @@ pub fn validate_result(method: &str, result: &Value) -> Result<(), AppError> {
             decode::<BenchmarkRun>(data)?.validate()
         }
         "evidenceRead" => decode::<EvidenceManifest>(data)?.validate(),
+        "assetList" => decode::<AssetList>(data)?.validate(),
         _ => unreachable!(),
     }
 }
