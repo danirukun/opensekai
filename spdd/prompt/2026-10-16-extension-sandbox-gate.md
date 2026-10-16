@@ -12,11 +12,12 @@ R5. `registerAssetType({ kind, label, fileExtensions })` needs `assetTypes`. A f
 R6. Registration is allowed only while the extension loads. `log` needs `log`.
 R7. `evaluate(type, inputs)` validates the inputs against the declared ports and rejects bad inputs without a fault. It copies the inputs into the guest and the outputs back as JSON. The outputs must have exactly the declared ports with finite numbers.
 R8. A fault disables the extension: denied capability, invalid registration, invalid output, quota (logs per call, log size, result size, node count, asset type count), time limit, memory limit, stack overflow, or uncaught error. A bridge fault wins when the guest catches the error. The host releases the registrations, the handles, the context, and the runtime, calls `onFailure`, and keeps other extensions running.
-R9. A WASM trap, or a QuickJS error without a value, is an `error` fault for that extension only. The host does not call `computeMemoryUsage` on a guest runtime.
+R9. A WASM trap is an `error` fault for that extension only. A `null` exception is a `memory` fault (QuickJS throws `null` when it cannot build the out-of-memory error). The host reads only the `name` and `message` of an error, with the QuickJS limit lifted for the read. The host does not call `computeMemoryUsage` on a guest runtime.
 R10. A failed extension can load again. `unload` and `dispose` release every QuickJS handle (no QuickJS abort).
 R11. The worker protocol carries only plain data. The worker runs requests in arrival order.
 R12. The client watchdog terminates a worker that sends no message for `watchdogMs` while a request waits (plus `startupMs` before a new worker sends its first message). It disables the extension of the oldest waiting request with `unresponsive` (not for an unload), starts a new worker, loads the other extensions again, and sends the other waiting requests again. The owner of each request is recorded when it is sent. `close` stops all events and answers waiting requests with `closed`.
 R13. `load` reserves the extension ID before it awaits the WASM instance, so two loads of one ID cannot both succeed. A host `onLog` or `onFailure` error does not change a result.
+R14. Each extension's WASM instance gets its own `WebAssembly.Memory` with a maximum of `limits.heapBytes` (default 64 MiB, at least 16 MiB). A guest that allocates arrays, strings, or buffers stops with `memory` and cannot grow its instance above that maximum.
 
 ## E — Entities
 
@@ -52,6 +53,6 @@ Write prose in ASD-STE100. Keep functional TypeScript and plain data. Do not add
 ## S — Safeguards
 
 - Do not pass a host object, a function, or a QuickJS handle to guest code. Only strings cross the bridge.
-- Do not claim the memory gate. Do not ship guest plugins until a hard memory bound passes the gate in the analysis.
+- Do not claim the memory gate for macOS or WebKit before an owner check. Do not ship guest plugins before the gate in the analysis passes on macOS.
 - Do not let a guest register outside its load, or claim a built-in file extension.
 - Do not change the wire API, the show file, or the Blueprint file.

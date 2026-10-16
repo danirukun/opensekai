@@ -56,7 +56,7 @@ The OBS page draws with `alpha: true`, a clear color with alpha 0, and `scene.ba
 
 ## Extension sandbox
 
-Guest code runs in QuickJS (`packages/extensions`). The only bridge is the frozen `opensekai` global: strings go in, the host parses them with zod, and the manifest capabilities decide each call. A fault disables the extension and releases its registrations and its VM. QuickJS time and memory limits are soft (see the [gate analysis](spdd/analysis/2026-10-16-extension-sandbox-gate.md)); the worker watchdog is the hard time bound, and no hard memory bound exists yet. Guest plugins must not ship before that gate passes.
+Guest code runs in QuickJS (`packages/extensions`). The only bridge is the frozen `opensekai` global: strings go in, the host parses them with zod, and the manifest capabilities decide each call. A fault disables the extension and releases its registrations and its VM. Each extension has its own WASM instance and its own `WebAssembly.Memory` with a fixed maximum (64 MiB by default); that maximum is the hard memory bound. The QuickJS time limit is soft, and the worker watchdog is the hard time bound (see the [gate analysis](spdd/analysis/2026-10-16-extension-sandbox-gate.md)). Guest plugins must not ship before the gate passes on macOS.
 
 ## Persistence
 

@@ -26,7 +26,7 @@ This document defines the product architecture. It is not one implementation tas
 | Tracking | Receive VMC and iFacialMocap from external apps | Selected first protocols |
 | Assets | VRM and glTF/GLB first; versioned runtime asset packages | Selected direction |
 | Extension language | JavaScript and TypeScript | Selected |
-| Extension isolation | QuickJS in a worker through a capability API | Candidate; interruption, leak, and recovery checks pass on Linux; memory gate fails ([B10 analysis](../../../spdd/analysis/2026-10-16-extension-sandbox-gate.md)) |
+| Extension isolation | QuickJS in a worker through a capability API | Candidate; interruption, leak, recovery, and WASM memory maximum checks pass on Linux; macOS not checked ([B10 analysis](../../../spdd/analysis/2026-10-16-extension-sandbox-gate.md)) |
 | Graphs | Typed execution core early; visual graph editor later | Selected sequence |
 | MCP | Local server in the first feasibility slice | Required |
 | Shader compatibility | Approximate selected materials first; full coverage later | Roadmap |

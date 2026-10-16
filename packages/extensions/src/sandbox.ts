@@ -1,4 +1,4 @@
-import { newQuickJSWASMModuleFromVariant, type QuickJSContext, type QuickJSHandle, type QuickJSRuntime, type QuickJSSyncVariant } from 'quickjs-emscripten-core';
+import { newQuickJSWASMModuleFromVariant, newVariant, type QuickJSContext, type QuickJSHandle, type QuickJSRuntime, type QuickJSSyncVariant } from 'quickjs-emscripten-core';
 import releaseVariant from '@jitl/quickjs-wasmfile-release-sync';
 import {
  DEFAULT_LIMITS, EXTENSION_API_VERSION, ExtensionManifestSchema, GuestAssetTypeSchema, GuestNodeSchema, RESERVED_FILE_EXTENSIONS, portValuesSchema,
@@ -27,7 +27,7 @@ interface Loaded {
 
 // Trusted prelude. It hides the host bridge and keeps guest evaluators inside the guest VM.
 // The host gets only strings back, and it validates each one.
-// Binary buffers are hidden: their storage is outside the QuickJS memory limit (see the B10 analysis).
+// Binary buffers are hidden: guests do not need them yet, and they are the fastest way to fill the heap.
 const HIDDEN_GLOBALS = ['ArrayBuffer', 'SharedArrayBuffer', 'DataView', 'Atomics', 'Int8Array', 'Uint8Array', 'Uint8ClampedArray', 'Int16Array', 'Uint16Array',
  'Int32Array', 'Uint32Array', 'Float16Array', 'Float32Array', 'Float64Array', 'BigInt64Array', 'BigUint64Array'];
 const PRELUDE = `(() => {
@@ -55,7 +55,9 @@ const classify = (error: unknown, call: Loaded['call']): FailureCause => {
  if (call.fault) return call.fault;
  // A trap inside the WASM instance, for example after QuickJS runs out of memory with a host function present.
  if (error instanceof WebAssembly.RuntimeError) return { code: 'error', message: truncate(`QuickJS stopped: ${error.message}`) };
- if (error === null || error === undefined) return { code: 'error', message: 'QuickJS stopped without an error value' };
+ // QuickJS throws null when it runs out of memory again while it builds the out-of-memory error.
+ if (error === null) return { code: 'memory', message: 'Memory limit exceeded' };
+ if (error === undefined) return { code: 'error', message: 'QuickJS stopped without an error value' };
  if (call.interrupted) return { code: 'timeout', message: 'Time limit exceeded' };
  const { name, message } = (typeof error === 'object' && error !== null ? error : {}) as { name?: unknown; message?: unknown };
  const text = typeof message === 'string' ? message : String(error);
@@ -68,6 +70,10 @@ export async function createSandbox(options: SandboxOptions = {}) {
  const limits: SandboxLimits = { ...DEFAULT_LIMITS, ...options.limits };
  const now = options.now ?? (() => performance.now());
  const variant = options.variant ?? releaseVariant;
+ const PAGE = 64 * 1024, INITIAL_HEAP = 16 * 1024 * 1024;
+ if (!(limits.heapBytes >= INITIAL_HEAP)) throw new RangeError(`heapBytes must be at least ${INITIAL_HEAP}`);
+ // A fresh memory with a fixed maximum for each instance: QuickJS cannot allocate past it.
+ const heap = () => new WebAssembly.Memory({ initial: INITIAL_HEAP / PAGE, maximum: Math.floor(limits.heapBytes / PAGE) });
  const loaded = new Map<string, Loaded>();
  const failed = new Map<string, FailureCause>();
  const nodeOwner = new Map<string, string>();
@@ -161,10 +167,23 @@ export async function createSandbox(options: SandboxOptions = {}) {
   }
  };
 
- const unwrap = (context: QuickJSContext, result: ReturnType<QuickJSContext['evalCode']>): QuickJSHandle => {
+ // `dump` is not reliable at the memory limit (it can return an empty string), so read only `name` and `message`.
+ const readError = (context: QuickJSContext, error: QuickJSHandle): unknown => {
+  if (context.typeof(error) !== 'object') return context.dump(error);
+  if (context.sameValue(error, context.null)) return null;
+  const text = (key: string) => {
+   const prop = context.getProp(error, key);
+   try { return context.typeof(prop) === 'string' ? context.getString(prop) : undefined; } finally { prop.dispose(); }
+  };
+  return { name: text('name'), message: text('message') };
+ };
+
+ // Reading the error allocates. The QuickJS limit is lifted for the read; the WASM maximum still bounds the heap.
+ const unwrap = (entry: Loaded, result: ReturnType<QuickJSContext['evalCode']>): QuickJSHandle => {
   if (result.error) {
    let dumped: unknown;
-   try { dumped = context.dump(result.error); } finally { result.error.dispose(); }
+   entry.runtime.setMemoryLimit(-1);
+   try { dumped = readError(entry.context, result.error); } finally { result.error.dispose(); entry.runtime.setMemoryLimit(limits.memoryBytes); }
    throw dumped;
   }
   return result.value;
@@ -181,7 +200,7 @@ export async function createSandbox(options: SandboxOptions = {}) {
   loading.add(manifest.id);
   // One WASM instance per extension: a fatal VM error cannot reach another extension.
   let module: Awaited<ReturnType<typeof newQuickJSWASMModuleFromVariant>>;
-  try { module = await newQuickJSWASMModuleFromVariant(variant); } finally { loading.delete(manifest.id); }
+  try { module = await newQuickJSWASMModuleFromVariant(newVariant(variant, { wasmMemory: heap() })); } finally { loading.delete(manifest.id); }
   const runtime = module.newRuntime();
   runtime.setMemoryLimit(limits.memoryBytes);
   runtime.setMaxStackSize(limits.stackBytes);
@@ -195,8 +214,8 @@ export async function createSandbox(options: SandboxOptions = {}) {
   loaded.set(manifest.id, entry);
   const result = guarded(entry, limits.loadMs, () => {
    bridge(entry);
-   entry.dispatch = unwrap(context, context.evalCode(PRELUDE, 'prelude.js', { type: 'global' }));
-   unwrap(context, context.evalCode(source, `${manifest.id}.js`, { type: 'global' })).dispose();
+   entry.dispatch = unwrap(entry, context.evalCode(PRELUDE, 'prelude.js', { type: 'global' }));
+   unwrap(entry, context.evalCode(source, `${manifest.id}.js`, { type: 'global' })).dispose();
   });
   entry.call.deadline = Infinity;
   entry.phase = 'call';
@@ -221,7 +240,7 @@ export async function createSandbox(options: SandboxOptions = {}) {
    const typeHandle = context.newString(localType);
    try {
     const inputHandle = context.newString(JSON.stringify(input.data));
-    try { out = unwrap(context, context.callFunction(entry.dispatch, context.undefined, typeHandle, inputHandle)); }
+    try { out = unwrap(entry, context.callFunction(entry.dispatch, context.undefined, typeHandle, inputHandle)); }
     finally { inputHandle.dispose(); }
    } finally { typeHandle.dispose(); }
    try { return context.typeof(out) === 'string' ? context.getString(out) : null; } finally { out.dispose(); }

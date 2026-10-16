@@ -15,11 +15,39 @@ Slice: [extension sandbox gate](../../spdd/prompt/2026-10-16-extension-sandbox-g
 | R10 handles | `sandbox.test.ts` › reloads a failed extension and releases every QuickJS handle on unload and dispose |
 | R9 near the limit | `sandbox.test.ts` › disables a guest that ends close to the memory limit and releases its handles |
 | R13 | `sandbox.test.ts` › reserves an ID while it loads…; keeps an extension running when a host callback throws |
+| R14 WASM memory maximum | `sandbox.test.ts` › stops object, array, and string allocation with a memory fault under the WASM memory maximum (fails without the maximum: arrays took 13.1 s); rejects a WASM memory maximum below the initial heap |
 | R12 watchdog | `client.test.ts` (fake thread boundary); `worker.integration.test.ts` (real Node worker thread) |
 
-## Limit measurements
+## Limit measurements with the WASM memory maximum
 
-Default limits: 16 MiB memory, 256 KiB stack, 250 ms load, 5 ms call. Each case loads a new extension into one sandbox in process (no worker).
+The owner selected a hard WASM memory maximum for each instance (#106, option 1). Default limits: 16 MiB QuickJS limit, 64 MiB WASM memory maximum, 256 KiB stack, 250 ms load, 5 ms call. Each case loads a new extension into one sandbox in process (no worker). Output:
+
+```
+node v26.10.0
+-- default limits
+plain-loop load 279 ms {"ok":true,"status":{"id":"dev.m.plain-loop","state":"failed","cause":{"code":"timeout","message":"Time limit exceeded"}}}
+plain-loop-call call 6 ms {"ok":false,"failure":{"code":"timeout","message":"Time limit exceeded"}}
+object-hog load 298 ms {"ok":true,"status":{"id":"dev.m.object-hog","state":"failed","cause":{"code":"memory","message":"Memory limit exceeded"}}}
+array-hog load 129 ms {"ok":true,"status":{"id":"dev.m.array-hog","state":"failed","cause":{"code":"memory","message":"Memory limit exceeded"}}}
+string-hog load 201 ms {"ok":true,"status":{"id":"dev.m.string-hog","state":"failed","cause":{"code":"memory","message":"Memory limit exceeded"}}}
+array-hog-call call 112 ms {"ok":false,"failure":{"code":"memory","message":"Memory limit exceeded"}}
+native-spin-call call 28481 ms {"ok":false,"failure":{"code":"timeout","message":"Time limit exceeded"}}
+rss MiB 227 discarded 0
+-- no deadline (loadMs 60000)
+object-hog load 261 ms {"ok":true,"status":{"id":"dev.m.object-hog","state":"failed","cause":{"code":"memory","message":"Memory limit exceeded"}}}
+array-hog load 117 ms {"ok":true,"status":{"id":"dev.m.array-hog","state":"failed","cause":{"code":"memory","message":"Memory limit exceeded"}}}
+string-hog load 187 ms {"ok":true,"status":{"id":"dev.m.string-hog","state":"failed","cause":{"code":"memory","message":"Memory limit exceeded"}}}
+rss MiB 271 discarded 0
+-- WASM memory size after each guest stops (raw QuickJS, 4 MiB QuickJS limit, 64 MiB WASM maximum, no deadline)
+objects 56 ms error 23 MiB WASM memory
+strings 190 ms error 63 MiB WASM memory
+arrays 75 ms error 63 MiB WASM memory
+buffers 61 ms error 63 MiB WASM memory
+```
+
+## Limit measurements before the WASM memory maximum
+
+These runs used the release variant with its default 2 GiB WASM maximum. Default limits: 16 MiB memory, 256 KiB stack, 250 ms load, 5 ms call.
 
 ```
 node v26.10.0
@@ -56,7 +84,8 @@ The strings case shows 0.3 MiB because the runtime released the strings after th
 ## Result
 
 - Near the limit: `computeMemoryUsage` traps (`null function or function signature mismatch`) on a heap that reached the limit, and then the runtime dispose aborts. A guest that catches out-of-memory errors while a host function exists can make `evalCode` trap with `memory access out of bounds`. The sandbox does not call `computeMemoryUsage`, and it reports a trap as an `error` fault in that extension only.
-- Pass on Linux: interruption of plain loops, stack limit, object memory, quotas, denied capabilities, registration only at load, output validation, no leaked handles, and recovery after the watchdog in a real worker thread (1000 ms watchdog).
-- Fail: hard memory bound. Array storage and binary buffer storage are outside the QuickJS memory limit. Binary buffers are now hidden from the guest; arrays remain.
+- Pass on Linux: hard memory bound. With a 64 MiB WASM maximum, object, array, string, and buffer guests stop with `memory` in less than 0.3 s, and the WASM memory stays at or below 63 MiB. Before the maximum, arrays reached 1792 MiB and buffers 2042 MiB.
+- Pass on Linux: interruption of plain loops, stack limit, quotas, denied capabilities, registration only at load, output validation, no leaked handles, and recovery after the watchdog in a real worker thread (1000 ms watchdog).
+- At the limit, `dump` of a QuickJS error can return an empty string, and QuickJS throws `null` when it cannot build the out-of-memory error. The sandbox reads only `name` and `message`, with the QuickJS limit lifted for the read, and it reports `null` as `memory`.
 - Soft: the time limit inside the VM. Native-heavy loops overshoot by seconds. The worker watchdog is the hard bound.
-- Unknown: macOS WebKit Web Worker behavior, Windows, and the WASM instance cost in the Scene window.
+- Unknown: macOS (Node and WebKit Web Worker), Windows, and the WASM instance cost in the Scene window. The WASM memory starts at 16 MiB for each extension.

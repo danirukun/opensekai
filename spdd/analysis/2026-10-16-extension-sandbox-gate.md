@@ -29,6 +29,8 @@ Warudo plugins are C# mods. They define nodes and asset types through the Mod SD
 
 ## Findings
 
+The table and findings 1 to 5 are from the release variant with its default 2 GiB WASM maximum, before the selected memory bound. See Memory bound for the results with it.
+
 Measured on Linux cloud (Node 26.10.0, x86_64), `quickjs-emscripten-core` 0.32.0 release-sync, default limits (16 MiB memory, 250 ms load, 5 ms call). Raw output is in [the evidence page](../../docs/evaluation/extension-sandbox.md).
 
 | Guest | Stops after | Cause |
@@ -50,7 +52,7 @@ Measured on Linux cloud (Node 26.10.0, x86_64), `quickjs-emscripten-core` 0.32.0
 
 - The extension boundary (EXT-05) exists as a tested package: manifest, capabilities, node and asset type registration, and node evaluation with copied data.
 - Interruption, hostile loops, leaked handles, denied access, and failure recovery have tests.
-- The memory gate does not pass. Guest plugins must not ship until a hard memory bound exists. EXT-13 stays open.
+- The WASM memory maximum of each instance is the hard memory bound (see Memory bound). EXT-13 stays open until macOS and the WebKit worker are checked.
 - No wire API, show file, Blueprint file, or UI changes. No app process loads the package yet.
 
 ## Risks
@@ -58,13 +60,23 @@ Measured on Linux cloud (Node 26.10.0, x86_64), `quickjs-emscripten-core` 0.32.0
 - The watchdog replaces a whole worker. All extensions in it reload, and a reload can fail again.
 - Time limits inside the VM are soft, so a node call can block its worker up to `watchdogMs`. Blueprint evaluation must not wait for a guest node in the simulation tick.
 
-## Candidates for the memory bound (selection gate)
+## Memory bound (selected)
 
-1. A custom QuickJS WASM build with a low `MAXIMUM_MEMORY` (for example 64 MiB) for each instance. This gives a hard bound from WASM. It needs an Emscripten build step. Recommended.
+The owner selected option 1, a low maximum memory for each WASM instance (2026-10-16). The release variant accepts a `WebAssembly.Memory` from the caller (`newVariant(base, { wasmMemory })`), and its default maximum is 32768 pages (2 GiB). The sandbox gives each instance its own memory with a maximum of `heapBytes` (default 64 MiB). This is the same hard bound from WASM as a custom build, without an Emscripten build step. A custom build stays possible if a later need (for example a smaller module) comes up.
+
+With a 64 MiB maximum, the object, array, buffer, and string guests stop with `memory` in less than 0.3 s, the WASM memory stays at or below 63 MiB, and the runtime disposes without an abort. The guest that catches out-of-memory errors near the limit no longer makes `evalCode` trap.
+
+At the limit, `dump` of the QuickJS error can return an empty string, and QuickJS throws `null` when it cannot build the out-of-memory error. The sandbox reads only the error `name` and `message`, with the QuickJS limit lifted for the read, and it reports `null` as `memory`. A guest that throws `null` itself is also reported as `memory`.
+
+Binary buffer types stay hidden. Guests do not need them yet, and hiding them is reversible.
+
+The candidates were:
+
+1. A custom QuickJS WASM build with a low `MAXIMUM_MEMORY` (for example 64 MiB) for each instance. This gives a hard bound from WASM. It needs an Emscripten build step. Selected (implemented through `wasmMemory`, above).
 2. Patch the QuickJS allocator so that array and buffer storage counts against the limit. It needs a fork of the C source and the same build step.
 3. Accept the WASM heap maximum (about 2 GiB for each extension) and the watchdog as the bound. It needs no build step, but one extension can use about 2 GiB.
 
-Gate: a hostile guest that allocates arrays, strings, and buffers stops below the limit plus a stated margin, in a worker, on macOS and Linux. The question is on #106.
+Gate: a hostile guest that allocates arrays, strings, and buffers stops below the limit plus a stated margin, in a worker, on macOS and Linux. Linux passes with this change. macOS Node is an owner check on this PR. The WebKit Web Worker check needs the Scene window worker entry (later slice).
 
 ## Out of scope
 

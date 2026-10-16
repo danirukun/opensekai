@@ -107,7 +107,7 @@ describe('extension sandbox', () => {
   expect(await sandbox.load(manifest('dev.test.after'), ADD)).toMatchObject({ ok: true, status: { state: 'ready' } });
  });
 
- // QuickJS 0.32.0 can stop without an error value when a guest catches out-of-memory errors near the limit.
+ // QuickJS 0.32.0 throws null when a guest catches out-of-memory errors until it cannot build a new one.
  it('disables a guest that ends close to the memory limit and releases its handles', async () => {
   await open({ memoryBytes: 2 * 1024 * 1024, loadMs: 20000 });
   const squeeze = `const keep = []; let size = 1 << 16;
@@ -115,7 +115,7 @@ describe('extension sandbox', () => {
    ${ADD}`;
   await sandbox.load(manifest('dev.test.math'), ADD);
   const result = await sandbox.load(manifest('dev.test.squeeze'), squeeze);
-  expect(result).toMatchObject({ ok: true, status: { state: 'failed', cause: { code: 'error', message: expect.stringContaining('QuickJS stopped') } } });
+  expect(result).toMatchObject({ ok: true, status: { state: 'failed', cause: { code: 'memory' } } });
   expect(sandbox.discardedRuntimes()).toBe(0);
   expect(sandbox.catalog().nodes.map(n => n.type)).toEqual(['dev.test.math/add']);
   expect(sandbox.evaluate('dev.test.math/add', { a: 1, b: 2 })).toEqual({ ok: true, outputs: { sum: 3 } });
@@ -136,6 +136,29 @@ describe('extension sandbox', () => {
   expect(sandbox.evaluate('dev.test.log/n', {})).toEqual({ ok: true, outputs: { value: 1 } });
   await sandbox.load(manifest('dev.test.bad'), node('return {};'));
   expect(sandbox.evaluate('dev.test.bad/n', {})).toMatchObject({ ok: false, failure: { code: 'invalid' } });
+ });
+
+ // Without the WASM maximum, these guests reach about 1.8 GiB (arrays) and 10 s (strings) before QuickJS stops them.
+ it('stops object, array, and string allocation with a memory fault under the WASM memory maximum', async () => {
+  await open({ heapBytes: 64 * 1024 * 1024, loadMs: 60000 });
+  await sandbox.load(manifest('dev.test.math'), ADD);
+  const guests: [string, string][] = [
+   ['objects', 'const k = []; for (;;) k.push({ n: k.length });'],
+   ['arrays', 'const k = []; for (;;) k.push(new Array(1 << 14).fill(k.length));'],
+   ['strings', `const k = []; for (;;) k.push('x'.repeat(1 << 16) + k.length);`],
+  ];
+  for (const [id, source] of guests) {
+   const start = performance.now();
+   expect(await sandbox.load(manifest(`dev.test.${id}`), source), id).toMatchObject({ ok: true, status: { state: 'failed', cause: { code: 'memory' } } });
+   expect(performance.now() - start, id).toBeLessThan(5000);
+  }
+  expect(sandbox.evaluate('dev.test.math/add', { a: 1, b: 2 })).toEqual({ ok: true, outputs: { sum: 3 } });
+  sandbox.dispose();
+  expect(sandbox.discardedRuntimes()).toBe(0);
+ }, 30000);
+
+ it('rejects a WASM memory maximum below the initial heap', async () => {
+  await expect(createSandbox({ limits: { heapBytes: 8 * 1024 * 1024 } })).rejects.toThrow(RangeError);
  });
 
  it('enforces the log quota per call and truncates long messages', async () => {

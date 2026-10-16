@@ -51,13 +51,14 @@ export const portValuesSchema = (shape: Record<string, DataPortType>) =>
  z.strictObject(Object.fromEntries(Object.entries(shape).map(([name, type]) => [name, valueSchema(type)])));
 
 export interface SandboxLimits {
- memoryBytes: number; stackBytes: number;
+ // `memoryBytes` is the QuickJS allocator limit (soft). `heapBytes` is the WASM memory maximum of the instance (hard).
+ memoryBytes: number; heapBytes: number; stackBytes: number;
  sourceBytes: number; loadMs: number; callMs: number;
  logsPerCall: number; logBytes: number; resultBytes: number;
  nodes: number; assetTypes: number;
 }
 export const DEFAULT_LIMITS: SandboxLimits = {
- memoryBytes: 16 * 1024 * 1024, stackBytes: 256 * 1024,
+ memoryBytes: 16 * 1024 * 1024, heapBytes: 64 * 1024 * 1024, stackBytes: 256 * 1024,
  sourceBytes: 1024 * 1024, loadMs: 250, callMs: 5,
  logsPerCall: 8, logBytes: 1024, resultBytes: 16 * 1024,
  nodes: 64, assetTypes: 16,
