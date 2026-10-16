@@ -240,3 +240,13 @@ it('sets an environment model and a camera Render Environment flag through patch
  expect((await model.setEnvironmentModel('performer', 'scene_a')).ok).toBe(false);
  expect((await model.setCameraRenderEnvironment('stage', true)).ok).toBe(false);
 });
+it('sets a camera anti-aliasing mode through a patch and rejects other kinds and unknown modes', async () => {
+ const { model, session, api } = fixture();
+ await model.load();
+ expect((await model.setCameraAntiAliasing('camera_wide', 'fxaa', model.read().scene!.revision)).ok).toBe(true);
+ expect(session.inspect().entities.find(e => e.id === 'camera_wide')).toMatchObject({ antiAliasing: 'fxaa' });
+ const calls = vi.mocked(api.scenePatch).mock.calls.length;
+ expect(await model.setCameraAntiAliasing('performer', 'fxaa')).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+ expect(await model.setCameraAntiAliasing('camera_wide', 'taa' as never)).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+ expect(api.scenePatch).toHaveBeenCalledTimes(calls);
+});

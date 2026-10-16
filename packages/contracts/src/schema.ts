@@ -3,6 +3,7 @@ import { BlueprintGraphSchema, BlueprintSetSchema } from './blueprint';
 import { BlueprintBatchSchema } from './blueprint-ops';
 import { KEYSTROKE_CODES } from './blueprint-nodes';
 import { z } from "zod";
+import { CameraAntiAliasingSchema, QualityProfileIdSchema } from './quality';
 import type { AppApi, Capability, Reply, ValidatedCall } from "./types";
 export const LIMITS = {
     jsonBytes: 262144,
@@ -115,7 +116,8 @@ export const SceneEntitySchema = z.discriminatedUnion("kind", [
     EntityBaseSchema.extend({
         kind: z.literal("camera"),
         lens: LensSchema,
-        renderEnvironment: z.boolean().optional()
+        renderEnvironment: z.boolean().optional(),
+        antiAliasing: CameraAntiAliasingSchema.optional()
     })
 ]);
 export const OutputSpecSchema = z.strictObject({
@@ -159,6 +161,7 @@ export const PatchOpSchema = z.discriminatedUnion("kind", [
     z.strictObject({kind:z.literal('setAvatarModel'),entityId:IdSchema,assetId:IdSchema.nullable()}),
     z.strictObject({kind:z.literal('setEnvironmentModel'),entityId:IdSchema,assetId:IdSchema.nullable()}),
     z.strictObject({kind:z.literal('setCameraRenderEnvironment'),entityId:IdSchema,renderEnvironment:z.boolean()}),
+    z.strictObject({kind:z.literal('setCameraAntiAliasing'),entityId:IdSchema,antiAliasing:CameraAntiAliasingSchema}),
     z.strictObject({kind:z.literal('setTrackingConfig'),entityId:IdSchema,config:TrackingConfigSchema}),
     z.strictObject({
         kind: z.literal("setTransform"),
@@ -250,7 +253,8 @@ export const FrameAppliedSchema = z.strictObject({
     backend: BackendSchema,
     cpuMs: n.nonnegative(),
     gpuMs: n.nonnegative().nullable(),
-    warnings: z.array(AppErrorSchema)
+    warnings: z.array(AppErrorSchema),
+    qualityProfile: QualityProfileIdSchema.optional()
 });
 const diagnosticCount = u.max(1_000_000);
 export const RendererDiagnosticsSchema = z.strictObject({

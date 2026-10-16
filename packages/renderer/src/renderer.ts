@@ -2,7 +2,7 @@ import { assertEditorScope, createEditorViewport } from './editor-viewport';
 import type { EditorOptions, EditorHandle } from './editor-viewport';
 import { Scene, Mesh, BoxGeometry, MeshStandardNodeMaterial, PerspectiveCamera, AmbientLight, DirectionalLight, Object3D } from "three/webgpu";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
-import type { RuntimeFrame, FrameApplied, RendererDiagnostics, CaptureBytes, Id, ResourceHost, AppError, SceneEntity } from "@opensekai/contracts";
+import type { RuntimeFrame, FrameApplied, RendererDiagnostics, CaptureBytes, Id, ResourceHost, AppError, SceneEntity, QualityProfile } from "@opensekai/contracts";
 import { RuntimeFrameSchema } from "@opensekai/contracts";
 import { selectFrame, failure, createRenderQueue } from "./apply-frame";
 import { createAssetCache, createAssetLoader, disposeObject } from "./assets";
@@ -13,6 +13,7 @@ import { createCapturePolicy, readPng } from "./capture";
 import { createLoadJobs, type AssetLoadStatus, type LoadReport, type LoadRequest } from "./load-jobs";
 import { createEnvironmentLight, roomEnvironmentMap } from "./environment-light";
 import { createDiagnosticMarker } from "./diagnostic-marker";
+import { createAntiAliasing } from "./anti-aliasing";
 export interface RendererHandle {
     editor?: EditorHandle;
     applyFrame(frame: RuntimeFrame): Promise<FrameApplied>;
@@ -29,11 +30,12 @@ export interface RendererOptions {
     mode: "auto" | "force-webgl2";
     resources: ResourceHost;
     diagnostics: boolean;
-    resolutionScale: 1 | 0.5;
+    quality: QualityProfile;
 }
 export async function createRenderer(options: RendererOptions): Promise<RendererHandle> {
     if (options.editor) assertEditorScope(options.outputId, options.diagnostics);
-    const { renderer, backend } = await initializeBackend(options.canvas, options.mode);
+    const { quality } = options;
+    const { renderer, backend } = await initializeBackend(options.canvas, options.mode, quality.msaaSamples);
     const camera = new PerspectiveCamera();
     const scene = new Scene();
     scene.background = null;
@@ -41,7 +43,8 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     const light = new DirectionalLight(0xffffff, 3);
     light.position.set(2, 4, 3);
     scene.add(light);
-    const loadAsset = createAssetLoader(options.resources, {maxTextureSize: options.resolutionScale === 0.5 ? 1024 : 2048});
+    const loadAsset = createAssetLoader(options.resources, {maxTextureSize: quality.maxTextureSize});
+    const antiAliasing = createAntiAliasing(renderer);
     const assets = createAssetCache(loadAsset);
     const environmentLight = createEnvironmentLight(roomEnvironmentMap(renderer));
     type Ready = { root: Object3D; avatar?: ReturnType<typeof createAvatarBinding>; assetId?: string; assetDispose?: () => void; instanceDispose?: () => void; warnings: AppError[]; dispose(): void };
@@ -107,6 +110,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         jobs.dispose();
         assets.dispose();
         environmentLight.dispose();
+        antiAliasing.dispose();
         marker?.dispose();
         scene.clear();
         renderer.dispose();
@@ -124,7 +128,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             throw failure("NOT_FOUND", "Output camera not found", [output.cameraId]);
         const showEnvironment = cameraEntity.renderEnvironment !== false;
         const place = (root: Object3D, entity: SceneEntity) => { applyTransform(root, entity); if (entity.kind === "environment" && !showEnvironment) root.visible = false; };
-        const width = output.width * options.resolutionScale, height = output.height * options.resolutionScale;
+        const width = output.width * quality.resolutionScale, height = output.height * quality.resolutionScale;
         if (options.canvas.width !== width || options.canvas.height !== height)
             renderer.setSize(width, height, false);
         const warnings: AppError[] = [];
@@ -204,7 +208,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         camera.updateProjectionMatrix();
         applyTransform(camera, cameraEntity);
         try {
-            await renderer.renderAsync(scene, camera);
+            await antiAliasing.render(scene, camera, cameraEntity.antiAliasing);
             if (marker) {
                 marker.update(frame, cameraEntity.id, width, height);
                 renderer.autoClear = false;
@@ -223,7 +227,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         if (disposed)
             throw failure("CANCELLED", "Renderer disposed");
         displayFrame = frame;
-        displayed = { outputId: options.outputId, sessionId: frame.sessionId, sequence: frame.sequence, tick: frame.tick, revision: frame.scene.revision, cameraId: cameraEntity.id, backend, cpuMs: performance.now() - started, gpuMs: null, warnings };
+        displayed = { outputId: options.outputId, sessionId: frame.sessionId, sequence: frame.sequence, tick: frame.tick, revision: frame.scene.revision, cameraId: cameraEntity.id, backend, cpuMs: performance.now() - started, gpuMs: null, warnings, qualityProfile: quality.id };
         return structuredClone(displayed);
     };
     return { ...(editor ? { editor: { sync: editor.sync, cancel: editor.cancel } } : {}), diagnostics(rendererEpoch) {

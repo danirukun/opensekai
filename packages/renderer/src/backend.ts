@@ -1,7 +1,7 @@
 import { WebGPURenderer } from "three/webgpu";
 import type { Backend } from "@opensekai/contracts";
-export async function initializeBackend(canvas: HTMLCanvasElement, mode: "auto" | "force-webgl2") {
-    const renderer = new WebGPURenderer({ canvas, alpha: true, antialias: true, forceWebGL: mode === "force-webgl2" });
+export async function initializeBackend(canvas: HTMLCanvasElement, mode: "auto" | "force-webgl2", msaaSamples: 0 | 4 = 4) {
+    const renderer = new WebGPURenderer({ canvas, alpha: true, antialias: msaaSamples > 0, samples: msaaSamples, forceWebGL: mode === "force-webgl2" });
     try {
         await renderer.init();
     }

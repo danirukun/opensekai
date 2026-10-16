@@ -3,7 +3,7 @@ import SessionWorker from '@opensekai/session/worker?worker';
 import { connectClient } from '@opensekai/browser-client';
 import type { EditorOptions, EditorHandle, AssetLoadStatus } from '@opensekai/renderer';
 import { createRenderer } from '@opensekai/renderer';
-import { makeSmokeScene, ConnectionDescriptorSchema, TrackingUpdateSchema } from '@opensekai/contracts';
+import { makeSmokeScene, ConnectionDescriptorSchema, TrackingUpdateSchema, QUALITY_PROFILES } from '@opensekai/contracts';
 import type { AssetRecord, BrowserClient, ConnectionDescriptor, RuntimeFrame,TrackingUpdate } from '@opensekai/contracts';
 import { makeOutputUrl } from './editor/output-url';
 import {makeEmptyScene} from './editor/authoring';
@@ -69,7 +69,7 @@ export async function bootstrapDesktop(canvas: HTMLCanvasElement, editorOptions?
   for (const result of connected) if (result.status === 'rejected') throw result.reason;
   const [client, preview] = clients;
   const renderer = await createRenderer({ canvas, outputId: 'preview_main', mode: info.rendererMode,
-   resources: preview, diagnostics: false, resolutionScale: 0.5,
+   resources: preview, diagnostics: false, quality: QUALITY_PROFILES.preview_v1,
    editor: info.operator.capabilities.includes('edit') ? editorOptions : undefined });
   const pump = createPreviewPump<RuntimeFrame>(async frame => {
    const measuring = previewProbe?.begin() ?? false;

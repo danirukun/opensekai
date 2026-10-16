@@ -1,6 +1,7 @@
 import { connectClient } from "@opensekai/browser-client";
 import { createRenderer, createDiagnosticsSampler } from "@opensekai/renderer";
 import type { AppError } from "@opensekai/contracts";
+import { qualityProfileFromQuery } from "@opensekai/contracts";
 import { loadRendererDescriptor } from "./descriptor";
 async function start() {
     const descriptor = loadRendererDescriptor({
@@ -12,7 +13,7 @@ async function start() {
     const client = await connectClient(descriptor);
     let renderer;
     try {
-        renderer = await createRenderer({ canvas: document.querySelector<HTMLCanvasElement>("#output")!, outputId: descriptor.outputId, mode: new URLSearchParams(location.search).get("backend") === "webgl2" ? "force-webgl2" : "auto", resources: client, diagnostics: new URLSearchParams(location.search).get("diagnostics") === "1", resolutionScale: new URLSearchParams(location.search).get("scale") === "0.5" ? 0.5 : 1 });
+        renderer = await createRenderer({ canvas: document.querySelector<HTMLCanvasElement>("#output")!, outputId: descriptor.outputId, mode: new URLSearchParams(location.search).get("backend") === "webgl2" ? "force-webgl2" : "auto", resources: client, diagnostics: new URLSearchParams(location.search).get("diagnostics") === "1", quality: qualityProfileFromQuery(new URLSearchParams(location.search).get("quality")) });
     }
     catch (error) {
         client.close();

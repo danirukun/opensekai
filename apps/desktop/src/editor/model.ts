@@ -1,5 +1,5 @@
-import { TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,TrackingSmoothingSchema,EntityNameSchema,ShowSceneSchema,IdSchema } from '@opensekai/contracts';
-import type { AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing } from '@opensekai/contracts';
+import { TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,TrackingSmoothingSchema,EntityNameSchema,ShowSceneSchema,IdSchema,CameraAntiAliasingSchema } from '@opensekai/contracts';
+import type { AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing, CameraAntiAliasing } from '@opensekai/contracts';
 import {makeEntityCopy} from './asset-management';
 type CameraLens=Extract<SceneEntity,{kind:'camera'}>['lens'];
 export interface EditorView {
@@ -117,6 +117,10 @@ export function createEditorModel(api: AppApi) {
   setCameraRenderEnvironment(entityId:Id,renderEnvironment:boolean,expectedRevision?:number):Promise<Reply<{revision:number}>> {
    if(!ofKind(entityId,'camera'))return invalid();
    return patch({kind:'setCameraRenderEnvironment',entityId,renderEnvironment},expectedRevision);
+  },
+  setCameraAntiAliasing(entityId:Id,antiAliasing:CameraAntiAliasing,expectedRevision?:number):Promise<Reply<{revision:number}>> {
+   const parsed=CameraAntiAliasingSchema.safeParse(antiAliasing);if(!ofKind(entityId,'camera')||!parsed.success)return invalid();
+   return patch({kind:'setCameraAntiAliasing',entityId,antiAliasing:parsed.data},expectedRevision);
   },
   setTrackingSmoothing(entityId:Id,smoothing:TrackingSmoothing,expectedRevision?:number):Promise<Reply<{revision:number}>> {
    const parsed=TrackingSmoothingSchema.safeParse(smoothing);if(!ofKind(entityId,'tracking')||!parsed.success)return invalid();
