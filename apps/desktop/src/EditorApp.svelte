@@ -2,7 +2,7 @@
  import { onMount, tick } from 'svelte';
  import { invoke } from '@tauri-apps/api/core';
  import { getCurrentWindow } from '@tauri-apps/api/window';
- import { Button } from '@oshi-connect/ui';
+ import { Button, ToastRegion, toasts } from '@oshi-connect/ui';
  import { Box, Radio, PackageOpen, Workflow, FolderOpen, Save } from '@lucide/svelte';
  import { bootstrapEditor } from './bootstrap';
  import { createEditorModel, type EditorModel, type EditorView } from './editor/model';
@@ -84,9 +84,10 @@ import { createEditorMemory } from './blueprints/editor-memory';
    const path=await invoke<string|null>(chooseFile?'save_show_as':'save_show',{document});
    if(!path)return false;
    showName=document.name;savedMark={name:document.name,revision:inspected.data.revision,blueprintRevision:blueprints.data.revision};
+   toasts.push({variant:'success',message:`Saved ${path.split(/[\\/]/).pop()}`},3000);
    return true;
   }catch(cause){showError=showFailure(cause);return false;}
-  finally{showBusy=false;}
+  finally{showBusy=false;if(showError)toasts.push({variant:'error',message:showError});}
  }
  async function openShow(){
   if(!model||showBusy||view.pending)return;
@@ -111,22 +112,23 @@ import { createEditorMemory } from './blueprints/editor-memory';
   if(dirty){const choice=await invoke<'save'|'discard'|'cancel'>('confirm_close_editor').catch(()=>'cancel' as const);if(choice==='cancel'||choice==='save'&&!await saveShow())return;}
   await invoke('hide_editor').catch(()=>{error='Could not hide editor';});
  }
- function shortcut(event:KeyboardEvent){if(event.key.toLowerCase()!=='s'||!(event.metaKey||event.ctrlKey)||event.altKey)return;event.preventDefault();if(canEdit&&available)void saveShow(event.shiftKey);}
+ const showCommands={open:()=>openShow(),save:()=>saveShow(),saveAs:()=>saveShow(true)};
+ function runShowCommand(command:unknown){if(canEdit&&available&&typeof command==='string'&&Object.hasOwn(showCommands,command))void showCommands[command as keyof typeof showCommands]();}
  onMount(()=>{
-  let disposed=false,off=()=>{},offUI=()=>{},offClose=()=>{},connection:Awaited<ReturnType<typeof bootstrapEditor>>|undefined,poll:ReturnType<typeof createEditorPoll>|undefined;
+  let disposed=false,off=()=>{},offUI=()=>{},offClose=()=>{},offMenu=()=>{},connection:Awaited<ReturnType<typeof bootstrapEditor>>|undefined,poll:ReturnType<typeof createEditorPoll>|undefined;
   let pendingSelection:string|null|undefined;
   const resize=new ResizeObserver(()=>{maxWidth=Math.max(160,Math.min(420,shell.clientWidth-330));width=Math.min(width,maxWidth);});resize.observe(shell);
   const timer=setInterval(()=>{void poll?.poll();},500);
   void getCurrentWindow().onCloseRequested(event=>{event.preventDefault();void closeEditor();}).then(stop=>{if(disposed)stop();else offClose=stop;});
+  void getCurrentWindow().listen<unknown>('show-command',event=>runShowCommand(event.payload)).then(stop=>{if(disposed)stop();else offMenu=stop;});
   void listenUI(message=>{if(message.kind==='trackingDevices')devices=message.devices;else if(message.kind==='selection'){draft=null;pendingSelection=message.entityId;if(model){if(message.entityId)model.select(message.entityId);else model.clearSelection();}}else if(message.kind==='tool')tool=message.tool;else if(message.kind==='draft')draft=available?message.draft:null;else if(message.kind==='loadStatus')loads=message.entries;else if(message.kind==='refresh'){draft=null;void model?.load();}}).then(stop=>{if(disposed)stop();else offUI=stop;}).catch(()=>{if(!disposed)error='Scene connection unavailable';});
   void bootstrapEditor().then(async value=>{if(disposed){value.stop();return;}connection=value;api=value.client.api;assets=value.assets;outputUrl=value.outputUrl;canEdit=value.canEdit;model=createEditorModel(value.client.api);sync=createBlueprintSync(value.client.api);liveTransform=createLiveTransform(model,code=>{transformError=code;},pending=>{livePending=pending;});
    off=model.subscribe(next=>{const previous=view;view=next;if(previous.scene?.revision!==next.scene?.revision){draft=null;if(previous.scene)notify({kind:'refresh'});}});
    poll=createEditorPoll(value.client.api,model,next=>{status=next;available=next.revision!==null;error=null;if(!available)draft=null;if(!savedMark&&next.revision!==null)savedMark={name:showName,revision:next.revision,blueprintRevision:next.blueprintRevision};},code=>{available=false;draft=null;error=code;},sync,()=>panel==='blueprints');await poll.poll();if(pendingSelection)model.select(pendingSelection);notify({kind:'ready'});
   }).catch(cause=>{if(!disposed)error=cause instanceof Error?cause.message:'Editor startup failed';});
-  return()=>{disposed=true;clearInterval(timer);resize.disconnect();liveTransform?.close();poll?.close();off();offUI();offClose();connection?.stop();};
+  return()=>{disposed=true;clearInterval(timer);resize.disconnect();liveTransform?.close();poll?.close();off();offUI();offClose();offMenu();connection?.stop();};
  });
 </script>
-<svelte:window onkeydown={shortcut}/>
 <main class="editor-window">
  <nav class="editor-rail" aria-label="Editor panels">
   <Button variant="ghost" class={panel==='assets'?'active-panel':''} title="Assets" onclick={()=>{panel='assets';}}><Box size={20}/><span class="sr-only">Assets</span></Button>
@@ -148,3 +150,4 @@ import { createEditorMemory } from './blueprints/editor-memory';
   <footer><span>{showError??importError?.message??trackingError??transformError??error??view.error??(view.scene?'Session connected':'Starting…')}</span><span>{canEdit ? (tool==='translate'?'Move':tool==='rotate'?'Rotate':'Scale'):'Read only'}</span></footer>
  </div>
 </main>
+<ToastRegion/>

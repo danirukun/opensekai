@@ -10,7 +10,7 @@ R3. Open only a fully valid show. A canceled or failed open leaves the current s
 R4. Replace scene state through an edit-capability, revision-checked command without restarting renderer clients or resetting stream sequence.
 R5. Preserve scene entities whose asset IDs are unavailable locally. Reject invalid camera/output references.
 R6. Keep one graph in the editor after Open and allow its Manual Trigger to run against restored entity IDs.
-R7. After Open or Save As, Save writes to the same file without a chooser. Save without a current file opens the Save As chooser. Shift with Save, or Shift+Command+S, always opens the chooser.
+R7. After Open or Save As, Save writes to the same file without a chooser. Save without a current file opens the Save As chooser. Shift with Save, or Shift+Command+S, always opens the chooser. The native File menu has Open Show (Command+O), Save Show (Command+S), and Save Show As (Shift+Command+S); each item brings the editor forward and runs the same editor action. A successful save shows a short toast with the file name. A failed save shows an error toast.
 R8. The show has unsaved changes when the scene revision, the Blueprint revision, or the show name differs from the last Open, Save, or editor start. When the show has unsaved changes, closing the editor asks to save, discard, or cancel, and quitting the app asks to quit or cancel.
 
 ## E — Entities

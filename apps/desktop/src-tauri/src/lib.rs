@@ -243,17 +243,36 @@ async fn confirm_close_editor(window: tauri::WebviewWindow) -> Result<&'static s
     .map_err(chooser_unavailable)
 }
 const QUIT_MENU_ID: &str = "opensekai-quit";
-/// tao does not ask before the stock Quit item (`terminate:`) ends the app, so Command+Q
-/// would skip `ExitRequested`. A custom item sends Quit through `request_quit`.
-#[cfg(target_os = "macos")]
-fn install_quit_menu(app: &tauri::AppHandle) -> tauri::Result<()> {
-    use tauri::menu::{Menu, MenuItem};
+/// Menu item ID, `show-command` payload, label, and accelerator for each File menu show action.
+const SHOW_MENU: [(&str, &str, &str); 3] = [
+    ("open", "Open Show…", "CmdOrCtrl+O"),
+    ("save", "Save Show", "CmdOrCtrl+S"),
+    ("saveAs", "Save Show As…", "CmdOrCtrl+Shift+S"),
+];
+fn install_menu(app: &tauri::AppHandle) -> tauri::Result<()> {
+    use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
     let menu = Menu::default(app)?;
-    let app_menu = menu
+    let submenus: Vec<_> = menu
         .items()?
-        .first()
-        .and_then(|item| item.as_submenu().cloned());
-    if let Some(app_menu) = app_menu {
+        .into_iter()
+        .filter_map(|item| item.as_submenu().cloned())
+        .collect();
+    if let Some(file) = submenus
+        .iter()
+        .find(|submenu| submenu.text().is_ok_and(|text| text == "File"))
+    {
+        for (position, (id, label, accelerator)) in SHOW_MENU.into_iter().enumerate() {
+            file.insert(
+                &MenuItem::with_id(app, id, label, true, Some(accelerator))?,
+                position,
+            )?;
+        }
+        file.insert(&PredefinedMenuItem::separator(app)?, SHOW_MENU.len())?;
+    }
+    // tao does not ask before the stock Quit item (`terminate:`) ends the app, so Command+Q
+    // would skip `ExitRequested`. A custom item sends Quit through `request_quit`.
+    #[cfg(target_os = "macos")]
+    if let Some(app_menu) = submenus.first() {
         let quit = app_menu
             .items()?
             .last()
@@ -273,6 +292,16 @@ fn install_quit_menu(app: &tauri::AppHandle) -> tauri::Result<()> {
     }
     app.set_menu(menu)?;
     Ok(())
+}
+/// Brings the editor forward and asks it to run a show command, so the editor builds the document.
+fn send_show_command(app: &tauri::AppHandle, command: &str) {
+    use tauri::Emitter;
+    let Some(editor) = app.get_webview_window("editor") else {
+        return;
+    };
+    let _ = editor.show();
+    let _ = editor.set_focus();
+    let _ = app.emit_to("editor", "show-command", command);
 }
 /// Quits now, or first asks when the show has unsaved changes.
 fn request_quit(app: &tauri::AppHandle) {
@@ -455,13 +484,17 @@ pub fn run() {
         .manage(state.clone())
         .manage(show::ShowFile::default())
         .on_menu_event(|app, event| {
-            if event.id() == QUIT_MENU_ID {
+            let id = event.id().as_ref();
+            if id == QUIT_MENU_ID {
                 request_quit(app);
+            } else if let Some((command, ..)) =
+                SHOW_MENU.iter().find(|(command, ..)| *command == id)
+            {
+                send_show_command(app, command);
             }
         })
         .setup(move |app| {
-            #[cfg(target_os = "macos")]
-            install_quit_menu(app.handle())?;
+            install_menu(app.handle())?;
             let data = app.path().app_local_data_dir()?;
             std::fs::create_dir_all(&data)?;
             let output_root = output_resource_dir(app.handle())?;
