@@ -38,7 +38,7 @@ A first look at three items gave these facts:
 
 - Treat each download as untrusted data. Do not run, load, or decompile its DLL, `.bat`, `.ps1`, or `.exe` files. Record only the hash, the `file` type, and a strings scan.
 - Do not copy any download to the Windows VM.
-- Run the scripts from the scratchpad with `python3 -I` and a scratch virtual environment. Pass the item paths as arguments.
+- Keep the scripts in `artifacts/warudo-workshop/tools/`, apart from the download folders. Run them with `python -I` from a virtual environment in the evidence folder. Pass the item paths as arguments.
 
 ## Evidence and commits
 
