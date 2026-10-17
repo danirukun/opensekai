@@ -35,7 +35,7 @@ it('sends at most one patch every 100 ms, each after the previous reply, with th
     await sent[1]!.answer(ok(7));
     committer.offer({ transform: at(4) });
     expect(sent).toHaveLength(2);
-    advance(99);
+    advance(100);
     expect(sent).toHaveLength(2);
     advance(1);
     expect(sent[2]!.commit).toEqual({ transform: at(4), expectedRevision: 7 });

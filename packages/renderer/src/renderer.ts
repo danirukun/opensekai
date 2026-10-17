@@ -258,7 +258,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             if (!entity || entity.kind !== "camera") throw failure("NOT_FOUND", "Camera not found", [cameraId]);
             const shotCamera = new PerspectiveCamera(entity.lens.fovDegrees, SCREENSHOT_WIDTH / SCREENSHOT_HEIGHT, entity.lens.near, entity.lens.far);
             applyTransform(shotCamera, entity);
-            // The scene value of each entity, not an editor draft; cameras and editor helpers are not drawn.
+            // Visibility comes from the frame; cameras and editor helpers are not drawn. A root that a gizmo drag holds keeps its draft pose.
             const show = new Map<Object3D, boolean>();
             for (const [id, value] of objects) {
                 const source = frame.scene.entities.find(x => x.id === id);

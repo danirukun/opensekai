@@ -14,7 +14,7 @@ export interface NavigationHost {
 }
 type Camera = Extract<SceneEntity, { kind: 'camera' }>;
 type Mode = { kind: 'freeLook'; state: FreeLookState } | { kind: 'orbit'; state: OrbitState; panned: boolean };
-interface Gesture { cameraId: Id; sceneId: Id; navigation: CameraNavigation; scale: Vec3; fov: number; mode: Mode; committer: NavigationCommitter; transform: Transform | null; pivotOffset: Vec3 | null }
+interface Gesture { ending: boolean; cameraId: Id; sceneId: Id; navigation: CameraNavigation; scale: Vec3; fov: number; mode: Mode; committer: NavigationCommitter; transform: Transform | null; pivotOffset: Vec3 | null }
 interface Press { button: number; pointerId: number; x: number; y: number; lastX: number; lastY: number; moved: boolean }
 const CLICK_PX = 4;
 const WHEEL_IDLE_MS = 150;
@@ -47,7 +47,8 @@ export function createViewportNavigation(host: NavigationHost) {
     const stopWheel = () => { if (wheelTimer !== null) clearTimeout(wheelTimer); wheelTimer = null; };
 
     const begin = (camera: Camera): Gesture | null => {
-        if (gesture) return gesture;
+        // A gesture that waits for its last reply takes no more input; the next one starts after it ends.
+        if (gesture) return gesture.ending ? null : gesture;
         if (!scene || !host.allowed()) return null;
         const mode = navigation(camera);
         if (mode.mode === 'none') return null;
@@ -75,7 +76,7 @@ export function createViewportNavigation(host: NavigationHost) {
             setTimer: (run, ms) => setTimeout(run, ms),
             clearTimer: handle => clearTimeout(handle as ReturnType<typeof setTimeout>),
         });
-        gesture = { cameraId, sceneId, navigation: mode, scale: [...camera.transform.scale], fov: camera.lens.fovDegrees, mode: start, committer, transform: null, pivotOffset: null };
+        gesture = { ending: false, cameraId, sceneId, navigation: mode, scale: [...camera.transform.scale], fov: camera.lens.fovDegrees, mode: start, committer, transform: null, pivotOffset: null };
         settling = null;
         host.onChange();
         return gesture;
@@ -98,12 +99,13 @@ export function createViewportNavigation(host: NavigationHost) {
     const finish = () => {
         stopKeys();
         if (!gesture || press || wheelTimer !== null) return;
+        gesture.ending = true;
         gesture.committer.finish();
     };
     const step = (time: number) => {
         frameRequest = null;
         const active = gesture;
-        if (!active || active.mode.kind !== 'freeLook' || !press || press.button !== 2 || keys.size === 0) { lastStep = null; return; }
+        if (!active || active.ending || active.mode.kind !== 'freeLook' || !press || press.button !== 2 || keys.size === 0) { lastStep = null; return; }
         const dt = lastStep === null ? 0 : Math.min(0.1, (time - lastStep) / 1000);
         lastStep = time;
         const input = { forward: 0, right: 0, up: 0, fast, sensitivity: active.navigation.mode === 'none' ? 1 : active.navigation.sensitivity };
@@ -128,7 +130,7 @@ export function createViewportNavigation(host: NavigationHost) {
         if (!press || event.pointerId !== press.pointerId) return;
         if (!press.moved && Math.hypot(event.clientX - press.x, event.clientY - press.y) <= CLICK_PX) return;
         const camera = navigationCamera(scene);
-        const active = gesture ?? (camera ? begin(camera) : null);
+        const active = camera ? begin(camera) : null;
         if (!active) return;
         const dx = event.clientX - press.lastX, dy = event.clientY - press.lastY;
         press.moved = true;
@@ -167,7 +169,7 @@ export function createViewportNavigation(host: NavigationHost) {
         const camera = navigationCamera(scene);
         if (!camera || navigation(camera).mode !== 'orbitCharacter') return;
         event.preventDefault();
-        const active = gesture ?? begin(camera);
+        const active = begin(camera);
         if (!active || active.mode.kind !== 'orbit') return;
         update(active, { ...active.mode, state: orbitZoom(active.mode.state, wheelSteps(event)) });
         stopWheel();
@@ -180,7 +182,7 @@ export function createViewportNavigation(host: NavigationHost) {
         event.preventDefault();
         fast = event.shiftKey;
         if (!(event.code in KEYS)) return;
-        if (!gesture && !begin(camera)) return;
+        if (!begin(camera)) return;
         press.moved = true;
         keys.add(event.code);
         if (frameRequest === null) frameRequest = view?.requestAnimationFrame(step) ?? null;
