@@ -2,8 +2,8 @@ import { assertEditorScope, createEditorViewport } from './editor-viewport';
 import type { EditorOptions, EditorHandle } from './editor-viewport';
 import { Scene, Mesh, BoxGeometry, MeshStandardNodeMaterial, PerspectiveCamera, AmbientLight, DirectionalLight, Object3D } from "three/webgpu";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
-import type { RuntimeFrame, FrameApplied, RendererDiagnostics, CaptureBytes, Id, ResourceHost, AppError, SceneEntity, QualityProfile } from "@opensekai/contracts";
-import { RuntimeFrameSchema } from "@opensekai/contracts";
+import type { RuntimeFrame, FrameApplied, RendererDiagnostics, CaptureBytes, Id, ResourceHost, AppError, SceneEntity, QualityProfile, ScreenshotBytes } from "@opensekai/contracts";
+import { LIMITS, RuntimeFrameSchema } from "@opensekai/contracts";
 import { selectFrame, failure, createRenderQueue } from "./apply-frame";
 import { createAssetCache, createAssetLoader, disposeObject } from "./assets";
 import { createAvatarBinding } from "./avatar-pose";
@@ -14,10 +14,13 @@ import { createLoadJobs, type AssetLoadStatus, type LoadReport, type LoadRequest
 import { createEnvironmentLight, roomEnvironmentMap } from "./environment-light";
 import { createDiagnosticMarker } from "./diagnostic-marker";
 import { createAntiAliasing } from "./anti-aliasing";
+import { renderScreenshot, SCREENSHOT_HEIGHT, SCREENSHOT_WIDTH } from "./screenshot";
 export interface RendererHandle {
     editor?: EditorHandle;
     applyFrame(frame: RuntimeFrame): Promise<FrameApplied>;
     capture(): Promise<CaptureBytes>;
+    /** One 1920 × 1080 transparent PNG of `cameraId` after a frame with `expectedRevision` is displayed. The frame loop continues. */
+    screenshot(cameraId: Id, expectedRevision: number): Promise<ScreenshotBytes>;
     diagnostics?(rendererEpoch: string): RendererDiagnostics | null;
     onLoadStatus(listener: (entries: AssetLoadStatus[]) => void): () => void;
     dismissLoad(entityId: string): void;
@@ -118,7 +121,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     const queue = createRenderQueue(() => { if (disposed)
         cleanup(); });
     const submit = async (frame: RuntimeFrame): Promise<FrameApplied> => {
-        editor?.frameRevision(frame.scene.revision);
+        editor?.frame(frame.scene);
         const started = performance.now();
         const output = frame.scene.outputs.find(x => x.id === options.outputId);
         if (!output)
@@ -206,7 +209,8 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         camera.near = cameraEntity.lens.near;
         camera.far = cameraEntity.lens.far;
         camera.updateProjectionMatrix();
-        applyTransform(camera, cameraEntity);
+        const navigated = editor?.cameraTransform(cameraEntity.id);
+        applyTransform(camera, navigated ? { ...cameraEntity, transform: navigated } : cameraEntity);
         try {
             await antiAliasing.render(scene, camera, cameraEntity.antiAliasing);
             if (marker) {
@@ -228,9 +232,45 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             throw failure("CANCELLED", "Renderer disposed");
         displayFrame = frame;
         displayed = { outputId: options.outputId, sessionId: frame.sessionId, sequence: frame.sequence, tick: frame.tick, revision: frame.scene.revision, cameraId: cameraEntity.id, backend, cpuMs: performance.now() - started, gpuMs: null, warnings, qualityProfile: quality.id };
+        for (const waiter of [...revisionWaiters]) waiter.check(frame.scene.revision);
         return structuredClone(displayed);
     };
-    return { ...(editor ? { editor: { sync: editor.sync, cancel: editor.cancel } } : {}), diagnostics(rendererEpoch) {
+    type RevisionWaiter = { check(revision: number): void; cancel(): void };
+    const revisionWaiters = new Set<RevisionWaiter>();
+    // Resolves when a frame with `revision` is displayed; a newer revision is a conflict.
+    const displayedRevision = (revision: number) => new Promise<void>((resolve, reject) => {
+        if (displayed?.revision === revision) { resolve(); return; }
+        if (displayed && displayed.revision > revision) { reject(failure("CONFLICT", "Displayed revision changed")); return; }
+        const timer = setTimeout(() => settle(() => reject(failure("TIMEOUT", "Revision not displayed"))), LIMITS.screenshotTimeoutMs);
+        const settle = (done: () => void) => { clearTimeout(timer); revisionWaiters.delete(waiter); done(); };
+        const waiter: RevisionWaiter = {
+            check(current) { if (current === revision) settle(resolve); else if (current > revision) settle(() => reject(failure("CONFLICT", "Displayed revision changed"))); },
+            cancel() { settle(() => reject(failure("CANCELLED", "Renderer disposed"))); }
+        };
+        revisionWaiters.add(waiter);
+    });
+    const screenshot = async (cameraId: Id, expectedRevision: number): Promise<ScreenshotBytes> => {
+        await displayedRevision(expectedRevision);
+        return queue.enqueue("capture", async () => {
+            const frame = displayFrame;
+            if (!frame || frame.scene.revision !== expectedRevision) throw failure("CONFLICT", "Displayed revision changed");
+            const entity = frame.scene.entities.find(x => x.id === cameraId && x.kind === "camera");
+            if (!entity || entity.kind !== "camera") throw failure("NOT_FOUND", "Camera not found", [cameraId]);
+            const shotCamera = new PerspectiveCamera(entity.lens.fovDegrees, SCREENSHOT_WIDTH / SCREENSHOT_HEIGHT, entity.lens.near, entity.lens.far);
+            applyTransform(shotCamera, entity);
+            // The scene value of each entity, not an editor draft; cameras and editor helpers are not drawn.
+            const show = new Map<Object3D, boolean>();
+            for (const [id, value] of objects) {
+                const source = frame.scene.entities.find(x => x.id === id);
+                show.set(value.root, !!source && source.kind !== "camera" && source.visible && (source.kind !== "environment" || entity.renderEnvironment !== false));
+            }
+            const png = await renderScreenshot({ renderer, backend, scene, camera: shotCamera, show, antiAliasing: entity.antiAliasing ?? "none", msaaSamples: quality.msaaSamples });
+            if (disposed) throw failure("CANCELLED", "Renderer disposed");
+            if (png.byteLength > LIMITS.screenshotPngBytes) throw failure("INVALID_INPUT", "Screenshot PNG exceeds 8 MiB");
+            return { sessionId: frame.sessionId, revision: expectedRevision, cameraId, width: SCREENSHOT_WIDTH, height: SCREENSHOT_HEIGHT, png };
+        });
+    };
+    return { screenshot, ...(editor ? { editor: { sync: editor.sync, cancel: editor.cancel } } : {}), diagnostics(rendererEpoch) {
         if (!options.diagnostics || !displayed || disposed) return null;
         return {sessionId: displayed.sessionId, outputId: displayed.outputId, rendererEpoch, sequence: displayed.sequence, revision: displayed.revision, backend, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, liveMaterials: countLiveMaterials(marker ? [scene,marker.scene] : [scene]), assetCacheEntries: assets.size(), ...queue.snapshot()};
     },
@@ -239,7 +279,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     applyFrame(raw) { const frame = RuntimeFrameSchema.parse(raw); const selected = selectFrame(accepted, frame); if (!selected.ok)
             return Promise.reject(failure(selected.error.code, selected.error.message)); accepted = frame; return queue.enqueue("frame", () => submit(frame)); }, capture() { return queue.enqueue("capture", async () => { policy.reserve(performance.now()); if (!displayed || !displayFrame)
             throw failure("UNAVAILABLE", "No displayed frame"); const metadata = structuredClone(displayed); await submit(displayFrame); const png = await readPng(options.canvas); policy.checkBytes(png.byteLength); return { frame: metadata, png, width: options.canvas.width, height: options.canvas.height }; }); }, dispose() { if (disposed)
-            return; disposed = true; editor?.dispose(); queue.dispose(); } };
+            return; disposed = true; for (const waiter of [...revisionWaiters]) waiter.cancel(); editor?.dispose(); queue.dispose(); } };
 }
 function applyTransform(object: Object3D, entity: SceneEntity) { object.position.fromArray(entity.transform.position); object.quaternion.fromArray(entity.transform.rotation); object.scale.fromArray(entity.transform.scale); object.visible = entity.visible; object.updateMatrixWorld(true); }
 function disposeInstance(root: Object3D) { root.traverse(object => { const skeleton = (object as import("three/webgpu").SkinnedMesh).skeleton; if (skeleton)

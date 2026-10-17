@@ -3,6 +3,7 @@ import type { Object3D, PerspectiveCamera, Scene } from 'three/webgpu';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import type { Id, Reply, SceneView, Transform } from '@opensekai/contracts';
 import { persistentTransform } from './transform-edit';
+import { createViewportNavigation, type NavigationEdit } from './viewport-navigation';
 export type EditorTool = 'translate' | 'rotate' | 'scale';
 export interface EditorTransformEdit { entityId: Id; expectedRevision: number; transform: Transform }
 export interface EditorViewportState { scene: SceneView | null; selectedId: Id | null; tool: EditorTool; enabled: boolean }
@@ -10,6 +11,11 @@ export interface EditorOptions {
     onSelect(id: Id | null): void;
     onCommit(edit: EditorTransformEdit): Promise<Reply<{revision: number}>>;
     onDraft?(draft: {entityId: Id; transform: Transform} | null): void;
+    // Camera navigation (R4–R9): each commit is one scenePatch through the normal route.
+    onNavigate?(edit: NavigationEdit): Promise<Reply<{revision: number}>>;
+    onNavigateEnd?(): void;
+    // Tab selects the next camera and Ctrl+Tab the previous one while the canvas has focus.
+    onCycleCamera?(direction: 1 | -1): void;
 }
 export interface EditorHandle { sync(state: EditorViewportState): void; cancel(): void }
 const read = (object: Object3D): Transform => ({position:object.position.toArray(),rotation:object.quaternion.toArray(),scale:object.scale.toArray()});
@@ -27,8 +33,16 @@ export function createEditorViewport(canvas: HTMLCanvasElement, camera: Perspect
     let gesture: {id:Id; revision:number; base:Transform; start:Transform; root:Object3D} | null = null;
     let pending = false, disposed = false;
     let down: {x:number;y:number;gizmo:boolean} | null = null;
+    const navigation = options.onNavigate ? createViewportNavigation({
+        canvas,
+        allowed: () => state.enabled && !pending && !disposed && !gesture && !controls.dragging,
+        gizmoHit: () => controls.axis !== null || controls.dragging,
+        onNavigate: edit => options.onNavigate!(edit),
+        onEnd: () => options.onNavigateEnd?.(),
+        onChange: () => refresh(),
+    }) : null;
     const refresh = () => {
-        controls.enabled = state.enabled && !pending && !disposed;
+        controls.enabled = state.enabled && !pending && !disposed && !navigation?.active();
         controls.setMode(state.tool);
         const root = state.selectedId ? objects.get(state.selectedId)?.root : undefined;
         if (controls.enabled && root?.visible) controls.attach(root); else controls.detach();
@@ -79,7 +93,10 @@ export function createEditorViewport(canvas: HTMLCanvasElement, camera: Perspect
         options.onSelect(null);
     };
     const abort = () => {down=null;cancel();};
-    const key = (event:KeyboardEvent) => {if(event.key==='Escape' && (gesture || down || controls.dragging)){event.preventDefault();abort();}};
+    const key = (event:KeyboardEvent) => {
+        if(event.key==='Escape' && (gesture || down || controls.dragging)){event.preventDefault();abort();return;}
+        if(event.key==='Tab' && !event.shiftKey && !event.altKey && !event.metaKey && options.onCycleCamera && !navigation?.active()){event.preventDefault();options.onCycleCamera(event.ctrlKey?-1:1);}
+    };
     controls.addEventListener('mouseDown',begin);
     controls.addEventListener('objectChange',draft);
     controls.addEventListener('mouseUp',release);
@@ -92,11 +109,14 @@ export function createEditorViewport(canvas: HTMLCanvasElement, camera: Perspect
     canvas.ownerDocument.defaultView?.addEventListener('blur',abort);
     refresh();
     return {
-        sync(next:EditorViewportState) {if(gesture && (next.selectedId!==gesture.id || next.scene?.revision!==gesture.revision || !next.enabled || next.tool!==state.tool))cancel();state=next;refresh();},
+        sync(next:EditorViewportState) {if(gesture && (next.selectedId!==gesture.id || next.scene?.revision!==gesture.revision || !next.enabled || next.tool!==state.tool))cancel();state=next;navigation?.allowedChanged();refresh();},
         cancel,
         frameRevision(revision:number) {if(gesture && revision!==gesture.revision)cancel();},
-        frozen(id:Id) {return gesture?.id===id;},
+        frame(scene:SceneView) {if(gesture && scene.revision!==gesture.revision)cancel();navigation?.frame(scene);},
+        frozen(id:Id) {return gesture?.id===id || navigation?.transform(id)!=null;},
+        // The navigation draft of a camera, drawn instead of the scene value during a gesture.
+        cameraTransform(id:Id) {return navigation?.transform(id) ?? null;},
         refresh,
-        dispose() {if(disposed)return;disposed=true;abort();controls.removeEventListener('mouseDown',begin);controls.removeEventListener('objectChange',draft);controls.removeEventListener('mouseUp',release);canvas.removeEventListener('pointerdown',pointerDown);canvas.removeEventListener('pointerup',pointerUp);canvas.removeEventListener('pointercancel',abort);canvas.removeEventListener('lostpointercapture',abort);canvas.removeEventListener('blur',abort);canvas.removeEventListener('keydown',key);canvas.ownerDocument.defaultView?.removeEventListener('blur',abort);controls.detach();controls.dispose();helper.removeFromParent();}
+        dispose() {if(disposed)return;disposed=true;abort();navigation?.dispose();controls.removeEventListener('mouseDown',begin);controls.removeEventListener('objectChange',draft);controls.removeEventListener('mouseUp',release);canvas.removeEventListener('pointerdown',pointerDown);canvas.removeEventListener('pointerup',pointerUp);canvas.removeEventListener('pointercancel',abort);canvas.removeEventListener('lostpointercapture',abort);canvas.removeEventListener('blur',abort);canvas.removeEventListener('keydown',key);canvas.ownerDocument.defaultView?.removeEventListener('blur',abort);controls.detach();controls.dispose();helper.removeFromParent();}
     };
 }

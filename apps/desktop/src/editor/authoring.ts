@@ -6,7 +6,7 @@ export function makeAuthoringEntity(kind:AddKind,id:string,entities:readonly Sce
  const taken=new Set(entities.map(entity=>entity.name));
  let n=2;while(taken.has(`${label} ${n}`))n++;
  const base={id,name:taken.has(label)?`${label} ${n}`:label,visible:true,transform:transform()};
- if(kind==='camera')return {...base,kind,transform:{...base.transform,position:[0,1.2,3]},lens:{fovDegrees:40,near:.01,far:100}};
+ if(kind==='camera')return {...base,kind,transform:{...base.transform,position:[0,1.2,3]},lens:{fovDegrees:40,near:.01,far:100},navigation:{mode:'freeLook',sensitivity:1}};
  if(kind==='character')return {...base,kind:'avatar',assetId:null,tracking:{bodySourceId:null,faceSourceId:null},idleAnimation:{kind:'builtin',enabled:true}};
  if(kind==='environment')return {...base,kind,assetId:null};
  return {...base,kind:'tracking',generation:0,config:defaultTrackingConfig(kind)};

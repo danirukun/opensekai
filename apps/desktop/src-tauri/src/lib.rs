@@ -4,6 +4,7 @@ mod bootstrap;
 pub mod evaluation;
 pub mod input;
 mod local_file;
+pub mod screenshots;
 pub mod service;
 mod show;
 pub mod tracking;
@@ -465,12 +466,36 @@ fn open_input_monitoring_settings(window: tauri::WebviewWindow) -> Result<(), Ap
         })?;
     Ok(())
 }
+/// Creates the screenshot folder and opens it in the file manager. It takes no path.
+#[tauri::command]
+fn open_screenshots_folder(window: tauri::WebviewWindow) -> Result<(), AppError> {
+    use tauri_plugin_opener::OpenerExt;
+    require_window_label(window.label(), "editor")?;
+    let unavailable = || AppError {
+        code: ErrorCode::Unavailable,
+        message: "Screenshots folder unavailable".into(),
+        ids: vec![],
+    };
+    let data = window
+        .app_handle()
+        .path()
+        .app_local_data_dir()
+        .map_err(|_| unavailable())?;
+    let folder = screenshots::folder(&data);
+    std::fs::create_dir_all(&folder).map_err(|_| unavailable())?;
+    window
+        .app_handle()
+        .opener()
+        .open_path(folder.to_string_lossy(), None::<&str>)
+        .map_err(|_| unavailable())
+}
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let state = DesktopState::new();
     let startup = state.clone();
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, shortcut, event| {
@@ -544,6 +569,7 @@ pub fn run() {
             hide_editor,
             set_keystroke_capture,
             open_input_monitoring_settings,
+            open_screenshots_folder,
             import_avatar,
             import_scene,
             save_show,
@@ -589,7 +615,19 @@ mod command_boundary_tests {
             .unwrap()
             .iter()
             .any(|p| p == "allow-show-scene"));
-        for permission in ["allow-save-show-as", "allow-open-show"] {
+        // The editor opens the screenshot folder only through the command; no window gets `opener:`.
+        for capability in [&editor, &owner] {
+            assert!(!capability["permissions"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|p| p.as_str().is_some_and(|p| p.starts_with("opener:"))));
+        }
+        for permission in [
+            "allow-save-show-as",
+            "allow-open-show",
+            "allow-open-screenshots-folder",
+        ] {
             assert!(editor["permissions"]
                 .as_array()
                 .unwrap()
