@@ -4,6 +4,8 @@
 
 Reduce default smoothing for VMC, iFacialMocap and MediaPipe. Expose per-source enabled, minCutoff, beta and derivativeCutoff plus Reset in the tracking inspector. Values update through the existing scene API and are preserved in scene state. Do not restart receivers or camera for tuning.
 
+Revision 2026-10-17: put the smoothing controls in a collapsed **Advanced** section below the tracking source controls, as Warudo does. The same section shows source diagnostics from `TrackingStatus`: state, generation, packets, invalid packets, packet rate, and MediaPipe inference time. The editor computes the packet rate from two status readings. Without two readings of the same generation, the rate is unknown, not zero. An absent inference time is unknown.
+
 ## E — Entities
 
 TrackingSmoothing = {enabled:boolean,minCutoff:number,beta:number,derivativeCutoff:number}. Optional tracking entity field smoothing. Dedicated patch {kind:'setTrackingSmoothing',entityId,smoothing}. Defaults enabled=true, minCutoff=5 Hz, beta=0.5, derivativeCutoff=1 Hz. Bounds cutoff/derivative 0.01–120 Hz, beta0–100. Core generic filter defaults remain unchanged; actual tracking uses these new settings.
@@ -14,7 +16,7 @@ Validate in TypeScript and Rust. Patch tracking assets only, increment revision 
 
 ## S — Structure
 
-contracts/tracking defines type/schema/default. types/schema and native lib carry asset and operation. Session composer owns effective settings and raw sample state. Editor model exposes setTrackingSmoothing. TrackingSmoothingFields uses shared Input/Button and existing checkbox style; Inspector and EditorApp bind it independently of tracking config activation.
+contracts/tracking defines type/schema/default. types/schema and native lib carry asset and operation. Session composer owns effective settings and raw sample state. Editor model exposes setTrackingSmoothing. TrackingSmoothingFields uses shared Input/Button and existing checkbox style; Inspector and EditorApp bind it independently of tracking config activation. `TrackingAdvanced` holds the native `details` section (the shared kit has no disclosure control), the smoothing fields, and the diagnostics; `editor/tracking-diagnostics.ts` computes the packet rate.
 
 ## O — Operations
 
