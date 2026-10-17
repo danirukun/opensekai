@@ -4,6 +4,8 @@ Baseline reviewed: 2026-10-02. Source: [Warudo handbook](https://docs.warudo.app
 
 UI audit: 2026-10-17, Warudo 0.15.1 (Steam) on Windows 11 in a VM. Lines marked `UI audit 0.15.1` come from the running app, not from the handbook. The raw screenshots and notes stay outside the repository. Character loading crashed Warudo in that VM, so the loaded-character inspector, expressions, and Interactions Setup were not audited.
 
+Workshop study: 2026-10-17, 28 Steam Workshop items. Lines marked `Workshop study` come from it. See [the findings](superpowers/specs/2026-10-17-warudo-workshop-research.md).
+
 [GitHub roadmap index #139](https://github.com/danirukun/opensekai/issues/139) tracks all checklist issues by area and status.
 
 Goal: broad functional parity, including documented Pro production features. OpenSekai uses a different engine and extension API. Unity pipeline internals, C# plugin binaries, bundled commercial content, and .warudo archive compatibility are not implied.
@@ -117,19 +119,23 @@ Sources: [Motion capture overview](https://docs.warudo.app/docs/mocap/overview),
 Sources: [Asset categories](https://docs.warudo.app/docs/assets/overview), [Environment](https://docs.warudo.app/docs/assets/environment), [Lights](https://docs.warudo.app/docs/assets/lights).
 
 - [ ] ENV-01 — Environment import and placement. First. Partial: one environment for each scene from a local glTF, GLB, or zip, a neutral environment map on its materials, credits with Copy credit, and Render Environment for each camera, verified on macOS (debug build, WebGPU preview, OBS 32.2.2) with one Sketchfab sample ([check](evaluation/environment-import.md), [contract](../spdd/prompt/2026-10-13-environment-import.md), [GitHub #147](https://github.com/danirukun/opensekai/issues/147)). MCP `asset_list` lists the library records, so MCP can choose an environment model; asset reads continue during an import, and a GLB import keeps about 2N bytes at peak (Linux tests only, [contract](../spdd/prompt/2026-10-15-asset-registry-concurrency.md), #151, #152, #155). Placement aids, the Warudo environment lighting settings, compressed formats, import cancel, the WebGL 2 fallback, and Windows remain. [GitHub #39](https://github.com/danirukun/opensekai/issues/39)
+  - Workshop study: 5 of 7 sampled environments use baked lightmaps (BC6H HDR, directional, and shadow mask maps) with a scale and offset for each renderer. Environments have a median size of 164 MB, and the largest has 864 MB and 8.2 million vertices.
 - [ ] ENV-02 — Environment settings and sky/background controls. Later. The sky subset (solid color, equirectangular image, and HDR background with optional image-based lighting) is First by operator request and needs its own contract ([GitHub #148](https://github.com/danirukun/opensekai/issues/148)). [GitHub #40](https://github.com/danirukun/opensekai/issues/40)
   - UI audit 0.15.1: Environment components toggle realtime lights, light effect on characters and props, audio sources, and post-processing volumes. Overrides use a checkbox for each property: ambient source, skybox intensity, reflections, fog, fog color, and fog density. Apply Environment Lighting copies environment lights to characters and props.
+  - Workshop study: Sampled environments use procedural (5), panoramic (3), and cubemap or cloud dome (1) skies.
 - [ ] ENV-03 — Prop import, transforms, attachments, and reuse. First subset. [GitHub #41](https://github.com/danirukun/opensekai/issues/41)
 - [ ] ENV-04 — Tail asset and tail interaction. Later. [GitHub #42](https://github.com/danirukun/opensekai/issues/42)
 - [ ] ENV-05 — Keyboard/trackpad visualization. Later. [GitHub #43](https://github.com/danirukun/opensekai/issues/43)
 - [ ] ENV-06 — Anchors and shared placement references. Later. [GitHub #44](https://github.com/danirukun/opensekai/issues/44)
 - [ ] ENV-07 — Directional and point lights. First. [GitHub #45](https://github.com/danirukun/opensekai/issues/45)
   - UI audit 0.15.1: Lights affect characters, props, and environment separately. Set Direction From Main Camera aims a directional light. Shadow controls: enabled, intensity, soft shadows, bias, normal bias.
+  - Workshop study: Sampled environments have 1 to 312 lights. 4 of 7 have reflection probes.
 - [ ] ENV-08 — Volumetric light and stage beam behavior. First benchmark subset; Approximate. [GitHub #46](https://github.com/danirukun/opensekai/issues/46)
 - [ ] ENV-09 — Wind controls. Later. [GitHub #47](https://github.com/danirukun/opensekai/issues/47)
   - UI audit 0.15.1: Separate wind assets drive VRM spring bones, Magica Cloth, and Magica Cloth 2.
 - [ ] ENV-10 — Particle effects and triggers. Later; benchmark includes a bounded sample. [GitHub #48](https://github.com/danirukun/opensekai/issues/48)
 - [ ] ENV-11 — Sketchfab model search, sign-in, download, and attribution. Later; Different API; additional OpenSekai goal, not a Warudo feature. Depends on ENV-01 slice 1. [GitHub #149](https://github.com/danirukun/opensekai/issues/149)
+- [ ] ENV-12 — Read-only .warudo prop and environment import. Candidate; Different API; not a Warudo feature. Selection gate in [the findings](superpowers/specs/2026-10-17-warudo-workshop-research.md#implications-for-opensekai). [GitHub #187](https://github.com/danirukun/opensekai/issues/187)
 
 ## Cameras and output
 
@@ -193,12 +199,15 @@ Unity URP is an engine implementation, not a portable feature. Track the resulti
 Sources: [Warudo Pro](https://docs.warudo.app/docs/pro), [Character](https://docs.warudo.app/docs/assets/character), and handbook asset entries for NiloToon controllers and post-processing. lilToon import behavior is an additional OpenSekai goal.
 
 - [ ] MAT-01 — VRM MToon and glTF PBR. First. [GitHub #73](https://github.com/danirukun/opensekai/issues/73)
+  - Workshop study: The built-in Standard shader is in 11 of 28 items and VRM MToon in 2. Bundled shaders are compiled Direct3D programs; a material maps by shader name and saved properties.
 - [ ] MAT-02 — Selected lilToon conversion profiles. Later; Approximate. [GitHub #74](https://github.com/danirukun/opensekai/issues/74)
+  - Workshop study: lilToon is in 8 of 28 items. Poiyomi (locked), asset-store, custom, and VRChat world shaders occur in 5 items and have no profile.
 - [ ] MAT-03 — Full lilToon effect coverage. Later. [GitHub #75](https://github.com/danirukun/opensekai/issues/75)
 - [ ] MAT-04 — Selected NiloToon appearance profiles. Later; Approximate. [GitHub #76](https://github.com/danirukun/opensekai/issues/76)
 - [ ] MAT-05 — NiloToon volume and character control equivalents. Later; Different API. [GitHub #77](https://github.com/danirukun/opensekai/issues/77)
 - [ ] MAT-06 — Full NiloToon appearance coverage. Later; dependencies and rights require review. [GitHub #78](https://github.com/danirukun/opensekai/issues/78)
 - [ ] MAT-07 — Post-processing volumes and blending. Later. [GitHub #79](https://github.com/danirukun/opensekai/issues/79)
+  - Workshop study: 6 of 7 sampled environments carry Post Processing Stack v2 volumes (bloom, color grading, vignette, motion blur, ambient occlusion).
 - [ ] MAT-08 — Material parameter control from graphs. Later. [GitHub #80](https://github.com/danirukun/opensekai/issues/80)
 
 ## Blueprints and interaction
@@ -229,11 +238,14 @@ Sources: [Blueprint overview](https://docs.warudo.app/docs/blueprints/overview) 
 Sources: [Mod SDK](https://docs.warudo.app/docs/modding/mod-sdk), [SDK installation](https://docs.warudo.app/docs/modding/sdk-installation), [Scripting overview](https://docs.warudo.app/docs/scripting/overview), and [DMX API](https://docs.warudo.app/docs/scripting/dmx-api).
 
 - [ ] EXT-01 — Character, animation, environment, prop, and particle packages. Later. [GitHub #94](https://github.com/danirukun/opensekai/issues/94)
+  - Workshop study: The Workshop types are Props, Environments, Characters, Plugins, and Miscellaneous (animations and effects). Props and stages ship variants as separate archives in one item. 2 of 5 character items are a plain VRM file.
 - [ ] EXT-02 — Unity export adapter. Later; Different API. [GitHub #95](https://github.com/danirukun/opensekai/issues/95)
 - [ ] EXT-03 — Blender export adapter. Later; additional OpenSekai goal. [GitHub #96](https://github.com/danirukun/opensekai/issues/96)
 - [ ] EXT-04 — Package sharing, metadata, versions, and dependency checks. Later. [GitHub #97](https://github.com/danirukun/opensekai/issues/97)
   - UI audit 0.15.1: The editor browses, subscribes to, and publishes Steam Workshop items. A published item has a title, description, tag, files, a preview image under 1 MB, visibility, and a Require Attribution option.
+  - Workshop study: An item has a name, version, description, and author inside the archive, and an attribution tag on the Workshop. No sampled item states a license, and 1 of 28 states a dependency.
 - [ ] EXT-05 — JS/TS custom nodes and asset types. Boundary early; guest delivery Later. Partial: manifest v1, capabilities, guest data-node registration and evaluation with copied data, and asset type declarations exist in `packages/extensions`, verified by Linux tests only ([evidence](evaluation/extension-sandbox.md), [contract](../spdd/prompt/2026-10-16-extension-sandbox-gate.md)). Blueprint editor and runtime use, guest asset adapters, TypeScript transpile, and packaging remain. [GitHub #98](https://github.com/danirukun/opensekai/issues/98)
+  - Workshop study: Warudo plugins are .NET assemblies inside the archive, with the rights of the Warudo process. Of 5 sampled plugins, 2 use network sockets and none references process start or file APIs.
 - [ ] EXT-06 — Scene queries, ports, triggers, events, and data watchers. Later; Different API. [GitHub #99](https://github.com/danirukun/opensekai/issues/99)
 - [ ] EXT-07 — Editor controls and validated property definitions. Later; Different API. [GitHub #100](https://github.com/danirukun/opensekai/issues/100)
 - [ ] EXT-08 — Persistence, graph generation, and temporary controls. Later; Different API. [GitHub #101](https://github.com/danirukun/opensekai/issues/101)
@@ -243,6 +255,7 @@ Sources: [Mod SDK](https://docs.warudo.app/docs/modding/mod-sdk), [SDK installat
 - [ ] EXT-12 — DMX lighting control. Later. [GitHub #105](https://github.com/danirukun/opensekai/issues/105)
 - [ ] EXT-13 — Sandbox resource limits and failure recovery. Required before guest plugins ship; additional OpenSekai goal. Partial: interruption, stack limit, quotas, denied capabilities, leaked handles, and recovery (disable, release, reload in a new worker after the watchdog) pass Linux tests ([evidence](evaluation/extension-sandbox.md)). A 64 MiB WASM memory maximum for each extension is the hard memory bound (Linux tests only). The QuickJS time limit is soft; the worker watchdog bounds it. macOS, the WebKit Web Worker, and Windows remain. [GitHub #106](https://github.com/danirukun/opensekai/issues/106)
 - [ ] EXT-14 — Scripting API behavior audit. Later; required before extension parity claims. [GitHub #107](https://github.com/danirukun/opensekai/issues/107)
+- [ ] EXT-15 — Package content scan and trust warnings. Later; additional OpenSekai goal. [GitHub #186](https://github.com/danirukun/opensekai/issues/186)
 
 ## Editor experience
 
