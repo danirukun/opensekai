@@ -10,6 +10,7 @@ R3. Get Asset Property, Set Asset Property, and Move Entity work on the environm
 R4. An idle `renderEnvironment` override commits as one `setCameraRenderEnvironment` operation. A `setCameraRenderEnvironment` patch from the editor or MCP removes the `renderEnvironment` override of that camera (continuous Blueprints R12).
 R5. The editor property select and the `opensekai://blueprint-nodes` resource use the registry, so they show R1 and R2 with no other change.
 R6. A unit test covers the registry for each kind and the read default. A session test runs one Blueprint that hides and shows the environment and checks the frame and the committed scene. A session test sets Render Environment and checks the commit and the patch drop.
+R7. The Value field of the Boolean node (`value.boolean`) is a select with the options True and False, so the editor shows the value that the node gives. Other boolean fields (Gate Start open, Multi Gate Loop) stay checkboxes. Owner review of PR #162.
 
 ## E — Entities
 
@@ -24,6 +25,7 @@ Change the registry data and the read and write switch. Map the new key in the s
 
 - `packages/contracts/src/property-registry.ts`, `packages/contracts/test/property-registry.test.ts`.
 - `packages/session/src/overrides.ts`, `packages/session/test/property-nodes.test.ts`.
+- `apps/desktop/src/components/BlueprintNodeFields.svelte` (R7).
 - `docs/warudo-parity.md` (BP-05).
 
 ## O — Operations
