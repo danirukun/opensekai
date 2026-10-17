@@ -5,7 +5,8 @@ const entity = (id: string): SceneEntity => makeSmokeScene().entities.find(e => 
 const close = (actual: readonly number[], expected: readonly number[]) => actual.forEach((v, i) => expect(v).toBeCloseTo(expected[i]!, 6));
 
 it('lists the properties of each entity kind', () => {
- expect(propertiesFor('camera').map(p => p.key)).toEqual(['position', 'rotation', 'scale', 'visible', 'fovDegrees']);
+ expect(propertiesFor('camera').map(p => p.key)).toEqual(['position', 'rotation', 'scale', 'visible', 'fovDegrees', 'renderEnvironment']);
+ expect(propertiesFor('environment').map(p => p.key)).toEqual(['position', 'rotation', 'scale', 'visible']);
  expect(propertiesFor('avatar').map(p => p.key)).toEqual(['position', 'rotation', 'scale', 'visible']);
  expect(propertiesFor('mesh').map(p => p.key)).toEqual(['position', 'rotation', 'scale', 'visible']);
  expect(propertiesFor('tracking')).toEqual([]);
@@ -42,4 +43,23 @@ it('rejects invalid values and properties that do not apply', () => {
  expect(writeProperty(entity('reference'), 'position', [Number.NaN, 0, 0]).ok).toBe(false);
  expect(writeProperty(entity('reference'), 'visible', 1 as never).ok).toBe(false);
  expect(writeProperty(entity('performer'), 'fovDegrees', 30)).toMatchObject({ ok: false, error: { message: 'Property does not apply to this entity' } });
+});
+
+it('reads and writes the environment and the camera Render Environment', () => {
+ const stage: SceneEntity = { id: 'stage', name: 'Environment', visible: true, transform: { position: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] }, kind: 'environment', assetId: null };
+ const hidden = writeProperty(stage, 'visible', false);
+ expect(hidden.ok && hidden.data).toMatchObject({ kind: 'environment', visible: false, assetId: null });
+ expect(readProperty(stage, 'renderEnvironment')).toBeUndefined();
+ expect(writeProperty(stage, 'renderEnvironment', false)).toMatchObject({ ok: false, error: { message: 'Property does not apply to this entity' } });
+ const camera = entity('camera_wide');
+ expect(camera.kind === 'camera' && camera.renderEnvironment).toBeUndefined();
+ expect(readProperty(camera, 'renderEnvironment')).toBe(true);
+ const off = writeProperty(camera, 'renderEnvironment', false);
+ expect(off.ok && off.data.kind === 'camera' && off.data.renderEnvironment).toBe(false);
+ expect(off.ok && readProperty(off.data, 'renderEnvironment')).toBe(false);
+ expect(writeProperty(camera, 'renderEnvironment', 0 as never).ok).toBe(false);
+ const same = writeProperty(camera, 'renderEnvironment', true);
+ expect(same.ok && same.data).toEqual(camera);
+ const back = off.ok && writeProperty(off.data, 'renderEnvironment', true);
+ expect(back && back.ok && back.data.kind === 'camera' && back.data.renderEnvironment).toBe(true);
 });

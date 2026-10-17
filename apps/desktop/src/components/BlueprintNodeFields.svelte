@@ -15,6 +15,7 @@
   onsettings(node.type === 'property.get' || node.type === 'property.set' ? fitPropertySettings(next as never, scene) : next);
  };
  const spaces = [{ value: 'world', label: 'World' }, { value: 'local', label: 'Local' }];
+ const truth = [{ value: 'true', label: 'True' }, { value: 'false', label: 'False' }];
  const numberInput = (field: Extract<BlueprintField, { kind: 'number' }>, text: string) => {
   const value = Number(text);
   if (text !== '' && Number.isFinite(value) && (field.min === undefined || value >= field.min) && (field.max === undefined || value <= field.max)) set(field.key, value);
@@ -36,6 +37,8 @@
 {#each fields as field (field.key)}
  {#if field.kind === 'number'}
   <Input type="number" label={field.label} min={field.min} max={field.max} step="any" value={String(settings[field.key])} oninput={event => numberInput(field, event.currentTarget.value)} />
+ {:else if field.kind === 'boolean' && node.type === 'value.boolean'}
+  <Select label={field.label} value={String(Boolean(settings[field.key]))} options={truth} onchange={event => set(field.key, event.currentTarget.value === 'true')} />
  {:else if field.kind === 'boolean'}
   <label class="blueprint-checkbox"><input type="checkbox" checked={Boolean(settings[field.key])} onchange={event => set(field.key, event.currentTarget.checked)} />{field.label}</label>
  {:else if field.kind === 'count'}

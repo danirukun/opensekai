@@ -3,18 +3,19 @@ import type { Id, Reply, SceneEntity, Vec3 } from './types';
 export type PropertyType = 'number' | 'boolean' | 'vector3';
 export type PropertyValue = number | boolean | Vec3;
 export type PropertyRule = { kind: 'finite' } | { kind: 'positive' } | { kind: 'range'; min: number; max: number } | { kind: 'boolean' };
-export const PROPERTY_KEYS = ['position', 'rotation', 'scale', 'visible', 'fovDegrees'] as const;
+export const PROPERTY_KEYS = ['position', 'rotation', 'scale', 'visible', 'fovDegrees', 'renderEnvironment'] as const;
 export type PropertyKey = (typeof PROPERTY_KEYS)[number];
 type Kind = SceneEntity['kind'];
 export interface AssetProperty { key: PropertyKey; label: string; kinds: readonly Kind[]; type: PropertyType; rule: PropertyRule }
 
-const placed: readonly Kind[] = ['mesh', 'avatar', 'camera'];
+const placed: readonly Kind[] = ['mesh', 'avatar', 'camera', 'environment'];
 export const PROPERTY_REGISTRY: readonly AssetProperty[] = [
  { key: 'position', label: 'Position', kinds: placed, type: 'vector3', rule: { kind: 'finite' } },
  { key: 'rotation', label: 'Rotation', kinds: placed, type: 'vector3', rule: { kind: 'finite' } },
  { key: 'scale', label: 'Scale', kinds: placed, type: 'vector3', rule: { kind: 'positive' } },
  { key: 'visible', label: 'Visible', kinds: placed, type: 'boolean', rule: { kind: 'boolean' } },
  { key: 'fovDegrees', label: 'Field of View', kinds: ['camera'], type: 'number', rule: { kind: 'range', min: 1, max: 179 } },
+ { key: 'renderEnvironment', label: 'Render Environment', kinds: ['camera'], type: 'boolean', rule: { kind: 'boolean' } },
 ];
 export const assetProperty = (key: PropertyKey): AssetProperty => PROPERTY_REGISTRY.find(property => property.key === key)!;
 export const propertiesFor = (kind: Kind): AssetProperty[] => PROPERTY_REGISTRY.filter(property => property.kinds.includes(kind));
@@ -56,6 +57,7 @@ export function readProperty(entity: SceneEntity, key: PropertyKey): PropertyVal
   case 'scale': return [...entity.transform.scale] as Vec3;
   case 'visible': return entity.visible;
   case 'fovDegrees': return entity.kind === 'camera' ? entity.lens.fovDegrees : undefined;
+  case 'renderEnvironment': return entity.kind === 'camera' ? entity.renderEnvironment !== false : undefined;
  }
 }
 const fail = (message: string, ids: Id[]): Reply<never> => ({ ok: false, error: { code: 'INVALID_INPUT', message, ids } });
@@ -69,6 +71,8 @@ export function writeProperty(entity: SceneEntity, key: PropertyKey, value: Prop
   case 'scale': next.transform.scale = [...(value as Vec3)]; break;
   case 'visible': next.visible = value as boolean; break;
   case 'fovDegrees': if (next.kind === 'camera') next.lens = { ...next.lens, fovDegrees: value as number }; break;
+  // An absent field reads true; writing true keeps it absent, so the write is a no-op and the show shape stays the same.
+  case 'renderEnvironment': if (next.kind === 'camera' && (value === false || next.renderEnvironment !== undefined)) next.renderEnvironment = value as boolean; break;
  }
  return { ok: true, data: next };
 }
