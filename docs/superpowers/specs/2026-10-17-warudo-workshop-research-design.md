@@ -53,3 +53,5 @@ The study commits:
 ## Completion
 
 The study is complete when the findings document answers the six questions with data from the sample, and the checklist and the issues agree with it.
+
+Findings: [2026-10-17-warudo-workshop-research.md](2026-10-17-warudo-workshop-research.md).
