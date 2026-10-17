@@ -91,3 +91,20 @@ fn expression_contracts_validate_calls_results_settings_and_records() {
     missing.as_object_mut().unwrap().remove("expressions");
     assert!(validate_value::<AssetRecord>(&missing).is_err());
 }
+#[test]
+fn tracked_expression_names_match_the_typescript_list() {
+    let names: Value = serde_json::from_str(include_str!(
+        "../../../fixtures/protocol/tracked-expressions.json"
+    ))
+    .unwrap();
+    for (key, tracked) in [("tracked", true), ("triggerable", false)] {
+        for name in names[key].as_array().unwrap() {
+            let name = name.as_str().unwrap();
+            assert_eq!(
+                opensekai_contracts::is_tracked_expression(name),
+                tracked,
+                "{name}"
+            );
+        }
+    }
+}

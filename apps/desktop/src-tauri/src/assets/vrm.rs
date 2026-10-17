@@ -1,5 +1,7 @@
 //! VRM document checks that read the glTF JSON: humanoid rig diagnostics and expression names.
-use opensekai_contracts::{AppError, AssetExpression, ErrorCode, MAX_EXPRESSIONS};
+use opensekai_contracts::{
+    is_tracked_expression, AppError, AssetExpression, ErrorCode, MAX_EXPRESSIONS,
+};
 use serde::de::{Deserializer, IgnoredAny, MapAccess, Visitor};
 use serde::Deserialize;
 use serde_json::Value;
@@ -213,7 +215,8 @@ fn vrm0_name(preset: &str) -> Option<&'static str> {
     })
 }
 
-/// The expression names of a VRM document, in document order. `raw` is the JSON chunk that `json` was parsed from.
+/// The triggerable expression names of a VRM document, in document order. `raw` is the JSON chunk that `json` was parsed from.
+/// Names that tracking drives are dropped before the limit, as Warudo imports every other VRM expression.
 pub(super) fn vrm_expressions(json: &Value, raw: &[u8]) -> Vec<AssetExpression> {
     let entries: Vec<(String, bool)> = if json.pointer("/extensions/VRMC_vrm").is_some() {
         serde_json::from_slice::<Document>(raw)
@@ -254,7 +257,9 @@ pub(super) fn vrm_expressions(json: &Value, raw: &[u8]) -> Vec<AssetExpression> 
     entries
         .into_iter()
         .filter(|(name, _)| {
-            (1..=128).contains(&name.encode_utf16().count()) && seen.insert(name.clone())
+            (1..=128).contains(&name.encode_utf16().count())
+                && !is_tracked_expression(name)
+                && seen.insert(name.clone())
         })
         .take(MAX_EXPRESSIONS)
         .map(|(name, preset)| AssetExpression { name, preset })
@@ -353,8 +358,6 @@ mod tests {
             names,
             [
                 ("happy".into(), true),
-                ("blink".into(), true),
-                ("aa".into(), true),
                 ("surprised".into(), true),
                 ("Wink".into(), false),
                 ("Angry2".into(), false)
@@ -380,12 +383,36 @@ mod tests {
             names,
             [
                 ("happy".into(), true),
-                ("aa".into(), true),
-                ("blinkLeft".into(), true),
                 ("Smirk".into(), false),
                 ("Tears".into(), false)
             ]
         );
+    }
+    #[test]
+    fn tracked_names_do_not_use_the_limit() {
+        // The layout of a perfect sync VRM 0.x model: presets, visemes, and the 52 ARKit clips before the modeler clips.
+        let group =
+            |name: &str, preset: &str| format!(r#"{{"name":"{name}","presetName":"{preset}"}}"#);
+        let groups: Vec<String> = [group("Blink", "blink"), group("A", "a")]
+            .into_iter()
+            .chain(
+                ["SIL", "PP", "FF", "TH", "DD", "KK", "CH", "SS", "NN", "RR"]
+                    .map(|name| group(name, "unknown")),
+            )
+            .chain(opensekai_contracts::ARKIT_NAMES.map(|name| group(name, "unknown")))
+            .chain([group("Joy", "joy"), group("ToggleHat", "unknown")])
+            .collect();
+        assert!(groups.len() > MAX_EXPRESSIONS);
+        let raw = format!(
+            r#"{{"extensions":{{"VRM":{{"blendShapeMaster":{{"blendShapeGroups":[{}]}}}}}}}}"#,
+            groups.join(",")
+        );
+        let json: Value = serde_json::from_str(&raw).unwrap();
+        let names: Vec<_> = vrm_expressions(&json, raw.as_bytes())
+            .into_iter()
+            .map(|e| (e.name, e.preset))
+            .collect();
+        assert_eq!(names, [("happy".into(), true), ("ToggleHat".into(), false)]);
     }
     #[test]
     fn expressions_stop_at_the_limit_and_tolerate_bad_shapes() {

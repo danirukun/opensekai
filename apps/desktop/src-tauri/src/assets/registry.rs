@@ -1,6 +1,8 @@
 use super::scene_import::PackedScene;
 use opensekai_contracts::AssetFormat;
-use opensekai_contracts::{invalid, AppError, AssetRecord, ErrorCode, Validate};
+use opensekai_contracts::{
+    invalid, is_tracked_expression, AppError, AssetRecord, ErrorCode, Validate,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -90,8 +92,16 @@ impl AssetRegistry {
                     continue;
                 };
                 let stored = p.with_extension("vrm");
+                // The first importer kept the names that tracking drives and stopped at 64 names, so it lost later clips.
+                let stale = value
+                    .get("expressions")
+                    .and_then(Value::as_array)
+                    .is_some_and(|list| {
+                        list.iter()
+                            .any(|entry| entry["name"].as_str().is_some_and(is_tracked_expression))
+                    });
                 let backfilled = value.is_object()
-                    && (value.get("name").is_none() || value.get("expressions").is_none());
+                    && (value.get("name").is_none() || value.get("expressions").is_none() || stale);
                 if backfilled {
                     // Older records have no name or expression list: read them from the stored file.
                     let vrm = stored.is_file().then(|| stored_vrm(&stored)).flatten();
@@ -102,7 +112,7 @@ impl AssetRegistry {
                                 .unwrap_or_else(|| "Avatar".into()),
                         );
                     }
-                    if value.get("expressions").is_none() {
+                    if value.get("expressions").is_none() || stale {
                         let expressions = vrm
                             .as_ref()
                             .map(|(json, raw)| super::vrm::vrm_expressions(json, raw))
@@ -811,7 +821,7 @@ mod import_tests {
             .iter()
             .map(|e| (e.name.as_str(), e.preset))
             .collect();
-        assert_eq!(names, [("happy", true), ("aa", true), ("Wink", false)]);
+        assert_eq!(names, [("happy", true), ("Wink", false)]);
         // A record written before expression lists existed gets the list from its stored file.
         let json_path = r.library().join(format!("{}.json", imported.id));
         let mut old: Value = serde_json::from_slice(&std::fs::read(&json_path).unwrap()).unwrap();
@@ -820,7 +830,13 @@ mod import_tests {
         let reopened = AssetRegistry::empty(&managed).unwrap();
         assert_eq!(reopened.records()[0].expressions, imported.expressions);
         let written: Value = serde_json::from_slice(&std::fs::read(&json_path).unwrap()).unwrap();
-        assert_eq!(written["expressions"][2]["name"], "Wink");
+        assert_eq!(written["expressions"][1]["name"], "Wink");
+        // A list from the first importer still has tracked names: the library reads it again.
+        old["expressions"] =
+            serde_json::json!([{"name":"happy","preset":true},{"name":"aa","preset":true}]);
+        std::fs::write(&json_path, old.to_string()).unwrap();
+        let rebuilt = AssetRegistry::empty(&managed).unwrap();
+        assert_eq!(rebuilt.records()[0].expressions, imported.expressions);
         // A stored file that does not parse gives an empty list and keeps the record.
         old.as_object_mut().unwrap().remove("expressions");
         std::fs::write(&json_path, old.to_string()).unwrap();

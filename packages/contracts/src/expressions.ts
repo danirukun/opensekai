@@ -38,8 +38,10 @@ export const AvatarExpressionsSchema = z.record(ExpressionNameSchema, Expression
 export const ExpressionViewSchema = ExpressionSettingsSchema.extend({ name: ExpressionNameSchema, preset: z.boolean(), active: z.boolean(), weight: z.number().finite().min(0).max(1) });
 export const ExpressionStateSchema = z.strictObject({ avatarId: z.string().min(1).max(256), expressions: z.array(ExpressionViewSchema).max(MAX_EXPRESSIONS) });
 
-// Names that face tracking drives. Lower case, so the comparison ignores case.
-const TRACKED = new Set(['aa', 'ih', 'ou', 'ee', 'oh', 'blink', 'blinkleft', 'blinkright', 'lookup', 'lookdown', 'lookleft', 'lookright', 'neutral']);
+// Names that face tracking or lip sync drives (VRM presets and the OVR visemes). Lower case, so the comparison ignores case.
+// Keep in step with `is_tracked_expression` in the Rust contracts.
+const VISEMES = ['sil', 'pp', 'ff', 'th', 'dd', 'kk', 'ch', 'ss', 'nn', 'rr'];
+const TRACKED = new Set(['aa', 'ih', 'ou', 'ee', 'oh', 'blink', 'blinkleft', 'blinkright', 'lookup', 'lookdown', 'lookleft', 'lookright', 'neutral', ...VISEMES]);
 export const isTrackedExpression = (name: string): boolean => TRACKED.has(name.toLowerCase()) || canonicalArkitName(name) !== undefined;
 export const triggerableExpressions = (record: { expressions: readonly AssetExpression[] }): AssetExpression[] =>
  record.expressions.filter(entry => !isTrackedExpression(entry.name));
@@ -56,7 +58,7 @@ export function effectiveExpressionSettings(record: { expressions: readonly Asse
 }
 
 export type SuppressGroup = keyof ExpressionSuppress;
-const MOUTH_NAMES = new Set(['tongueout', 'aa', 'ih', 'ou', 'ee', 'oh']);
+const MOUTH_NAMES = new Set(['tongueout', 'aa', 'ih', 'ou', 'ee', 'oh', ...VISEMES]);
 export function trackingGroup(name: string): SuppressGroup | null {
  const lower = name.toLowerCase();
  if (lower.startsWith('eyeblink') || lower.startsWith('blink')) return 'blink';

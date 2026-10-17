@@ -1,11 +1,17 @@
 import { expect, it } from 'vitest';
-import { AssetRecordSchema, effectiveExpressionSettings, ParamSchemas, SceneEntitySchema, trackingGroup, triggerableExpressions, validateCall } from '../src';
+import names from '../../../fixtures/protocol/tracked-expressions.json';
+import { AssetRecordSchema, effectiveExpressionSettings, isTrackedExpression, ParamSchemas, SceneEntitySchema, trackingGroup, triggerableExpressions, validateCall } from '../src';
 
 const list = (names: [string, boolean][]) => ({ expressions: names.map(([name, preset]) => ({ name, preset })) });
 
 it('excludes the expressions that tracking drives, ignoring case', () => {
  const record = list([['happy', true], ['AA', true], ['Blink_L', false], ['blinkLeft', true], ['LookUp', true], ['Neutral', true], ['eyeBlink_R', false], ['JAWOPEN', false], ['Smirk', false], ['mouthSmileLeft', false]]);
  expect(triggerableExpressions(record).map(entry => entry.name)).toEqual(['happy', 'Blink_L', 'Smirk']);
+});
+
+it('matches the tracked names of the Rust contracts, including the OVR visemes', () => {
+ expect(names.tracked.filter(name => !isTrackedExpression(name))).toEqual([]);
+ expect(names.triggerable.filter(isTrackedExpression)).toEqual([]);
 });
 
 it('gives presets layer 0 and each custom expression its own layer up to 15, and keeps stored settings', () => {
@@ -19,8 +25,8 @@ it('gives presets layer 0 and each custom expression its own layer up to 15, and
 });
 
 it('sorts tracking names into blink, mouth, and brow groups', () => {
- expect(['eyeBlinkLeft', 'Blink', 'blink_r', 'jawOpen', 'mouthSmile_L', 'cheekPuff', 'tongueOut', 'oh', 'browInnerUp', 'eyeWideLeft', 'happy'].map(trackingGroup))
-  .toEqual(['blink', 'blink', 'blink', 'mouth', 'mouth', 'mouth', 'mouth', 'mouth', 'brow', null, null]);
+ expect(['eyeBlinkLeft', 'Blink', 'blink_r', 'jawOpen', 'mouthSmile_L', 'cheekPuff', 'tongueOut', 'oh', 'PP', 'browInnerUp', 'eyeWideLeft', 'happy'].map(trackingGroup))
+  .toEqual(['blink', 'blink', 'blink', 'mouth', 'mouth', 'mouth', 'mouth', 'mouth', 'mouth', 'brow', null, null]);
 });
 
 it('validates expression lists, avatar settings, and expression calls', () => {

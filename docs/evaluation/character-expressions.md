@@ -20,8 +20,14 @@ A temporary Vite page mounted the real `AvatarExpressionFields` component inside
 
 ## Row layout change
 
-The owner reported on #178 that the macOS editor did not show the expression names. The first layout put each row in a grid and set `display: contents` on a `<details>` element. WebKit, which the macOS app uses, does not handle that case reliably. The rows now use a flex line and a disclosure button. The cloud has no WebKit browser, so the macOS result is still unknown.
+The owner reported on #178 that the macOS editor did not show the expression names. The first layout put each row in a grid and set `display: contents` on a `<details>` element. WebKit, which the macOS app uses, does not handle that case reliably. The rows now use a flex line and a disclosure button. The macOS editor then showed the names (see the next section).
+
+## Expression list of a perfect sync model
+
+The owner then reported on #178 that the macOS editor listed only two-letter names. The model (a VRM 0.x perfect sync model with 83 blendshape groups) has the presets, ten OVR visemes (`SIL` to `TH`), and 52 ARKit clips before its modeler clips. The first importer kept the first 64 names, then the editor removed the tracked names. Only the visemes stayed, and the modeler clips were lost. The importer now drops the tracked names (R3, with the OVR visemes) before the 64-name limit, as Warudo imports every VRM expression. The library reads a stored list again when it has a tracked name.
+
+On macOS, the library load rebuilt the stored record of that model to `angry, sad, Smug, Nightmare, Blush, EyeSwirl, EyeHearts, EyeStars, WingFlap, relaxed, happy, ToggleShirt, ToggleHat`. The Inspector of the macOS editor showed these 13 rows. The custom clips got layers 1 to 9 in record order (`ToggleHat` on layer 9), and switching `ToggleHat` on worked.
 
 ## Not checked
 
-The macOS editor, a real VRM in the renderer, OBS output, live face tracking, the Blueprint node fields in the Rete editor, and show save and open. These are local acceptance steps in the pull request.
+The fade on a real VRM in the renderer, OBS output, live face tracking, the Blueprint node fields in the Rete editor, and show save and open. These are local acceptance steps in the pull request.

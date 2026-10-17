@@ -301,6 +301,97 @@ object!(ExpressionSetParams {
     active: bool
 });
 pub const MAX_EXPRESSIONS: usize = 64;
+pub const ARKIT_NAMES: [&str; 52] = [
+    "eyeBlinkLeft",
+    "eyeLookDownLeft",
+    "eyeLookInLeft",
+    "eyeLookOutLeft",
+    "eyeLookUpLeft",
+    "eyeSquintLeft",
+    "eyeWideLeft",
+    "eyeBlinkRight",
+    "eyeLookDownRight",
+    "eyeLookInRight",
+    "eyeLookOutRight",
+    "eyeLookUpRight",
+    "eyeSquintRight",
+    "eyeWideRight",
+    "jawForward",
+    "jawLeft",
+    "jawRight",
+    "jawOpen",
+    "mouthClose",
+    "mouthFunnel",
+    "mouthPucker",
+    "mouthLeft",
+    "mouthRight",
+    "mouthSmileLeft",
+    "mouthSmileRight",
+    "mouthFrownLeft",
+    "mouthFrownRight",
+    "mouthDimpleLeft",
+    "mouthDimpleRight",
+    "mouthStretchLeft",
+    "mouthStretchRight",
+    "mouthRollLower",
+    "mouthRollUpper",
+    "mouthShrugLower",
+    "mouthShrugUpper",
+    "mouthPressLeft",
+    "mouthPressRight",
+    "mouthLowerDownLeft",
+    "mouthLowerDownRight",
+    "mouthUpperUpLeft",
+    "mouthUpperUpRight",
+    "browDownLeft",
+    "browDownRight",
+    "browInnerUp",
+    "browOuterUpLeft",
+    "browOuterUpRight",
+    "cheekPuff",
+    "cheekSquintLeft",
+    "cheekSquintRight",
+    "noseSneerLeft",
+    "noseSneerRight",
+    "tongueOut",
+];
+/// Names that face tracking or lip sync drives, compared without case. Keep in step with `isTrackedExpression` in TypeScript.
+const TRACKED_EXPRESSIONS: [&str; 23] = [
+    "aa",
+    "ih",
+    "ou",
+    "ee",
+    "oh",
+    "blink",
+    "blinkleft",
+    "blinkright",
+    "lookup",
+    "lookdown",
+    "lookleft",
+    "lookright",
+    "neutral",
+    "sil",
+    "pp",
+    "ff",
+    "th",
+    "dd",
+    "kk",
+    "ch",
+    "ss",
+    "nn",
+    "rr",
+];
+pub fn is_tracked_expression(name: &str) -> bool {
+    let lower = name.to_lowercase();
+    TRACKED_EXPRESSIONS.contains(&lower.as_str())
+        || ARKIT_NAMES.iter().any(|arkit| {
+            let side = arkit
+                .strip_suffix("Left")
+                .map(|base| format!("{base}_L"))
+                .or_else(|| arkit.strip_suffix("Right").map(|base| format!("{base}_R")));
+            arkit.to_lowercase() == lower || side.is_some_and(|side| side.to_lowercase() == lower)
+        })
+}
 fn expression_name_ok(name: &str) -> bool {
     (1..=128).contains(&name.encode_utf16().count())
 }
