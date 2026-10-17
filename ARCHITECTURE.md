@@ -27,6 +27,7 @@ flowchart LR
 | `crates/contracts` | Rust mirror of the contracts. `fixtures/protocol/validation-vectors.json` keeps both sides equal. |
 | `packages/session` | Session worker: scene operations (`scene-ops.ts`), ECS, tracking filters, idle, Blueprint runtime and evaluators. |
 | `packages/renderer` | three.js `WebGPURenderer` (WebGL 2 fallback), VRM loading, load jobs, texture sharing and limits, editor viewport and gizmos, diagnostics. |
+| `packages/extensions` | Extension sandbox: manifest schema, one QuickJS WASM instance for each extension, worker protocol, and a main-thread client with a watchdog. No app process loads it yet. |
 | `packages/browser-client` | WebSocket client, frame stream, `readAsset` over `GET /assets/{id}`. Used by every TypeScript client. |
 | `apps/desktop/src` | Svelte 5 Scene window (`App.svelte`, `bootstrap.ts`) and Editor window (`EditorApp.svelte`, `editor/`, `components/`, `blueprints/`). Controls come from `@oshi-connect/ui`. |
 | `apps/desktop/src-tauri` | Tauri commands (`lib.rs`), service (`service/`), asset registry (`assets/`), show and Blueprint files, tracking, input. |
@@ -52,6 +53,10 @@ Trust rule: a stored asset is one self-contained GLB container. The importers em
 ## Output path
 
 The OBS page draws with `alpha: true`, a clear color with alpha 0, and `scene.background = null`. Lights are one ambient and one directional light in `renderer.ts`. The one `environment` entity gets a PMREM `RoomEnvironment` map on per-instance copies of its own materials (`environment-light.ts`); `scene.environment` stays null, so avatar materials do not change. Each renderer client hides the environment when its output camera has `renderEnvironment: false`, and the viewport never picks it. Each renderer client starts with one quality profile (`packages/contracts/src/quality.ts`): the Scene preview uses `preview_v1`, and the OBS page reads `?quality=` (default `production_v1`). The profile sets the drawing buffer scale, the texture limit, and MSAA, and each frame acknowledgment names it. When the output camera has `antiAliasing: 'fxaa'`, the renderer draws through a TSL post-processing chain (`anti-aliasing.ts`) that keeps alpha. Frame acknowledgments carry warnings such as `Asset loading`. No image data goes through Tauri IPC in the production output path.
+
+## Extension sandbox
+
+Guest code runs in QuickJS (`packages/extensions`). The only bridge is the frozen `opensekai` global: strings go in, the host parses them with zod, and the manifest capabilities decide each call. A fault disables the extension and releases its registrations and its VM. Each extension has its own WASM instance and its own `WebAssembly.Memory` with a fixed maximum (64 MiB by default); that maximum is the hard memory bound. The QuickJS time limit is soft, and the worker watchdog is the hard time bound (see the [gate analysis](spdd/analysis/2026-10-16-extension-sandbox-gate.md)). Guest plugins must not ship before the gate passes on macOS.
 
 ## Persistence
 

@@ -194,7 +194,7 @@ Sources: [Mod SDK](https://docs.warudo.app/docs/modding/mod-sdk), [SDK installat
 - [ ] EXT-02 — Unity export adapter. Later; Different API. [GitHub #95](https://github.com/danirukun/opensekai/issues/95)
 - [ ] EXT-03 — Blender export adapter. Later; additional OpenSekai goal. [GitHub #96](https://github.com/danirukun/opensekai/issues/96)
 - [ ] EXT-04 — Package sharing, metadata, versions, and dependency checks. Later. [GitHub #97](https://github.com/danirukun/opensekai/issues/97)
-- [ ] EXT-05 — JS/TS custom nodes and asset types. Boundary early; guest delivery Later. [GitHub #98](https://github.com/danirukun/opensekai/issues/98)
+- [ ] EXT-05 — JS/TS custom nodes and asset types. Boundary early; guest delivery Later. Partial: manifest v1, capabilities, guest data-node registration and evaluation with copied data, and asset type declarations exist in `packages/extensions`, verified by Linux tests only ([evidence](evaluation/extension-sandbox.md), [contract](../spdd/prompt/2026-10-16-extension-sandbox-gate.md)). Blueprint editor and runtime use, guest asset adapters, TypeScript transpile, and packaging remain. [GitHub #98](https://github.com/danirukun/opensekai/issues/98)
 - [ ] EXT-06 — Scene queries, ports, triggers, events, and data watchers. Later; Different API. [GitHub #99](https://github.com/danirukun/opensekai/issues/99)
 - [ ] EXT-07 — Editor controls and validated property definitions. Later; Different API. [GitHub #100](https://github.com/danirukun/opensekai/issues/100)
 - [ ] EXT-08 — Persistence, graph generation, and temporary controls. Later; Different API. [GitHub #101](https://github.com/danirukun/opensekai/issues/101)
@@ -202,7 +202,7 @@ Sources: [Mod SDK](https://docs.warudo.app/docs/modding/mod-sdk), [SDK installat
 - [ ] EXT-10 — Plugin interoperability and debugging tools. Later. [GitHub #103](https://github.com/danirukun/opensekai/issues/103)
 - [ ] EXT-11 — Stream Deck integration. Later. [GitHub #104](https://github.com/danirukun/opensekai/issues/104)
 - [ ] EXT-12 — DMX lighting control. Later. [GitHub #105](https://github.com/danirukun/opensekai/issues/105)
-- [ ] EXT-13 — Sandbox resource limits and failure recovery. Required before guest plugins ship; additional OpenSekai goal. [GitHub #106](https://github.com/danirukun/opensekai/issues/106)
+- [ ] EXT-13 — Sandbox resource limits and failure recovery. Required before guest plugins ship; additional OpenSekai goal. Partial: interruption, stack limit, quotas, denied capabilities, leaked handles, and recovery (disable, release, reload in a new worker after the watchdog) pass Linux tests ([evidence](evaluation/extension-sandbox.md)). A 64 MiB WASM memory maximum for each extension is the hard memory bound (Linux tests only). The QuickJS time limit is soft; the worker watchdog bounds it. macOS, the WebKit Web Worker, and Windows remain. [GitHub #106](https://github.com/danirukun/opensekai/issues/106)
 - [ ] EXT-14 — Scripting API behavior audit. Later; required before extension parity claims. [GitHub #107](https://github.com/danirukun/opensekai/issues/107)
 
 ## Additional OpenSekai acceptance requirements

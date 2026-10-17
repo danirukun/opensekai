@@ -1,0 +1,18 @@
+{
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "name": "@opensekai/extensions",
+  "exports": {
+    ".": "./src/index.ts",
+    "./worker": "./src/worker.ts"
+  },
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@jitl/quickjs-wasmfile-release-sync": "0.32.0",
+    "quickjs-emscripten-core": "0.32.0",
+    "zod": "4.6.5"
+  }
+}
