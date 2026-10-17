@@ -36,6 +36,27 @@ Recorded 2026-10-15 on `main` at `c395dcc`, Node 26.10.0, pnpm 12.8.1, rustc 1.9
 | `cargo clippy --workspace --all-targets` | Clean | 0 | — | 0 warnings |
 | `cargo fmt --all -- --check` | — | 10 files | — | Formatting differences in files that this baseline did not change (`assets/registry.rs`, `assets/scene_import.rs`, `bootstrap.rs`, `service/mod.rs`, `service/router.rs`, `import_integration.rs`, and four `crates/contracts` files). Do not count them against your change. Keep the files you change clean. |
 
+## Fixtures
+
+`fixtures/cloud/manifest.json` lists the test fixtures that setup downloads. It contains metadata only: the file name, the source, and the asset record with the SHA-256 and the byte count. `pnpm exec tsx scripts/prepare-fixtures.ts` downloads each file into `fixtures/local/`, rejects a file that does not agree with its hash, and writes `fixtures/local/manifest.json`. That file is a local asset manifest for fixture mode (`OPENSEKAI_FIXTURE_MANIFEST`). A file that is already present and correct is not downloaded again.
+
+| Asset ID | Content | Source |
+| --- | --- | --- |
+| `fixture_vrm_1` | VRM 1.0 sample (pixiv) | Public URL |
+| `fixture_vrm0_arkit` | VRM 0.x avatar with ARKit (perfect sync) blend shapes, 57 meshes, 16 MToon materials | Private R2 bucket |
+| `fixture_glb_stage` | Stage environment (TV01 Stage, CC-BY-4.0), 25 meshes, 25 materials | Private R2 bucket |
+
+The private files are in the R2 bucket `opensekai-fixtures`. Setup reads them only when the environment has `OPENSEKAI_FIXTURES_S3_ENDPOINT`, `OPENSEKAI_FIXTURES_ACCESS_KEY_ID`, and `OPENSEKAI_FIXTURES_SECRET_ACCESS_KEY` (a read-only R2 token). Any S3 API endpoint works. Without these variables, setup skips the private files.
+
+The avatar license prohibits redistribution. Do not commit a private fixture file, attach it to an issue, or upload it to another service. Screenshots of a render are permitted as pull request evidence. To add a fixture, upload it to the bucket under `sha256/<hash>.<extension>` and add an entry to `fixtures/cloud/manifest.json`.
+
+Tools for fixture checks:
+
+- `pnpm exec tsx scripts/gltf-validate.ts <file>...` runs the Khronos glTF validator and prints the error and warning counts by code. Exit code 1 means that a file has validation errors. The fixtures above have 0 errors.
+- `pnpm exec gltf-transform inspect <file>` lists the scenes, meshes, materials, textures, and extensions. Do not use `gltf-transform validate`: it stops with a stack overflow on the fixtures above.
+- `pnpm exec tsx scripts/gpu-probe.ts` starts headless Chromium with the flags in `chromiumGpuArgs` and prints the WebGPU adapter and the WebGL2 renderer. Use the same flags for a render check. On macOS the adapter is SwiftShader in headless mode. In the cloud it is SwiftShader or Mesa lavapipe. A software adapter proves that the code runs. It does not prove visual quality or performance.
+- `cargo test -p opensekai-desktop --lib prepared_local_fixtures` loads `fixtures/local/manifest.json` through the asset registry and reads each fixture. Without the manifest, the test has nothing to check and passes.
+
 Use `--no-fail-fast` with `cargo test`. Without it, cargo stops at the first failing test binary and the counts are incomplete.
 
 After the #158 fix, `cargo test --workspace --no-fail-fast` gives 206 passed, 0 failed, 1 skipped.
