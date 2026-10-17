@@ -28,9 +28,10 @@ export function applyOperations(scene: SceneView, operations: ScenePatch["operat
                  case 'setEnvironmentModel':if(entity.kind!=='environment')return failure('INVALID_INPUT','Entity is not an environment',[entity.id]);entity.assetId=operation.assetId;break;
                  case 'setAvatarExpression':{
                   if(entity.kind!=='avatar')return failure('INVALID_INPUT','Entity is not an avatar',[entity.id]);
-                  const expressions={...entity.expressions};
-                  if(operation.settings)expressions[operation.name]=structuredClone(operation.settings);else delete expressions[operation.name];
-                  if(Object.keys(expressions).length)entity.expressions=expressions;else delete entity.expressions;
+                  // Entries, not property writes: a model can name an expression `__proto__`.
+                  const kept=Object.entries(entity.expressions??{}).filter(([name])=>name!==operation.name);
+                  const expressions=Object.fromEntries(operation.settings?[...kept,[operation.name,structuredClone(operation.settings)]]:kept);
+                  if(kept.length||operation.settings)entity.expressions=expressions;else delete entity.expressions;
                   break;
                  }
                  case 'setCameraRenderEnvironment':if(entity.kind!=='camera')return failure('INVALID_INPUT','Entity is not a camera',[entity.id]);entity.renderEnvironment=operation.renderEnvironment;break;

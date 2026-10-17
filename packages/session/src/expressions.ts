@@ -104,15 +104,16 @@ export function composeExpressions(poses: readonly AvatarPose[], states: Express
   const base: AvatarPose = index >= 0 ? result[index]! : { avatarId: entity.id, bones: {}, expressions: {} };
   const strength = (group: SuppressGroup) => Math.max(0, ...weighted.filter(item => item.suppress[group]).map(item => item.weight));
   const scale = { blink: 1 - strength('blink'), mouth: 1 - strength('mouth'), brow: 1 - strength('brow') };
-  const expressions: Record<string, number> = Object.fromEntries(Object.entries(base.expressions).map(([name, value]) => {
+  // A Map, not property writes: a model can name an expression `__proto__`.
+  const merged = new Map(Object.entries(base.expressions).map(([name, value]) => {
    const group = trackingGroup(name);
-   return [name, group ? value * scale[group] : value];
+   return [name, group ? value * scale[group] : value] as const;
   }));
   for (const item of weighted) {
-   if (!Object.hasOwn(expressions, item.name) && Object.keys(expressions).length >= POSE_EXPRESSION_LIMIT) continue;
-   expressions[item.name] = Math.max(expressions[item.name] ?? 0, item.weight);
+   if (!merged.has(item.name) && merged.size >= POSE_EXPRESSION_LIMIT) continue;
+   merged.set(item.name, Math.max(merged.get(item.name) ?? 0, item.weight));
   }
-  const pose = { ...base, expressions };
+  const pose = { ...base, expressions: Object.fromEntries(merged) };
   if (index >= 0) result[index] = pose; else result.push(pose);
  }
  return result;

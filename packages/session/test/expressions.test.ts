@@ -152,3 +152,13 @@ it('sets an expression from a Blueprint with its boolean input', () => {
  expect(s.runBlueprint('faces', 'run')).toEqual({ ok: true, data: { revision: 0 } });
  expect(view(s).find(item => item.name === 'Tears')).toMatchObject({ active: true });
 });
+
+it('keeps an expression named __proto__ as an own key in settings and poses', () => {
+ const s = createSession(makeSmokeScene(), 's', [{ ...record, expressions: [{ name: '__proto__', preset: false }] }]);
+ expect(s.applyPatch(patch(0, [{ kind: 'setAvatarExpression', entityId: 'performer', name: '__proto__', settings: settings({ fadeSeconds: 0 }) }])).ok).toBe(true);
+ const performer = s.inspect().entities.find(item => item.id === 'performer');
+ expect(performer?.kind === 'avatar' && Object.hasOwn(performer.expressions ?? {}, '__proto__')).toBe(true);
+ s.advance(0);
+ s.setExpression('performer', '__proto__', true);
+ expect(Object.hasOwn(pose(s.advance(16))!.expressions, '__proto__')).toBe(true);
+});
