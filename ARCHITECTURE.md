@@ -33,7 +33,7 @@ flowchart LR
 | `apps/desktop/src-tauri` | Tauri commands (`lib.rs`), service (`service/`), asset registry (`assets/`), show and Blueprint files, tracking, input. |
 | `apps/output` | The OBS Browser Source page, served by the host at `/renderer/`. |
 | `apps/mcp` | MCP stdio server. Each tool maps to one call in the same API as the editor (`tools.ts`). |
-| `crates/evaluation`, `tools/evaluation` | Capture and benchmark run records. |
+| `crates/evaluation`, `tools/evaluation` | Capture and benchmark run records, and the Blueprint node audit check against the node catalog. |
 | `scripts/` | UI kit snapshot, output bundle, tracking model download. |
 | `fixtures/` | Smoke scene and assets, protocol vectors, Blueprint fixtures. |
 | `spdd/`, `docs/` | Analysis, REASONS contracts, design specs, plans, evaluation evidence, parity. |
