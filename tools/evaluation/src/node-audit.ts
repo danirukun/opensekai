@@ -29,7 +29,7 @@ export function checkNodeAudit(catalog: readonly { type: string }[], audit: Node
     return {
         unaudited: [...types].filter(type => !rows.includes(type)),
         stale: rows.filter(type => !types.has(type)),
-        duplicate: rows.filter((type, index) => rows.indexOf(type) !== index),
+        duplicate: [...new Set(rows.filter((type, index) => rows.indexOf(type) !== index))],
         unknownCategory: audit.nodes.filter(row => row.warudoCategory !== null && !Object.hasOwn(audit.warudoPalette, row.warudoCategory)).map(row => row.type),
     };
 }

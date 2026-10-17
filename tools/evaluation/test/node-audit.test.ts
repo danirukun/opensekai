@@ -8,7 +8,7 @@ const row = (type: string, warudoCategory: string | null = 'Flow Control') => ({
 
 it('reports catalog types without a row, rows without a type, duplicate rows, and unknown categories', () => {
     const problems = checkNodeAudit([{ type: 'flow.gate' }, { type: 'flow.delay' }, { type: 'value.number' }],
-        audit([row('flow.gate'), row('flow.gate'), row('flow.removed'), row('value.number', 'Values')]));
+        audit([row('flow.gate'), row('flow.gate'), row('flow.gate'), row('flow.removed'), row('value.number', 'Values')]));
     expect(problems).toEqual({ unaudited: ['flow.delay'], stale: ['flow.removed'], duplicate: ['flow.gate'], unknownCategory: ['value.number'] });
 });
 

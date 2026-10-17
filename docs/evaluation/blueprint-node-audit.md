@@ -56,7 +56,7 @@ The OpenSekai count is the number of rows that map to the category. It is not a 
 
 ## Findings
 
-1. 24 of 33 Warudo categories have no OpenSekai row. 14 of them are areas with open parity items: Animation, Audio, BlendShapes, Characters, Interactions, Lattices, Lights, Motion Capture, Procedural Animations, Props, and the streaming platforms (Bilibili, Douyin, Twitch, YouTube). The other 10 are Blueprints, Data, Debug, External Integration, MIDI, MikuMikuDance, Miscellaneous, Scene, Stream Deck, and Timer.
+1. 24 of 33 Warudo categories have no OpenSekai row: Animation, Audio, Bilibili, BlendShapes, Blueprints, Characters, Data, Debug, Douyin, External Integration, Interactions, Lattices, Lights, MIDI, MikuMikuDance, Miscellaneous, Motion Capture, Procedural Animations, Props, Scene, Stream Deck, Timer, Twitch, and YouTube. Most of them belong to open parity items, for example CHR (characters), TRK (motion capture), BP-06 (MIDI), BP-07 (streaming platforms), BP-08 (props), CHR-12 (MikuMikuDance), and EXT-11 (Stream Deck).
 2. Arithmetic has 183 Warudo nodes. OpenSekai has 23 rows there. The difference is mainly type coverage: Warudo variables have Boolean, Integer, Float, String, Vector3, and list types. OpenSekai ports are `number`, `boolean`, and `vector3` only.
 3. Variables has 29 Warudo nodes and 6 OpenSekai rows, for the same type reason.
 4. 19 of 52 OpenSekai node types have a live macOS run on record. 33 have unit or integration tests only.
