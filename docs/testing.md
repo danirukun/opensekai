@@ -46,7 +46,7 @@ Recorded 2026-10-15 on `main` at `c395dcc`, Node 26.10.0, pnpm 12.8.1, rustc 1.9
 | `fixture_vrm0_arkit` | VRM 0.x avatar with ARKit (perfect sync) blend shapes, 57 meshes, 16 MToon materials | Private R2 bucket |
 | `fixture_glb_stage` | Stage environment (TV01 Stage, CC-BY-4.0), 25 meshes, 25 materials | Private R2 bucket |
 
-The private files are in the R2 bucket `opensekai-fixtures`. Setup reads them only when the environment has `OPENSEKAI_FIXTURES_S3_ENDPOINT`, `OPENSEKAI_FIXTURES_ACCESS_KEY_ID`, and `OPENSEKAI_FIXTURES_SECRET_ACCESS_KEY` (a read-only R2 token). Any S3 API endpoint works. Without these variables, setup skips the private files.
+The private files are in the R2 bucket `opensekai-fixtures`. Setup reads them only when the environment has `OPENSEKAI_FIXTURES_S3_ENDPOINT`, `OPENSEKAI_FIXTURES_ACCESS_KEY_ID`, and `OPENSEKAI_FIXTURES_SECRET_ACCESS_KEY` (a read-only R2 token). Any S3 API endpoint works. Without these variables, setup skips the private files. The cloud network allowlist must allow the endpoint host (`*.r2.cloudflarestorage.com`); a blocked host gives a 403 and a setup warning.
 
 The avatar license prohibits redistribution. Do not commit a private fixture file, attach it to an issue, or upload it to another service. Screenshots of a render are permitted as pull request evidence. To add a fixture, upload it to the bucket under `sha256/<hash>.<extension>` and add an entry to `fixtures/cloud/manifest.json`.
 
@@ -54,7 +54,7 @@ Tools for fixture checks:
 
 - `pnpm exec tsx scripts/gltf-validate.ts <file>...` runs the Khronos glTF validator and prints the error and warning counts by code. Exit code 1 means that a file has validation errors. The fixtures above have 0 errors.
 - `pnpm exec gltf-transform inspect <file>` lists the scenes, meshes, materials, textures, and extensions. Do not use `gltf-transform validate`: it stops with a stack overflow on the fixtures above.
-- `pnpm exec tsx scripts/gpu-probe.ts` starts headless Chromium with the flags in `chromiumGpuArgs` and prints the WebGPU adapter and the WebGL2 renderer. Use the same flags for a render check. On macOS the adapter is SwiftShader in headless mode. In the cloud it is SwiftShader or Mesa lavapipe. A software adapter proves that the code runs. It does not prove visual quality or performance.
+- `pnpm exec tsx scripts/gpu-probe.ts` starts headless Chromium with the flags in `chromiumGpuArgs` and prints the WebGPU adapter and the WebGL2 renderer. Use the same flags and `launchChromium()` for a render check. When the cloud network blocks the Playwright browser download, it uses the newest Chromium in `PLAYWRIGHT_BROWSERS_PATH` (`/opt/pw-browsers`). Set `OPENSEKAI_CHROMIUM` to select a binary. On macOS the adapter is SwiftShader in headless mode. In the cloud it is SwiftShader or Mesa lavapipe. A software adapter proves that the code runs. It does not prove visual quality or performance.
 - `cargo test -p opensekai-desktop --lib prepared_local_fixtures` loads `fixtures/local/manifest.json` through the asset registry and reads each fixture. Without the manifest, the test has nothing to check and passes.
 
 Use `--no-fail-fast` with `cargo test`. Without it, cargo stops at the first failing test binary and the counts are incomplete.

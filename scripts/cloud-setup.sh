@@ -171,11 +171,13 @@ fi
 
 # e. Workspace and the Playwright browser for headless render checks
 pnpm install --frozen-lockfile
+# The cloud network can block the browser download. scripts/gpu-probe.ts then uses the
+# newest Chromium in PLAYWRIGHT_BROWSERS_PATH.
 if $cloud; then
-  pnpm exec playwright install --with-deps chromium >/dev/null
-else
-  pnpm exec playwright install chromium >/dev/null
+  pnpm exec playwright install-deps chromium >/dev/null
 fi
+pnpm exec playwright install chromium >/dev/null 2>&1 ||
+  warn "Playwright Chromium download failed; use a preinstalled Chromium"
 
 # f. Build. The build reads the tracking models from a cache; fill it first.
 pnpm exec tsx scripts/prepare-tracking.ts --download >/dev/null
