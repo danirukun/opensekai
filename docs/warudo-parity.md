@@ -119,7 +119,7 @@ Sources: [Motion capture overview](https://docs.warudo.app/docs/mocap/overview),
 Sources: [Asset categories](https://docs.warudo.app/docs/assets/overview), [Environment](https://docs.warudo.app/docs/assets/environment), [Lights](https://docs.warudo.app/docs/assets/lights).
 
 - [ ] ENV-01 — Environment import and placement. First. Partial: one environment for each scene from a local glTF, GLB, or zip, a neutral environment map on its materials, credits with Copy credit, and Render Environment for each camera, verified on macOS (debug build, WebGPU preview, OBS 32.2.2) with one Sketchfab sample ([check](evaluation/environment-import.md), [contract](../spdd/prompt/2026-10-13-environment-import.md), [GitHub #147](https://github.com/danirukun/opensekai/issues/147)). MCP `asset_list` lists the library records, so MCP can choose an environment model; asset reads continue during an import, and a GLB import keeps about 2N bytes at peak (Linux tests only, [contract](../spdd/prompt/2026-10-15-asset-registry-concurrency.md), #151, #152, #155). Placement aids, the Warudo environment lighting settings, compressed formats, import cancel, the WebGL 2 fallback, and Windows remain. [GitHub #39](https://github.com/danirukun/opensekai/issues/39)
-  - Workshop study: 5 of 7 sampled environments use baked lightmaps (BC6H HDR, directional, and shadow mask maps) with a scale and offset for each renderer. Environments have a median size of 164 MB, and the largest has 864 MB and 8.2 million vertices.
+  - Workshop study: 5 of 7 sampled environments have renderers with a baked lightmap index, and 4 of 7 have lightmap textures (BC6H HDR, directional, and shadow mask maps). Each renderer has a lightmap scale and offset. Environments have a median size of 164 MB, and the largest has 864 MB and 8.2 million vertices.
 - [ ] ENV-02 — Environment settings and sky/background controls. Later. The sky subset (solid color, equirectangular image, and HDR background with optional image-based lighting) is First by operator request and needs its own contract ([GitHub #148](https://github.com/danirukun/opensekai/issues/148)). [GitHub #40](https://github.com/danirukun/opensekai/issues/40)
   - UI audit 0.15.1: Environment components toggle realtime lights, light effect on characters and props, audio sources, and post-processing volumes. Overrides use a checkbox for each property: ambient source, skybox intensity, reflections, fog, fog color, and fog density. Apply Environment Lighting copies environment lights to characters and props.
   - Workshop study: Sampled environments use procedural (5), panoramic (3), and cubemap or cloud dome (1) skies.
@@ -199,7 +199,7 @@ Unity URP is an engine implementation, not a portable feature. Track the resulti
 Sources: [Warudo Pro](https://docs.warudo.app/docs/pro), [Character](https://docs.warudo.app/docs/assets/character), and handbook asset entries for NiloToon controllers and post-processing. lilToon import behavior is an additional OpenSekai goal.
 
 - [ ] MAT-01 — VRM MToon and glTF PBR. First. [GitHub #73](https://github.com/danirukun/opensekai/issues/73)
-  - Workshop study: The built-in Standard shader is in 11 of 28 items and VRM MToon in 2. Bundled shaders are compiled Direct3D programs; a material maps by shader name and saved properties.
+  - Workshop study: The built-in Standard shader is in 11 of 28 items and VRM MToon in 2. Bundled shaders are compiled programs for the build platform. A material maps by its shader name and saved properties.
 - [ ] MAT-02 — Selected lilToon conversion profiles. Later; Approximate. [GitHub #74](https://github.com/danirukun/opensekai/issues/74)
   - Workshop study: lilToon is in 8 of 28 items. Poiyomi (locked), asset-store, custom, and VRChat world shaders occur in 5 items and have no profile.
 - [ ] MAT-03 — Full lilToon effect coverage. Later. [GitHub #75](https://github.com/danirukun/opensekai/issues/75)
@@ -207,7 +207,7 @@ Sources: [Warudo Pro](https://docs.warudo.app/docs/pro), [Character](https://doc
 - [ ] MAT-05 — NiloToon volume and character control equivalents. Later; Different API. [GitHub #77](https://github.com/danirukun/opensekai/issues/77)
 - [ ] MAT-06 — Full NiloToon appearance coverage. Later; dependencies and rights require review. [GitHub #78](https://github.com/danirukun/opensekai/issues/78)
 - [ ] MAT-07 — Post-processing volumes and blending. Later. [GitHub #79](https://github.com/danirukun/opensekai/issues/79)
-  - Workshop study: 6 of 7 sampled environments carry Post Processing Stack v2 volumes (bloom, color grading, vignette, motion blur, ambient occlusion).
+  - Workshop study: 6 of 7 sampled environments carry Post Processing Stack v2 resources and a profile, and 5 have a volume. The effects are bloom, color grading, vignette, motion blur, and ambient occlusion.
 - [ ] MAT-08 — Material parameter control from graphs. Later. [GitHub #80](https://github.com/danirukun/opensekai/issues/80)
 
 ## Blueprints and interaction
@@ -245,7 +245,7 @@ Sources: [Mod SDK](https://docs.warudo.app/docs/modding/mod-sdk), [SDK installat
   - UI audit 0.15.1: The editor browses, subscribes to, and publishes Steam Workshop items. A published item has a title, description, tag, files, a preview image under 1 MB, visibility, and a Require Attribution option.
   - Workshop study: An item has a name, version, description, and author inside the archive, and an attribution tag on the Workshop. No sampled item states a license, and 1 of 28 states a dependency.
 - [ ] EXT-05 — JS/TS custom nodes and asset types. Boundary early; guest delivery Later. Partial: manifest v1, capabilities, guest data-node registration and evaluation with copied data, and asset type declarations exist in `packages/extensions`, verified by Linux tests only ([evidence](evaluation/extension-sandbox.md), [contract](../spdd/prompt/2026-10-16-extension-sandbox-gate.md)). Blueprint editor and runtime use, guest asset adapters, TypeScript transpile, and packaging remain. [GitHub #98](https://github.com/danirukun/opensekai/issues/98)
-  - Workshop study: Warudo plugins are .NET assemblies inside the archive, with the rights of the Warudo process. Of 5 sampled plugins, 2 use network sockets and none references process start or file APIs.
+  - Workshop study: Warudo plugins are compiled .NET assemblies inside the archive, and they run inside the Warudo process. In a strings scan of 5 sampled plugins, 2 refer to network sockets and 4 use reflection. None refers to process start or file APIs.
 - [ ] EXT-06 — Scene queries, ports, triggers, events, and data watchers. Later; Different API. [GitHub #99](https://github.com/danirukun/opensekai/issues/99)
 - [ ] EXT-07 — Editor controls and validated property definitions. Later; Different API. [GitHub #100](https://github.com/danirukun/opensekai/issues/100)
 - [ ] EXT-08 — Persistence, graph generation, and temporary controls. Later; Different API. [GitHub #101](https://github.com/danirukun/opensekai/issues/101)
