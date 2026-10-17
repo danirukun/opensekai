@@ -10,10 +10,12 @@ R3. Open only a fully valid show. A canceled or failed open leaves the current s
 R4. Replace scene state through an edit-capability, revision-checked command without restarting renderer clients or resetting stream sequence.
 R5. Preserve scene entities whose asset IDs are unavailable locally. Reject invalid camera/output references.
 R6. Keep one graph in the editor after Open and allow its Manual Trigger to run against restored entity IDs.
+R7. After Open or Save As, Save writes to the same file without a chooser. Save without a current file opens the Save As chooser. Shift with Save, or Shift+Command+S, always opens the chooser.
+R8. The show has unsaved changes when the scene revision, the Blueprint revision, or the show name differs from the last Open, Save, or editor start. When the show has unsaved changes, closing the editor asks to save, discard, or cancel, and quitting the app asks to quit or cancel.
 
 ## E — Entities
 
-`ShowDocument` contains `schemaVersion: 1`, a trimmed name, a `SceneView`, and an array of at most one `BlueprintGraph`. `SceneReplaceParams` contains a scene snapshot and the current expected revision. Its result is the accepted scene snapshot. A file path is local UI state and is not part of a scene or graph.
+`ShowDocument` contains `schemaVersion: 1`, a trimmed name, a `SceneView`, and an array of at most one `BlueprintGraph`. `SceneReplaceParams` contains a scene snapshot and the current expected revision. Its result is the accepted scene snapshot. A file path is local UI state and is not part of a scene or graph. The host keeps the current show path and the unsaved flag. The editor never sends a path; it sends only the unsaved flag.
 
 ## A — Approach
 
@@ -21,7 +23,7 @@ Validate the show in TypeScript before Save and after Open. Validate scene and s
 
 ## S — Structure
 
-Add a show contract in `packages/contracts`, a session replacement operation in `packages/session`, matching Rust validation in `crates/contracts`, native file commands in `apps/desktop/src-tauri`, and a small Show menu in the desktop editor. Keep the current Rete adapter as the graph serializer.
+Add a show contract in `packages/contracts`, a session replacement operation in `packages/session`, matching Rust validation in `crates/contracts`, native file commands in `apps/desktop/src-tauri`, and a small Show menu in the desktop editor. Keep the current Rete adapter as the graph serializer. The host owns the current path and the quit confirmation (`show.rs` `ShowFile`, `lib.rs` window and exit events). The editor computes the unsaved flag with a pure function (`showDirty` in `editor/show-management.ts`).
 
 ## O — Operations
 
@@ -37,4 +39,4 @@ Use pnpm, Svelte 5, `@oshi-connect/ui`, and Tauri v2. Keep platform file operati
 
 ## S — Safeguards
 
-Limit show files to 256 KiB. Validate the full document before scene replacement. Reject newer schema versions. Require edit capability for `sceneReplace`. On write failure, leave the existing file intact. On load failure or stale revision, leave the current scene and editor graph intact. Preserve missing asset IDs as repairable references.
+Limit show files to 256 KiB. Validate the full document before scene replacement. Reject newer schema versions. Require edit capability for `sceneReplace`. On write failure, leave the existing file intact. On load failure or stale revision, leave the current scene and editor graph intact. Preserve missing asset IDs as repairable references. Save to the current path uses the same validation and atomic replacement as Save As. A failed save keeps the unsaved flag. Quit without unsaved changes does not ask.

@@ -59,7 +59,7 @@ Source: [Assets overview](https://docs.warudo.app/docs/assets/overview).
   - UI audit 0.15.1: Asset menu has export to clipboard or file, import from clipboard or file, and SceneShare whole-scene import and export in Settings.
 - [ ] SCN-04 — Merge imported settings into a selected entity. Later. [GitHub #4](https://github.com/danirukun/opensekai/issues/4)
   - UI audit 0.15.1: Asset menu has Import into selected asset from clipboard or file.
-- [ ] SCN-05 — Save/load shows and preserve missing references. Partial: native Save As/Open of a bounded scene plus one Blueprint, live macOS round trip, and retained unavailable avatar ID. Recent shows, recovery, release/Windows acceptance, and broader show workflow remain. [Check](evaluation/scene-show-management.md). [GitHub #5](https://github.com/danirukun/opensekai/issues/5)
+- [ ] SCN-05 — Save/load shows and preserve missing references. Partial: native Save As/Open of a bounded scene plus one Blueprint, Save to the open file, unsaved-change prompts on editor close and Command+Q, live macOS round trip, and retained unavailable avatar ID. Recent shows, recovery, release/Windows acceptance, and broader show workflow remain. [Check](evaluation/scene-show-management.md). [GitHub #5](https://github.com/danirukun/opensekai/issues/5)
   - UI audit 0.15.1: Open scene groups shows by recency (last 7 days, past month, within 6 months, older) with preview images and search. Reload scene discards unsaved edits with no prompt, and the scene does not save itself; OSE-09 must do better.
 - [ ] SCN-06 — Portable prepared packages and migration diagnostics. First; OpenSekai persistence requirement. [GitHub #6](https://github.com/danirukun/opensekai/issues/6)
 
@@ -95,7 +95,7 @@ Sources: [Motion capture overview](https://docs.warudo.app/docs/mocap/overview),
 - [ ] TRK-05 — Pose calibration, retargeting, offsets, and source mixing. First subset. [GitHub #22](https://github.com/danirukun/opensekai/issues/22)
 - [ ] TRK-06 — Pendulum motion behavior. Later. [GitHub #23](https://github.com/danirukun/opensekai/issues/23)
   - UI audit 0.15.1: Pendulum physics settings save to and load from named profiles that any tracker in any scene can use.
-- [ ] TRK-07 — MediaPipe integration. First useful-build requirement; face, upper body and fingers; physical-camera evidence required. [GitHub #24](https://github.com/danirukun/opensekai/issues/24)
+- [ ] TRK-07 — MediaPipe integration. First useful-build requirement; face, upper body and fingers; physical-camera evidence required. 2026-10-17: the face matrix now uses the same camera frame as the pose (it had an extra mirror that reversed head yaw and roll); unit-tested, not yet checked with a physical camera. [GitHub #24](https://github.com/danirukun/opensekai/issues/24)
   - UI audit 0.15.1: Tracker runs in its own process and shows status (Tracker started). Controls: input camera, show camera, freeze, process priority, GPU acceleration, mirrored tracking, face and hand calibration, head and body intensity, eye compensation, hand range, depth push, finger offsets.
 - [ ] TRK-08 — OpenSeeFace integration. Later. [GitHub #25](https://github.com/danirukun/opensekai/issues/25)
 - [ ] TRK-09 — RhyLive integration. Later. [GitHub #26](https://github.com/danirukun/opensekai/issues/26)
