@@ -35,12 +35,39 @@ impl Drop for PendingGuard<'_> {
         lock(&self.shared.inner).pending.remove(&self.id);
     }
 }
+/// The wire message kind that may answer a pending relay.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum ReplyKind {
+    Call,
+    Capture,
+    Screenshot,
+}
+impl ReplyKind {
+    fn of(method: &str) -> Self {
+        match method {
+            "nativeCapture" => Self::Capture,
+            "cameraScreenshot" => Self::Screenshot,
+            _ => Self::Call,
+        }
+    }
+}
 impl Shared {
     pub(super) async fn relay(
         &self,
         owner: &str,
         target: Connection,
         method: &str,
+        message: impl FnOnce(String) -> Value,
+    ) -> Result<Value, AppError> {
+        self.relay_within(owner, target, method, Duration::from_secs(2), message)
+            .await
+    }
+    pub(super) async fn relay_within(
+        &self,
+        owner: &str,
+        target: Connection,
+        method: &str,
+        timeout: Duration,
         message: impl FnOnce(String) -> Value,
     ) -> Result<Value, AppError> {
         let id = Uuid::new_v4().to_string();
@@ -71,7 +98,7 @@ impl Shared {
             lock(&self.inner).pending.remove(&id);
             return Err(error);
         }
-        let result = tokio::time::timeout(Duration::from_secs(2), rx).await;
+        let result = tokio::time::timeout(timeout, rx).await;
         lock(&self.inner).pending.remove(&id);
         match result {
             Ok(Ok(result)) => result,
@@ -79,15 +106,18 @@ impl Shared {
             Err(_) => Err(err(ErrorCode::Timeout, "RPC timed out")),
         }
     }
-    pub(super) fn accept_reply(&self, connection: &str, id: &str, result: Value, capture: bool) {
+    pub(super) fn accept_reply(&self, connection: &str, id: &str, result: Value, kind: ReplyKind) {
         let mut inner = lock(&self.inner);
         let Some(pending) = inner.pending.get(id) else {
             return;
         };
-        if pending.target != connection || (pending.method == "nativeCapture") != capture {
+        if pending.target != connection || ReplyKind::of(&pending.method) != kind {
             return;
         }
-        let valid = if capture {
+        // `parse_wire` already checked a screenshot reply and its data on receipt.
+        let valid = if kind == ReplyKind::Screenshot {
+            Ok(())
+        } else if kind == ReplyKind::Capture {
             parse_wire(
                 json!(WireMessage::CaptureReply {
                     request_id: id.into(),
@@ -103,6 +133,25 @@ impl Shared {
         if let Some(pending) = inner.pending.remove(id) {
             let _ = pending.reply.send(valid.map(|_| result));
         }
+    }
+    /// Fails a pending screenshot with `error` when this renderer sent a reply that did not
+    /// pass the wire checks. Returns false when no such request is pending.
+    pub(super) fn reject_screenshot_reply(
+        &self,
+        connection: &str,
+        id: &str,
+        error: AppError,
+    ) -> bool {
+        let mut inner = lock(&self.inner);
+        let matches = inner.pending.get(id).is_some_and(|pending| {
+            pending.target == connection && ReplyKind::of(&pending.method) == ReplyKind::Screenshot
+        });
+        if matches {
+            if let Some(pending) = inner.pending.remove(id) {
+                let _ = pending.reply.send(Err(error));
+            }
+        }
+        matches
     }
     pub(super) async fn route_scene_call(&self, call: Call, client_id: &str) -> Reply<Value> {
         if let Err(error) = call.validate() {
@@ -179,7 +228,7 @@ impl Shared {
         }
         let required = match call.method.as_str() {
             "scenePatch" | "sceneReplace" | "cameraSelect" | "blueprintRun" | "blueprintEdit"
-            | "expressionSet" => Capability::Edit,
+            | "expressionSet" | "cameraScreenshot" => Capability::Edit,
             "captureFrame" => Capability::Capture,
             "benchmarkStart" | "benchmarkCancel" => Capability::Benchmark,
             _ => Capability::Read,
@@ -241,6 +290,19 @@ impl Shared {
                     .and_then(|f| f.tracking_status.clone()),
                 blueprint_revision: inner.latest.as_ref().and_then(|f| f.blueprint_revision)
             }));
+        }
+        if call.method == "cameraScreenshot" {
+            let reply = match serde_json::from_value::<CameraScreenshotParams>(call.params) {
+                Ok(params) => match self.screenshot(client_id, params).await {
+                    Ok(result) => Reply::success(json!(result)),
+                    Err(error) => Reply::failure(error),
+                },
+                Err(_) => Reply::failure(invalid("Invalid screenshot call")),
+            };
+            return match validate_result("cameraScreenshot", &json!(reply)) {
+                Ok(()) => reply,
+                Err(error) => Reply::failure(error),
+            };
         }
         if call.method == "assetList" {
             // The host owns the asset library, so it answers without the publisher.
@@ -338,5 +400,91 @@ impl Shared {
                 Ok(bytes)
             }
         }
+    }
+    /// Relays a screenshot to the `preview_main` renderer, checks the PNG, and writes the file.
+    pub(super) async fn screenshot(
+        &self,
+        owner: &str,
+        params: CameraScreenshotParams,
+    ) -> Result<CameraScreenshotResult, AppError> {
+        params.validate()?;
+        let target = {
+            let inner = lock(&self.inner);
+            let target = inner
+                .renderers
+                .get("preview_main")
+                .cloned()
+                .ok_or_else(|| err(ErrorCode::Unavailable, "Preview renderer disconnected"))?;
+            let scene = &inner
+                .latest
+                .as_ref()
+                .ok_or_else(|| err(ErrorCode::Unavailable, "Scene unavailable"))?
+                .scene;
+            if scene.revision != params.expected_revision {
+                return Err(err(ErrorCode::Conflict, "Stale revision"));
+            }
+            if !scene.entities.iter().any(
+                |entity| matches!(entity, SceneEntity::Camera { id, .. } if *id == params.camera_id),
+            ) {
+                return Err(AppError {
+                    code: ErrorCode::NotFound,
+                    message: "Camera not found".into(),
+                    ids: vec![params.camera_id.clone()],
+                });
+            }
+            target
+        };
+        {
+            // One limit for the whole host: a screenshot costs a full render in the Scene window.
+            let mut last = lock(&self.last_screenshot);
+            let now = Instant::now();
+            if last.is_some_and(|at| now.duration_since(at) < Duration::from_secs(1)) {
+                return Err(err(ErrorCode::RateLimited, "Screenshot rate limit"));
+            }
+            *last = Some(now);
+        }
+        let camera_id = params.camera_id.clone();
+        let revision = params.expected_revision;
+        let timeout = *lock(&self.screenshot_timeout);
+        let result = self
+            .relay_within(owner, target, "cameraScreenshot", timeout, |request_id| {
+                json!(WireMessage::ScreenshotRequest { request_id, params })
+            })
+            .await?;
+        let data = match serde_json::from_value::<Reply<ScreenshotReplyData>>(result)
+            .map_err(|_| invalid("Invalid screenshot reply"))?
+        {
+            Reply::Failure(f) => return Err(f.error),
+            Reply::Success(s) => s.data,
+        };
+        if data.session_id != self.session
+            || data.revision != revision
+            || data.camera_id != camera_id
+        {
+            return Err(err(
+                ErrorCode::StaleFrame,
+                "Screenshot does not match request",
+            ));
+        }
+        let png = STANDARD
+            .decode(data.png_base64)
+            .map_err(|_| invalid("Invalid screenshot PNG encoding"))?;
+        crate::screenshots::check_png(&png)?;
+        let stem = crate::screenshots::file_stem((lock(&self.screenshot_clock))(), &camera_id);
+        let folder = self.screenshot_folder.clone();
+        let (file_name, png) = tokio::task::spawn_blocking(move || {
+            crate::screenshots::write_new(&folder, &stem, &png).map(|name| (name, png))
+        })
+        .await
+        .map_err(|_| err(ErrorCode::Unavailable, "Cannot write screenshot"))??;
+        Ok(CameraScreenshotResult {
+            file_name,
+            width: crate::screenshots::WIDTH,
+            height: crate::screenshots::HEIGHT,
+            bytes: png.len() as u64,
+            sha256: crate::screenshots::sha256_hex(&png),
+            camera_id,
+            revision,
+        })
     }
 }

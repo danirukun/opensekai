@@ -13,6 +13,7 @@ export function fixtureApi(): AppApi {
   sceneReplace:denied,
   blueprintEdit:async () => ok({revision:1,keystrokes:[]}),
   blueprintInspect:async () => ok({kind:'snapshot' as const,revision:0,blueprints:[],errors:[]}),
+  cameraScreenshot:async p => p.cameraId !== 'camera_main' ? {ok:false,error:{code:'NOT_FOUND',message:'Camera not found',ids:[p.cameraId]}} : ok({fileName:'20261017-090507-042-camera_main.png',width:1920 as const,height:1080 as const,bytes:1024,sha256:'0'.repeat(64),cameraId:p.cameraId,revision:p.expectedRevision}),
   cameraSelect:denied,blueprintRun:denied,captureFrame:async () => ({ok:false,error:{code:'RATE_LIMITED',message:'Capture limit',ids:[]}}),benchmarkStart:denied,benchmarkStatus:denied,benchmarkCancel:denied,
   assetList:async () => ok({assets:[{id:'avatar_one',kind:'avatar' as const,name:'One'},{id:'scene_room',kind:'scene' as const,name:'Room',credits:{title:'Room',author:'Ada',license:'CC-BY-4.0',sourceUrl:'https://example.com/room'}}],next:null}),
   expressionGet:denied,expressionSet:denied,

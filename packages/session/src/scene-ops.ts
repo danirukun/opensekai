@@ -17,6 +17,7 @@ export function applyOperations(scene: SceneView, operations: ScenePatch["operat
                  case 'removeEntity':
                   if(next.outputs.some(output=>output.cameraId===entity.id))return failure('INVALID_INPUT','Choose another output camera before removal',[entity.id]);
                   next.entities=next.entities.filter(item=>item.id!==entity.id);
+                  if(entity.kind==='avatar')for(const camera of next.entities)if(camera.kind==='camera'&&camera.navigation?.mode==='orbitCharacter'&&camera.navigation.targetId===entity.id)camera.navigation.targetId=null;
                   if(entity.kind==='tracking')for(const avatar of next.entities){if(avatar.kind!=='avatar'||!avatar.tracking)continue;if(avatar.tracking.bodySourceId===entity.id)avatar.tracking.bodySourceId=null;if(avatar.tracking.faceSourceId===entity.id)avatar.tracking.faceSourceId=null;}
                   break;
                  case 'setVisibility':entity.visible=operation.visible;break;
@@ -36,6 +37,7 @@ export function applyOperations(scene: SceneView, operations: ScenePatch["operat
                  }
                  case 'setCameraRenderEnvironment':if(entity.kind!=='camera')return failure('INVALID_INPUT','Entity is not a camera',[entity.id]);entity.renderEnvironment=operation.renderEnvironment;break;
                  case 'setCameraAntiAliasing':if(entity.kind!=='camera')return failure('INVALID_INPUT','Entity is not a camera',[entity.id]);entity.antiAliasing=operation.antiAliasing;break;
+                 case 'setCameraNavigation':if(entity.kind!=='camera')return failure('INVALID_INPUT','Entity is not a camera',[entity.id]);entity.navigation=structuredClone(operation.navigation);break;
                  case 'setTrackingSmoothing':if(entity.kind!=='tracking')return failure('INVALID_INPUT','Entity is not a tracking source',[entity.id]);entity.smoothing=structuredClone(operation.smoothing);break;
                  case 'setTrackingConfig':if(entity.kind!=='tracking'||entity.config.kind!==operation.config.kind)return failure('INVALID_INPUT','Tracking source kind differs',[entity.id]);entity.config=structuredClone(operation.config);entity.generation=generation;break;
                 }
