@@ -31,7 +31,8 @@ export function createNavigationCommitter(revision: number, options: CommitterOp
         if (done || pending) return;
         if (!dirty) { if (finishing) end({ ok: true, revision: base, committed }); return; }
         const wait = lastSent + interval - options.now();
-        if (!finishing && wait > 0) { if (timer === null) timer = options.setTimer(() => { timer = null; pump(); }, wait); return; }
+        // A timer can fire a fraction of a millisecond early against `now`, so wait one more.
+        if (!finishing && wait > 0) { if (timer === null) timer = options.setTimer(() => { timer = null; pump(); }, Math.ceil(wait) + 1); return; }
         stopTimer();
         const draft = dirty;
         dirty = null;
