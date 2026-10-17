@@ -230,6 +230,7 @@ Sources: [Blueprint overview](https://docs.warudo.app/docs/blueprints/overview) 
 - [ ] BP-12 — Eye-motion presets. Later. [GitHub #92](https://github.com/danirukun/opensekai/issues/92)
 - [ ] BP-13 — Node-by-node handbook and runtime inventory audit. Later; required before a full blueprint parity claim. [GitHub #93](https://github.com/danirukun/opensekai/issues/93)
   - UI audit 0.15.1: Palette categories and node counts: Animation 5, Arithmetic 183, Asset 25, Audio 3, Bilibili 21, BlendShapes 14, Blueprints 3, Characters 48, Cinematography 16, Data 6, Debug 6, Douyin 4, Events 7, External Integration 2, Flow Control 20, Input 10, Interactions 13, Lattices 2, Lights 4, Literals 31, MIDI 5, MikuMikuDance 1, Miscellaneous 3, Motion Capture 15, Procedural Animations 3, Props 7, Scene 1, Stream Deck 3, Switches 6, Timer 4, Twitch 11, Variables 29, YouTube 8 (519 nodes). Graph variables are Boolean, Integer, Float, String, Vector3, and a list of each.
+  - First audit part: each of the 52 OpenSekai node types maps to a Warudo palette category with a name candidate and its evidence level; 24 of 33 categories have no OpenSekai node. A unit test fails when a node type has no row. The Warudo node names and the node-by-node behavior comparison remain ([node audit](evaluation/blueprint-node-audit.md)).
 - [ ] BP-14 — Format a graph layout. Later. UI audit 0.15.1. [GitHub #176](https://github.com/danirukun/opensekai/issues/176)
 - [ ] BP-15 — Palette favorites and category counts. Later. UI audit 0.15.1. [GitHub #177](https://github.com/danirukun/opensekai/issues/177)
 
@@ -255,6 +256,7 @@ Sources: [Mod SDK](https://docs.warudo.app/docs/modding/mod-sdk), [SDK installat
 - [ ] EXT-12 — DMX lighting control. Later. [GitHub #105](https://github.com/danirukun/opensekai/issues/105)
 - [ ] EXT-13 — Sandbox resource limits and failure recovery. Required before guest plugins ship; additional OpenSekai goal. Partial: interruption, stack limit, quotas, denied capabilities, leaked handles, and recovery (disable, release, reload in a new worker after the watchdog) pass Linux tests ([evidence](evaluation/extension-sandbox.md)). A 64 MiB WASM memory maximum for each extension is the hard memory bound (Linux tests only). The QuickJS time limit is soft; the worker watchdog bounds it. macOS, the WebKit Web Worker, and Windows remain. [GitHub #106](https://github.com/danirukun/opensekai/issues/106)
 - [ ] EXT-14 — Scripting API behavior audit. Later; required before extension parity claims. [GitHub #107](https://github.com/danirukun/opensekai/issues/107)
+  - First audit part: 15 documented Warudo scripting behaviors compared with extension API version 1: 0 Same, 3 Partial, 4 Different, 7 Missing, 1 Unknown. The Warudo cells come from search summaries; the handbook pages were not opened ([scripting audit](evaluation/scripting-api-audit.md)).
 - [ ] EXT-15 — Package content scan and trust warnings. Later; additional OpenSekai goal. [GitHub #186](https://github.com/danirukun/opensekai/issues/186)
 
 ## Editor experience
