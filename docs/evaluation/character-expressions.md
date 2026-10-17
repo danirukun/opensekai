@@ -28,6 +28,22 @@ The owner then reported on #178 that the macOS editor listed only two-letter nam
 
 On macOS, the library load rebuilt the stored record of that model to `angry, sad, Smug, Nightmare, Blush, EyeSwirl, EyeHearts, EyeStars, WingFlap, relaxed, happy, ToggleShirt, ToggleHat`. The Inspector of the macOS editor showed these 13 rows. The custom clips got layers 1 to 9 in record order (`ToggleHat` on layer 9), and switching `ToggleHat` on worked.
 
+## Each expression of the model in the macOS renderer
+
+A script used the operator connection to set each expression to active, wait 1 s, capture the Scene window (Camera Close Up), and set it to inactive. Each expression reached weight 1. Captures are valid only while the Scene window is in front: WebKit stops drawing a covered window, and the first captures were all equal to the baseline.
+
+| Expression | VRM content | Result |
+| --- | --- | --- |
+| `angry`, `sad`, `Smug`, `Nightmare`, `relaxed`, `happy` | Morph target binds | Pass. The face changes (`happy` closes the eyes and smiles). |
+| `ToggleShirt` | Material color bind: `Rem Shirt VRM` `_Color` to alpha 0 (cutout) | Fail, then pass after the fix. The jacket disappears. |
+| `Blush`, `EyeSwirl`, `EyeHearts`, `EyeStars`, `WingFlap`, `ToggleHat` | None. The clips are empty in the VRM file. | No change, as expected. The model has these effects only in its `.warudo` build. |
+
+Cause of the `ToggleShirt` failure: three-vrm 3.5.5 finds the property of a material color bind by a material flag. It knows `isMToonMaterial` but not `isMToonNodeMaterial`, so it dropped every material color bind of the WebGPU MToon material at load. `packages/renderer/src/mtoon-binds.ts` adds the node material to the same property map, because the property names are the same.
+
+![Face of each expression](character-expressions/rem-faces-macos.png)
+
+![ToggleShirt off and on](character-expressions/rem-toggle-shirt-macos.png)
+
 ## Not checked
 
-The fade on a real VRM in the renderer, OBS output, live face tracking, the Blueprint node fields in the Rete editor, and show save and open. These are local acceptance steps in the pull request.
+The fade timing on a real VRM (the captures show only the end state), OBS output, live face tracking, the Blueprint node fields in the Rete editor, and show save and open. These are local acceptance steps in the pull request.

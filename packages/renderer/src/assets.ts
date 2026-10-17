@@ -7,6 +7,8 @@ import type { Object3D, Mesh, SkinnedMesh, Material, Texture } from "three/webgp
 import { failure } from "./apply-frame";
 import { createTexturePool } from "./texture-sharing";
 import { createImageResizePolicy } from "./image-resize";
+import { supportNodeMaterialColorBinds } from "./mtoon-binds";
+supportNodeMaterialColorBinds();
 export function createAssetCache<T extends {
     dispose(): void;
 }>(load: (id: string) => Promise<T>) {
