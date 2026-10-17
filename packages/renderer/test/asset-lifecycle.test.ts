@@ -23,12 +23,12 @@ vi.mock("../src/assets", async importOriginal => ({
     createAssetLoader: () => rendererPorts.load
 }));
 import { createRenderer } from "../src/renderer";
-import { makeSmokeFrame } from "@opensekai/contracts";
+import { QUALITY_PROFILES, makeSmokeFrame } from "@opensekai/contracts";
 it("releases an asset removed after failed render submission", async () => {
     const disposeAsset = vi.fn();
     rendererPorts.load.mockReset().mockImplementation(async () => ({ scene: new Group(), warnings: [], dispose: disposeAsset }));
     rendererPorts.render.mockReset().mockRejectedValueOnce(new Error("material compile failed")).mockResolvedValue(undefined);
-    const renderer = await createRenderer({canvas: {} as HTMLCanvasElement, outputId: "output_main", mode: "force-webgl2", resources: {readAsset: vi.fn()}, diagnostics: false, resolutionScale: 1});
+    const renderer = await createRenderer({canvas: {} as HTMLCanvasElement, outputId: "output_main", mode: "force-webgl2", resources: {readAsset: vi.fn()}, diagnostics: false, quality: QUALITY_PROFILES.production_v1});
     const first = makeSmokeFrame({sequence: 1, tick: 1});
     first.scene.entities = first.scene.entities.filter(entity => entity.kind !== "mesh");
     await expect(renderer.applyFrame(first)).rejects.toMatchObject({code: "UNSUPPORTED"});
@@ -48,7 +48,7 @@ it("resizes only when physical canvas dimensions change", async () => {
     rendererPorts.setSize.mockClear();
     rendererPorts.render.mockReset().mockResolvedValue(undefined);
     const canvas = {width: 0, height: 0} as HTMLCanvasElement;
-    const renderer = await createRenderer({canvas, outputId: "output_main", mode: "force-webgl2", resources: {readAsset: vi.fn()}, diagnostics: false, resolutionScale: 1});
+    const renderer = await createRenderer({canvas, outputId: "output_main", mode: "force-webgl2", resources: {readAsset: vi.fn()}, diagnostics: false, quality: QUALITY_PROFILES.production_v1});
     const frame = makeSmokeFrame({sequence: 1, tick: 1});
     frame.scene.entities = frame.scene.entities.filter(entity => entity.kind === "camera");
     await renderer.applyFrame(frame);
@@ -67,7 +67,7 @@ it("resizes only when physical canvas dimensions change", async () => {
 
 it("keeps one render camera while applying live lens and camera selections", async () => {
     rendererPorts.render.mockReset().mockResolvedValue(undefined);
-    const renderer = await createRenderer({canvas: {width: 1920, height: 1080} as HTMLCanvasElement, outputId: "output_main", mode: "force-webgl2", resources: {readAsset: vi.fn()}, diagnostics: false, resolutionScale: 1});
+    const renderer = await createRenderer({canvas: {width: 1920, height: 1080} as HTMLCanvasElement, outputId: "output_main", mode: "force-webgl2", resources: {readAsset: vi.fn()}, diagnostics: false, quality: QUALITY_PROFILES.production_v1});
     const frame = makeSmokeFrame({sequence: 1, tick: 1});
     frame.scene.entities = frame.scene.entities.filter(entity => entity.kind === "camera");
     await renderer.applyFrame(frame);
@@ -92,12 +92,12 @@ it("keeps one render camera while applying live lens and camera selections", asy
     renderer.dispose();
 });
 it('returns no diagnostics before display or when diagnostics are disabled',async()=>{
- const renderer=await createRenderer({canvas:{width:1920,height:1080} as HTMLCanvasElement,outputId:'output_main',mode:'force-webgl2',resources:{readAsset:vi.fn()},diagnostics:false,resolutionScale:1});expect(renderer.diagnostics!('epoch')).toBeNull();renderer.dispose();expect(renderer.diagnostics!('epoch')).toBeNull();
+ const renderer=await createRenderer({canvas:{width:1920,height:1080} as HTMLCanvasElement,outputId:'output_main',mode:'force-webgl2',resources:{readAsset:vi.fn()},diagnostics:false,quality: QUALITY_PROFILES.production_v1});expect(renderer.diagnostics!('epoch')).toBeNull();renderer.dispose();expect(renderer.diagnostics!('epoch')).toBeNull();
 });
 
 it("reports renderer allocations with bounded queue/cache metadata after display",async()=>{
  rendererPorts.render.mockReset().mockResolvedValue(undefined);
- const renderer=await createRenderer({canvas:{width:1920,height:1080} as HTMLCanvasElement,outputId:"output_main",mode:"force-webgl2",resources:{readAsset:vi.fn()},diagnostics:true,resolutionScale:1});
+ const renderer=await createRenderer({canvas:{width:1920,height:1080} as HTMLCanvasElement,outputId:"output_main",mode:"force-webgl2",resources:{readAsset:vi.fn()},diagnostics:true,quality: QUALITY_PROFILES.production_v1});
  expect(renderer.diagnostics!("epoch_1")).toBeNull();const frame=makeSmokeFrame({sequence:1,tick:1});frame.scene.entities=frame.scene.entities.filter(entity=>entity.kind==="camera");await renderer.applyFrame(frame);
  expect(renderer.diagnostics!("epoch_1")).toMatchObject({sessionId:frame.sessionId,outputId:"output_main",rendererEpoch:"epoch_1",sequence:1,revision:0,backend:"webgl2",geometries:7,textures:9,assetCacheEntries:0,queuedFrames:0,queuedCaptures:0});renderer.dispose();expect(renderer.diagnostics!("epoch_1")).toBeNull();
 });

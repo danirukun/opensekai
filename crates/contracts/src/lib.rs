@@ -24,6 +24,8 @@ strings!(EvidenceKind { Capture=>"capture", Benchmark=>"benchmark" });
 strings!(CapturePreset { DiagnosticV1=>"diagnostic_v1" });
 strings!(FixtureId { SmokeV1=>"smoke_v1" });
 strings!(ProfileId { WebgpuSmokeV1=>"webgpu_smoke_v1", Webgl2SmokeV1=>"webgl2_smoke_v1" });
+strings!(QualityProfileId { PreviewV1=>"preview_v1", ProductionV1=>"production_v1", PerformanceV1=>"performance_v1" });
+strings!(CameraAntiAliasing { None=>"none", Fxaa=>"fxaa" });
 strings!(MimeType { ImagePng=>"image/png" });
 object!(AppError {code:ErrorCode,message:String,ids:Vec<Id>});
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -123,6 +125,12 @@ pub enum SceneEntity {
             rename = "renderEnvironment"
         )]
         render_environment: Option<bool>,
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            rename = "antiAliasing"
+        )]
+        anti_aliasing: Option<CameraAntiAliasing>,
     },
 }
 impl SceneEntity {
@@ -202,6 +210,12 @@ pub enum PatchOp {
         #[serde(rename = "renderEnvironment")]
         render_environment: bool,
     },
+    SetCameraAntiAliasing {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+        #[serde(rename = "antiAliasing")]
+        anti_aliasing: CameraAntiAliasing,
+    },
     SetTrackingSmoothing {
         #[serde(rename = "entityId")]
         entity_id: Id,
@@ -261,7 +275,22 @@ pub struct RuntimeFrame {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub blueprint_revision: Option<u64>,
 }
-object!(FrameApplied {output_id:Id,session_id:Id,sequence:u64,tick:u64,revision:u64,camera_id:Id,backend:Backend,cpu_ms:f64,gpu_ms:Option<f64>,warnings:Vec<AppError>});
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FrameApplied {
+    pub output_id: Id,
+    pub session_id: Id,
+    pub sequence: u64,
+    pub tick: u64,
+    pub revision: u64,
+    pub camera_id: Id,
+    pub backend: Backend,
+    pub cpu_ms: f64,
+    pub gpu_ms: Option<f64>,
+    pub warnings: Vec<AppError>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quality_profile: Option<QualityProfileId>,
+}
 object!(RendererDiagnostics {
     session_id: Id,
     output_id: Id,

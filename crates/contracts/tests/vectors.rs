@@ -126,6 +126,7 @@ fn expanded_shared_vectors() {
             "descriptor" => validate_value::<ConnectionDescriptor>(p).map(|_| ()),
             "marker" => validate_value::<DiagnosticMarker>(p).map(|_| ()),
             "captureReplyData" => validate_value::<CaptureReplyData>(p).map(|_| ()),
+            "applied" => validate_value::<opensekai_contracts::FrameApplied>(p).map(|_| ()),
             "wire" => parse_wire(&serde_json::to_vec(p).unwrap()).map(|_| ()),
             "call" => opensekai_contracts::validate_call(vector["method"].as_str().unwrap(), p),
             "wireText" => parse_wire(p.as_str().unwrap().as_bytes()).map(|_| ()),

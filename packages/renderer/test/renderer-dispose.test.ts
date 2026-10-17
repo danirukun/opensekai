@@ -1,6 +1,6 @@
 import { expect, it, vi } from 'vitest';
 import { Object3D } from 'three/webgpu';
-import { makeSmokeFrame } from '@opensekai/contracts';
+import { QUALITY_PROFILES, makeSmokeFrame } from '@opensekai/contracts';
 import { createRenderer } from '../src/renderer';
 const ports=vi.hoisted(()=>({controls:null as any,render:vi.fn(),dispose:vi.fn()}));
 vi.mock('../src/backend',()=>({initializeBackend:async()=>({backend:'webgl2',renderer:{setSize:vi.fn(),renderAsync:ports.render,compileAsync:vi.fn(async()=>{}),dispose:ports.dispose}})}));
@@ -13,7 +13,7 @@ it('stops editor interaction immediately while pending GPU work retains resource
  ports.render.mockReset().mockResolvedValue(undefined);ports.dispose.mockClear();
  const canvas=new EventTarget() as HTMLCanvasElement;Object.assign(canvas,{width:1920,height:1080,focus:vi.fn(),ownerDocument:{defaultView:new EventTarget()}});
  const onCommit=vi.fn(async()=>({ok:true as const,data:{revision:1}}));const onDraft=vi.fn();
- const renderer=await createRenderer({canvas,outputId:'preview_main',mode:'force-webgl2',resources:{readAsset:vi.fn()},diagnostics:false,resolutionScale:1,editor:{onSelect:vi.fn(),onCommit,onDraft}});
+ const renderer=await createRenderer({canvas,outputId:'preview_main',mode:'force-webgl2',resources:{readAsset:vi.fn()},diagnostics:false,quality: QUALITY_PROFILES.production_v1,editor:{onSelect:vi.fn(),onCommit,onDraft}});
  const frame=makeSmokeFrame({sequence:1,tick:1});frame.scene.entities=frame.scene.entities.filter(x=>x.kind==='camera' || (x.kind==='mesh' && x.source.kind==='box'));
  await renderer.applyFrame(frame);const id=frame.scene.entities.find(x=>x.kind==='mesh')!.id;
  renderer.editor!.sync({scene:frame.scene,selectedId:id,tool:'translate',enabled:true});ports.controls.emit('mouseDown');

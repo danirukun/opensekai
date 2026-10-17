@@ -1,6 +1,6 @@
 import { it, expect, vi, beforeEach, describe } from 'vitest';
 import { Group, Mesh, MeshStandardMaterial, MeshBasicMaterial, BoxGeometry, Texture, type Object3D } from 'three/webgpu';
-import { makeSmokeFrame, type RuntimeFrame, type SceneEntity } from '@opensekai/contracts';
+import { QUALITY_PROFILES, makeSmokeFrame, type RuntimeFrame, type SceneEntity } from '@opensekai/contracts';
 const ports = vi.hoisted(() => ({ load: vi.fn(), render: vi.fn(), compile: vi.fn(), light: { apply: vi.fn(), dispose: vi.fn() } }));
 vi.mock('../src/backend', () => ({ initializeBackend: async () => ({ backend: 'webgl2', renderer: { info: { memory: { geometries: 0, textures: 0 } }, setSize: vi.fn(), renderAsync: ports.render, compileAsync: ports.compile, dispose: vi.fn() } }) }));
 vi.mock('../src/assets', async original => ({ ...await original<typeof import('../src/assets')>(), createAssetLoader: () => ports.load }));
@@ -19,7 +19,7 @@ function frame(options: { assetId?: string | null; flag?: boolean } = {}): Runti
 const rendered = () => ports.render.mock.lastCall![0] as Group;
 const room = () => { const root = new Group(); root.name = 'room'; return { scene: root, warnings: [], dispose: vi.fn() }; };
 beforeEach(() => { ports.load.mockReset(); ports.render.mockReset().mockResolvedValue(undefined); ports.compile.mockReset().mockResolvedValue(undefined); ports.light.apply.mockReset(); ports.light.dispose.mockReset(); });
-const make = (outputId: 'output_main' | 'preview_main' = 'output_main') => createRenderer({ canvas: { width: 1920, height: 1080 } as HTMLCanvasElement, outputId, mode: 'force-webgl2', resources: { readAsset: vi.fn() }, diagnostics: false, resolutionScale: 1 });
+const make = (outputId: 'output_main' | 'preview_main' = 'output_main') => createRenderer({ canvas: { width: 1920, height: 1080 } as HTMLCanvasElement, outputId, mode: 'force-webgl2', resources: { readAsset: vi.fn() }, diagnostics: false, quality: QUALITY_PROFILES.production_v1 });
 
 it('loads the environment, lights it before GPU preparation, and draws it', async () => {
     ports.load.mockResolvedValue(room());
