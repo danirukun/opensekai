@@ -1,5 +1,5 @@
-import { ExpressionNameSchema,ExpressionSettingsSchema,TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,TrackingSmoothingSchema,EntityNameSchema,ShowSceneSchema,IdSchema,CameraAntiAliasingSchema } from '@opensekai/contracts';
-import type { ExpressionSettings, AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing, CameraAntiAliasing } from '@opensekai/contracts';
+import { ExpressionNameSchema,ExpressionSettingsSchema,TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,TrackingSmoothingSchema,EntityNameSchema,ShowSceneSchema,IdSchema,CameraAntiAliasingSchema,CameraNavigationSchema } from '@opensekai/contracts';
+import type { ExpressionSettings, AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing, CameraAntiAliasing, CameraNavigation, CameraScreenshotResult } from '@opensekai/contracts';
 import {makeEntityCopy} from './asset-management';
 type CameraLens=Extract<SceneEntity,{kind:'camera'}>['lens'];
 export interface EditorView {
@@ -126,6 +126,20 @@ export function createEditorModel(api: AppApi) {
   setCameraAntiAliasing(entityId:Id,antiAliasing:CameraAntiAliasing,expectedRevision?:number):Promise<Reply<{revision:number}>> {
    const parsed=CameraAntiAliasingSchema.safeParse(antiAliasing);if(!ofKind(entityId,'camera')||!parsed.success)return invalid();
    return patch({kind:'setCameraAntiAliasing',entityId,antiAliasing:parsed.data},expectedRevision);
+  },
+  setCameraNavigation(entityId:Id,navigation:CameraNavigation,expectedRevision?:number):Promise<Reply<{revision:number}>> {
+   const parsed=CameraNavigationSchema.safeParse(navigation);if(!ofKind(entityId,'camera')||!parsed.success)return invalid();
+   return patch({kind:'setCameraNavigation',entityId,navigation:parsed.data},expectedRevision);
+  },
+  // A screenshot is not an edit: it does not change the revision, so it does not block other edits.
+  async cameraScreenshot(cameraId:Id):Promise<Reply<CameraScreenshotResult>> {
+   if(!view.scene){publish({error:'UNAVAILABLE'});return failure('UNAVAILABLE');}
+   if(!ofKind(cameraId,'camera'))return invalid('NOT_FOUND');
+   try {
+    const reply=await api.cameraScreenshot({cameraId,expectedRevision:view.scene.revision});
+    if(!reply.ok){if(reply.error.code==='CONFLICT')try{await inspect();}catch{}publish({error:reply.error.code});}
+    return reply;
+   }catch{publish({error:'UNAVAILABLE'});return failure('UNAVAILABLE');}
   },
   setTrackingSmoothing(entityId:Id,smoothing:TrackingSmoothing,expectedRevision?:number):Promise<Reply<{revision:number}>> {
    const parsed=TrackingSmoothingSchema.safeParse(smoothing);if(!ofKind(entityId,'tracking')||!parsed.success)return invalid();

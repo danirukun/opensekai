@@ -6,6 +6,7 @@
  import type {AddKind} from '../editor/live-fields';
  import type { EditorPanelProps } from '../editor/model';
  import {groupEntities} from '../editor/asset-groups';
+ import {cameraLimitReached} from '../editor/cameras';
  import {copyTransform} from '../editor/interaction';
  import ContextMenu, {type MenuAction} from './ContextMenu.svelte';
  type Tool='translate'|'rotate'|'scale';
@@ -55,7 +56,7 @@
  }
 
 </script>
-<section class="editor-panel hierarchy" aria-labelledby="hierarchy-heading"><div class="asset-heading"><h2 id="hierarchy-heading">Assets</h2><div class="asset-actions"><Button variant="ghost" disabled={disabled||view.pending||!view.scene||!onadd} onclick={event=>{const revision=view.scene?.revision;if(revision===undefined)return;menu={x:event.currentTarget.getBoundingClientRect().left,y:event.currentTarget.getBoundingClientRect().bottom,actions:([['camera','Camera'],['character','Character'],['environment','Environment'],['vmc','VMC Receiver'],['ifacialmocap','iFacialMocap Receiver'],['mediapipe','MediaPipe Tracker']] as [AddKind,string][]).map(([kind,label])=>{const full=(kind==='character'&&(view.scene?.entities.filter(e=>e.kind==='avatar').length??0)>=2)||(kind==='environment'&&(view.scene?.entities.some(e=>e.kind==='environment')??false));return {label,disabled:full,title:full?'Scene asset limit reached':undefined,run:()=>{if(view.scene?.revision===revision&&!view.pending&&!disabled)void onadd?.(kind,revision);}};})};}} title="Add asset"><Plus size={14}/></Button></div></div><div class="asset-search"><Search size={14}/><Input label="Search assets" placeholder="Search" bind:value={search}/></div>
+<section class="editor-panel hierarchy" aria-labelledby="hierarchy-heading"><div class="asset-heading"><h2 id="hierarchy-heading">Assets</h2><div class="asset-actions"><Button variant="ghost" disabled={disabled||view.pending||!view.scene||!onadd} onclick={event=>{const revision=view.scene?.revision;if(revision===undefined)return;menu={x:event.currentTarget.getBoundingClientRect().left,y:event.currentTarget.getBoundingClientRect().bottom,actions:([['camera','Camera'],['character','Character'],['environment','Environment'],['vmc','VMC Receiver'],['ifacialmocap','iFacialMocap Receiver'],['mediapipe','MediaPipe Tracker']] as [AddKind,string][]).map(([kind,label])=>{const full=(kind==='character'&&(view.scene?.entities.filter(e=>e.kind==='avatar').length??0)>=2)||(kind==='camera'&&cameraLimitReached(view.scene?.entities??[]))||(kind==='environment'&&(view.scene?.entities.some(e=>e.kind==='environment')??false));return {label,disabled:full,title:full?'Scene asset limit reached':undefined,run:()=>{if(view.scene?.revision===revision&&!view.pending&&!disabled)void onadd?.(kind,revision);}};})};}} title="Add asset"><Plus size={14}/></Button></div></div><div class="asset-search"><Search size={14}/><Input label="Search assets" placeholder="Search" bind:value={search}/></div>
  <div class="entity-list" role="toolbar" aria-label="Scene assets" tabindex="0" onkeydown={navigate}>
   {#each groups as group (group.key)}
    <div class="asset-group">

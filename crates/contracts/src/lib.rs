@@ -1426,9 +1426,9 @@ impl Validate for SceneView {
             } = e
             {
                 require(
-                    self.entities.iter().any(
-                        |a| matches!(a, SceneEntity::Avatar { id, .. } if id == target),
-                    ),
+                    self.entities
+                        .iter()
+                        .any(|a| matches!(a, SceneEntity::Avatar { id, .. } if id == target)),
                     "missing camera target",
                 )?;
             }

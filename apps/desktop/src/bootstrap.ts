@@ -5,7 +5,7 @@ import { connectClient } from '@opensekai/browser-client';
 import type { EditorOptions, EditorHandle, AssetLoadStatus } from '@opensekai/renderer';
 import { createRenderer } from '@opensekai/renderer';
 import { makeSmokeScene, AssetRecordSchema, ConnectionDescriptorSchema, TrackingUpdateSchema, QUALITY_PROFILES } from '@opensekai/contracts';
-import type { AssetRecord, BrowserClient, ConnectionDescriptor, RuntimeFrame,TrackingUpdate } from '@opensekai/contracts';
+import type { AppError, AssetRecord, BrowserClient, ConnectionDescriptor, RuntimeFrame,TrackingUpdate } from '@opensekai/contracts';
 import { makeOutputUrl } from './editor/output-url';
 import {makeEmptyScene} from './editor/authoring';
 import { createPreviewPump } from './preview-pump';
@@ -96,7 +96,15 @@ export async function bootstrapDesktop(canvas: HTMLCanvasElement, editorOptions?
    if (code !== 'CANCELLED') console.error('Preview submission failed', code ?? 'UNAVAILABLE');
   });
   const off = preview.onFrame(frame => pump.offer(frame));
-  closePreview = () => { off(); pump.stop(); renderer.dispose(); };
+  // The host relays cameraScreenshot to this preview_main renderer; the PNG goes back over the WebSocket, not Tauri IPC.
+  const offScreenshot = preview.onScreenshot(async params => {
+   try { return { ok: true, data: await renderer.screenshot(params.cameraId, params.expectedRevision) }; }
+   catch (error) {
+    const e = error as Partial<AppError>;
+    return { ok: false, error: { code: e.code ?? 'UNAVAILABLE', message: e.code ? e.message ?? 'Screenshot failed' : 'Screenshot failed', ids: e.ids ?? [] } };
+   }
+  });
+  closePreview = () => { off(); offScreenshot(); pump.stop(); renderer.dispose(); };
   const outputUrl = makeOutputUrl(info.output,info.rendererMode);
   return { client, outputUrl, assets: info.assets, canEdit:info.operator.capabilities.includes('edit'), editor:renderer.editor, tracking, onLoadStatus:renderer.onLoadStatus, dismissLoad:renderer.dismissLoad, stop };
  } catch (error) {

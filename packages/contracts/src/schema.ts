@@ -155,7 +155,7 @@ export const SceneViewSchema = z.strictObject({
  const sources=s.entities.filter(e=>e.kind==='tracking');
  if(s.entities.filter(e=>e.kind==='environment').length>1)return false;
  if(sources.length>4||s.entities.filter(e=>e.kind==='avatar').length>2||s.entities.filter(e=>e.kind==='camera').length>LIMITS.cameras)return false;
- if(!s.entities.every(e=>e.kind!=='camera'||e.navigation?.mode!=='orbitCharacter'||e.navigation.targetId===null||s.entities.some(a=>a.id===e.navigation?.targetId&&a.kind==='avatar')))return false;
+ if(!s.entities.every(e=>{if(e.kind!=='camera'||e.navigation?.mode!=='orbitCharacter')return true;const target=e.navigation.targetId;return target===null||s.entities.some(a=>a.id===target&&a.kind==='avatar');}))return false;
  if(new Set(s.entities.map(e=>e.id)).size!==s.entities.length||new Set(s.outputs.map(o=>o.id)).size!==s.outputs.length||!s.outputs.every(o=>s.entities.some(e=>e.id===o.cameraId&&e.kind==='camera')))return false;
  return s.entities.every(e=>e.kind!=='avatar'||!e.tracking||[e.tracking.bodySourceId,e.tracking.faceSourceId].every((id,index)=>id===null||sources.some(source=>source.id===id&&(index===1||source.config.kind!=='ifacialmocap'))));
 }, 'Duplicate ID, budget or invalid reference');
@@ -512,16 +512,19 @@ export const CallSchema = z.strictObject({
     method: MethodSchema,
     params: z.unknown()
 }).refine(v => validateCall(v.method, v.params).ok);
+// A flat character-class test: a grouped base64 pattern overflows the V8 regex stack above about 5 MB,
+// and the wire union tests a screenshot reply against the capture reply schema too.
+const base64 = (maxBytes: number) => z.string().max(Math.ceil(maxBytes / 3) * 4)
+    .refine(v => v.length % 4 === 0 && /^[A-Za-z0-9+/]*={0,2}$/.test(v))
+    .refine(v => v.length * 3 / 4 - (v.endsWith("==") ? 2 : v.endsWith("=") ? 1 : 0) <= maxBytes);
 export const CaptureReplyDataSchema = z.strictObject({
     metadata: z.strictObject({
         frame: FrameAppliedSchema,
         width: u.positive().max(1920),
         height: u.positive().max(1080)
     }),
-    pngBase64: z.string().regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/).max(Math.ceil(LIMITS.pngBytes / 3) * 4)
-}).refine(v => v.pngBase64.length * 3 / 4 - (v.pngBase64.endsWith("==") ? 2 : v.pngBase64.endsWith("=") ? 1 : 0) <= LIMITS.pngBytes);
-const base64 = (maxBytes: number) => z.string().regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/).max(Math.ceil(maxBytes / 3) * 4)
-    .refine(v => v.length * 3 / 4 - (v.endsWith("==") ? 2 : v.endsWith("=") ? 1 : 0) <= maxBytes);
+    pngBase64: base64(LIMITS.pngBytes)
+});
 export const ScreenshotReplyDataSchema = z.strictObject({
     sessionId: IdSchema,
     revision: u,

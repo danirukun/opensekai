@@ -26,3 +26,14 @@ it('maps Blueprint tools and validates their input',async () => {
  expect(await invokeTool(api,'blueprintInspect',{sinceRevision:0})).toMatchObject({ok:true});
  expect(await invokeTool(api,'blueprintRun',{graph:{},triggerNodeId:'start'})).toMatchObject({ok:false,error:{code:'INVALID_INPUT'}});
 });
+it('maps camera_screenshot to cameraScreenshot and takes no path', async () => {
+ const { toolMethods } = await import('../src/tools');
+ expect(toolMethods.camera_screenshot).toBe('cameraScreenshot');
+ const api = fixtureApi();
+ expect(await invokeTool(api, 'cameraScreenshot', { cameraId: 'camera_main', expectedRevision: 0 })).toMatchObject({ ok: true, data: { fileName: '20261017-090507-042-camera_main.png', width: 1920, height: 1080, cameraId: 'camera_main' } });
+ expect(await invokeTool(api, 'cameraScreenshot', { cameraId: 'camera_other', expectedRevision: 0 })).toMatchObject({ ok: false, error: { code: 'NOT_FOUND' } });
+ for (const params of [{ cameraId: 'camera_main', expectedRevision: 0, path: '/tmp/x.png' }, { cameraId: 'camera_main' }, { cameraId: '', expectedRevision: 0 }])
+  expect(await invokeTool(api, 'cameraScreenshot', params)).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+ api.cameraScreenshot = async () => ({ ok: true, data: { fileName: '../escape.png', width: 1920, height: 1080, bytes: 1, sha256: '0'.repeat(64), cameraId: 'camera_main', revision: 0 } });
+ expect(await invokeTool(api, 'cameraScreenshot', { cameraId: 'camera_main', expectedRevision: 0 })).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+});
