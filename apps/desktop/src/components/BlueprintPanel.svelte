@@ -3,7 +3,7 @@
  import { invoke } from '@tauri-apps/api/core';
  import { Button } from '@oshi-connect/ui';
  import { Play, Search, Trash2, Variable } from '@lucide/svelte';
- import { BLUEPRINT_LABELS, blueprintPorts, exportBlueprint, importBlueprint, serializeBlueprintFile, nodeDefinition, defaultBlueprintSettings, keystrokeAccelerator, type AppApi, type AppStatus, type BlueprintGraph, type BlueprintNode, type BlueprintOp, type BlueprintStatus, type DefaultRefs, type SceneView } from '@opensekai/contracts';
+ import { BLUEPRINT_LABELS, blueprintPorts, exportBlueprint, importBlueprint, serializeBlueprintFile, nodeDefinition, defaultBlueprintSettings, keystrokeAccelerator, type AppApi, type AppStatus, type BlueprintGraph, type BlueprintNode, type BlueprintOp, type BlueprintStatus, type DefaultRefs, type SceneView, type AssetRecord, triggerableExpressions } from '@opensekai/contracts';
  import { issueText, type BlueprintSync, type SyncIssue } from '../blueprints/blueprint-sync';
  import { currentPlatform, defaultKeystroke } from '../blueprints/keystroke-format';
  import type { MenuTarget, ReteBlueprintEditor } from '../blueprints/rete-editor';
@@ -22,8 +22,8 @@
  import BlueprintSocketView from './BlueprintSocketView.svelte';
  import BlueprintConnectionView from './BlueprintConnectionView.svelte';
 
- let { api, sync, memory, scene, status, disabled, onrun }: {
-  api: AppApi | null; sync: BlueprintSync; memory: EditorMemory; scene: SceneView | null; status: AppStatus | null; disabled: boolean; onrun: () => void;
+ let { api, sync, memory, scene, assets = [], status, disabled, onrun }: {
+  api: AppApi | null; sync: BlueprintSync; memory: EditorMemory; scene: SceneView | null; assets?: readonly AssetRecord[]; status: AppStatus | null; disabled: boolean; onrun: () => void;
  } = $props();
  const platform = currentPlatform();
  let canvas: HTMLDivElement;
@@ -59,7 +59,13 @@
  const failure = $derived(errors.find(item => item.graphId === selectedId));
  const problem = $derived(runError ?? failure?.error.message ?? (issueText(issue) || (changedElsewhere ? 'Changed elsewhere' : null)) ?? (missing.length ? `Missing: ${missing.join(', ')}` : null));
  const outputId = $derived(scene?.outputs[0]?.id);
- const refs = $derived<DefaultRefs>({ entityId: targets[0]?.id, cameraId: cameras[0]?.id, outputId, keystroke: defaultKeystroke(platform), variables: graph?.variables ?? [] });
+ // The first character whose model has a triggerable expression, for the Character node defaults.
+ const face = $derived((scene?.entities ?? []).flatMap(entity => {
+  const record = entity.kind === 'avatar' && entity.assetId !== null ? assets.find(asset => asset.id === entity.assetId) : undefined;
+  const first = record ? triggerableExpressions(record)[0] : undefined;
+  return first ? [{ avatarId: entity.id, expression: first.name }] : [];
+ })[0]);
+ const refs = $derived<DefaultRefs>({ entityId: targets[0]?.id, avatarId: face?.avatarId, expression: face?.expression, cameraId: cameras[0]?.id, outputId, keystroke: defaultKeystroke(platform), variables: graph?.variables ?? [] });
  const taken = $derived(new Set((status?.warnings ?? []).flatMap(warning => warning.ids)));
  const inputWarning = $derived(status?.warnings.find(warning => warning.ids.includes('input-monitoring')));
  function openInputSettings() { try { void invoke('open_input_monitoring_settings').catch(() => {}); } catch { /* outside Tauri */ } }
@@ -280,7 +286,7 @@
   <aside class="blueprint-inspector" aria-label="Node properties">
     <strong>{BLUEPRINT_LABELS[node.type]}</strong>
     <span class="blueprint-inspector-category" data-category={nodeDefinition(node.type).category.toLowerCase()}>{nodeDefinition(node.type).category}</span>
-    <BlueprintNodeFields {node} {scene} variables={graph?.variables ?? []} {platform} unavailable={node.type === 'event.keystroke' && taken.has(keystrokeAccelerator(node.settings))} onsettings={settings} />
+    <BlueprintNodeFields {node} {scene} {assets} variables={graph?.variables ?? []} {platform} unavailable={node.type === 'event.keystroke' && taken.has(keystrokeAccelerator(node.settings))} onsettings={settings} />
     <Button variant="ghost" {disabled} onclick={remove}><Trash2 size={14}/>Delete node</Button>
   </aside>
   {/if}

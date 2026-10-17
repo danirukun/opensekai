@@ -147,6 +147,39 @@ async fn blueprint_run_reaches_the_session_publisher_and_returns_revision() {
     service.shutdown().await.unwrap();
 }
 #[tokio::test]
+async fn expression_calls_reach_the_session_publisher() {
+    let (_dir, service) = service(false).await;
+    let mut publisher = auth(&service.publisher_descriptor()).await;
+    let mut operator = auth(&service.operator_descriptor()).await;
+    let view = |weight: f64| json!({"avatarId":"performer","expressions":[{"name":"happy","preset":true,"layer":0,"fadeSeconds":0.4,"suppress":{"blink":false,"mouth":false,"brow":false},"active":true,"weight":weight}]});
+    for (id, method, params, weight, ok) in [
+        (
+            "get",
+            "expressionGet",
+            json!({"avatarId":"performer"}),
+            0.5,
+            true,
+        ),
+        (
+            "set",
+            "expressionSet",
+            json!({"avatarId":"performer","name":"happy","active":true}),
+            0.,
+            true,
+        ),
+    ] {
+        send(&mut operator, call(id, method, params.clone())).await;
+        let relayed = recv(&mut publisher).await;
+        assert_eq!(relayed["method"], method);
+        assert_eq!(relayed["params"], params);
+        send(&mut publisher, json!({"kind":"reply","requestId":relayed["requestId"],"result":{"ok":true,"data":view(weight)}})).await;
+        let response = recv(&mut operator).await;
+        assert_eq!(response["requestId"], id);
+        assert_eq!(response["result"]["ok"], ok, "{response}");
+    }
+    service.shutdown().await.unwrap();
+}
+#[tokio::test]
 async fn service_auth_denies_stale_token_second_publisher_and_wrong_output() {
     let (_dir, service) = service(false).await;
     let descriptor = service.publisher_descriptor();

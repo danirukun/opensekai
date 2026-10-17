@@ -90,10 +90,26 @@ impl AssetRegistry {
                     continue;
                 };
                 let stored = p.with_extension("vrm");
-                let backfilled = value.get("name").is_none() && value.is_object();
+                let backfilled = value.is_object()
+                    && (value.get("name").is_none() || value.get("expressions").is_none());
                 if backfilled {
-                    value["name"] =
-                        Value::String(stored_meta_name(&stored).unwrap_or_else(|| "Avatar".into()));
+                    // Older records have no name or expression list: read them from the stored file.
+                    let vrm = stored.is_file().then(|| stored_vrm(&stored)).flatten();
+                    if value.get("name").is_none() {
+                        value["name"] = Value::String(
+                            vrm.as_ref()
+                                .and_then(|(json, _)| meta_name(json))
+                                .unwrap_or_else(|| "Avatar".into()),
+                        );
+                    }
+                    if value.get("expressions").is_none() {
+                        let expressions = vrm
+                            .as_ref()
+                            .map(|(json, raw)| super::vrm::vrm_expressions(json, raw))
+                            .unwrap_or_default();
+                        value["expressions"] =
+                            serde_json::to_value(expressions).unwrap_or_default();
+                    }
                 }
                 let Ok(record) = serde_json::from_value::<AssetRecord>(value) else {
                     continue;
@@ -206,14 +222,27 @@ impl AssetRegistry {
             serde_json::from_slice(&bytes).map_err(|_| invalid("Invalid asset manifest"))?;
         // Older local manifests have records without a name: use the record ID as the name.
         if let Some(assets) = value.get_mut("assets").and_then(Value::as_array_mut) {
-            for record in assets
-                .iter_mut()
-                .filter_map(|entry| entry.get_mut("record").and_then(Value::as_object_mut))
-            {
+            for entry in assets.iter_mut().filter_map(Value::as_object_mut) {
+                let path = entry.get("path").and_then(Value::as_str).map(PathBuf::from);
+                let Some(record) = entry.get_mut("record").and_then(Value::as_object_mut) else {
+                    continue;
+                };
                 if !record.contains_key("name") {
                     if let Some(id) = record.get("id").cloned() {
                         record.insert("name".into(), id);
                     }
+                }
+                // Older manifests have no expression list: read it from a VRM fixture file.
+                if !record.contains_key("expressions") {
+                    let expressions = path
+                        .filter(|_| record.get("format").and_then(Value::as_str) == Some("vrm"))
+                        .and_then(|path| stored_vrm(&path))
+                        .map(|(json, raw)| super::vrm::vrm_expressions(&json, &raw))
+                        .unwrap_or_default();
+                    record.insert(
+                        "expressions".into(),
+                        serde_json::to_value(expressions).unwrap_or_default(),
+                    );
                 }
             }
         }
@@ -343,6 +372,7 @@ pub fn prepare_scene(packed: PackedScene) -> Result<PreparedScene, AppError> {
         importer_version: 1,
         name: name.clone(),
         credits,
+        expressions: vec![],
     };
     record.validate()?;
     Ok(PreparedScene {
@@ -401,7 +431,8 @@ pub fn stage_avatar(library: &Path, path: &Path) -> Result<StagedAsset, AppError
     copy.as_file_mut()
         .flush()
         .map_err(|_| error(ErrorCode::Unavailable, ""))?;
-    let json = validate_import_file(copy.as_file_mut(), count)?;
+    let (json, raw) = validate_import_file(copy.as_file_mut(), count)?;
+    let expressions = super::vrm::vrm_expressions(&json, &raw);
     let sha256 = hex(&hash.finalize());
     let id = format!("avatar_{sha256}");
     let name = meta_name(&json)
@@ -421,6 +452,7 @@ pub fn stage_avatar(library: &Path, path: &Path) -> Result<StagedAsset, AppError
         importer_version: 1,
         name: name.clone(),
         credits: None,
+        expressions,
     };
     copy.as_file()
         .sync_all()
@@ -759,6 +791,44 @@ mod import_tests {
         let reopened = AssetRegistry::empty(managed.path()).unwrap();
         assert_eq!(reopened.read(&a.record.id).unwrap(), bytes);
     }
+    fn with_expressions() -> String {
+        include_str!("../../tests/fixtures/minimal-vrm1.json").replacen(
+            r#""VRMC_vrm": {"#,
+            r#""VRMC_vrm": {"expressions":{"preset":{"happy":{},"aa":{}},"custom":{"Wink":{}}},"#,
+            1,
+        )
+    }
+    #[test]
+    fn import_and_library_load_record_expression_names() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("expressive.vrm");
+        std::fs::write(&path, vrm(&with_expressions())).unwrap();
+        let managed = dir.path().join("managed");
+        let mut r = AssetRegistry::empty(&managed).unwrap();
+        let imported = r.import_avatar(&path).unwrap().record;
+        let names: Vec<_> = imported
+            .expressions
+            .iter()
+            .map(|e| (e.name.as_str(), e.preset))
+            .collect();
+        assert_eq!(names, [("happy", true), ("aa", true), ("Wink", false)]);
+        // A record written before expression lists existed gets the list from its stored file.
+        let json_path = r.library().join(format!("{}.json", imported.id));
+        let mut old: Value = serde_json::from_slice(&std::fs::read(&json_path).unwrap()).unwrap();
+        old.as_object_mut().unwrap().remove("expressions");
+        std::fs::write(&json_path, old.to_string()).unwrap();
+        let reopened = AssetRegistry::empty(&managed).unwrap();
+        assert_eq!(reopened.records()[0].expressions, imported.expressions);
+        let written: Value = serde_json::from_slice(&std::fs::read(&json_path).unwrap()).unwrap();
+        assert_eq!(written["expressions"][2]["name"], "Wink");
+        // A stored file that does not parse gives an empty list and keeps the record.
+        old.as_object_mut().unwrap().remove("expressions");
+        std::fs::write(&json_path, old.to_string()).unwrap();
+        std::fs::write(r.library().join(format!("{}.vrm", imported.id)), b"broken").unwrap();
+        let broken = AssetRegistry::empty(&managed).unwrap();
+        assert_eq!(broken.records().len(), 1);
+        assert!(broken.records()[0].expressions.is_empty());
+    }
     #[test]
     fn imports_vrm0_thumb_metadata() {
         let dir = tempfile::tempdir().unwrap();
@@ -882,12 +952,14 @@ fn meta_name(json: &Value) -> Option<String> {
         .and_then(Value::as_str)
         .and_then(bounded_name)
 }
-fn stored_meta_name(path: &Path) -> Option<String> {
+/// The JSON chunk of a stored VRM, or None when the file does not open or validate.
+fn stored_vrm(path: &Path) -> Option<(Value, Vec<u8>)> {
     let mut file = std::fs::File::open(path).ok()?;
     let len = file.metadata().ok()?.len();
-    meta_name(&validate_import_file(&mut file, len).ok()?)
+    validate_import_file(&mut file, len).ok()
 }
-fn validate_import_file(file: &mut std::fs::File, len: u64) -> Result<Value, AppError> {
+/// Validates a stored or imported VRM and returns its JSON chunk, parsed and raw.
+fn validate_import_file(file: &mut std::fs::File, len: u64) -> Result<(Value, Vec<u8>), AppError> {
     file.seek(SeekFrom::Start(0))
         .map_err(|_| invalid("Invalid avatar file"))?;
     let mut header = [0u8; 12];
@@ -901,6 +973,7 @@ fn validate_import_file(file: &mut std::fs::File, len: u64) -> Result<Value, App
     }
     let mut offset = 12u64;
     let mut json = None;
+    let mut raw = Vec::new();
     let mut binary = false;
     while offset < len {
         let mut h = [0u8; 8];
@@ -924,6 +997,7 @@ fn validate_import_file(file: &mut std::fs::File, len: u64) -> Result<Value, App
                     serde_json::from_slice::<Value>(&data)
                         .map_err(|_| invalid("Invalid GLB JSON"))?,
                 );
+                raw = data;
             }
             0x004e4942 if json.is_some() && !binary => {
                 binary = true;
@@ -954,76 +1028,8 @@ fn validate_import_file(file: &mut std::fs::File, len: u64) -> Result<Value, App
     {
         return Err(invalid("Unsupported VRM version"));
     }
-    let nodes = json
-        .get("nodes")
-        .and_then(Value::as_array)
-        .ok_or_else(|| invalid("Missing VRM nodes"))?;
-    let bones = json
-        .pointer("/extensions/VRMC_vrm/humanoid/humanBones")
-        .and_then(Value::as_object)
-        .map(|b| {
-            b.iter()
-                .map(|(name, v)| (name.as_str(), v.get("node")))
-                .collect::<Vec<_>>()
-        })
-        .or_else(|| {
-            json.pointer("/extensions/VRM/humanoid/humanBones")
-                .and_then(Value::as_array)
-                .map(|b| {
-                    b.iter()
-                        .map(|v| {
-                            (
-                                v.get("bone").and_then(Value::as_str).unwrap_or(""),
-                                v.get("node"),
-                            )
-                        })
-                        .collect()
-                })
-        });
-    let bones = bones.ok_or_else(|| invalid("Missing VRM humanoid"))?;
-    let required = [
-        "hips",
-        "spine",
-        "head",
-        "leftUpperLeg",
-        "leftLowerLeg",
-        "leftFoot",
-        "rightUpperLeg",
-        "rightLowerLeg",
-        "rightFoot",
-        "leftUpperArm",
-        "leftLowerArm",
-        "leftHand",
-        "rightUpperArm",
-        "rightLowerArm",
-        "rightHand",
-    ];
-    let mut names = std::collections::HashSet::new();
-    let mut node_ids = std::collections::HashSet::new();
-    if required
-        .iter()
-        .any(|name| !bones.iter().any(|(n, _)| n == name))
-        || (vrm0.is_some() && !bones.iter().any(|(n, _)| *n == "chest"))
-        || bones.iter().any(|(name, node)| {
-            !names.insert(*name) || !node_ids.insert(node.and_then(Value::as_u64))
-        })
-    {
-        return Err(invalid("Missing or duplicate VRM humanoid bone"));
-    }
-    if bones.is_empty()
-        || !bones.iter().any(|(name, _)| *name == "hips")
-        || bones.iter().any(|(name, node)| {
-            !(opensekai_contracts::humanoid_bone(name)
-                || (vrm0.is_some()
-                    && ["leftThumbIntermediate", "rightThumbIntermediate"].contains(name)))
-                || node
-                    .and_then(Value::as_u64)
-                    .is_none_or(|n| n >= (nodes.len() as u64))
-        })
-    {
-        return Err(invalid("Invalid VRM humanoid"));
-    }
-    Ok(json)
+    super::vrm::validate_humanoid(&json, vrm0.is_some())?;
+    Ok((json, raw))
 }
 #[cfg(test)]
 mod budget_tests {

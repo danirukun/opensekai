@@ -2,7 +2,7 @@ import { expect, it } from 'vitest';
 import { SceneEntitySchema, type AssetRecord } from '@opensekai/contracts';
 import { makeAuthoringEntity, makeEmptyScene } from '../src/editor/authoring';
 import { IMPORT_SCENE, creditLine, sceneSourceOptions, sourceAction } from '../src/editor/environment';
-const record = (id: string, name: string): AssetRecord => ({ id, format: 'glb', sha256: 'a'.repeat(64), bytes: 1, sourceUrl: null, licenseLabel: '', importerVersion: 1, name });
+const record = (id: string, name: string): AssetRecord => ({ id, format: 'glb', sha256: 'a'.repeat(64), bytes: 1, sourceUrl: null, licenseLabel: '', importerVersion: 1, name, expressions: [] });
 it('creates an environment without a model', () => {
     const entity = makeAuthoringEntity('environment', 'stage', makeEmptyScene().entities);
     expect(SceneEntitySchema.safeParse(entity).success).toBe(true);

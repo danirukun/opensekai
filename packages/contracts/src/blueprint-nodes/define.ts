@@ -3,14 +3,14 @@ import type { KeystrokeSettings } from './events';
 
 export type PortType = 'flow' | 'number' | 'boolean' | 'vector3';
 export interface PortShape { inputs: Record<string, PortType>; outputs: Record<string, PortType> }
-export type NodeCategory = 'Events' | 'Input' | 'Flow' | 'Values' | 'Math' | 'Logic' | 'Variables' | 'Scene';
-export const NODE_CATEGORIES: readonly NodeCategory[] = ['Events', 'Input', 'Flow', 'Values', 'Math', 'Logic', 'Variables', 'Scene'];
-export interface DefaultRefs { entityId?: string; cameraId?: string; outputId?: string; keystroke: KeystrokeSettings; variables?: readonly { id: string; type: 'number' | 'boolean' }[] }
+export type NodeCategory = 'Events' | 'Input' | 'Flow' | 'Values' | 'Math' | 'Logic' | 'Variables' | 'Scene' | 'Character';
+export const NODE_CATEGORIES: readonly NodeCategory[] = ['Events', 'Input', 'Flow', 'Values', 'Math', 'Logic', 'Variables', 'Scene', 'Character'];
+export interface DefaultRefs { entityId?: string; avatarId?: string; expression?: string; cameraId?: string; outputId?: string; keystroke: KeystrokeSettings; variables?: readonly { id: string; type: 'number' | 'boolean' }[] }
 export type BlueprintField =
  | { key: string; label: string; kind: 'number'; min?: number; max?: number }
  | { key: string; label: string; kind: 'boolean' }
  | { key: string; label: string; kind: 'count'; min: number; max: number }
- | { key: string; label: string; kind: 'entity' | 'camera' | 'output' }
+ | { key: string; label: string; kind: 'entity' | 'camera' | 'output' | 'avatar' | 'expression' }
  | { key: string; label: string; kind: 'variable'; variableType: 'number' | 'boolean' }
  | { key: string; label: string; kind: 'cases' }
  | { key: string; label: string; kind: 'keystroke' }

@@ -10,12 +10,16 @@ fn environment(id: &str) -> Value {
     json!({"id":id,"name":"Environment","visible":true,"transform":{"position":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"kind":"environment","assetId":null})
 }
 fn record() -> Value {
-    json!({"id":format!("scene_{}", "a".repeat(64)),"format":"glb","sha256":"a".repeat(64),"bytes":1,"sourceUrl":null,"licenseLabel":"","importerVersion":1,"name":"Room"})
+    json!({"id":format!("scene_{}", "a".repeat(64)),"format":"glb","sha256":"a".repeat(64),"bytes":1,"sourceUrl":null,"licenseLabel":"","importerVersion":1,"name":"Room","expressions":[]})
 }
 #[test]
 fn one_environment_is_valid_and_two_are_not() {
     assert!(validate_value::<SceneView>(&scene(vec![environment("stage")])).is_ok());
-    assert!(validate_value::<SceneView>(&scene(vec![environment("stage"), environment("stage_2")])).is_err());
+    assert!(validate_value::<SceneView>(&scene(vec![
+        environment("stage"),
+        environment("stage_2")
+    ]))
+    .is_err());
 }
 #[test]
 fn environment_requires_the_asset_key() {
@@ -26,11 +30,15 @@ fn environment_requires_the_asset_key() {
 #[test]
 fn camera_flag_is_optional_and_round_trips() {
     let plain = validate_value::<SceneView>(&scene(vec![])).unwrap();
-    assert!(!serde_json::to_string(&plain).unwrap().contains("renderEnvironment"));
+    assert!(!serde_json::to_string(&plain)
+        .unwrap()
+        .contains("renderEnvironment"));
     let mut flagged = scene(vec![]);
     flagged["entities"][0]["renderEnvironment"] = json!(false);
     let parsed = validate_value::<SceneView>(&flagged).unwrap();
-    assert!(serde_json::to_string(&parsed).unwrap().contains("\"renderEnvironment\":false"));
+    assert!(serde_json::to_string(&parsed)
+        .unwrap()
+        .contains("\"renderEnvironment\":false"));
 }
 #[test]
 fn environment_operations_parse() {
@@ -50,6 +58,7 @@ fn credits_are_optional_and_never_null() {
     null["credits"] = Value::Null;
     assert!(validate_value::<AssetRecord>(&null).is_err());
     let mut ftp = record();
-    ftp["credits"] = json!({"title":null,"author":null,"license":null,"sourceUrl":"ftp://example.com/room"});
+    ftp["credits"] =
+        json!({"title":null,"author":null,"license":null,"sourceUrl":"ftp://example.com/room"});
     assert!(validate_value::<AssetRecord>(&ftp).is_err());
 }

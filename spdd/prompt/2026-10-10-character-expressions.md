@@ -22,6 +22,17 @@ R15. The Inspector shows an **Expressions** group under the Model row when the s
 R16. The editor reads `expressionGet` for the selected character when the selection changes, after each `expressionSet` that it sends, and at the existing editor poll interval while the Expressions group is visible.
 R17. Show save and open keep the avatar `expressions` settings.
 
+## Implementation notes (2026-10-17, bundle B4)
+
+These notes record the reversible choices of the implementation. They add to the requirements above.
+
+- R1: the Rust registry reads VRM 1.0 keys in document order with a streaming key visitor, because `serde_json::Value` sorts object keys. The smoke fixture manifest (`fixtures/smoke/manifest.json`) lists the 18 preset names of the pinned VRM. A local test manifest without the list gets it from the VRM file when the registry loads.
+- R8 and R14: `expressionSet` needs the `edit` capability, as `blueprintRun` does. `expressionGet` needs `read`.
+- R11: `AvatarPose.expressions` has at most 64 keys. When tracking and expressions together pass this limit, the composer drops the expression keys that do not fit, in record order.
+- R12: after `import_avatar` or `import_scene`, the host sends the new record to the Scene window as the Tauri event `asset-record`. The Scene window sends the merged record list to the session worker (`{ kind: 'assets', records }`). The first list goes with the start message.
+- R13: the `entityId` field of the two Character nodes uses a new field kind `avatar`, which lists only characters. Node defaults use the first character whose model has a triggerable expression.
+- R10: the session also drops the state of a character when its model changes and changes back before the next frame.
+
 ## E — Entities
 
 - `AssetRecord`: adds `expressions: { name: string; preset: boolean }[]`.

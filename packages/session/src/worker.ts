@@ -1,5 +1,5 @@
 import { connectPublisher } from "@opensekai/browser-client";
-import { ConnectionDescriptorSchema, SceneViewSchema, TrackingUpdateSchema, type TrackingUpdate, type ConnectionDescriptor, type PublisherClient, type Reply, type SceneView } from "@opensekai/contracts";
+import { AssetRecordSchema, ConnectionDescriptorSchema, type AssetRecord, SceneViewSchema, TrackingUpdateSchema, type TrackingUpdate, type ConnectionDescriptor, type PublisherClient, type Reply, type SceneView } from "@opensekai/contracts";
 import { createSession } from "./session";
 import { isSessionMethod, sessionApi } from "./session-api";
 export interface WorkerPorts {
@@ -9,7 +9,8 @@ export interface WorkerPorts {
 export type SessionWorkerMessage = {
     descriptor: ConnectionDescriptor;
     scene: SceneView;
-} | {
+    assets?: AssetRecord[];
+} | {kind:"assets";records:AssetRecord[]} | {
     kind: "stop";
 } | {kind:"tracking";update:TrackingUpdate};
 export function createWorkerHost(ports: WorkerPorts) {
@@ -17,6 +18,9 @@ export function createWorkerHost(ports: WorkerPorts) {
     let active = false;
     let cleanup: (() => void) | undefined;
     let ingestLocal:((update:TrackingUpdate)=>void)|undefined;
+    let records:AssetRecord[]=[];
+    let storeRecords:((records:AssetRecord[])=>void)|undefined;
+    const parseRecords=(list:unknown):AssetRecord[]=>Array.isArray(list)?list.flatMap(item=>{const parsed=AssetRecordSchema.safeParse(item);return parsed.success?[parsed.data]:[];}):[];
     return {
         async handle(message: SessionWorkerMessage): Promise<void> {
             if ("kind" in message && message.kind === "stop") {
@@ -25,6 +29,12 @@ export function createWorkerHost(ports: WorkerPorts) {
                 cleanup?.();
                 cleanup = undefined;
                 ingestLocal=undefined;
+                storeRecords=undefined;
+                return;
+            }
+            if("kind" in message&&message.kind==="assets"){
+                records=parseRecords(message.records);
+                storeRecords?.(records);
                 return;
             }
             if("kind" in message&&message.kind==="tracking"){
@@ -37,7 +47,9 @@ export function createWorkerHost(ports: WorkerPorts) {
             const descriptor = ConnectionDescriptorSchema.parse(message.descriptor);
             if (descriptor.role !== "publisher")
                 throw new Error("Publisher descriptor required");
-            const session = createSession(SceneViewSchema.parse(message.scene), descriptor.sessionId);
+            if(message.assets!==undefined)records=parseRecords(message.assets);
+            const session = createSession(SceneViewSchema.parse(message.scene), descriptor.sessionId, records);
+            storeRecords=list=>session.setAssetRecords(list);
             active = true;
             const current = ++generation;
             let client: PublisherClient;

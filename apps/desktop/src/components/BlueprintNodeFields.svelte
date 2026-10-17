@@ -1,11 +1,11 @@
 <script lang="ts">
  import { Input, Select } from '@oshi-connect/ui';
- import { nodeDefinition, type BlueprintField, type BlueprintNode, type BlueprintVariable, type KeystrokeSettings, type SceneView } from '@opensekai/contracts';
+ import { nodeDefinition, triggerableExpressions, type AssetRecord, type BlueprintField, type BlueprintNode, type BlueprintVariable, type KeystrokeSettings, type SceneView } from '@opensekai/contracts';
  import KeystrokeField from './KeystrokeField.svelte';
  import { fitPropertySettings, formatCases, keyOptions, parseCases, propertyOptions } from '../blueprints/fields';
 
- let { node, scene, variables, platform, unavailable, onsettings }: {
-  node: BlueprintNode; scene: SceneView | null; variables: readonly BlueprintVariable[]; platform: string; unavailable: boolean;
+ let { node, scene, assets = [], variables, platform, unavailable, onsettings }: {
+  node: BlueprintNode; scene: SceneView | null; assets?: readonly AssetRecord[]; variables: readonly BlueprintVariable[]; platform: string; unavailable: boolean;
   onsettings: (settings: BlueprintNode['settings']) => void;
  } = $props();
  const settings = $derived(node.settings as Record<string, unknown>);
@@ -22,14 +22,21 @@
  };
  const choices = (field: BlueprintField) =>
   field.kind === 'entity' ? (scene?.entities ?? []).filter(entity => entity.kind !== 'tracking').map(entity => ({ value: entity.id, label: entity.name }))
+  : field.kind === 'avatar' ? (scene?.entities ?? []).filter(entity => entity.kind === 'avatar').map(entity => ({ value: entity.id, label: entity.name }))
+  : field.kind === 'expression' ? expressionChoices()
   : field.kind === 'camera' ? (scene?.entities ?? []).filter(entity => entity.kind === 'camera').map(entity => ({ value: entity.id, label: entity.name }))
   : field.kind === 'output' ? (scene?.outputs ?? []).map(output => ({ value: output.id, label: output.id }))
   : field.kind === 'variable' ? variables.filter(variable => variable.type === field.variableType).map(variable => ({ value: variable.id, label: variable.name }))
   : field.kind === 'count' ? Array.from({ length: field.max - field.min + 1 }, (_, i) => ({ value: String(field.min + i), label: String(field.min + i) }))
   : [];
+ function expressionChoices() {
+  const avatar = scene?.entities.find(entity => entity.id === settings.entityId);
+  const record = avatar?.kind === 'avatar' && avatar.assetId !== null ? assets.find(asset => asset.id === avatar.assetId) : undefined;
+  return (record ? triggerableExpressions(record) : []).map(entry => ({ value: entry.name, label: entry.name }));
+ }
  const options = (field: BlueprintField) => {
   const list = choices(field), value = settings[field.key];
-  return (field.kind === 'entity' || field.kind === 'camera' || field.kind === 'output') && typeof value === 'string' && !list.some(item => item.value === value)
+  return (field.kind === 'entity' || field.kind === 'camera' || field.kind === 'output' || field.kind === 'avatar' || field.kind === 'expression') && typeof value === 'string' && !list.some(item => item.value === value)
    ? [{ value, label: 'Missing' }, ...list] : list;
  };
 </script>
