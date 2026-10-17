@@ -68,12 +68,17 @@ export type SceneEntity = (EntityBase & {
     kind: "camera";
     renderEnvironment?: boolean;
     antiAliasing?: CameraAntiAliasing;
+    navigation?: CameraNavigation;
     lens: {
         fovDegrees: number;
         near: number;
         far: number;
     };
 });
+export type CameraNavigation = { mode: "none" } | { mode: "freeLook"; sensitivity: number } | { mode: "orbitCharacter"; sensitivity: number; targetId: Id | null; pivotOffset: Vec3 };
+export interface CameraScreenshotParams { cameraId: Id; expectedRevision: number; }
+export interface CameraScreenshotResult { fileName: string; width: 1920; height: 1080; bytes: number; sha256: string; cameraId: Id; revision: number; }
+export interface ScreenshotBytes { sessionId: Id; revision: number; cameraId: Id; width: 1920; height: 1080; png: Uint8Array; }
 export interface OutputSpec {
     id: Id;
     cameraId: Id;
@@ -97,7 +102,7 @@ type ExistingPatchOp = {
     entityId: Id;
     visible: boolean;
 };
-export type LivePatchOp = {kind:'setTrackingSmoothing';entityId:Id;smoothing:TrackingSmoothing}| {kind:'setAvatarIdle';entityId:Id;idleAnimation:AvatarIdle}|{kind:'createEntity';entity:SceneEntity}|{kind:'setCameraLens';entityId:Id;lens:Extract<SceneEntity,{kind:'camera'}>['lens']}|{kind:'setAvatarTracking';entityId:Id;tracking:AvatarTracking}|{kind:'setTrackingConfig';entityId:Id;config:TrackingConfig}|{kind:'setAvatarModel';entityId:Id;assetId:Id|null}|{kind:'setEnvironmentModel';entityId:Id;assetId:Id|null}|{kind:'setCameraRenderEnvironment';entityId:Id;renderEnvironment:boolean}|{kind:'setCameraAntiAliasing';entityId:Id;antiAliasing:CameraAntiAliasing}|{kind:'setAvatarExpression';entityId:Id;name:string;settings:ExpressionSettings|null};
+export type LivePatchOp = {kind:'setTrackingSmoothing';entityId:Id;smoothing:TrackingSmoothing}| {kind:'setAvatarIdle';entityId:Id;idleAnimation:AvatarIdle}|{kind:'createEntity';entity:SceneEntity}|{kind:'setCameraLens';entityId:Id;lens:Extract<SceneEntity,{kind:'camera'}>['lens']}|{kind:'setAvatarTracking';entityId:Id;tracking:AvatarTracking}|{kind:'setTrackingConfig';entityId:Id;config:TrackingConfig}|{kind:'setAvatarModel';entityId:Id;assetId:Id|null}|{kind:'setEnvironmentModel';entityId:Id;assetId:Id|null}|{kind:'setCameraRenderEnvironment';entityId:Id;renderEnvironment:boolean}|{kind:'setCameraAntiAliasing';entityId:Id;antiAliasing:CameraAntiAliasing}|{kind:'setCameraNavigation';entityId:Id;navigation:CameraNavigation}|{kind:'setAvatarExpression';entityId:Id;name:string;settings:ExpressionSettings|null};
 export type AssetManagementPatchOp = {kind:'renameEntity';entityId:Id;name:string}|{kind:'removeEntity';entityId:Id};
 export type PatchOp = ExistingPatchOp | LivePatchOp | AssetManagementPatchOp;
 export interface ScenePatch {
@@ -254,6 +259,7 @@ export interface AppApi {
     assetList(params: { after?: Id }): Promise<Reply<AssetList>>;
     expressionGet(params: { avatarId: Id }): Promise<Reply<ExpressionState>>;
     expressionSet(params: { avatarId: Id; name: string; active: boolean }): Promise<Reply<ExpressionState>>;
+    cameraScreenshot(params: CameraScreenshotParams): Promise<Reply<CameraScreenshotResult>>;
 }
 export interface CaptureBytes {
     frame: FrameApplied;
@@ -294,6 +300,7 @@ export interface BrowserClient extends ResourceHost {
     sendApplied(frame: FrameApplied): void;
     sendDiagnostics?(diagnostics: RendererDiagnostics): void;
     onCapture(listener: (params: CaptureParams) => Promise<Reply<CaptureBytes>>): () => void;
+    onScreenshot(listener: (params: CameraScreenshotParams) => Promise<Reply<ScreenshotBytes>>): () => void;
     readResource(uri: string): Promise<Uint8Array>;
     close(): void;
 }

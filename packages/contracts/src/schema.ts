@@ -15,7 +15,11 @@ export const LIMITS = {
     pngBytes: 2097152,
     pendingCalls: 32,
     queuedFrames: 2,
-    rpcTimeoutMs: 2000
+    rpcTimeoutMs: 2000,
+    screenshotPngBytes: 8388608,
+    screenshotEnvelopeBytes: 12582912,
+    screenshotTimeoutMs: 5000,
+    cameras: 8
 } as const;
 export const IdSchema = z.string().min(1).max(256);
 const n = z.number().finite(), u = n.int().nonnegative().max(Number.MAX_SAFE_INTEGER);
@@ -90,6 +94,17 @@ export const LensSchema = z.strictObject({
     near: n.positive(),
     far: n.positive()
 }).refine(l => l.far > l.near);
+// Warudo Control Mode. A missing field means `none`, so an old show does not change.
+export const CameraNavigationSchema = z.discriminatedUnion("mode", [
+    z.strictObject({ mode: z.literal("none") }),
+    z.strictObject({ mode: z.literal("freeLook"), sensitivity: n.min(0.1).max(10) }),
+    z.strictObject({
+        mode: z.literal("orbitCharacter"),
+        sensitivity: n.min(0.1).max(10),
+        targetId: IdSchema.nullable(),
+        pivotOffset: z.tuple([n.min(-1000).max(1000), n.min(-1000).max(1000), n.min(-1000).max(1000)])
+    })
+]);
 export const SceneEntitySchema = z.discriminatedUnion("kind", [
     EntityBaseSchema.extend({
         kind: z.literal("mesh"),
@@ -119,7 +134,8 @@ export const SceneEntitySchema = z.discriminatedUnion("kind", [
         kind: z.literal("camera"),
         lens: LensSchema,
         renderEnvironment: z.boolean().optional(),
-        antiAliasing: CameraAntiAliasingSchema.optional()
+        antiAliasing: CameraAntiAliasingSchema.optional(),
+        navigation: CameraNavigationSchema.optional()
     })
 ]);
 export const OutputSpecSchema = z.strictObject({
@@ -138,7 +154,8 @@ export const SceneViewSchema = z.strictObject({
 }).refine(s => {
  const sources=s.entities.filter(e=>e.kind==='tracking');
  if(s.entities.filter(e=>e.kind==='environment').length>1)return false;
- if(sources.length>4||s.entities.filter(e=>e.kind==='avatar').length>2)return false;
+ if(sources.length>4||s.entities.filter(e=>e.kind==='avatar').length>2||s.entities.filter(e=>e.kind==='camera').length>LIMITS.cameras)return false;
+ if(!s.entities.every(e=>e.kind!=='camera'||e.navigation?.mode!=='orbitCharacter'||e.navigation.targetId===null||s.entities.some(a=>a.id===e.navigation?.targetId&&a.kind==='avatar')))return false;
  if(new Set(s.entities.map(e=>e.id)).size!==s.entities.length||new Set(s.outputs.map(o=>o.id)).size!==s.outputs.length||!s.outputs.every(o=>s.entities.some(e=>e.id===o.cameraId&&e.kind==='camera')))return false;
  return s.entities.every(e=>e.kind!=='avatar'||!e.tracking||[e.tracking.bodySourceId,e.tracking.faceSourceId].every((id,index)=>id===null||sources.some(source=>source.id===id&&(index===1||source.config.kind!=='ifacialmocap'))));
 }, 'Duplicate ID, budget or invalid reference');
@@ -165,6 +182,7 @@ export const PatchOpSchema = z.discriminatedUnion("kind", [
     z.strictObject({kind:z.literal('setAvatarExpression'),entityId:IdSchema,name:ExpressionNameSchema,settings:ExpressionSettingsSchema.nullable()}),
     z.strictObject({kind:z.literal('setCameraRenderEnvironment'),entityId:IdSchema,renderEnvironment:z.boolean()}),
     z.strictObject({kind:z.literal('setCameraAntiAliasing'),entityId:IdSchema,antiAliasing:CameraAntiAliasingSchema}),
+    z.strictObject({kind:z.literal('setCameraNavigation'),entityId:IdSchema,navigation:CameraNavigationSchema}),
     z.strictObject({kind:z.literal('setTrackingConfig'),entityId:IdSchema,config:TrackingConfigSchema}),
     z.strictObject({
         kind: z.literal("setTransform"),
@@ -305,6 +323,21 @@ export const CaptureRecordSchema = z.strictObject({
     resourceUri: z.string().min(1),
     createdAtUtc: z.iso.datetime()
 });
+export const CameraScreenshotParamsSchema = z.strictObject({
+    cameraId: IdSchema,
+    expectedRevision: u
+});
+// `<UTC yyyyMMdd-HHmmss-SSS>-<camera part>[-1..-9].png`. The host makes the name; no client sends a path.
+export const ScreenshotFileNameSchema = z.string().regex(/^\d{8}-\d{6}-\d{3}-[A-Za-z0-9_-]{1,64}(?:-[1-9])?\.png$/);
+export const CameraScreenshotResultSchema = z.strictObject({
+    fileName: ScreenshotFileNameSchema,
+    width: z.literal(1920),
+    height: z.literal(1080),
+    bytes: u.positive().max(LIMITS.screenshotPngBytes),
+    sha256: sha,
+    cameraId: IdSchema,
+    revision: u
+});
 export const BenchmarkParamsSchema = z.strictObject({
     requestId: IdSchema,
     fixtureId: z.literal("smoke_v1"),
@@ -397,7 +430,8 @@ export const ParamSchemas = {
     }),
     assetList: z.strictObject({ after: IdSchema.optional() }),
     expressionGet: z.strictObject({ avatarId: IdSchema }),
-    expressionSet: z.strictObject({ avatarId: IdSchema, name: ExpressionNameSchema, active: z.boolean() })
+    expressionSet: z.strictObject({ avatarId: IdSchema, name: ExpressionNameSchema, active: z.boolean() }),
+    cameraScreenshot: CameraScreenshotParamsSchema
 };
 export const ResultSchemas = {
     appStatus: AppStatusSchema,
@@ -419,7 +453,8 @@ export const ResultSchemas = {
     evidenceRead: EvidenceManifestSchema,
     assetList: AssetListSchema,
     expressionGet: ExpressionStateSchema,
-    expressionSet: ExpressionStateSchema
+    expressionSet: ExpressionStateSchema,
+    cameraScreenshot: CameraScreenshotResultSchema
 };
 export const MethodSchema = z.enum([
     "appStatus",
@@ -437,7 +472,8 @@ export const MethodSchema = z.enum([
     "evidenceRead",
     "assetList",
     "expressionGet",
-    "expressionSet"
+    "expressionSet",
+    "cameraScreenshot"
 ]);
 export function validateCall(method: unknown, params: unknown): Reply<ValidatedCall> {
     const m = MethodSchema.safeParse(method);
@@ -462,7 +498,7 @@ export function validateCall(method: unknown, params: unknown): Reply<ValidatedC
     };
 }
 export function requiredCapability(method: keyof AppApi): Capability {
-    if (method === "scenePatch" || method === "sceneReplace" || method === "cameraSelect" || method === "blueprintRun" || method === "blueprintEdit" || method === "expressionSet")
+    if (method === "scenePatch" || method === "sceneReplace" || method === "cameraSelect" || method === "blueprintRun" || method === "blueprintEdit" || method === "expressionSet" || method === "cameraScreenshot")
         return "edit";
     if (method === "captureFrame")
         return "capture";
@@ -484,6 +520,16 @@ export const CaptureReplyDataSchema = z.strictObject({
     }),
     pngBase64: z.string().regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/).max(Math.ceil(LIMITS.pngBytes / 3) * 4)
 }).refine(v => v.pngBase64.length * 3 / 4 - (v.pngBase64.endsWith("==") ? 2 : v.pngBase64.endsWith("=") ? 1 : 0) <= LIMITS.pngBytes);
+const base64 = (maxBytes: number) => z.string().regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/).max(Math.ceil(maxBytes / 3) * 4)
+    .refine(v => v.length * 3 / 4 - (v.endsWith("==") ? 2 : v.endsWith("=") ? 1 : 0) <= maxBytes);
+export const ScreenshotReplyDataSchema = z.strictObject({
+    sessionId: IdSchema,
+    revision: u,
+    cameraId: IdSchema,
+    width: z.literal(1920),
+    height: z.literal(1080),
+    pngBase64: base64(LIMITS.screenshotPngBytes)
+});
 export const AuthSchema = z.strictObject({
     kind: z.literal("auth"),
     role: z.enum([
@@ -524,6 +570,16 @@ export const CaptureReplySchema = z.strictObject({
     requestId: IdSchema,
     result: replySchema(CaptureReplyDataSchema)
 });
+export const ScreenshotRequestSchema = z.strictObject({
+    kind: z.literal("screenshotRequest"),
+    requestId: IdSchema,
+    params: CameraScreenshotParamsSchema
+});
+export const ScreenshotReplySchema = z.strictObject({
+    kind: z.literal("screenshotReply"),
+    requestId: IdSchema,
+    result: replySchema(ScreenshotReplyDataSchema)
+});
 export const PingPongSchema = z.strictObject({
     kind: z.enum([
         "ping",
@@ -543,6 +599,8 @@ export const WireMessageSchema = z.union([
     DiagnosticsEnvelopeSchema,
     CaptureRequestSchema,
     CaptureReplySchema,
+    ScreenshotRequestSchema,
+    ScreenshotReplySchema,
     PingPongSchema
 ]);
 export type WireMessage = z.infer<typeof WireMessageSchema>;
@@ -551,7 +609,8 @@ export function parseWire(text: string): WireMessage {
     const capture = typeof value === "object" && value !== null && "kind" in value && value.kind === "captureReply";
     const diagnostics = typeof value === "object" && value !== null && "kind" in value && value.kind === "diagnostics";
     const clock = typeof value === "object" && value !== null && "kind" in value && value.kind === "clock";
-    if (new TextEncoder().encode(text).length > (clock ? (typeof value==='object' && value!==null && 'tracking' in value ? LIMITS.trackingClockBytes : LIMITS.clockBytes) : capture ? LIMITS.captureEnvelopeBytes : diagnostics ? LIMITS.diagnosticsBytes : LIMITS.jsonBytes))
+    const screenshot = typeof value === "object" && value !== null && "kind" in value && value.kind === "screenshotReply";
+    if (new TextEncoder().encode(text).length > (clock ? (typeof value==='object' && value!==null && 'tracking' in value ? LIMITS.trackingClockBytes : LIMITS.clockBytes) : capture ? LIMITS.captureEnvelopeBytes : screenshot ? LIMITS.screenshotEnvelopeBytes : diagnostics ? LIMITS.diagnosticsBytes : LIMITS.jsonBytes))
         throw new Error("Message too large");
     return WireMessageSchema.parse(value);
 }
@@ -594,6 +653,11 @@ export const publicJsonSchemas = Object.fromEntries(Object.entries({
     AppliedEnvelope: AppliedEnvelopeSchema,
     CaptureRequest: CaptureRequestSchema,
     CaptureReply: CaptureReplySchema,
+    CameraNavigation: CameraNavigationSchema,
+    CameraScreenshotParams: CameraScreenshotParamsSchema,
+    CameraScreenshotResult: CameraScreenshotResultSchema,
+    ScreenshotRequest: ScreenshotRequestSchema,
+    ScreenshotReply: ScreenshotReplySchema,
     PingPong: PingPongSchema
 }).map(([key, schema]) => [
     key,

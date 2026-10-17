@@ -10,6 +10,11 @@ pub const MAX_CLOCK_BYTES: usize = 2048;
 pub const MAX_TRACKING_CLOCK_BYTES: usize = 65536;
 pub const MAX_MESSAGE_BYTES: usize = 256 * 1024;
 pub const MAX_CAPTURE_MESSAGE_BYTES: usize = 3 * 1024 * 1024;
+pub const MAX_CAPTURE_PNG_BYTES: usize = 2 * 1024 * 1024;
+pub const MAX_SCREENSHOT_PNG_BYTES: usize = 8 * 1024 * 1024;
+pub const MAX_SCREENSHOT_MESSAGE_BYTES: usize = 12 * 1024 * 1024;
+pub const SCREENSHOT_TIMEOUT_MS: u64 = 5000;
+pub const MAX_CAMERAS: usize = 8;
 macro_rules! object { ($name:ident { $($field:ident : $ty:ty),* $(,)? }) => {#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)] #[serde(rename_all="camelCase", deny_unknown_fields)] pub struct $name {$(pub $field: $ty),*}} }
 macro_rules! strings { ($name:ident { $($variant:ident => $wire:literal),* $(,)? }) => {#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)] pub enum $name {$(#[serde(rename=$wire)] $variant),*}} }
 mod tracking;
@@ -68,6 +73,49 @@ pub enum MeshSource {
         #[serde(rename = "assetId")]
         asset_id: Id,
     },
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "mode", rename_all = "camelCase", deny_unknown_fields)]
+pub enum CameraNavigation {
+    None,
+    FreeLook {
+        sensitivity: f64,
+    },
+    OrbitCharacter {
+        sensitivity: f64,
+        #[serde(rename = "targetId")]
+        target_id: Option<Id>,
+        #[serde(rename = "pivotOffset")]
+        pivot_offset: Vec3,
+    },
+}
+impl Validate for CameraNavigation {
+    fn validate(&self) -> Result<(), AppError> {
+        let sensitivity_ok = |s: &f64| s.is_finite() && (0.1..=10.).contains(s);
+        match self {
+            Self::None => Ok(()),
+            Self::FreeLook { sensitivity } => {
+                require(sensitivity_ok(sensitivity), "invalid camera sensitivity")
+            }
+            Self::OrbitCharacter {
+                sensitivity,
+                target_id,
+                pivot_offset,
+            } => {
+                require(sensitivity_ok(sensitivity), "invalid camera sensitivity")?;
+                require(
+                    target_id.as_deref().is_none_or(id_text_ok),
+                    "invalid camera target",
+                )?;
+                require(
+                    pivot_offset
+                        .iter()
+                        .all(|n| n.is_finite() && (-1000. ..=1000.).contains(n)),
+                    "invalid pivot offset",
+                )
+            }
+        }
+    }
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
@@ -133,6 +181,8 @@ pub enum SceneEntity {
             rename = "antiAliasing"
         )]
         anti_aliasing: Option<CameraAntiAliasing>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        navigation: Option<CameraNavigation>,
     },
 }
 impl SceneEntity {
@@ -217,6 +267,11 @@ pub enum PatchOp {
         entity_id: Id,
         #[serde(rename = "antiAliasing")]
         anti_aliasing: CameraAntiAliasing,
+    },
+    SetCameraNavigation {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+        navigation: CameraNavigation,
     },
     SetAvatarExpression {
         #[serde(rename = "entityId")]
@@ -561,6 +616,97 @@ object!(CameraSelectParams {
     camera_id: Id,
     expected_revision: u64
 });
+object!(CameraScreenshotParams {
+    camera_id: Id,
+    expected_revision: u64
+});
+object!(CameraScreenshotResult {
+    file_name: String,
+    width: u32,
+    height: u32,
+    bytes: u64,
+    sha256: String,
+    camera_id: Id,
+    revision: u64
+});
+object!(ScreenshotReplyData {
+    session_id: Id,
+    revision: u64,
+    camera_id: Id,
+    width: u32,
+    height: u32,
+    png_base64: String
+});
+impl Validate for CameraScreenshotParams {
+    fn validate(&self) -> Result<(), AppError> {
+        require(
+            id_text_ok(&self.camera_id) && self.expected_revision <= 9_007_199_254_740_991,
+            "invalid screenshot call",
+        )
+    }
+}
+/// `<yyyyMMdd>-<HHmmss>-<SSS>-<camera part>[-1..-9].png`, the name the host makes.
+pub fn screenshot_file_name_ok(name: &str) -> bool {
+    let Some(stem) = name.strip_suffix(".png") else {
+        return false;
+    };
+    let b = stem.as_bytes();
+    if b.len() < 21 || b[8] != b'-' || b[15] != b'-' || b[19] != b'-' {
+        return false;
+    }
+    let digits = |r: std::ops::Range<usize>| b[r].iter().all(u8::is_ascii_digit);
+    if !(digits(0..8) && digits(9..15) && digits(16..19)) {
+        return false;
+    }
+    let rest = &stem[20..];
+    let camera = match rest.rsplit_once('-') {
+        Some((camera, n))
+            if n.len() == 1 && (b'1'..=b'9').contains(&n.as_bytes()[0]) && !camera.is_empty() =>
+        {
+            camera
+        }
+        _ => rest,
+    };
+    let part_ok = |p: &str| {
+        (1..=64).contains(&p.len())
+            && p.bytes()
+                .all(|c| c.is_ascii_alphanumeric() || c == b'_' || c == b'-')
+    };
+    part_ok(camera) || part_ok(rest)
+}
+impl Validate for CameraScreenshotResult {
+    fn validate(&self) -> Result<(), AppError> {
+        require(
+            screenshot_file_name_ok(&self.file_name),
+            "invalid screenshot name",
+        )?;
+        require(
+            self.width == 1920
+                && self.height == 1080
+                && self.bytes > 0
+                && self.bytes <= MAX_SCREENSHOT_PNG_BYTES as u64
+                && self.revision <= 9_007_199_254_740_991,
+            "invalid screenshot size",
+        )?;
+        require(id_text_ok(&self.camera_id), "invalid camera ID")?;
+        hash(&self.sha256)
+    }
+}
+impl Validate for ScreenshotReplyData {
+    fn validate(&self) -> Result<(), AppError> {
+        require(
+            id_text_ok(&self.session_id)
+                && id_text_ok(&self.camera_id)
+                && self.revision <= 9_007_199_254_740_991,
+            "invalid screenshot reply",
+        )?;
+        require(
+            self.width == 1920 && self.height == 1080,
+            "invalid screenshot dimensions",
+        )?;
+        validate_base64(&self.png_base64, MAX_SCREENSHOT_PNG_BYTES)
+    }
+}
 object!(BlueprintRunParams {
     graph_id: Id,
     trigger_node_id: Id
@@ -1143,6 +1289,16 @@ pub enum WireMessage {
         request_id: Id,
         result: Value,
     },
+    ScreenshotRequest {
+        #[serde(rename = "requestId")]
+        request_id: Id,
+        params: CameraScreenshotParams,
+    },
+    ScreenshotReply {
+        #[serde(rename = "requestId")]
+        request_id: Id,
+        result: Value,
+    },
     Ping {
         #[serde(rename = "requestId")]
         request_id: Id,
@@ -1258,6 +1414,25 @@ impl Validate for SceneView {
                 <= 1,
             "too many environments",
         )?;
+        require(cameras.len() <= MAX_CAMERAS, "too many cameras")?;
+        for e in &self.entities {
+            if let SceneEntity::Camera {
+                navigation:
+                    Some(CameraNavigation::OrbitCharacter {
+                        target_id: Some(target),
+                        ..
+                    }),
+                ..
+            } = e
+            {
+                require(
+                    self.entities.iter().any(
+                        |a| matches!(a, SceneEntity::Avatar { id, .. } if id == target),
+                    ),
+                    "missing camera target",
+                )?;
+            }
+        }
         for e in &self.entities {
             if let SceneEntity::Avatar {
                 tracking: Some(t), ..
@@ -1323,6 +1498,7 @@ impl Validate for ScenePatch {
                 PatchOp::SetTransform { transform, .. } => transform.validate()?,
                 PatchOp::CreateEntity { entity } => entity.validate()?,
                 PatchOp::SetCameraLens { lens, .. } => lens.validate()?,
+                PatchOp::SetCameraNavigation { navigation, .. } => navigation.validate()?,
                 PatchOp::SetTrackingConfig { config, .. } => config.validate()?,
                 PatchOp::SetTrackingSmoothing { smoothing, .. } => smoothing.validate()?,
                 PatchOp::SetAvatarExpression { name, settings, .. } => {
@@ -1492,6 +1668,7 @@ pub fn validate_call(method: &str, params: &Value) -> Result<(), AppError> {
         "benchmarkStatus" | "benchmarkCancel" => decode::<RunParams>(params).map(|_| ()),
         "evidenceRead" => decode::<EvidenceReadParams>(params).map(|_| ()),
         "assetList" => decode::<AssetListParams>(params)?.validate(),
+        "cameraScreenshot" => decode::<CameraScreenshotParams>(params)?.validate(),
         "expressionGet" => {
             let p = decode::<ExpressionGetParams>(params)?;
             require(id_text_ok(&p.avatar_id), "invalid avatar ID")
@@ -1554,6 +1731,7 @@ pub fn validate_result(method: &str, result: &Value) -> Result<(), AppError> {
             | "assetList"
             | "expressionGet"
             | "expressionSet"
+            | "cameraScreenshot"
     );
     require(known, "unknown method")?;
     let Some(data) = reply_data(result)? else {
@@ -1591,20 +1769,23 @@ pub fn validate_result(method: &str, result: &Value) -> Result<(), AppError> {
         "evidenceRead" => decode::<EvidenceManifest>(data)?.validate(),
         "assetList" => decode::<AssetList>(data)?.validate(),
         "expressionGet" | "expressionSet" => decode::<ExpressionState>(data)?.validate(),
+        "cameraScreenshot" => decode::<CameraScreenshotResult>(data)?.validate(),
         _ => unreachable!(),
     }
 }
 pub fn parse_wire(bytes: &[u8]) -> Result<WireMessage, AppError> {
     require(
-        bytes.len() <= MAX_CAPTURE_MESSAGE_BYTES,
+        bytes.len() <= MAX_SCREENSHOT_MESSAGE_BYTES,
         "oversized message",
     )?;
     let value: Value = serde_json::from_slice(bytes).map_err(|e| invalid(e.to_string()))?;
     let msg: WireMessage = decode(&value)?;
-    require(
-        bytes.len() <= MAX_MESSAGE_BYTES || matches!(msg, WireMessage::CaptureReply { .. }),
-        "oversized ordinary message",
-    )?;
+    let limit = match msg {
+        WireMessage::ScreenshotReply { .. } => MAX_SCREENSHOT_MESSAGE_BYTES,
+        WireMessage::CaptureReply { .. } => MAX_CAPTURE_MESSAGE_BYTES,
+        _ => MAX_MESSAGE_BYTES,
+    };
+    require(bytes.len() <= limit, "oversized ordinary message")?;
     match &msg {
         WireMessage::Clock {
             elapsed_ms,
@@ -1665,7 +1846,13 @@ pub fn parse_wire(bytes: &[u8]) -> Result<WireMessage, AppError> {
                         && d.metadata.height <= 1080,
                     "invalid capture dimensions",
                 )?;
-                validate_base64(&d.png_base64)?;
+                validate_base64(&d.png_base64, MAX_CAPTURE_PNG_BYTES)?;
+            }
+        }
+        WireMessage::ScreenshotRequest { params, .. } => params.validate()?,
+        WireMessage::ScreenshotReply { result, .. } => {
+            if let Some(data) = reply_data(result)? {
+                decode::<ScreenshotReplyData>(data)?.validate()?;
             }
         }
         _ => {}
@@ -1797,7 +1984,7 @@ fn scalar_checks(v: &Value) -> Result<(), AppError> {
     }
     Ok(())
 }
-fn validate_base64(s: &str) -> Result<(), AppError> {
+fn validate_base64(s: &str, max_bytes: usize) -> Result<(), AppError> {
     let bytes = s.as_bytes();
     let padding = if s.ends_with("==") {
         2
@@ -1807,7 +1994,7 @@ fn validate_base64(s: &str) -> Result<(), AppError> {
         0
     };
     require(
-        bytes.len().is_multiple_of(4) && bytes.len() <= 2796204,
+        bytes.len().is_multiple_of(4) && bytes.len() <= max_bytes.div_ceil(3) * 4,
         "invalid base64 length",
     )?;
     require(
@@ -1817,7 +2004,7 @@ fn validate_base64(s: &str) -> Result<(), AppError> {
         "invalid base64",
     )?;
     require(
-        bytes.len() / 4 * 3 - padding <= 2 * 1024 * 1024,
+        bytes.len() / 4 * 3 - padding <= max_bytes,
         "oversized PNG encoding",
     )
 }
@@ -1947,8 +2134,14 @@ impl Validate for SceneEntity {
                 smoothing.validate()?;
             }
         }
-        if let Self::Camera { lens, .. } = self {
+        if let Self::Camera {
+            lens, navigation, ..
+        } = self
+        {
             lens.validate()?;
+            if let Some(navigation) = navigation {
+                navigation.validate()?;
+            }
         }
         if let Self::Avatar {
             expressions: Some(expressions),
@@ -1989,7 +2182,7 @@ impl Validate for CaptureReplyData {
                 && self.metadata.height <= 1080,
             "invalid capture dimensions",
         )?;
-        validate_base64(&self.png_base64)
+        validate_base64(&self.png_base64, MAX_CAPTURE_PNG_BYTES)
     }
 }
 
