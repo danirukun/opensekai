@@ -2,6 +2,8 @@
 
 Baseline reviewed: 2026-10-02. Source: [Warudo handbook](https://docs.warudo.app/docs).
 
+UI audit: 2026-10-17, Warudo 0.15.1 (Steam) on Windows 11 in a VM. Lines marked `UI audit 0.15.1` come from the running app, not from the handbook. The raw screenshots and notes stay outside the repository. Character loading crashed Warudo in that VM, so the loaded-character inspector, expressions, and Interactions Setup were not audited.
+
 [GitHub roadmap index #139](https://github.com/danirukun/opensekai/issues/139) tracks all checklist issues by area and status.
 
 Goal: broad functional parity, including documented Pro production features. OpenSekai uses a different engine and extension API. Unity pipeline internals, C# plugin binaries, bundled commercial content, and .warudo archive compatibility are not implied.
@@ -52,8 +54,11 @@ Source: [Assets overview](https://docs.warudo.app/docs/assets/overview).
 - [ ] SCN-01 — Create, remove, duplicate, and rename scene entities. Partial: current camera/avatar/tracker UI verified on macOS; additional asset types remain. [Check](evaluation/asset-management.md). Add › Character creates a character without a model, verified on macOS in a dev-build smoke check ([character check](evaluation/character-model-editor.md)). [GitHub #1](https://github.com/danirukun/opensekai/issues/1)
 - [ ] SCN-02 — Groups, hierarchy, references, and property inspection. First. [GitHub #2](https://github.com/danirukun/opensekai/issues/2)
 - [ ] SCN-03 — Asset export/import and copy between shows. Later. [GitHub #3](https://github.com/danirukun/opensekai/issues/3)
+  - UI audit 0.15.1: Asset menu has export to clipboard or file, import from clipboard or file, and SceneShare whole-scene import and export in Settings.
 - [ ] SCN-04 — Merge imported settings into a selected entity. Later. [GitHub #4](https://github.com/danirukun/opensekai/issues/4)
+  - UI audit 0.15.1: Asset menu has Import into selected asset from clipboard or file.
 - [ ] SCN-05 — Save/load shows and preserve missing references. Partial: native Save As/Open of a bounded scene plus one Blueprint, live macOS round trip, and retained unavailable avatar ID. Recent shows, recovery, release/Windows acceptance, and broader show workflow remain. [Check](evaluation/scene-show-management.md). [GitHub #5](https://github.com/danirukun/opensekai/issues/5)
+  - UI audit 0.15.1: Open scene groups shows by recency (last 7 days, past month, within 6 months, older) with preview images and search. Reload scene discards unsaved edits with no prompt, and the scene does not save itself; OSE-09 must do better.
 - [ ] SCN-06 — Portable prepared packages and migration diagnostics. First; OpenSekai persistence requirement. [GitHub #6](https://github.com/danirukun/opensekai/issues/6)
 
 ## Characters and performance control
@@ -61,16 +66,20 @@ Source: [Assets overview](https://docs.warudo.app/docs/assets/overview).
 Source: [Character](https://docs.warudo.app/docs/assets/character).
 
 - [ ] CHR-01 — VRM import and humanoid rig validation. First. Partial: the Inspector Model row chooses and replaces the VRM of a character, and asset records keep the model name. Models load in the background with a load status overlay. Safari load timing of a 75 MB VRM shows that frames continue during a load of about 2 s, but frames over 100 ms remain; the cold pipeline cache case is unknown ([load timing](evaluation/character-model-loading.md)). A model load through the macOS editor was not checked live. Humanoid rig validation remains. [GitHub #7](https://github.com/danirukun/opensekai/issues/7)
+  - UI audit 0.15.1: Character load normalizes bones and converts VRChat PhysBone bones and colliders. The source picker shows the package description, version, author, and license link.
 - [ ] CHR-02 — Prepared custom character packages. Later; Different API. [GitHub #8](https://github.com/danirukun/opensekai/issues/8)
 - [ ] CHR-03 — Expressions, expression blending, and triggers. First for tracking; full controls Later. [GitHub #9](https://github.com/danirukun/opensekai/issues/9)
+  - UI audit 0.15.1: Expression clips carry options in their names: layer, disable blink, disable mouth, binary (snap) blend shapes, and GameObjects to enable or disable.
 - [ ] CHR-04 — Idle animation and override clips. Partial: built-in default idle verified on macOS; imported Mixamo/VRMA and override clips remain later. [Check](evaluation/default-avatar-idle.md). [GitHub #10](https://github.com/danirukun/opensekai/issues/10)
 - [ ] CHR-05 — Animation layers, masks, transitions, and one-shot playback. Later. [GitHub #11](https://github.com/danirukun/opensekai/issues/11)
 - [ ] CHR-06 — Manual posing, IK, and look-at. Later. [GitHub #12](https://github.com/danirukun/opensekai/issues/12)
 - [ ] CHR-07 — Bone attachment points and visibility/material control. Later. [GitHub #13](https://github.com/danirukun/opensekai/issues/13)
+  - UI audit 0.15.1: Outfit toggles ship as expression clips that disable GameObjects (for example NoCoat, NoHat, NoWings).
 - [ ] CHR-08 — Hair and spring-bone simulation. First benchmark subset; full controls Later. [GitHub #14](https://github.com/danirukun/opensekai/issues/14)
 - [ ] CHR-09 — Character collision and interaction behaviors. Later. [GitHub #15](https://github.com/danirukun/opensekai/issues/15)
 - [ ] CHR-10 — Multiple characters with independent source assignments. First, for two performers. [GitHub #16](https://github.com/danirukun/opensekai/issues/16)
 - [ ] CHR-11 — Animation library workflow. Later; licensed content requires separate sourcing. [GitHub #17](https://github.com/danirukun/opensekai/issues/17)
+- [ ] CHR-12 — MMD motion and camera playback. Later. UI audit 0.15.1. [GitHub #165](https://github.com/danirukun/opensekai/issues/165)
 
 ## Motion capture
 
@@ -80,9 +89,12 @@ Sources: [Motion capture overview](https://docs.warudo.app/docs/mocap/overview),
 - [ ] TRK-02 — External iFacialMocap receive. First. [GitHub #19](https://github.com/danirukun/opensekai/issues/19)
 - [ ] TRK-03 — FaceMotion3D compatibility. Later; do not infer it from iFacialMocap alone. [GitHub #20](https://github.com/danirukun/opensekai/issues/20)
 - [ ] TRK-04 — Face mapping, calibration, smoothing, and overrides. Partial: shared One Euro smoothing, per-source tuning/bypass/reset and named 52-channel ARKit mapping verified; calibration and overrides remain. [Check](evaluation/one-euro-filter.md). [GitHub #21](https://github.com/danirukun/opensekai/issues/21)
+  - UI audit 0.15.1: Configure BlendShapes Mapping remaps each blend shape from an input range to an output range and shows live input and output values. Global sensitivity, eye blink sensitivity, linked blinking, eye squint limit, and Clamp All BlendShapes are separate controls.
 - [ ] TRK-05 — Pose calibration, retargeting, offsets, and source mixing. First subset. [GitHub #22](https://github.com/danirukun/opensekai/issues/22)
 - [ ] TRK-06 — Pendulum motion behavior. Later. [GitHub #23](https://github.com/danirukun/opensekai/issues/23)
+  - UI audit 0.15.1: Pendulum physics settings save to and load from named profiles that any tracker in any scene can use.
 - [ ] TRK-07 — MediaPipe integration. First useful-build requirement; face, upper body and fingers; physical-camera evidence required. [GitHub #24](https://github.com/danirukun/opensekai/issues/24)
+  - UI audit 0.15.1: Tracker runs in its own process and shows status (Tracker started). Controls: input camera, show camera, freeze, process priority, GPU acceleration, mirrored tracking, face and hand calibration, head and body intensity, eye compensation, hand range, depth push, finger offsets.
 - [ ] TRK-08 — OpenSeeFace integration. Later. [GitHub #25](https://github.com/danirukun/opensekai/issues/25)
 - [ ] TRK-09 — RhyLive integration. Later. [GitHub #26](https://github.com/danirukun/opensekai/issues/26)
 - [ ] TRK-10 — SteamVR integration. Later. [GitHub #27](https://github.com/danirukun/opensekai/issues/27)
@@ -97,6 +109,8 @@ Sources: [Motion capture overview](https://docs.warudo.app/docs/mocap/overview),
 - [ ] TRK-19 — Vicon Shogun integration. Later. [GitHub #36](https://github.com/danirukun/opensekai/issues/36)
 - [ ] TRK-20 — OptiTrack Motive integration. Later. [GitHub #37](https://github.com/danirukun/opensekai/issues/37)
 - [ ] TRK-21 — Chingmu Avatar integration. Later. [GitHub #38](https://github.com/danirukun/opensekai/issues/38)
+- [ ] TRK-22 — Exclude virtual webcams from the tracker camera list. Later. UI audit 0.15.1. [GitHub #166](https://github.com/danirukun/opensekai/issues/166)
+- [ ] TRK-23 — Guided motion capture setup for a character. Later. UI audit 0.15.1. [GitHub #167](https://github.com/danirukun/opensekai/issues/167)
 
 ## Environment, props, and lighting
 
@@ -104,13 +118,16 @@ Sources: [Asset categories](https://docs.warudo.app/docs/assets/overview), [Envi
 
 - [ ] ENV-01 — Environment import and placement. First. Partial: one environment for each scene from a local glTF, GLB, or zip, a neutral environment map on its materials, credits with Copy credit, and Render Environment for each camera, verified on macOS (debug build, WebGPU preview, OBS 32.2.2) with one Sketchfab sample ([check](evaluation/environment-import.md), [contract](../spdd/prompt/2026-10-13-environment-import.md), [GitHub #147](https://github.com/danirukun/opensekai/issues/147)). MCP `asset_list` lists the library records, so MCP can choose an environment model; asset reads continue during an import, and a GLB import keeps about 2N bytes at peak (Linux tests only, [contract](../spdd/prompt/2026-10-15-asset-registry-concurrency.md), #151, #152, #155). Placement aids, the Warudo environment lighting settings, compressed formats, import cancel, the WebGL 2 fallback, and Windows remain. [GitHub #39](https://github.com/danirukun/opensekai/issues/39)
 - [ ] ENV-02 — Environment settings and sky/background controls. Later. The sky subset (solid color, equirectangular image, and HDR background with optional image-based lighting) is First by operator request and needs its own contract ([GitHub #148](https://github.com/danirukun/opensekai/issues/148)). [GitHub #40](https://github.com/danirukun/opensekai/issues/40)
+  - UI audit 0.15.1: Environment components toggle realtime lights, light effect on characters and props, audio sources, and post-processing volumes. Overrides use a checkbox for each property: ambient source, skybox intensity, reflections, fog, fog color, and fog density. Apply Environment Lighting copies environment lights to characters and props.
 - [ ] ENV-03 — Prop import, transforms, attachments, and reuse. First subset. [GitHub #41](https://github.com/danirukun/opensekai/issues/41)
 - [ ] ENV-04 — Tail asset and tail interaction. Later. [GitHub #42](https://github.com/danirukun/opensekai/issues/42)
 - [ ] ENV-05 — Keyboard/trackpad visualization. Later. [GitHub #43](https://github.com/danirukun/opensekai/issues/43)
 - [ ] ENV-06 — Anchors and shared placement references. Later. [GitHub #44](https://github.com/danirukun/opensekai/issues/44)
 - [ ] ENV-07 — Directional and point lights. First. [GitHub #45](https://github.com/danirukun/opensekai/issues/45)
+  - UI audit 0.15.1: Lights affect characters, props, and environment separately. Set Direction From Main Camera aims a directional light. Shadow controls: enabled, intensity, soft shadows, bias, normal bias.
 - [ ] ENV-08 — Volumetric light and stage beam behavior. First benchmark subset; Approximate. [GitHub #46](https://github.com/danirukun/opensekai/issues/46)
 - [ ] ENV-09 — Wind controls. Later. [GitHub #47](https://github.com/danirukun/opensekai/issues/47)
+  - UI audit 0.15.1: Separate wind assets drive VRM spring bones, Magica Cloth, and Magica Cloth 2.
 - [ ] ENV-10 — Particle effects and triggers. Later; benchmark includes a bounded sample. [GitHub #48](https://github.com/danirukun/opensekai/issues/48)
 - [ ] ENV-11 — Sketchfab model search, sign-in, download, and attribution. Later; Different API; additional OpenSekai goal, not a Warudo feature. Depends on ENV-01 slice 1. [GitHub #149](https://github.com/danirukun/opensekai/issues/149)
 
@@ -119,15 +136,25 @@ Sources: [Asset categories](https://docs.warudo.app/docs/assets/overview), [Envi
 Source: [Camera](https://docs.warudo.app/docs/assets/camera).
 
 - [ ] CAM-01 — Camera entities, lens controls, free/orbit navigation. First subset. [GitHub #49](https://github.com/danirukun/opensekai/issues/49)
+  - UI audit 0.15.1: Control modes are None, Free Look (right mouse button and WASD, Q and E), and Orbit Character (left or right mouse button to orbit, wheel to zoom, middle button to pan). See CAM-11.
 - [ ] CAM-02 — Multiple cameras and camera selection. First. [GitHub #50](https://github.com/danirukun/opensekai/issues/50)
 - [ ] CAM-03 — Independent camera outputs; audit the documented eight-camera workflow. Later. [GitHub #51](https://github.com/danirukun/opensekai/issues/51)
 - [x] CAM-04 — Transparent output. Verified for smoke_v1 on macOS OBS WebGPU/WebGL2; broader materials remain separate. [GitHub #52](https://github.com/danirukun/opensekai/issues/52)
 - [ ] CAM-05 — Screenshots. First evaluation path; user-facing workflow Later. [GitHub #53](https://github.com/danirukun/opensekai/issues/53)
+  - UI audit 0.15.1: Each camera has Take Screenshot and Open Screenshots Folder.
 - [ ] CAM-06 — Color grading, LUTs, tone mapping, and bloom. Later. [GitHub #54](https://github.com/danirukun/opensekai/issues/54)
+  - UI audit 0.15.1: Grading has a LUT texture, ACES tonemapping, vibrance, contrast, brightness, and tint.
 - [ ] CAM-07 — Ambient occlusion, flares, depth of field, and chromatic effects. Later. [GitHub #55](https://github.com/danirukun/opensekai/issues/55)
 - [ ] CAM-08 — Anti-aliasing and post-processing quality controls. First subset. Partial: each camera has an Anti-aliasing setting (None or FXAA) in the show, the Inspector, and MCP `scene_patch`. The OBS page and the preview apply the output camera's mode. Verified on Linux: unit tests, and the real renderer on WebGL 2 with a software rasterizer in headless Chromium (edges smoothed, background alpha stays 0), plus the editor controls in headless Chromium ([check](evaluation/quality-controls.md), [contract](../spdd/prompt/2026-10-16-quality-controls.md)). Different: SMAA is not offered, because the three.js r180 SMAA filter makes the output opaque. On macOS (WebGPU, debug build): the Inspector toggle, OBS alpha over dark, light, and checker backgrounds, and continued motion with the editor minimized passed; the CPU-side frame cost did not change measurably ([macOS check](evaluation/quality-controls.md#macos-acceptance-check)). GPU frame time, a release benchmark, TAA, and Windows remain. [GitHub #56](https://github.com/danirukun/opensekai/issues/56)
 - [ ] CAM-09 — Spout/native output behavior. Later; platform adapter investigation. [GitHub #57](https://github.com/danirukun/opensekai/issues/57)
+  - UI audit 0.15.1: Spout, NDI, and virtual webcam output are global settings and also settings for each camera.
 - [ ] CAM-10 — NDI output. Deferred. [GitHub #58](https://github.com/danirukun/opensekai/issues/58)
+- [ ] CAM-11 — Camera follow, focus, and gamepad control. Later. UI audit 0.15.1. [GitHub #168](https://github.com/danirukun/opensekai/issues/168)
+- [ ] CAM-12 — Handheld camera movement. Later. UI audit 0.15.1. [GitHub #169](https://github.com/danirukun/opensekai/issues/169)
+- [ ] CAM-13 — Per-camera layers, chroma key, and projection. Later. UI audit 0.15.1. [GitHub #170](https://github.com/danirukun/opensekai/issues/170)
+- [ ] CAM-14 — Virtual webcam output. Later. Different API. UI audit 0.15.1. [GitHub #171](https://github.com/danirukun/opensekai/issues/171)
+- [ ] CAM-15 — Stylized camera effects. Later. UI audit 0.15.1. [GitHub #172](https://github.com/danirukun/opensekai/issues/172)
+- [ ] CAM-16 — Output window size, render scale, and frame pacing. Later. UI audit 0.15.1. [GitHub #173](https://github.com/danirukun/opensekai/issues/173)
 
 ## Media and screens
 
@@ -135,13 +162,17 @@ Source: [Screen](https://docs.warudo.app/docs/assets/screen). Music and sender e
 
 - [ ] MED-01 — Image screens and transparency. Later. [GitHub #59](https://github.com/danirukun/opensekai/issues/59)
 - [ ] MED-02 — Video screens, playback, and supported codec diagnostics. First benchmark subset. [GitHub #60](https://github.com/danirukun/opensekai/issues/60)
+  - UI audit 0.15.1: Screen content types are Display, Window, Browser, Image, Video, Spout, and NDI. Pixel size and a size outline are shared.
 - [ ] MED-03 — Webpage screens and interactive content. Later; web pages need a separate capture design. [GitHub #61](https://github.com/danirukun/opensekai/issues/61)
+  - UI audit 0.15.1: Browser content takes a URL or HTML, a transparent background, custom CSS, and Reload Page. A graph event receives messages from the page.
 - [ ] MED-04 — Desktop and window capture into the scene. Later; native platform adapters. [GitHub #62](https://github.com/danirukun/opensekai/issues/62)
 - [ ] MED-05 — Curvature, crop, corners, tint, and chroma key. Later. [GitHub #63](https://github.com/danirukun/opensekai/issues/63)
+  - UI audit 0.15.1: Screen appearance adds bend degree, thickness, always face camera, X-axis lock, receive lighting, auto rotate, and a mask. A screen attaches to another asset with optional elasticity.
 - [ ] MED-06 — Spout input to screens. Later; Windows adapter. [GitHub #64](https://github.com/danirukun/opensekai/issues/64)
 - [ ] MED-07 — NDI input to screens. Deferred. [GitHub #65](https://github.com/danirukun/opensekai/issues/65)
 - [ ] MED-08 — Music player and show playback controls. Later. [GitHub #66](https://github.com/danirukun/opensekai/issues/66)
 - [ ] MED-09 — VMC sender. Later. [GitHub #67](https://github.com/danirukun/opensekai/issues/67)
+- [ ] MED-10 — Synced lyrics for the music player. Later. UI audit 0.15.1. [GitHub #174](https://github.com/danirukun/opensekai/issues/174)
 
 ## Show production and Pro capabilities
 
@@ -149,9 +180,11 @@ Sources: [Director](https://docs.warudo.app/docs/assets/director), [Motion recor
 
 - [ ] SHOW-01 — Director camera control and transitions. Later. [GitHub #68](https://github.com/danirukun/opensekai/issues/68)
 - [ ] SHOW-02 — Record motion and expression data. Later. [GitHub #69](https://github.com/danirukun/opensekai/issues/69)
+  - UI audit 0.15.1: One recorder takes several characters and props. It writes Warudo .wanim and can record source blend shapes for replay on other characters. Motion Player converts to Unity .anim. A separate asset converts animations to .wanim.
 - [ ] SHOW-03 — Replay recorded motion with show timing. Later. [GitHub #70](https://github.com/danirukun/opensekai/issues/70)
 - [ ] SHOW-04 — Studio motion-capture workflows. Later; depends on TRK-18 through TRK-21. [GitHub #71](https://github.com/danirukun/opensekai/issues/71)
 - [ ] SHOW-05 — Live production quality profiles. First benchmark; full Pro-like controls Later. Partial: three versioned profiles (`preview_v1`, `production_v1`, `performance_v1`) set the resolution scale, the texture limit, and MSAA. The OBS URL selects one with `?quality=`, the Output panel Quality select builds that URL, and each frame acknowledgment names the profile, so `appStatus` shows it. Verified on Linux as for CAM-08 ([check](evaluation/quality-controls.md)). Shadows, LOD, effects, and preview rate are not in a profile yet. On macOS with OBS (WebGPU, debug build): the copied URL had `?quality=performance_v1`, MCP `app_status` reported `performance_v1` for `output_main`, and each profile kept 60 FPS with 0 skipped frames ([macOS check](evaluation/quality-controls.md#macos-acceptance-check)). Contract-length benchmark runs, GPU time, and Windows remain. [GitHub #72](https://github.com/danirukun/opensekai/issues/72)
+- [ ] SHOW-06 — FPS counter overlay. Later. UI audit 0.15.1. [GitHub #175](https://github.com/danirukun/opensekai/issues/175)
 
 Unity URP is an engine implementation, not a portable feature. Track the resulting appearance and production controls in the renderer items below.
 
@@ -174,17 +207,22 @@ Sources: [Blueprint overview](https://docs.warudo.app/docs/blueprints/overview) 
 
 - [ ] BP-01 — Typed node runtime and data/flow ports. Partial: versioned graph, six typed built-in nodes, validation, bounded manual execution, scene visibility effect, public edit command route, and one graph saved with its scene. On macOS the event scheduler on the session clock, Flip Flop, Delay, Set Visibility, Toggle Visibility, Switch Camera, and the last valid version running while an edit does not compile are verified. If Branch, Sequence, and Not are covered by unit tests only; they were not run live. [Hotkey check](evaluation/blueprint-interactions.md). One definition per node type now drives 42 node types. Typed graph variables (number and boolean) with reset on install, logic change, and enable are in the contract and runtime. On macOS a hotkey graph that counts with Add To Number Variable and Get Number Variable and cuts cameras through Switch On Number is verified, also after Save and Open ([catalog check](evaluation/blueprint-catalog.md)). On Enable, Gate, Multi Gate, Throttle, For Loop, Random Number, and the math, compare, and logic nodes are covered by unit and session integration tests only. On macOS On Update, Vector3 values, and a runtime override layer that commits 250 ms after the last write are verified with a WASD graph ([continuous check](evaluation/continuous-blueprints.md)). Character and camera actions, strings, and functions remain. [Checks](evaluation/blueprint-foundation.md), [Rete editor](evaluation/rete-blueprint-editor.md), [show persistence](evaluation/scene-show-management.md). [GitHub #81](https://github.com/danirukun/opensekai/issues/81)
 - [ ] BP-02 — Visual editing, connections, palette, and validation. Partial: Rete draft canvas, typed sockets, node palette, selection, property edits, node deletion, draft retention, pre-run validation, and Save As/Open of one graph in a show. Live sync between clients and error location are verified through the editor and MCP on macOS. Catalog-driven sockets and Warudo port multiplicity are covered by unit tests only. Typing into the keystroke capture field was not exercised. [Hotkey check](evaluation/blueprint-interactions.md). The node search palette, the canvas, node, and wire context menus, search on wire release, keyboard shortcuts, copy and paste across graphs, duplicate, undo and redo, the Variables drawer, and canvas drag and connect gestures are verified on macOS with synthetic input ([catalog check](evaluation/blueprint-catalog.md)). A physical ⌘-click was not tested. Box select, grouping, comments, and auto layout remain. [Checks](evaluation/rete-blueprint-editor.md), [show persistence](evaluation/scene-show-management.md). [GitHub #82](https://github.com/danirukun/opensekai/issues/82)
+  - UI audit 0.15.1: Unconnected inputs edit inline on the node, with asset pickers. Warudo has no canvas context menu and no wire-release search; OpenSekai already has both. Blueprints sit in named groups and have an eye toggle.
 - [ ] BP-03 — Create, duplicate, rename, group, and arrange graphs. Partial: create, rename, and enable or disable verified on macOS. Graph removal and the limit of 8 graphs are covered by unit tests only. [Hotkey check](evaluation/blueprint-interactions.md). Import adds a graph from a file (see BP-04). Duplicate, group, and arrange remain. [GitHub #83](https://github.com/danirukun/opensekai/issues/83)
 - [ ] BP-04 — Versioned graph import/export. Partial: one Blueprint exports to an OpenSekai JSON file and imports into a show from the editor and MCP. A graph with a missing reference imports disabled with a `Missing` list. A file with a future version, an unknown node, or a Warudo shape is rejected. On macOS the import, export, re-import, missing-reference display, rejection of a Warudo-shaped file, and Cancel are verified; the runner passed 10 of 10 cases ([Blueprint files check](evaluation/blueprint-files.md)). Different: Warudo files are not read, and the macOS dialogs do not filter to `.json`. The runner registered the `camera-flip` and `counter` keystrokes but did not fire them; the session integration test covers their effect. Physical keys after an import, OBS output, and Windows remain. [GitHub #84](https://github.com/danirukun/opensekai/issues/84)
 - [ ] BP-05 — Tracking, character, scene, camera, and animation operations. Partial: Get Asset Property and Set Asset Property for Position, Rotation, Scale, Visible, and camera Field of View, and Move Entity in world or local space. On macOS Move Entity with held keys is verified; the other properties are covered by unit tests only. [Continuous check](evaluation/continuous-blueprints.md). The environment accepts Get Asset Property, Set Asset Property (Position, Rotation, Scale, Visible), and Move Entity, and a camera has Render Environment; a session test hides and shows the environment and commits each change, and a session test commits Render Environment. These are covered by Linux unit tests only; the editor and OBS output were not checked ([property targets contract](../spdd/prompt/2026-10-15-blueprint-property-targets.md)). Tracking, character, camera, and animation operations remain. [GitHub #85](https://github.com/danirukun/opensekai/issues/85)
 - [ ] BP-06 — Keyboard, pointer, gamepad, MIDI, and event triggers. Partial: global keyboard hotkeys on macOS, with Different behavior because OpenSekai holds the registered combination and other apps do not receive it. The editor warning covers an OS registration failure only: macOS accepts a combination that a system feature such as Spotlight also uses, and both then fire (Different). Hotkeys recover after a publisher reconnect; the Save As and Open path was not re-run. [Hotkey check](evaluation/blueprint-interactions.md). Held keys (Is Key Held, Key Axis) work on macOS while another app has focus, and that app still receives the keys, as in Warudo; this needs the Input Monitoring permission and a restart after the grant ([continuous check](evaluation/continuous-blueprints.md)). Windows, pointer, gamepad, MIDI, and event triggers remain; audit each input route. [GitHub #86](https://github.com/danirukun/opensekai/issues/86)
 - [ ] BP-07 — Streaming events, chat, and redeems. Later; audit provider behavior. [GitHub #87](https://github.com/danirukun/opensekai/issues/87)
+  - UI audit 0.15.1: Settings sign in to Twitch (with an option for whisper events), YouTube, Bilibili, and Douyin.
 - [ ] BP-08 — Clothes, accessory toggles, and prop interactions. Later. [GitHub #88](https://github.com/danirukun/opensekai/issues/88)
 - [ ] BP-09 — Karaoke, dance, and camera animation examples. Later. [GitHub #89](https://github.com/danirukun/opensekai/issues/89)
 - [ ] BP-10 — Deformation, plushie, physics, spark, and tail examples. Later. [GitHub #90](https://github.com/danirukun/opensekai/issues/90)
 - [ ] BP-11 — Pen hand sync, upper-body rotation, and sway presets. Later. [GitHub #91](https://github.com/danirukun/opensekai/issues/91)
 - [ ] BP-12 — Eye-motion presets. Later. [GitHub #92](https://github.com/danirukun/opensekai/issues/92)
 - [ ] BP-13 — Node-by-node handbook and runtime inventory audit. Later; required before a full blueprint parity claim. [GitHub #93](https://github.com/danirukun/opensekai/issues/93)
+  - UI audit 0.15.1: Palette categories and node counts: Animation 5, Arithmetic 183, Asset 25, Audio 3, Bilibili 21, BlendShapes 14, Blueprints 3, Characters 48, Cinematography 16, Data 6, Debug 6, Douyin 4, Events 7, External Integration 2, Flow Control 20, Input 10, Interactions 13, Lattices 2, Lights 4, Literals 31, MIDI 5, MikuMikuDance 1, Miscellaneous 3, Motion Capture 15, Procedural Animations 3, Props 7, Scene 1, Stream Deck 3, Switches 6, Timer 4, Twitch 11, Variables 29, YouTube 8 (519 nodes). Graph variables are Boolean, Integer, Float, String, Vector3, and a list of each.
+- [ ] BP-14 — Format a graph layout. Later. UI audit 0.15.1. [GitHub #176](https://github.com/danirukun/opensekai/issues/176)
+- [ ] BP-15 — Palette favorites and category counts. Later. UI audit 0.15.1. [GitHub #177](https://github.com/danirukun/opensekai/issues/177)
 
 ## Authoring and extensions
 
@@ -194,6 +232,7 @@ Sources: [Mod SDK](https://docs.warudo.app/docs/modding/mod-sdk), [SDK installat
 - [ ] EXT-02 — Unity export adapter. Later; Different API. [GitHub #95](https://github.com/danirukun/opensekai/issues/95)
 - [ ] EXT-03 — Blender export adapter. Later; additional OpenSekai goal. [GitHub #96](https://github.com/danirukun/opensekai/issues/96)
 - [ ] EXT-04 — Package sharing, metadata, versions, and dependency checks. Later. [GitHub #97](https://github.com/danirukun/opensekai/issues/97)
+  - UI audit 0.15.1: The editor browses, subscribes to, and publishes Steam Workshop items. A published item has a title, description, tag, files, a preview image under 1 MB, visibility, and a Require Attribution option.
 - [ ] EXT-05 — JS/TS custom nodes and asset types. Boundary early; guest delivery Later. Partial: manifest v1, capabilities, guest data-node registration and evaluation with copied data, and asset type declarations exist in `packages/extensions`, verified by Linux tests only ([evidence](evaluation/extension-sandbox.md), [contract](../spdd/prompt/2026-10-16-extension-sandbox-gate.md)). Blueprint editor and runtime use, guest asset adapters, TypeScript transpile, and packaging remain. [GitHub #98](https://github.com/danirukun/opensekai/issues/98)
 - [ ] EXT-06 — Scene queries, ports, triggers, events, and data watchers. Later; Different API. [GitHub #99](https://github.com/danirukun/opensekai/issues/99)
 - [ ] EXT-07 — Editor controls and validated property definitions. Later; Different API. [GitHub #100](https://github.com/danirukun/opensekai/issues/100)
@@ -204,6 +243,17 @@ Sources: [Mod SDK](https://docs.warudo.app/docs/modding/mod-sdk), [SDK installat
 - [ ] EXT-12 — DMX lighting control. Later. [GitHub #105](https://github.com/danirukun/opensekai/issues/105)
 - [ ] EXT-13 — Sandbox resource limits and failure recovery. Required before guest plugins ship; additional OpenSekai goal. Partial: interruption, stack limit, quotas, denied capabilities, leaked handles, and recovery (disable, release, reload in a new worker after the watchdog) pass Linux tests ([evidence](evaluation/extension-sandbox.md)). A 64 MiB WASM memory maximum for each extension is the hard memory bound (Linux tests only). The QuickJS time limit is soft; the worker watchdog bounds it. macOS, the WebKit Web Worker, and Windows remain. [GitHub #106](https://github.com/danirukun/opensekai/issues/106)
 - [ ] EXT-14 — Scripting API behavior audit. Later; required before extension parity claims. [GitHub #107](https://github.com/danirukun/opensekai/issues/107)
+
+## Editor experience
+
+Source: the Warudo 0.15.1 UI audit. These are editor behaviors that the handbook does not list as features.
+
+- [ ] UX-01 — Inspector section index. Later. UI audit 0.15.1. [GitHub #179](https://github.com/danirukun/opensekai/issues/179)
+- [ ] UX-02 — Reset a property to its default. Later. UI audit 0.15.1. [GitHub #180](https://github.com/danirukun/opensekai/issues/180)
+- [ ] UX-03 — Gallery picker and package card. Later. UI audit 0.15.1. [GitHub #181](https://github.com/danirukun/opensekai/issues/181)
+- [ ] UX-04 — Onboarding assistant. Later. Approximate. UI audit 0.15.1. [GitHub #182](https://github.com/danirukun/opensekai/issues/182)
+- [ ] UX-05 — Interface language and dark mode. Later. UI audit 0.15.1. [GitHub #183](https://github.com/danirukun/opensekai/issues/183)
+- [ ] UX-06 — Contextual help. Later. UI audit 0.15.1. [GitHub #184](https://github.com/danirukun/opensekai/issues/184)
 
 ## Additional OpenSekai acceptance requirements
 
