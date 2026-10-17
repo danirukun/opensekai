@@ -206,6 +206,7 @@ Sources: [Warudo Pro](https://docs.warudo.app/docs/pro), [Character](https://doc
 - [ ] MAT-04 — Selected NiloToon appearance profiles. Later; Approximate. [GitHub #76](https://github.com/danirukun/opensekai/issues/76)
 - [ ] MAT-05 — NiloToon volume and character control equivalents. Later; Different API. [GitHub #77](https://github.com/danirukun/opensekai/issues/77)
 - [ ] MAT-06 — Full NiloToon appearance coverage. Later; dependencies and rights require review. [GitHub #78](https://github.com/danirukun/opensekai/issues/78)
+  - NiloToon research (parked, applies to MAT-04 to MAT-06): NiloToonURP is closed source, and its license permits embedding only when users cannot access the shader source. A three.js port sends shader text to the client, so it needs written permission from NiloCat. The public example repository is a separate MIT tutorial shader. See the [NiloToon research findings](superpowers/specs/2026-10-17-nilotoon-research.md).
 - [ ] MAT-07 — Post-processing volumes and blending. Later. [GitHub #79](https://github.com/danirukun/opensekai/issues/79)
   - Workshop study: 6 of 7 sampled environments carry Post Processing Stack v2 resources and a profile, and 5 have a volume. The effects are bloom, color grading, vignette, motion blur, and ambient occlusion.
 - [ ] MAT-08 — Material parameter control from graphs. Later. [GitHub #80](https://github.com/danirukun/opensekai/issues/80)
