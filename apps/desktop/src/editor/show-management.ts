@@ -10,3 +10,11 @@ export async function openShowDocument(
  if (reply.ok) await adopt(document);
  return reply;
 }
+
+/** The show state at the last Open, Save, or editor start. */
+export interface ShowMark { name: string; revision: number | null; blueprintRevision: number | undefined }
+
+export function showDirty(saved: ShowMark | null, current: ShowMark): boolean {
+ if (!saved || current.revision === null) return false;
+ return saved.name !== current.name || saved.revision !== current.revision || saved.blueprintRevision !== current.blueprintRevision;
+}

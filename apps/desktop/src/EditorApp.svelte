@@ -2,7 +2,7 @@
  import { onMount, tick } from 'svelte';
  import { invoke } from '@tauri-apps/api/core';
  import { getCurrentWindow } from '@tauri-apps/api/window';
- import { Button } from '@oshi-connect/ui';
+ import { Button, ToastRegion, toasts } from '@oshi-connect/ui';
  import { Box, Radio, PackageOpen, Workflow, FolderOpen, Save } from '@lucide/svelte';
  import { bootstrapEditor } from './bootstrap';
  import { createEditorModel, type EditorModel, type EditorView } from './editor/model';
@@ -18,7 +18,7 @@ import { createEditorMemory } from './blueprints/editor-memory';
  import {AssetRecordSchema,ShowDocumentSchema} from '@opensekai/contracts';
  import {makeAuthoringEntity,importFailure} from './editor/authoring';
  import {applyTrackingConfig} from './editor/tracking-activation';
- import {openShowDocument} from './editor/show-management';
+ import {openShowDocument,showDirty,type ShowMark} from './editor/show-management';
  import type {AddKind} from './editor/live-fields';
  import type { AppApi, AppStatus, AssetRecord, ShowDocument, TrackingConfig,Transform } from '@opensekai/contracts';
  import Hierarchy from './components/Hierarchy.svelte';
@@ -33,7 +33,10 @@ import { createEditorMemory } from './blueprints/editor-memory';
  let api=$state.raw<AppApi|null>(null),sync=$state.raw<BlueprintSync|null>(null);
  const memory=createEditorMemory();
  const expressionApi=$derived(api?{get:(avatarId:string)=>api!.expressionGet({avatarId}),set:(avatarId:string,name:string,active:boolean)=>api!.expressionSet({avatarId,name,active})}:null);
- let showName=$state('Untitled Show'),showBusy=$state(false),showError=$state<string|null>(null);
+ let showName=$state('Untitled Show'),showBusy=$state(false),showError=$state<string|null>(null),savedMark=$state<ShowMark|null>(null);
+ const currentMark=():ShowMark=>({name:showName,revision:view.scene?.revision??null,blueprintRevision:status?.blueprintRevision});
+ const dirty=$derived(showDirty(savedMark,currentMark()));
+ $effect(()=>{if(canEdit)void invoke('set_show_dirty',{dirty}).catch(()=>{});});
  let importError=$state<{entityId:string;message:string}|null>(null),trackingError=$state<string|null>(null);
  let importingId=$state<string|null>(null);const importing=$derived(importingId!==null);let loads=$state<AssetLoadStatus[]>([]);
  let devices=$state<{deviceId:string;label:string}[]>([]);
@@ -68,20 +71,23 @@ import { createEditorMemory } from './blueprints/editor-memory';
  async function toggleTracking(id:string,enabled:boolean,revision:number){const entity=model?.read().scene?.entities.find(item=>item.id===id);if(entity?.kind==='tracking')await configureTracking(id,{...entity.config,enabled},revision);}
  function setTool(next:Tool){tool=next;notify({kind:'tool',tool});}
  function showFailure(cause:unknown){return cause instanceof Error?cause.message:typeof cause==='object'&&cause!==null&&'message' in cause&&typeof cause.message==='string'?cause.message:'Show operation failed';}
- async function saveShow(){
-  if(!view.scene||!api||showBusy||view.pending)return;
+ async function saveShow(chooseFile=false):Promise<boolean>{
+  if(!view.scene||!api||showBusy||view.pending)return false;
   showBusy=true;showError=null;
   try{
    const inspected=await api.sceneInspect({sceneId:view.scene.sceneId});
-   if(!inspected.ok){showError=inspected.error.message;return;}
+   if(!inspected.ok){showError=inspected.error.message;return false;}
    await sync?.idle();
    const blueprints=await api.blueprintInspect({});
-   if(!blueprints.ok){showError=blueprints.error.message;return;}
+   if(!blueprints.ok){showError=blueprints.error.message;return false;}
    const document=ShowDocumentSchema.parse({schemaVersion:1,name:showName,scene:inspected.data,blueprints:blueprints.data.kind==='snapshot'?blueprints.data.blueprints:[]}) satisfies ShowDocument;
-   const path=await invoke<string|null>('save_show_as',{document});
-   if(path)showName=document.name;
-  }catch(cause){showError=showFailure(cause);}
-  finally{showBusy=false;}
+   const path=await invoke<string|null>(chooseFile?'save_show_as':'save_show',{document});
+   if(!path)return false;
+   showName=document.name;savedMark={name:document.name,revision:inspected.data.revision,blueprintRevision:blueprints.data.revision};
+   toasts.push({variant:'success',message:`Saved ${path.split(/[\\/]/).pop()}`},3000);
+   return true;
+  }catch(cause){showError=showFailure(cause);return false;}
+  finally{showBusy=false;if(showError)toasts.push({variant:'error',message:showError});}
  }
  async function openShow(){
   if(!model||showBusy||view.pending)return;
@@ -97,22 +103,30 @@ import { createEditorMemory } from './blueprints/editor-memory';
     if(broken&&!broken.result.ok)showError=`${broken.graph.name}: ${broken.result.error.message}`;
     if(sync){const applied=sync.edit([{kind:'replaceAll',graphs:document.blueprints}]);await sync.idle();if(applied.ok)memory.history.clear();if((!applied.ok||sync.issue())&&!showError)showError='Blueprints were not applied';}
    });
+   if(reply.ok)savedMark={name:showName,revision:reply.data.revision,blueprintRevision:sync?.revision()};
    if(!reply.ok){showError=reply.error.message;return;}
   }catch(cause){showError=showFailure(cause);}
   finally{showBusy=false;}
  }
+ async function closeEditor(){
+  if(dirty){const choice=await invoke<'save'|'discard'|'cancel'>('confirm_close_editor').catch(()=>'cancel' as const);if(choice==='cancel'||choice==='save'&&!await saveShow())return;}
+  await invoke('hide_editor').catch(()=>{error='Could not hide editor';});
+ }
+ const showCommands={open:()=>openShow(),save:()=>saveShow(),saveAs:()=>saveShow(true)};
+ function runShowCommand(command:unknown){if(canEdit&&available&&typeof command==='string'&&Object.hasOwn(showCommands,command))void showCommands[command as keyof typeof showCommands]();}
  onMount(()=>{
-  let disposed=false,off=()=>{},offUI=()=>{},offClose=()=>{},connection:Awaited<ReturnType<typeof bootstrapEditor>>|undefined,poll:ReturnType<typeof createEditorPoll>|undefined;
+  let disposed=false,off=()=>{},offUI=()=>{},offClose=()=>{},offMenu=()=>{},connection:Awaited<ReturnType<typeof bootstrapEditor>>|undefined,poll:ReturnType<typeof createEditorPoll>|undefined;
   let pendingSelection:string|null|undefined;
   const resize=new ResizeObserver(()=>{maxWidth=Math.max(160,Math.min(420,shell.clientWidth-330));width=Math.min(width,maxWidth);});resize.observe(shell);
   const timer=setInterval(()=>{void poll?.poll();},500);
-  void getCurrentWindow().onCloseRequested(event=>{event.preventDefault();void invoke('hide_editor').catch(()=>{error='Could not hide editor';});}).then(stop=>{if(disposed)stop();else offClose=stop;});
+  void getCurrentWindow().onCloseRequested(event=>{event.preventDefault();void closeEditor();}).then(stop=>{if(disposed)stop();else offClose=stop;});
+  void getCurrentWindow().listen<unknown>('show-command',event=>runShowCommand(event.payload)).then(stop=>{if(disposed)stop();else offMenu=stop;});
   void listenUI(message=>{if(message.kind==='trackingDevices')devices=message.devices;else if(message.kind==='selection'){draft=null;pendingSelection=message.entityId;if(model){if(message.entityId)model.select(message.entityId);else model.clearSelection();}}else if(message.kind==='tool')tool=message.tool;else if(message.kind==='draft')draft=available?message.draft:null;else if(message.kind==='loadStatus')loads=message.entries;else if(message.kind==='refresh'){draft=null;void model?.load();}}).then(stop=>{if(disposed)stop();else offUI=stop;}).catch(()=>{if(!disposed)error='Scene connection unavailable';});
   void bootstrapEditor().then(async value=>{if(disposed){value.stop();return;}connection=value;api=value.client.api;assets=value.assets;outputUrl=value.outputUrl;canEdit=value.canEdit;model=createEditorModel(value.client.api);sync=createBlueprintSync(value.client.api);liveTransform=createLiveTransform(model,code=>{transformError=code;},pending=>{livePending=pending;});
    off=model.subscribe(next=>{const previous=view;view=next;if(previous.scene?.revision!==next.scene?.revision){draft=null;if(previous.scene)notify({kind:'refresh'});}});
-   poll=createEditorPoll(value.client.api,model,next=>{status=next;available=next.revision!==null;error=null;if(!available)draft=null;},code=>{available=false;draft=null;error=code;},sync,()=>panel==='blueprints');await poll.poll();if(pendingSelection)model.select(pendingSelection);notify({kind:'ready'});
+   poll=createEditorPoll(value.client.api,model,next=>{status=next;available=next.revision!==null;error=null;if(!available)draft=null;if(!savedMark&&next.revision!==null)savedMark={name:showName,revision:next.revision,blueprintRevision:next.blueprintRevision};},code=>{available=false;draft=null;error=code;},sync,()=>panel==='blueprints');await poll.poll();if(pendingSelection)model.select(pendingSelection);notify({kind:'ready'});
   }).catch(cause=>{if(!disposed)error=cause instanceof Error?cause.message:'Editor startup failed';});
-  return()=>{disposed=true;clearInterval(timer);resize.disconnect();liveTransform?.close();poll?.close();off();offUI();offClose();connection?.stop();};
+  return()=>{disposed=true;clearInterval(timer);resize.disconnect();liveTransform?.close();poll?.close();off();offUI();offClose();offMenu();connection?.stop();};
  });
 </script>
 <main class="editor-window">
@@ -124,7 +138,7 @@ import { createEditorMemory } from './blueprints/editor-memory';
   <Button variant="ghost" class={panel==='resources'?'active-panel':''} title="Resources" onclick={()=>{panel='resources';}}><PackageOpen size={20}/><span class="sr-only">Resources</span></Button>
  </nav>
  <div class="editor-content">
-  <div class="show-toolbar"><input aria-label="Show name" maxlength="128" bind:value={showName} disabled={!canEdit||showBusy}/><div class="spacer"></div><Button variant="ghost" title="Open show" disabled={!canEdit||!available||showBusy||view.pending} onclick={openShow}><FolderOpen size={16}/></Button><Button variant="ghost" title="Save show as" disabled={!canEdit||!available||showBusy||view.pending} onclick={saveShow}><Save size={16}/></Button></div>
+  <div class="show-toolbar"><input aria-label="Show name" maxlength="128" bind:value={showName} disabled={!canEdit||showBusy}/><div class="spacer"></div><Button variant="ghost" title="Open show" disabled={!canEdit||!available||showBusy||view.pending} onclick={openShow}><FolderOpen size={16}/></Button><Button variant="ghost" title="Save show (⇧ Save As)" disabled={!canEdit||!available||showBusy||view.pending} onclick={(event:MouseEvent)=>{void saveShow(event.shiftKey);}}><Save size={16}/></Button></div>
   <div bind:this={shell} class="editor-body">
    {#if panel==='assets'}<div class="assets-column" style:width="{width}px">{#if model}<Hierarchy {model} {view} onselect={select} ontool={setTool} disabled={!canEdit||!available||importing||livePending} onadd={add} loading={new Set(loads.filter(load=>load.stage!=='failed').map(load=>load.entityId))} ontrackingtoggle={toggleTracking}/>{/if}<div class="asset-list-footer">{view.scene?.entities.length??0} assets</div></div>
     <ResizeHandle value={width} min={160} max={maxWidth} onchange={value=>{width=value;}}/>
@@ -136,3 +150,4 @@ import { createEditorMemory } from './blueprints/editor-memory';
   <footer><span>{showError??importError?.message??trackingError??transformError??error??view.error??(view.scene?'Session connected':'Starting…')}</span><span>{canEdit ? (tool==='translate'?'Move':tool==='rotate'?'Rotate':'Scale'):'Read only'}</span></footer>
  </div>
 </main>
+<ToastRegion/>

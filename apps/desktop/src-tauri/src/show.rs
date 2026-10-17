@@ -2,7 +2,42 @@ use crate::local_file::{read_bounded, write_atomic, ReadError};
 use opensekai_contracts::{AppError, ErrorCode, SceneView, Validate, MAX_MESSAGE_BYTES};
 use serde::Deserialize;
 use serde_json::Value;
-use std::path::Path;
+use std::{
+    path::{Path, PathBuf},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Mutex,
+    },
+};
+
+/// The open show file and its unsaved state. Only the host keeps the path.
+#[derive(Default)]
+pub struct ShowFile {
+    path: Mutex<Option<PathBuf>>,
+    dirty: AtomicBool,
+    quit_confirmed: AtomicBool,
+}
+
+impl ShowFile {
+    pub fn path(&self) -> Option<PathBuf> {
+        self.path.lock().map(|path| path.clone()).unwrap_or(None)
+    }
+    pub fn set_path(&self, path: PathBuf) {
+        if let Ok(mut current) = self.path.lock() {
+            *current = Some(path);
+        }
+    }
+    pub fn set_dirty(&self, dirty: bool) {
+        self.dirty.store(dirty, Ordering::SeqCst);
+    }
+    /// True when a quit must ask first. A confirmed quit does not ask again.
+    pub fn quit_needs_confirmation(&self) -> bool {
+        self.dirty.load(Ordering::SeqCst) && !self.quit_confirmed.load(Ordering::SeqCst)
+    }
+    pub fn confirm_quit(&self) {
+        self.quit_confirmed.store(true, Ordering::SeqCst);
+    }
+}
 
 fn invalid(message: impl Into<String>) -> AppError {
     AppError {
@@ -91,6 +126,16 @@ mod tests {
         json!({"schemaVersion":1,"name":"Concert","scene":scene,"blueprints":[{
             "schemaVersion":1,"id":"graph_1","name":"Lights","nodes":[],"connections":[]
         }]})
+    }
+
+    #[test]
+    fn quit_asks_only_for_unconfirmed_unsaved_changes() {
+        let file = ShowFile::default();
+        assert!(!file.quit_needs_confirmation());
+        file.set_dirty(true);
+        assert!(file.quit_needs_confirmation());
+        file.confirm_quit();
+        assert!(!file.quit_needs_confirmation());
     }
 
     #[test]

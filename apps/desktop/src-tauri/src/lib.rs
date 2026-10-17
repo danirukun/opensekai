@@ -122,6 +122,20 @@ async fn import_scene(
     announce_record(&window, &result.record);
     Ok(Some(result))
 }
+fn local_path(path: tauri_plugin_dialog::FilePath) -> Result<PathBuf, AppError> {
+    path.into_path().map_err(|_| AppError {
+        code: ErrorCode::InvalidInput,
+        message: "Local file required".into(),
+        ids: vec![],
+    })
+}
+fn chooser_unavailable<E>(_: E) -> AppError {
+    AppError {
+        code: ErrorCode::Unavailable,
+        message: "File chooser unavailable".into(),
+        ids: vec![],
+    }
+}
 #[tauri::command]
 async fn save_show_as(
     window: tauri::WebviewWindow,
@@ -144,20 +158,31 @@ async fn save_show_as(
         let Some(path) = dialog.blocking_save_file() else {
             return Ok(None);
         };
-        let path = path.into_path().map_err(|_| AppError {
-            code: ErrorCode::InvalidInput,
-            message: "Local file required".into(),
-            ids: vec![],
-        })?;
+        let path = local_path(path)?;
+        show::write_show(&path, &document)?;
+        app.state::<show::ShowFile>().set_path(path.clone());
+        Ok(Some(path.to_string_lossy().into_owned()))
+    })
+    .await
+    .map_err(chooser_unavailable)?
+}
+/// Saves to the file from the last Open or Save As. Without one, it asks like Save As.
+#[tauri::command]
+async fn save_show(
+    window: tauri::WebviewWindow,
+    show_file: tauri::State<'_, show::ShowFile>,
+    document: serde_json::Value,
+) -> Result<Option<String>, AppError> {
+    require_window_label(window.label(), "editor")?;
+    let Some(path) = show_file.path() else {
+        return save_show_as(window, document).await;
+    };
+    tauri::async_runtime::spawn_blocking(move || {
         show::write_show(&path, &document)?;
         Ok(Some(path.to_string_lossy().into_owned()))
     })
     .await
-    .map_err(|_| AppError {
-        code: ErrorCode::Unavailable,
-        message: "File chooser unavailable".into(),
-        ids: vec![],
-    })?
+    .map_err(chooser_unavailable)?
 }
 #[tauri::command]
 async fn open_show(window: tauri::WebviewWindow) -> Result<Option<serde_json::Value>, AppError> {
@@ -170,19 +195,136 @@ async fn open_show(window: tauri::WebviewWindow) -> Result<Option<serde_json::Va
         let Some(path) = dialog.blocking_pick_file() else {
             return Ok(None);
         };
-        let path = path.into_path().map_err(|_| AppError {
-            code: ErrorCode::InvalidInput,
-            message: "Local file required".into(),
-            ids: vec![],
-        })?;
-        show::read_show(&path).map(Some)
+        let path = local_path(path)?;
+        let document = show::read_show(&path)?;
+        app.state::<show::ShowFile>().set_path(path);
+        Ok(Some(document))
     })
     .await
-    .map_err(|_| AppError {
-        code: ErrorCode::Unavailable,
-        message: "File chooser unavailable".into(),
-        ids: vec![],
-    })?
+    .map_err(chooser_unavailable)?
+}
+#[tauri::command]
+fn set_show_dirty(
+    window: tauri::WebviewWindow,
+    show_file: tauri::State<'_, show::ShowFile>,
+    dirty: bool,
+) -> Result<(), AppError> {
+    require_window_label(window.label(), "editor")?;
+    show_file.set_dirty(dirty);
+    Ok(())
+}
+/// Asks before the editor closes with unsaved changes: `save`, `discard`, or `cancel`.
+#[tauri::command]
+async fn confirm_close_editor(window: tauri::WebviewWindow) -> Result<&'static str, AppError> {
+    require_window_label(window.label(), "editor")?;
+    let app = window.app_handle().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        use tauri_plugin_dialog::{MessageDialogButtons, MessageDialogResult};
+        let result = app
+            .dialog()
+            .message("Save changes to the show before closing?")
+            .title("Unsaved changes")
+            .parent(&window)
+            .buttons(MessageDialogButtons::YesNoCancelCustom(
+                "Save".into(),
+                "Don't Save".into(),
+                "Cancel".into(),
+            ))
+            .blocking_show_with_result();
+        match result {
+            MessageDialogResult::Yes => "save",
+            MessageDialogResult::Custom(label) if label == "Save" => "save",
+            MessageDialogResult::No => "discard",
+            MessageDialogResult::Custom(label) if label == "Don't Save" => "discard",
+            _ => "cancel",
+        }
+    })
+    .await
+    .map_err(chooser_unavailable)
+}
+const QUIT_MENU_ID: &str = "opensekai-quit";
+/// Menu item ID, `show-command` payload, label, and accelerator for each File menu show action.
+const SHOW_MENU: [(&str, &str, &str); 3] = [
+    ("open", "Open Show…", "CmdOrCtrl+O"),
+    ("save", "Save Show", "CmdOrCtrl+S"),
+    ("saveAs", "Save Show As…", "CmdOrCtrl+Shift+S"),
+];
+fn install_menu(app: &tauri::AppHandle) -> tauri::Result<()> {
+    use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+    let menu = Menu::default(app)?;
+    let submenus: Vec<_> = menu
+        .items()?
+        .into_iter()
+        .filter_map(|item| item.as_submenu().cloned())
+        .collect();
+    if let Some(file) = submenus
+        .iter()
+        .find(|submenu| submenu.text().is_ok_and(|text| text == "File"))
+    {
+        for (position, (id, label, accelerator)) in SHOW_MENU.into_iter().enumerate() {
+            file.insert(
+                &MenuItem::with_id(app, id, label, true, Some(accelerator))?,
+                position,
+            )?;
+        }
+        file.insert(&PredefinedMenuItem::separator(app)?, SHOW_MENU.len())?;
+    }
+    // tao does not ask before the stock Quit item (`terminate:`) ends the app, so Command+Q
+    // would skip `ExitRequested`. A custom item sends Quit through `request_quit`.
+    #[cfg(target_os = "macos")]
+    if let Some(app_menu) = submenus.first() {
+        let quit = app_menu
+            .items()?
+            .last()
+            .and_then(|item| item.as_predefined_menuitem().cloned())
+            .filter(|item| item.text().is_ok_and(|text| text.starts_with("Quit")));
+        if let Some(quit) = quit {
+            app_menu.remove(&quit)?;
+        }
+        let label = format!("Quit {}", app.package_info().name);
+        app_menu.append(&MenuItem::with_id(
+            app,
+            QUIT_MENU_ID,
+            label,
+            true,
+            Some("CmdOrCtrl+Q"),
+        )?)?;
+    }
+    app.set_menu(menu)?;
+    Ok(())
+}
+/// Brings the editor forward and asks it to run a show command, so the editor builds the document.
+fn send_show_command(app: &tauri::AppHandle, command: &str) {
+    use tauri::Emitter;
+    let Some(editor) = app.get_webview_window("editor") else {
+        return;
+    };
+    let _ = editor.show();
+    let _ = editor.set_focus();
+    let _ = app.emit_to("editor", "show-command", command);
+}
+/// Quits now, or first asks when the show has unsaved changes.
+fn request_quit(app: &tauri::AppHandle) {
+    let show_file = app.state::<show::ShowFile>();
+    if !show_file.quit_needs_confirmation() {
+        show_file.confirm_quit();
+        app.exit(0);
+        return;
+    }
+    let app = app.clone();
+    app.dialog()
+        .message("Quit without saving the show?")
+        .title("Unsaved changes")
+        .buttons(tauri_plugin_dialog::MessageDialogButtons::OkCancelCustom(
+            "Quit".into(),
+            "Cancel".into(),
+        ))
+        .show(move |quit| {
+            if quit {
+                app.state::<show::ShowFile>().confirm_quit();
+                app.exit(0);
+            }
+        });
 }
 #[tauri::command]
 async fn import_blueprint_file(window: tauri::WebviewWindow) -> Result<Option<String>, AppError> {
@@ -340,7 +482,19 @@ pub fn run() {
                 .build(),
         )
         .manage(state.clone())
+        .manage(show::ShowFile::default())
+        .on_menu_event(|app, event| {
+            let id = event.id().as_ref();
+            if id == QUIT_MENU_ID {
+                request_quit(app);
+            } else if let Some((command, ..)) =
+                SHOW_MENU.iter().find(|(command, ..)| *command == id)
+            {
+                send_show_command(app, command);
+            }
+        })
         .setup(move |app| {
+            install_menu(app.handle())?;
             let data = app.path().app_local_data_dir()?;
             std::fs::create_dir_all(&data)?;
             let output_root = output_resource_dir(app.handle())?;
@@ -373,10 +527,11 @@ pub fn run() {
                     .clone();
                 tauri::async_runtime::spawn(async move { state.end_keystroke_capture().await });
             }
-            if window.label() == "main"
-                && matches!(event, tauri::WindowEvent::CloseRequested { .. })
+            if let ("main", tauri::WindowEvent::CloseRequested { api, .. }) =
+                (window.label(), event)
             {
-                window.app_handle().exit(0);
+                api.prevent_close();
+                request_quit(window.app_handle());
             }
         })
         .invoke_handler(tauri::generate_handler![
@@ -391,14 +546,23 @@ pub fn run() {
             open_input_monitoring_settings,
             import_avatar,
             import_scene,
+            save_show,
             save_show_as,
             open_show,
+            set_show_dirty,
+            confirm_close_editor,
             import_blueprint_file,
             export_blueprint_file
         ])
         .build(tauri::generate_context!())
         .expect("OpenSekai failed to start");
-    app.run(move |_, event| {
+    app.run(move |app, event| {
+        if let tauri::RunEvent::ExitRequested { api, .. } = &event {
+            if app.state::<show::ShowFile>().quit_needs_confirmation() {
+                api.prevent_exit();
+                request_quit(app);
+            }
+        }
         if let tauri::RunEvent::Exit = event {
             let _ = tauri::async_runtime::block_on(state.shutdown());
         }

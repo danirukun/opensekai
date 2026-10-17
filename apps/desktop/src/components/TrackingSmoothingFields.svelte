@@ -24,4 +24,4 @@
  </fieldset>
  {#if invalid}<p role="alert">Use cutoff 0.01–120 Hz and beta 0–100.</p>{/if}
 </form>
-<style>form{padding:12px 0;border-top:1px solid #e1dee6}fieldset{display:grid;gap:10px;border:0;padding:0;margin:0;min-width:0}legend{font-size:12px;margin-bottom:8px}.option{display:flex;gap:8px;align-items:center;font-size:12px}</style>
+<style>form{padding:0}fieldset{display:grid;gap:10px;border:0;padding:0;margin:0;min-width:0}legend{font-size:12px;margin-bottom:8px}.option{display:flex;gap:8px;align-items:center;font-size:12px}</style>

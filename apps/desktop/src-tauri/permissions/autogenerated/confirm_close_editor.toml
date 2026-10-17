@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-confirm-close-editor"
+description = "Enables the confirm_close_editor command without any pre-configured scope."
+commands.allow = ["confirm_close_editor"]
+
+[[permission]]
+identifier = "deny-confirm-close-editor"
+description = "Denies the confirm_close_editor command without any pre-configured scope."
+commands.deny = ["confirm_close_editor"]

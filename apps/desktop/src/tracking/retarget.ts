@@ -24,7 +24,9 @@ function fromBasis(x:Vec3,y:Vec3,z:Vec3):Quat {
  const s=Math.sqrt(1+m22-m00-m11)*2;return normalize([(m02+m20)/s,(m12+m21)/s,s/4,(m10-m01)/s]);
 }
 function point(p:Landmark|undefined):Vec3|null{return p&&[p.x,p.y,p.z].every(Number.isFinite)&&(p.visibility??1)>=.5&&(p.presence??1)>=.5?[p.x,-p.y,-p.z]:null;}
-function faceRotation(m:number[]|undefined):Quat|null {if(!m||m.length!==16||!m.every(Number.isFinite))return null;const x=unit([m[0],m[1],m[2]]);if(!x)return null;const z=unit(cross(x,[m[4],m[5],m[6]]));if(!z)return null;const y=cross(z,x),q=fromBasis(x,y,z);return [q[0],-q[1],-q[2],q[3]];}
+// MediaPipe camera space and the converted pose landmarks share one frame (x image right, y up, z to the camera),
+// so the face matrix needs no reflection. `mirror` is the only reflection.
+function faceRotation(m:number[]|undefined):Quat|null {if(!m||m.length!==16||!m.every(Number.isFinite))return null;const x=unit([m[0],m[1],m[2]]);if(!x)return null;const z=unit(cross(x,[m[4],m[5],m[6]]));if(!z)return null;return fromBasis(x,cross(z,x),z);}
 const sideName=(name:string)=>name.startsWith('left')?'right'+name.slice(4):name.startsWith('right')?'left'+name.slice(5):name.endsWith('Left')?name.slice(0,-4)+'Right':name.endsWith('Right')?name.slice(0,-5)+'Left':name;
 export function createRetargeter(){
  let neutral:Quat|null=null;
