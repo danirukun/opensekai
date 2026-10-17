@@ -50,3 +50,30 @@ Method. A scratch Svelte page mounted the real `Inspector` and `Hierarchy` compo
 The first run found a defect: the number field gives a number, and the sensitivity parser called `trim()` on it. The parser now takes a string or a number, and a unit test covers both.
 
 ![Inspector, Orbit Character](camera-workflow/inspector-orbit.png)
+
+## Selection (CAM-02)
+
+`packages/session/test/camera-navigation-patch.test.ts` cuts between `camera_close` and `camera_wide` three times through `selectCamera` for `output_main` and `preview_main`, the session API that the host relay calls. After each cut, the next runtime frame names the selected camera for both outputs and the tick increases. Removal of the output camera fails with `INVALID_INPUT`. The renderer reads the output camera in each frame (`renderer.ts`), and `FrameApplied.cameraId` names it; the existing test in `packages/renderer/test/asset-lifecycle.test.ts` applies two frames with a cut and checks the camera, the lens, and `cameraId`. A cut in OBS with continued motion while the editor is minimized is a local check.
+
+## Screenshots (CAM-05)
+
+Integration tests (`apps/desktop/src-tauri/tests/service_integration.rs`, module `screenshots`) run the real host service with a fake `preview_main` renderer client at the WebSocket boundary. They cover: relay and file write (name `20261017-090507-042-camera_main.png` from an injected clock, bytes and SHA-256 equal), a name collision (`-1`, then `BUSY` after `-9`, no file replaced), the host-wide rate limit across two operators, `CONFLICT` and `NOT_FOUND` before the relay, `UNAVAILABLE` without a renderer, `STALE_FRAME` for another session, revision, or camera, `INVALID_INPUT` for a reply that is not a PNG, is 16 × 9, or is larger than 8 MiB, `TIMEOUT` with a late reply ignored, and the socket size and role checks. `service_integration` passed 3 runs in a row.
+
+PNG size and encode time. A scratch page called `createRenderer` with `preview_v1` on `preview_main` (`camera_wide`) and `renderer.screenshot` in headless Chromium with `chromiumGpuArgs`. WebGL 2 is ANGLE on Vulkan (llvmpipe); WebGPU is SwiftShader. "Encode" is `encodePng` alone; "whole" is the call from request to PNG, warm.
+
+| Scene | PNG | Encode | Whole (WebGL 2 / WebGPU) |
+| --- | --- | --- | --- |
+| Smoke scene (`fixture_glb_1` not present) | 78 KB | 115–123 ms | 0.63 s / 2.8 s |
+| VRM 0.x avatar and box, transparent | 85–87 KB | 110–130 ms | 0.67 s / 3.5 s |
+| Avatar and stage environment | 611 KB | 183–221 ms | 1.2 s / 5.9–6.5 s |
+| Avatar, stage, and FXAA | 683 KB | 180–250 ms | 1.3 s / 8.0–8.3 s |
+
+Each PNG is 1920 × 1080 RGBA. The corner alpha is 0 in the transparent scenes. The WebGL 2 orientation is equal to the canvas capture, and the two backends give the same image. The largest PNG is 0.67 MB, far below 4 MiB, so the 8 MiB limit stays (R16).
+
+## Gaps
+
+- The feel of each control mode on macOS, and Tab and Ctrl+Tab in the macOS WebView.
+- OBS following the camera during a gesture at about 10 Hz, and a camera cut in OBS with continued motion while the editor is minimized.
+- The screenshot alpha over a checker background in an image viewer, and the screenshot frame cost in the Scene window on a real GPU. On SwiftShader WebGPU the stage scene takes 6–8 s and gets `TIMEOUT` at the 5 s relay limit; the time on a real GPU is unknown.
+- Open Screenshots Folder in Finder.
+- Windows: not checked.
