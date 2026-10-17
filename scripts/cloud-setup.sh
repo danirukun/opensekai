@@ -3,6 +3,8 @@
 # Safe to run again: each step skips work that is already done.
 # On macOS and other hosts, the cloud-only steps (Node download, apt) are skipped.
 # Exit code 3: the UI kit source is not reachable.
+# Private fixtures need OPENSEKAI_FIXTURES_S3_ENDPOINT, _ACCESS_KEY_ID and _SECRET_ACCESS_KEY.
+# Without them, setup skips the private fixtures and continues.
 set -euo pipefail
 
 readonly NODE_VERSION=26.10.0
@@ -12,6 +14,8 @@ readonly TAURI_PACKAGES=(
   libwebkit2gtk-4.1-dev libgtk-3-dev libsoup-3.0-dev libjavascriptcoregtk-4.1-dev
   librsvg2-dev libxdo-dev libayatana-appindicator3-dev build-essential pkg-config
 )
+# Software rendering: Mesa lavapipe (Vulkan) and a virtual X display for headed runs.
+readonly RENDER_PACKAGES=(mesa-vulkan-drivers libvulkan1 vulkan-tools xvfb xauth)
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/opensekai"
@@ -72,14 +76,16 @@ if [[ $(pnpm -v 2>/dev/null || true) != "$PNPM_VERSION" ]]; then
 fi
 [[ $(pnpm -v) == "$PNPM_VERSION" ]] || die "pnpm is $(pnpm -v), expected $PNPM_VERSION"
 
-# c. Tauri 2 Linux build packages
+# c. Tauri 2 Linux build packages and software rendering packages
+sudo=()
+[[ $(id -u) -eq 0 ]] || sudo=(sudo)
 if $cloud; then
-  if ! { command -v pkg-config >/dev/null && pkg-config --exists webkit2gtk-4.1; }; then
-    log "install the Tauri 2 Linux packages"
-    sudo=()
-    [[ $(id -u) -eq 0 ]] || sudo=(sudo)
+  if ! { command -v pkg-config >/dev/null && pkg-config --exists webkit2gtk-4.1 &&
+    command -v Xvfb >/dev/null && compgen -G '/usr/share/vulkan/icd.d/lvp_icd*.json' >/dev/null; }; then
+    log "install the Tauri 2 Linux packages and the software rendering packages"
     "${sudo[@]}" apt-get update -qq
-    "${sudo[@]}" env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends "${TAURI_PACKAGES[@]}"
+    "${sudo[@]}" env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
+      "${TAURI_PACKAGES[@]}" "${RENDER_PACKAGES[@]}"
   fi
 fi
 
@@ -163,13 +169,27 @@ else
     warn "UI kit snapshot records $(snapshot_commit), expected $expected_ui"
 fi
 
-# e. Workspace
+# e. Workspace and the Playwright browser for headless render checks
 pnpm install --frozen-lockfile
+if $cloud; then
+  pnpm exec playwright install --with-deps chromium >/dev/null
+else
+  pnpm exec playwright install chromium >/dev/null
+fi
 
 # f. Build. The build reads the tracking models from a cache; fill it first.
 pnpm exec tsx scripts/prepare-tracking.ts --download >/dev/null
 pnpm build
 
-# g. Summary
+# g. Test fixtures in fixtures/local. A failed download does not stop setup.
+fixtures=$(pnpm exec tsx scripts/prepare-fixtures.ts) || {
+  warn "fixture download failed; fixture checks are unavailable"
+  fixtures=unavailable
+}
+gpu=$(pnpm exec tsx scripts/gpu-probe.ts 2>/dev/null) || gpu=unavailable
+
+# h. Summary
 printf 'cloud-setup: done: node %s, pnpm %s, %s, UI kit %s\n' \
   "$(node -v)" "$(pnpm -v)" "$(rustc --version 2>/dev/null || echo 'rustc missing')" "$(snapshot_commit)"
+printf 'cloud-setup: fixtures: %s\n' "$fixtures"
+printf 'cloud-setup: gpu: %s\n' "$gpu"

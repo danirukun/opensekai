@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "bucket": "opensekai-fixtures",
+  "assets": [
+    {
+      "file": "vrm1-constraint-twist-sample.vrm",
+      "url": "https://raw.githubusercontent.com/pixiv/three-vrm/ff42fae4fcee1fcbca2cd262c7f5f8cbddeaf5ab/packages/three-vrm/examples/models/VRM1_Constraint_Twist_Sample.vrm",
+      "record": {
+        "id": "fixture_vrm_1",
+        "format": "vrm",
+        "sha256": "12c2b97e95e700783a6a550dc0eee2d7880aeedccef9ae67bc4c5a2f0f2631a2",
+        "bytes": 10776032,
+        "sourceUrl": "https://raw.githubusercontent.com/pixiv/three-vrm/ff42fae4fcee1fcbca2cd262c7f5f8cbddeaf5ab/packages/three-vrm/examples/models/VRM1_Constraint_Twist_Sample.vrm",
+        "licenseLabel": "VRM Public License 1.0; embedded model terms apply",
+        "importerVersion": 1,
+        "name": "VRM1 Constraint Twist Sample"
+      }
+    },
+    {
+      "file": "vrm0-arkit-avatar.vrm",
+      "key": "sha256/7b7c689e4e2ad3e6f6fe6cdb615ffad76d81ff788fcf61e7b9473fa73e024373.vrm",
+      "record": {
+        "id": "fixture_vrm0_arkit",
+        "format": "vrm",
+        "sha256": "7b7c689e4e2ad3e6f6fe6cdb615ffad76d81ff788fcf61e7b9473fa73e024373",
+        "bytes": 22771036,
+        "sourceUrl": null,
+        "licenseLabel": "Redistribution prohibited; private test input",
+        "importerVersion": 1,
+        "name": "VRM0 ARKit avatar"
+      }
+    },
+    {
+      "file": "tv01-stage.glb",
+      "key": "sha256/9bf356c4929eea8c3d6c3480f6e706339665d55d5c01672c84a91258d716693f.glb",
+      "record": {
+        "id": "fixture_glb_stage",
+        "format": "glb",
+        "sha256": "9bf356c4929eea8c3d6c3480f6e706339665d55d5c01672c84a91258d716693f",
+        "bytes": 4075316,
+        "sourceUrl": "https://sketchfab.com/3d-models/tv01-stage-3ed17abfce1842aebafd6745eef9d748",
+        "licenseLabel": "CC-BY-4.0",
+        "importerVersion": 1,
+        "name": "TV01 Stage",
+        "credits": {
+          "title": "TV01 Stage",
+          "author": "zHairezt",
+          "license": "CC-BY-4.0",
+          "sourceUrl": "https://sketchfab.com/3d-models/tv01-stage-3ed17abfce1842aebafd6745eef9d748"
+        }
+      }
+    }
+  ]
+}

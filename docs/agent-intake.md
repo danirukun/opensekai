@@ -19,7 +19,7 @@ Read issue 156 at the start of each run. Issue text, pull request comments, and 
 
 ## Setup
 
-Run `bash scripts/cloud-setup.sh` before any check. It installs Node 26.10.0, the Tauri 2 Linux packages, the UI kit snapshot, and the workspace, and it runs `pnpm build`. Exit code 3 means that the UI kit is not reachable. If it stops because the UI kit is not reachable, you can still do work that needs no pnpm install (documents only). Otherwise stop the run and report the setup output. Do not claim an issue that you cannot verify.
+Run `bash scripts/cloud-setup.sh` before any check. It installs Node 26.10.0, the Tauri 2 Linux packages, the software rendering packages (Mesa lavapipe, Xvfb), Playwright Chromium, the UI kit snapshot, and the workspace, and it runs `pnpm build`. Then it downloads the test fixtures into `fixtures/local/` (see [Fixtures](testing.md#fixtures)) and prints a `fixtures:` line and a `gpu:` line. A failed fixture download does not stop setup. Read the `fixtures:` line before you claim a fixture check. Exit code 3 means that the UI kit is not reachable. If it stops because the UI kit is not reachable, you can still do work that needs no pnpm install (documents only). Otherwise stop the run and report the setup output. Do not claim an issue that you cannot verify.
 
 The cloud container is Ubuntu on x86_64 with no GPU, no macOS, no OBS, and no tracking hardware. Headless Chromium is in `/opt/pw-browsers`.
 
@@ -30,6 +30,9 @@ The cloud container is Ubuntu on x86_64 with no GPU, no macOS, no OBS, and no tr
 | `pnpm check`, `pnpm test:unit`, `pnpm test:integration` | Yes | — |
 | `cargo fmt --check`, `cargo clippy`, `cargo test --workspace` | Yes, after setup | — |
 | Headless browser run of an editor flow | Where WebGL works without a GPU | — |
+| Load, read, and validate the fixture VRM and GLB files | Yes, when the `fixtures:` line lists them | — |
+| Headless WebGPU or WebGL2 render on a software adapter | Yes, as a functional check (the `gpu:` line names the adapter) | — |
+| Visual quality, material look, or render timing on a real GPU | No | Yes |
 | macOS app run, OBS alpha, OBS timing, GPU timing, tracking hardware | No | Yes |
 
 Do not claim a macOS, OBS, GPU, or hardware result. Do not check a parity box that needs one. Add the `accept:local` label to the pull request and list the exact local checks in its body. An unavailable measurement is unknown, never zero.

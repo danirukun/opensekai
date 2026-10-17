@@ -586,6 +586,26 @@ mod tests {
         bytes.extend(json);
         assert!(validate_glb(&bytes).is_err());
     }
+    // Reads the manifest that scripts/prepare-fixtures.ts writes. Without it, the test has nothing to check.
+    #[test]
+    fn prepared_local_fixtures_load_and_read() {
+        let manifest =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../fixtures/local/manifest.json");
+        if !manifest.is_file() {
+            eprintln!("skip: no {}", manifest.display());
+            return;
+        }
+        let registry = AssetRegistry::load(&manifest).unwrap();
+        let records = registry.fixture_records();
+        assert!(!records.is_empty());
+        for record in records {
+            let bytes = registry.read(&record.id).unwrap();
+            assert_eq!(bytes.len() as u64, record.bytes, "{}", record.id);
+            if matches!(record.format, AssetFormat::Vrm) {
+                assert!(!record.expressions.is_empty(), "{}", record.id);
+            }
+        }
+    }
 }
 #[cfg(test)]
 mod boundary_tests {
