@@ -26,6 +26,14 @@ export function applyOperations(scene: SceneView, operations: ScenePatch["operat
                  case 'setAvatarTracking':if(entity.kind!=='avatar')return failure('INVALID_INPUT','Entity is not an avatar',[entity.id]);entity.tracking=structuredClone(operation.tracking);break;
                  case 'setAvatarModel':if(entity.kind!=='avatar')return failure('INVALID_INPUT','Entity is not an avatar',[entity.id]);entity.assetId=operation.assetId;break;
                  case 'setEnvironmentModel':if(entity.kind!=='environment')return failure('INVALID_INPUT','Entity is not an environment',[entity.id]);entity.assetId=operation.assetId;break;
+                 case 'setAvatarExpression':{
+                  if(entity.kind!=='avatar')return failure('INVALID_INPUT','Entity is not an avatar',[entity.id]);
+                  // Entries, not property writes: a model can name an expression `__proto__`.
+                  const kept=Object.entries(entity.expressions??{}).filter(([name])=>name!==operation.name);
+                  const expressions=Object.fromEntries(operation.settings?[...kept,[operation.name,structuredClone(operation.settings)]]:kept);
+                  if(kept.length||operation.settings)entity.expressions=expressions;else delete entity.expressions;
+                  break;
+                 }
                  case 'setCameraRenderEnvironment':if(entity.kind!=='camera')return failure('INVALID_INPUT','Entity is not a camera',[entity.id]);entity.renderEnvironment=operation.renderEnvironment;break;
                  case 'setCameraAntiAliasing':if(entity.kind!=='camera')return failure('INVALID_INPUT','Entity is not a camera',[entity.id]);entity.antiAliasing=operation.antiAliasing;break;
                  case 'setTrackingSmoothing':if(entity.kind!=='tracking')return failure('INVALID_INPUT','Entity is not a tracking source',[entity.id]);entity.smoothing=structuredClone(operation.smoothing);break;

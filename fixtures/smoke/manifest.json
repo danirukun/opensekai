@@ -10,7 +10,81 @@
       "format": "vrm",
       "licenseLabel": "VRM Public License 1.0; embedded model terms apply",
       "importerVersion": 1,
-      "name": "VRM1 Constraint Twist Sample"
+      "name": "VRM1 Constraint Twist Sample",
+      "expressions": [
+        {
+          "name": "aa",
+          "preset": true
+        },
+        {
+          "name": "angry",
+          "preset": true
+        },
+        {
+          "name": "blink",
+          "preset": true
+        },
+        {
+          "name": "blinkLeft",
+          "preset": true
+        },
+        {
+          "name": "blinkRight",
+          "preset": true
+        },
+        {
+          "name": "ee",
+          "preset": true
+        },
+        {
+          "name": "happy",
+          "preset": true
+        },
+        {
+          "name": "ih",
+          "preset": true
+        },
+        {
+          "name": "lookDown",
+          "preset": true
+        },
+        {
+          "name": "lookLeft",
+          "preset": true
+        },
+        {
+          "name": "lookRight",
+          "preset": true
+        },
+        {
+          "name": "lookUp",
+          "preset": true
+        },
+        {
+          "name": "neutral",
+          "preset": true
+        },
+        {
+          "name": "oh",
+          "preset": true
+        },
+        {
+          "name": "ou",
+          "preset": true
+        },
+        {
+          "name": "relaxed",
+          "preset": true
+        },
+        {
+          "name": "sad",
+          "preset": true
+        },
+        {
+          "name": "surprised",
+          "preset": true
+        }
+      ]
     },
     {
       "id": "fixture_glb_1",
@@ -20,7 +94,8 @@
       "format": "glb",
       "licenseLabel": "Generated for OpenSekai; project license pending",
       "importerVersion": 1,
-      "name": "Reference box"
+      "name": "Reference box",
+      "expressions": []
     }
   ]
 }

@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { AssetRecordSchema, PatchOpSchema, SceneViewSchema, makeSmokeScene, type SceneEntity } from '../src/index';
 const environment = (id: string): SceneEntity => ({ id, name: 'Environment', visible: true, transform: { position: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] }, kind: 'environment', assetId: null });
-const record = { id: 'scene_' + 'a'.repeat(64), format: 'glb', sha256: 'a'.repeat(64), bytes: 1, sourceUrl: null, licenseLabel: '', importerVersion: 1, name: 'Room' };
+const record = { id: 'scene_' + 'a'.repeat(64), format: 'glb', sha256: 'a'.repeat(64), bytes: 1, sourceUrl: null, licenseLabel: '', importerVersion: 1, name: 'Room', expressions: [] };
 it('accepts one environment and rejects a second one', () => {
     const scene = makeSmokeScene();
     scene.entities.push(environment('stage'));

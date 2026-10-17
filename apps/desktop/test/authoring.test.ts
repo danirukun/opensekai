@@ -31,7 +31,7 @@ it('names a new entity with the label or the smallest free number',()=>{
  expect(makeAuthoringEntity('character','new',remaining).name).toBe('Character');
 });
 it('labels the model control from the asset list',()=>{
- const assets=[{id:'avatar_a',format:'vrm',sha256:'a'.repeat(64),bytes:1,sourceUrl:null,licenseLabel:'User supplied',importerVersion:1,name:'Rem'}] as const;
+ const assets=[{id:'avatar_a',format:'vrm',sha256:'a'.repeat(64),bytes:1,sourceUrl:null,licenseLabel:'User supplied',importerVersion:1,name:'Rem',expressions:[]}] as const;
  expect(modelLabel(null,assets)).toBe('Choose VRM…');
  expect(modelLabel('avatar_a',assets)).toBe('Rem');
  expect(modelLabel('avatar_gone',assets)).toBe('Missing model');

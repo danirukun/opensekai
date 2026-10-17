@@ -4,7 +4,7 @@ const transform={position:[0,0,0],rotation:[0,0,0,1],scale:[1,1,1]};
 const scene=(avatar:Record<string,unknown>)=>({schemaVersion:1,sceneId:'s',revision:0,outputs:[{id:'output_main',cameraId:'cam',width:1920,height:1080,fps:60}],entities:[
  {id:'cam',name:'Camera',visible:true,transform,kind:'camera',lens:{fovDegrees:40,near:.01,far:100}},
  {id:'char',name:'Character',visible:true,transform,kind:'avatar',...avatar}]});
-const record={id:'avatar_x',format:'vrm',sha256:'a'.repeat(64),bytes:1,sourceUrl:null,licenseLabel:'User supplied',importerVersion:1,name:'Rem'};
+const record={id:'avatar_x',format:'vrm',sha256:'a'.repeat(64),bytes:1,sourceUrl:null,licenseLabel:'User supplied',importerVersion:1,name:'Rem',expressions:[]};
 it('accepts a character with no model and keeps assetId required',()=>{
  expect(SceneViewSchema.safeParse(scene({assetId:null})).success).toBe(true);
  expect(SceneViewSchema.safeParse(scene({assetId:'avatar_x'})).success).toBe(true);

@@ -1,9 +1,10 @@
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import SessionWorker from '@opensekai/session/worker?worker';
 import { connectClient } from '@opensekai/browser-client';
 import type { EditorOptions, EditorHandle, AssetLoadStatus } from '@opensekai/renderer';
 import { createRenderer } from '@opensekai/renderer';
-import { makeSmokeScene, ConnectionDescriptorSchema, TrackingUpdateSchema, QUALITY_PROFILES } from '@opensekai/contracts';
+import { makeSmokeScene, AssetRecordSchema, ConnectionDescriptorSchema, TrackingUpdateSchema, QUALITY_PROFILES } from '@opensekai/contracts';
 import type { AssetRecord, BrowserClient, ConnectionDescriptor, RuntimeFrame,TrackingUpdate } from '@opensekai/contracts';
 import { makeOutputUrl } from './editor/output-url';
 import {makeEmptyScene} from './editor/authoring';
@@ -28,6 +29,7 @@ export async function bootstrapDesktop(canvas: HTMLCanvasElement, editorOptions?
  let worker: Worker | undefined;
  const clients: BrowserClient[] = [];
  let closePreview = () => {};
+ let stopRecords = () => {};
  let stopped = false;
  let clockAnchor:{native:number;local:number}|undefined;
  const clockListeners=new Set<()=>void>();
@@ -40,6 +42,7 @@ export async function bootstrapDesktop(canvas: HTMLCanvasElement, editorOptions?
   if (stopped) return;
   stopped = true;
   closePreview();
+  stopRecords();
   clockListeners.clear();
   clockAnchor=undefined;
   for (const client of clients) client.close();
@@ -63,7 +66,16 @@ export async function bootstrapDesktop(canvas: HTMLCanvasElement, editorOptions?
       info.output.role !== 'renderer' || info.output.outputId !== 'output_main') {
    throw new Error('Bootstrap connection scope mismatch');
   }
-  worker.postMessage({ descriptor: info.publisher, scene: info.fixtureMode ? makeSmokeScene() : makeEmptyScene() });
+  let records = info.assets;
+  worker.postMessage({ descriptor: info.publisher, scene: info.fixtureMode ? makeSmokeScene() : makeEmptyScene(), assets: records });
+  // The Editor imports models; the host announces each new record so the session knows its expressions.
+  const unlisten = listen<unknown>('asset-record', event => {
+   const parsed = AssetRecordSchema.safeParse(event.payload);
+   if (stopped || !parsed.success) return;
+   records = [...records.filter(record => record.id !== parsed.data.id), parsed.data];
+   worker?.postMessage({ kind: 'assets', records });
+  });
+  stopRecords = () => { void unlisten.then(off => off()).catch(() => {}); };
   const connected = await Promise.allSettled([connectClient(info.operator), connectClient(info.preview)]);
   for (const result of connected) if (result.status === 'fulfilled') clients.push(result.value);
   for (const result of connected) if (result.status === 'rejected') throw result.reason;

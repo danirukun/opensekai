@@ -38,6 +38,11 @@ async fn shutdown_session(
     require_window_label(window.label(), "main")?;
     state.shutdown().await
 }
+/// Sends a new or replaced record to the Scene window, so the session sees the expressions of a new model.
+fn announce_record(window: &tauri::WebviewWindow, record: &opensekai_contracts::AssetRecord) {
+    use tauri::Emitter;
+    let _ = window.app_handle().emit_to("main", "asset-record", record);
+}
 fn require_window_label(actual: &str, expected: &str) -> Result<(), AppError> {
     if actual == expected {
         Ok(())
@@ -83,7 +88,9 @@ async fn import_avatar(
         message: "Local file required".into(),
         ids: vec![],
     })?;
-    state.import_avatar(path).await.map(Some)
+    let result = state.import_avatar(path).await?;
+    announce_record(&window, &result.record);
+    Ok(Some(result))
 }
 #[tauri::command]
 async fn import_scene(
@@ -111,7 +118,9 @@ async fn import_scene(
         message: "Local file required".into(),
         ids: vec![],
     })?;
-    state.import_scene(path).await.map(Some)
+    let result = state.import_scene(path).await?;
+    announce_record(&window, &result.record);
+    Ok(Some(result))
 }
 #[tauri::command]
 async fn save_show_as(

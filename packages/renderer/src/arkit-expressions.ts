@@ -1,21 +1,9 @@
 import type {Object3D, Mesh} from 'three';
 
-export const arkitNames = [
- 'eyeBlinkLeft','eyeLookDownLeft','eyeLookInLeft','eyeLookOutLeft','eyeLookUpLeft','eyeSquintLeft','eyeWideLeft',
- 'eyeBlinkRight','eyeLookDownRight','eyeLookInRight','eyeLookOutRight','eyeLookUpRight','eyeSquintRight','eyeWideRight',
- 'jawForward','jawLeft','jawRight','jawOpen','mouthClose','mouthFunnel','mouthPucker','mouthLeft','mouthRight',
- 'mouthSmileLeft','mouthSmileRight','mouthFrownLeft','mouthFrownRight','mouthDimpleLeft','mouthDimpleRight',
- 'mouthStretchLeft','mouthStretchRight','mouthRollLower','mouthRollUpper','mouthShrugLower','mouthShrugUpper',
- 'mouthPressLeft','mouthPressRight','mouthLowerDownLeft','mouthLowerDownRight','mouthUpperUpLeft','mouthUpperUpRight',
- 'browDownLeft','browDownRight','browInnerUp','browOuterUpLeft','browOuterUpRight','cheekPuff','cheekSquintLeft',
- 'cheekSquintRight','noseSneerLeft','noseSneerRight','tongueOut'
-] as const;
-const canonicalNames = new Map<string,string>();
-for (const name of arkitNames) {
- canonicalNames.set(name.toLowerCase(),name);
- canonicalNames.set(name.replace(/Left$/, '_L').replace(/Right$/, '_R').toLowerCase(),name);
-}
-export function canonicalArkitName(name:string):string|undefined {return canonicalNames.get(name.toLowerCase());}
+import { ARKIT_NAMES, canonicalArkitName } from '@opensekai/contracts';
+
+export const arkitNames = ARKIT_NAMES;
+export { canonicalArkitName };
 type Slot = {mesh:Mesh;index:number};
 export function createArkitMorphBinding(scene:Object3D) {
  const slots=new Map<string,Slot[]>();

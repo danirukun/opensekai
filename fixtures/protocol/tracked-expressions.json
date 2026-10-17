@@ -1,0 +1,4 @@
+{
+  "tracked": ["aa", "AA", "ih", "ou", "ee", "oh", "blink", "Blink", "blinkLeft", "blinkRight", "LookUp", "lookDown", "lookLeft", "lookRight", "Neutral", "SIL", "sil", "PP", "FF", "TH", "DD", "kk", "KK", "CH", "SS", "nn", "NN", "RR", "eyeBlinkLeft", "eyeBlink_R", "JAWOPEN", "mouthSmileLeft", "mouthSmile_L", "browInnerUp", "cheekPuff", "noseSneerRight", "tongueOut", "mouthShrugUpper"],
+  "triggerable": ["happy", "Joy", "angry", "Sad", "relaxed", "surprised", "Blink_L", "Smirk", "Wink", "ToggleHat", "EyeHearts", "A", "E", "viseme_PP", "mouthSmile", "browInner"]
+}

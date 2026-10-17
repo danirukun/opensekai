@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { finite, IdSchema, type DefaultRefs, type NodeDefinition, type PortShape, type PortType } from './define';
+import { CHARACTER_NODES } from './character';
 import { EVENT_NODES } from './events';
 import { FLOW_NODES } from './flow';
 import { INPUT_NODES } from './input';
@@ -15,7 +16,7 @@ export { defineNode, NODE_CATEGORIES, type PortType, type PortShape, type NodeCa
 export { KEYSTROKE_CODES, KeystrokeSettingsSchema, keystrokeAccelerator, keystrokeHasModifier, type KeystrokeSettings } from './events';
 
 // Palette order inside a category follows this list.
-export const NODE_DEFINITIONS = [...EVENT_NODES, ...INPUT_NODES, ...FLOW_NODES, ...VALUE_NODES, ...MATH_NODES, ...VECTOR3_NODES, ...LOGIC_NODES, ...VARIABLE_NODES, ...SCENE_NODES, ...PROPERTY_NODES] as const;
+export const NODE_DEFINITIONS = [...EVENT_NODES, ...INPUT_NODES, ...FLOW_NODES, ...VALUE_NODES, ...MATH_NODES, ...VECTOR3_NODES, ...LOGIC_NODES, ...VARIABLE_NODES, ...SCENE_NODES, ...PROPERTY_NODES, ...CHARACTER_NODES] as const;
 type Definition = (typeof NODE_DEFINITIONS)[number];
 export type BlueprintKind = Definition['type'];
 export const BlueprintPositionSchema = z.strictObject({ x: finite, y: finite });
@@ -42,7 +43,7 @@ export function connectionType(source: BlueprintNode, sourcePort: string, target
  return output && output === input ? output : null;
 }
 
-const SAMPLE: DefaultRefs = { entityId: 'entity', cameraId: 'camera', outputId: 'output', keystroke: { code: 'KeyH', control: true, alt: true, shift: false, meta: false }, variables: [{ id: 'number', type: 'number' }, { id: 'boolean', type: 'boolean' }] };
+const SAMPLE: DefaultRefs = { entityId: 'entity', cameraId: 'camera', outputId: 'output', avatarId: 'avatar', expression: 'happy', keystroke: { code: 'KeyH', control: true, alt: true, shift: false, meta: false }, variables: [{ id: 'number', type: 'number' }, { id: 'boolean', type: 'boolean' }] };
 // Ports are shown for the default settings; `portsDependOnSettings` marks nodes whose port list changes with them.
 export const blueprintNodeCatalog = () => NODE_DEFINITIONS.map(definition => ({
  type: definition.type, label: definition.label, category: definition.category, keywords: [...definition.keywords],

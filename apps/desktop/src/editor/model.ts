@@ -1,5 +1,5 @@
-import { TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,TrackingSmoothingSchema,EntityNameSchema,ShowSceneSchema,IdSchema,CameraAntiAliasingSchema } from '@opensekai/contracts';
-import type { AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing, CameraAntiAliasing } from '@opensekai/contracts';
+import { ExpressionNameSchema,ExpressionSettingsSchema,TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,TrackingSmoothingSchema,EntityNameSchema,ShowSceneSchema,IdSchema,CameraAntiAliasingSchema } from '@opensekai/contracts';
+import type { ExpressionSettings, AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing, CameraAntiAliasing } from '@opensekai/contracts';
 import {makeEntityCopy} from './asset-management';
 type CameraLens=Extract<SceneEntity,{kind:'camera'}>['lens'];
 export interface EditorView {
@@ -109,6 +109,11 @@ export function createEditorModel(api: AppApi) {
   setAvatarModel(entityId:Id,assetId:Id|null,expectedRevision?:number):Promise<Reply<{revision:number}>> {
    const parsed=IdSchema.nullable().safeParse(assetId);if(!ofKind(entityId,'avatar')||!parsed.success)return invalid();
    return patch({kind:'setAvatarModel',entityId,assetId:parsed.data},expectedRevision);
+  },
+  setAvatarExpression(entityId:Id,name:string,settings:ExpressionSettings|null,expectedRevision?:number):Promise<Reply<{revision:number}>> {
+   const parsedName=ExpressionNameSchema.safeParse(name),parsed=ExpressionSettingsSchema.nullable().safeParse(settings);
+   if(!ofKind(entityId,'avatar')||!parsedName.success||!parsed.success)return invalid();
+   return patch({kind:'setAvatarExpression',entityId,name:parsedName.data,settings:parsed.data},expectedRevision);
   },
   setEnvironmentModel(entityId:Id,assetId:Id|null,expectedRevision?:number):Promise<Reply<{revision:number}>> {
    const parsed=IdSchema.nullable().safeParse(assetId);if(!ofKind(entityId,'environment')||!parsed.success)return invalid();

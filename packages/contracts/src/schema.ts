@@ -4,6 +4,7 @@ import { BlueprintBatchSchema } from './blueprint-ops';
 import { KEYSTROKE_CODES } from './blueprint-nodes';
 import { z } from "zod";
 import { CameraAntiAliasingSchema, QualityProfileIdSchema } from './quality';
+import { AssetExpressionsSchema, AvatarExpressionsSchema, ExpressionNameSchema, ExpressionSettingsSchema, ExpressionStateSchema } from './expressions';
 import type { AppApi, Capability, Reply, ValidatedCall } from "./types";
 export const LIMITS = {
     jsonBytes: 262144,
@@ -106,7 +107,8 @@ export const SceneEntitySchema = z.discriminatedUnion("kind", [
         kind: z.literal("avatar"),
         assetId: IdSchema.nullable(),
         tracking: AvatarTrackingSchema.optional(),
-        idleAnimation: AvatarIdleSchema.optional()
+        idleAnimation: AvatarIdleSchema.optional(),
+        expressions: AvatarExpressionsSchema.optional()
     }),
     EntityBaseSchema.extend({kind:z.literal('tracking'),config:TrackingConfigSchema,generation:u,smoothing:TrackingSmoothingSchema.optional()}),
     EntityBaseSchema.extend({
@@ -160,6 +162,7 @@ export const PatchOpSchema = z.discriminatedUnion("kind", [
     z.strictObject({kind:z.literal('setAvatarTracking'),entityId:IdSchema,tracking:AvatarTrackingSchema}),
     z.strictObject({kind:z.literal('setAvatarModel'),entityId:IdSchema,assetId:IdSchema.nullable()}),
     z.strictObject({kind:z.literal('setEnvironmentModel'),entityId:IdSchema,assetId:IdSchema.nullable()}),
+    z.strictObject({kind:z.literal('setAvatarExpression'),entityId:IdSchema,name:ExpressionNameSchema,settings:ExpressionSettingsSchema.nullable()}),
     z.strictObject({kind:z.literal('setCameraRenderEnvironment'),entityId:IdSchema,renderEnvironment:z.boolean()}),
     z.strictObject({kind:z.literal('setCameraAntiAliasing'),entityId:IdSchema,antiAliasing:CameraAntiAliasingSchema}),
     z.strictObject({kind:z.literal('setTrackingConfig'),entityId:IdSchema,config:TrackingConfigSchema}),
@@ -199,7 +202,8 @@ export const AssetRecordSchema = z.strictObject({
     licenseLabel: z.string(),
     importerVersion: z.literal(1),
     name: z.string().refine(name => name.trim().length > 0 && name.length <= 128, 'Invalid asset name'),
-    credits: AssetCreditsSchema.optional()
+    credits: AssetCreditsSchema.optional(),
+    expressions: AssetExpressionsSchema
 });
 // One page of `assetList`: the host answers it from the asset library, in ascending ID order.
 export const AssetSummarySchema = z.strictObject({
@@ -391,7 +395,9 @@ export const ParamSchemas = {
     evidenceRead: z.strictObject({
         evidenceId: IdSchema
     }),
-    assetList: z.strictObject({ after: IdSchema.optional() })
+    assetList: z.strictObject({ after: IdSchema.optional() }),
+    expressionGet: z.strictObject({ avatarId: IdSchema }),
+    expressionSet: z.strictObject({ avatarId: IdSchema, name: ExpressionNameSchema, active: z.boolean() })
 };
 export const ResultSchemas = {
     appStatus: AppStatusSchema,
@@ -411,7 +417,9 @@ export const ResultSchemas = {
     benchmarkStatus: BenchmarkRunSchema,
     benchmarkCancel: BenchmarkRunSchema,
     evidenceRead: EvidenceManifestSchema,
-    assetList: AssetListSchema
+    assetList: AssetListSchema,
+    expressionGet: ExpressionStateSchema,
+    expressionSet: ExpressionStateSchema
 };
 export const MethodSchema = z.enum([
     "appStatus",
@@ -427,7 +435,9 @@ export const MethodSchema = z.enum([
     "benchmarkStatus",
     "benchmarkCancel",
     "evidenceRead",
-    "assetList"
+    "assetList",
+    "expressionGet",
+    "expressionSet"
 ]);
 export function validateCall(method: unknown, params: unknown): Reply<ValidatedCall> {
     const m = MethodSchema.safeParse(method);
@@ -452,7 +462,7 @@ export function validateCall(method: unknown, params: unknown): Reply<ValidatedC
     };
 }
 export function requiredCapability(method: keyof AppApi): Capability {
-    if (method === "scenePatch" || method === "sceneReplace" || method === "cameraSelect" || method === "blueprintRun" || method === "blueprintEdit")
+    if (method === "scenePatch" || method === "sceneReplace" || method === "cameraSelect" || method === "blueprintRun" || method === "blueprintEdit" || method === "expressionSet")
         return "edit";
     if (method === "captureFrame")
         return "capture";

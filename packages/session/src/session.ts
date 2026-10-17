@@ -1,10 +1,11 @@
-import { IdSchema, ParamSchemas, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate, type AppError, type InputUpdate, type BlueprintInspect } from "@opensekai/contracts";
+import { IdSchema, ParamSchemas, AssetRecordSchema, type AssetRecord, type ExpressionState, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate, type AppError, type InputUpdate, type BlueprintInspect } from "@opensekai/contracts";
 import { createTransformAdapter } from "./ecs";
 import {createTrackingComposer} from "./tracking";
 import { createBlueprintRuntime, logicKey, type BlueprintEvent, type GraphRun, type StepEnv } from './blueprint-runtime';
 import { createBlueprintStore } from './blueprint-store';
 import { applyEffects, applyOperations } from './scene-ops';
-import { isOverrideEffect, type SceneEffect } from './blueprint';
+import { isExpressionEffect, isOverrideEffect, isSceneEffect } from './blueprint';
+import { advanceExpressions, composeExpressions, EMPTY_EXPRESSIONS, expressionView, reconcileExpressions, setExpression, type ExpressionStates } from './expressions';
 import { applyOverrides, dropOverrides, EMPTY_OVERRIDES, takeIdle, writeOverride, type OverrideLayer } from './overrides';
 export interface Session {
     inspect(): SceneView;
@@ -24,14 +25,22 @@ export interface Session {
     editBlueprints(batch: unknown): Reply<{ revision: number; keystrokes: string[]; heldKeys?: string[] }>;
     inspectBlueprints(sinceRevision?: number): BlueprintInspect;
     runBlueprint(graphId: Id, triggerNodeId: Id): Reply<{revision: number}>;
+    setAssetRecords(records: readonly AssetRecord[]): void;
+    getExpressions(avatarId: Id): Reply<ExpressionState>;
+    setExpression(avatarId: Id, name: string, active: boolean): Reply<ExpressionState>;
 }
 const failure = (code: ErrorCode, message: string, ids: Id[] = []): Reply<never> => ({ ok: false, error: { code, message, ids } });
-export function createSession(scene: SceneView, sessionId: Id): Session {
+export function createSession(scene: SceneView, sessionId: Id, assets: readonly AssetRecord[] = []): Session {
     IdSchema.parse(sessionId);
     let persistent: SceneView = structuredClone(SceneViewSchema.parse(scene));
     const adapter = createTransformAdapter(persistent);
     let tracking=createTrackingComposer();
     let overrides: OverrideLayer = EMPTY_OVERRIDES;
+    let expressions: ExpressionStates = EMPTY_EXPRESSIONS;
+    let records = new Map<Id, AssetRecord>();
+    const record = (assetId: Id) => records.get(assetId);
+    const storeRecords = (list: readonly AssetRecord[]) => { records = new Map(list.flatMap(item => { const parsed = AssetRecordSchema.safeParse(item); return parsed.success ? [[parsed.data.id, parsed.data] as const] : []; })); };
+    storeRecords(assets);
     let elapsed = 0;
     let sequence = 0;
     function commit(next: SceneView): Reply<{
@@ -41,6 +50,7 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
             return failure("INVALID_INPUT", "Revision limit reached");
         next.revision = persistent.revision + 1;
         persistent = next;
+        expressions = reconcileExpressions(expressions, persistent);
         return { ok: true, data: { revision: persistent.revision } };
     }
     const runtime = createBlueprintRuntime();
@@ -60,10 +70,11 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
     const stepBlueprints = (events: BlueprintEvent[], nowMs: number, held: ReadonlySet<string>): { runs: GraphRun[]; committed: Reply<{ revision: number }> } => {
         let working: SceneView | null = null;
         let layer = overrides;
+        let faces = reconcileExpressions(expressions, persistent);
         const env: StepEnv = { held, scene: () => applyOverrides(working ?? persistent, layer) };
         const runs = runtime.step(events, nowMs, run => {
             if (run.effects.length === 0) return null;
-            const sceneEffects = run.effects.filter((effect): effect is SceneEffect => !isOverrideEffect(effect));
+            const sceneEffects = run.effects.filter(isSceneEffect);
             let scene = working ?? persistent;
             if (sceneEffects.length) { const next = applyEffects(scene, sceneEffects); if (!next.ok) return next.error; scene = next.data; }
             let nextLayer = layer;
@@ -72,11 +83,20 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
                 if (!written.ok) return written.error;
                 nextLayer = written.data;
             }
+            // Expression effects apply only when the scene effects of the same run apply.
+            let nextFaces = faces;
+            for (const effect of run.effects.filter(isExpressionEffect)) {
+                const set = setExpression(nextFaces, scene, record, effect);
+                if (!set.ok) return set.error;
+                nextFaces = set.data;
+            }
             if (sceneEffects.length) working = scene;
             layer = nextLayer;
+            faces = nextFaces;
             return null;
         }, env);
         overrides = layer;
+        expressions = faces;
         for (const run of runs) if (run.error) runtimeErrors.set(run.graphId, run.error); else runtimeErrors.delete(run.graphId);
         const changed = working !== null && JSON.stringify(working) !== JSON.stringify(persistent);
         return { runs, committed: changed ? commit(working!) : { ok: true, data: { revision: persistent.revision } } };
@@ -99,6 +119,7 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
             persistent = structuredClone({ ...parsed.data, revision: persistent.revision + 1 });
             tracking = createTrackingComposer();
             overrides = EMPTY_OVERRIDES;
+            expressions = EMPTY_EXPRESSIONS;
             return { ok: true, data: structuredClone(persistent) };
         },
         editBlueprints(batch) {
@@ -162,6 +183,16 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
             return commit(next);
         },
         ingestTracking:update=>tracking.ingest(update,persistent),
+        setAssetRecords: storeRecords,
+        getExpressions(avatarId) {
+            return expressionView(reconcileExpressions(expressions, persistent), persistent, record, avatarId);
+        },
+        setExpression(avatarId, name, active) {
+            const set = setExpression(reconcileExpressions(expressions, persistent), persistent, record, { kind: 'setExpression', entityId: avatarId, expression: name, active });
+            if (!set.ok) return set;
+            expressions = set.data;
+            return expressionView(expressions, persistent, record, avatarId);
+        },
         advance(elapsedMs,trackingNowMs,input) {
             const tick = Math.floor(elapsedMs * 60 / 1000);
             if (!Number.isFinite(elapsedMs) || elapsedMs < elapsed || !Number.isSafeInteger(tick) || !Number.isSafeInteger(sequence + 1)) {
@@ -179,10 +210,12 @@ export function createSession(scene: SceneView, sessionId: Id): Session {
             if (!failedThisTick) loggedFailures.clear();
             const shown = applyOverrides(persistent, overrides);
             const scene = adapter.evaluate(shown, elapsedMs);
+            expressions = advanceExpressions(expressions, persistent, record, (elapsedMs - elapsed) / 1000);
             elapsed = elapsedMs;
             sequence += 1;
             const live=tracking.evaluate(shown,trackingNowMs??elapsedMs,elapsedMs);
-            return { schemaVersion: 1, sessionId, sequence, tick, elapsedMs, scene, blueprintRevision: store.revision(), ...(live.avatarPoses.length?{avatarPoses:live.avatarPoses}:{}),...(live.trackingStatus.length?{trackingStatus:live.trackingStatus}:{}) };
+            const avatarPoses = composeExpressions(live.avatarPoses, expressions, persistent, record);
+            return { schemaVersion: 1, sessionId, sequence, tick, elapsedMs, scene, blueprintRevision: store.revision(), ...(avatarPoses.length?{avatarPoses}:{}),...(live.trackingStatus.length?{trackingStatus:live.trackingStatus}:{}) };
         },
     };
     return api;

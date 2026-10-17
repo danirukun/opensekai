@@ -3296,5 +3296,249 @@
       "warnings": [],
       "qualityProfile": "performance_v1"
     }
+  },
+  {
+    "name": "asset-missing-expressions",
+    "target": "asset",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "id": "avatar_x",
+      "format": "vrm",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bytes": 1,
+      "sourceUrl": null,
+      "licenseLabel": "User supplied",
+      "importerVersion": 1,
+      "name": "Rem"
+    }
+  },
+  {
+    "name": "asset-duplicate-expression",
+    "target": "asset",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "id": "avatar_x",
+      "format": "vrm",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bytes": 1,
+      "sourceUrl": null,
+      "licenseLabel": "User supplied",
+      "importerVersion": 1,
+      "name": "Rem",
+      "expressions": [
+        {
+          "name": "happy",
+          "preset": true
+        },
+        {
+          "name": "happy",
+          "preset": false
+        }
+      ]
+    }
+  },
+  {
+    "name": "avatar-expression-layer-range",
+    "target": "scene",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "box"
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1",
+          "expressions": {
+            "happy": {
+              "layer": 16,
+              "fadeSeconds": 0.4,
+              "suppress": {
+                "blink": false,
+                "mouth": false,
+                "brow": false
+              }
+            }
+          }
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "expression-set-empty-name",
+    "target": "call",
+    "method": "expressionSet",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "avatarId": "performer",
+      "name": "",
+      "active": true
+    }
+  },
+  {
+    "name": "expression-get-call",
+    "target": "wireText",
+    "valid": true,
+    "payload": "{\"kind\": \"call\", \"requestId\": \"a\", \"method\": \"expressionGet\", \"params\": {\"avatarId\": \"performer\"}}"
+  },
+  {
+    "name": "expression-settings-patch-call",
+    "target": "wireText",
+    "valid": true,
+    "payload": "{\"kind\": \"call\", \"requestId\": \"a\", \"method\": \"scenePatch\", \"params\": {\"sceneId\": \"scene_smoke\", \"expectedRevision\": 0, \"operations\": [{\"kind\": \"setAvatarExpression\", \"entityId\": \"performer\", \"name\": \"happy\", \"settings\": null}]}}"
   }
 ]

@@ -1,5 +1,6 @@
 mod registry;
 mod scene_import;
+mod vrm;
 pub use registry::{
     prepare_scene, read_located, resolve_asset, stage_avatar, stage_scene, AssetRegistry,
     ImportResult, PreparedScene, StagedAsset,

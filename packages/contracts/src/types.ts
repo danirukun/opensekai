@@ -3,6 +3,7 @@ import type { BlueprintBatch } from './blueprint-ops';
 import type { BlueprintInspect, InputUpdate } from './schema';
 import type { ShowDocument } from './show';
 import type { CameraAntiAliasing, QualityProfileId } from './quality';
+import type { AssetExpression, ExpressionSettings, ExpressionState } from './expressions';
 export type Id = string;
 export type Vec3 = [
     number,
@@ -54,6 +55,7 @@ export type SceneEntity = (EntityBase & {
     assetId: Id | null;
     tracking?: AvatarTracking;
     idleAnimation?: AvatarIdle;
+    expressions?: Record<string, ExpressionSettings>;
 }) | (EntityBase & {
     kind: "tracking";
     config: TrackingConfig;
@@ -95,7 +97,7 @@ type ExistingPatchOp = {
     entityId: Id;
     visible: boolean;
 };
-export type LivePatchOp = {kind:'setTrackingSmoothing';entityId:Id;smoothing:TrackingSmoothing}| {kind:'setAvatarIdle';entityId:Id;idleAnimation:AvatarIdle}|{kind:'createEntity';entity:SceneEntity}|{kind:'setCameraLens';entityId:Id;lens:Extract<SceneEntity,{kind:'camera'}>['lens']}|{kind:'setAvatarTracking';entityId:Id;tracking:AvatarTracking}|{kind:'setTrackingConfig';entityId:Id;config:TrackingConfig}|{kind:'setAvatarModel';entityId:Id;assetId:Id|null}|{kind:'setEnvironmentModel';entityId:Id;assetId:Id|null}|{kind:'setCameraRenderEnvironment';entityId:Id;renderEnvironment:boolean}|{kind:'setCameraAntiAliasing';entityId:Id;antiAliasing:CameraAntiAliasing};
+export type LivePatchOp = {kind:'setTrackingSmoothing';entityId:Id;smoothing:TrackingSmoothing}| {kind:'setAvatarIdle';entityId:Id;idleAnimation:AvatarIdle}|{kind:'createEntity';entity:SceneEntity}|{kind:'setCameraLens';entityId:Id;lens:Extract<SceneEntity,{kind:'camera'}>['lens']}|{kind:'setAvatarTracking';entityId:Id;tracking:AvatarTracking}|{kind:'setTrackingConfig';entityId:Id;config:TrackingConfig}|{kind:'setAvatarModel';entityId:Id;assetId:Id|null}|{kind:'setEnvironmentModel';entityId:Id;assetId:Id|null}|{kind:'setCameraRenderEnvironment';entityId:Id;renderEnvironment:boolean}|{kind:'setCameraAntiAliasing';entityId:Id;antiAliasing:CameraAntiAliasing}|{kind:'setAvatarExpression';entityId:Id;name:string;settings:ExpressionSettings|null};
 export type AssetManagementPatchOp = {kind:'renameEntity';entityId:Id;name:string}|{kind:'removeEntity';entityId:Id};
 export type PatchOp = ExistingPatchOp | LivePatchOp | AssetManagementPatchOp;
 export interface ScenePatch {
@@ -114,6 +116,7 @@ export interface AssetRecord {
     importerVersion: 1;
     name: string;
     credits?: AssetCredits;
+    expressions: AssetExpression[];
 }
 export interface AssetSummary { id: Id; kind: "avatar" | "scene" | "fixture"; name: string; credits?: AssetCredits; }
 export interface AssetList { assets: AssetSummary[]; next: Id | null; }
@@ -249,6 +252,8 @@ export interface AppApi {
         evidenceId: Id;
     }): Promise<Reply<EvidenceManifest>>;
     assetList(params: { after?: Id }): Promise<Reply<AssetList>>;
+    expressionGet(params: { avatarId: Id }): Promise<Reply<ExpressionState>>;
+    expressionSet(params: { avatarId: Id; name: string; active: boolean }): Promise<Reply<ExpressionState>>;
 }
 export interface CaptureBytes {
     frame: FrameApplied;

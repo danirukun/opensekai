@@ -11,3 +11,4 @@ export * from './show';
 export * from './property-registry';
 export * from './blueprint-file';
 export * from './quality';
+export * from './expressions';

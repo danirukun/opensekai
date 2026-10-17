@@ -94,6 +94,8 @@ pub enum SceneEntity {
             rename = "idleAnimation"
         )]
         idle_animation: Option<AvatarIdle>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        expressions: Option<BTreeMap<String, ExpressionSettings>>,
     },
     Tracking {
         id: Id,
@@ -216,6 +218,12 @@ pub enum PatchOp {
         #[serde(rename = "antiAliasing")]
         anti_aliasing: CameraAntiAliasing,
     },
+    SetAvatarExpression {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+        name: String,
+        settings: Option<ExpressionSettings>,
+    },
     SetTrackingSmoothing {
         #[serde(rename = "entityId")]
         entity_id: Id,
@@ -257,6 +265,178 @@ pub struct AssetRecord {
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub credits: Option<AssetCredits>,
+    pub expressions: Vec<AssetExpression>,
+}
+object!(AssetExpression {
+    name: String,
+    preset: bool
+});
+object!(ExpressionSuppress {
+    blink: bool,
+    mouth: bool,
+    brow: bool
+});
+object!(ExpressionSettings {
+    layer: u32,
+    fade_seconds: f64,
+    suppress: ExpressionSuppress
+});
+object!(ExpressionView {
+    name: String,
+    preset: bool,
+    layer: u32,
+    fade_seconds: f64,
+    suppress: ExpressionSuppress,
+    active: bool,
+    weight: f64
+});
+object!(ExpressionState {
+    avatar_id: Id,
+    expressions: Vec<ExpressionView>
+});
+object!(ExpressionGetParams { avatar_id: Id });
+object!(ExpressionSetParams {
+    avatar_id: Id,
+    name: String,
+    active: bool
+});
+pub const MAX_EXPRESSIONS: usize = 64;
+pub const ARKIT_NAMES: [&str; 52] = [
+    "eyeBlinkLeft",
+    "eyeLookDownLeft",
+    "eyeLookInLeft",
+    "eyeLookOutLeft",
+    "eyeLookUpLeft",
+    "eyeSquintLeft",
+    "eyeWideLeft",
+    "eyeBlinkRight",
+    "eyeLookDownRight",
+    "eyeLookInRight",
+    "eyeLookOutRight",
+    "eyeLookUpRight",
+    "eyeSquintRight",
+    "eyeWideRight",
+    "jawForward",
+    "jawLeft",
+    "jawRight",
+    "jawOpen",
+    "mouthClose",
+    "mouthFunnel",
+    "mouthPucker",
+    "mouthLeft",
+    "mouthRight",
+    "mouthSmileLeft",
+    "mouthSmileRight",
+    "mouthFrownLeft",
+    "mouthFrownRight",
+    "mouthDimpleLeft",
+    "mouthDimpleRight",
+    "mouthStretchLeft",
+    "mouthStretchRight",
+    "mouthRollLower",
+    "mouthRollUpper",
+    "mouthShrugLower",
+    "mouthShrugUpper",
+    "mouthPressLeft",
+    "mouthPressRight",
+    "mouthLowerDownLeft",
+    "mouthLowerDownRight",
+    "mouthUpperUpLeft",
+    "mouthUpperUpRight",
+    "browDownLeft",
+    "browDownRight",
+    "browInnerUp",
+    "browOuterUpLeft",
+    "browOuterUpRight",
+    "cheekPuff",
+    "cheekSquintLeft",
+    "cheekSquintRight",
+    "noseSneerLeft",
+    "noseSneerRight",
+    "tongueOut",
+];
+/// Names that face tracking or lip sync drives, compared without case. Keep in step with `isTrackedExpression` in TypeScript.
+const TRACKED_EXPRESSIONS: [&str; 23] = [
+    "aa",
+    "ih",
+    "ou",
+    "ee",
+    "oh",
+    "blink",
+    "blinkleft",
+    "blinkright",
+    "lookup",
+    "lookdown",
+    "lookleft",
+    "lookright",
+    "neutral",
+    "sil",
+    "pp",
+    "ff",
+    "th",
+    "dd",
+    "kk",
+    "ch",
+    "ss",
+    "nn",
+    "rr",
+];
+pub fn is_tracked_expression(name: &str) -> bool {
+    let lower = name.to_lowercase();
+    TRACKED_EXPRESSIONS.contains(&lower.as_str())
+        || ARKIT_NAMES.iter().any(|arkit| {
+            let side = arkit
+                .strip_suffix("Left")
+                .map(|base| format!("{base}_L"))
+                .or_else(|| arkit.strip_suffix("Right").map(|base| format!("{base}_R")));
+            arkit.to_lowercase() == lower || side.is_some_and(|side| side.to_lowercase() == lower)
+        })
+}
+fn expression_name_ok(name: &str) -> bool {
+    (1..=128).contains(&name.encode_utf16().count())
+}
+impl Validate for ExpressionSettings {
+    fn validate(&self) -> Result<(), AppError> {
+        require(
+            self.layer <= 15
+                && self.fade_seconds.is_finite()
+                && (0. ..=5.).contains(&self.fade_seconds),
+            "invalid expression settings",
+        )
+    }
+}
+fn expressions_ok(list: &[AssetExpression]) -> Result<(), AppError> {
+    let mut names = HashSet::new();
+    require(
+        list.len() <= MAX_EXPRESSIONS
+            && list
+                .iter()
+                .all(|e| expression_name_ok(&e.name) && names.insert(e.name.as_str())),
+        "invalid expression list",
+    )
+}
+impl Validate for ExpressionState {
+    fn validate(&self) -> Result<(), AppError> {
+        require(
+            id_text_ok(&self.avatar_id) && self.expressions.len() <= MAX_EXPRESSIONS,
+            "invalid expression state",
+        )?;
+        for view in &self.expressions {
+            require(
+                expression_name_ok(&view.name)
+                    && view.weight.is_finite()
+                    && (0. ..=1.).contains(&view.weight),
+                "invalid expression view",
+            )?;
+            ExpressionSettings {
+                layer: view.layer,
+                fade_seconds: view.fade_seconds,
+                suppress: view.suppress.clone(),
+            }
+            .validate()?;
+        }
+        Ok(())
+    }
 }
 object!(ConnectionDescriptor {schema_version:u32,session_id:Id,http_origin:String,ws_url:String,role:Role,token:String,capabilities:Vec<Capability>,output_id:Option<Id>});
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1145,6 +1325,12 @@ impl Validate for ScenePatch {
                 PatchOp::SetCameraLens { lens, .. } => lens.validate()?,
                 PatchOp::SetTrackingConfig { config, .. } => config.validate()?,
                 PatchOp::SetTrackingSmoothing { smoothing, .. } => smoothing.validate()?,
+                PatchOp::SetAvatarExpression { name, settings, .. } => {
+                    require(expression_name_ok(name), "invalid expression name")?;
+                    if let Some(settings) = settings {
+                        settings.validate()?;
+                    }
+                }
                 _ => {}
             }
         }
@@ -1284,6 +1470,7 @@ impl Validate for AssetRecord {
             "invalid source URL",
         )?;
         credits_ok(&self.credits)?;
+        expressions_ok(&self.expressions)?;
         hash(&self.sha256)
     }
 }
@@ -1305,6 +1492,17 @@ pub fn validate_call(method: &str, params: &Value) -> Result<(), AppError> {
         "benchmarkStatus" | "benchmarkCancel" => decode::<RunParams>(params).map(|_| ()),
         "evidenceRead" => decode::<EvidenceReadParams>(params).map(|_| ()),
         "assetList" => decode::<AssetListParams>(params)?.validate(),
+        "expressionGet" => {
+            let p = decode::<ExpressionGetParams>(params)?;
+            require(id_text_ok(&p.avatar_id), "invalid avatar ID")
+        }
+        "expressionSet" => {
+            let p = decode::<ExpressionSetParams>(params)?;
+            require(
+                id_text_ok(&p.avatar_id) && expression_name_ok(&p.name),
+                "invalid expression call",
+            )
+        }
         _ => Err(invalid("unknown method")),
     }
 }
@@ -1354,6 +1552,8 @@ pub fn validate_result(method: &str, result: &Value) -> Result<(), AppError> {
             | "benchmarkCancel"
             | "evidenceRead"
             | "assetList"
+            | "expressionGet"
+            | "expressionSet"
     );
     require(known, "unknown method")?;
     let Some(data) = reply_data(result)? else {
@@ -1390,6 +1590,7 @@ pub fn validate_result(method: &str, result: &Value) -> Result<(), AppError> {
         }
         "evidenceRead" => decode::<EvidenceManifest>(data)?.validate(),
         "assetList" => decode::<AssetList>(data)?.validate(),
+        "expressionGet" | "expressionSet" => decode::<ExpressionState>(data)?.validate(),
         _ => unreachable!(),
     }
 }
@@ -1748,6 +1949,20 @@ impl Validate for SceneEntity {
         }
         if let Self::Camera { lens, .. } = self {
             lens.validate()?;
+        }
+        if let Self::Avatar {
+            expressions: Some(expressions),
+            ..
+        } = self
+        {
+            require(
+                expressions.len() <= MAX_EXPRESSIONS
+                    && expressions.keys().all(|name| expression_name_ok(name)),
+                "invalid avatar expressions",
+            )?;
+            for settings in expressions.values() {
+                settings.validate()?;
+            }
         }
         Ok(())
     }

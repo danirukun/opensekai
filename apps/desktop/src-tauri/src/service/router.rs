@@ -117,6 +117,8 @@ impl Shared {
                 | "blueprintRun"
                 | "blueprintEdit"
                 | "blueprintInspect"
+                | "expressionGet"
+                | "expressionSet"
         ) {
             return Reply::failure(err(ErrorCode::Unsupported, "Not a scene command"));
         }
@@ -176,9 +178,8 @@ impl Shared {
             return Reply::failure(err(ErrorCode::Forbidden, "Role cannot call methods"));
         }
         let required = match call.method.as_str() {
-            "scenePatch" | "sceneReplace" | "cameraSelect" | "blueprintRun" | "blueprintEdit" => {
-                Capability::Edit
-            }
+            "scenePatch" | "sceneReplace" | "cameraSelect" | "blueprintRun" | "blueprintEdit"
+            | "expressionSet" => Capability::Edit,
             "captureFrame" => Capability::Capture,
             "benchmarkStart" | "benchmarkCancel" => Capability::Benchmark,
             _ => Capability::Read,
@@ -256,6 +257,8 @@ impl Shared {
                 | "blueprintRun"
                 | "blueprintEdit"
                 | "blueprintInspect"
+                | "expressionGet"
+                | "expressionSet"
         ) {
             return self.route_scene_call(call, client_id).await;
         }

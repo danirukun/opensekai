@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { BLUEPRINT_LABELS, BlueprintNodeSchema, NODE_DEFINITIONS, blueprintNodeCatalog, blueprintPorts, defaultBlueprintSettings, type BlueprintKind, type BlueprintNode, type DefaultRefs } from '../src';
 
-const refs: DefaultRefs = { entityId: 'e', cameraId: 'c', outputId: 'o', keystroke: { code: 'KeyH', control: true, alt: true, shift: false, meta: false }, variables: [{ id: 'n', type: 'number' }, { id: 'b', type: 'boolean' }] };
+const refs: DefaultRefs = { entityId: 'e', avatarId: 'a', expression: 'happy', cameraId: 'c', outputId: 'o', keystroke: { code: 'KeyH', control: true, alt: true, shift: false, meta: false }, variables: [{ id: 'n', type: 'number' }, { id: 'b', type: 'boolean' }] };
 const nodeOf = (type: string, settings: unknown) => ({ id: 'x', version: 1, type, settings, position: { x: 0, y: 0 } });
 const ports = (type: BlueprintKind) => blueprintPorts(nodeOf(type, defaultBlueprintSettings(type, refs)) as BlueprintNode);
 
@@ -49,9 +49,10 @@ it('returns null defaults when the scene lacks the entity, camera, or output', (
 it('publishes a catalog of every node with its ports and settings schema', () => {
  const catalog = blueprintNodeCatalog();
  expect(catalog).toHaveLength(NODE_DEFINITIONS.length);
- expect(catalog).toHaveLength(52);
+ expect(catalog).toHaveLength(54);
  const sequence = catalog.find(entry => entry.type === 'flow.sequence')!;
  expect(sequence).toMatchObject({ label: 'Sequence', category: 'Flow', portsDependOnSettings: true, settings: { type: 'object', required: ['outputs'] } });
  expect(catalog.find(entry => entry.type === 'variable.setNumber')!.ports).toEqual({ inputs: { flow: 'flow', value: 'number' }, outputs: { exit: 'flow' } });
  expect(JSON.parse(JSON.stringify(catalog))).toEqual(catalog);
+ expect(catalog.find(entry => entry.type === 'character.setExpression')).toMatchObject({ label: 'Set Expression', category: 'Character', ports: { inputs: { flow: 'flow', active: 'boolean' }, outputs: { exit: 'flow' } }, settings: { required: ['entityId', 'expression'] } });
 });
