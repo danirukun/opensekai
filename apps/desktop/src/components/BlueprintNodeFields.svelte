@@ -1,6 +1,6 @@
 <script lang="ts">
  import { Input, Select } from '@oshi-connect/ui';
- import { nodeDefinition, triggerableExpressions, type AssetRecord, type BlueprintField, type BlueprintNode, type BlueprintVariable, type KeystrokeSettings, type SceneView } from '@opensekai/contracts';
+ import { blendShapeNames, DEFAULT_EASING, EASINGS, nodeDefinition, triggerableExpressions, type AssetRecord, type BlueprintField, type BlueprintNode, type BlueprintVariable, type KeystrokeSettings, type SceneView } from '@opensekai/contracts';
  import KeystrokeField from './KeystrokeField.svelte';
  import { boneOptions, fitPropertySettings, formatCases, keyOptions, parseCases, propertyOptions } from '../blueprints/fields';
 
@@ -24,6 +24,8 @@
   field.kind === 'entity' ? (scene?.entities ?? []).filter(entity => entity.kind !== 'tracking').map(entity => ({ value: entity.id, label: entity.name }))
   : field.kind === 'avatar' ? (scene?.entities ?? []).filter(entity => entity.kind === 'avatar').map(entity => ({ value: entity.id, label: entity.name }))
   : field.kind === 'expression' ? expressionChoices()
+  : field.kind === 'blendshape' ? blendShapeChoices()
+  : field.kind === 'easing' ? EASINGS.map(name => ({ value: name, label: name }))
   : field.kind === 'camera' ? (scene?.entities ?? []).filter(entity => entity.kind === 'camera').map(entity => ({ value: entity.id, label: entity.name }))
   : field.kind === 'output' ? (scene?.outputs ?? []).map(output => ({ value: output.id, label: output.id }))
   : field.kind === 'variable' ? variables.filter(variable => variable.type === field.variableType).map(variable => ({ value: variable.id, label: variable.name }))
@@ -35,16 +37,21 @@
   const record = avatar?.kind === 'avatar' && avatar.assetId !== null ? assets.find(asset => asset.id === avatar.assetId) : undefined;
   return (record ? triggerableExpressions(record) : []).map(entry => ({ value: entry.name, label: entry.name }));
  }
+ function blendShapeChoices() {
+  const avatar = scene?.entities.find(entity => entity.id === settings.entityId);
+  const record = avatar?.kind === 'avatar' && avatar.assetId !== null ? assets.find(asset => asset.id === avatar.assetId) : undefined;
+  return (record ? blendShapeNames(record) : []).map(name => ({ value: name, label: name }));
+ }
  const options = (field: BlueprintField) => {
   const list = choices(field), value = settings[field.key];
-  return (field.kind === 'entity' || field.kind === 'camera' || field.kind === 'output' || field.kind === 'avatar' || field.kind === 'expression') && typeof value === 'string' && !list.some(item => item.value === value)
+  return (field.kind === 'entity' || field.kind === 'camera' || field.kind === 'output' || field.kind === 'avatar' || field.kind === 'expression' || field.kind === 'blendshape') && typeof value === 'string' && !list.some(item => item.value === value)
    ? [{ value, label: 'Missing' }, ...list] : list;
  };
 </script>
 
 {#each fields as field (field.key)}
  {#if field.kind === 'number'}
-  <Input type="number" label={field.label} min={field.min} max={field.max} step="any" value={String(settings[field.key])} oninput={event => numberInput(field, event.currentTarget.value)} />
+  <Input type="number" label={field.label} min={field.min} max={field.max} step="any" value={settings[field.key] === undefined ? '' : String(settings[field.key])} oninput={event => numberInput(field, event.currentTarget.value)} />
  {:else if field.kind === 'boolean' && node.type === 'value.boolean'}
   <Select label={field.label} value={String(Boolean(settings[field.key]))} options={truth} onchange={event => set(field.key, event.currentTarget.value === 'true')} />
  {:else if field.kind === 'boolean'}
@@ -57,6 +64,8 @@
   <Select label={field.label} value={String(settings[field.key])} options={keyOptions()} onchange={event => set(field.key, event.currentTarget.value)} />
  {:else if field.kind === 'property'}
   <Select label={field.label} value={String(settings[field.key])} options={propertyOptions(scene, String(settings.entityId))} onchange={event => set(field.key, event.currentTarget.value)} />
+ {:else if field.kind === 'easing'}
+  <Select label={field.label} value={String(settings[field.key] ?? DEFAULT_EASING)} options={choices(field)} onchange={event => set(field.key, event.currentTarget.value)} />
  {:else if field.kind === 'space'}
   <Select label={field.label} value={String(settings[field.key])} options={spaces} onchange={event => set(field.key, event.currentTarget.value)} />
  {:else if field.kind === 'keystroke'}

@@ -46,6 +46,12 @@ export const isTrackedExpression = (name: string): boolean => TRACKED.has(name.t
 export const triggerableExpressions = (record: { expressions: readonly AssetExpression[] }): AssetExpression[] =>
  record.expressions.filter(entry => !isTrackedExpression(entry.name));
 
+// The VRM preset names that tracking drives. Every VRM model has them, possibly empty.
+const TRACKED_PRESETS = ['aa', 'ih', 'ou', 'ee', 'oh', 'blink', 'blinkLeft', 'blinkRight', 'lookUp', 'lookDown', 'lookLeft', 'lookRight', 'neutral'];
+// The names that the renderer can drive by name: the record's expressions, the tracked VRM presets, then the ARKit names.
+export const blendShapeNames = (record: { expressions: readonly AssetExpression[] }): string[] =>
+ [...new Set([...record.expressions.map(entry => entry.name), ...TRACKED_PRESETS, ...ARKIT_NAMES])];
+
 export const DEFAULT_FADE_SECONDS = 0.4;
 // The settings of each triggerable expression: the stored entry, or the Warudo default (presets on layer 0, each custom expression on its own layer).
 export function effectiveExpressionSettings(record: { expressions: readonly AssetExpression[] }, stored: Readonly<Record<string, ExpressionSettings>> | undefined): (AssetExpression & ExpressionSettings)[] {

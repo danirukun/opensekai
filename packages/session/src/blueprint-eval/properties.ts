@@ -1,4 +1,5 @@
 import { readProperty, type PropertyValue, type Vec3 } from '@opensekai/contracts';
+import { withTransition } from '../tweens';
 import type { EvaluatorTable } from './types';
 
 export const PROPERTY_EVALUATORS = {
@@ -8,6 +9,6 @@ export const PROPERTY_EVALUATORS = {
   if (value === undefined) throw new RangeError('Property is unavailable');
   return value;
  } },
- 'property.set': { flow: (node, c) => c.emit({ kind: 'setProperty', entityId: node.settings.entityId, property: node.settings.property, value: c.read('value') as PropertyValue }) },
+ 'property.set': { flow: (node, c) => c.emit({ kind: 'setProperty', entityId: node.settings.entityId, property: node.settings.property, value: c.read('value') as PropertyValue, ...withTransition(node.settings) }) },
  'entity.move': { flow: (node, c) => c.emit({ kind: 'moveEntity', entityId: node.settings.entityId, space: node.settings.space, delta: c.read('delta') as Vec3 }) },
 } satisfies Partial<EvaluatorTable>;

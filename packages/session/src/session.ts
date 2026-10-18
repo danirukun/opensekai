@@ -4,10 +4,13 @@ import {createTrackingComposer} from "./tracking";
 import { createBlueprintRuntime, logicKey, type BlueprintEvent, type GraphRun, type StepEnv } from './blueprint-runtime';
 import { createBlueprintStore } from './blueprint-store';
 import { applyEffects, applyOperations } from './scene-ops';
-import { isBoneOffsetEffect, isExpressionEffect, isOverrideEffect, isSceneEffect } from './blueprint';
+import { isBoneOffsetEffect, isCharacterLayerEffect, isExpressionEffect, isOverrideEffect, isSceneEffect } from './blueprint';
 import { composeBoneOffsets, EMPTY_BONE_OFFSETS, writeBoneOffset, type BoneOffsets } from './bone-offsets';
 import { advanceExpressions, composeExpressions, EMPTY_EXPRESSIONS, expressionView, reconcileExpressions, setExpression, type ExpressionStates } from './expressions';
-import { applyOverrides, dropOverrides, EMPTY_OVERRIDES, takeIdle, writeOverride, type OverrideLayer } from './overrides';
+import { applyOverrides, dropOverrides, EMPTY_OVERRIDES, takeIdle, type OverrideLayer } from './overrides';
+import { advanceTweens, dropTweens, EMPTY_TWEENS, tweening, writeTransitioned, type TweenLayer } from './tweens';
+import { advanceBlendShapes, composeBlendShapes, EMPTY_BLEND_SHAPES, setBlendShape, type BlendShapeStates } from './blend-shapes';
+import { advanceLookAt, composeLookAt, EMPTY_LOOK_AT, setLookAt, type LookAtStates } from './look-at';
 export interface Session {
     inspect(): SceneView;
     replaceScene(scene: SceneView, expectedRevision: number): Reply<SceneView>;
@@ -38,6 +41,10 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
     let tracking=createTrackingComposer();
     let overrides: OverrideLayer = EMPTY_OVERRIDES;
     let expressions: ExpressionStates = EMPTY_EXPRESSIONS;
+    // Runtime transition state on the session clock: property tweens, blend shape weights, and look-at targets.
+    let tweens: TweenLayer = EMPTY_TWEENS;
+    let blendShapes: BlendShapeStates = EMPTY_BLEND_SHAPES;
+    let lookAts: LookAtStates = EMPTY_LOOK_AT;
     // Never committed or saved: rebuilt by the Blueprint step of each tick.
     let boneOffsets: BoneOffsets = EMPTY_BONE_OFFSETS;
     let previousPoses = new Map<Id, AvatarPose>();
@@ -74,24 +81,27 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
     const stepBlueprints = (events: BlueprintEvent[], nowMs: number, held: ReadonlySet<string>): { runs: GraphRun[]; committed: Reply<{ revision: number }> } => {
         let working: SceneView | null = null;
         let layer = overrides;
+        let moving = tweens;
         let faces = reconcileExpressions(expressions, persistent);
         let offsets = boneOffsets;
+        let shapes = blendShapes;
+        let looks = lookAts;
         const env: StepEnv = { held, scene: () => applyOverrides(working ?? persistent, layer), previousPose: avatarId => previousPoses.get(avatarId) ?? null };
         const runs = runtime.step(events, nowMs, run => {
             if (run.effects.length === 0) return null;
             const sceneEffects = run.effects.filter(isSceneEffect);
             let scene = working ?? persistent;
             if (sceneEffects.length) { const next = applyEffects(scene, sceneEffects); if (!next.ok) return next.error; scene = next.data; }
-            let nextLayer = layer;
+            let nextLayers = { overrides: layer, tweens: moving };
             for (const effect of run.effects.filter(isOverrideEffect)) {
-                const written = writeOverride(nextLayer, scene, effect, run.graphId, nowMs);
+                const written = writeTransitioned(nextLayers, scene, effect, run.graphId, nowMs);
                 if (!written.ok) return written.error;
-                nextLayer = written.data;
+                nextLayers = written.data;
             }
             // Expression effects apply only when the scene effects of the same run apply.
             let nextFaces = faces;
             for (const effect of run.effects.filter(isExpressionEffect)) {
-                const set = setExpression(nextFaces, scene, record, effect);
+                const set = setExpression(nextFaces, scene, record, effect, nowMs);
                 if (!set.ok) return set.error;
                 nextFaces = set.data;
             }
@@ -101,22 +111,47 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
                 if (!written.ok) return written.error;
                 nextOffsets = written.data;
             }
+            let nextShapes = shapes, nextLooks = looks;
+            for (const effect of run.effects.filter(isCharacterLayerEffect)) {
+                if (effect.kind === 'setBlendShape') {
+                    const set = setBlendShape(nextShapes, scene, record, effect, nowMs);
+                    if (!set.ok) return set.error;
+                    nextShapes = set.data;
+                } else {
+                    // Look At reads positions from the evaluated scene, so it aims at a moving target.
+                    const set = setLookAt(nextLooks, applyOverrides(scene, nextLayers.overrides), effect, nowMs);
+                    if (!set.ok) return set.error;
+                    nextLooks = set.data;
+                }
+            }
             if (sceneEffects.length) working = scene;
-            layer = nextLayer;
+            layer = nextLayers.overrides;
+            moving = nextLayers.tweens;
             faces = nextFaces;
             offsets = nextOffsets;
+            shapes = nextShapes;
+            looks = nextLooks;
             return null;
         }, env);
         overrides = layer;
+        tweens = moving;
         expressions = faces;
         boneOffsets = offsets;
+        blendShapes = shapes;
+        lookAts = looks;
         for (const run of runs) if (run.error) runtimeErrors.set(run.graphId, run.error); else runtimeErrors.delete(run.graphId);
         const changed = working !== null && JSON.stringify(working) !== JSON.stringify(persistent);
         return { runs, committed: changed ? commit(working!) : { ok: true, data: { revision: persistent.revision } } };
     };
-    // Overrides with no write for 250 ms go to the persistent scene in one commit.
+    // Each tween writes its sample as an override at the session time.
+    const stepTweens = (nowMs: number) => {
+        const stepped = advanceTweens({ overrides, tweens }, persistent, nowMs);
+        ({ overrides, tweens } = stepped.layers);
+        for (const failure of stepped.failures) runtimeErrors.set(failure.graphId, failure.error);
+    };
+    // Overrides with no write for 250 ms go to the persistent scene in one commit. An override under a tween waits for its end.
     const commitIdle = (nowMs: number) => {
-        const idle = takeIdle(persistent, overrides, nowMs);
+        const idle = takeIdle(persistent, overrides, nowMs, (entityId, property) => tweening(tweens, entityId, property));
         overrides = idle.remaining;
         if (idle.operations.length === 0) return;
         const applied = applyOperations(persistent, idle.operations, persistent.revision + 1);
@@ -132,8 +167,11 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             persistent = structuredClone({ ...parsed.data, revision: persistent.revision + 1 });
             tracking = createTrackingComposer();
             overrides = EMPTY_OVERRIDES;
+            tweens = EMPTY_TWEENS;
             expressions = EMPTY_EXPRESSIONS;
             boneOffsets = EMPTY_BONE_OFFSETS;
+            blendShapes = EMPTY_BLEND_SHAPES;
+            lookAts = EMPTY_LOOK_AT;
             previousPoses = new Map();
             return { ok: true, data: structuredClone(persistent) };
         },
@@ -175,7 +213,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             const applied = applyOperations(persistent, value.operations, persistent.revision + 1);
             if (!applied.ok) return applied;
             const committed = commit(applied.data);
-            if (committed.ok) overrides = dropOverrides(overrides, value.operations);
+            if (committed.ok) { overrides = dropOverrides(overrides, value.operations); tweens = dropTweens(tweens, value.operations); }
             return committed;
         },
         selectCamera(params) {
@@ -218,6 +256,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             try {
                 const events: BlueprintEvent[] = [...(input?.events?.map(event => ({ kind: 'keystroke' as const, accelerator: event.accelerator })) ?? []), { kind: 'update' }];
                 stepBlueprints(events, elapsedMs, new Set(input?.held ?? []));
+                stepTweens(elapsedMs);
                 commitIdle(elapsedMs);
             } catch (error) {
                 // An unexpected Blueprint failure must not abort the frame.
@@ -226,12 +265,15 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             if (!failedThisTick) loggedFailures.clear();
             const shown = applyOverrides(persistent, overrides);
             const scene = adapter.evaluate(shown, elapsedMs);
-            expressions = advanceExpressions(expressions, persistent, record, (elapsedMs - elapsed) / 1000);
+            expressions = advanceExpressions(expressions, persistent, record, (elapsedMs - elapsed) / 1000, elapsedMs);
+            blendShapes = advanceBlendShapes(blendShapes, persistent, elapsedMs);
+            lookAts = advanceLookAt(lookAts, shown, elapsedMs);
             elapsed = elapsedMs;
             sequence += 1;
             const live=tracking.evaluate(shown,trackingNowMs??elapsedMs,elapsedMs);
             previousPoses = new Map(live.avatarPoses.map(pose => [pose.avatarId, structuredClone(pose)]));
-            const avatarPoses = composeBoneOffsets(composeExpressions(live.avatarPoses, expressions, persistent, record), boneOffsets);
+            const faces = composeBlendShapes(composeExpressions(live.avatarPoses, expressions, persistent, record), blendShapes);
+            const avatarPoses = composeBoneOffsets(faces, composeLookAt(boneOffsets, lookAts, shown, elapsedMs));
             return { schemaVersion: 1, sessionId, sequence, tick, elapsedMs, scene, blueprintRevision: store.revision(), ...(avatarPoses.length?{avatarPoses}:{}),...(live.trackingStatus.length?{trackingStatus:live.trackingStatus}:{}) };
         },
     };

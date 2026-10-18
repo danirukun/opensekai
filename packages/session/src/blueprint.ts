@@ -1,6 +1,8 @@
 import type { OverrideWrite } from './overrides';
 import type { ExpressionEffect } from './expressions';
 import type { BoneOffsetEffect } from './bone-offsets';
+import type { BlendShapeEffect } from './blend-shapes';
+import type { LookAtEffect } from './look-at';
 import { cloneState, EVALUATORS, NO_ENV, type BlueprintValue, type Evaluator, type RunEnv, type RunState } from './blueprint-eval';
 import { BlueprintGraphSchema, blueprintPorts, nodeDefinition, connectionType, type BlueprintConnection, type BlueprintGraph, type BlueprintNode, type Id, type Reply } from '@opensekai/contracts';
 
@@ -8,11 +10,13 @@ export type SceneEffect =
  | { kind: 'setVisibility'; entityId: Id; visible: boolean }
  | { kind: 'toggleVisibility'; entityId: Id }
  | { kind: 'selectCamera'; outputId: Id; cameraId: Id };
-export type BlueprintEffect = SceneEffect | OverrideWrite | ExpressionEffect | BoneOffsetEffect;
+export type CharacterLayerEffect = BlendShapeEffect | LookAtEffect;
+export type BlueprintEffect = SceneEffect | OverrideWrite | ExpressionEffect | BoneOffsetEffect | CharacterLayerEffect;
 export const isOverrideEffect = (effect: BlueprintEffect): effect is OverrideWrite => effect.kind === 'setProperty' || effect.kind === 'moveEntity';
 export const isExpressionEffect = (effect: BlueprintEffect): effect is ExpressionEffect => effect.kind === 'setExpression' || effect.kind === 'toggleExpression';
 export const isBoneOffsetEffect = (effect: BlueprintEffect): effect is BoneOffsetEffect => effect.kind === 'offsetBone';
-export const isSceneEffect = (effect: BlueprintEffect): effect is SceneEffect => !isOverrideEffect(effect) && !isExpressionEffect(effect) && !isBoneOffsetEffect(effect);
+export const isCharacterLayerEffect = (effect: BlueprintEffect): effect is CharacterLayerEffect => effect.kind === 'setBlendShape' || effect.kind === 'lookAt';
+export const isSceneEffect = (effect: BlueprintEffect): effect is SceneEffect => !isOverrideEffect(effect) && !isExpressionEffect(effect) && !isBoneOffsetEffect(effect) && !isCharacterLayerEffect(effect);
 export interface CompiledBlueprint { graph: BlueprintGraph; nodes: Map<Id, BlueprintNode>; dataIn: Map<string, BlueprintConnection>; flowNext: Map<string, BlueprintConnection> }
 export interface PendingDelay { nodeId: Id; dueMs: number }
 export interface FlowBudget { visits: number; effects: number }

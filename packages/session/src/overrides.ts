@@ -1,10 +1,11 @@
 import { rotateByQuaternion, writeProperty, type Id, type PropertyKey, type PropertyValue, type Reply, type SceneEntity, type ScenePatch, type SceneView, type Vec3 } from '@opensekai/contracts';
 import { delta, shifted } from './camera-follow';
+import type { Transition } from './tweens';
 
 export interface OverrideEntry { value: PropertyValue; lastWriteMs: number; graphIds: readonly Id[] }
 export type OverrideLayer = ReadonlyMap<Id, ReadonlyMap<PropertyKey, OverrideEntry>>;
 export type OverrideWrite =
- | { kind: 'setProperty'; entityId: Id; property: PropertyKey; value: PropertyValue }
+ | { kind: 'setProperty'; entityId: Id; property: PropertyKey; value: PropertyValue; transition?: Transition }
  | { kind: 'moveEntity'; entityId: Id; space: 'world' | 'local'; delta: Vec3 };
 type Operation = ScenePatch['operations'][number];
 export const MAX_OVERRIDES = 256, COMMIT_IDLE_MS = 250;
@@ -59,12 +60,13 @@ export function writeOverride(layer: OverrideLayer, scene: SceneView, write: Ove
  return { ok: true, data: next };
 }
 
-export function takeIdle(scene: SceneView, layer: OverrideLayer, nowMs: number): { operations: Operation[]; graphIds: Id[]; remaining: OverrideLayer } {
+// `busy` keeps an override from committing, for example while a transition writes it.
+export function takeIdle(scene: SceneView, layer: OverrideLayer, nowMs: number, busy: (entityId: Id, property: PropertyKey) => boolean = () => false): { operations: Operation[]; graphIds: Id[]; remaining: OverrideLayer } {
  const operations: Operation[] = [], graphIds = new Set<Id>(), remaining = new Map<Id, ReadonlyMap<PropertyKey, OverrideEntry>>();
  for (const [entityId, entries] of layer) {
-  const idle = new Map([...entries].filter(([, entry]) => nowMs - entry.lastWriteMs >= COMMIT_IDLE_MS));
-  const busy = new Map([...entries].filter(([key]) => !idle.has(key)));
-  if (busy.size) remaining.set(entityId, busy);
+  const idle = new Map([...entries].filter(([key, entry]) => nowMs - entry.lastWriteMs >= COMMIT_IDLE_MS && !busy(entityId, key)));
+  const pending = new Map([...entries].filter(([key]) => !idle.has(key)));
+  if (pending.size) remaining.set(entityId, pending);
   if (!idle.size) continue;
   for (const entry of idle.values()) for (const id of entry.graphIds) graphIds.add(id);
   const target = overriddenEntity(scene, new Map([[entityId, idle]]), entityId);
@@ -79,7 +81,7 @@ export function takeIdle(scene: SceneView, layer: OverrideLayer, nowMs: number):
  return { operations, graphIds: [...graphIds], remaining };
 }
 
-const touched = (operation: Operation): [Id, readonly PropertyKey[] | 'all'] | null => {
+export const touchedProperties = (operation: Operation): [Id, readonly PropertyKey[] | 'all'] | null => {
  switch (operation.kind) {
   case 'setTransform': return [operation.entityId, ['position', 'rotation', 'scale']];
   case 'setVisibility': return [operation.entityId, ['visible']];
@@ -94,7 +96,7 @@ const touched = (operation: Operation): [Id, readonly PropertyKey[] | 'all'] | n
 export function dropOverrides(layer: OverrideLayer, operations: readonly Operation[]): OverrideLayer {
  let next: Map<Id, ReadonlyMap<PropertyKey, OverrideEntry>> | null = null;
  for (const operation of operations) {
-  const hit = touched(operation);
+  const hit = touchedProperties(operation);
   if (!hit || !(next ?? layer).has(hit[0])) continue;
   next ??= new Map(layer);
   const [id, keys] = hit;
