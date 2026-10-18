@@ -21,7 +21,11 @@ export type BlueprintField =
  | { key: string; label: string; kind: 'keystroke' }
  | { key: string; label: string; kind: 'key' | 'property' | 'space' | 'bone' }
  | { key: string; label: string; kind: 'blendshape' | 'easing' }
- | { key: string; label: string; kind: 'choice'; options: readonly { value: string | number; label: string }[] };
+ | { key: string; label: string; kind: 'choice'; options: readonly { value: string | number; label: string }[] }
+ | { key: string; label: string; kind: 'types'; options: readonly DataType[]; max: number }
+ | { key: string; label: string; kind: 'stringCases' }
+ // A variable of any type (or any list type); a choice also writes the variable type to `typeKey`.
+ | { key: string; label: string; kind: 'typedVariable'; typeKey: string; lists?: boolean };
 export interface NodeDefinition<T extends string = string, S extends z.ZodType = z.ZodType> {
  type: T; label: string; category: NodeCategory; keywords: readonly string[];
  settings: S;
