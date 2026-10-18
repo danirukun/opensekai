@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { BackSide, DirectionalLight, DoubleSide, FrontSide, Group, Mesh, BoxGeometry, MeshBasicMaterial, MeshStandardMaterial, PointLight, Scene, type WebGPURenderer } from 'three/webgpu';
+import { AmbientLight, BackSide, DirectionalLight, DoubleSide, FrontSide, Group, Mesh, BoxGeometry, MeshBasicMaterial, MeshStandardMaterial, PointLight, Scene, SpotLight, type PerspectiveCamera, type WebGPURenderer } from 'three/webgpu';
 import type { LightSettings, SceneEntity } from '@opensekai/contracts';
-import { createSceneLights, lightDirection, lightGroups, lightSignature, shadowsOn, withDrafts, DIRECTIONAL_DISTANCE } from '../src/scene-lights';
+import { createSceneLights, lightDirection, lightGroups, lightSignature, scattersInHaze, shadowsOn, spotAngle, usesFixedAmbient, withDrafts, DIRECTIONAL_DISTANCE, SPOT_SHADOW_FAR } from '../src/scene-lights';
 
 const settings = (patch: Partial<LightSettings> = {}): LightSettings => ({ type: 'directional', color: '#ffffff', intensity: 3, range: 0, affectCharacters: true, affectProps: true, affectEnvironment: true, shadow: { enabled: false, intensity: 1, soft: true, bias: -0.0005, normalBias: 0.02 }, ...patch });
 const light = (id: string, patch: Partial<LightSettings> = {}, visible = true, rotation: [number, number, number, number] = [0, 0, 0, 1]): SceneEntity => ({ id, name: id, visible, transform: { position: [0, 2, 1], rotation, scale: [1, 1, 1] }, kind: 'light', light: settings(patch) });
@@ -12,7 +12,7 @@ const threeLights = (scene: Scene) => scene.children.filter(c => (c as Direction
 describe('pure light functions', () => {
     it('groups lights by their affect flags in scene order (R6)', () => {
         const entities = [box, light('a'), light('b', { affectCharacters: false }), light('c', { affectProps: false, affectEnvironment: false })];
-        expect(lightGroups(entities)).toEqual({ characters: ['a', 'c'], props: ['a', 'b'], environment: ['a', 'b'] });
+        expect(lightGroups(entities)).toEqual({ characters: ['a', 'c'], props: ['a', 'b'], environment: ['a', 'b'], haze: [] });
     });
     it('keeps the signature for visibility, color, intensity, range, and transform changes (R7)', () => {
         const base = lightSignature([light('a')]);
@@ -183,5 +183,63 @@ describe('soft shadow radius', () => {
         expect(threeLights(scene)[1]!.shadow.radius).toBe(2);
         lights.apply([light('a', { shadow: { ...settings().shadow, enabled: true, soft: false } })]);
         expect(threeLights(scene)[1]!.shadow.radius).toBe(1);
+    });
+});
+
+describe('stage lights (B13)', () => {
+    const cone = { angleDegrees: 40, penumbra: 0.3 };
+    const spot = (id: string, patch: Partial<LightSettings> = {}) => light(id, { type: 'spot', intensity: 60, range: 15, cone, ...patch });
+    const lightsOf = (node: unknown) => (node as { getLights(): unknown[] }).getLights();
+    it('maps the full cone angle to the three.js half angle', () => {
+        expect(spotAngle(40)).toBeCloseTo(Math.PI / 9, 9);
+        expect(spotAngle(170)).toBeLessThan(Math.PI / 2);
+    });
+    it('lets only point and spot lights with volumetric on scatter in haze (R1, R7)', () => {
+        expect(scattersInHaze(settings({ type: 'spot', cone, volumetric: true }))).toBe(true);
+        expect(scattersInHaze(settings({ type: 'point', volumetric: true }))).toBe(true);
+        expect(scattersInHaze(settings({ type: 'point' }))).toBe(false);
+        expect(scattersInHaze(settings({ type: 'directional', volumetric: true }))).toBe(false);
+        expect(lightGroups([spot('s', { volumetric: true }), light('p', { type: 'point' }), light('d')]).haze).toEqual(['s']);
+    });
+    it('rebuilds the node sets when volumetric changes, not when the cone changes (R5)', () => {
+        const base = lightSignature([spot('s')]);
+        expect(lightSignature([spot('s', { volumetric: true })])).not.toBe(base);
+        expect(lightSignature([spot('s', { cone: { angleDegrees: 90, penumbra: 1 } })])).toBe(base);
+    });
+    it('places a spot light at its position, aimed along −Z, with its cone, range, and shadow camera (R3)', () => {
+        const scene = new Scene(), lights = createSceneLights(scene, fake());
+        lights.apply([spot('s', { shadow: { ...settings().shadow, enabled: true } })]);
+        const own = scene.children.find(c => (c as SpotLight).isSpotLight) as SpotLight;
+        expect(own.position.toArray()).toEqual([0, 2, 1]);
+        expect(own.target.position.toArray()).toEqual([0, 2, 0]);
+        expect(own.target.parent).toBe(scene);
+        expect([own.distance, own.decay, own.penumbra, own.castShadow]).toEqual([15, 2, 0.3, true]);
+        expect(own.angle).toBeCloseTo(spotAngle(40), 9);
+        expect(own.shadow.mapSize.toArray()).toEqual([1024, 1024]);
+        expect([(own.shadow.camera as PerspectiveCamera).near, (own.shadow.camera as PerspectiveCamera).far, own.shadow.focus]).toEqual([0.1, SPOT_SHADOW_FAR, 1]);
+    });
+    it('replaces the fixed ambient light with ambient entities by their affect flags (R4)', () => {
+        const scene = new Scene(), lights = createSceneLights(scene, fake());
+        const ambient = light('amb', { type: 'ambient', color: '#203040', intensity: 0.3, affectProps: false });
+        expect(usesFixedAmbient([light('d')])).toBe(true);
+        expect(usesFixedAmbient([light('d'), ambient])).toBe(false);
+        lights.apply([light('d'), ambient]);
+        const own = scene.children.filter(c => (c as AmbientLight).isAmbientLight) as AmbientLight[];
+        const entityAmbient = own.find(a => a.color.getHexString() === '203040')!;
+        expect(entityAmbient.intensity).toBe(0.3);
+        const fixed = own.find(a => a !== entityAmbient)!;
+        expect(lightsOf(lights.node('characters'))).toContain(entityAmbient);
+        expect(lightsOf(lights.node('characters'))).not.toContain(fixed);
+        expect(lightsOf(lights.node('props'))).not.toContain(entityAmbient);
+        expect(lightsOf(lights.node('props'))).not.toContain(fixed);
+        lights.apply([light('d')]);
+        expect(lightsOf(lights.node('characters'))).toContain(fixed);
+    });
+    it('gives the haze set only the volumetric lights, with no ambient light (R7)', () => {
+        const scene = new Scene(), lights = createSceneLights(scene, fake());
+        lights.apply([light('d'), spot('s', { volumetric: true }), light('p', { type: 'point' })]);
+        const set = lightsOf(lights.node('haze'));
+        expect(set).toHaveLength(1);
+        expect((set[0] as SpotLight).isSpotLight).toBe(true);
     });
 });

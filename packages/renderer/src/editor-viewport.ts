@@ -1,4 +1,4 @@
-import { BufferGeometry, CircleGeometry, ConeGeometry, CylinderGeometry, DoubleSide, Float32BufferAttribute, Group, LineBasicNodeMaterial, LineSegments, Mesh, MeshBasicNodeMaterial, Raycaster, Vector2 } from 'three/webgpu';
+import { BoxGeometry, BufferGeometry, CircleGeometry, ConeGeometry, CylinderGeometry, DoubleSide, EdgesGeometry, Float32BufferAttribute, Group, LineBasicNodeMaterial, LineSegments, Mesh, MeshBasicNodeMaterial, Raycaster, SphereGeometry, Vector2 } from 'three/webgpu';
 import type { Object3D, PerspectiveCamera, Scene } from 'three/webgpu';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import type { Id, LightSettings, Reply, SceneView, Transform } from '@opensekai/contracts';
@@ -27,8 +27,20 @@ export interface EditorHandle { sync(state: EditorViewportState): void; cancel()
 export const GIZMO_COMMIT_MS = 33;
 const read = (object: Object3D): Transform => ({position:object.position.toArray(),rotation:object.quaternion.toArray(),scale:object.scale.toArray()});
 const sameTransform = (a: Transform, b: Transform) => (['position','rotation','scale'] as const).every(row => a[row].every((value, index) => value === b[row][index]));
+// The spot cone outline (B13 R13): four lines from the light to a circle at the range (5 m for range 0), along −Z.
+export const SPOT_HELPER_LENGTH = 5;
+export function conePositions(angleDegrees: number, range: number, segments = 32): number[] {
+    const length = range > 0 ? range : SPOT_HELPER_LENGTH, radius = length * Math.tan((angleDegrees / 2) * Math.PI / 180);
+    const at = (i: number) => { const a = (i / segments) * Math.PI * 2; return [Math.cos(a) * radius, Math.sin(a) * radius, -length]; };
+    const rays = [0, segments / 4, segments / 2, (segments * 3) / 4].flatMap(i => [0, 0, 0, ...at(i)]);
+    const circle = Array.from({ length: segments }, (_, i) => [...at(i), ...at(i + 1)]).flat();
+    return [...rays, ...circle];
+}
+const outlineMaterial = (color: string) => new LineBasicNodeMaterial({ color, toneMapped: false, transparent: true, opacity: 0.5 });
+// An aid only: a click on it does not select the light.
+const aid = <T extends Object3D>(object: T, name: string): T => { object.name = name; object.raycast = () => {}; return object; };
 // A light helper (R14): a disc, and for a directional light an arrow along −Z, in the light color. A directional light with a shadow
-// also shows the outline of its shadow box, normal to its direction (B12 R10). Only the editor viewport adds one.
+// also shows the outline of its shadow box, normal to its direction (B12 R10). A spot light shows its cone (B13 R13). Only the editor viewport adds one.
 export function createLightHelper(light: LightSettings): Object3D {
     const material = new MeshBasicNodeMaterial({ color: light.color, side: DoubleSide, toneMapped: false });
     const root = new Group();
@@ -44,24 +56,45 @@ export function createLightHelper(light: LightSettings): Object3D {
         const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
         const edges = corners.flatMap(([x, y], i) => { const [nx, ny] = corners[(i + 1) % 4]!; return [x!, y!, 0, nx!, ny!, 0]; });
         const outline = new BufferGeometry().setAttribute('position', new Float32BufferAttribute(edges.map(v => v * SHADOW_BOX), 3));
-        const box = new LineSegments(outline, new LineBasicNodeMaterial({ color: light.color, toneMapped: false, transparent: true, opacity: 0.5 }));
-        box.name = 'shadow-box';
-        // The outline is an aid only: a click on it does not select the light.
-        box.raycast = () => {};
-        root.add(shaft, tip, box);
+        root.add(shaft, tip, aid(new LineSegments(outline, outlineMaterial(light.color)), 'shadow-box'));
     }
-    root.userData.lightColor = '';
+    if (light.type === 'spot') root.add(aid(new LineSegments(new BufferGeometry(), outlineMaterial(light.color)), 'cone'));
+    root.userData.lightKey = '';
     updateLightHelper(root, light);
     return root;
 }
 export function updateLightHelper(root: Object3D, light: LightSettings) {
     const shadow = light.type === 'directional' && light.shadow.enabled;
-    if (root.userData.lightColor === light.color && root.userData.lightShadow === shadow) return;
+    const cone = light.type === 'spot' ? `${light.cone?.angleDegrees ?? 40}:${light.range}` : '';
+    const key = `${light.color}|${shadow}|${cone}`;
+    if (root.userData.lightKey === key) return;
+    root.userData.lightKey = key;
     root.userData.lightColor = light.color;
-    root.userData.lightShadow = shadow;
     root.traverse(object => { const material = (object as Mesh).material as MeshBasicNodeMaterial | undefined; material?.color?.set(light.color); });
     const box = root.getObjectByName('shadow-box');
     if (box) box.visible = shadow;
+    const lines = root.getObjectByName('cone') as LineSegments | undefined;
+    if (lines) {
+        lines.geometry.dispose();
+        lines.geometry = new BufferGeometry().setAttribute('position', new Float32BufferAttribute(conePositions(light.cone?.angleDegrees ?? 40, light.range), 3));
+    }
+}
+// A haze helper (B13 R13): the wire box of the unit volume, which the entity scale sizes, and a small center handle.
+// The handle and the edges are pick targets; the faces are not, so a character inside the haze stays pickable.
+export function createHazeHelper(): Object3D {
+    const root = new Group();
+    const box = new LineSegments(new EdgesGeometry(new BoxGeometry(1, 1, 1)), outlineMaterial('#a8c0ff'));
+    box.name = 'haze-box';
+    const handle = new Mesh(new SphereGeometry(0.12, 16, 12), new MeshBasicNodeMaterial({ color: '#a8c0ff', toneMapped: false }));
+    handle.name = 'haze-handle';
+    root.add(box, handle);
+    root.userData.hazeHelper = true;
+    return root;
+}
+/** Keeps the handle the same size when the box scale changes. */
+export function updateHazeHelper(root: Object3D) {
+    const handle = root.getObjectByName('haze-handle');
+    if (handle) { handle.scale.set(1 / root.scale.x, 1 / root.scale.y, 1 / root.scale.z); handle.updateMatrixWorld(true); }
 }
 export function assertEditorScope(outputId: Id, diagnostics: boolean) {
     if (outputId !== 'preview_main' || diagnostics) throw new Error('Editor requires preview_main without diagnostics');
