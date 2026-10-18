@@ -37,6 +37,7 @@ it('rejects a created avatar that uses a source of another avatar', () => {
  const session = createSession(twoPerformers(), 'r12');
  const scene = session.inspect();
  const performer = scene.entities.find(entity => entity.id === 'performer')!;
+ if (performer.kind !== 'avatar') throw new Error('Avatar');
  const reply = session.applyPatch(patch(scene, [
   { kind: 'removeEntity', entityId: 'second' },
   { kind: 'createEntity', entity: { ...structuredClone(performer), id: 'third', tracking: tracking(null, 'face-a') } },
