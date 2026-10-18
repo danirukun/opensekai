@@ -1,15 +1,18 @@
 <script lang="ts">
- import { Button, Input, Select } from '@oshi-connect/ui';
+ import { Button, Select } from '@oshi-connect/ui';
  import { ChevronRight } from '@lucide/svelte';
  import type { ExpressionSettings, ExpressionState, ExpressionView, Reply } from '@opensekai/contracts';
  import { editSettings, LAYER_OPTIONS } from '../editor/expressions';
+ import { SLIDERS } from '../editor/slider';
+ import SliderField from './SliderField.svelte';
  export interface ExpressionApi {
   get(avatarId: string): Promise<Reply<ExpressionState>>;
   set(avatarId: string, name: string, active: boolean): Promise<Reply<ExpressionState>>;
  }
- let { avatarId, revision, api, disabled = false, onsettings }: {
+ let { avatarId, revision, api, disabled = false, onsettings, onsettingslive, onliveend }: {
   avatarId: string; revision: number; api: ExpressionApi; disabled?: boolean;
   onsettings: (avatarId: string, name: string, settings: ExpressionSettings | null, revision: number) => Promise<unknown>;
+  onsettingslive?: (avatarId: string, name: string, settings: ExpressionSettings) => void; onliveend?: () => void;
  } = $props();
  let list = $state.raw<ExpressionView[]>([]), error = $state<string | null>(null), busy = $state(false), open = $state<string | null>(null);
  let request = 0, shown: string | null = null;
@@ -56,7 +59,7 @@
   {#if open === view.name}
    <fieldset {disabled}>
     <Select label="Layer" value={String(view.layer)} options={LAYER_OPTIONS} onchange={event => commit(view, { layer: event.currentTarget.value })} />
-    <Input type="number" label="Fade (s)" min={0} max={5} step="0.1" value={String(view.fadeSeconds)} onchange={event => { const input = event.currentTarget; commit(view, { fadeSeconds: input.value }, () => { input.value = String(view.fadeSeconds); }); }} />
+    <SliderField label="Fade (s)" value={view.fadeSeconds} range={SLIDERS.fade} {disabled} onlive={value => { const settings = editSettings(view, { fadeSeconds: String(value) }); if (settings) onsettingslive?.(avatarId, view.name, settings); }} onend={onliveend} oncommit={value => commit(view, { fadeSeconds: String(value) })} />
     <div class="suppress" role="group" aria-label="Suppress tracking"><span>Suppress tracking</span>
      {#each [['blink', 'Blink'], ['mouth', 'Mouth'], ['brow', 'Brow']] as const as [key, label] (key)}
       <label><input type="checkbox" checked={view.suppress[key]} onchange={event => commit(view, { suppress: { [key]: event.currentTarget.checked } })} />{label}</label>

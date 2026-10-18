@@ -7,11 +7,11 @@ export interface EditorView {
  selectedId: Id | null;
  error: ErrorCode | null;
  pending: boolean;
- transformPending?: boolean;
+ livePending?: boolean;
 }
 const failure = (code: ErrorCode): Reply<never> => ({ ok: false, error: { code, message: code, ids: [] } });
 export function createEditorModel(api: AppApi) {
- let view: EditorView = { scene: null, selectedId: null, error: null, pending: false, transformPending: false };
+ let view: EditorView = { scene: null, selectedId: null, error: null, pending: false, livePending: false };
  let inspecting = false, inspectionEpoch = 0;
  const listeners = new Set<(view: EditorView) => void>();
  const read = (): EditorView => structuredClone(view);
@@ -27,10 +27,10 @@ export function createEditorModel(api: AppApi) {
   const selectedId = reply.data.entities.some(entity => entity.id === view.selectedId) ? view.selectedId : null;
   publish({ scene: structuredClone(reply.data), selectedId, error: view.error === 'CONFLICT' ? 'CONFLICT' : null });
  }
- async function execute(command: () => Promise<Reply<{ revision: number }>>, reinspectOnFailure = false, transformPending = false): Promise<Reply<{ revision: number }>> {
+ async function execute(command: () => Promise<Reply<{ revision: number }>>, reinspectOnFailure = false, livePending = false): Promise<Reply<{ revision: number }>> {
   if (view.pending) return failure('BUSY');
   if (!view.scene) { publish({ error: 'UNAVAILABLE' }); return failure('UNAVAILABLE'); }
-  publish({ pending: true, transformPending, error: null });
+  publish({ pending: true, livePending, error: null });
   try {
    const reply = await command();
    if (reply.ok || reply.error.code === 'CONFLICT' || reinspectOnFailure) {
@@ -42,14 +42,14 @@ export function createEditorModel(api: AppApi) {
    if (reinspectOnFailure) { try { await inspect(); } catch {} }
    publish({ error: 'UNAVAILABLE' }); return failure('UNAVAILABLE');
   }
-  finally { publish({ pending: false, transformPending: false }); }
+  finally { publish({ pending: false, livePending: false }); }
  }
- function patch(operation: PatchOp, expectedRevision?: number, transformPending=false) {
+ function patch(operation: PatchOp, expectedRevision?: number, livePending=false) {
   if (expectedRevision !== undefined && expectedRevision !== view.scene?.revision) {
    publish({ error: 'CONFLICT' }); return Promise.resolve(failure('CONFLICT'));
   }
   const revision = expectedRevision ?? view.scene?.revision;
-  return execute(() => api.scenePatch({ sceneId: view.scene!.sceneId, expectedRevision: revision!, operations: [operation] }),false,transformPending);
+  return execute(() => api.scenePatch({ sceneId: view.scene!.sceneId, expectedRevision: revision!, operations: [operation] }),false,livePending);
  }
  function invalid(code:ErrorCode='INVALID_INPUT') {publish({error:code});return Promise.resolve(failure(code));}
  function ofKind(entityId:Id,kind:SceneEntity['kind']) {return view.scene?.entities.some(entity=>entity.id===entityId&&entity.kind===kind);}
@@ -94,9 +94,9 @@ export function createEditorModel(api: AppApi) {
    if(reply.ok&&view.scene?.entities.some(item=>item.id===id))publish({selectedId:id});
    return reply;
   },
-  setCameraLens(entityId:Id,lens:CameraLens,expectedRevision?:number):Promise<Reply<{revision:number}>> {
+  setCameraLens(entityId:Id,lens:CameraLens,expectedRevision?:number,live=false):Promise<Reply<{revision:number}>> {
    const parsed=LensSchema.safeParse(lens);if(!ofKind(entityId,'camera')||!parsed.success)return invalid();
-   return patch({kind:'setCameraLens',entityId,lens:parsed.data},expectedRevision);
+   return patch({kind:'setCameraLens',entityId,lens:parsed.data},expectedRevision,live);
   },
   setAvatarIdle(entityId:Id,idleAnimation:AvatarIdle,expectedRevision?:number):Promise<Reply<{revision:number}>> {
    const parsed=AvatarIdleSchema.safeParse(idleAnimation);if(!ofKind(entityId,'avatar')||!parsed.success)return invalid();
@@ -110,22 +110,22 @@ export function createEditorModel(api: AppApi) {
    const parsed=IdSchema.nullable().safeParse(assetId);if(!ofKind(entityId,'avatar')||!parsed.success)return invalid();
    return patch({kind:'setAvatarModel',entityId,assetId:parsed.data},expectedRevision);
   },
-  setAvatarExpression(entityId:Id,name:string,settings:ExpressionSettings|null,expectedRevision?:number):Promise<Reply<{revision:number}>> {
+  setAvatarExpression(entityId:Id,name:string,settings:ExpressionSettings|null,expectedRevision?:number,live=false):Promise<Reply<{revision:number}>> {
    const parsedName=ExpressionNameSchema.safeParse(name),parsed=ExpressionSettingsSchema.nullable().safeParse(settings);
    if(!ofKind(entityId,'avatar')||!parsedName.success||!parsed.success)return invalid();
-   return patch({kind:'setAvatarExpression',entityId,name:parsedName.data,settings:parsed.data},expectedRevision);
+   return patch({kind:'setAvatarExpression',entityId,name:parsedName.data,settings:parsed.data},expectedRevision,live);
   },
   setEnvironmentModel(entityId:Id,assetId:Id|null,expectedRevision?:number):Promise<Reply<{revision:number}>> {
    const parsed=IdSchema.nullable().safeParse(assetId);if(!ofKind(entityId,'environment')||!parsed.success)return invalid();
    return patch({kind:'setEnvironmentModel',entityId,assetId:parsed.data},expectedRevision);
   },
-  setEnvironmentReflections(entityId:Id,reflectionsIntensity:number,expectedRevision?:number):Promise<Reply<{revision:number}>> {
+  setEnvironmentReflections(entityId:Id,reflectionsIntensity:number,expectedRevision?:number,live=false):Promise<Reply<{revision:number}>> {
    const parsed=ReflectionsIntensitySchema.safeParse(reflectionsIntensity);if(!ofKind(entityId,'environment')||!parsed.success)return invalid();
-   return patch({kind:'setEnvironmentReflections',entityId,reflectionsIntensity:parsed.data},expectedRevision);
+   return patch({kind:'setEnvironmentReflections',entityId,reflectionsIntensity:parsed.data},expectedRevision,live);
   },
-  setLight(entityId:Id,light:LightSettings,expectedRevision?:number):Promise<Reply<{revision:number}>> {
+  setLight(entityId:Id,light:LightSettings,expectedRevision?:number,live=false):Promise<Reply<{revision:number}>> {
    const parsed=LightSettingsSchema.safeParse(light);if(!ofKind(entityId,'light')||!parsed.success)return invalid();
-   return patch({kind:'setLight',entityId,light:parsed.data},expectedRevision);
+   return patch({kind:'setLight',entityId,light:parsed.data},expectedRevision,live);
   },
   setCameraRenderEnvironment(entityId:Id,renderEnvironment:boolean,expectedRevision?:number):Promise<Reply<{revision:number}>> {
    if(!ofKind(entityId,'camera'))return invalid();
@@ -135,9 +135,9 @@ export function createEditorModel(api: AppApi) {
    const parsed=CameraAntiAliasingSchema.safeParse(antiAliasing);if(!ofKind(entityId,'camera')||!parsed.success)return invalid();
    return patch({kind:'setCameraAntiAliasing',entityId,antiAliasing:parsed.data},expectedRevision);
   },
-  setCameraNavigation(entityId:Id,navigation:CameraNavigation,expectedRevision?:number):Promise<Reply<{revision:number}>> {
+  setCameraNavigation(entityId:Id,navigation:CameraNavigation,expectedRevision?:number,live=false):Promise<Reply<{revision:number}>> {
    const parsed=CameraNavigationSchema.safeParse(navigation);if(!ofKind(entityId,'camera')||!parsed.success)return invalid();
-   return patch({kind:'setCameraNavigation',entityId,navigation:parsed.data},expectedRevision);
+   return patch({kind:'setCameraNavigation',entityId,navigation:parsed.data},expectedRevision,live);
   },
   // A screenshot is not an edit: it does not change the revision, so it does not block other edits.
   async cameraScreenshot(cameraId:Id):Promise<Reply<CameraScreenshotResult>> {
@@ -149,9 +149,9 @@ export function createEditorModel(api: AppApi) {
     return reply;
    }catch{publish({error:'UNAVAILABLE'});return failure('UNAVAILABLE');}
   },
-  setTrackingSmoothing(entityId:Id,smoothing:TrackingSmoothing,expectedRevision?:number):Promise<Reply<{revision:number}>> {
+  setTrackingSmoothing(entityId:Id,smoothing:TrackingSmoothing,expectedRevision?:number,live=false):Promise<Reply<{revision:number}>> {
    const parsed=TrackingSmoothingSchema.safeParse(smoothing);if(!ofKind(entityId,'tracking')||!parsed.success)return invalid();
-   return patch({kind:'setTrackingSmoothing',entityId,smoothing:parsed.data},expectedRevision);
+   return patch({kind:'setTrackingSmoothing',entityId,smoothing:parsed.data},expectedRevision,live);
   },
   setTrackingConfig(entityId:Id,config:TrackingConfig,expectedRevision?:number):Promise<Reply<{revision:number}>> {
    const parsed=TrackingConfigSchema.safeParse(config),entity=view.scene?.entities.find(e=>e.id===entityId);

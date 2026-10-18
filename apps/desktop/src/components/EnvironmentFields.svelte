@@ -1,14 +1,12 @@
 <script lang="ts">
- import {Button,Input,Select} from '@oshi-connect/ui';
+ import {Button,Select} from '@oshi-connect/ui';
  import type {AssetRecord,Reply} from '@opensekai/contracts';
- import {parseBounded} from '../editor/lights';
+ import {SLIDERS} from '../editor/slider';
+ import SliderField from './SliderField.svelte';
  import type {AssetLoadStatus} from '@opensekai/renderer';
  import {stageLabel} from '../editor/load-status';
  import {creditLine,sceneSourceOptions,sourceAction} from '../editor/environment';
- let {assetId,assets,status=null,importing=false,error=null,disabled=false,onselect,onimport,reflectionsIntensity=1,reflectionsDisabled=false,onreflections}:{assetId:string|null;assets:readonly AssetRecord[];status?:AssetLoadStatus|null;importing?:boolean;error?:string|null;disabled?:boolean;onselect:(assetId:string|null)=>void;onimport:()=>void;reflectionsIntensity?:number;reflectionsDisabled?:boolean;onreflections?:(value:number)=>Promise<Reply<unknown>>}=$props();
- let reflections=$state('');
- $effect(()=>{reflections=String(reflectionsIntensity);});
- async function applyReflections(){const value=parseBounded(reflections,0,2);if(value===null||value===reflectionsIntensity){reflections=String(reflectionsIntensity);return;}const reply=await onreflections?.(value);if(!reply?.ok)reflections=String(reflectionsIntensity);}
+ let {assetId,assets,status=null,importing=false,error=null,disabled=false,onselect,onimport,reflectionsIntensity=1,reflectionsDisabled=false,onreflections,onreflectionslive,onliveend}:{assetId:string|null;assets:readonly AssetRecord[];status?:AssetLoadStatus|null;importing?:boolean;error?:string|null;disabled?:boolean;onselect:(assetId:string|null)=>void;onimport:()=>void;reflectionsIntensity?:number;reflectionsDisabled?:boolean;onreflections?:(value:number)=>Promise<Reply<unknown>>;onreflectionslive?:(value:number)=>void;onliveend?:()=>void}=$props();
  const credits=$derived(assets.find(asset=>asset.id===assetId)?.credits);
  const line=$derived(credits?creditLine(credits):null);
  let reset=$state(0),copied=$state(false);
@@ -21,7 +19,7 @@
  {#if importing}<div class="source-status"><span>Importing…</span><progress max="1" aria-label="Importing…"></progress></div>
  {:else if status}<div class="source-status" class:failed={status.stage==='failed'}><span>{stageLabel(status)}</span>{#if status.stage!=='failed'}{#if status.progress===null}<progress max="1" aria-label={stageLabel(status)}></progress>{:else}<progress max="1" value={status.progress} aria-label={stageLabel(status)}></progress>{/if}{/if}</div>{/if}
  {#if error}<p class="source-status failed" role="alert">{error}</p>{/if}
- {#if onreflections}<form onsubmit={event=>{event.preventDefault();void applyReflections();}}><Input label="Reflections Intensity" type="number" min={0} max={2} step={0.05} disabled={reflectionsDisabled} bind:value={reflections} onchange={()=>void applyReflections()}/></form>{/if}
+ {#if onreflections}<SliderField label="Reflections Intensity" value={reflectionsIntensity} range={SLIDERS.reflections} disabled={reflectionsDisabled} onlive={onreflectionslive} onend={onliveend} oncommit={value=>{void onreflections?.(value);}}/>{/if}
  {#if credits&&line}<dl class="credits">{#if credits.title}<dt>Title</dt><dd>{credits.title}</dd>{/if}{#if credits.author}<dt>Author</dt><dd>{credits.author}</dd>{/if}{#if credits.license}<dt>License</dt><dd>{credits.license}</dd>{/if}</dl><Button variant="ghost" onclick={copy}>{copied?'Copied':'Copy credit'}</Button>{/if}
 </div>
 <style>

@@ -1,6 +1,6 @@
 import {expect,it} from 'vitest';
 import {makeSmokeScene,SceneEntitySchema} from '@opensekai/contracts';
-import {cameraLimitReached,cycleCamera,focusOptions,navigationForMode,parseSensitivity} from '../src/editor/cameras';
+import {cameraLimitReached,cycleCamera,focusOptions,navigationForMode} from '../src/editor/cameras';
 import {makeAuthoringEntity} from '../src/editor/authoring';
 
 it('gives an added camera Free Look, the Warudo default (R11)',()=>{
@@ -20,12 +20,6 @@ it('starts Orbit Character on the first character at chest height and keeps the 
 });
 it('lists the characters and None as Focus Character choices',()=>{
  expect(focusOptions(makeSmokeScene().entities)).toEqual([{value:'',label:'None'},{value:'performer',label:'performer'}]);
-});
-it('accepts a sensitivity from 0.1 to 10 only',()=>{
- expect(parseSensitivity('2.5')).toBe(2.5);
- expect(parseSensitivity(' 0.1 ')).toBe(.1);
- expect(parseSensitivity(3)).toBe(3);
- for(const text of ['','0.05','11','abc','NaN',20])expect(parseSensitivity(text)).toBeNull();
 });
 it('cycles the preview camera in scene order with wrap (R12)',()=>{
  const scene=makeSmokeScene();
