@@ -27,7 +27,7 @@
  let loads=$state<AssetLoadStatus[]>([]);
  const names=$derived(Object.fromEntries((view.scene?.entities??[]).map(entity=>[entity.id,entity.name])));
  const selected=$derived(view.scene?.entities.find(e=>e.id===view.selectedId));
- function sync(){const state=model?.read();session?.editor?.sync({scene:state?.scene??null,selectedId:selected?.kind==='tracking'?null:view.selectedId,tool,enabled:canEdit&&available&&!view.pending&&selected?.kind!=='tracking'});}
+ function sync(){const state=model?.read();session?.editor?.sync({scene:state?.scene??null,selectedId:selected?.kind==='tracking'?null:view.selectedId,tool,enabled:canEdit&&available&&!(view.pending&&!view.livePending)&&selected?.kind!=='tracking'});}
  function notify(message:Parameters<typeof sendUI>[1]){void sendUI('editor',message).catch(()=>{error='Editor unavailable';});}
  function setTool(value:Tool){tool=value;sync();notify({kind:'tool',tool});}
  function showEditor(){void invoke('show_editor').catch(()=>{error='Could not open editor';});}
@@ -49,7 +49,9 @@
   void listenUI(message=>{if(message.kind==='selection'){if(message.entityId)model?.select(message.entityId);else model?.clearSelection();}else if(message.kind==='tool'){tool=message.tool;sync();}else if(message.kind==='refresh')void model?.load();else if(message.kind==='ready'){notify({kind:'trackingDevices',devices});notify({kind:'selection',entityId:view.selectedId});notify({kind:'tool',tool});loadSender.resend();}}).then(stop=>{if(disposed)stop();else offUI=stop;}).catch(()=>{if(!disposed)error='Editor connection unavailable';});
   void bootstrapDesktop(canvas,{
    onSelect(id){if(id)model?.select(id);else model?.clearSelection();notify({kind:'selection',entityId:id});},
-   async onCommit(edit){const reply=await model!.setTransform(edit.entityId,edit.transform,edit.expectedRevision);notify({kind:'refresh'});return reply;},
+   // Gizmo commits are live (B12 R8): the model does not hold them as pending, and the editor refreshes once at the end.
+   onCommit(edit){return model!.setTransform(edit.entityId,edit.transform,edit.expectedRevision,true);},
+   onGestureEnd(){notify({kind:'refresh'});},
    onDraft(draft){dragging=draft!==null;drafts.offer(draft);},
    // Navigation commits go straight to the patch route, so the model does not block the gesture as pending.
    onNavigate(edit){return session!.client.api.scenePatch(edit);},

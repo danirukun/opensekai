@@ -15,11 +15,11 @@ it('coalesces a burst and keeps the latest full transform while a commit is pend
  const {api,model,session,live}=await fixture();let finish!:()=>void;
  vi.mocked(api.scenePatch).mockImplementationOnce(p=>new Promise(resolve=>{finish=()=>resolve(session.applyPatch(p));}));
  live.offer('marker',transform(1));live.offer('marker',transform(2));live.offer('marker',transform(3));
- await vi.advanceTimersByTimeAsync(16);expect(api.scenePatch).toHaveBeenCalledTimes(1);expect(model.read()).toMatchObject({pending:true,transformPending:true});
+ await vi.advanceTimersByTimeAsync(16);expect(api.scenePatch).toHaveBeenCalledTimes(1);expect(model.read()).toMatchObject({pending:true,livePending:true});
  const last={...transform(5),position:[5,6,7] as [number,number,number],scale:[2,3,4] as [number,number,number]};
  live.offer('marker',transform(4));live.offer('marker',last);finish();await vi.advanceTimersByTimeAsync(16);
  expect(api.scenePatch).toHaveBeenCalledTimes(2);expect(api.scenePatch).toHaveBeenNthCalledWith(2,expect.objectContaining({expectedRevision:1,operations:[{kind:'setTransform',entityId:'marker',transform:last}]}));
- expect(model.read().scene?.entities.find(e=>e.id==='marker')?.transform).toEqual(last);expect(model.read().transformPending).toBe(false);live.close();
+ expect(model.read().scene?.entities.find(e=>e.id==='marker')?.transform).toEqual(last);expect(model.read().livePending).toBe(false);live.close();
 });
 it('rejects invalid transforms before transport and cancels unsent edits when selection changes',async()=>{
  const {api,model,live}=await fixture();expect(live.offer('marker',{...transform(1),scale:[0,1,1]})).toBe(false);

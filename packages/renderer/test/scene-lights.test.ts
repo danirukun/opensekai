@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BackSide, DirectionalLight, DoubleSide, FrontSide, Group, Mesh, BoxGeometry, MeshBasicMaterial, MeshStandardMaterial, PointLight, Scene, type WebGPURenderer } from 'three/webgpu';
 import type { LightSettings, SceneEntity } from '@opensekai/contracts';
-import { createSceneLights, lightDirection, lightGroups, lightSignature, shadowsOn, DIRECTIONAL_DISTANCE } from '../src/scene-lights';
+import { createSceneLights, lightDirection, lightGroups, lightSignature, shadowsOn, withDrafts, DIRECTIONAL_DISTANCE } from '../src/scene-lights';
 
 const settings = (patch: Partial<LightSettings> = {}): LightSettings => ({ type: 'directional', color: '#ffffff', intensity: 3, range: 0, affectCharacters: true, affectProps: true, affectEnvironment: true, shadow: { enabled: false, intensity: 1, soft: true, bias: -0.0005, normalBias: 0.02 }, ...patch });
 const light = (id: string, patch: Partial<LightSettings> = {}, visible = true, rotation: [number, number, number, number] = [0, 0, 0, 1]): SceneEntity => ({ id, name: id, visible, transform: { position: [0, 2, 1], rotation, scale: [1, 1, 1] }, kind: 'light', light: settings(patch) });
@@ -51,14 +51,34 @@ describe('scene light reconcile', () => {
         lights.apply([box]);
         expect(threeLights(scene).map(l => l.intensity)).toEqual([3]);
     });
-    it('places a directional light 50 m against its direction with its target at the origin (R4)', () => {
+    it('places a directional light 50 m against its direction with its target at the entity position (R4, B12 R9)', () => {
         const scene = new Scene(), lights = createSceneLights(scene, fake());
         lights.apply([light('a', {}, true, [-0.3890, 0.2648, 0.1178, 0.8745])]);
         const own = threeLights(scene)[1] as DirectionalLight;
         const n = Math.hypot(2, 4, 3);
-        expect(own.position.toArray().map(v => v / DIRECTIONAL_DISTANCE)).toEqual([2 / n, 4 / n, 3 / n].map(v => expect.closeTo(v, 3)));
-        expect(own.target.position.toArray()).toEqual([0, 0, 0]);
+        expect(own.position.toArray().map((v, i) => (v - [0, 2, 1][i]!) / DIRECTIONAL_DISTANCE)).toEqual([2 / n, 4 / n, 3 / n].map(v => expect.closeTo(v, 3)));
+        expect(own.target.position.toArray()).toEqual([0, 2, 1]);
         expect(own.target.parent).toBe(scene);
+    });
+    it('moves the light and the directional shadow focus on the next apply (B12 R7, R9)', () => {
+        const scene = new Scene(), lights = createSceneLights(scene, fake());
+        const moved = (entity: SceneEntity, position: [number, number, number]): SceneEntity => ({ ...entity, transform: { ...entity.transform, position } });
+        const sun = light('sun'), lamp = light('lamp', { type: 'point' });
+        lights.apply([sun, lamp]);
+        expect(lights.apply([moved(sun, [5, 1, -3]), moved(lamp, [4, 3, 2])])).toBe(false);
+        const [, directional, point] = threeLights(scene) as [DirectionalLight, DirectionalLight, PointLight];
+        expect(point.position.toArray()).toEqual([4, 3, 2]);
+        expect(directional.target.position.toArray()).toEqual([5, 1, -3]);
+        expect(directional.position.toArray()).toEqual([5, 1, -3 + DIRECTIONAL_DISTANCE]);
+        expect(directional.target.matrixWorld.elements.slice(12, 15)).toEqual([5, 1, -3]);
+    });
+    it('draws an entity with a draft at its draft transform (B12 R7)', () => {
+        const draft = { position: [9, 9, 9] as [number, number, number], rotation: [0, 0, 0, 1] as [number, number, number, number], scale: [1, 1, 1] as [number, number, number] };
+        const entities = [box, light('a')];
+        const drawn = withDrafts(entities, id => id === 'a' ? draft : null);
+        expect(drawn[0]).toBe(box);
+        expect(drawn[1]!.transform).toEqual(draft);
+        expect(entities[1]!.transform.position).toEqual([0, 2, 1]);
     });
     it('maps point light, color, and shadow values (R4, R8)', () => {
         const scene = new Scene(), renderer = fake(), lights = createSceneLights(scene, renderer);

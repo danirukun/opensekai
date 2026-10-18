@@ -12,7 +12,7 @@ import { initializeBackend } from "./backend";
 import { createCapturePolicy, readPng } from "./capture";
 import { createLoadJobs, type AssetLoadStatus, type LoadReport, type LoadRequest } from "./load-jobs";
 import { createEnvironmentLight, roomEnvironmentMap, type InstanceMaterials } from "./environment-light";
-import { createSceneLights, groupOf, type LightGroup } from "./scene-lights";
+import { createSceneLights, groupOf, withDrafts, type LightGroup } from "./scene-lights";
 import { logPipelineFailure, watchPipelineErrors, type PipelineDevice } from "./pipeline-diagnostics";
 import { freshModulePerPipeline, isWebKit } from "./webkit-shader-modules";
 import { createDiagnosticMarker } from "./diagnostic-marker";
@@ -152,7 +152,8 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         if (options.canvas.width !== width || options.canvas.height !== height)
             renderer.setSize(width, height, false);
         const warnings: AppError[] = [];
-        const lightsRebuilt = sceneLights.apply(frame.scene.entities);
+        // A dragged light and its shadow follow the gizmo on each frame, between the throttled commits (B12 R7).
+        const lightsRebuilt = sceneLights.apply(editor ? withDrafts(frame.scene.entities, id => editor.draftTransform(id)) : frame.scene.entities);
         if (lightsRebuilt) pipelineFailed = false;
         // Cameras and lights have a scene object only in the editor viewport, as a pick target and helper (R14).
         const wanted = new Set(frame.scene.entities.filter(x => x.kind !== "tracking" && (editor || (x.kind !== "camera" && x.kind !== "light"))).map(x => x.id));

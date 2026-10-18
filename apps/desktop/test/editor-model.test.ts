@@ -29,7 +29,7 @@ it('loads persistent plain state, publishes selection, and unsubscribes', async 
  session.advance(1000); await model.load();
  expect(model.read().selectedId).toBe('performer');
  expect(model.read().scene).toEqual(session.inspect());
- expect(Object.keys(model.read()).sort()).toEqual(['error', 'pending', 'scene', 'selectedId', 'transformPending']);
+ expect(Object.keys(model.read()).sort()).toEqual(['error', 'livePending', 'pending', 'scene', 'selectedId']);
  stop(); const count = listener.mock.calls.length; model.select('marker'); expect(listener).toHaveBeenCalledTimes(count);
 });
 it('commits position and visibility using current revision and preserves rotation and scale', async () => {

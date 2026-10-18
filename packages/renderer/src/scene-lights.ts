@@ -1,6 +1,6 @@
 import { AmbientLight, DirectionalLight, PointLight, PCFShadowMap, type Material, type Object3D, type OrthographicCamera, type Scene, type WebGPURenderer } from "three/webgpu";
 import { lights } from "three/tsl";
-import type { Id, LightSettings, SceneEntity, Vec3 } from "@opensekai/contracts";
+import type { Id, LightSettings, SceneEntity, Transform, Vec3 } from "@opensekai/contracts";
 import { rotateByQuaternion } from "@opensekai/contracts";
 
 export type LightGroup = "characters" | "props" | "environment";
@@ -33,8 +33,14 @@ export const shadowsOn = (entities: readonly SceneEntity[]): boolean => entities
 /** A light shines along its local −Z axis (R4). */
 export const lightDirection = (rotation: readonly number[]): Vec3 => rotateByQuaternion([0, 0, -1], rotation);
 
+/** Each entity with a gizmo draft, drawn at its draft transform (B12 R7). */
+export const withDrafts = (entities: readonly SceneEntity[], draft: (id: Id) => Transform | null): SceneEntity[] =>
+    entities.map(entity => { const transform = draft(entity.id); return transform ? { ...entity, transform } : entity; });
+
 export const DIRECTIONAL_DISTANCE = 50;
-const SHADOW_BOX = 10, SHADOW_NEAR = 0.5, SHADOW_FAR = 100;
+/** Half the side of the directional shadow box in meters (R8). */
+export const SHADOW_BOX = 10;
+const SHADOW_NEAR = 0.5, SHADOW_FAR = 100;
 
 type ThreeLight = DirectionalLight | PointLight;
 export interface SceneLights {
@@ -101,10 +107,12 @@ export function createSceneLights(scene: Scene, renderer: WebGPURenderer): Scene
             point.position.fromArray(transform.position);
             point.distance = settings.range;
         } else {
+            // The entity position is the shadow focus: the 20 m shadow box is centered on it (B12 R9).
             const directional = light as DirectionalLight;
             const [x, y, z] = lightDirection(transform.rotation);
-            directional.position.set(-x * DIRECTIONAL_DISTANCE, -y * DIRECTIONAL_DISTANCE, -z * DIRECTIONAL_DISTANCE);
-            directional.target.position.set(0, 0, 0);
+            const [px, py, pz] = transform.position;
+            directional.position.set(px - x * DIRECTIONAL_DISTANCE, py - y * DIRECTIONAL_DISTANCE, pz - z * DIRECTIONAL_DISTANCE);
+            directional.target.position.set(px, py, pz);
             directional.target.updateMatrixWorld(true);
         }
         light.updateMatrixWorld(true);
