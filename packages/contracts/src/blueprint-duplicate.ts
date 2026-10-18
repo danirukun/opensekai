@@ -11,10 +11,16 @@ const fnv1a = (text: string, basis: number) => {
 export const derivedId = (seed: string, id: string): string =>
  SEEDS.map(basis => fnv1a(`${seed}\u0000${id}`, basis).toString(16).padStart(8, '0')).join('');
 
+// The longest start of `text` within `units` UTF-16 code units that does not split a surrogate pair.
+const cut = (text: string, units: number) => {
+ let out = '';
+ for (const point of text) { if (out.length + point.length > units) break; out += point; }
+ return out;
+};
 export function copyName(name: string, taken: readonly string[]): string {
  for (let n = 1; ; n++) {
   const suffix = n === 1 ? ' copy' : ` copy ${n}`;
-  const candidate = `${name.slice(0, MAX_NAME - suffix.length).trimEnd()}${suffix}`;
+  const candidate = `${cut(name, MAX_NAME - suffix.length).trimEnd()}${suffix}`;
   if (!taken.includes(candidate)) return candidate;
  }
 }

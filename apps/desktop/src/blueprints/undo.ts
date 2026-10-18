@@ -51,12 +51,12 @@ export interface UndoHistory {
  clear(): void;
 }
 const LIMIT = 64, MERGE_MS = 500;
-// Only a drag (moves) or repeated edits of one node's settings or one variable merge; any other action is one step.
+// Only a drag (moves) or repeated edits of one node's settings, one variable, or one comment text merge; any other action is one step.
 const shape = (ops: readonly BlueprintOp[]) => {
  if (ops.length > 0 && ops.every(op => op.kind === 'moveNode')) return 'move';
  const [only] = ops;
  if (ops.length !== 1 || !only) return '';
- return only.kind === 'setNodeSettings' ? `settings:${only.nodeId}` : only.kind === 'updateVariable' ? `variable:${only.variableId}` : '';
+ return only.kind === 'setNodeSettings' ? `settings:${only.nodeId}` : only.kind === 'updateVariable' ? `variable:${only.variableId}` : only.kind === 'updateComment' && only.text !== undefined ? `comment:${only.commentId}` : '';
 };
 
 export function createUndoHistory(now: () => number = () => performance.now()): UndoHistory {

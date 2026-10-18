@@ -47,9 +47,9 @@ export interface PaletteView { searching: boolean; sections: PaletteSection[] }
 
 // Sections for the palette: Favorites first (hidden when nothing in it matches), then one per category.
 // During a search each section with a match is open; otherwise the saved collapse state applies.
-export function paletteSections(query: string, refs: DefaultRefs, prefs: { favorites: readonly string[]; collapsed: readonly string[] }, need?: WireNeed): PaletteView {
+// `all` is the empty-query search for the same refs and need; a caller that keeps it passes it so typing does not repeat it.
+export function paletteSections(query: string, refs: DefaultRefs, prefs: { favorites: readonly string[]; collapsed: readonly string[] }, need?: WireNeed, all: SearchGroup[] = searchNodes('', refs, need)): PaletteView {
  const searching = query.trim() !== '';
- const all = searchNodes('', refs, need);
  const totals = new Map(all.map(group => [group.category as string, group.entries.length] as const));
  const groups = searching ? searchNodes(query, refs, need, prefs.favorites) : all;
  const shown = new Map(groups.flatMap(group => group.entries).map(entry => [entry.type as string, entry] as const));

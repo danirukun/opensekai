@@ -10,6 +10,8 @@ export function attachBoxSelect(container: HTMLElement, isEmpty: (target: EventT
  const down = (event: PointerEvent) => {
   if (!startsBoxSelect(event, isEmpty(event.target))) return;
   event.stopPropagation(); event.preventDefault();
+  // preventDefault also stops the focus change, so the canvas takes the keyboard focus here.
+  container.focus({ preventScroll: true });
   const box = container.getBoundingClientRect(), start = { x: event.clientX, y: event.clientY };
   const draw = (to: Point) => {
    const rect = rectFrom({ x: start.x - box.left, y: start.y - box.top }, { x: to.x - box.left, y: to.y - box.top });

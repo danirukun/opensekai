@@ -11,6 +11,8 @@ export interface CommentLayerEvents {
  resize(id: string, size: Size): void;
  menu(id: string, client: Point): void;
  open(id: string): void;
+ // A press on a comment stops the event, so the canvas takes the keyboard focus here.
+ focus(): void;
 }
 export interface CommentLayer {
  sync(comments: readonly BlueprintComment[]): void;
@@ -37,8 +39,10 @@ export function createCommentLayer(holder: HTMLElement, zoom: () => number, even
  };
  const mark = () => { for (const [id, view] of views) view.root.classList.toggle('selected', chosen.has(id)); };
  // A pointer drag in canvas units; `step` gets the movement since the press, divided by the zoom.
- const drag = (event: PointerEvent, step: (delta: Point, phase: DragPhase) => void) => {
+ // While a press lasts (also a click without movement), sync() does not place that comment.
+ const drag = (id: string, event: PointerEvent, step: (delta: Point, phase: DragPhase) => void) => {
   const start = { x: event.clientX, y: event.clientY }, k = zoom();
+  dragging = id;
   let moved = false;
   const delta = (e: PointerEvent) => ({ x: (e.clientX - start.x) / k, y: (e.clientY - start.y) / k });
   const move = (e: PointerEvent) => {
@@ -49,7 +53,7 @@ export function createCommentLayer(holder: HTMLElement, zoom: () => number, even
    window.removeEventListener('pointermove', move);
    window.removeEventListener('pointerup', up);
    window.removeEventListener('pointercancel', up);
-   if (moved) step(delta(e), 'end');
+   try { if (moved) step(delta(e), 'end'); } finally { if (dragging === id) dragging = null; }
   };
   window.addEventListener('pointermove', move);
   window.addEventListener('pointerup', up);
@@ -64,22 +68,20 @@ export function createCommentLayer(holder: HTMLElement, zoom: () => number, even
   const id = comment.id, view = { root, title, data: comment };
   header.addEventListener('pointerdown', event => {
    if (event.button !== 0) return;
-   event.stopPropagation(); event.preventDefault();
+   event.stopPropagation(); event.preventDefault(); events.focus();
    if (!chosen.has(id) || additive(event)) events.select([id], additive(event));
    const origin = { ...view.data.position };
-   dragging = id;
-   drag(event, (delta, phase) => {
+   drag(id, event, (delta, phase) => {
     const to = { x: Math.round(origin.x + delta.x), y: Math.round(origin.y + delta.y) };
     place(root, to, view.data.size);
     events.move(id, to, phase);
-    if (phase === 'end') dragging = null;
    });
   });
   handle.addEventListener('pointerdown', event => {
    if (event.button !== 0) return;
-   event.stopPropagation(); event.preventDefault();
+   event.stopPropagation(); event.preventDefault(); events.focus();
    const origin = { ...view.data.size };
-   drag(event, (delta, phase) => {
+   drag(id, event, (delta, phase) => {
     const size = commentSize({ width: origin.width + delta.x, height: origin.height + delta.y });
     place(root, view.data.position, size);
     if (phase === 'end') events.resize(id, size);
@@ -94,6 +96,14 @@ export function createCommentLayer(holder: HTMLElement, zoom: () => number, even
   holder.insertBefore(root, holder.firstChild);
   return view;
  };
+ // Larger comments go further back, so a small comment inside a large one stays on top; all comments stay behind wires and nodes.
+ const order = () => {
+  const sorted = [...views.values()].sort((a, b) => b.data.size.width * b.data.size.height - a.data.size.width * a.data.size.height);
+  const children = Array.from(holder.children);
+  if (sorted.every((view, i) => children[i] === view.root)) return;
+  const first = children.find(element => !elements.has(element)) ?? null;
+  for (const view of sorted) holder.insertBefore(view.root, first);
+ };
  return {
   sync(comments) {
    const keep = new Set(comments.map(comment => comment.id));
@@ -105,6 +115,7 @@ export function createCommentLayer(holder: HTMLElement, zoom: () => number, even
     view.title.textContent = comment.text;
     if (dragging !== comment.id) place(view.root, comment.position, comment.size);
    }
+   order();
    chosen = new Set([...chosen].filter(id => keep.has(id)));
    mark();
   },

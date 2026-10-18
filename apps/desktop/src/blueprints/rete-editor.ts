@@ -108,8 +108,13 @@ export async function mountReteBlueprint(container: HTMLElement, initial: Bluepr
  const graphId = initial.id;
  const track = (change: (graph: BlueprintGraph) => BlueprintGraph) => { shown = change(shown); if (applying) log.push(change); };
 
+ // A click on empty canvas (a press with almost no movement) clears the comment selection, as the selection extension does for nodes.
+ let press: { moves: number } | null = null;
  area.addPipe(context => {
   if (context.type === 'nodepicked') { if (!accumulating.active()) clearComments(); handlers.onSelect(context.data.id); }
+  if (context.type === 'pointerdown') press = context.data.event.target === container || context.data.event.target === area.area.content.holder ? { moves: 0 } : null;
+  if (context.type === 'pointermove' && press) press.moves++;
+  if (context.type === 'pointerup') { if (press && press.moves < 4) clearComments(); press = null; }
   // New wires go behind every node, so a wire never covers a node's ports or labels.
   if (context.type === 'connectioncreated') {
    const view = area.connectionViews.get(context.data.id);
@@ -293,6 +298,7 @@ function mountAuthoring(context: AuthoringContext): { comments: CommentLayer | n
   resize(id, size) { send([{ kind: 'updateComment', graphId, commentId: id, size }]); },
   menu(id, client) { handlers.onContextMenu?.({ kind: 'comment', commentId: id }, client); },
   open(id) { handlers.onCommentOpen?.(id); },
+  focus() { container.focus({ preventScroll: true }); },
  }) : null;
  const toCanvas = (client: { x: number; y: number }) => {
   const { x, y, k } = area.area.transform, box = container.getBoundingClientRect();

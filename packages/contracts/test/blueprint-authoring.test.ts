@@ -57,6 +57,10 @@ it('names a copy after the first free "copy" name and keeps it within 128 code u
  const long = copyName('x'.repeat(128), []);
  expect(long).toHaveLength(128);
  expect(long.endsWith(' copy')).toBe(true);
+ // A surrogate pair at the cut is dropped whole, not split.
+ const emoji = copyName(`${'x'.repeat(122)}😀z`, []);
+ expect(emoji).toBe(`${'x'.repeat(122)} copy`);
+ expect(copyName(`${'x'.repeat(121)}😀z`, [])).toBe(`${'x'.repeat(121)}😀 copy`);
 });
 
 it('duplicates a graph with new node, wire, and comment IDs, disabled, after its source', () => {

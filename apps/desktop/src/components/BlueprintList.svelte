@@ -2,6 +2,7 @@
  import { Button, Dropdown, Input } from '@oshi-connect/ui';
  import { CopyPlus, Eye, EyeOff, FileInput, FileOutput, LayoutTemplate, Plus, Trash2 } from '@lucide/svelte';
  import type { BlueprintGraph, BlueprintOp } from '@opensekai/contracts';
+ import { MAX_GRAPHS } from '../blueprints/templates';
 
  let { graphs, selectedId, disabled, creatable, templatable, onselect, onops, oncreate, onimport, ontemplate, onexport, onduplicate }: {
   graphs: BlueprintGraph[]; selectedId: string | null; disabled: boolean; creatable: boolean; templatable: boolean;
@@ -27,7 +28,7 @@
 </script>
 
 <aside class="blueprint-list" aria-label="Blueprints">
- <header><button type="button" class="blueprint-icon-button" title="New blueprint" aria-label="New blueprint" disabled={disabled || !creatable || graphs.length >= 8} onclick={oncreate}><Plus size={14} /></button><button type="button" class="blueprint-icon-button" title="Import blueprint" aria-label="Import blueprint" disabled={disabled || !creatable || graphs.length >= 8} onclick={onimport}><FileInput size={14} /></button><Dropdown bind:value={template} items={templates} triggerLabel="Templates" disabled={disabled || !templatable} align="end" class="blueprint-templates" onselect={pick}>{#snippet trigger()}<LayoutTemplate size={14} />{/snippet}</Dropdown></header>
+ <header><button type="button" class="blueprint-icon-button" title="New blueprint" aria-label="New blueprint" disabled={disabled || !creatable || graphs.length >= MAX_GRAPHS} onclick={oncreate}><Plus size={14} /></button><button type="button" class="blueprint-icon-button" title="Import blueprint" aria-label="Import blueprint" disabled={disabled || !creatable || graphs.length >= MAX_GRAPHS} onclick={onimport}><FileInput size={14} /></button><Dropdown bind:value={template} items={templates} triggerLabel="Templates" disabled={disabled || !templatable} align="end" class="blueprint-templates" onselect={pick}>{#snippet trigger()}<LayoutTemplate size={14} />{/snippet}</Dropdown></header>
  <ul>
   {#each graphs as graph (graph.id)}
    <li class:selected={graph.id === selectedId} class:off={!graph.enabled}>
@@ -36,7 +37,7 @@
     {:else}
      <span class="blueprint-name" role="presentation" ondblclick={() => start(graph)} use:aria={{ 'aria-current': String(graph.id === selectedId) }}><Button variant="ghost" onclick={() => onselect(graph.id)}>{graph.name}</Button></span>
     {/if}
- <button type="button" class="blueprint-icon-button row-action" title="Duplicate blueprint" aria-label="Duplicate blueprint" disabled={disabled || graphs.length >= 8} onclick={() => onduplicate(graph.id)}><CopyPlus size={14} /></button>
+ <button type="button" class="blueprint-icon-button row-action" title="Duplicate blueprint" aria-label="Duplicate blueprint" disabled={disabled || graphs.length >= MAX_GRAPHS} onclick={() => onduplicate(graph.id)}><CopyPlus size={14} /></button>
     <button type="button" class="blueprint-icon-button row-action" title="Export blueprint" aria-label="Export blueprint" {disabled} onclick={() => onexport(graph.id)}><FileOutput size={14} /></button>
     <button type="button" class="blueprint-icon-button row-action" title="Delete blueprint" aria-label="Delete blueprint" {disabled} onclick={() => onops([{ kind: 'removeGraph', graphId: graph.id }])}><Trash2 size={14} /></button>
     <button type="button" class="blueprint-icon-button" title={graph.enabled ? 'Disable' : 'Enable'} aria-label="Enabled" aria-pressed={graph.enabled} {disabled} onclick={() => onops([{ kind: 'updateGraph', graphId: graph.id, enabled: !graph.enabled }])}>{#if graph.enabled}<Eye size={14} />{:else}<EyeOff size={14} />{/if}</button>

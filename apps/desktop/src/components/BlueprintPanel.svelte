@@ -101,7 +101,8 @@
   const { ops, nodeIds, commentIds: notes } = pasteOps(clip, graph.id, anchor);
   if (!act(ops).ok) return;
   const latest = sync.view().find(item => item.id === graph!.id);
-  if (latest) void editor?.show(latest).then(() => { editor?.selectMany(nodeIds); editor?.selectComments(notes); });
+  // A paste of comments only still replaces the node selection.
+  if (latest) void editor?.show(latest).then(() => { editor?.select(null); editor?.selectMany(nodeIds); editor?.selectComments(notes); });
  }
  // The selected nodes, or the whole graph when fewer than two nodes are selected.
  function format(ids: string[]) {
@@ -121,9 +122,27 @@
   await tick();
   (document.getElementById(commentField) as HTMLTextAreaElement | null)?.focus();
  }
- function commentText(text: string) {
-  if (graph && comment && text !== comment.text) act([{ kind: 'updateComment', graphId: graph.id, commentId: comment.id, text: text.slice(0, 512) }]);
+ // Comment text is sent shortly after typing stops, to the comment it was typed for, and at once when the field or the selection changes.
+ let draftText: { graphId: string; commentId: string; text: string } | null = null;
+ let draftTimer: ReturnType<typeof setTimeout> | undefined;
+ function flushComment() {
+  clearTimeout(draftTimer);
+  const pending = draftText;
+  draftText = null;
+  if (!pending) return;
+  const target = sync.view().find(item => item.id === pending.graphId)?.comments?.find(item => item.id === pending.commentId);
+  if (!target || target.text === pending.text) return;
+  const ops: BlueprintOp[] = [{ kind: 'updateComment', graphId: pending.graphId, commentId: pending.commentId, text: pending.text }];
+  if (pending.graphId === selectedId) act(ops); else edit(ops);
  }
+ function commentInput(commentId: string, text: string) {
+  if (!graph || disabled) return;
+  draftText = { graphId: graph.id, commentId, text: text.slice(0, 512) };
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(flushComment, 400);
+ }
+ const commentKey = $derived(comment && selectedId ? `${selectedId}:${comment.id}` : null);
+ $effect(() => { void commentKey; return () => flushComment(); });
  function shortcut(event: KeyboardEvent) {
   const action = shortcutFor(event, platform);
   if (!action || !graph || !editor) return;
@@ -346,7 +365,7 @@
   </aside>
   {:else if comment}
   <aside class="blueprint-inspector" aria-label="Comment">
-   {#key comment.id}<Textarea id={commentField} label="Comment" value={comment.text} rows={6} maxlength={512} resize="vertical" {disabled} onchange={event => commentText(event.currentTarget.value)} />{/key}
+   {#key comment.id}<Textarea id={commentField} label="Comment" value={comment.text} rows={6} maxlength={512} resize="vertical" {disabled} oninput={event => commentInput(comment.id, event.currentTarget.value)} onchange={flushComment} />{/key}
    <Button variant="ghost" {disabled} onclick={removeComment}><Trash2 size={14}/>Delete comment</Button>
   </aside>
   {/if}
