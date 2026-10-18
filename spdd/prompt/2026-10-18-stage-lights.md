@@ -30,6 +30,12 @@ R7. The renderer draws a visible haze as a unit box mesh with the entity transfo
 - `receiveShadow` on.
 
 A change of the haze values updates uniforms only and does not recompile.
+R7a. (Added after the macOS probe, 2026-10-18.) three.js r180 needs three changes for the haze to scatter, each found with a minimal r180 probe:
+- Point and spot lights also enable the haze layer, so the haze pass sees them.
+- Each shadow camera keeps layer 0 and the haze layer, so a shadow map that the haze pass draws keeps its casters.
+- The haze material uses a subclass of the internal `VolumetricLightingModel` that skips the shadow factor for a light without a shadow (r180 multiplies by a missing shadow node, and such a light scatters nothing).
+
+The depth node is one texture node with its UV, because `sample()` makes a clone that a later texture change misses.
 R8. When a visible haze exists, the renderer draws through one post chain:
 - the scene pass, with its depth;
 - the haze pass of the haze layer at 0.25 of the output resolution, blurred by `gaussianBlur` with strength 0.6;
