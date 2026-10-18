@@ -340,6 +340,7 @@ export const RendererDiagnosticsSchema = z.strictObject({
 export const DiagnosticsEnvelopeSchema = z.strictObject({ kind: z.literal("diagnostics"), diagnostics: RendererDiagnosticsSchema });
 export const AppStatusSchema = z.strictObject({
     blueprintRevision: u.optional(),
+    localAddresses: z.array(z.ipv4()).max(8).optional(),
     trackingStatus:z.array(TrackingStatusSchema).max(4).refine(values=>new Set(values.map(value=>value.sourceId)).size===values.length).optional(),
     schemaVersion: z.literal(1),
     sessionId: IdSchema,

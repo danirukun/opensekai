@@ -75,6 +75,8 @@ pub struct TrackingStatus {
     pub error: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub inference_ms: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unmatched_packets: Option<u64>,
 }
 object!(TrackingUpdate {samples:Vec<TrackingSample>,statuses:Vec<TrackingStatus>});
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -95,6 +97,8 @@ pub struct AvatarPose {
     pub expressions: BTreeMap<String, f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub root: Option<TrackingRoot>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bone_offsets: Option<BTreeMap<String, Quat>>,
 }
 pub fn humanoid_bone(name: &str) -> bool {
     const CORE: &[&str] = &[
@@ -261,6 +265,13 @@ impl Validate for AvatarPose {
                         .is_none_or(|p| p.iter().all(|n| n.is_finite())),
                     "invalid idle position",
                 )?;
+            }
+        }
+        if let Some(offsets) = &self.bone_offsets {
+            require(offsets.len() <= 55, "too many bone offsets")?;
+            for (name, offset) in offsets {
+                require(humanoid_bone(name), "invalid bone offset")?;
+                rotation(offset)?;
             }
         }
         Ok(())

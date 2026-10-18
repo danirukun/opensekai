@@ -288,7 +288,8 @@ impl Shared {
                     .latest
                     .as_ref()
                     .and_then(|f| f.tracking_status.clone()),
-                blueprint_revision: inner.latest.as_ref().and_then(|f| f.blueprint_revision)
+                blueprint_revision: inner.latest.as_ref().and_then(|f| f.blueprint_revision),
+                local_addresses: None,
             }));
         }
         if call.method == "cameraScreenshot" {

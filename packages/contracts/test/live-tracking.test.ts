@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {SceneEntitySchema,ScenePatchSchema,SceneViewSchema,TrackingSampleSchema,RuntimeFrameSchema,makeSmokeScene,ClockEnvelopeSchema,AppStatusSchema,TrackingBoneSchema,TrackingStatusSchema} from '../src/index';
+import {AvatarPoseSchema,SceneEntitySchema,ScenePatchSchema,SceneViewSchema,TrackingSampleSchema,RuntimeFrameSchema,makeSmokeScene,ClockEnvelopeSchema,AppStatusSchema,TrackingBoneSchema,TrackingStatusSchema} from '../src/index';
 const base={id:'source',name:'VMC Receiver',visible:true,transform:{position:[0,0,0],rotation:[0,0,0,1],scale:[1,1,1]}};
 const receiver={...base,kind:'tracking',generation:1,config:{kind:'vmc',enabled:false,bindAddress:'127.0.0.1',port:39539,senderAddress:null}};
 describe('live authoring and tracking boundary',()=>{
@@ -45,4 +45,18 @@ it('accepts bounded optional inference duration while preserving legacy tracking
  expect(TrackingStatusSchema.safeParse(status).success).toBe(true);
  for(const inferenceMs of [0,12.5,60000])expect(TrackingStatusSchema.safeParse({...status,inferenceMs}).success).toBe(true);
  for(const inferenceMs of [-1,60001,Infinity,NaN])expect(TrackingStatusSchema.safeParse({...status,inferenceMs}).success).toBe(false);
+});
+
+it('accepts the optional local addresses, unmatched count, and bone offsets of B5',()=>{
+ const app={schemaVersion:1,sessionId:'session',ready:true,revision:0,capabilities:[],warnings:[],outputs:[]};
+ expect(AppStatusSchema.safeParse({...app,localAddresses:['192.168.1.20','10.0.0.4']}).success).toBe(true);
+ expect(AppStatusSchema.safeParse({...app,localAddresses:['fe80::1']}).success).toBe(false);
+ expect(AppStatusSchema.safeParse({...app,localAddresses:Array.from({length:9},(_,i)=>`10.0.0.${i}`)}).success).toBe(false);
+ const status={sourceId:'source',generation:1,state:'waiting',packets:0,invalidPackets:0,lastReceivedAtMs:null,error:null};
+ expect(TrackingStatusSchema.safeParse({...status,unmatchedPackets:3}).success).toBe(true);
+ expect(TrackingStatusSchema.safeParse({...status,unmatchedPackets:-1}).success).toBe(false);
+ const pose={avatarId:'a',bones:{},expressions:{}};
+ expect(AvatarPoseSchema.safeParse({...pose,boneOffsets:{chest:[0,.1045,0,.9945]}}).success).toBe(true);
+ expect(AvatarPoseSchema.safeParse({...pose,boneOffsets:{tail:[0,0,0,1]}}).success).toBe(false);
+ expect(AvatarPoseSchema.safeParse({...pose,boneOffsets:{chest:[0,1,0,1]}}).success).toBe(false);
 });

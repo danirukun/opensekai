@@ -138,6 +138,7 @@ impl TrackingManager {
                     packets: 0,
                     invalid_packets: 0,
                     inference_ms: None,
+                    unmatched_packets: None,
                     last_received_at_ms: None,
                     error: None,
                 },
@@ -433,6 +434,7 @@ mod status_tests {
                     packets: 1,
                     invalid_packets: 0,
                     inference_ms: None,
+                    unmatched_packets: None,
                     last_received_at_ms: Some(0.),
                     error: if id == "error" {
                         Some("Cannot bind receiver endpoint".into())

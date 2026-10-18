@@ -177,6 +177,7 @@ export interface RendererDiagnostics {
 }
 export interface AppStatus {
     blueprintRevision?: number;
+    localAddresses?: string[];
     trackingStatus?: TrackingStatus[];
     schemaVersion: 1;
     sessionId: Id;
