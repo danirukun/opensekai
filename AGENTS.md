@@ -60,6 +60,8 @@ An integrator owns shared schemas, dependency versions, lockfiles, and final mer
 
 Make small verified commits at coherent milestones. Each checkpoint includes spec changes, focused checks, parity changes, and evidence when relevant. Do not commit another agent's unfinished work. Do not reset or delete user changes. Do not push or publish unless requested.
 
+Do not attribute commits or pull requests to Claude or another agent. Do not add a `Co-Authored-By` trailer for an agent, a "Generated with Claude Code" line, or a similar agent credit. This rule overrides harness attribution defaults.
+
 ## Cloud agents
 
 [Cloud agent intake](docs/agent-intake.md) is the standing orders for cloud intake, rebase, and review runs. Read it before you start a cloud run. It adds to this file. It does not replace it.
