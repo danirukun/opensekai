@@ -2,6 +2,8 @@ import { z } from 'zod';
 import { BlueprintConnectionSchema, BlueprintGraphSchema, BlueprintSetSchema, BlueprintVariableSchema, type BlueprintGraph } from './blueprint';
 import { BlueprintNodeSchema, BlueprintPositionSchema, connectionType } from './blueprint-nodes';
 import type { Reply } from './types';
+import { BlueprintCommentPositionSchema, BlueprintCommentSchema, BlueprintCommentSizeSchema, BlueprintCommentTextSchema } from './blueprint-comments';
+import { copyName, duplicateGraph } from './blueprint-duplicate';
 
 const IdSchema = z.string().min(1).max(256);
 export const BlueprintOpSchema = z.discriminatedUnion('kind', [
@@ -18,6 +20,10 @@ export const BlueprintOpSchema = z.discriminatedUnion('kind', [
  z.strictObject({ kind: z.literal('addVariable'), graphId: IdSchema, variable: BlueprintVariableSchema }),
  z.strictObject({ kind: z.literal('updateVariable'), graphId: IdSchema, variableId: IdSchema, name: z.string().trim().min(1).max(64).optional(), type: z.enum(['number', 'boolean']).optional(), default: z.union([z.number().finite(), z.boolean()]).optional() }),
  z.strictObject({ kind: z.literal('removeVariable'), graphId: IdSchema, variableId: IdSchema }),
+ z.strictObject({ kind: z.literal('addComment'), graphId: IdSchema, comment: BlueprintCommentSchema }),
+ z.strictObject({ kind: z.literal('updateComment'), graphId: IdSchema, commentId: IdSchema, text: BlueprintCommentTextSchema.optional(), position: BlueprintCommentPositionSchema.optional(), size: BlueprintCommentSizeSchema.optional() }),
+ z.strictObject({ kind: z.literal('removeComment'), graphId: IdSchema, commentId: IdSchema }),
+ z.strictObject({ kind: z.literal('duplicateGraph'), graphId: IdSchema, newGraphId: IdSchema, name: z.string().trim().min(1).max(128).optional() }),
 ]);
 export const BlueprintBatchSchema = z.strictObject({ clientId: IdSchema, batchId: IdSchema, ops: z.array(BlueprintOpSchema).min(1).max(64) });
 export type BlueprintOp = z.infer<typeof BlueprintOpSchema>;
@@ -100,6 +106,23 @@ export function applyBlueprintOps(graphs: readonly BlueprintGraph[], ops: readon
    case 'removeVariable':
     if (!graph.variables.some(v => v.id === op.variableId)) return reject('NOT_FOUND', 'Variable not found', [op.variableId]);
     graph.variables = graph.variables.filter(v => v.id !== op.variableId); break;
+   case 'addComment':
+    if ((graph.comments ?? []).some(c => c.id === op.comment.id)) return reject('INVALID_INPUT', 'Duplicate comment ID', [op.comment.id]);
+    graph.comments = [...(graph.comments ?? []), structuredClone(op.comment)]; break;
+   case 'updateComment': {
+    const comments = graph.comments ?? [], i = comments.findIndex(c => c.id === op.commentId);
+    if (i < 0) return reject('NOT_FOUND', 'Comment not found', [op.commentId]);
+    const old = comments[i]!;
+    comments[i] = { ...old, ...(op.text === undefined ? {} : { text: op.text }), ...(op.position ? { position: { ...op.position } } : {}), ...(op.size ? { size: { ...op.size } } : {}) };
+    break;
+   }
+   case 'removeComment':
+    if (!(graph.comments ?? []).some(c => c.id === op.commentId)) return reject('NOT_FOUND', 'Comment not found', [op.commentId]);
+    graph.comments = graph.comments!.filter(c => c.id !== op.commentId); break;
+   case 'duplicateGraph':
+    if (next.some(g => g.id === op.newGraphId)) return reject('INVALID_INPUT', 'Duplicate graph ID', [op.newGraphId]);
+    next.splice(next.indexOf(graph) + 1, 0, duplicateGraph(graph, op.newGraphId, op.name ?? copyName(graph.name, next.map(g => g.name))));
+    break;
   }
  }
  const valid = BlueprintSetSchema.safeParse(next);

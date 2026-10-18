@@ -991,6 +991,7 @@ pub fn validate_blueprint_graph(graph: &Value) -> Result<(), AppError> {
                 "nodes",
                 "connections",
                 "variables",
+                "comments",
             ],
         ),
         "Invalid Blueprint graph",
@@ -1045,6 +1046,7 @@ pub fn validate_blueprint_graph(graph: &Value) -> Result<(), AppError> {
             )?;
         }
     }
+    validate_blueprint_comments(graph)?;
     Ok(())
 }
 pub fn validate_blueprint_set(values: &[Value]) -> Result<(), AppError> {
@@ -1058,6 +1060,78 @@ pub fn validate_blueprint_set(values: &[Value]) -> Result<(), AppError> {
         )?;
     }
     Ok(())
+}
+fn comment_text_ok(text: &Value) -> bool {
+    text.as_str()
+        .is_some_and(|t| t.encode_utf16().count() <= 512)
+}
+fn comment_size_ok(size: &Value) -> bool {
+    keys_within(size, &["width", "height"])
+        && ["width", "height"].iter().all(|a| {
+            size[*a]
+                .as_f64()
+                .is_some_and(|v| v.is_finite() && (64.0..=8192.0).contains(&v))
+        })
+}
+fn comment_ok(c: &Value) -> bool {
+    keys_within(c, &["id", "text", "position", "size"])
+        && id_ok(&c["id"])
+        && comment_text_ok(&c["text"])
+        && position_ok(&c["position"])
+        && comment_size_ok(&c["size"])
+}
+// Comments are optional: a graph without the key is valid.
+fn validate_blueprint_comments(graph: &Value) -> Result<(), AppError> {
+    let Some(comments) = graph.get("comments") else {
+        return Ok(());
+    };
+    let comments = comments
+        .as_array()
+        .filter(|c| c.len() <= 32)
+        .ok_or_else(|| invalid("invalid Blueprint comments"))?;
+    let mut ids = std::collections::HashSet::new();
+    for c in comments {
+        require(comment_ok(c), "Invalid Blueprint comment")?;
+        require(
+            ids.insert(c["id"].as_str().unwrap_or_default()),
+            "Duplicate comment ID",
+        )?;
+    }
+    Ok(())
+}
+fn blueprint_authoring_op_ok(op: &Value) -> Option<bool> {
+    Some(match op["kind"].as_str()? {
+        "addComment" => {
+            keys_within(op, &["kind", "graphId", "comment"])
+                && id_ok(&op["graphId"])
+                && comment_ok(&op["comment"])
+        }
+        "updateComment" => {
+            keys_within(
+                op,
+                &["kind", "graphId", "commentId", "text", "position", "size"],
+            ) && id_ok(&op["graphId"])
+                && id_ok(&op["commentId"])
+                && op.get("text").is_none_or(comment_text_ok)
+                && op.get("position").is_none_or(position_ok)
+                && op.get("size").is_none_or(comment_size_ok)
+        }
+        "removeComment" => {
+            keys_within(op, &["kind", "graphId", "commentId"])
+                && id_ok(&op["graphId"])
+                && id_ok(&op["commentId"])
+        }
+        "duplicateGraph" => {
+            keys_within(op, &["kind", "graphId", "newGraphId", "name"])
+                && id_ok(&op["graphId"])
+                && id_ok(&op["newGraphId"])
+                && op.get("name").is_none_or(|n| {
+                    n.as_str()
+                        .is_some_and(|n| !n.trim().is_empty() && n.chars().count() <= 128)
+                })
+        }
+        _ => return None,
+    })
 }
 pub fn validate_blueprint_ops(ops: &[Value]) -> Result<(), AppError> {
     require(
@@ -1142,7 +1216,7 @@ pub fn validate_blueprint_ops(ops: &[Value]) -> Result<(), AppError> {
                     && id_ok(&op["graphId"])
                     && id_ok(&op["variableId"])
             }
-            _ => false,
+            _ => blueprint_authoring_op_ok(op).unwrap_or(false),
         };
         require(ok, "Invalid Blueprint operation")?;
     }

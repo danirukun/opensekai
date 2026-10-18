@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { BlueprintNodeSchema, keystrokeHasModifier } from './blueprint-nodes';
+import { BlueprintCommentsSchema } from './blueprint-comments';
 const IdSchema = z.string().min(1).max(256);
 const VariableName = z.string().trim().min(1).max(64);
 export const BlueprintVariableSchema = z.discriminatedUnion('type', [
@@ -24,6 +25,7 @@ export const BlueprintGraphSchema = z.strictObject({
  nodes: z.array(BlueprintNodeSchema).max(128),
  connections: z.array(BlueprintConnectionSchema).max(256),
  variables: z.array(BlueprintVariableSchema).max(32).default([]),
+ comments: BlueprintCommentsSchema.optional(),
 }).superRefine((graph, context) => {
  if (new Set(graph.nodes.map(node => node.id)).size !== graph.nodes.length)
   context.addIssue({ code: 'custom', message: 'Duplicate node ID', path: ['nodes'] });
