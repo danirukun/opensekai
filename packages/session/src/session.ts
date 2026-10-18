@@ -1,4 +1,4 @@
-import { IdSchema, ParamSchemas, AssetRecordSchema, type AssetRecord, type ExpressionState, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate, type AppError, type InputUpdate, type BlueprintInspect, type AvatarPose, type DeviceKind } from "@opensekai/contracts";
+import { IdSchema, ParamSchemas, AssetRecordSchema, type AssetRecord, type ExpressionState, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate, type AppError, type InputUpdate, type BlueprintInspect, type AvatarPose, type DeviceKind, type ScalarValue } from "@opensekai/contracts";
 import { createTransformAdapter } from "./ecs";
 import {createTrackingComposer} from "./tracking";
 import { createBlueprintRuntime, logicKey, type BlueprintEvent, type GraphRun, type StepEnv } from './blueprint-runtime';
@@ -31,6 +31,8 @@ export interface Session {
     editBlueprints(batch: unknown): Reply<{ revision: number; keystrokes: string[]; heldKeys?: string[]; devices?: DeviceKind[] }>;
     inspectBlueprints(sinceRevision?: number): BlueprintInspect;
     runBlueprint(graphId: Id, triggerNodeId: Id): Reply<{revision: number}>;
+    // Delivers a custom event to the On Event nodes of the enabled graphs (slice D R12).
+    emitBlueprintEvent(name: string, payload?: ScalarValue): Reply<{revision: number}>;
     setAssetRecords(records: readonly AssetRecord[]): void;
     getExpressions(avatarId: Id): Reply<ExpressionState>;
     setExpression(avatarId: Id, name: string, active: boolean): Reply<ExpressionState>;
@@ -164,7 +166,26 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
         lookAts = looks;
         for (const run of runs) if (run.error) runtimeErrors.set(run.graphId, run.error); else runtimeErrors.delete(run.graphId);
         const changed = working !== null && JSON.stringify(working) !== JSON.stringify(persistent);
-        return { runs, committed: changed ? commit(working!) : { ok: true, data: { revision: persistent.revision } } };
+        const committed = changed ? commit(working!) : { ok: true as const, data: { revision: persistent.revision } };
+        applyControls();
+        return { runs, committed };
+    };
+    // Enable, Disable, and Toggle Blueprint requests of the step become one document edit, as if the editor sent it (slice D R9).
+    let controlBatch = 0;
+    const applyControls = () => {
+        const requests = runtime.takeControlRequests();
+        if (requests.length === 0) return;
+        const wanted = new Map<Id, boolean>();
+        for (const request of requests) {
+            const graph = store.active(request.graphId);
+            if (!graph) { runtimeErrors.set(request.sourceGraphId, { code: 'NOT_FOUND', message: 'Blueprint not found', ids: [request.graphId] }); continue; }
+            const current = wanted.get(request.graphId) ?? graph.enabled;
+            wanted.set(request.graphId, request.action === 'toggle' ? !current : request.action === 'enable');
+        }
+        const ops = [...wanted].filter(([graphId, enabled]) => store.active(graphId)?.enabled !== enabled).map(([graphId, enabled]) => ({ kind: 'updateGraph' as const, graphId, enabled }));
+        if (ops.length === 0) return;
+        const reply = api.editBlueprints({ clientId: 'opensekai-runtime', batchId: `control-${++controlBatch}`, ops });
+        if (!reply.ok) for (const request of requests) runtimeErrors.set(request.sourceGraphId, reply.error);
     };
     // Each tween writes its sample as an override at the session time.
     const stepTweens = (nowMs: number) => {
@@ -219,12 +240,24 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             if (!graph.nodes.some(node => node.id === triggerNodeId && node.type === 'event.manual')) return failure('INVALID_INPUT', 'Manual trigger not found', [triggerNodeId]);
             try {
                 const { runs, committed } = stepBlueprints([{ kind: 'manual', graphId, nodeId: triggerNodeId }], elapsed, new Set());
-                const own = runs.at(-1);
+                const own = runs.find(run => run.graphId === graphId && run.nodeId === triggerNodeId);
                 if (own?.error) return { ok: false, error: own.error };
                 return committed;
             } catch (error) {
                 logOnce(error);
                 return failure('INVALID_INPUT', 'Blueprint step failed', [graphId]);
+            }
+        },
+        emitBlueprintEvent(name, payload) {
+            if (name.trim().length === 0 || name.length > 64) return failure('INVALID_INPUT', 'Invalid event name');
+            try {
+                const { runs, committed } = stepBlueprints([{ kind: 'custom', name, payload: payload ?? null }], elapsed, new Set());
+                const delivered = runs.find(run => run.error && store.active(run.graphId)?.nodes.find(node => node.id === run.nodeId)?.type === 'event.custom');
+                if (delivered?.error) return { ok: false, error: delivered.error };
+                return committed;
+            } catch (error) {
+                logOnce(error);
+                return failure('INVALID_INPUT', 'Blueprint step failed');
             }
         },
         applyPatch(patch) {

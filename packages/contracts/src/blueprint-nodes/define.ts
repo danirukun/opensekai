@@ -7,7 +7,7 @@ export interface PortShape { inputs: Record<string, PortType>; outputs: Record<s
 export type NodeCategory = 'Events' | 'Input' | 'Flow' | 'Switches' | 'Timer' | 'Values' | 'Text' | 'Lists' | 'Math' | 'Logic' | 'Variables' | 'Scene' | 'Camera' | 'Character' | 'Blueprints' | 'Debug';
 // Palette order.
 export const NODE_CATEGORIES: readonly NodeCategory[] = ['Events', 'Input', 'Flow', 'Switches', 'Timer', 'Values', 'Text', 'Lists', 'Math', 'Logic', 'Variables', 'Scene', 'Camera', 'Character', 'Blueprints', 'Debug'];
-export interface DefaultRefs { entityId?: string; avatarId?: string; expression?: string; cameraId?: string; outputId?: string; keystroke: KeystrokeSettings; variables?: readonly { id: string; type: DataType }[] }
+export interface DefaultRefs { entityId?: string; avatarId?: string; expression?: string; cameraId?: string; outputId?: string; keystroke: KeystrokeSettings; variables?: readonly { id: string; type: DataType }[]; graphId?: string }
 export type BlueprintField =
  | { key: string; label: string; kind: 'number'; min?: number; max?: number }
  | { key: string; label: string; kind: 'boolean' }
@@ -21,7 +21,9 @@ export type BlueprintField =
  | { key: string; label: string; kind: 'keystroke' }
  | { key: string; label: string; kind: 'key' | 'property' | 'space' | 'bone' }
  | { key: string; label: string; kind: 'blendshape' | 'easing' }
- | { key: string; label: string; kind: 'choice'; options: readonly { value: string | number; label: string }[] };
+ | { key: string; label: string; kind: 'choice'; options: readonly { value: string | number; label: string }[] }
+ // A graph of the show, by ID (Blueprint control nodes).
+ | { key: string; label: string; kind: 'graph' };
 export interface NodeDefinition<T extends string = string, S extends z.ZodType = z.ZodType> {
  type: T; label: string; category: NodeCategory; keywords: readonly string[];
  settings: S;

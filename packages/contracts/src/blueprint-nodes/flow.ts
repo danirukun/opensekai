@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { defineNode, empty, exit, finite, numbered } from './define';
+import { dataTypeField, DataTypeSetting } from './typed';
 
 export const FLOW_NODES = [
  defineNode({ type: 'flow.branch', label: 'If Branch', category: 'Flow', keywords: ['if', 'condition', 'else'], settings: empty, ports: () => ({ inputs: { flow: 'flow', condition: 'boolean' }, outputs: { true: 'flow', false: 'flow' } }), defaults: () => ({}), fields: [] }),
@@ -11,4 +12,7 @@ export const FLOW_NODES = [
  defineNode({ type: 'flow.throttle', label: 'Throttle', category: 'Flow', keywords: ['cooldown', 'rate', 'limit', 'debounce'], settings: z.strictObject({ seconds: finite.min(0.01).max(3600) }), ports: () => ({ inputs: { flow: 'flow' }, outputs: { ...exit } }), defaults: () => ({ seconds: 1 }), fields: [{ key: 'seconds', label: 'Seconds', kind: 'number', min: 0.01, max: 3600 }] }),
  defineNode({ type: 'flow.forLoop', label: 'For Loop', category: 'Flow', keywords: ['repeat', 'iterate', 'loop', 'times'], settings: empty, ports: () => ({ inputs: { flow: 'flow', first: 'number', last: 'number' }, outputs: { body: 'flow', completed: 'flow', index: 'number' } }), defaults: () => ({}), fields: [] }),
  defineNode({ type: 'flow.switch', label: 'Switch On Number', category: 'Flow', keywords: ['case', 'select', 'choose', 'integer'], settings: z.strictObject({ cases: z.array(z.number().int().min(-1e6).max(1e6)).min(1).max(8).refine(cases => new Set(cases).size === cases.length, 'Duplicate case') }), ports: s => ({ inputs: { flow: 'flow', value: 'number' }, outputs: { ...numbered('case', s.cases.length), default: 'flow' } }), defaults: () => ({ cases: [0, 1] }), fields: [{ key: 'cases', label: 'Cases', kind: 'cases' }], dynamicPorts: true }),
+ defineNode({ type: 'flow.doOnce', label: 'Do Once', category: 'Flow', keywords: ['once', 'first', 'single', 'reset'], settings: empty, ports: () => ({ inputs: { flow: 'flow', reset: 'flow' }, outputs: { ...exit } }), defaults: () => ({}), fields: [] }),
+ defineNode({ type: 'flow.debounce', label: 'Debounce', category: 'Flow', keywords: ['quiet', 'settle', 'wait', 'burst', 'last'], settings: z.strictObject({ seconds: finite.min(0.01).max(3600) }), ports: () => ({ inputs: { flow: 'flow' }, outputs: { ...exit } }), defaults: () => ({ seconds: 0.5 }), fields: [{ key: 'seconds', label: 'Seconds', kind: 'number', min: 0.01, max: 3600 }] }),
+ defineNode({ type: 'flow.select', label: 'Select', category: 'Flow', keywords: ['choose', 'pick', 'ternary', 'conditional', 'if'], settings: z.strictObject({ type: DataTypeSetting }), ports: s => ({ inputs: { condition: 'boolean', ifTrue: s.type, ifFalse: s.type }, outputs: { value: s.type } }), defaults: () => ({ type: 'number' as const }), fields: [dataTypeField('type', 'Type')], dynamicPorts: true }),
 ] as const;
