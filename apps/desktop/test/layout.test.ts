@@ -26,6 +26,9 @@ it('puts a data-only node one layer left of its consumer and never overlaps node
  expect(column(out, 'show')).toBeGreaterThan(column(out, 'key'));
  expect(column(out, 'on')).toBe(column(out, 'key'));
  expect(column(out, 'off')).toBe(column(out, 'wait'));
+ // The flow chain lines up on one row, and each data feeder sits below the flow node in its layer.
+ expect(new Set(['key', 'show', 'wait', 'hide'].map(id => out.get(id)!.y)).size).toBe(1);
+ expect(out.get('on')!.y).toBeGreaterThan(out.get('key')!.y);
  const layers = new Map<number, number[]>();
  for (const point of out.values()) layers.set(point.x, [...(layers.get(point.x) ?? []), point.y].sort((a, b) => a - b));
  for (const ys of layers.values()) ys.slice(1).forEach((y, i) => expect(y - ys[i]!).toBeGreaterThanOrEqual(DEFAULT_NODE_SIZE.height + 40));

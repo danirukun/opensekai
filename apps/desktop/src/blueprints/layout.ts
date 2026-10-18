@@ -72,7 +72,7 @@ export function formatLayout(nodes: readonly BlueprintNode[], connections: reado
  const wires = connections.filter(wire => byId.has(wire.sourceNodeId) && byId.has(wire.targetNodeId) && wire.sourceNodeId !== wire.targetNodeId);
  const isFlow = (wire: BlueprintConnection) => blueprintPorts(byId.get(wire.sourceNodeId)!).outputs[wire.sourcePort] === 'flow';
  const size = (id: string) => sizes.get(id) ?? DEFAULT_NODE_SIZE;
- const neighbors = (id: string) => wires.flatMap(wire => wire.sourceNodeId === id ? [wire.targetNodeId] : wire.targetNodeId === id ? [wire.sourceNodeId] : []);
+ const ends = (id: string, list: readonly BlueprintConnection[]) => list.flatMap(wire => wire.sourceNodeId === id ? [wire.targetNodeId] : wire.targetNodeId === id ? [wire.sourceNodeId] : []);
  const origin = { x: Math.min(...nodes.map(node => node.position.x)), y: Math.min(...nodes.map(node => node.position.y)) };
  let top = origin.y;
  for (const group of groups(nodes, wires)) {
@@ -95,17 +95,19 @@ export function formatLayout(nodes: readonly BlueprintNode[], connections: reado
    for (const { id, want } of keyed) { const at = Math.max(cursor, want ?? cursor); y.set(id, at); cursor = at + size(id).height + GAP_Y; }
    return keyed.map(item => item.id);
   };
-  const mean = (list: string[]) => list.length === 0 ? undefined : list.reduce((sum, id) => sum + center(id), 0) / list.length;
-  const side = (id: string, column: number, step: -1 | 1) => neighbors(id).filter(other => layer.get(other)! - low === column + step && y.has(other));
-  filled.forEach((column, i) => { filled[i] = stack(column, id => { const m = mean(side(id, i, -1)); return m === undefined ? undefined : m - size(id).height / 2; }); });
+  const flowWires = mine.filter(isFlow), dataWires = mine.filter(wire => !isFlow(wire));
+  const side = (id: string, column: number, step: -1 | 1, list: readonly BlueprintConnection[]) => ends(id, list).filter(other => layer.get(other)! - low === column + step && y.has(other));
+  const mean = (values: number[]) => values.length === 0 ? undefined : values.reduce((sum, value) => sum + value, 0) / values.length;
+  // Flow ports sit in the title row, so a flow chain lines up by its tops; a data wire lines up by the node centers.
+  const target = (id: string, column: number, step: -1 | 1) => {
+   const flowTop = mean(side(id, column, step, flowWires).map(other => y.get(other)!));
+   if (flowTop !== undefined) return flowTop;
+   const dataCenter = mean(side(id, column, step, dataWires).map(center));
+   return dataCenter === undefined ? undefined : dataCenter - size(id).height / 2;
+  };
+  filled.forEach((column, i) => { filled[i] = stack(column, id => target(id, i, -1)); });
   // A node with no wire to its left follows the wires to its right.
-  for (let i = filled.length - 2; i >= 0; i--) {
-   filled[i] = stack(filled[i]!, id => {
-    if (side(id, i, -1).length > 0) return y.get(id);
-    const m = mean(side(id, i, 1));
-    return m === undefined ? y.get(id) : m - size(id).height / 2;
-   });
-  }
+  for (let i = filled.length - 2; i >= 0; i--) filled[i] = stack(filled[i]!, id => side(id, i, -1, mine).length > 0 ? y.get(id) : target(id, i, 1) ?? y.get(id));
   // The group starts at `top`, so the corner of the set stays and a second Format changes nothing.
   const lift = top - Math.min(...y.values());
   filled.forEach((column, i) => { for (const id of column) result.set(id, { x: Math.round(xs[i]!), y: Math.round(y.get(id)! + lift) }); });
