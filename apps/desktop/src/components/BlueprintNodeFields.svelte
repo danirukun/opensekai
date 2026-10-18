@@ -1,7 +1,8 @@
 <script lang="ts">
- import { Input, Select } from '@oshi-connect/ui';
- import { blendShapeNames, DEFAULT_EASING, EASINGS, nodeDefinition, triggerableExpressions, type AssetRecord, type BlueprintField, type BlueprintNode, type BlueprintVariable, type KeystrokeSettings, type SceneView, type Vec3 } from '@opensekai/contracts';
+ import { Input, Select, Textarea } from '@oshi-connect/ui';
+ import { blendShapeNames, DEFAULT_EASING, EASINGS, nodeDefinition, triggerableExpressions, type AssetRecord, type BlueprintField, type BlueprintNode, type BlueprintVariable, type DataType, type KeystrokeSettings, type SceneView, type Vec3 } from '@opensekai/contracts';
  import KeystrokeField from './KeystrokeField.svelte';
+ import { chooseTypedVariable, formatStringCases, parseStringCases, resizeTypes, typedVariableOptions, typeOptions } from '../blueprints/data-fields';
  import { boneOptions, fitPropertySettings, formatCases, keyOptions, parseCases, parseScalar, propertyOptions, vectorParts } from '../blueprints/fields';
 
  let { node, scene, assets = [], variables, platform, unavailable, onsettings }: {
@@ -68,6 +69,16 @@
   const record = avatar?.kind === 'avatar' && avatar.assetId !== null ? assets.find(asset => asset.id === avatar.assetId) : undefined;
   return (record ? blendShapeNames(record) : []).map(name => ({ value: name, label: name }));
  }
+ const typedVariableChoices = (field: Extract<BlueprintField, { kind: 'typedVariable' }>) => {
+  const list = typedVariableOptions(variables, field.lists === true), value = String(settings[field.key]);
+  return list.some(item => item.value === value) ? list : [{ value, label: 'Missing' }, ...list];
+ };
+ const chooseVariable = (field: Extract<BlueprintField, { kind: 'typedVariable' }>, id: string) => {
+  const next = chooseTypedVariable(settings, field.key, field.typeKey, variables, id);
+  if (next) onsettings(next as BlueprintNode['settings']);
+ };
+ const types = (field: Extract<BlueprintField, { kind: 'types' }>) => settings[field.key] as DataType[];
+ const counts = (max: number) => Array.from({ length: max + 1 }, (_, i) => ({ value: String(i), label: String(i) }));
  const options = (field: BlueprintField) => {
   const list = choices(field), value = settings[field.key];
   return (field.kind === 'entity' || field.kind === 'camera' || field.kind === 'output' || field.kind === 'avatar' || field.kind === 'expression' || field.kind === 'blendshape') && typeof value === 'string' && !list.some(item => item.value === value)
@@ -107,6 +118,15 @@
   <Select label={field.label} value={String(settings[field.key])} options={spaces} onchange={event => set(field.key, event.currentTarget.value)} />
  {:else if field.kind === 'choice'}
   <Select label={field.label} value={String(settings[field.key])} options={field.options.map(option => ({ value: String(option.value), label: option.label }))} onchange={event => set(field.key, field.options.find(option => String(option.value) === event.currentTarget.value)?.value)} />
+ {:else if field.kind === 'stringCases'}
+  <Textarea label={field.label} rows={3} resize="vertical" value={formatStringCases(settings[field.key] as string[])} onchange={event => { const cases = parseStringCases(event.currentTarget.value); if (cases) set(field.key, cases); else event.currentTarget.value = formatStringCases(settings[field.key] as string[]); }} />
+ {:else if field.kind === 'typedVariable'}
+  <Select label={field.label} value={String(settings[field.key])} options={typedVariableChoices(field)} onchange={event => chooseVariable(field, event.currentTarget.value)} />
+ {:else if field.kind === 'types'}
+  <Select label={field.label} value={String(types(field).length)} options={counts(field.max)} onchange={event => set(field.key, resizeTypes(types(field), Number(event.currentTarget.value), field.options[0]!))} />
+  {#each types(field) as type, index (index)}
+   <Select label={`{${index}}`} value={type} options={typeOptions(field.options)} onchange={event => set(field.key, types(field).map((item, i) => i === index ? event.currentTarget.value : item))} />
+  {/each}
  {:else if field.kind === 'keystroke'}
   <KeystrokeField value={settings as KeystrokeSettings} {platform} {unavailable} onchange={next => onsettings(next)} />
  {:else}
