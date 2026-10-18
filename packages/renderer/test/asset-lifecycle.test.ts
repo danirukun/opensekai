@@ -16,7 +16,7 @@ it("disposes shared geometry material and texture once",()=>{const geometry=new 
 const rendererPorts = vi.hoisted(() => ({ load: vi.fn(), render: vi.fn(), dispose: vi.fn(), setSize: vi.fn() }));
 vi.mock("../src/backend", () => ({ initializeBackend: async (canvas: HTMLCanvasElement) => ({
     backend: "webgl2",
-    renderer: { info: {memory: {geometries: 7, textures: 9}}, setSize: rendererPorts.setSize.mockImplementation((width: number, height: number) => {canvas.width = width; canvas.height = height;}), renderAsync: rendererPorts.render, compileAsync: vi.fn(async () => {}), dispose: rendererPorts.dispose }
+    renderer: { shadowMap: { enabled: false }, info: {memory: {geometries: 7, textures: 9}}, setSize: rendererPorts.setSize.mockImplementation((width: number, height: number) => {canvas.width = width; canvas.height = height;}), renderAsync: rendererPorts.render, compileAsync: vi.fn(async () => {}), dispose: rendererPorts.dispose }
 }) }));
 vi.mock("../src/assets", async importOriginal => ({
     ...await importOriginal<typeof import("../src/assets")>(),

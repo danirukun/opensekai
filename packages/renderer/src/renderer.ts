@@ -1,6 +1,6 @@
-import { assertEditorScope, createEditorViewport } from './editor-viewport';
+import { assertEditorScope, createEditorViewport, createLightHelper, updateLightHelper } from './editor-viewport';
 import type { EditorOptions, EditorHandle } from './editor-viewport';
-import { Scene, Mesh, BoxGeometry, MeshStandardNodeMaterial, PerspectiveCamera, AmbientLight, DirectionalLight, Object3D } from "three/webgpu";
+import { Scene, Mesh, BoxGeometry, MeshStandardNodeMaterial, PerspectiveCamera, Object3D } from "three/webgpu";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
 import type { RuntimeFrame, FrameApplied, RendererDiagnostics, CaptureBytes, Id, ResourceHost, AppError, SceneEntity, QualityProfile, ScreenshotBytes } from "@opensekai/contracts";
 import { LIMITS, RuntimeFrameSchema } from "@opensekai/contracts";
@@ -11,7 +11,10 @@ import { countLiveMaterials } from "./diagnostics";
 import { initializeBackend } from "./backend";
 import { createCapturePolicy, readPng } from "./capture";
 import { createLoadJobs, type AssetLoadStatus, type LoadReport, type LoadRequest } from "./load-jobs";
-import { createEnvironmentLight, roomEnvironmentMap } from "./environment-light";
+import { createEnvironmentLight, roomEnvironmentMap, type InstanceMaterials } from "./environment-light";
+import { createSceneLights, groupOf, type LightGroup } from "./scene-lights";
+import { logPipelineFailure, watchPipelineErrors, type PipelineDevice } from "./pipeline-diagnostics";
+import { freshModulePerPipeline, isWebKit } from "./webkit-shader-modules";
 import { createDiagnosticMarker } from "./diagnostic-marker";
 import { createAntiAliasing } from "./anti-aliasing";
 import { renderScreenshot, SCREENSHOT_HEIGHT, SCREENSHOT_WIDTH } from "./screenshot";
@@ -42,15 +45,18 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     const camera = new PerspectiveCamera();
     const scene = new Scene();
     scene.background = null;
-    scene.add(new AmbientLight(0xffffff, 1));
-    const light = new DirectionalLight(0xffffff, 3);
-    light.position.set(2, 4, 3);
-    scene.add(light);
+    const sceneLights = createSceneLights(scene, renderer);
+    // A failed pipeline compile is logged with its WGSL and named in frame warnings until the next light-set rebuild.
+    let pipelineFailed = false;
+    const device = backend === "webgpu" ? (renderer.backend as unknown as { device?: PipelineDevice }).device : undefined;
+    const unwatchPipelines = device ? watchPipelineErrors(device, (failure, first) => { pipelineFailed = true; if (first) logPipelineFailure(failure); }) : null;
+    // After the watch, so that each new module still has its WGSL for the failure log (R9b).
+    const restoreModules = device && isWebKit(navigator.userAgent) ? freshModulePerPipeline(device) : null;
     const loadAsset = createAssetLoader(options.resources, {maxTextureSize: quality.maxTextureSize});
     const antiAliasing = createAntiAliasing(renderer);
     const assets = createAssetCache(loadAsset);
     const environmentLight = createEnvironmentLight(roomEnvironmentMap(renderer));
-    type Ready = { root: Object3D; avatar?: ReturnType<typeof createAvatarBinding>; assetId?: string; assetDispose?: () => void; instanceDispose?: () => void; warnings: AppError[]; dispose(): void };
+    type Ready = { root: Object3D; avatar?: ReturnType<typeof createAvatarBinding>; assetId?: string; assetDispose?: () => void; instanceDispose?: () => void; materials?: InstanceMaterials; lit: number; warnings: AppError[]; dispose(): void };
     const loadListeners = new Set<(entries: AssetLoadStatus[]) => void>();
     const prepare = async (root: Object3D, report: (r: LoadReport) => void, cancelled: () => boolean) => {
         if (cancelled() || disposed) throw failure("CANCELLED", "Asset load cancelled");
@@ -66,18 +72,23 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             try {
                 if (!asset.vrm) throw failure("INVALID_INPUT", "Avatar asset has no VRM");
                 const avatar = createAvatarBinding(asset.vrm);
+                // The group node set goes on before GPU preparation, so the compiled pipelines are the ones the frame draws (R6).
+                sceneLights.assign(avatar.root, "characters");
+                const lit = sceneLights.generation();
                 await prepare(avatar.root, report, cancelled);
-                return { root: avatar.root, avatar, assetDispose: asset.dispose, warnings: asset.warnings, dispose: asset.dispose };
+                return { root: avatar.root, avatar, assetDispose: asset.dispose, lit, warnings: asset.warnings, dispose: asset.dispose };
             } catch (error) { asset.dispose(); throw error; }
         }
         const asset = await assets.get(request.assetId);
         if (cancelled() || disposed) throw failure("CANCELLED", "Asset load cancelled");
         const root = clone(asset.scene);
-        const releaseLight = request.kind === "environment" ? environmentLight.apply(root) : undefined;
-        const release = () => { disposeInstance(root); releaseLight?.(); };
+        const materials = environmentLight.apply(root, request.kind === "environment");
+        const release = () => { disposeInstance(root); materials.dispose(); };
+        sceneLights.assign(root, request.kind === "environment" ? "environment" : "props");
+        const lit = sceneLights.generation();
         try { await prepare(root, report, cancelled); }
         catch (error) { release(); throw error; }
-        return { root, assetId: request.assetId, warnings: asset.warnings, instanceDispose: releaseLight, dispose: release };
+        return { root, assetId: request.assetId, warnings: asset.warnings, instanceDispose: materials.dispose, materials, lit, dispose: release };
     };
     const jobs = createLoadJobs<Ready>(build, entries => { for (const listener of loadListeners) listener(entries); });
     const marker = options.diagnostics ? createDiagnosticMarker() : null;
@@ -91,6 +102,9 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         avatar?: ReturnType<typeof createAvatarBinding>;
         assetDispose?: () => void;
         instanceDispose?: () => void;
+        materials?: InstanceMaterials;
+        group?: LightGroup;
+        lit?: number;
         warnings?: AppError[];
     }>();
     const editor = options.editor ? createEditorViewport(options.canvas, camera, scene, objects, options.editor) : null;
@@ -113,6 +127,9 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         jobs.dispose();
         assets.dispose();
         environmentLight.dispose();
+        sceneLights.dispose();
+        restoreModules?.();
+        unwatchPipelines?.();
         antiAliasing.dispose();
         marker?.dispose();
         scene.clear();
@@ -135,7 +152,10 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         if (options.canvas.width !== width || options.canvas.height !== height)
             renderer.setSize(width, height, false);
         const warnings: AppError[] = [];
-        const wanted = new Set(frame.scene.entities.filter(x => x.kind !== "tracking" && (editor || x.kind !== "camera")).map(x => x.id));
+        const lightsRebuilt = sceneLights.apply(frame.scene.entities);
+        if (lightsRebuilt) pipelineFailed = false;
+        // Cameras and lights have a scene object only in the editor viewport, as a pick target and helper (R14).
+        const wanted = new Set(frame.scene.entities.filter(x => x.kind !== "tracking" && (editor || (x.kind !== "camera" && x.kind !== "light"))).map(x => x.id));
         for (const [id, value] of objects) {
             if (!wanted.has(id)) {
                 releaseObject(value);
@@ -157,6 +177,21 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
                 }
                 continue;
             }
+            if (entity.kind === "light") {
+                if (editor) {
+                    let value = objects.get(entity.id);
+                    const signature = "light:" + entity.light.type;
+                    if (value?.signature !== signature) {
+                        if (value) releaseObject(value);
+                        value = { signature, root: createLightHelper(entity.light), owned: true };
+                        objects.set(entity.id, value);
+                        scene.add(value.root);
+                    }
+                    updateLightHelper(value.root, entity.light);
+                    if (!editor.frozen(entity.id)) applyTransform(value.root, entity);
+                }
+                continue;
+            }
             const assetId = entity.kind === "avatar" || entity.kind === "environment" ? entity.assetId : entity.source.kind === "asset" ? entity.source.assetId : null;
             let value = objects.get(entity.id);
             if ((entity.kind === "avatar" || entity.kind === "environment") && assetId === null) {
@@ -167,7 +202,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             if (value?.signature !== signature) {
                 if (assetId === null) {
                     if (value) releaseObject(value);
-                    value = { signature, root: new Mesh(new BoxGeometry(1, 1, 1), new MeshStandardNodeMaterial({ color: 0x55aacc })), owned: true };
+                    value = { signature, root: new Mesh(new BoxGeometry(1, 1, 1), new MeshStandardNodeMaterial({ color: 0x55aacc })), owned: true, group: "props" };
                     scene.add(value.root);
                     objects.set(entity.id, value);
                 } else {
@@ -179,6 +214,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             for (const warning of value.warnings ?? [])
                 if (!warnings.some(x => x.message === warning.message && x.ids[0] === warning.ids[0])) warnings.push(warning);
             value.avatar?.apply(frame.avatarPoses?.find(pose => pose.avatarId === entity.id));
+            if (entity.kind === "environment") value.materials?.reflections(entity.reflectionsIntensity ?? 1);
             if (!editor?.frozen(entity.id)) place(value.root, entity);
         }
         jobs.reconcile(needed, frame.scene.revision);
@@ -188,10 +224,11 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             const entity = frame.scene.entities.find(item => item.id === entityId)!;
             const old = objects.get(entityId);
             if (old) releaseObject(old);
-            const installed = { signature: entity.kind + ":" + request.assetId, root: ready.root, owned: false, avatar: ready.avatar, assetId: ready.assetId, assetDispose: ready.assetDispose, instanceDispose: ready.instanceDispose, warnings: ready.warnings, pickable: entity.kind !== "environment" };
+            const installed = { signature: entity.kind + ":" + request.assetId, root: ready.root, owned: false, avatar: ready.avatar, assetId: ready.assetId, assetDispose: ready.assetDispose, instanceDispose: ready.instanceDispose, materials: ready.materials, group: groupOf(entity) ?? undefined, lit: ready.lit, warnings: ready.warnings, pickable: entity.kind !== "environment" };
             scene.add(installed.root);
             objects.set(entityId, installed);
             installed.avatar?.apply(frame.avatarPoses?.find(pose => pose.avatarId === entityId));
+            if (entity.kind === "environment") installed.materials?.reflections(entity.reflectionsIntensity ?? 1);
             if (!editor?.frozen(entityId)) place(installed.root, entity);
             warnings.push(...ready.warnings);
         }
@@ -200,6 +237,10 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             if (message) warnings.push({ code: "UNAVAILABLE", message: "Asset load failed: " + message, ids: [request.assetId] });
         }
         for (const entry of jobs.status()) if (entry.stage !== "failed") warnings.push({ code: "BUSY", message: "Asset loading", ids: [entry.assetId] });
+        if (pipelineFailed) warnings.push({ code: "UNSUPPORTED", message: "Pipeline compile failed", ids: [] });
+        // A change of the light set gives each lit material its new group node set (R6, R7).
+        const generation = sceneLights.generation();
+        for (const value of objects.values()) if (value.group && value.lit !== generation) { sceneLights.assign(value.root, value.group); value.lit = generation; }
         editor?.refresh();
         const used = new Set([...objects.values()].flatMap(x => x.assetId ? [x.assetId] : []));
         for (const id of jobs.assetIds()) used.add(id);
@@ -212,6 +253,8 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         const navigated = editor?.cameraTransform(cameraEntity.id);
         applyTransform(camera, navigated ? { ...cameraEntity, transform: navigated } : cameraEntity);
         try {
+            // three.js 0.180: on WebGPU a shadow first set up during a draw stays empty, so compile first; on WebGL 2 this compile leaves the shadow empty.
+            if (lightsRebuilt && sceneLights.shadows() && backend === "webgpu") await renderer.compileAsync(scene, camera);
             await antiAliasing.render(scene, camera, cameraEntity.antiAliasing);
             if (marker) {
                 marker.update(frame, cameraEntity.id, width, height);
@@ -262,7 +305,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             const show = new Map<Object3D, boolean>();
             for (const [id, value] of objects) {
                 const source = frame.scene.entities.find(x => x.id === id);
-                show.set(value.root, !!source && source.kind !== "camera" && source.visible && (source.kind !== "environment" || entity.renderEnvironment !== false));
+                show.set(value.root, !!source && source.kind !== "camera" && source.kind !== "light" && source.visible && (source.kind !== "environment" || entity.renderEnvironment !== false));
             }
             const png = await renderScreenshot({ renderer, backend, scene, camera: shotCamera, show, antiAliasing: entity.antiAliasing ?? "none", msaaSamples: quality.msaaSamples });
             if (disposed) throw failure("CANCELLED", "Renderer disposed");

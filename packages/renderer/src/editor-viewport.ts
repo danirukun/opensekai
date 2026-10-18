@@ -1,7 +1,7 @@
-import { Raycaster, Vector2 } from 'three/webgpu';
+import { CircleGeometry, ConeGeometry, CylinderGeometry, DoubleSide, Group, Mesh, MeshBasicNodeMaterial, Raycaster, Vector2 } from 'three/webgpu';
 import type { Object3D, PerspectiveCamera, Scene } from 'three/webgpu';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
-import type { Id, Reply, SceneView, Transform } from '@opensekai/contracts';
+import type { Id, LightSettings, Reply, SceneView, Transform } from '@opensekai/contracts';
 import { persistentTransform } from './transform-edit';
 import { createViewportNavigation, type NavigationEdit } from './viewport-navigation';
 export type EditorTool = 'translate' | 'rotate' | 'scale';
@@ -21,6 +21,28 @@ export interface EditorOptions {
 }
 export interface EditorHandle { sync(state: EditorViewportState): void; cancel(): void }
 const read = (object: Object3D): Transform => ({position:object.position.toArray(),rotation:object.quaternion.toArray(),scale:object.scale.toArray()});
+// A light helper (R14): a disc, and for a directional light an arrow along −Z, in the light color. Only the editor viewport adds one.
+export function createLightHelper(light: LightSettings): Object3D {
+    const material = new MeshBasicNodeMaterial({ color: light.color, side: DoubleSide, toneMapped: false });
+    const root = new Group();
+    root.add(new Mesh(new CircleGeometry(0.12, 24), material));
+    if (light.type === 'directional') {
+        const shaft = new Mesh(new CylinderGeometry(0.015, 0.015, 0.4, 8), material);
+        shaft.rotation.x = Math.PI / 2;
+        shaft.position.z = -0.2;
+        const tip = new Mesh(new ConeGeometry(0.05, 0.12, 12), material);
+        tip.rotation.x = -Math.PI / 2;
+        tip.position.z = -0.46;
+        root.add(shaft, tip);
+    }
+    root.userData.lightColor = light.color;
+    return root;
+}
+export function updateLightHelper(root: Object3D, light: LightSettings) {
+    if (root.userData.lightColor === light.color) return;
+    root.userData.lightColor = light.color;
+    ((root.children[0] as Mesh).material as MeshBasicNodeMaterial).color.set(light.color);
+}
 export function assertEditorScope(outputId: Id, diagnostics: boolean) {
     if (outputId !== 'preview_main' || diagnostics) throw new Error('Editor requires preview_main without diagnostics');
 }

@@ -1,7 +1,7 @@
 import { it, expect, vi, beforeEach } from 'vitest';
 import { QUALITY_PROFILES, makeSmokeFrame, type QualityProfile, type RuntimeFrame } from '@opensekai/contracts';
 const ports = vi.hoisted(() => ({ backend: vi.fn(), loader: vi.fn(), setSize: vi.fn(), aa: { render: vi.fn(), dispose: vi.fn() } }));
-vi.mock('../src/backend', () => ({ initializeBackend: async (...args: unknown[]) => { ports.backend(...args); return { backend: 'webgl2', renderer: { info: { memory: { geometries: 0, textures: 0 } }, setSize: ports.setSize, renderAsync: vi.fn(), compileAsync: vi.fn(), dispose: vi.fn() } }; } }));
+vi.mock('../src/backend', () => ({ initializeBackend: async (...args: unknown[]) => { ports.backend(...args); return { backend: 'webgl2', renderer: { shadowMap: { enabled: false }, info: { memory: { geometries: 0, textures: 0 } }, setSize: ports.setSize, renderAsync: vi.fn(), compileAsync: vi.fn(), dispose: vi.fn() } }; } }));
 vi.mock('../src/assets', async original => ({ ...await original<typeof import('../src/assets')>(), createAssetLoader: (_resources: unknown, options: unknown) => { ports.loader(options); return vi.fn(); } }));
 vi.mock('../src/environment-light', async original => ({ ...await original<typeof import('../src/environment-light')>(), roomEnvironmentMap: () => () => ({ texture: null, dispose() {} }) }));
 vi.mock('../src/anti-aliasing', () => ({ createAntiAliasing: () => ports.aa }));

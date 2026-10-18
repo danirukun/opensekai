@@ -5276,5 +5276,2780 @@
     "valid": false,
     "errorCode": "INVALID_INPUT",
     "payload": "{\"kind\": \"screenshotReply\", \"requestId\": \"a\", \"result\": {\"ok\": true, \"data\": {\"sessionId\": \"session_smoke\", \"revision\": 0, \"cameraId\": \"camera_wide\", \"width\": 1280, \"height\": 720, \"pngBase64\": \"iVBORw0KGgo=\"}}}"
+  },
+  {
+    "name": "light-directional",
+    "target": "scene",
+    "valid": true,
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "box"
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1"
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          },
+          "antiAliasing": "fxaa"
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "light_1",
+          "name": "Light",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "light-point",
+    "target": "scene",
+    "valid": true,
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "box"
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1"
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          },
+          "antiAliasing": "fxaa"
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "light_1",
+          "name": "Light",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "point",
+            "color": "#ffffff",
+            "intensity": 20,
+            "range": 10,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "light-bad-color",
+    "target": "scene",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "box"
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1"
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          },
+          "antiAliasing": "fxaa"
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "light_1",
+          "name": "Light",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#FFFFFF",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "light-intensity-over-limit",
+    "target": "scene",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "box"
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1"
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          },
+          "antiAliasing": "fxaa"
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "light_1",
+          "name": "Light",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 1000.5,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "light-nine-lights",
+    "target": "scene",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "box"
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1"
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          },
+          "antiAliasing": "fxaa"
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "light_0",
+          "name": "Light",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_1",
+          "name": "Light",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_2",
+          "name": "Light",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_3",
+          "name": "Light",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_4",
+          "name": "Light",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_5",
+          "name": "Light",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_6",
+          "name": "Light",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_7",
+          "name": "Light",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_8",
+          "name": "Light",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "light-eight-lights",
+    "target": "scene",
+    "valid": true,
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "box"
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1"
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          },
+          "antiAliasing": "fxaa"
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "light_0",
+          "name": "Light",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": true,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_1",
+          "name": "Light",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": true,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_2",
+          "name": "Light",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_3",
+          "name": "Light",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_4",
+          "name": "Light",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_5",
+          "name": "Light",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_6",
+          "name": "Light",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_7",
+          "name": "Light",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "light-three-shadows",
+    "target": "scene",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "box"
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1"
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          },
+          "antiAliasing": "fxaa"
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "light_0",
+          "name": "Light",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": true,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_1",
+          "name": "Light",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": true,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_2",
+          "name": "Light",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": true,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "environment-reflections",
+    "target": "scene",
+    "valid": true,
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "box"
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1"
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          },
+          "antiAliasing": "fxaa"
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "stage",
+          "name": "Environment",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "environment",
+          "assetId": null,
+          "reflectionsIntensity": 1.5
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "environment-no-reflections",
+    "target": "scene",
+    "valid": true,
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "box"
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1"
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          },
+          "antiAliasing": "fxaa"
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "stage",
+          "name": "Environment",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "environment",
+          "assetId": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "environment-reflections-over-limit",
+    "target": "scene",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "box"
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1"
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          },
+          "antiAliasing": "fxaa"
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "stage",
+          "name": "Environment",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "environment",
+          "assetId": null,
+          "reflectionsIntensity": 2.5
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "set-light",
+    "target": "wireText",
+    "valid": true,
+    "payload": "{\"kind\": \"call\", \"requestId\": \"a\", \"method\": \"scenePatch\", \"params\": {\"sceneId\": \"scene_smoke\", \"expectedRevision\": 0, \"operations\": [{\"kind\": \"setLight\", \"entityId\": \"light_1\", \"light\": {\"type\": \"directional\", \"color\": \"#ffffff\", \"intensity\": 3, \"range\": 0, \"affectCharacters\": true, \"affectProps\": true, \"affectEnvironment\": true, \"shadow\": {\"enabled\": false, \"intensity\": 1, \"soft\": true, \"bias\": -0.0005, \"normalBias\": 0.02}}}]}}"
+  },
+  {
+    "name": "set-light-bad-shadow-bias",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setLight",
+          "entityId": "light_1",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": 0.02,
+              "normalBias": 0.02
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "set-environment-reflections",
+    "target": "wireText",
+    "valid": true,
+    "payload": "{\"kind\": \"call\", \"requestId\": \"a\", \"method\": \"scenePatch\", \"params\": {\"sceneId\": \"scene_smoke\", \"expectedRevision\": 0, \"operations\": [{\"kind\": \"setEnvironmentReflections\", \"entityId\": \"stage\", \"reflectionsIntensity\": 0.5}]}}"
+  },
+  {
+    "name": "set-environment-reflections-negative",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setEnvironmentReflections",
+          "entityId": "stage",
+          "reflectionsIntensity": -0.1
+        }
+      ]
+    }
   }
 ]

@@ -19,7 +19,9 @@ export const LIMITS = {
     screenshotPngBytes: 8388608,
     screenshotEnvelopeBytes: 12582912,
     screenshotTimeoutMs: 5000,
-    cameras: 8
+    cameras: 8,
+    lights: 8,
+    shadowLights: 2
 } as const;
 export const IdSchema = z.string().min(1).max(256);
 const n = z.number().finite(), u = n.int().nonnegative().max(Number.MAX_SAFE_INTEGER);
@@ -105,6 +107,25 @@ export const CameraNavigationSchema = z.discriminatedUnion("mode", [
         pivotOffset: z.tuple([n.min(-1000).max(1000), n.min(-1000).max(1000), n.min(-1000).max(1000)])
     })
 ]);
+export const LightColorSchema = z.string().regex(/^#[0-9a-f]{6}$/);
+export const LightShadowSchema = z.strictObject({
+    enabled: z.boolean(),
+    intensity: n.min(0).max(1),
+    soft: z.boolean(),
+    bias: n.min(-0.01).max(0.01),
+    normalBias: n.min(0).max(1)
+});
+export const LightSettingsSchema = z.strictObject({
+    type: z.enum(["directional", "point"]),
+    color: LightColorSchema,
+    intensity: n.min(0).max(1000),
+    range: n.min(0).max(1000),
+    affectCharacters: z.boolean(),
+    affectProps: z.boolean(),
+    affectEnvironment: z.boolean(),
+    shadow: LightShadowSchema
+});
+export const ReflectionsIntensitySchema = n.min(0).max(2);
 export const SceneEntitySchema = z.discriminatedUnion("kind", [
     EntityBaseSchema.extend({
         kind: z.literal("mesh"),
@@ -128,7 +149,12 @@ export const SceneEntitySchema = z.discriminatedUnion("kind", [
     EntityBaseSchema.extend({kind:z.literal('tracking'),config:TrackingConfigSchema,generation:u,smoothing:TrackingSmoothingSchema.optional()}),
     EntityBaseSchema.extend({
         kind: z.literal("environment"),
-        assetId: IdSchema.nullable()
+        assetId: IdSchema.nullable(),
+        reflectionsIntensity: ReflectionsIntensitySchema.optional()
+    }),
+    EntityBaseSchema.extend({
+        kind: z.literal("light"),
+        light: LightSettingsSchema
     }),
     EntityBaseSchema.extend({
         kind: z.literal("camera"),
@@ -155,6 +181,8 @@ export const SceneViewSchema = z.strictObject({
  const sources=s.entities.filter(e=>e.kind==='tracking');
  if(s.entities.filter(e=>e.kind==='environment').length>1)return false;
  if(sources.length>4||s.entities.filter(e=>e.kind==='avatar').length>2||s.entities.filter(e=>e.kind==='camera').length>LIMITS.cameras)return false;
+ const lights=s.entities.filter(e=>e.kind==='light');
+ if(lights.length>LIMITS.lights||lights.filter(e=>e.light.shadow.enabled).length>LIMITS.shadowLights)return false;
  if(!s.entities.every(e=>{if(e.kind!=='camera'||e.navigation?.mode!=='orbitCharacter')return true;const target=e.navigation.targetId;return target===null||s.entities.some(a=>a.id===target&&a.kind==='avatar');}))return false;
  if(new Set(s.entities.map(e=>e.id)).size!==s.entities.length||new Set(s.outputs.map(o=>o.id)).size!==s.outputs.length||!s.outputs.every(o=>s.entities.some(e=>e.id===o.cameraId&&e.kind==='camera')))return false;
  return s.entities.every(e=>e.kind!=='avatar'||!e.tracking||[e.tracking.bodySourceId,e.tracking.faceSourceId].every((id,index)=>id===null||sources.some(source=>source.id===id&&(index===1||source.config.kind!=='ifacialmocap'))));
@@ -179,6 +207,8 @@ export const PatchOpSchema = z.discriminatedUnion("kind", [
     z.strictObject({kind:z.literal('setAvatarTracking'),entityId:IdSchema,tracking:AvatarTrackingSchema}),
     z.strictObject({kind:z.literal('setAvatarModel'),entityId:IdSchema,assetId:IdSchema.nullable()}),
     z.strictObject({kind:z.literal('setEnvironmentModel'),entityId:IdSchema,assetId:IdSchema.nullable()}),
+    z.strictObject({kind:z.literal('setEnvironmentReflections'),entityId:IdSchema,reflectionsIntensity:ReflectionsIntensitySchema}),
+    z.strictObject({kind:z.literal('setLight'),entityId:IdSchema,light:LightSettingsSchema}),
     z.strictObject({kind:z.literal('setAvatarExpression'),entityId:IdSchema,name:ExpressionNameSchema,settings:ExpressionSettingsSchema.nullable()}),
     z.strictObject({kind:z.literal('setCameraRenderEnvironment'),entityId:IdSchema,renderEnvironment:z.boolean()}),
     z.strictObject({kind:z.literal('setCameraAntiAliasing'),entityId:IdSchema,antiAliasing:CameraAntiAliasingSchema}),
@@ -657,6 +687,7 @@ export const publicJsonSchemas = Object.fromEntries(Object.entries({
     CaptureRequest: CaptureRequestSchema,
     CaptureReply: CaptureReplySchema,
     CameraNavigation: CameraNavigationSchema,
+    LightSettings: LightSettingsSchema,
     CameraScreenshotParams: CameraScreenshotParamsSchema,
     CameraScreenshotResult: CameraScreenshotResultSchema,
     ScreenshotRequest: ScreenshotRequestSchema,
