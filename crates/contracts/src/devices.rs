@@ -120,7 +120,11 @@ pub struct DeviceUpdate {
 }
 
 fn unique<T: Ord>(items: &[T]) -> bool {
-    items.iter().collect::<std::collections::BTreeSet<_>>().len() == items.len()
+    items
+        .iter()
+        .collect::<std::collections::BTreeSet<_>>()
+        .len()
+        == items.len()
 }
 fn in_range(value: f64, low: f64, high: f64) -> bool {
     value.is_finite() && (low..=high).contains(&value)
@@ -265,6 +269,85 @@ mod tests {
             .map(|_| json!({"kind": "pointerButton", "button": "left", "pressed": true}))
             .collect();
         assert!(update(json!({ "events": many })).is_err());
+    }
+
+    #[test]
+    fn the_largest_device_clock_fits_the_tracking_clock_limit() {
+        let all_buttons: Vec<GamepadButton> = serde_json::from_value(json!([
+            "south",
+            "east",
+            "west",
+            "north",
+            "leftBumper",
+            "rightBumper",
+            "leftTrigger",
+            "rightTrigger",
+            "select",
+            "start",
+            "mode",
+            "leftStick",
+            "rightStick",
+            "dpadUp",
+            "dpadDown",
+            "dpadLeft",
+            "dpadRight"
+        ]))
+        .unwrap();
+        let axes = GamepadAxes {
+            left_x: Some(-0.1234),
+            left_y: Some(-0.1234),
+            right_x: Some(-0.1234),
+            right_y: Some(-0.1234),
+            left_trigger: Some(0.1234),
+            right_trigger: Some(0.1234),
+        };
+        let devices = DeviceUpdate {
+            events: Some(vec![
+                DeviceEvent::MidiNote {
+                    channel: 16,
+                    note: 127,
+                    velocity: 127,
+                    on: false
+                };
+                MAX_DEVICE_EVENTS
+            ]),
+            gamepads: Some(
+                (1..=MAX_GAMEPADS)
+                    .map(|pad| GamepadSnapshot {
+                        pad,
+                        buttons: Some(all_buttons.clone()),
+                        axes: Some(axes.clone()),
+                    })
+                    .collect(),
+            ),
+            pointer: Some(PointerSnapshot {
+                x: -15.1234,
+                y: -15.1234,
+                buttons: Some(vec![
+                    PointerButton::Left,
+                    PointerButton::Right,
+                    PointerButton::Middle,
+                ]),
+            }),
+        };
+        let input = InputUpdate {
+            events: vec![
+                InputEvent::Keystroke {
+                    accelerator: "Control+Alt+Shift+Super+ArrowRight".into()
+                };
+                16
+            ],
+            held: vec!["ArrowRight".into(); 16],
+            devices: Some(devices),
+        };
+        let clock = json!({"kind": "clock", "sessionId": "s".repeat(256), "elapsedMs": 9_007_199_254_740_991u64, "input": input});
+        let bytes = clock.to_string().into_bytes();
+        assert!(
+            bytes.len() > MAX_CLOCK_BYTES && bytes.len() < MAX_TRACKING_CLOCK_BYTES / 4,
+            "{}",
+            bytes.len()
+        );
+        assert!(parse_wire(&bytes).is_ok());
     }
 
     #[test]

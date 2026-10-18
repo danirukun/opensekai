@@ -372,7 +372,7 @@ mod macos {
                     && !state.life.running()
                     && state
                         .last_check
-                        .map_or(true, |t| t.elapsed() >= Duration::from_secs(1));
+                        .is_none_or(|t| t.elapsed() >= Duration::from_secs(1));
                 if due {
                     state.last_check = Some(Instant::now());
                 }

@@ -1,3 +1,4 @@
+pub mod devices;
 pub mod monitor;
 use opensekai_contracts::{InputEvent, InputUpdate};
 use std::collections::{BTreeSet, HashMap, VecDeque};

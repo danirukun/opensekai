@@ -37,3 +37,8 @@ tauri-plugin-dialog = "=2.8.1"
 tauri-plugin-global-shortcut = "=2.4.0"
 tauri-plugin-opener = "=2.7.2"
 if-addrs = "=0.15.0"
+
+# Gamepad and MIDI adapters (BP-06). Linux has stubs, so its build needs no udev or ALSA headers.
+[target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
+gilrs = "=0.11.2"
+midir = "=0.11.1"

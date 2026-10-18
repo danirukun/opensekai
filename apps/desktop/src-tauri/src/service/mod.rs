@@ -39,6 +39,8 @@ struct KnownKeystrokes {
     set: BTreeSet<String>,
     /// Key codes that held-key nodes of enabled graphs read.
     watched: BTreeSet<String>,
+    /// Device kinds that device nodes of enabled graphs read.
+    devices: BTreeSet<DeviceKind>,
 }
 /// A capture field is armed: the OS must pass every key to the editor, so nothing is registered.
 struct KeystrokeCapture {
@@ -79,6 +81,7 @@ struct Shared {
     input: Mutex<crate::input::InputQueue>,
     keystrokes: Mutex<Arc<dyn crate::input::KeystrokeRegistrar>>,
     monitor: Mutex<Arc<dyn crate::input::monitor::KeyMonitor>>,
+    devices: Mutex<Arc<crate::input::devices::DeviceHub>>,
     keystrokes_known: Mutex<KnownKeystrokes>,
     keystroke_capture: Mutex<KeystrokeCapture>,
     capture_timeout: Mutex<Duration>,
@@ -202,23 +205,13 @@ fn clock_message(
     }
 }
 impl Shared {
-    /// Queued keystrokes plus the watched keys that are down, for the next clock.
+    /// Queued keystrokes, the watched keys that are down, and device input, for the next clock.
     fn clock_input(&self) -> Option<InputUpdate> {
-        let mut update = lock(&self.input).drain();
-        let held = lock(&self.monitor).clone().held();
-        if !held.is_empty() {
-            match update.as_mut() {
-                Some(update) => update.held = held,
-                None => {
-                    update = Some(InputUpdate {
-                        events: vec![],
-                        held,
-                        devices: None,
-                    })
-                }
-            }
-        }
-        update
+        let mut update = lock(&self.input).drain().unwrap_or_default();
+        update.held = lock(&self.monitor).clone().held();
+        update.devices = lock(&self.devices).clone().collect();
+        (!update.events.is_empty() || !update.held.is_empty() || update.devices.is_some())
+            .then_some(update)
     }
     fn now_ms(&self) -> u64 {
         self.clock.elapsed().as_millis().min(u64::MAX as u128) as u64
@@ -260,9 +253,10 @@ impl Shared {
         revision: u64,
         reported: BTreeSet<String>,
         watched: BTreeSet<String>,
+        devices: BTreeSet<DeviceKind>,
     ) -> bool {
         let mut known = lock(&self.keystrokes_known);
-        Self::learn_locked(&mut known, publisher, revision, reported, watched)
+        Self::learn_locked(&mut known, publisher, revision, reported, watched, devices)
     }
     fn learn_locked(
         known: &mut KnownKeystrokes,
@@ -270,6 +264,7 @@ impl Shared {
         revision: u64,
         reported: BTreeSet<String>,
         watched: BTreeSet<String>,
+        devices: BTreeSet<DeviceKind>,
     ) -> bool {
         let newer = known
             .origin
@@ -280,6 +275,7 @@ impl Shared {
             known.origin = Some((publisher.into(), revision));
             known.set = reported;
             known.watched = watched;
+            known.devices = devices;
         }
         newer
     }
@@ -296,12 +292,14 @@ impl Shared {
         let work = async {
             let _gate = self.keystroke_gate.lock().await;
             // The monitor is passive, so a keystroke capture does not affect it.
-            let watched = if lock(&self.inner).publisher.is_some() {
-                lock(&self.keystrokes_known).watched.clone()
+            let (watched, devices) = if lock(&self.inner).publisher.is_some() {
+                let known = lock(&self.keystrokes_known);
+                (known.watched.clone(), known.devices.clone())
             } else {
-                BTreeSet::new()
+                (BTreeSet::new(), BTreeSet::new())
             };
             lock(&self.monitor).clone().set_watched(&watched);
+            lock(&self.devices).clone().set_watched(&devices);
             let capturing = lock(&self.keystroke_capture)
                 .until
                 .is_some_and(|until| until > Instant::now());
@@ -356,10 +354,18 @@ impl Shared {
                         .transpose()
                         .ok()?
                         .unwrap_or_default();
+                    let devices = data
+                        .get("devices")
+                        .cloned()
+                        .map(serde_json::from_value::<Vec<DeviceKind>>)
+                        .transpose()
+                        .ok()?
+                        .unwrap_or_default();
                     Some((
                         revision,
                         serde_json::from_value::<Vec<String>>(list).ok()?,
                         held,
+                        devices,
                     ))
                 }),
             None => None,
@@ -370,13 +376,14 @@ impl Shared {
                 && lock(&self.inner).publisher.as_ref().map(|p| &p.id) == asked.as_ref();
             match (reported, asked) {
                 // An edit reply that is newer than the answer wins by revision.
-                (Some((revision, list, held)), Some(asked)) if same_publisher => {
+                (Some((revision, list, held, devices)), Some(asked)) if same_publisher => {
                     Self::learn_locked(
                         &mut known,
                         &asked,
                         revision,
                         list.into_iter().collect(),
                         held.into_iter().collect(),
+                        devices.into_iter().collect(),
                     )
                 }
                 // A publisher that is gone will be asked again when the next one connects.
@@ -389,6 +396,7 @@ impl Shared {
                     known.origin = None;
                     known.set.clear();
                     known.watched.clear();
+                    known.devices.clear();
                     true
                 }
                 _ => false,
@@ -554,6 +562,7 @@ pub async fn start_service(config: ServiceConfig) -> Result<ServiceHandle, AppEr
         input: Mutex::default(),
         keystrokes: Mutex::new(Arc::new(crate::input::NoKeystrokes)),
         monitor: Mutex::new(Arc::new(crate::input::monitor::NoKeyMonitor)),
+        devices: Mutex::new(Arc::new(crate::input::devices::DeviceHub::empty())),
         keystrokes_known: Mutex::default(),
         keystroke_capture: Mutex::new(KeystrokeCapture {
             generation: 0,
@@ -605,6 +614,13 @@ impl ServicePorts {
     }
     pub fn set_key_monitor(&self, monitor: Arc<dyn crate::input::monitor::KeyMonitor>) {
         *lock(&self.shared.monitor) = monitor;
+        if let Ok(runtime) = tokio::runtime::Handle::try_current() {
+            let shared = self.shared.clone();
+            runtime.spawn(async move { shared.sync_keystrokes().await });
+        }
+    }
+    pub fn set_device_hub(&self, hub: Arc<crate::input::devices::DeviceHub>) {
+        *lock(&self.shared.devices) = hub;
         if let Ok(runtime) = tokio::runtime::Handle::try_current() {
             let shared = self.shared.clone();
             runtime.spawn(async move { shared.sync_keystrokes().await });
