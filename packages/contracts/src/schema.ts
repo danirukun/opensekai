@@ -3,6 +3,7 @@ import { BlueprintGraphSchema, BlueprintSetSchema } from './blueprint';
 import { BlueprintBatchSchema } from './blueprint-ops';
 import { KEYSTROKE_CODES } from './blueprint-nodes';
 import { DeviceKindListSchema, DeviceUpdateSchema } from './devices';
+import { ScalarValueSchema } from './blueprint-values';
 import { z } from "zod";
 import { CameraAntiAliasingSchema, QualityProfileIdSchema } from './quality';
 import { AssetExpressionsSchema, AvatarExpressionsSchema, ExpressionNameSchema, ExpressionSettingsSchema, ExpressionStateSchema } from './expressions';
@@ -469,7 +470,9 @@ export const ParamSchemas = {
         cameraId: IdSchema,
         expectedRevision: u
     }),
-    blueprintRun: z.strictObject({ graphId: IdSchema, triggerNodeId: IdSchema }),
+    // A Manual Trigger (`graphId`, `triggerNodeId`) or a custom event (`event`, optional `payload`). One object, so MCP gets an object schema.
+    blueprintRun: z.strictObject({ graphId: IdSchema.optional(), triggerNodeId: IdSchema.optional(), event: z.string().trim().min(1).max(64).optional(), payload: ScalarValueSchema.optional() })
+        .refine(p => p.event === undefined ? p.graphId !== undefined && p.triggerNodeId !== undefined && p.payload === undefined : p.graphId === undefined && p.triggerNodeId === undefined, 'Invalid Blueprint run'),
     blueprintEdit: BlueprintBatchSchema,
     blueprintInspect: z.strictObject({ sinceRevision: u.optional() }),
     captureFrame: CaptureParamsSchema,

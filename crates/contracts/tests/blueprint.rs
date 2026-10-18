@@ -71,6 +71,19 @@ fn blueprint_inspect_run_and_results_validate() {
     assert!(validate_call("blueprintInspect", &json!({"extra":1})).is_err());
     assert!(validate_call("blueprintRun", &json!({"graphId":"g","triggerNodeId":"n"})).is_ok());
     assert!(validate_call("blueprintRun", &json!({"graph":{},"triggerNodeId":"n"})).is_err());
+    assert!(validate_call("blueprintRun", &json!({"graphId":"g"})).is_err());
+    assert!(validate_call("blueprintRun", &json!({"event":"show"})).is_ok());
+    assert!(validate_call("blueprintRun", &json!({"event":"show","payload":[1,2,3]})).is_ok());
+    assert!(validate_call("blueprintRun", &json!({"event":"show","payload":"hi"})).is_ok());
+    assert!(validate_call("blueprintRun", &json!({"event":" "})).is_err());
+    assert!(validate_call("blueprintRun", &json!({"event":"x".repeat(65)})).is_err());
+    assert!(validate_call("blueprintRun", &json!({"event":"show","payload":{"a":1}})).is_err());
+    assert!(validate_call("blueprintRun", &json!({"event":"show","payload":null})).is_err());
+    assert!(validate_call(
+        "blueprintRun",
+        &json!({"event":"show","graphId":"g","triggerNodeId":"n"})
+    )
+    .is_err());
     assert!(validate_result(
         "blueprintEdit",
         &json!({"ok":true,"data":{"revision":1,"keystrokes":["Control+Alt+KeyH"]}})

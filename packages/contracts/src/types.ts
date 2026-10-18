@@ -3,6 +3,7 @@ import type { BlueprintBatch } from './blueprint-ops';
 import type { BlueprintInspect, InputUpdate } from './schema';
 import type { ShowDocument } from './show';
 import type { DeviceKind } from './devices';
+import type { ScalarValue } from './blueprint-values';
 import type { CameraAntiAliasing, QualityProfileId } from './quality';
 import type { AssetExpression, ExpressionSettings, ExpressionState } from './expressions';
 export type Id = string;
@@ -255,7 +256,7 @@ export interface AppApi {
     }): Promise<Reply<{
         revision: number;
     }>>;
-    blueprintRun(params: { graphId: Id; triggerNodeId: Id }): Promise<Reply<{ revision: number }>>;
+    blueprintRun(params: { graphId: Id; triggerNodeId: Id } | { event: string; payload?: ScalarValue }): Promise<Reply<{ revision: number }>>;
     blueprintEdit(params: BlueprintBatch): Promise<Reply<{ revision: number; keystrokes: string[]; heldKeys?: string[]; devices?: DeviceKind[] }>>;
     blueprintInspect(params: { sinceRevision?: number }): Promise<Reply<BlueprintInspect>>;
     captureFrame(params: CaptureParams): Promise<Reply<CaptureRecord>>;
