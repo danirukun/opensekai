@@ -73,6 +73,7 @@ export function takeIdle(scene: SceneView, layer: OverrideLayer, nowMs: number):
   if (idle.has('visible')) operations.push({ kind: 'setVisibility', entityId, visible: target.visible });
   if (idle.has('fovDegrees') && target.kind === 'camera') operations.push({ kind: 'setCameraLens', entityId, lens: structuredClone(target.lens) });
   if (idle.has('intensity') && target.kind === 'light') operations.push({ kind: 'setLight', entityId, light: structuredClone(target.light) });
+  if (idle.has('hazeDensity') && target.kind === 'haze') operations.push({ kind: 'setHaze', entityId, haze: structuredClone(target.haze) });
   if (idle.has('renderEnvironment') && target.kind === 'camera') operations.push({ kind: 'setCameraRenderEnvironment', entityId, renderEnvironment: target.renderEnvironment !== false });
  }
  return { operations, graphIds: [...graphIds], remaining };
@@ -85,6 +86,7 @@ const touched = (operation: Operation): [Id, readonly PropertyKey[] | 'all'] | n
   case 'setCameraLens': return [operation.entityId, ['fovDegrees']];
   case 'setCameraRenderEnvironment': return [operation.entityId, ['renderEnvironment']];
   case 'setLight': return [operation.entityId, ['intensity']];
+  case 'setHaze': return [operation.entityId, ['hazeDensity']];
   case 'removeEntity': return [operation.entityId, 'all'];
   default: return null;
  }

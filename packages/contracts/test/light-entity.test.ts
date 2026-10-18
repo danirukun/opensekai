@@ -17,7 +17,7 @@ describe('light settings (R1)', () => {
         ['an intensity above 1000', { intensity: 1000.1 }],
         ['a negative intensity', { intensity: -1 }],
         ['a range above 1000', { range: 1001 }],
-        ['an unknown type', { type: 'spot' as never }],
+        ['an unknown type', { type: 'area' as never }],
         ['a shadow bias above 0.01', { shadow: { ...settings().shadow, bias: 0.02 } }],
         ['a shadow intensity above 1', { shadow: { ...settings().shadow, intensity: 1.5 } }],
         ['a negative normal bias', { shadow: { ...settings().shadow, normalBias: -0.1 } }],

@@ -69,6 +69,9 @@ export type SceneEntity = (EntityBase & {
     kind: "light";
     light: LightSettings;
 }) | (EntityBase & {
+    kind: "haze";
+    haze: HazeSettings;
+}) | (EntityBase & {
     kind: "camera";
     renderEnvironment?: boolean;
     antiAliasing?: CameraAntiAliasing;
@@ -80,7 +83,9 @@ export type SceneEntity = (EntityBase & {
     };
 });
 export interface LightShadow { enabled: boolean; intensity: number; soft: boolean; bias: number; normalBias: number; }
-export interface LightSettings { type: "directional" | "point"; color: string; intensity: number; range: number; affectCharacters: boolean; affectProps: boolean; affectEnvironment: boolean; shadow: LightShadow; }
+export interface LightCone { angleDegrees: number; penumbra: number; }
+export interface LightSettings { type: "directional" | "point" | "spot" | "ambient"; color: string; intensity: number; range: number; affectCharacters: boolean; affectProps: boolean; affectEnvironment: boolean; shadow: LightShadow; cone?: LightCone; volumetric?: boolean; }
+export interface HazeSettings { density: number; smoke: number; intensity: number; drift: number; }
 export type CameraNavigation = { mode: "none" } | { mode: "freeLook"; sensitivity: number } | { mode: "orbitCharacter"; sensitivity: number; targetId: Id | null; pivotOffset: Vec3 };
 export interface CameraScreenshotParams { cameraId: Id; expectedRevision: number; }
 export interface CameraScreenshotResult { fileName: string; width: 1920; height: 1080; bytes: number; sha256: string; cameraId: Id; revision: number; }
@@ -108,7 +113,7 @@ type ExistingPatchOp = {
     entityId: Id;
     visible: boolean;
 };
-export type LivePatchOp = {kind:'setTrackingSmoothing';entityId:Id;smoothing:TrackingSmoothing}| {kind:'setAvatarIdle';entityId:Id;idleAnimation:AvatarIdle}|{kind:'createEntity';entity:SceneEntity}|{kind:'setCameraLens';entityId:Id;lens:Extract<SceneEntity,{kind:'camera'}>['lens']}|{kind:'setAvatarTracking';entityId:Id;tracking:AvatarTracking}|{kind:'setTrackingConfig';entityId:Id;config:TrackingConfig}|{kind:'setAvatarModel';entityId:Id;assetId:Id|null}|{kind:'setEnvironmentModel';entityId:Id;assetId:Id|null}|{kind:'setEnvironmentReflections';entityId:Id;reflectionsIntensity:number}|{kind:'setLight';entityId:Id;light:LightSettings}|{kind:'setCameraRenderEnvironment';entityId:Id;renderEnvironment:boolean}|{kind:'setCameraAntiAliasing';entityId:Id;antiAliasing:CameraAntiAliasing}|{kind:'setCameraNavigation';entityId:Id;navigation:CameraNavigation}|{kind:'setAvatarExpression';entityId:Id;name:string;settings:ExpressionSettings|null};
+export type LivePatchOp = {kind:'setTrackingSmoothing';entityId:Id;smoothing:TrackingSmoothing}| {kind:'setAvatarIdle';entityId:Id;idleAnimation:AvatarIdle}|{kind:'createEntity';entity:SceneEntity}|{kind:'setCameraLens';entityId:Id;lens:Extract<SceneEntity,{kind:'camera'}>['lens']}|{kind:'setAvatarTracking';entityId:Id;tracking:AvatarTracking}|{kind:'setTrackingConfig';entityId:Id;config:TrackingConfig}|{kind:'setAvatarModel';entityId:Id;assetId:Id|null}|{kind:'setEnvironmentModel';entityId:Id;assetId:Id|null}|{kind:'setEnvironmentReflections';entityId:Id;reflectionsIntensity:number}|{kind:'setLight';entityId:Id;light:LightSettings}|{kind:'setHaze';entityId:Id;haze:HazeSettings}|{kind:'setCameraRenderEnvironment';entityId:Id;renderEnvironment:boolean}|{kind:'setCameraAntiAliasing';entityId:Id;antiAliasing:CameraAntiAliasing}|{kind:'setCameraNavigation';entityId:Id;navigation:CameraNavigation}|{kind:'setAvatarExpression';entityId:Id;name:string;settings:ExpressionSettings|null};
 export type AssetManagementPatchOp = {kind:'renameEntity';entityId:Id;name:string}|{kind:'removeEntity';entityId:Id};
 export type PatchOp = ExistingPatchOp | LivePatchOp | AssetManagementPatchOp;
 export interface ScenePatch {

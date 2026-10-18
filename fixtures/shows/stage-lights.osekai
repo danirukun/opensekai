@@ -1,0 +1,288 @@
+{
+  "schemaVersion": 1,
+  "name": "Stage Lights",
+  "scene": {
+    "schemaVersion": 1,
+    "sceneId": "scene_smoke",
+    "revision": 0,
+    "entities": [
+      {
+        "id": "camera_main",
+        "name": "Camera",
+        "visible": true,
+        "transform": {
+          "position": [
+            0,
+            1.2,
+            3
+          ],
+          "rotation": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "camera",
+        "lens": {
+          "fovDegrees": 40,
+          "near": 0.01,
+          "far": 100
+        },
+        "navigation": {
+          "mode": "freeLook",
+          "sensitivity": 1
+        }
+      },
+      {
+        "id": "light_main",
+        "name": "Directional Light",
+        "visible": true,
+        "transform": {
+          "position": [
+            2,
+            4,
+            3
+          ],
+          "rotation": [
+            -0.389047,
+            0.264763,
+            0.117794,
+            0.874453
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#ffffff",
+          "range": 0,
+          "affectCharacters": true,
+          "affectProps": true,
+          "affectEnvironment": true,
+          "shadow": {
+            "enabled": false,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "directional",
+          "intensity": 0.2
+        }
+      },
+      {
+        "id": "stage_ambient",
+        "name": "Ambient Light",
+        "visible": true,
+        "transform": {
+          "position": [
+            0,
+            2.5,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#8090ff",
+          "range": 0,
+          "affectCharacters": true,
+          "affectProps": true,
+          "affectEnvironment": true,
+          "shadow": {
+            "enabled": false,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "ambient",
+          "intensity": 0.15
+        }
+      },
+      {
+        "id": "stage_spot_warm",
+        "name": "Spot Light Warm",
+        "visible": true,
+        "transform": {
+          "position": [
+            2.4,
+            3.4,
+            1.6
+          ],
+          "rotation": [
+            -0.33993,
+            0.397966,
+            0.0,
+            0.852098
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#ffd2a0",
+          "range": 15,
+          "affectCharacters": true,
+          "affectProps": true,
+          "affectEnvironment": true,
+          "shadow": {
+            "enabled": true,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "spot",
+          "intensity": 80,
+          "cone": {
+            "angleDegrees": 30,
+            "penumbra": 0.3
+          },
+          "volumetric": true
+        }
+      },
+      {
+        "id": "stage_spot_blue",
+        "name": "Spot Light Blue",
+        "visible": true,
+        "transform": {
+          "position": [
+            -2.4,
+            3.4,
+            1.6
+          ],
+          "rotation": [
+            -0.33993,
+            -0.397966,
+            0.0,
+            0.852098
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#a0c8ff",
+          "range": 15,
+          "affectCharacters": true,
+          "affectProps": true,
+          "affectEnvironment": true,
+          "shadow": {
+            "enabled": true,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "spot",
+          "intensity": 80,
+          "cone": {
+            "angleDegrees": 30,
+            "penumbra": 0.3
+          },
+          "volumetric": true
+        }
+      },
+      {
+        "id": "stage_haze",
+        "name": "Haze",
+        "visible": true,
+        "transform": {
+          "position": [
+            0,
+            2.5,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "scale": [
+            8,
+            5,
+            8
+          ]
+        },
+        "kind": "haze",
+        "haze": {
+          "density": 1,
+          "smoke": 1,
+          "intensity": 2.5,
+          "drift": 0.2
+        }
+      },
+      {
+        "id": "stage_floor",
+        "name": "Floor",
+        "visible": true,
+        "transform": {
+          "position": [
+            0,
+            -0.025,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "scale": [
+            8,
+            0.05,
+            8
+          ]
+        },
+        "kind": "mesh",
+        "source": {
+          "kind": "box"
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "id": "output_main",
+        "cameraId": "camera_main",
+        "width": 1920,
+        "height": 1080,
+        "fps": 60
+      },
+      {
+        "id": "preview_main",
+        "cameraId": "camera_main",
+        "width": 1920,
+        "height": 1080,
+        "fps": 60
+      }
+    ]
+  },
+  "blueprints": []
+}

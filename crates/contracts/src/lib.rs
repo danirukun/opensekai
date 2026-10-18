@@ -17,6 +17,7 @@ pub const SCREENSHOT_TIMEOUT_MS: u64 = 5000;
 pub const MAX_CAMERAS: usize = 8;
 pub const MAX_LIGHTS: usize = 8;
 pub const MAX_SHADOW_LIGHTS: usize = 2;
+pub const MAX_HAZES: usize = 1;
 macro_rules! object { ($name:ident { $($field:ident : $ty:ty),* $(,)? }) => {#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)] #[serde(rename_all="camelCase", deny_unknown_fields)] pub struct $name {$(pub $field: $ty),*}} }
 macro_rules! strings { ($name:ident { $($variant:ident => $wire:literal),* $(,)? }) => {#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)] pub enum $name {$(#[serde(rename=$wire)] $variant),*}} }
 mod tracking;
@@ -33,7 +34,7 @@ strings!(FixtureId { SmokeV1=>"smoke_v1" });
 strings!(ProfileId { WebgpuSmokeV1=>"webgpu_smoke_v1", Webgl2SmokeV1=>"webgl2_smoke_v1" });
 strings!(QualityProfileId { PreviewV1=>"preview_v1", ProductionV1=>"production_v1", PerformanceV1=>"performance_v1" });
 strings!(CameraAntiAliasing { None=>"none", Fxaa=>"fxaa" });
-strings!(LightType { Directional=>"directional", Point=>"point" });
+strings!(LightType { Directional=>"directional", Point=>"point", Spot=>"spot", Ambient=>"ambient" });
 strings!(MimeType { ImagePng=>"image/png" });
 object!(AppError {code:ErrorCode,message:String,ids:Vec<Id>});
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -127,6 +128,11 @@ object!(LightShadow {
     bias: f64,
     normal_bias: f64
 });
+// The full cone angle in degrees, as Warudo and Unity show it (B13 R1).
+object!(LightCone {
+    angle_degrees: f64,
+    penumbra: f64
+});
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct LightSettings {
@@ -139,7 +145,17 @@ pub struct LightSettings {
     pub affect_props: bool,
     pub affect_environment: bool,
     pub shadow: LightShadow,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cone: Option<LightCone>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub volumetric: Option<bool>,
 }
+object!(HazeSettings {
+    density: f64,
+    smoke: f64,
+    intensity: f64,
+    drift: f64
+});
 fn light_color_ok(color: &str) -> bool {
     color.len() == 7
         && color.starts_with('#')
@@ -147,9 +163,11 @@ fn light_color_ok(color: &str) -> bool {
             .bytes()
             .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
+fn within(n: f64, min: f64, max: f64) -> bool {
+    n.is_finite() && (min..=max).contains(&n)
+}
 impl Validate for LightSettings {
     fn validate(&self) -> Result<(), AppError> {
-        let within = |n: f64, min: f64, max: f64| n.is_finite() && (min..=max).contains(&n);
         require(light_color_ok(&self.color), "invalid light color")?;
         require(
             within(self.intensity, 0., 1000.) && within(self.range, 0., 1000.),
@@ -160,6 +178,36 @@ impl Validate for LightSettings {
                 && within(self.shadow.bias, -0.01, 0.01)
                 && within(self.shadow.normal_bias, 0., 1.),
             "invalid light shadow",
+        )?;
+        require(
+            self.cone
+                .as_ref()
+                .is_none_or(|c| within(c.angle_degrees, 1., 170.) && within(c.penumbra, 0., 1.)),
+            "invalid light cone",
+        )?;
+        require(
+            self.light_type != LightType::Spot || self.cone.is_some(),
+            "a spot light needs a cone",
+        )?;
+        require(
+            self.light_type != LightType::Ambient || !self.shadow.enabled,
+            "an ambient light has no shadow",
+        )?;
+        require(
+            self.volumetric != Some(true)
+                || matches!(self.light_type, LightType::Point | LightType::Spot),
+            "only point and spot lights scatter in haze",
+        )
+    }
+}
+impl Validate for HazeSettings {
+    fn validate(&self) -> Result<(), AppError> {
+        require(
+            within(self.density, 0., 2.)
+                && within(self.smoke, 0., 3.)
+                && within(self.intensity, 0., 4.)
+                && within(self.drift, 0., 2.),
+            "invalid haze",
         )
     }
 }
@@ -225,6 +273,13 @@ pub enum SceneEntity {
         transform: Transform,
         light: LightSettings,
     },
+    Haze {
+        id: Id,
+        name: String,
+        visible: bool,
+        transform: Transform,
+        haze: HazeSettings,
+    },
     Camera {
         id: Id,
         name: String,
@@ -255,6 +310,7 @@ impl SceneEntity {
             | Self::Environment { id, .. }
             | Self::Camera { id, .. }
             | Self::Light { id, .. }
+            | Self::Haze { id, .. }
             | Self::Tracking { id, .. } => id,
         }
     }
@@ -265,6 +321,7 @@ impl SceneEntity {
             | Self::Environment { transform, .. }
             | Self::Camera { transform, .. }
             | Self::Light { transform, .. }
+            | Self::Haze { transform, .. }
             | Self::Tracking { transform, .. } => transform,
         }
     }
@@ -330,6 +387,11 @@ pub enum PatchOp {
         #[serde(rename = "entityId")]
         entity_id: Id,
         light: LightSettings,
+    },
+    SetHaze {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+        haze: HazeSettings,
     },
     SetCameraRenderEnvironment {
         #[serde(rename = "entityId")]
@@ -1503,6 +1565,15 @@ impl Validate for SceneView {
                 && lights.iter().filter(|l| l.shadow.enabled).count() <= MAX_SHADOW_LIGHTS,
             "too many lights",
         )?;
+        // A haze does not count as a light (B13 R2).
+        require(
+            self.entities
+                .iter()
+                .filter(|e| matches!(e, SceneEntity::Haze { .. }))
+                .count()
+                <= MAX_HAZES,
+            "too many hazes",
+        )?;
         for e in &self.entities {
             if let SceneEntity::Camera {
                 navigation:
@@ -1588,6 +1659,7 @@ impl Validate for ScenePatch {
                 PatchOp::SetCameraLens { lens, .. } => lens.validate()?,
                 PatchOp::SetCameraNavigation { navigation, .. } => navigation.validate()?,
                 PatchOp::SetLight { light, .. } => light.validate()?,
+                PatchOp::SetHaze { haze, .. } => haze.validate()?,
                 PatchOp::SetEnvironmentReflections {
                     reflections_intensity,
                     ..
@@ -2241,6 +2313,9 @@ impl Validate for SceneEntity {
         }
         if let Self::Light { light, .. } = self {
             light.validate()?;
+        }
+        if let Self::Haze { haze, .. } = self {
+            haze.validate()?;
         }
         if let Self::Environment {
             reflections_intensity: Some(n),
