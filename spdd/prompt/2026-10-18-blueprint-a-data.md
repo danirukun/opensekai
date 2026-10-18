@@ -19,7 +19,7 @@ R3. Text nodes (category Text). The ports are data ports. All lengths and positi
 | Type ID | Label | Settings | Inputs | Outputs | Rule |
 | --- | --- | --- | --- | --- | --- |
 | `text.concat` | Concat | `count` 2..8, default 2 | `text0`…: string | `result: string` | Joins the inputs in order. |
-| `text.format` | Format String | `template` string, `args` list of 0..8 scalar types, default `'{0}'` and `['string']` | `arg0`…: the type in `args` | `result: string` | Replaces `{n}` with the string form (R2) of argument `n`. `{{` gives `{` and `}}` gives `}`. A placeholder without an argument stays as text. |
+| `text.format` | Format String | `template` string, `args` list of 0..8 scalar types, default `'{0}'` and `['string']` | `arg0`…: the type in `args` | `result: string` | Replaces `{n}` with the string form (R2) of argument `n`. `{{` gives `{` and `}}` gives `}`. A placeholder without an argument stays as text. The node reads only the arguments that the template uses, each one time. |
 | `text.length` | String Length | — | `text: string` | `length: integer` | The code unit count. |
 | `text.substring` | Substring | — | `text: string`, `start: integer`, `length: integer` | `result: string` | Clamps `start` to 0..text length and `length` to 0..the rest. |
 | `text.contains` | String Contains | — | `text`, `search`: string | `result: boolean` | Case sensitive. An empty `search` gives true. |
@@ -54,14 +54,17 @@ R4. List nodes (category Lists). Each node has the setting `itemType` (a scalar 
 | `list.random` | Random List Item | `list: T[]` | `item: T`, `ok: boolean` | One step of the seeded run random (`RunState.random`) for each read of `item` from a list that is not empty. An empty list gives the default of `T` and false, with no step. |
 | `list.forEach` | For Each | `flow`, `list: T[]` | `body: flow`, `item: T`, `index: integer`, `completed: flow` | R5. |
 
-R5. For Each. When flow enters, For Each reads `list` once and keeps it in its node state (W0 R8). It calls the loop mechanism of For Loop with first 0 and last `length - 1`. So `body` runs once for each item in order, depth first, and then `completed` runs. An empty list runs only `completed`. `index` is the loop index. `item` is the kept item at `index`; before the first run it is the default of `T`. A list of more than 64 items fails the run with `Blueprint loop exceeded its iteration limit` (the For Loop limit). The run limit of 512 visits applies.
+R5. For Each. When flow enters, For Each reads `list` once and keeps it in its node state (W0 R8). It calls the loop mechanism of For Loop with first 0, last `length - 1`, the iteration limit 256 (`MAX_BLUEPRINT_LIST_LENGTH`), and `clear`. So `body` runs once for each item in order, depth first, and then `completed` runs. An empty list runs only `completed`. `index` is the loop index. `item` is the kept item at `index`. A list cannot have more than 256 items, so the limit stops only a wrong call.
+    - When the loop ends (also for an empty list), the runtime removes the loop index and the node state of For Each, before `completed` runs. A read of `item` or `index` outside the loop (in `completed`, or in a later run) gives the default of `T` and 0.
+    - The loop mechanism takes optional `{ limit, clear }` (`LoopOptions`). For Loop does not pass them: its limit stays 64 and its index stays after the loop.
+    - A loop step is not a node visit. The 512-visit limit for each event counts the node visits only, for For Loop and For Each. So a 256-item For Each with a body of one flow node runs; a body of two flow nodes reaches the visit limit before 256 items.
 
 R6. Switches (category Switches). Each has `flow` and `value` inputs and the outputs `case0`… and `default`. Flow goes to the first case equal to `value`, else to `default`.
 
 | Type ID | Label | Setting `cases` | `value` |
 | --- | --- | --- | --- |
-| `switch.string` | Switch On String | 1..8 different strings of at most 1024 code units, default `['a', 'b']`; field kind `stringCases` | `string` (case sensitive) |
-| `switch.integer` | Switch On Integer | 1..8 different integers from -1e6 to 1e6, default `[0, 1]`; field kind `cases` | `integer` |
+| `switch.string` | Switch On String | 1..8 (`MAX_SWITCH_CASES`) different strings of at most 1024 code units, default `['a', 'b']`; field kind `stringCases` | `string` (case sensitive) |
+| `switch.integer` | Switch On Integer | 1..8 different integers from -1e6 to 1e6 (`IntegerCasesSchema`, shared with Switch On Number), default `[0, 1]`; field kind `cases` | `integer` |
 
 Switch On Number (`flow.switch`) does not change.
 
@@ -78,27 +81,29 @@ R7. Variable nodes (category Variables).
 - The defaults select the first variable of an allowed type and its type. With no such variable, the defaults are null.
 - Set Variable writes the value (`checkBlueprintValue` first). Append writes a new list with the item at the end; a full list fails the run with `Blueprint value exceeds its limit`. Clear writes `[]`. Increment adds `amount`; a result that is not a safe integer fails the run with `Blueprint data could not be evaluated`.
 - The compiler fails a graph with `Blueprint variable is missing` when the variable of a `typedVariable` field does not exist or its type is not the `type` setting. The check for the `variable` field kind does not change.
-- The six existing variable node types do not change.
+- When `updateVariable` changes the type of a variable, `applyBlueprintOps` writes the new type to the `typeKey` setting of each node with a `typedVariable` field on that variable. It then removes the inline values and wires that no longer type-check, as `setNodeSettings` does. A node whose settings cannot take the new type (a list node after a change to a scalar type) does not change, and the compiler reports `Blueprint variable is missing`. The Rust host checks only the operation structure, so it does not change.
+- The six existing variable node types do not change. A type change of their variable still gives the compile error.
 
 R8. Field kinds. `BlueprintField` appends three kinds:
 - `{ kind: 'types'; options: readonly DataType[]; max: number }`: a list of types. The inspector shows a count select (0..`max`) and one select for each entry, labelled `{0}`, `{1}`, ….
-- `{ kind: 'stringCases' }`: the inspector shows a text area with one case on each line. Empty lines are ignored. Text with 0 or more than 8 cases, a duplicate, or a case above the limit goes back to the stored value on `change`.
-- `{ kind: 'typedVariable'; typeKey: string; lists?: boolean }`: the inspector shows one select of the graph variables (list variables only when `lists`). A choice sets the key of the field to the variable ID and `typeKey` to the variable type in one settings change. An unknown ID shows as `Missing`.
+- `{ kind: 'stringCases' }`: the inspector shows a text area with one case on each line as a JSON string (`"happy"`, `""`, `"a\nb"`), the encoding of a String List default (W0 R13). So an empty case and a case with a line break keep their value. Empty lines are ignored. Text that is not one JSON string on each line, with 0 or more than 8 cases, a duplicate, or a case above the limit goes back to the stored value on `change`.
+- `{ kind: 'typedVariable'; typeKey: string; lists?: boolean }`: the inspector shows one select of the graph variables (list variables only when `lists`). A choice sets the key of the field to the variable ID and `typeKey` to the variable type in one settings change. An unknown ID shows as `Missing` (the shared fallback of the other reference selects).
 The `itemType` and To String `type` settings use the `choice` kind of slice I.
 
 R9. Audit and catalog. Each new node type has one row in `docs/evaluation/blueprint-node-audit.json` with a Warudo category, a Warudo name candidate or null, and `evidence: "tests"`. The catalog count test increases by 38.
 
 R10. Tests.
 - Unit (contracts): defaults parse, field keys (the `typeKey` of a `typedVariable` field counts as a settings key), port shapes that follow `itemType`, `type`, `count`, and `args`.
-- Unit (session, pure): the string form, Format String, Substring, Split, Parse Number, Parse Integer, the index rules, list equality, and the string-cases parser.
-- Session (through `compileBlueprint` and `runFlow` or `createBlueprintRuntime`): each text and list node in a graph; For Each order, `item`, `index`, empty list, and the 64-item limit; Random List Item with a fixed seed; both switches; Get and Set Variable for each of the 10 types; Append, Clear, and Increment; the compile error for a variable with a different type.
+- Unit (session, pure): the string form, Format String (and its lazy reads), Substring, Split, Parse Number, Parse Integer, the index rules, list equality, and the string-cases parser.
+- Unit (contracts): `updateVariable` retypes typed variable nodes, removes wires and inline values that no longer fit, keeps a list node on a scalar type change, and keeps the old variable nodes.
+- Session (through `compileBlueprint` and `runFlow` or `createBlueprintRuntime`): each text and list node in a graph; For Each order, `item`, `index`, empty list, the 256-item limit, and the clear at the loop end; For Loop keeps 64; a graph that still compiles after a variable type change; Random List Item with a fixed seed; both switches; Get and Set Variable for each of the 10 types; Append, Clear, and Increment; the compile error for a variable with a different type.
 - W0 R15 deferred cases: an `integer` output into a `number` input runs end to end; a `number` output into an `integer` input is rejected by `connect` and by the compiler; a run that makes a string or a list above its limit fails and leaves the variables with no change.
 
 ## E — Entities
 
 - New node types: 3 literals, 17 text, 11 list, 2 switch, and 5 variable types (38).
 - Settings: `{ value }`, `{ count }`, `{ template, args }`, `{ ignoreCase }`, `{ type }`, `{ itemType }`, `{ itemType, count }`, `{ cases }`, `{ variableId, type }`, `{ variableId }`.
-- For Each node state: the list that it read (`NodeState`).
+- For Each node state: the list that it read (`NodeState`), removed when the loop ends.
 - `BlueprintField` gains `types`, `stringCases`, and `typedVariable`.
 
 ## A — Approach
@@ -107,9 +112,9 @@ Put each family in a new definitions file and a new evaluator file. Put the pure
 
 ## S — Structure
 
-- `packages/contracts/src/blueprint-nodes/{literals,text,lists,switches,typed-variables}.ts` (new); `define.ts` (append three field kinds); `index.ts` (one import and one spread for each family).
-- `packages/session/src/blueprint-eval/{data-helpers,literals,text,lists,switches,typed-variables}.ts` (new); `index.ts` (one import and one spread for each family); `blueprint.ts` (the variable check in `compileBlueprint` only).
-- `apps/desktop/src/blueprints/data-fields.ts` (new); `components/BlueprintNodeFields.svelte` (three branches).
+- `packages/contracts/src/blueprint-nodes/{literals,text,lists,switches,typed-variables}.ts` (new); `define.ts` (append three field kinds; `numbered` takes a port type; `MAX_SWITCH_CASES` and `IntegerCasesSchema`); `flow.ts` (Switch On Number uses `IntegerCasesSchema`, no change in behavior); `index.ts` (one import and one spread for each family, two exports); `blueprint-ops.ts` (the retype on `updateVariable`; `setNodeSettings` shares the helper).
+- `packages/session/src/blueprint-eval/{data-helpers,literals,text,lists,switches,typed-variables}.ts` (new); `index.ts` (one import and one spread for each family); `blueprint.ts` (the variable check in `compileBlueprint`; `LoopOptions` and the visit count in `runFlow`); `types.ts` (`LoopOptions`).
+- `apps/desktop/src/blueprints/data-fields.ts` (new); `fields.ts` (`dataTypeOptions` takes the types); `components/BlueprintNodeFields.svelte` (three branches).
 - Tests: `packages/contracts/test/blueprint-definitions.test.ts` (count and `typeKey`), `packages/contracts/test/blueprint-data-nodes.test.ts`, `packages/session/test/blueprint-data-helpers.test.ts`, `packages/session/test/blueprint-data-nodes.test.ts`, `apps/desktop/test/blueprint-data-fields.test.ts`.
 - `docs/evaluation/blueprint-node-audit.json`, `docs/evaluation/blueprint-a-data.md`.
 
@@ -128,7 +133,8 @@ Write prose in ASD-STE100. Use pnpm. Keep functional TypeScript and plain data. 
 ## S — Safeguards
 
 - Do not change an existing node type, its settings, its ports, or its behavior.
-- Do not edit `math.ts`, `vector3.ts`, `logic.ts`, `flow.ts`, `events.ts`, `blueprint-runtime.ts`, the effect union in `session/blueprint.ts`, `docs/warudo-parity.md`, `ARCHITECTURE.md`, or a lockfile.
+- Do not edit `math.ts`, `vector3.ts`, `logic.ts`, `events.ts`, `blueprint-runtime.ts`, the effect union in `session/blueprint.ts`, `docs/warudo-parity.md`, `ARCHITECTURE.md`, or a lockfile. The `flow.ts` edit is the shared case schema only.
+- Do not change the For Loop limit or the index that For Loop leaves after its loop.
 - Do not convert a float to an integer implicitly.
 - Do not let a string or a list grow above its limit. Do not let a failed run change state.
 - Do not change a list or a vector that a node read.
