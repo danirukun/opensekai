@@ -42,7 +42,9 @@
  const settle = (field: HTMLInputElement, valid: boolean, stored: unknown) => { if (!valid) field.value = String(stored); };
  const stringInput = (field: Extract<BlueprintField, { kind: 'string' }>, input: HTMLInputElement) => {
   const value = parseScalar('string', input.value);
-  if (typeof value === 'string' && (field.maxLength === undefined || value.length <= field.maxLength)) set(field.key, value);
+  // The settings schema decides too: an event or timer name cannot be empty or only spaces.
+  const fits = typeof value === 'string' && (field.maxLength === undefined || value.length <= field.maxLength) && nodeDefinition(node.type).settings.safeParse({ ...settings, [field.key]: value }).success;
+  if (fits) set(field.key, value);
   else input.value = String(settings[field.key]);
  };
  const choices = (field: BlueprintField) =>

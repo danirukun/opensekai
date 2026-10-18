@@ -102,8 +102,10 @@ const readInput = (compiled: CompiledBlueprint, state: RunState, nodeId: Id, por
  return input(nodeId, port);
 };
 
-export function runFlow(compiled: CompiledBlueprint, start: { nodeId: Id; port: string }, state: RunState, budget: FlowBudget, nowMs: number, env: RunEnv = NO_ENV): Reply<FlowResult> {
+// `seed` writes into the state copy before the run (an On Event payload), so a failed run leaves the stored state as it was.
+export function runFlow(compiled: CompiledBlueprint, start: { nodeId: Id; port: string }, state: RunState, budget: FlowBudget, nowMs: number, env: RunEnv = NO_ENV, seed?: (state: RunState) => void): Reply<FlowResult> {
  const next = cloneState(state);
+ seed?.(next);
  const effects: BlueprintEffect[] = [], delays: PendingDelay[] = [], stack: Frame[] = [], requests: NodeRequest[] = [];
  const follow = (nodeId: Id, ports: string[]) => {
   for (const port of [...ports].reverse()) { const wire = compiled.flowNext.get(key(nodeId, port)); if (wire) stack.push({ kind: 'enter', nodeId: wire.targetNodeId, port: wire.targetPort }); }

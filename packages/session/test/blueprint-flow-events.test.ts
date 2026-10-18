@@ -141,3 +141,14 @@ it('listens to enabled graphs and to the graphs that their Enable or Toggle node
  ] as unknown as BlueprintGraph[];
  expect(listenedGraphs(graphs).map(item => [item.id, item.enabled])).toEqual([['a', true], ['b', true], ['c', true], ['f', true]]);
 });
+
+it('drops the control requests of a step that threw, so a later step does not apply them', () => {
+ const runtime = runtimeWith(graph('g', [node('a', 'event.manual'), node('b', 'event.manual'), node('off', 'blueprint.disable', { graphId: 'g' }), toggle('x')],
+  [wire('1', 'a', 'flow', 'off', 'flow'), wire('2', 'b', 'flow', 'x', 'flow')]));
+ runtime.step([], 0);
+ expect(() => runtime.step([manual('g', 'a'), manual('g', 'b')], 16, run => { if (run.effects.length > 0) throw new Error('gate failed'); return null; })).toThrow('gate failed');
+ runtime.step([], 32);
+ expect(runtime.takeControlRequests()).toEqual([]);
+ runtime.step([manual('g', 'a')], 48);
+ expect(runtime.takeControlRequests()).toEqual([{ sourceGraphId: 'g', graphId: 'g', action: 'disable' }]);
+});

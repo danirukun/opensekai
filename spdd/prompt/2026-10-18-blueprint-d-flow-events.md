@@ -15,7 +15,8 @@ R4. **On Disable** (`event.disable`, category Events). Output `flow`.
 - At the start of the next step, before each other phase (R10), each departing version runs each of its On Disable nodes in node order, with its last committed state and its compiled logic. The new version of the graph does not run before this.
 - Departing versions run in the order of the installed list before the edit.
 - The departure phase has its own budget: 1024 flow visits and 64 effects for each step, and the limit of 512 visits for each run (catalog R8).
-- The pending delays, debounce schedules, and timers of a departing version are discarded before its On Disable runs. Delays, debounces, and timers that an On Disable run requests are discarded.
+- The pending delays, debounce schedules, and timers of a departing version are discarded when it departs, before its On Disable runs. So the limit checks of its On Disable runs start from an empty schedule (16 timers, 32 delays). Delays, debounces, and timers that an On Disable run requests are discarded.
+- There is no separate cap on departing versions. A version departs once, and only after it started, so between two steps at most one version for each graph that ran in the last step waits (at most 8). Each departing version runs; a run that the departure budget stops fails with the flow limit error of its graph.
 - Effects of an On Disable run go through the run gate (catalog R7).
 - Custom events that an On Disable run emits are delivered after the On Enable phase of the same step (R7).
 - Blueprint control requests of an On Disable run apply after the step (R9).
@@ -54,6 +55,7 @@ R9. **Control requests apply as a document edit.**
 - The rules of an editor edit apply: an enabled graph gets a new state and runs On Enable on the next step (catalog R6); a disabled graph departs (R4); transitions stop (transitions R4b).
 - A request for a graph that is not in the show, or that has no valid version, sets the runtime error `Blueprint not found` on the graph of the request.
 - A step applies at most one control batch. A request that an On Disable run makes applies after its step.
+- The runtime clears its control requests at the start of each step. A request of a step that threw before the session took the requests is not applied later.
 
 R10. **Step order.** A step runs these phases in order:
 1. Departures: On Disable of each departing version (R4).
@@ -64,7 +66,9 @@ After each run in phases 3 and 4, the runtime delivers the events of that run (R
 
 R11. **Reported key and device sets.** The accelerator set, the held-key set, and the device set come from the listened graphs: each enabled graph, and each graph that an Enable Blueprint or Toggle Blueprint node of a listened graph names (transitive). So a node that enables a graph does not change the sets, and the host needs no new report. The edit limits of 64 accelerators and 16 held keys apply to these sets. Events of a disabled graph still start no run.
 
-R12. **MCP and protocol.** `blueprintRun` accepts a second form `{ event, payload? }`: `event` is an event name (1 to 64 characters), and `payload` is a scalar value (W0 `ScalarValue`). The session delivers the event as a hop-1 event in a step at the session time of the last advance. It replies `{ revision }`, or the first runtime error of the delivery runs. A name with no On Event node in an enabled graph is not an error. The Rust contracts validate the two forms. The `blueprint_run` tool description names the event form.
+R12. **MCP and protocol.** `blueprintRun` accepts a second form `{ event, payload? }`: `event` is an event name (1 to 64 characters), and `payload` is a scalar value (W0 `ScalarValue`). The session delivers the event as a hop-1 event in a step at the session time of the last advance. It replies `{ revision }`, or the first runtime error of the runs that this event caused (the deliveries of the event and of the events that those runs emitted; the runtime tags them). Errors of other runs in the same step (On Enable, due delays) are not in the reply. A `payload` of `null` is not valid, in TypeScript and in Rust. A name with no On Event node in an enabled graph is not an error. The Rust contracts validate the two forms. The `blueprint_run` tool description names the event form.
+
+R12a. **Duplicate and import.** A Blueprint control node whose `graphId` is the graph itself targets the copy after `duplicateGraph`, and the imported graph after a Blueprint file import. On import, a control node that targets another graph is listed in the import report under `missing` with the kind `blueprint` (the name is the graph ID, because the file format has no graph references), and the import is disabled, as for other missing references. The file format does not change.
 
 R13. **R5 of the value model.** Inline input values stay out of the logic key. An inline value change applies to the next run with the kept state. It does not reset the graph, does not fire On Disable or On Enable, and does not clear a runtime error.
 
@@ -83,7 +87,10 @@ R15. **Tests.**
 - Session (not protocol): `RuntimeRequest = { kind: 'emit'; name; payload } | { kind: 'control'; graphId; action: 'enable' | 'disable' | 'toggle' } | { kind: 'startTimer'; name; seconds; repeat } | { kind: 'stopTimer'; name } | { kind: 'debounce'; seconds }`. `FlowContext.request(request)`. `FlowResult.requests`. `RunEnv.nowMs?`, `RunEnv.graphEnabled?` (declaration merging, as slice I does for devices).
 - Runtime entry adds `timers` (name → due time, interval, repeat, order) and keeps departing entries until the next step.
 - `BlueprintEvent` adds `{ kind: 'custom'; name; payload }`.
-- `BlueprintRuntime` adds `takeControlRequests()`. `GraphRun` adds an optional `nodeId` (the node that started the run), so `blueprintRun` reports the error of its own Manual Trigger run when events run after it.
+- `BlueprintRuntime` adds `takeControlRequests()`. `GraphRun` adds an optional `nodeId` (the node that started the run), so `blueprintRun` reports the error of its own Manual Trigger run when events run after it, and an optional `external` tag (R12).
+- `runFlow` takes an optional `seed` that writes into the run's state copy (the On Event payload). The runtime indexes On Event nodes by name at install.
+- `BlueprintImportReport.missing[].kind` adds `blueprint`. `retargetGraph(node, from, to)` in `blueprint-duplicate.ts`.
+- The inspector reverts a `string` field to the stored value when the settings schema rejects the text (an empty or all-space name).
 - `blueprintRun` params: `{ graphId, triggerNodeId } | { event, payload? }`.
 
 ## A — Approach

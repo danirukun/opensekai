@@ -252,7 +252,8 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             if (name.trim().length === 0 || name.length > 64) return failure('INVALID_INPUT', 'Invalid event name');
             try {
                 const { runs, committed } = stepBlueprints([{ kind: 'custom', name, payload: payload ?? null }], elapsed, new Set());
-                const delivered = runs.find(run => run.error && store.active(run.graphId)?.nodes.find(node => node.id === run.nodeId)?.type === 'event.custom');
+                // Only the runs that this event caused, not On Enable or due delays of the same step.
+                const delivered = runs.find(run => run.external && run.error);
                 if (delivered?.error) return { ok: false, error: delivered.error };
                 return committed;
             } catch (error) {

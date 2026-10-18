@@ -858,8 +858,18 @@ pub struct BlueprintRunParams {
     pub trigger_node_id: Option<Id>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub event: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// `null` stays `Some(Value::Null)`, so `validate` rejects it as the TypeScript schema does.
+    #[serde(
+        default,
+        deserialize_with = "present_value",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub payload: Option<Value>,
+}
+fn present_value<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<Value>, D::Error> {
+    Value::deserialize(deserializer).map(Some)
 }
 impl BlueprintRunParams {
     pub fn validate(&self) -> Result<(), AppError> {

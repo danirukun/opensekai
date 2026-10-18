@@ -153,3 +153,28 @@ it('applies an inline value change to the next run without a reset (value model 
  session.runBlueprint('once', 'other');
  expect(visible('performer')).toBe(false);
 });
+
+it('starts On Disable from an empty schedule, so a graph at its timer limit can still start a timer there', () => {
+ const starts = Array.from({ length: 16 }, (_, i) => node(`s${i}`, 'timer.start', { name: `t${i}`, repeat: false }, { seconds: 600 }));
+ const chain = starts.slice(1).map((item, i) => wire(`c${i}`, `s${i}`, 'exit', item.id, 'flow'));
+ const full = graph('full', [node('enable', 'event.enable'), ...starts, node('disable', 'event.disable'), node('extra', 'timer.start', { name: 'extra', repeat: false }), toggle('count', 'marker')],
+  [wire('in', 'enable', 'flow', 's0', 'flow'), ...chain, wire('d1', 'disable', 'flow', 'extra', 'flow'), wire('d2', 'extra', 'exit', 'count', 'flow')]);
+ const { edit, tick, visible, stored } = start(full);
+ const marker = visible('marker');
+ expect(stored().errors).toEqual([]);
+ expect(edit([{ kind: 'updateGraph', graphId: 'full', enabled: false }]).ok).toBe(true);
+ tick();
+ expect(visible('marker')).toBe(!marker);
+ expect(stored().errors).toEqual([]);
+});
+
+it('reports only the errors of the runs that the external event caused', () => {
+ const bystander = graph('bystander', [node('enable', 'event.enable'), node('emit', 'event.emit', { name: 'boom', payload: 'none' })], [wire('1', 'enable', 'flow', 'emit', 'flow')]);
+ const broken = graph('broken', [node('on', 'event.custom', { name: 'boom', payload: 'none' }), toggle('t', 'gone')], [wire('1', 'on', 'flow', 't', 'flow')]);
+ const { session, edit, stored } = start(broken);
+ // The bystander's On Enable runs in the same step as the external event, and its event fails in `broken`.
+ expect(edit([{ kind: 'createGraph', graph: bystander } as BlueprintOp]).ok).toBe(true);
+ expect(session.emitBlueprintEvent('other')).toMatchObject({ ok: true });
+ expect(stored().errors).toEqual([{ graphId: 'broken', kind: 'runtime', error: expect.objectContaining({ code: 'NOT_FOUND' }) }]);
+ expect(session.emitBlueprintEvent('boom')).toMatchObject({ ok: false, error: { code: 'NOT_FOUND' } });
+});

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { BlueprintGraphSchema, MAX_BLUEPRINT_SET_BYTES, type BlueprintGraph } from './blueprint';
 import { BLUEPRINT_LABELS, nodeDefinition, type BlueprintNode } from './blueprint-nodes';
+import { retargetGraph } from './blueprint-duplicate';
 import type { ErrorCode, Id, Reply, SceneEntity, SceneView } from './types';
 
 export const BLUEPRINT_FILE_FORMAT = 'opensekai.blueprint';
@@ -19,7 +20,8 @@ type ReferenceKind = BlueprintReference['kind'];
 export interface BlueprintImportReport {
  graphId: Id; enabled: boolean;
  remapped: { name: string; kind: ReferenceKind; from: Id; to: Id }[];
- missing: { name: string; kind: ReferenceKind; id: Id; nodeIds: Id[] }[];
+ // `blueprint`: a Blueprint control node names a graph that is not in the file. The file format has no graph references, so the name is the ID.
+ missing: { name: string; kind: ReferenceKind | 'blueprint'; id: Id; nodeIds: Id[] }[];
 }
 export interface BlueprintImport { graph: BlueprintGraph; report: BlueprintImportReport }
 
@@ -95,9 +97,18 @@ function resolveReferences(file: BlueprintFile, scene: SceneView, graphId: Id): 
    report.remapped.push({ name: entry.name, kind: entry.kind, from: value, to: byName[0]!.id });
   } else report.missing.push({ name: entry.name, kind: entry.kind, id: value, nodeIds: [...new Set(mine.map(use => use.nodeId))] });
  }
+ // A Blueprint control node that targets the file's own graph targets the imported graph. Any other target graph is missing.
+ const others = new Map<Id, Id[]>();
+ for (const node of file.graph.nodes)
+  for (const field of nodeDefinition(node.type).fields) {
+   const value = (node.settings as Record<string, unknown>)[field.key];
+   if (field.kind === 'graph' && typeof value === 'string' && value !== file.graph.id) others.set(value, [...new Set([...(others.get(value) ?? []), node.id])]);
+  }
+ for (const [id, nodeIds] of others) report.missing.push({ name: id, kind: 'blueprint', id, nodeIds });
  const nodes = file.graph.nodes.map(node => {
   const changed = all.filter(use => use.nodeId === node.id && targets.has(use.value));
-  return changed.length === 0 ? node : { ...node, settings: { ...node.settings, ...Object.fromEntries(changed.map(use => [use.key, targets.get(use.value)!])) } } as BlueprintNode;
+  const own = retargetGraph(node, file.graph.id, graphId);
+  return changed.length === 0 ? own : { ...own, settings: { ...own.settings, ...Object.fromEntries(changed.map(use => [use.key, targets.get(use.value)!])) } } as BlueprintNode;
  });
  report.enabled = file.graph.enabled && report.missing.length === 0;
  return { graph: { ...structuredClone(file.graph), id: graphId, enabled: report.enabled, nodes: structuredClone(nodes) }, report };
