@@ -59,6 +59,8 @@
     { "type": "camera.switch", "warudoCategory": "Cinematography", "warudoCandidate": null, "evidence": "macOS" },
     { "type": "property.get", "warudoCategory": "Asset", "warudoCandidate": "Get Asset Property", "evidence": "tests" },
     { "type": "property.set", "warudoCategory": "Asset", "warudoCandidate": "Set Asset Property", "evidence": "tests" },
-    { "type": "entity.move", "warudoCategory": "Asset", "warudoCandidate": null, "evidence": "macOS" }
+    { "type": "entity.move", "warudoCategory": "Asset", "warudoCandidate": null, "evidence": "macOS" },
+    { "type": "character.setExpression", "warudoCategory": "Characters", "warudoCandidate": null, "evidence": "tests", "note": "Warudo name not recorded. Added by the character expressions slice (CHR-03, contract R13)." },
+    { "type": "character.toggleExpression", "warudoCategory": "Characters", "warudoCandidate": null, "evidence": "tests", "note": "Warudo name not recorded. Added by the character expressions slice (CHR-03, contract R13)." }
   ]
 }
