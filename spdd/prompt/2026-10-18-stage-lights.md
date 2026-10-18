@@ -1,6 +1,6 @@
 # REASONS: Stage lights
 
-Date: 2026-10-18. Scope: bundle B13 (#45 ENV-07 rest, #46 ENV-08 first subset, #40 ENV-02 ambient part). Analysis: [stage lights](../analysis/2026-10-18-stage-lights.md). Depends on: [live light editing](2026-10-18-live-light-editing.md) (B12). Changes: [light entities](2026-10-17-light-entities.md) R1, R2, R5, R6, R10, R12, R13, R14, R17.
+Date: 2026-10-18. Scope: bundle B13 (#45 ENV-07 rest, #46 ENV-08 first subset, #40 ENV-02 ambient part). Analysis: [stage lights](../analysis/2026-10-18-stage-lights.md). Depends on: [live light editing](2026-10-18-live-light-editing.md) (B12). Changes: [light entities](2026-10-17-light-entities.md) R1, R2, R5, R6, R10, R12, R13, R14, R15, R17; [environment import](2026-10-13-environment-import.md) R17.
 
 This file is the contract only. The implementation starts after the owner approves it. Spot cookies (gobos) are bundle B14.
 
@@ -16,6 +16,11 @@ An `ambient` light must have `shadow.enabled: false`. TypeScript (zod) and Rust 
 R2. The limits stay: at most 8 light entities and at most 2 lights with `shadow.enabled: true`, of any type. A haze does not count as a light.
 R3. A spot light shines along its local −Z axis from its position. The renderer uses a three.js `SpotLight` with `angle = angleDegrees / 2` in radians, `penumbra`, `distance = range`, and `decay = 2`. Its `target` is at the position + the direction, and it updates on each frame. A spot shadow uses a 1024 px map, near 0.1 m, far = range (or 50 m when the range is 0), and `shadow.focus = 1`. The bias, normal bias, intensity, and soft values map as for other lights.
 R4. An ambient light is a three.js `AmbientLight` with the entity color and intensity, in the node sets of the groups whose affect flag is on. When a scene has at least one ambient entity, the node sets contain the ambient entities and not the fixed ambient light. When a scene has light entities and no ambient entity, the fixed ambient light (white, intensity 1) stays, as in B9. When a scene has no light entity, the built-in rule of light entities R5 stays. A hidden ambient light has intensity 0 and stays in its sets (R7 of light entities).
+R4a. The room map of an environment (environment import R17) gives two parts: a diffuse fill that has no shadows, and reflections. When a scene has at least one ambient entity:
+- The environment materials do not get the diffuse fill. The ambient entities give the fill of the environment, as they do for characters and props.
+- The reflections are multiplied by the ambient light on the environment: the sum of the linear color × intensity of the visible ambient entities with Affect Environment on. Reflections Intensity (light entities R15) still multiplies them.
+
+The fixed ambient light is white at intensity 1, so a scene without an ambient entity keeps the room map as before. Both values are uniforms, so a change does not build the environment pipelines again. Added after the owner found no shadows on an imported stage floor (2026-10-18).
 R5. The node-set signature (light entities R7) adds `volumetric`. A change of `cone`, of color, of intensity, of range, or of the transform does not rebuild the node sets.
 
 ### Haze (ENV-08)

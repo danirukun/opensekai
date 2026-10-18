@@ -32,7 +32,7 @@ R14. The editor viewport draws a pickable helper for each light: a disc for a po
 
 ### Environment lighting (ENV-01)
 
-R15. An environment entity has an optional `reflectionsIntensity`: a finite number from 0 to 2. A missing field means 1. The patch operation `{ kind: 'setEnvironmentReflections', entityId, reflectionsIntensity }` sets it, with the same errors as `setEnvironmentModel`. The renderer sets `envMapIntensity` on each environment material copy (R17 of the environment import contract). The environment Inspector shows **Reflections Intensity** under Source.
+R15. An environment entity has an optional `reflectionsIntensity`: a finite number from 0 to 2. A missing field means 1. The patch operation `{ kind: 'setEnvironmentReflections', entityId, reflectionsIntensity }` sets it, with the same errors as `setEnvironmentModel`. The renderer sets `envMapIntensity` on each environment material copy (R17 of the environment import contract). The environment Inspector shows **Reflections Intensity** under Source. (B13 R4a: with an ambient light entity, the map gives only reflections, times the ambient light and this intensity.)
 R16. File lights stay removed at import. The environment import contract does not change.
 
 ### Blueprints

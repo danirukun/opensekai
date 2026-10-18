@@ -1,4 +1,4 @@
-import { AmbientLight, DirectionalLight, MathUtils, PointLight, PCFShadowMap, SpotLight, type Material, type Object3D, type OrthographicCamera, type PerspectiveCamera, type Scene, type WebGPURenderer } from "three/webgpu";
+import { AmbientLight, Color, DirectionalLight, MathUtils, PointLight, PCFShadowMap, SpotLight, type Material, type Object3D, type OrthographicCamera, type PerspectiveCamera, type Scene, type WebGPURenderer } from "three/webgpu";
 import { lights } from "three/tsl";
 import type { Id, LightSettings, SceneEntity, Transform, Vec3 } from "@opensekai/contracts";
 import { rotateByQuaternion } from "@opensekai/contracts";
@@ -28,6 +28,17 @@ export function lightGroups(entities: readonly SceneEntity[]): LightGroups {
 
 /** An ambient light entity replaces the fixed ambient light in the node sets (B13 R4). */
 export const usesFixedAmbient = (entities: readonly SceneEntity[]): boolean => !entities.some(e => isLight(e) && e.light.type === "ambient");
+
+/** What the room map of the environment gives (B13 R4a): its diffuse fill (0 or 1) and the linear multiplier of its reflections. */
+export interface RoomLight { fill: number; reflections: Vec3 }
+/** Without an ambient entity the room map stays as it is under the fixed white ambient. With one, the ambient entities give the
+ * fill, and the reflections follow the ambient light on the environment (B13 R4a). */
+export function roomLight(entities: readonly SceneEntity[]): RoomLight {
+    if (usesFixedAmbient(entities)) return { fill: 1, reflections: [1, 1, 1] };
+    const reflections = entities.filter(isLight).filter(e => e.light.type === "ambient" && e.visible && e.light.affectEnvironment)
+        .reduce<Vec3>((sum, e) => { const { r, g, b } = new Color(e.light.color); const k = e.light.intensity; return [sum[0] + r * k, sum[1] + g * k, sum[2] + b * k]; }, [0, 0, 0]);
+    return { fill: 0, reflections };
+}
 
 /** The three.js spot angle (half the cone) in radians, from the full cone angle in degrees (B13 R3). */
 export const spotAngle = (angleDegrees: number): number => MathUtils.degToRad(angleDegrees / 2);

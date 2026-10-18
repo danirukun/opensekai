@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { AmbientLight, BackSide, DirectionalLight, DoubleSide, FrontSide, Group, Mesh, BoxGeometry, MeshBasicMaterial, MeshStandardMaterial, PointLight, Scene, SpotLight, type PerspectiveCamera, type WebGPURenderer } from 'three/webgpu';
 import type { LightSettings, SceneEntity } from '@opensekai/contracts';
 import { HAZE_LAYER } from '../src/haze';
-import { createSceneLights, lightDirection, lightGroups, lightSignature, scattersInHaze, shadowsOn, spotAngle, usesFixedAmbient, withDrafts, DIRECTIONAL_DISTANCE, SPOT_SHADOW_FAR } from '../src/scene-lights';
+import { createSceneLights, lightDirection, lightGroups, lightSignature, roomLight, scattersInHaze, shadowsOn, spotAngle, usesFixedAmbient, withDrafts, DIRECTIONAL_DISTANCE, SPOT_SHADOW_FAR } from '../src/scene-lights';
 
 const settings = (patch: Partial<LightSettings> = {}): LightSettings => ({ type: 'directional', color: '#ffffff', intensity: 3, range: 0, affectCharacters: true, affectProps: true, affectEnvironment: true, shadow: { enabled: false, intensity: 1, soft: true, bias: -0.0005, normalBias: 0.02 }, ...patch });
 const light = (id: string, patch: Partial<LightSettings> = {}, visible = true, rotation: [number, number, number, number] = [0, 0, 0, 1]): SceneEntity => ({ id, name: id, visible, transform: { position: [0, 2, 1], rotation, scale: [1, 1, 1] }, kind: 'light', light: settings(patch) });
@@ -191,6 +191,15 @@ describe('stage lights (B13)', () => {
     const cone = { angleDegrees: 40, penumbra: 0.3 };
     const spot = (id: string, patch: Partial<LightSettings> = {}) => light(id, { type: 'spot', intensity: 60, range: 15, cone, ...patch });
     const lightsOf = (node: unknown) => (node as { getLights(): unknown[] }).getLights();
+    it('keeps the room map without an ambient entity, and with one drops its fill and scales its reflections by the ambient light on the environment (R4a)', () => {
+        const ambient = (id: string, patch: Partial<LightSettings> = {}, visible = true) => light(id, { type: 'ambient', ...patch }, visible);
+        expect(roomLight([])).toEqual({ fill: 1, reflections: [1, 1, 1] });
+        expect(roomLight([light('d'), spot('s')])).toEqual({ fill: 1, reflections: [1, 1, 1] });
+        const lit = roomLight([spot('s'), ambient('white', { intensity: 0.5 }), ambient('red', { color: '#ff0000', intensity: 0.25 }), ambient('hidden', { intensity: 2 }, false), ambient('props', { intensity: 2, affectEnvironment: false })]);
+        expect(lit.fill).toBe(0);
+        lit.reflections.forEach((value, i) => expect(value).toBeCloseTo([0.75, 0.5, 0.5][i]!, 6));
+        expect(roomLight([ambient('off', { intensity: 1 }, false)])).toEqual({ fill: 0, reflections: [0, 0, 0] });
+    });
     it('maps the full cone angle to the three.js half angle', () => {
         expect(spotAngle(40)).toBeCloseTo(Math.PI / 9, 9);
         expect(spotAngle(170)).toBeLessThan(Math.PI / 2);

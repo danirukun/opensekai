@@ -12,7 +12,7 @@ import { initializeBackend } from "./backend";
 import { createCapturePolicy, readPng } from "./capture";
 import { createLoadJobs, type AssetLoadStatus, type LoadReport, type LoadRequest } from "./load-jobs";
 import { createEnvironmentLight, roomEnvironmentMap, type InstanceMaterials } from "./environment-light";
-import { createSceneLights, groupOf, withDrafts, type LightGroup } from "./scene-lights";
+import { createSceneLights, groupOf, roomLight, withDrafts, type LightGroup } from "./scene-lights";
 import { logPipelineFailure, watchPipelineErrors, type PipelineDevice } from "./pipeline-diagnostics";
 import { freshModulePerPipeline, isWebKit } from "./webkit-shader-modules";
 import { createDiagnosticMarker } from "./diagnostic-marker";
@@ -160,6 +160,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         const drawn = editor ? withDrafts(frame.scene.entities, id => editor.draftTransform(id)) : frame.scene.entities;
         const lightsRebuilt = sceneLights.apply(drawn);
         if (lightsRebuilt) { pipelineFailed = false; hazeFailed = false; }
+        environmentLight.room(roomLight(drawn));
         // Cameras, lights, and the haze have a scene object only in the editor viewport, as a pick target and helper (R14, B13 R13).
         const wanted = new Set(frame.scene.entities.filter(x => x.kind !== "tracking" && (editor || (x.kind !== "camera" && x.kind !== "light" && x.kind !== "haze"))).map(x => x.id));
         for (const [id, value] of objects) {

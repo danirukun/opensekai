@@ -54,6 +54,15 @@ A fourth defect was in the depth node: `texture().sample()` made a clone that th
 - `fixtures/shows/stage-lights.osekai` is an example stage without a character: a dim directional light, a blue ambient fill, a warm and a blue spot light (30°, shadow and Volumetric on), a haze at intensity 2.5, and a floor. The spot lights are in front at (±2.4, 3.4, 1.6) and aim at face height (0, 1.35, 0). A TS test and a Rust test (`show.rs`, the File › Open path) check that it opens.
 - On macOS with OBS, with Nina added at the origin, the face is lit warm and blue, and both shadows fall behind her ([OBS](stage-lights/obs-example-show-face-lit.png)). The cones now come toward the camera, so they read as a veil in front of her more than as side beams.
 
+## Imported stage shadows (owner follow-up, R4a)
+
+- **Report.** On an imported Sketchfab stage (one standard material, roughness 0.3, not metallic, black emissive map), with the two spot lights of the example show and Reflections Intensity 1.43, no shadow showed on the stage floor.
+- **Cause.** With Reflections Intensity 0, the spot pools and the hair and leg shadows showed, so the shadows were cast. The room map (environment import R17) added a diffuse fill and reflections of a bright white room, which hid them. With only the fill removed, the floor still mirrored the bright room at the low camera angle, and the shadows stayed faint.
+- **Change.** With an ambient entity in the scene, the environment copies lose the diffuse fill of the room map, and its reflections are multiplied by the ambient light on the environment (contract R4a).
+- **Result.** macOS, debug build, branch `opensekai/b13-stage-lights` after `a7b9d84`, OBS 32.2.2 (`production_v1`, isolated QA source) and the Scene preview (WebKit, `preview_v1`), both WebGPU. The owner's scene was saved with `scene_inspect` and restored with `scene_replace` after each app restart.
+  - Both spot pools and their shadows show on the stage floor, under a dim blue sheen from the ambient fill `#8090ff` at 0.15 ([OBS, before and after](stage-lights/obs-imported-stage-shadows.png)). The preview matches OBS, and neither output reported a pipeline warning.
+  - With the ambient entity removed, the stage floor has the bright look of before, so a scene without an ambient entity does not change.
+
 ## Open points
 
 - **Shadow shafts.** They are hard to see with one character at these settings.
