@@ -41,7 +41,7 @@ it('applies a delayed effect from session time', () => {
 it('keeps the last valid version firing while the document does not compile', () => {
  const session = createSession(makeSmokeScene(), 's');
  load(session, fixture.blueprints);
- session.editBlueprints({ clientId: 't', batchId: 'cut', ops: [{ kind: 'removeNode', graphId: 'toggle-performer', nodeId: 'toggle' }, { kind: 'addNode', graphId: 'toggle-performer', node: { id: 'set', version: 1, type: 'scene.setVisibility', settings: { entityId: 'performer' }, position: { x: 0, y: 0 } } }] });
+ session.editBlueprints({ clientId: 't', batchId: 'cut', ops: [{ kind: 'removeNode', graphId: 'toggle-performer', nodeId: 'toggle' }, { kind: 'addNode', graphId: 'toggle-performer', node: { id: 'set', version: 1, type: 'variable.getNumber', settings: { variableId: 'missing' }, position: { x: 0, y: 0 } } }] });
  session.advance(0);
  session.advance(16, 16, press('Control+Alt+KeyH'));
  expect(visible(session, 'performer')).toBe(false);
@@ -152,7 +152,7 @@ it('does not run, keep an error for, or carry state into a graph that a new show
  session.advance(16, 16, press('Control+Alt+KeyH'));
  expect(visible(session, 'performer')).toBe(false);
  session.advance(32, 16, press('Control+Alt+KeyH'));
- const broken = { ...structuredClone(fixture.blueprints[0]!), nodes: [...fixture.blueprints[0]!.nodes, { id: 'dangling', version: 1, type: 'scene.setVisibility', settings: { entityId: 'performer' }, position: { x: 0, y: 0 } }] };
+ const broken = { ...structuredClone(fixture.blueprints[0]!), nodes: [...fixture.blueprints[0]!.nodes, { id: 'dangling', version: 1, type: 'variable.getNumber', settings: { variableId: 'missing' }, position: { x: 0, y: 0 } }] };
  expect(load(session, [broken])).toEqual({ ok: true, data: { revision: 2, keystrokes: [] } });
  const before = JSON.stringify(session.inspect());
  session.advance(48, 16, press('Control+Alt+KeyH'));
@@ -167,7 +167,7 @@ it('clears a runtime error of a graph that a new show replaces with a document t
  session.advance(0);
  session.advance(16, 16, press('Control+Alt+KeyH'));
  expect(session.inspectBlueprints().errors.map(e => e.kind)).toEqual(['runtime']);
- load(session, [{ ...ghost, nodes: [...ghost.nodes, { id: 'dangling', version: 1, type: 'scene.setVisibility', settings: { entityId: 'performer' }, position: { x: 0, y: 0 } }] }]);
+ load(session, [{ ...ghost, nodes: [...ghost.nodes, { id: 'dangling', version: 1, type: 'variable.getNumber', settings: { variableId: 'missing' }, position: { x: 0, y: 0 } }] }]);
  expect(session.inspectBlueprints().errors.map(e => e.kind)).toEqual(['compile']);
 });
 

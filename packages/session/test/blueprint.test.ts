@@ -66,8 +66,8 @@ it('enforces Warudo port multiplicity', () => {
  expect(compileBlueprint(graph(nodes, [wire('1', 'start', 'flow', 'x', 'flow'), wire('2', 'k', 'flow', 'x', 'flow')])).ok).toBe(true);
 });
 
-it('rejects a missing data input but allows an unwired flow input', () => {
- expect(compileBlueprint(graph([node('set', 'scene.setVisibility', { entityId: 'm' })], []))).toMatchObject({ ok: false, error: { message: 'Blueprint input is not connected' } });
+it('compiles unwired data and flow inputs', () => {
+ expect(compileBlueprint(graph([node('set', 'scene.setVisibility', { entityId: 'm' })], [])).ok).toBe(true);
  expect(compileBlueprint(graph([node('t', 'scene.toggleVisibility', { entityId: 'm' })], [])).ok).toBe(true);
 });
 

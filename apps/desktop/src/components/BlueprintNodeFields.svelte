@@ -1,8 +1,8 @@
 <script lang="ts">
  import { Input, Select } from '@oshi-connect/ui';
- import { blendShapeNames, DEFAULT_EASING, EASINGS, nodeDefinition, triggerableExpressions, type AssetRecord, type BlueprintField, type BlueprintNode, type BlueprintVariable, type KeystrokeSettings, type SceneView } from '@opensekai/contracts';
+ import { blendShapeNames, DEFAULT_EASING, EASINGS, nodeDefinition, triggerableExpressions, type AssetRecord, type BlueprintField, type BlueprintNode, type BlueprintVariable, type KeystrokeSettings, type SceneView, type Vec3 } from '@opensekai/contracts';
  import KeystrokeField from './KeystrokeField.svelte';
- import { boneOptions, fitPropertySettings, formatCases, keyOptions, parseCases, propertyOptions } from '../blueprints/fields';
+ import { boneOptions, fitPropertySettings, formatCases, keyOptions, parseCases, parseScalar, propertyOptions, vectorParts } from '../blueprints/fields';
 
  let { node, scene, assets = [], variables, platform, unavailable, onsettings }: {
   node: BlueprintNode; scene: SceneView | null; assets?: readonly AssetRecord[]; variables: readonly BlueprintVariable[]; platform: string; unavailable: boolean;
@@ -16,15 +16,34 @@
  };
  const spaces = [{ value: 'world', label: 'World' }, { value: 'local', label: 'Local' }];
  const truth = [{ value: 'true', label: 'True' }, { value: 'false', label: 'False' }];
- const numberInput = (field: Extract<BlueprintField, { kind: 'number' }>, text: string) => {
-  // An empty field clears an optional setting (a transition), so the node falls back to its default behavior.
-  if (text === '') {
+ const numberValue = (field: Extract<BlueprintField, { kind: 'number' }>, text: string) => {
+  const value = Number(text);
+  return text !== '' && Number.isFinite(value) && (field.min === undefined || value >= field.min) && (field.max === undefined || value <= field.max) ? value : null;
+ };
+ const numberInput = (field: Extract<BlueprintField, { kind: 'number' }>, text: string) => { const value = numberValue(field, text); if (value !== null) set(field.key, value); };
+ // On change (Enter or blur), an empty field clears an optional setting (a transition), so the node falls back to its
+ // default behavior. Not on each input: a number input also reads empty while "-" is typed.
+ const numberChange = (field: Extract<BlueprintField, { kind: 'number' }>, input: HTMLInputElement) => {
+  const stored = settings[field.key];
+  if (input.value === '') {
    const { [field.key]: _cleared, ...rest } = settings;
-   if (nodeDefinition(node.type).settings.safeParse(rest).success) onsettings(rest as BlueprintNode['settings']);
+   if (stored !== undefined && nodeDefinition(node.type).settings.safeParse(rest).success) onsettings(rest as BlueprintNode['settings']);
+   else if (stored !== undefined) input.value = String(stored);
    return;
   }
-  const value = Number(text);
-  if (text !== '' && Number.isFinite(value) && (field.min === undefined || value >= field.min) && (field.max === undefined || value <= field.max)) set(field.key, value);
+  if (numberValue(field, input.value) === null) input.value = stored === undefined ? '' : String(stored);
+ };
+ const integerValue = (field: Extract<BlueprintField, { kind: 'integer' }>, text: string) => {
+  const value = parseScalar('integer', text);
+  return typeof value === 'number' && (field.min === undefined || value >= field.min) && (field.max === undefined || value <= field.max) ? value : null;
+ };
+ const integerInput = (field: Extract<BlueprintField, { kind: 'integer' }>, text: string) => { const value = integerValue(field, text); if (value !== null) set(field.key, value); };
+ // On change (Enter or blur), text that is not a valid value goes back to the stored value.
+ const settle = (field: HTMLInputElement, valid: boolean, stored: unknown) => { if (!valid) field.value = String(stored); };
+ const stringInput = (field: Extract<BlueprintField, { kind: 'string' }>, input: HTMLInputElement) => {
+  const value = parseScalar('string', input.value);
+  if (typeof value === 'string' && (field.maxLength === undefined || value.length <= field.maxLength)) set(field.key, value);
+  else input.value = String(settings[field.key]);
  };
  const choices = (field: BlueprintField) =>
   // A second entity field (the Look At target) does not offer the node's own character.
@@ -58,7 +77,18 @@
 
 {#each fields as field (field.key)}
  {#if field.kind === 'number'}
-  <Input type="number" label={field.label} min={field.min} max={field.max} step="any" value={settings[field.key] === undefined ? '' : String(settings[field.key])} oninput={event => numberInput(field, event.currentTarget.value)} />
+  <Input type="number" label={field.label} min={field.min} max={field.max} step="any" value={settings[field.key] === undefined ? '' : String(settings[field.key])} oninput={event => numberInput(field, event.currentTarget.value)} onchange={event => numberChange(field, event.currentTarget)} />
+ {:else if field.kind === 'integer'}
+  <Input type="number" label={field.label} min={field.min} max={field.max} step={1} value={String(settings[field.key])} oninput={event => integerInput(field, event.currentTarget.value)} onchange={event => settle(event.currentTarget, integerValue(field, event.currentTarget.value) !== null, settings[field.key])} />
+ {:else if field.kind === 'string'}
+  <Input label={field.label} value={String(settings[field.key])} onchange={event => stringInput(field, event.currentTarget)} />
+ {:else if field.kind === 'vector3'}
+  {@const vector = settings[field.key] as Vec3}
+  <div class="blueprint-field-vector" role="group" aria-label={field.label}>
+   {#each vector as part, index (index)}
+    <Input type="number" step="any" label={index === 0 ? field.label : undefined} value={String(part)} oninput={event => { const next = vectorParts(vector, index, event.currentTarget.value); if (next) set(field.key, next); }} onchange={event => settle(event.currentTarget, parseScalar('number', event.currentTarget.value) !== null, part)} />
+   {/each}
+  </div>
  {:else if field.kind === 'boolean' && node.type === 'value.boolean'}
   <Select label={field.label} value={String(Boolean(settings[field.key]))} options={truth} onchange={event => set(field.key, event.currentTarget.value === 'true')} />
  {:else if field.kind === 'boolean'}

@@ -7,8 +7,8 @@ Slice H of bundle B13 ([contract](../../spdd/prompt/2026-10-18-blueprint-h-trans
 | Command | Result |
 | --- | --- |
 | `pnpm check` | Passed: all packages and `tsconfig.scripts.json`; svelte-check 0 errors, 0 warnings |
-| `pnpm test:unit` | 1044 passed in 139 files, 0 failed |
-| `pnpm test:integration` | 37 passed, 2 skipped in 15 files, when the local tracking models are present. In a new worktree without the ignored `artifacts/models/` files, the 4 tests of `scripts/prepare-tracking.test.ts` fail with `ENOENT … face_landmarker.task`. With the files copied from the main checkout, they pass. This slice does not change that script |
+| `pnpm test:unit` | 1070 passed in 141 files, 0 failed (after the merge of W0) |
+| `pnpm test:integration` | 38 passed, 2 skipped in 16 files, when the local tracking models are present. In a new worktree without the ignored `artifacts/models/` files, the 4 tests of `scripts/prepare-tracking.test.ts` fail with `ENOENT … face_landmarker.task`. With the files copied from the main checkout, they pass. This slice does not change that script |
 
 New tests (27):
 

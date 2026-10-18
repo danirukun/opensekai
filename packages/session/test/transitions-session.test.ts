@@ -172,3 +172,14 @@ it('stops the transitions, blend shapes, and look-at of a graph that is disabled
  expect(s.inspect().revision).toBe(1);
  expect(s.inspect().entities.find(e => e.id === 'camera_wide')).toMatchObject({ lens: { fovDegrees: fov(before) } });
 });
+
+it('reads weight 1 from an unconnected Look At or Set BlendShape weight, and an inline value wins', () => {
+ const s = start([
+  node('shape', 'character.setBlendShape', { entityId: 'performer', blendShape: 'blink' }),
+  { ...node('look', 'character.lookAt', { entityId: 'performer', targetId: 'camera_wide' }), inputs: { weight: 0.5 } },
+ ], [wire('a', 'go', 'flow', 'shape', 'flow'), wire('b', 'shape', 'exit', 'look', 'flow')]);
+ run(s);
+ const frame = s.advance(20);
+ expect(pose(frame)?.expressions.blink).toBe(1);
+ expect(quatToEuler(pose(frame)!.boneOffsets!.head!)[0]).toBeCloseTo(Math.atan2(0.2, 3) * 180 / Math.PI / 2);
+});

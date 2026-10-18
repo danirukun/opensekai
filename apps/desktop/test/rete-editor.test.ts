@@ -89,3 +89,27 @@ it('puts each wire view behind every node view', async () => {
  expect(wires.length).toBeGreaterThan(0);
  expect(Math.max(...wires)).toBeLessThan(Math.min(...nodes));
 });
+
+it('tracks wired inputs and sends one setNodeInput for an inline edit', async () => {
+ const ops: BlueprintOp[][] = [];
+ let area!: { parentScope<T>(type: unknown): T };
+ const editor = await mountReteBlueprint(element() as unknown as HTMLElement, graph!, { onSelect() {}, onOps: next => { ops.push(next); } }, { render: false, inspect: value => { area = value as never; } });
+ const { NodeEditor } = await import('rete');
+ const show = () => area.parentScope<{ getNode(id: string): { wired: Map<string, number>; data: { inputs?: object }; setInput(port: string, value: unknown): void } }>(NodeEditor).getNode('show');
+ expect([...show().wired.entries()].sort()).toEqual([['flow', 1], ['visible', 1]]);
+ const cut = applyBlueprintOps([graph!], [{ kind: 'disconnect', graphId: graph!.id, connectionId: 'w2' }]);
+ if (!cut.ok) throw new Error();
+ await editor.show(cut.data[0]!);
+ expect([...show().wired.keys()]).toEqual(['flow']);
+ editor.setEditable(false);
+ show().setInput('visible', true);
+ expect(ops).toEqual([]);
+ editor.setEditable(true);
+ show().setInput('visible', true);
+ expect(ops).toEqual([[{ kind: 'setNodeInput', graphId: graph!.id, nodeId: 'show', port: 'visible', value: true }]]);
+ expect(show().data.inputs).toEqual({ visible: true });
+ const echo = applyBlueprintOps(cut.data, [{ kind: 'setNodeInput', graphId: graph!.id, nodeId: 'show', port: 'visible', value: true }]);
+ if (!echo.ok) throw new Error();
+ await editor.show(echo.data[0]!);
+ expect(ops).toHaveLength(1);
+});

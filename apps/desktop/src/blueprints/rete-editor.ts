@@ -4,25 +4,32 @@ import { AreaExtensions, AreaPlugin } from 'rete-area-plugin';
 import { getDOMSocketPosition } from 'rete-render-utils';
 import { ConnectionPlugin, Presets as ConnectionPresets } from 'rete-connection-plugin';
 import { Presets, SveltePlugin, type SvelteArea2D } from 'rete-svelte-plugin/5';
-import { BLUEPRINT_LABELS, blueprintPorts, connectionType, ownPort, type BlueprintConnection, type BlueprintGraph, type BlueprintNode, type BlueprintOp, type PortType } from '@opensekai/contracts';
+import { BLUEPRINT_LABELS, blueprintPorts, connectionType, DATA_TYPE_LABELS, DATA_TYPES, ownPort, withInlineInput, type BlueprintConnection, type BlueprintGraph, type BlueprintNode, type BlueprintOp, type PortType, type ScalarValue } from '@opensekai/contracts';
 import { graphPatch } from './graph-patch';
 
 export { graphPatch } from './graph-patch';
 export type BlueprintKind = BlueprintNode['type'];
 
-const sockets: Record<PortType, ClassicPreset.Socket> = {
- flow: new ClassicPreset.Socket('Flow'),
- number: new ClassicPreset.Socket('Number'),
- boolean: new ClassicPreset.Socket('Boolean'),
- vector3: new ClassicPreset.Socket('Vector3'),
-};
+// The socket view reads `kind` for its appearance and `name` for its title.
+class TypedSocket extends ClassicPreset.Socket {
+ kind: PortType;
+ constructor(kind: PortType) { super(kind === 'flow' ? 'Flow' : DATA_TYPE_LABELS[kind]); this.kind = kind; }
+}
+const sockets = Object.fromEntries((['flow', ...DATA_TYPES] as const).map(kind => [kind, new TypedSocket(kind)])) as Record<PortType, TypedSocket>;
 
+export type InlineEdit = (port: string, value: ScalarValue | null) => void;
 class GraphNode extends ClassicPreset.Node {
  data: BlueprintNode;
- constructor(data: BlueprintNode) {
+ // The wire count of each input with a wire; the node view shows an inline editor on the other scalar data inputs.
+ wired = new Map<string, number>();
+ // False while the panel is disabled: inline editors are disabled and send nothing.
+ editable = true;
+ setInput: InlineEdit;
+ constructor(data: BlueprintNode, setInput: InlineEdit) {
   super(BLUEPRINT_LABELS[data.type]);
   this.id = data.id;
   this.data = data;
+  this.setInput = setInput;
   this.syncPorts();
  }
  // Flow inputs take many wires and flow outputs one; data inputs take one wire and data outputs many.
@@ -49,6 +56,7 @@ export interface ReteBlueprintEditor {
  center(): { x: number; y: number };
  show(graph: BlueprintGraph): Promise<void>;
  select(nodeId: string | null): void;
+ setEditable(editable: boolean): void;
  zoomToFit(): Promise<void>;
  destroy(): void;
 }
@@ -86,7 +94,7 @@ export async function mountReteBlueprint(container: HTMLElement, initial: Bluepr
  const selectable = AreaExtensions.selectableNodes(area, selector, { accumulating: AreaExtensions.accumulateOnCtrl() });
  options.inspect?.(area);
  let shown: BlueprintGraph = { ...initial, nodes: [], connections: [] };
- let queue: Promise<void> = Promise.resolve(), destroyed = false, applying = false, silent = false, dirty = false;
+ let queue: Promise<void> = Promise.resolve(), destroyed = false, applying = false, silent = false, dirty = false, editable = true;
  let targeted: MouseEvent | null = null;
  // Events that apply() itself causes are named here only while its own awaited call runs, so a user gesture during a patch still counts.
  const ownNodes = new Set<string>(), ownWires = new Set<string>();
@@ -118,6 +126,7 @@ export async function mountReteBlueprint(container: HTMLElement, initial: Bluepr
   return context;
  });
  editor.addPipe(context => {
+  if (context.type === 'connectioncreated' || context.type === 'connectionremoved') countWire(context.data.target, String(context.data.targetInput), context.type === 'connectioncreated' ? 1 : -1);
   if (silent) return context;
   if (context.type === 'connectioncreated' && !ownWires.has(context.data.id)) {
    const c = context.data;
@@ -140,8 +149,27 @@ export async function mountReteBlueprint(container: HTMLElement, initial: Bluepr
   try { await work(); } finally { if (!nested) ownNodes.delete(id); }
  };
  const place = (id: string, position: BlueprintNode['position']) => ownNode(id, () => area.translate(id, position));
+ // An inline edit changes the canvas copy first, so the echo of the session needs no redraw.
+ const setInput = (nodeId: string): InlineEdit => (port, value) => {
+  const node = editor.getNode(nodeId) as GraphNode | undefined;
+  if (destroyed || !node || !editable) return;
+  node.data = withInlineInput(node.data, port, value);
+  track(graph => ({ ...graph, nodes: graph.nodes.map(item => item.id === nodeId ? withInlineInput(item, port, value) : item) }));
+  void area.update('node', nodeId);
+  handlers.onOps([{ kind: 'setNodeInput', graphId, nodeId, port, value }]);
+ };
+ // Only the input of the added or removed wire changes; the node redraws when that input gains its first wire or loses its last.
+ const countWire = (nodeId: string, port: string, change: 1 | -1) => {
+  const node = editor.getNode(nodeId) as GraphNode | undefined;
+  if (!node) return;
+  const count = (node.wired.get(port) ?? 0) + change;
+  if (count > 0) node.wired.set(port, count); else node.wired.delete(port);
+  if (count === 0 || (count === 1 && change === 1)) void area.update('node', nodeId);
+ };
  const addNode = (data: BlueprintNode) => ownNode(data.id, async () => {
-  await editor.addNode(new GraphNode(data));
+  const node = new GraphNode(data, setInput(data.id));
+  node.editable = editable;
+  await editor.addNode(node);
   await place(data.id, data.position);
  });
  const addWire = async (wire: BlueprintConnection) => {
@@ -222,6 +250,11 @@ export async function mountReteBlueprint(container: HTMLElement, initial: Bluepr
   select(nodeId) {
    if (nodeId === null) { for (const node of editor.getNodes()) selectable.unselect(node.id); return; }
    if (editor.getNode(nodeId)) selectable.select(nodeId, false);
+  },
+  setEditable(next) {
+   if (next === editable) return;
+   editable = next;
+   for (const node of editor.getNodes() as GraphNode[]) { node.editable = next; void area.update('node', node.id); }
   },
   zoomToFit: () => AreaExtensions.zoomAt(area, editor.getNodes()),
   destroy() { destroyed = true; area.destroy(); },

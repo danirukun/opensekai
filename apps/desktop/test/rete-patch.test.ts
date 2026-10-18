@@ -17,3 +17,10 @@ it('computes the minimal canvas patch between two graph versions', () => {
   moveNodes: [{ id: 'wait', position: { x: 1, y: 2 } }], addConnections: [],
  });
 });
+
+it('redraws a node whose inline values changed', () => {
+ const [before] = BlueprintSetSchema.parse(fixture.blueprints).slice(1);
+ const after = applyBlueprintOps([before!], [{ kind: 'setNodeInput', graphId: 'flash-marker', nodeId: 'show', port: 'visible', value: true }]);
+ if (!after.ok) throw new Error();
+ expect(graphPatch(before, after.data[0]).updateNodes).toEqual([expect.objectContaining({ id: 'show', inputs: { visible: true } })]);
+});
