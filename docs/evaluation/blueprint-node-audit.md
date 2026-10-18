@@ -4,7 +4,7 @@ Date: 2026-10-17. Base commit: `7783f94`. Platform: Linux cloud (Ubuntu, x86_64)
 
 ## Sources
 
-- **OpenSekai runtime inventory.** `blueprintNodeCatalog()` in `packages/contracts`: 52 node types in 8 categories.
+- **OpenSekai runtime inventory.** `blueprintNodeCatalog()` in `packages/contracts`: 54 node types in 9 categories (52 in 8 at the base commit; the character expressions slice added Set Expression and Toggle Expression).
 - **Warudo palette.** The Warudo 0.15.1 UI audit recorded 33 palette categories and 519 nodes ([follow-up plan](../superpowers/plans/2026-10-17-warudo-ui-audit-follow-up.md), BP-13 line in the [parity checklist](../warudo-parity.md)). The audit recorded category counts only. It did not record the node names.
 - **Warudo handbook.** The handbook has no node reference page ([catalog design](../superpowers/specs/2026-10-09-blueprint-catalog-design.md)). The cloud container cannot open `docs.warudo.app` (the proxy refuses the host). The Warudo names in the data file come from the earlier specs, which took them from handbook tutorials. Each name is a candidate. Nobody compared it with the live Warudo palette.
 
@@ -27,7 +27,7 @@ The OpenSekai count is the number of rows that map to the category. It is not a 
 | Bilibili | 21 | 0 |
 | BlendShapes | 14 | 0 |
 | Blueprints | 3 | 0 |
-| Characters | 48 | 0 |
+| Characters | 48 | 2 |
 | Cinematography | 16 | 1 |
 | Data | 6 | 0 |
 | Debug | 6 | 0 |
@@ -56,10 +56,10 @@ The OpenSekai count is the number of rows that map to the category. It is not a 
 
 ## Findings
 
-1. 24 of 33 Warudo categories have no OpenSekai row: Animation, Audio, Bilibili, BlendShapes, Blueprints, Characters, Data, Debug, Douyin, External Integration, Interactions, Lattices, Lights, MIDI, MikuMikuDance, Miscellaneous, Motion Capture, Procedural Animations, Props, Scene, Stream Deck, Timer, Twitch, and YouTube. Most of them belong to open parity items, for example CHR (characters), TRK (motion capture), BP-06 (MIDI), BP-07 (streaming platforms), BP-08 (props), CHR-12 (MikuMikuDance), and EXT-11 (Stream Deck).
+1. 23 of 33 Warudo categories have no OpenSekai row: Animation, Audio, Bilibili, BlendShapes, Blueprints, Data, Debug, Douyin, External Integration, Interactions, Lattices, Lights, MIDI, MikuMikuDance, Miscellaneous, Motion Capture, Procedural Animations, Props, Scene, Stream Deck, Timer, Twitch, and YouTube. Most of them belong to open parity items, for example CHR (characters), TRK (motion capture), BP-06 (MIDI), BP-07 (streaming platforms), BP-08 (props), CHR-12 (MikuMikuDance), and EXT-11 (Stream Deck).
 2. Arithmetic has 183 Warudo nodes. OpenSekai has 23 rows there. The difference is mainly type coverage: Warudo variables have Boolean, Integer, Float, String, Vector3, and list types. OpenSekai ports are `number`, `boolean`, and `vector3` only.
 3. Variables has 29 Warudo nodes and 6 OpenSekai rows, for the same type reason.
-4. 19 of 52 OpenSekai node types have a live macOS run on record. 33 have unit or integration tests only.
+4. 19 of 54 OpenSekai node types have a live macOS run on record. 35 have unit or integration tests only.
 5. Each Warudo name and category in the data file is a candidate. `Delay` can be in Timer, not Flow Control. Compare, logic, and Vector3 nodes can be in a category other than Arithmetic.
 
 ## What remains for BP-13

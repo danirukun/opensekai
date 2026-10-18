@@ -49,6 +49,6 @@ Not checked on macOS: Environment Reflections Intensity, Control Sensitivity, FO
 
 ## Tests
 
-`pnpm vitest run --project unit`: 920 tests; 919 pass. The failing test, `tools/evaluation/test/node-audit.test.ts` (two Blueprint nodes not audited: `character.setExpression`, `character.toggleExpression`), fails on `main` too; B12 does not change its files. `pnpm vitest run --project integration`: 35 tests pass. `pnpm -r check`: no errors.
+`pnpm vitest run --project unit`: 920 tests pass. The node audit test (`tools/evaluation/test/node-audit.test.ts`) failed on `main` too, because the expression nodes `character.setExpression` and `character.toggleExpression` had no audit row; this branch adds the two rows. `pnpm vitest run --project integration`: 35 tests pass. `pnpm -r check`: no errors.
 
 Demo: a 13 s screen recording of the gizmo drag, a color pick, and a slider drag (kept outside the repository).
