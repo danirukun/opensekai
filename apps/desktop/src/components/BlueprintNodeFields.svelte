@@ -2,7 +2,7 @@
  import { Input, Select } from '@oshi-connect/ui';
  import { nodeDefinition, triggerableExpressions, type AssetRecord, type BlueprintField, type BlueprintNode, type BlueprintVariable, type KeystrokeSettings, type SceneView } from '@opensekai/contracts';
  import KeystrokeField from './KeystrokeField.svelte';
- import { fitPropertySettings, formatCases, keyOptions, parseCases, propertyOptions } from '../blueprints/fields';
+ import { boneOptions, fitPropertySettings, formatCases, keyOptions, parseCases, propertyOptions } from '../blueprints/fields';
 
  let { node, scene, assets = [], variables, platform, unavailable, onsettings }: {
   node: BlueprintNode; scene: SceneView | null; assets?: readonly AssetRecord[]; variables: readonly BlueprintVariable[]; platform: string; unavailable: boolean;
@@ -27,6 +27,7 @@
   : field.kind === 'camera' ? (scene?.entities ?? []).filter(entity => entity.kind === 'camera').map(entity => ({ value: entity.id, label: entity.name }))
   : field.kind === 'output' ? (scene?.outputs ?? []).map(output => ({ value: output.id, label: output.id }))
   : field.kind === 'variable' ? variables.filter(variable => variable.type === field.variableType).map(variable => ({ value: variable.id, label: variable.name }))
+  : field.kind === 'bone' ? boneOptions()
   : field.kind === 'count' ? Array.from({ length: field.max - field.min + 1 }, (_, i) => ({ value: String(field.min + i), label: String(field.min + i) }))
   : [];
  function expressionChoices() {

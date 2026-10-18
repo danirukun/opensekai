@@ -1,4 +1,4 @@
-import { KEYSTROKE_CODES, propertiesFor, type BlueprintVariable, type PropertyKey, type SceneView } from '@opensekai/contracts';
+import { HUMANOID_BONES, KEYSTROKE_CODES, propertiesFor, type BlueprintVariable, type PropertyKey, type SceneView } from '@opensekai/contracts';
 
 export function parseCases(text: string): number[] | null {
  const parts = text.split(',').map(part => part.trim()).filter(part => part !== '');
@@ -30,3 +30,5 @@ export function fitPropertySettings<S extends { entityId: string; property: Prop
  const options = propertyOptions(scene, settings.entityId);
  return options.length === 0 || options.some(option => option.value === settings.property) ? settings : { ...settings, property: 'position' };
 }
+const words = (name: string) => name.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, letter => letter.toUpperCase());
+export const boneOptions = () => HUMANOID_BONES.map(bone => ({ value: bone, label: words(bone) }));
