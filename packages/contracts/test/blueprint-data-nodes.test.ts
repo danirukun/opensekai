@@ -57,3 +57,29 @@ it('drops wires and inline values that no longer fit after an item type change',
  expect(reply.ok && reply.data[0]!.connections).toEqual([]);
  expect(reply.ok && reply.data[0]!.nodes[1]!.inputs).toBeUndefined();
 });
+
+it('retypes typed variable nodes when their variable changes type, and drops what no longer fits', () => {
+ const graph = { schemaVersion: 1, id: 'g', name: 'G', enabled: true,
+  variables: [{ id: 'v', name: 'V', type: 'string', default: 'a' }, { id: 'l', name: 'L', type: 'string[]', default: [] }, { id: 'n', name: 'N', type: 'number', default: 0 }],
+  nodes: [node('variable.get', { variableId: 'v', type: 'string' }, 'get'), node('text.toUpper', {}, 'up'), { ...node('variable.set', { variableId: 'v', type: 'string' }, 'set'), inputs: { value: 'x' } },
+   { ...node('variable.appendList', { variableId: 'l', type: 'string[]' }, 'add'), inputs: { item: 'b' } }, node('variable.setNumber', { variableId: 'n' }, 'old')],
+  connections: [{ id: 'w', sourceNodeId: 'get', sourcePort: 'value', targetNodeId: 'up', targetPort: 'text' }] } as BlueprintGraph;
+ const apply = (ops: object[]) => { const reply = applyBlueprintOps([graph], ops as never); if (!reply.ok) throw new Error(reply.error.message); return reply.data[0]!; };
+ const byId = (g: BlueprintGraph, id: string) => g.nodes.find(item => item.id === id)!;
+
+ const scalar = apply([{ kind: 'updateVariable', graphId: 'g', variableId: 'v', type: 'integer' }]);
+ expect(byId(scalar, 'get').settings).toEqual({ variableId: 'v', type: 'integer' });
+ expect(byId(scalar, 'set')).toMatchObject({ settings: { variableId: 'v', type: 'integer' } });
+ expect(byId(scalar, 'set').inputs).toBeUndefined();
+ expect(scalar.connections).toEqual([]);
+
+ const list = apply([{ kind: 'updateVariable', graphId: 'g', variableId: 'l', type: 'integer[]' }]);
+ expect(byId(list, 'add').settings).toEqual({ variableId: 'l', type: 'integer[]' });
+ expect(byId(list, 'add').inputs).toBeUndefined();
+ // A list node cannot take a scalar type, so it stays as it is.
+ expect(byId(apply([{ kind: 'updateVariable', graphId: 'g', variableId: 'l', type: 'integer' }]), 'add').settings).toEqual({ variableId: 'l', type: 'string[]' });
+ // The number and boolean variable nodes keep their settings.
+ expect(byId(apply([{ kind: 'updateVariable', graphId: 'g', variableId: 'n', type: 'boolean' }]), 'old').settings).toEqual({ variableId: 'n' });
+ // A name change keeps the wires.
+ expect(apply([{ kind: 'updateVariable', graphId: 'g', variableId: 'v', name: 'W' }]).connections).toHaveLength(1);
+});

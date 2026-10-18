@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { BlueprintConnectionSchema, BlueprintGraphSchema, BlueprintSetSchema, BlueprintVariableSchema, type BlueprintGraph } from './blueprint';
-import { BlueprintNodeSchema, BlueprintPositionSchema, connectionType, inlineInputType, pruneInlineInputs, withInlineInput } from './blueprint-nodes';
-import { DATA_TYPES, defaultBlueprintValue, isBlueprintValue, ScalarValueSchema } from './blueprint-values';
+import { BlueprintNodeSchema, BlueprintPositionSchema, connectionType, inlineInputType, nodeDefinition, pruneInlineInputs, withInlineInput } from './blueprint-nodes';
+import { DATA_TYPES, defaultBlueprintValue, isBlueprintValue, ScalarValueSchema, type DataType } from './blueprint-values';
 import type { Reply } from './types';
 import { BlueprintCommentPositionSchema, BlueprintCommentSchema, BlueprintCommentSizeSchema, BlueprintCommentTextSchema } from './blueprint-comments';
 import { copyName, duplicateGraph } from './blueprint-duplicate';
@@ -34,6 +34,30 @@ export type BlueprintOp = z.infer<typeof BlueprintOpSchema>;
 export type BlueprintBatch = z.infer<typeof BlueprintBatchSchema>;
 
 const reject = (code: 'NOT_FOUND' | 'INVALID_INPUT', message: string, ids: string[]): Reply<never> => ({ ok: false, error: { code, message, ids } });
+
+// Replaces the settings of node `i`, then removes the inline values and wires that no longer type-check. False when the settings are invalid.
+function resettle(graph: BlueprintGraph, i: number, settings: unknown): boolean {
+ // Settings are checked first, so the inline values are checked against valid ports.
+ const { inputs, ...bare } = graph.nodes[i]!;
+ const parsed = BlueprintNodeSchema.safeParse({ ...bare, settings });
+ if (!parsed.success) return false;
+ const node = graph.nodes[i] = pruneInlineInputs(inputs ? { ...parsed.data, inputs } : parsed.data);
+ graph.connections = graph.connections.filter(c => {
+  if (c.sourceNodeId !== node.id && c.targetNodeId !== node.id) return true;
+  const source = graph.nodes.find(n => n.id === c.sourceNodeId), target = graph.nodes.find(n => n.id === c.targetNodeId);
+  return !!source && !!target && connectionType(source, c.sourcePort, target, c.targetPort) !== null;
+ });
+ return true;
+}
+// A node with a `typedVariable` field follows the new type of its variable. A node whose settings cannot take the type (a list node
+// after a change to a scalar type) stays as it is, and the compiler reports the variable as missing.
+function retypeVariableNodes(graph: BlueprintGraph, variableId: string, type: DataType): void {
+ graph.nodes.forEach((node, i) => {
+  const field = nodeDefinition(node.type).fields.find(item => item.kind === 'typedVariable');
+  const settings = node.settings as Record<string, unknown>;
+  if (field?.kind === 'typedVariable' && settings[field.key] === variableId) resettle(graph, i, { ...settings, [field.typeKey]: type });
+ });
+}
 
 export function applyBlueprintOps(graphs: readonly BlueprintGraph[], ops: readonly BlueprintOp[]): Reply<BlueprintGraph[]> {
  let next = (structuredClone(graphs) as BlueprintGraph[]).map(graph => ({ ...graph, variables: graph.variables ?? [] }));
@@ -68,17 +92,7 @@ export function applyBlueprintOps(graphs: readonly BlueprintGraph[], ops: readon
    case 'setNodeSettings': {
     const i = nodeAt(op.nodeId);
     if (i < 0) return reject('NOT_FOUND', 'Node not found', [op.nodeId]);
-    // Settings are checked first, so the inline values are checked against valid ports.
-    const { inputs, ...bare } = graph.nodes[i]!;
-    const parsed = BlueprintNodeSchema.safeParse({ ...bare, settings: op.settings });
-    if (!parsed.success) return reject('INVALID_INPUT', 'Invalid node settings', [op.nodeId]);
-    graph.nodes[i] = pruneInlineInputs(inputs ? { ...parsed.data, inputs } : parsed.data);
-    // A settings change can remove a port or change its type; wires and inline values that no longer type-check go.
-    graph.connections = graph.connections.filter(c => {
-     if (c.sourceNodeId !== op.nodeId && c.targetNodeId !== op.nodeId) return true;
-     const source = graph.nodes.find(n => n.id === c.sourceNodeId), target = graph.nodes.find(n => n.id === c.targetNodeId);
-     return !!source && !!target && connectionType(source, c.sourcePort, target, c.targetPort) !== null;
-    });
+    if (!resettle(graph, i, op.settings)) return reject('INVALID_INPUT', 'Invalid node settings', [op.nodeId]);
     break;
    }
    case 'connect': {
@@ -107,7 +121,9 @@ export function applyBlueprintOps(graphs: readonly BlueprintGraph[], ops: readon
     const fallback = type === old.type ? old.default : defaultBlueprintValue(type as typeof old.type);
     const parsed = BlueprintVariableSchema.safeParse({ id: old.id, name: op.name ?? old.name, type, default: op.default !== undefined ? op.default : fallback });
     if (!parsed.success) return reject('INVALID_INPUT', 'Invalid variable', [op.variableId]);
-    graph.variables[i] = parsed.data; break;
+    graph.variables[i] = parsed.data;
+    if (type !== old.type) retypeVariableNodes(graph, op.variableId, parsed.data.type);
+    break;
    }
    case 'removeVariable':
     if (!graph.variables.some(v => v.id === op.variableId)) return reject('NOT_FOUND', 'Variable not found', [op.variableId]);

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { DATA_TYPE_LABELS, listOf, SCALAR_TYPES, type ScalarType } from '../blueprint-values';
-import { defineNode, type BlueprintField, type PortShape, type PortType } from './define';
+import { defineNode, numbered, type BlueprintField, type PortShape, type PortType } from './define';
 
 const ItemType = z.enum(SCALAR_TYPES);
 export const itemTypeField: BlueprintField = { key: 'itemType', label: 'Item type', kind: 'choice', options: SCALAR_TYPES.map(value => ({ value, label: DATA_TYPE_LABELS[value] })) };
@@ -10,7 +10,7 @@ const list = <const T extends string>(type: T, label: string, keywords: string[]
  defineNode({ type, label, category: 'Lists', keywords: ['list', 'array', ...keywords], settings: typed, ports: (s: Typed) => ports(s.itemType, listOf(s.itemType)), defaults: () => ({ itemType: 'string' as ScalarType }), fields: [itemTypeField], dynamicPorts: true });
 
 export const LIST_NODES = [
- defineNode({ type: 'list.make', label: 'Make List', category: 'Lists', keywords: ['list', 'array', 'create', 'build', 'new'], settings: z.strictObject({ itemType: ItemType, count: z.number().int().min(0).max(8) }), ports: s => ({ inputs: Object.fromEntries(Array.from({ length: s.count }, (_, i) => [`item${i}`, s.itemType])), outputs: { result: listOf(s.itemType) } }), defaults: () => ({ itemType: 'string' as ScalarType, count: 2 }), fields: [itemTypeField, { key: 'count', label: 'Items', kind: 'count', min: 0, max: 8 }], dynamicPorts: true }),
+ defineNode({ type: 'list.make', label: 'Make List', category: 'Lists', keywords: ['list', 'array', 'create', 'build', 'new'], settings: z.strictObject({ itemType: ItemType, count: z.number().int().min(0).max(8) }), ports: s => ({ inputs: numbered('item', s.count, s.itemType), outputs: { result: listOf(s.itemType) } }), defaults: () => ({ itemType: 'string' as ScalarType, count: 2 }), fields: [itemTypeField, { key: 'count', label: 'Items', kind: 'count', min: 0, max: 8 }], dynamicPorts: true }),
  list('list.get', 'Get List Item', ['get', 'item', 'index', 'at', 'element'], (item, l) => ({ inputs: { list: l, index: 'integer' }, outputs: { item, ok: 'boolean' } })),
  list('list.length', 'List Length', ['length', 'count', 'size'], (_item, l) => ({ inputs: { list: l }, outputs: { length: 'integer' } })),
  list('list.append', 'Append To List', ['append', 'add', 'push'], (item, l) => ({ inputs: { list: l, item }, outputs: { result: l } })),

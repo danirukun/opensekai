@@ -14,7 +14,13 @@ it('formats a template with arguments and escaped braces', () => {
   ['{2} {x} {', ['a'], '{2} {x} {'],
   ['at {0}', [[1, 2, 3]], 'at (1, 2, 3)'],
  ];
- for (const [template, args, result] of cases) expect(formatTemplate(template, args as never)).toBe(result);
+ for (const [template, args, result] of cases) expect(formatTemplate(template, args.length, i => args[i] as never)).toBe(result);
+});
+
+it('reads only the arguments that the template uses, once each', () => {
+ const reads: number[] = [];
+ expect(formatTemplate('{2}-{0}-{2}', 4, i => { reads.push(i); return `a${i}`; })).toBe('a2-a0-a2');
+ expect(reads).toEqual([2, 0]);
 });
 
 it('clamps Substring to the text', () => {

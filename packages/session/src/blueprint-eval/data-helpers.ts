@@ -8,9 +8,18 @@ export function stringForm(value: ScalarValue): string {
  return `(${value.map(part => stringForm(part)).join(', ')})`;
 }
 // `{n}` takes argument n; `{{` and `}}` give one brace; a placeholder without an argument stays as text.
-export const formatTemplate = (template: string, args: readonly ScalarValue[]): string =>
- template.replace(/\{\{|\}\}|\{(\d+)\}/g, (match, index: string | undefined) =>
-  match === '{{' ? '{' : match === '}}' ? '}' : Number(index) < args.length ? stringForm(args[Number(index)]!) : match);
+// `arg` is called only for the arguments that the template uses, once each.
+export function formatTemplate(template: string, count: number, arg: (index: number) => ScalarValue): string {
+ const read = new Map<number, string>();
+ return template.replace(/\{\{|\}\}|\{(\d+)\}/g, (match, digits: string | undefined) => {
+  if (match === '{{') return '{';
+  if (match === '}}') return '}';
+  const index = Number(digits);
+  if (index >= count) return match;
+  if (!read.has(index)) read.set(index, stringForm(arg(index)));
+  return read.get(index)!;
+ });
+}
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 export function substring(text: string, start: number, length: number): string {
  const from = clamp(start, 0, text.length);

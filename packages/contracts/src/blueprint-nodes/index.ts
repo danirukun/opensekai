@@ -19,7 +19,7 @@ import { LIST_NODES } from './lists';
 import { SWITCH_NODES } from './switches';
 import { TYPED_VARIABLE_NODES } from './typed-variables';
 
-export { defineNode, NODE_CATEGORIES, type PortType, type PortShape, type NodeCategory, type DefaultRefs, type BlueprintField, type NodeDefinition } from './define';
+export { defineNode, IntegerCasesSchema, MAX_SWITCH_CASES, NODE_CATEGORIES, type PortType, type PortShape, type NodeCategory, type DefaultRefs, type BlueprintField, type NodeDefinition } from './define';
 export { KEYSTROKE_CODES, KeystrokeSettingsSchema, keystrokeAccelerator, keystrokeHasModifier, type KeystrokeSettings } from './events';
 
 // Palette order inside a category follows this list.

@@ -1,4 +1,4 @@
-import { defaultBlueprintValue, type BlueprintValue, type ScalarValue } from '@opensekai/contracts';
+import { defaultBlueprintValue, MAX_BLUEPRINT_LIST_LENGTH, type BlueprintValue, type ScalarValue } from '@opensekai/contracts';
 import { nextRandom } from '../blueprint-random';
 import { indexOfValue, inRange, insertAt, removeAt, setAt } from './data-helpers';
 import { getNodeState, setNodeState, type EvaluatorTable, type Read } from './types';
@@ -40,6 +40,11 @@ export const LIST_EVALUATORS = {
    if (output === 'index') return index;
    return getNodeState<List>(state, node.id)?.[index] ?? defaultBlueprintValue(node.settings.itemType);
   },
-  flow: (node, c) => { const list = listOf(c.read); setNodeState(c.state, node.id, list); c.loop(0, list.length - 1); },
+  // The loop ends with no saved list and index, so a later read outside the loop gives the defaults.
+  flow: (node, c) => {
+   const list = listOf(c.read);
+   if (list.length > 0) setNodeState(c.state, node.id, list);
+   c.loop(0, list.length - 1, { limit: MAX_BLUEPRINT_LIST_LENGTH, clear: true });
+  },
  },
 } satisfies Partial<EvaluatorTable>;

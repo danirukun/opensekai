@@ -1,7 +1,8 @@
 import { expect, it } from 'vitest';
-import { applyBlueprintOps, blueprintPorts, DATA_TYPES, isListType, type BlueprintNode, MAX_BLUEPRINT_LIST_LENGTH, MAX_BLUEPRINT_STRING_LENGTH, type BlueprintGraph, type BlueprintValue, type DataType } from '@opensekai/contracts';
+import { applyBlueprintOps, blueprintPorts, makeSmokeScene, DATA_TYPES, isListType, type BlueprintNode, MAX_BLUEPRINT_LIST_LENGTH, MAX_BLUEPRINT_STRING_LENGTH, type BlueprintGraph, type BlueprintValue, type DataType } from '@opensekai/contracts';
 import { compileBlueprint, runFlow, type CompiledBlueprint } from '../src/blueprint';
 import { createBlueprintRuntime, initialState } from '../src/blueprint-runtime';
+import { createSession } from '../src/session';
 import type { RunState } from '../src/blueprint-eval';
 
 type Inputs = Record<string, BlueprintValue>;
@@ -109,13 +110,16 @@ it('picks a random list item from the seeded run random', () => {
 });
 
 // For Each → Format String "{0}:{1}" (index, item) → Append To List Variable, then completed → Set Variable `done`.
+// `peek` reads `item` and `index` without entering For Each.
 const forEach = (items: string[]) => compile(doc(
- [variable('l', 'string[]', items), variable('out', 'string[]', []), variable('done', 'boolean', false)],
+ [variable('l', 'string[]', items), variable('out', 'string[]', []), variable('done', 'boolean', false), variable('item', 'string', '?'), variable('index', 'integer', -1)],
  [node('start', 'event.manual'), node('get', 'variable.get', { variableId: 'l', type: 'string[]' }), node('each', 'list.forEach', { itemType: 'string' }),
   node('fmt', 'text.format', { template: '{0}:{1}', args: ['integer', 'string'] }), node('add', 'variable.appendList', { variableId: 'out', type: 'string[]' }),
-  node('end', 'variable.set', { variableId: 'done', type: 'boolean' }, { value: true })],
+  node('end', 'variable.set', { variableId: 'done', type: 'boolean' }, { value: true }),
+  node('peek', 'event.manual'), node('setItem', 'variable.set', { variableId: 'item', type: 'string' }), node('setIndex', 'variable.set', { variableId: 'index', type: 'integer' })],
  [wire('1', 'start', 'flow', 'each', 'flow'), wire('2', 'get', 'value', 'each', 'list'), wire('3', 'each', 'body', 'add', 'flow'), wire('4', 'each', 'index', 'fmt', 'arg0'),
-  wire('5', 'each', 'item', 'fmt', 'arg1'), wire('6', 'fmt', 'result', 'add', 'item'), wire('7', 'each', 'completed', 'end', 'flow')]));
+  wire('5', 'each', 'item', 'fmt', 'arg1'), wire('6', 'fmt', 'result', 'add', 'item'), wire('7', 'each', 'completed', 'end', 'flow'),
+  wire('8', 'peek', 'flow', 'setItem', 'flow'), wire('9', 'each', 'item', 'setItem', 'value'), wire('10', 'setItem', 'exit', 'setIndex', 'flow'), wire('11', 'each', 'index', 'setIndex', 'value')]));
 
 it('runs For Each body once per item in order, then completed', () => {
  const outcome = run(forEach(['a', 'b', 'c']));
@@ -123,8 +127,23 @@ it('runs For Each body once per item in order, then completed', () => {
  expect(outcome.ok && outcome.data.state.variables.get('done')).toBe(true);
  const empty = run(forEach([]));
  expect(empty.ok && [empty.data.state.variables.get('out'), empty.data.state.variables.get('done')]).toEqual([[], true]);
- expect(run(forEach(Array(64).fill('x'))).ok).toBe(true);
- expect(run(forEach(Array(65).fill('x')))).toMatchObject({ ok: false, error: { message: 'Blueprint loop exceeded its iteration limit', ids: ['each'] } });
+});
+
+it('iterates up to the list limit, and For Loop keeps its limit of 64', () => {
+ const full = run(forEach(Array(MAX_BLUEPRINT_LIST_LENGTH).fill('x')));
+ expect(full.ok && (full.data.state.variables.get('out') as string[]).at(-1)).toBe(`${MAX_BLUEPRINT_LIST_LENGTH - 1}:x`);
+ const loop = compile(doc([], [node('start', 'event.manual'), node('loop', 'flow.forLoop', {}, { first: 1, last: 65 })], [wire('1', 'start', 'flow', 'loop', 'flow')]));
+ expect(run(loop)).toMatchObject({ ok: false, error: { message: 'Blueprint loop exceeded its iteration limit', ids: ['loop'] } });
+});
+
+it('clears the For Each list and index when the loop ends', () => {
+ const compiled = forEach(['a', 'b']);
+ const first = run(compiled);
+ if (!first.ok) throw new Error(first.error.message);
+ expect(first.data.state.nodes.has('each')).toBe(false);
+ expect(first.data.state.loops.has('each')).toBe(false);
+ const peek = run(compiled, first.data.state, 'peek');
+ expect(peek.ok && [peek.data.state.variables.get('item'), peek.data.state.variables.get('index')]).toEqual(['', 0]);
 });
 
 it('routes Switch On String and Switch On Integer to the matching case, else default', () => {
@@ -215,4 +234,18 @@ it('fails a run that goes above the string or list limit and keeps the variables
   { graphId: 'g', effects: [], error: { code: 'INVALID_INPUT', message: 'Blueprint value exceeds its limit', ids: ['append'] } },
   { graphId: 'g', effects: [{ kind: 'setVisibility', entityId: 'marker', visible: true }], error: null },
  ]);
+});
+
+it('keeps a typed variable graph compiling after its variable changes type', () => {
+ const session = createSession(makeSmokeScene(), 's');
+ let batch = 0;
+ const edit = (ops: object[]) => session.editBlueprints({ clientId: 't', batchId: `b${batch++}`, ops });
+ const graph = doc([variable('v', 'integer', 3)], [node('start', 'event.manual'), node('set', 'variable.set', { variableId: 'v', type: 'integer' }, { value: 5 }), node('get', 'variable.get', { variableId: 'v', type: 'integer' }), node('len', 'list.length', { itemType: 'integer' })],
+  [wire('1', 'start', 'flow', 'set', 'flow')]);
+ expect(edit([{ kind: 'replaceAll', graphs: [graph] }]).ok).toBe(true);
+ expect(edit([{ kind: 'updateVariable', graphId: 'g', variableId: 'v', type: 'string' }]).ok).toBe(true);
+ const view = session.inspectBlueprints();
+ expect(view.errors).toEqual([]);
+ expect(view.kind === 'snapshot' && view.blueprints[0]!.nodes.find(item => item.id === 'set')).toMatchObject({ settings: { variableId: 'v', type: 'string' } });
+ expect(session.runBlueprint('g', 'start').ok).toBe(true);
 });

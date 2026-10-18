@@ -8,7 +8,7 @@ const text = (read: Read) => str(read, 'text');
 
 export const TEXT_EVALUATORS = {
  'text.concat': { data: (node, _o, read) => Array.from({ length: node.settings.count }, (_, i) => str(read, `text${i}`)).join('') },
- 'text.format': { data: (node, _o, read) => formatTemplate(node.settings.template, node.settings.args.map((_, i) => read(`arg${i}`) as ScalarValue)) },
+ 'text.format': { data: (node, _o, read) => formatTemplate(node.settings.template, node.settings.args.length, i => read(`arg${i}`) as ScalarValue) },
  'text.length': { data: (_n, _o, read) => text(read).length },
  'text.substring': { data: (_n, _o, read) => substring(text(read), int(read, 'start'), int(read, 'length')) },
  'text.contains': { data: (_n, _o, read) => text(read).includes(str(read, 'search')) },

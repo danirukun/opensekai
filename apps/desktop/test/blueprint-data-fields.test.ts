@@ -1,14 +1,16 @@
 import { expect, it } from 'vitest';
-import type { BlueprintVariable } from '@opensekai/contracts';
+import { MAX_SWITCH_CASES, type BlueprintVariable } from '@opensekai/contracts';
 import { chooseTypedVariable, formatStringCases, parseStringCases, resizeTypes, typedVariableOptions } from '../src/blueprints/data-fields';
 
-it('parses one string case on each line and rejects bad case lists', () => {
- expect(parseStringCases('happy\n\nsad, very\r\n a ')).toEqual(['happy', 'sad, very', ' a ']);
- expect(parseStringCases(formatStringCases(['a', 'b']))).toEqual(['a', 'b']);
+it('keeps string cases as one JSON string on each line and rejects bad case lists', () => {
+ for (const cases of [['happy', 'sad'], ['', 'two\nlines', ' a ', 'say "hi"']]) expect(parseStringCases(formatStringCases(cases))).toEqual(cases);
+ expect(formatStringCases(['', 'a\nb'])).toBe('""\n"a\\nb"');
+ expect(parseStringCases('"a"\n\n"b"')).toEqual(['a', 'b']);
+ expect(parseStringCases('happy')).toBeNull();
  expect(parseStringCases('\n\n')).toBeNull();
- expect(parseStringCases('a\na')).toBeNull();
- expect(parseStringCases(Array.from({ length: 9 }, (_, i) => `c${i}`).join('\n'))).toBeNull();
- expect(parseStringCases('x'.repeat(1025))).toBeNull();
+ expect(parseStringCases('"a"\n"a"')).toBeNull();
+ expect(parseStringCases(Array.from({ length: MAX_SWITCH_CASES + 1 }, (_, i) => `"c${i}"`).join('\n'))).toBeNull();
+ expect(parseStringCases(JSON.stringify('x'.repeat(1025)))).toBeNull();
 });
 
 const variables: BlueprintVariable[] = [{ id: 'n', name: 'Score', type: 'number', default: 0 }, { id: 'l', name: 'Names', type: 'string[]', default: [] }];

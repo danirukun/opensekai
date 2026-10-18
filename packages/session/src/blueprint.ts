@@ -3,7 +3,7 @@ import type { ExpressionEffect } from './expressions';
 import type { BoneOffsetEffect } from './bone-offsets';
 import type { BlendShapeEffect } from './blend-shapes';
 import type { LookAtEffect } from './look-at';
-import { BlueprintLimitError, checkBlueprintValue, cloneState, EVALUATORS, NO_ENV, type BlueprintValue, type Evaluator, type RunEnv, type RunState } from './blueprint-eval';
+import { BlueprintLimitError, checkBlueprintValue, clearNodeState, cloneState, EVALUATORS, NO_ENV, type BlueprintValue, type Evaluator, type RunEnv, type RunState } from './blueprint-eval';
 import { BlueprintGraphSchema, blueprintPorts, nodeDefinition, connectionType, ownPort, unconnectedInputValue, type BlueprintConnection, type BlueprintGraph, type BlueprintNode, type Id, type PortShape, type Reply } from '@opensekai/contracts';
 
 export type SceneEffect =
@@ -25,7 +25,7 @@ export interface FlowResult { effects: BlueprintEffect[]; delays: PendingDelay[]
 const MAX_EVENT_VISITS = 512;
 const MAX_LOOP_ITERATIONS = 64;
 class LoopLimit extends Error {}
-type Frame = { kind: 'enter'; nodeId: Id; port: string } | { kind: 'loop'; nodeId: Id; index: number; last: number };
+type Frame = { kind: 'enter'; nodeId: Id; port: string } | { kind: 'loop'; nodeId: Id; index: number; last: number; clear: boolean };
 const evaluator = (node: BlueprintNode) => EVALUATORS[node.type] as Evaluator<BlueprintNode>;
 export const fail = (message: string, ids: string[] = []): Reply<never> => ({ ok: false, error: { code: 'INVALID_INPUT', message, ids } });
 const key = (nodeId: string, port: string) => `${nodeId}\0${port}`;
@@ -109,18 +109,23 @@ export function runFlow(compiled: CompiledBlueprint, start: { nodeId: Id; port: 
   for (const port of [...ports].reverse()) { const wire = compiled.flowNext.get(key(nodeId, port)); if (wire) stack.push({ kind: 'enter', nodeId: wire.targetNodeId, port: wire.targetPort }); }
  };
  follow(start.nodeId, [start.port]);
+ const endLoop = (nodeId: Id, clear: boolean) => {
+  if (clear) { next.loops.delete(nodeId); clearNodeState(next, nodeId); }
+  follow(nodeId, ['completed']);
+ };
  let visits = 0;
  while (stack.length > 0) {
-  if (++visits > MAX_EVENT_VISITS || --budget.visits < 0) return fail('Blueprint run exceeded its flow limit', [start.nodeId]);
   const frame = stack.pop()!;
+  // A loop step is not a node visit; the iteration limit bounds it.
   if (frame.kind === 'loop') {
-   if (frame.index > frame.last) { follow(frame.nodeId, ['completed']); continue; }
+   if (frame.index > frame.last) { endLoop(frame.nodeId, frame.clear); continue; }
    next.loops.set(frame.nodeId, frame.index);
    // The next iteration waits under the body, so all flow after `body` runs first.
    stack.push({ ...frame, index: frame.index + 1 });
    follow(frame.nodeId, ['body']);
    continue;
   }
+  if (++visits > MAX_EVENT_VISITS || --budget.visits < 0) return fail('Blueprint run exceeded its flow limit', [start.nodeId]);
   const node = compiled.nodes.get(frame.nodeId)!;
   const flow = evaluator(node).flow;
   if (!flow) return fail('Blueprint flow reached a data node', [node.id]);
@@ -135,10 +140,10 @@ export function runFlow(compiled: CompiledBlueprint, start: { nodeId: Id; port: 
      effects.push(effect); follow(node.id, ['exit']);
     },
     delay: seconds => { delays.push({ nodeId: node.id, dueMs: nowMs + seconds * 1000 }); },
-    loop: (first, last) => {
-     if (last - first + 1 > MAX_LOOP_ITERATIONS) throw new LoopLimit();
-     if (last < first) follow(node.id, ['completed']);
-     else stack.push({ kind: 'loop', nodeId: node.id, index: first, last });
+    loop: (first, last, options = {}) => {
+     if (last - first + 1 > (options.limit ?? MAX_LOOP_ITERATIONS)) throw new LoopLimit();
+     if (last < first) endLoop(node.id, options.clear === true);
+     else stack.push({ kind: 'loop', nodeId: node.id, index: first, last, clear: options.clear === true });
     },
    });
   } catch (error) { return fail(error instanceof LoopLimit ? 'Blueprint loop exceeded its iteration limit' : error instanceof BlueprintLimitError ? 'Blueprint value exceeds its limit' : 'Blueprint data could not be evaluated', [node.id]); }

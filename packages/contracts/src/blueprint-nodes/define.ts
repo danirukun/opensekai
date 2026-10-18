@@ -43,5 +43,8 @@ export const IdSchema = z.string().min(1).max(256);
 export const finite = z.number().finite();
 export const empty = z.strictObject({});
 export const exit = { exit: 'flow' } as const;
-export const numbered = (prefix: string, count: number): Record<string, PortType> =>
- Object.fromEntries(Array.from({ length: count }, (_, i) => [`${prefix}${i}`, 'flow' as const]));
+export const numbered = (prefix: string, count: number, type: PortType = 'flow'): Record<string, PortType> =>
+ Object.fromEntries(Array.from({ length: count }, (_, i) => [`${prefix}${i}`, type]));
+export const MAX_SWITCH_CASES = 8;
+// The integer cases of Switch On Number and Switch On Integer.
+export const IntegerCasesSchema = z.array(z.number().int().min(-1e6).max(1e6)).min(1).max(MAX_SWITCH_CASES).refine(cases => new Set(cases).size === cases.length, 'Duplicate case');
