@@ -6,6 +6,8 @@ export const DEBUG_LEVELS = ['debug', 'info', 'warning', 'error'] as const;
 export type DebugLevel = (typeof DEBUG_LEVELS)[number];
 export const DEBUG_VARIANTS = ['success', 'info', 'warning', 'error'] as const;
 export type DebugVariant = (typeof DEBUG_VARIANTS)[number];
+export const DEBUG_LEVEL_LABELS: Record<DebugLevel, string> = { debug: 'Debug', info: 'Info', warning: 'Warning', error: 'Error' };
+export const DEBUG_VARIANT_LABELS: Record<DebugVariant, string> = { success: 'Success', info: 'Info', warning: 'Warning', error: 'Error' };
 export const MAX_DEBUG_ENTRIES = 1000;
 export const MAX_DEBUG_VALUES = 64;
 export const MAX_DEBUG_PAGE = 50;
@@ -16,8 +18,8 @@ export const DEBUG_WINDOW_MS = 1000;
 export const MIN_TOAST_SECONDS = 1;
 export const MAX_TOAST_SECONDS = 30;
 
-// Debug text is shown as text only; control characters would break a one-line log row.
-export const plainDebugText = (text: string): string => text.replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ');
+// Debug text is shown as text only; control characters and line or paragraph separators would break a one-line log row.
+export const plainDebugText = (text: string): string => text.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g, ' ');
 
 // Cuts at a code point boundary, so the text stays valid UTF-16 for the host.
 const cut = (text: string): string => {
@@ -30,9 +32,9 @@ const cut = (text: string): string => {
 const scalarText = (type: ScalarType, value: unknown): string =>
  type === 'string' ? JSON.stringify(value) : type === 'vector3' ? `(${(value as Vec3).map(String).join(', ')})` : String(value);
 export function formatDebugValue(type: DataType, value: BlueprintValue): string {
- if (!isListType(type)) return cut(scalarText(type as ScalarType, value));
+ if (!isListType(type)) return cut(plainDebugText(scalarText(type as ScalarType, value)));
  const item = itemType(type);
- return cut(`[${(value as readonly unknown[]).map(entry => scalarText(item, entry)).join(', ')}]`);
+ return cut(plainDebugText(`[${(value as readonly unknown[]).map(entry => scalarText(item, entry)).join(', ')}]`));
 }
 
 const u = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
@@ -48,6 +50,8 @@ export const DebugEntrySchema = z.discriminatedUnion('kind', [
 ]);
 export const DebugValueSchema = z.strictObject({ graphId: Id, nodeId: Id, valueType: DebugDataTypeSchema, text: ValueText, changedMs: z.number().finite().nonnegative(), seq: u.min(1) });
 export const BlueprintDebugSchema = z.strictObject({
+ // A new debug log (a new session) has a new epoch.
+ epoch: Id,
  latest: u, next: u, dropped: u,
  entries: z.array(DebugEntrySchema).max(MAX_DEBUG_PAGE),
  values: z.array(DebugValueSchema).max(MAX_DEBUG_VALUES),

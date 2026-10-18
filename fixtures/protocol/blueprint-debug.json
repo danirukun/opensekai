@@ -1,5 +1,6 @@
 {
   "valid": {
+    "epoch": "3f0c6c1e-8a4e-4c55-9d43-2b1f1c0e7a10",
     "latest": 5,
     "next": 5,
     "dropped": 12,
@@ -16,6 +17,8 @@
   "invalid": [
     { "name": "unknown-key", "change": ["extra", true] },
     { "name": "negative-latest", "change": ["latest", -1] },
+    { "name": "empty-epoch", "change": ["epoch", ""] },
+    { "name": "null-epoch", "change": ["epoch", null] },
     { "name": "unknown-level", "entry": 0, "change": ["level", "trace"] },
     { "name": "unknown-variant", "entry": 1, "change": ["variant", "danger"] },
     { "name": "short-toast", "entry": 1, "change": ["durationSeconds", 0.5] },

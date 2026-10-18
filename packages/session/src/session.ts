@@ -7,7 +7,7 @@ import { NO_DEVICES, type DeviceEnv } from './blueprint-eval';
 import { createDeviceInput } from './devices';
 import { applyEffects, applyOperations } from './scene-ops';
 import { isBoneOffsetEffect, isCharacterLayerEffect, isDebugEffect, isExpressionEffect, isOverrideEffect, isSceneEffect } from './blueprint';
-import { createDebugLog, type DebugEffect } from './debug-log';
+import { createDebugLog } from './debug-log';
 import { composeBoneOffsets, EMPTY_BONE_OFFSETS, writeBoneOffset, type BoneOffsets } from './bone-offsets';
 import { advanceExpressions, composeExpressions, dropExpressionFades, EMPTY_EXPRESSIONS, expressionOwners, expressionView, reconcileExpressions, setExpression, type ExpressionStates } from './expressions';
 import { applyOverrides, dropOverrides, EMPTY_OVERRIDES, evaluatedEntity, takeIdle, type OverrideLayer } from './overrides';
@@ -110,7 +110,6 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
         let offsets = boneOffsets;
         let shapes = blendShapes;
         let looks = lookAts;
-        const debug: { graphId: Id; effects: DebugEffect[] }[] = [];
         const env: StepEnv = { held, devices: deviceEnv, scene: () => applyOverrides(working ?? persistent, layer), previousPose: avatarId => previousPoses.get(avatarId) ?? null, tickMs: nowMs };
         // `elapsed` is the time of the values that a transition starts from.
         const startMs = transitionStart(nowMs, elapsed);
@@ -159,8 +158,6 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             offsets = nextOffsets;
             shapes = nextShapes;
             looks = nextLooks;
-            const debugEffects = run.effects.filter(isDebugEffect);
-            if (debugEffects.length) debug.push({ graphId: run.graphId, effects: debugEffects });
             return null;
         }, env);
         overrides = layer;
@@ -169,10 +166,12 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
         boneOffsets = offsets;
         blendShapes = shapes;
         lookAts = looks;
-        for (const entry of debug) debugLog.record(entry.graphId, entry.effects, nowMs);
         for (const run of runs) if (run.error) runtimeErrors.set(run.graphId, run.error); else runtimeErrors.delete(run.graphId);
         const changed = working !== null && JSON.stringify(working) !== JSON.stringify(persistent);
-        return { runs, committed: changed ? commit(working!) : { ok: true, data: { revision: persistent.revision } } };
+        const committed: Reply<{ revision: number }> = changed ? commit(working!) : { ok: true, data: { revision: persistent.revision } };
+        // Debug output only from runs whose scene changes were committed.
+        if (committed.ok) for (const run of runs) if (!run.error) debugLog.record(run.graphId, run.effects.filter(isDebugEffect), run.debug ?? [], nowMs);
+        return { runs, committed };
     };
     // Each tween writes its sample as an override at the session time.
     const stepTweens = (nowMs: number) => {

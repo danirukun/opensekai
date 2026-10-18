@@ -29,6 +29,9 @@ it('cuts long text at a code point boundary', () => {
 
 it('replaces control characters and keeps markup as text', () => {
  expect(plainDebugText('<b>hi</b>\n\t\u0007*x*\u0085')).toBe('<b>hi</b>   *x* ');
+ expect(plainDebugText('a\u2028b\u2029c')).toBe('a b c');
+ expect(formatDebugValue('string', 'a\u0085b\u2028c')).toBe('"a b c"');
+ expect(formatDebugValue('string[]', ['\u2029'])).toBe('[" "]');
 });
 
 it('gives the debug nodes their typed ports', () => {
@@ -47,7 +50,7 @@ it('validates the blueprintDebug call and reply shapes', () => {
  expect(validateCall('blueprintDebug', { since: -1 }).ok).toBe(false);
  expect(validateCall('blueprintDebug', { since: 1, graphId: 'g' }).ok).toBe(false);
  const entry = { seq: 1, atMs: 16, graphId: 'g', nodeId: 'n', kind: 'log', level: 'info', message: 'hi' };
- expect(BlueprintDebugSchema.safeParse({ latest: 1, next: 1, dropped: 0, entries: [entry], values: [] }).success).toBe(true);
- expect(BlueprintDebugSchema.safeParse({ latest: 1, next: 1, dropped: 0, entries: [{ ...entry, level: 'trace' }], values: [] }).success).toBe(false);
- expect(BlueprintDebugSchema.safeParse({ latest: 1, next: 1, dropped: 0, entries: Array.from({ length: 51 }, (_, i) => ({ ...entry, seq: i + 1 })), values: [] }).success).toBe(false);
+ expect(BlueprintDebugSchema.safeParse({ epoch: 'e', latest: 1, next: 1, dropped: 0, entries: [entry], values: [] }).success).toBe(true);
+ expect(BlueprintDebugSchema.safeParse({ epoch: 'e', latest: 1, next: 1, dropped: 0, entries: [{ ...entry, level: 'trace' }], values: [] }).success).toBe(false);
+ expect(BlueprintDebugSchema.safeParse({ epoch: 'e', latest: 1, next: 1, dropped: 0, entries: Array.from({ length: 51 }, (_, i) => ({ ...entry, seq: i + 1 })), values: [] }).success).toBe(false);
 });

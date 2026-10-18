@@ -1395,7 +1395,10 @@ fn debug_value_ok(v: &Value) -> bool {
 // The Blueprint debug log page of slice F: entries, Debug Value values, and counters.
 pub fn validate_blueprint_debug(data: &Value) -> Result<(), AppError> {
     require(
-        keys_within(data, &["latest", "next", "dropped", "entries", "values"])
+        keys_within(
+            data,
+            &["epoch", "latest", "next", "dropped", "entries", "values"],
+        ) && id_ok(&data["epoch"])
             && debug_count_ok(&data["latest"])
             && debug_count_ok(&data["next"])
             && debug_count_ok(&data["dropped"])

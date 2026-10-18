@@ -2,11 +2,13 @@ import { BlueprintSetSchema, keystrokeAccelerator, type AppError, type Blueprint
 import { deviceTrigger, emptyState, type RunEnv, type RunState } from './blueprint-eval';
 import { activeDevices } from './devices';
 import { fnv1a } from './blueprint-random';
+import type { DebugValueSample } from './debug-log';
 import { compileBlueprint, fail, runFlow, type BlueprintEffect, type CompiledBlueprint, type FlowBudget, type PendingDelay } from './blueprint';
 
 export type BlueprintEvent = { kind: 'manual'; graphId: Id; nodeId: Id } | { kind: 'keystroke'; accelerator: string } | { kind: 'device'; event: DeviceEvent } | { kind: 'update' };
 export type StepEnv = Omit<RunEnv, 'deltaSeconds'>;
-export interface GraphRun { graphId: Id; effects: BlueprintEffect[]; error: AppError | null }
+// `debug` (slice F): the Debug Value samples of an accepted run.
+export interface GraphRun { graphId: Id; effects: BlueprintEffect[]; error: AppError | null; debug?: DebugValueSample[] }
 // Called once per run, right after the run, before the next one. A returned error keeps the run's Flip Flop state and new delays uncommitted.
 export type RunGate = (run: GraphRun) => AppError | null;
 export interface BlueprintRuntime { install(graphs: unknown, fresh?: boolean): Reply<BlueprintGraph[]>; installCompiled(graphs: readonly CompiledBlueprint[], fresh?: boolean): void; keystrokes(): string[]; heldKeys(): string[]; devices(): DeviceKind[]; step(events: BlueprintEvent[], nowMs: number, gate?: RunGate, env?: StepEnv): GraphRun[] }
@@ -34,7 +36,7 @@ export function createBlueprintRuntime(): BlueprintRuntime {
    const limit = fail('Blueprint delay limit reached', [graphId]);
    return { graphId, effects: [], error: limit.ok ? null : limit.error };
   }
-  const outcome: GraphRun = { graphId, effects: result.data.effects, error: null };
+  const outcome: GraphRun = { graphId, effects: result.data.effects, error: null, ...(result.data.debug.length ? { debug: result.data.debug } : {}) };
   const rejected = gate(outcome);
   if (rejected) return { graphId, effects: [], error: rejected };
   entry.state = result.data.state;

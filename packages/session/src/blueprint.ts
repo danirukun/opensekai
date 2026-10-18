@@ -3,7 +3,7 @@ import type { ExpressionEffect } from './expressions';
 import type { BoneOffsetEffect } from './bone-offsets';
 import type { BlendShapeEffect } from './blend-shapes';
 import type { LookAtEffect } from './look-at';
-import { DEBUG_EFFECT_KINDS, type DebugEffect } from './debug-log';
+import { DEBUG_EFFECT_KINDS, type DebugEffect, type DebugValueSample } from './debug-log';
 import { BlueprintLimitError, checkBlueprintValue, clearNodeState, cloneState, EVALUATORS, NO_ENV, type BlueprintValue, type Evaluator, type RunEnv, type RunState } from './blueprint-eval';
 import { BlueprintGraphSchema, blueprintPorts, nodeDefinition, connectionType, ownPort, unconnectedInputValue, type BlueprintConnection, type BlueprintGraph, type BlueprintNode, type Id, type PortShape, type Reply } from '@opensekai/contracts';
 
@@ -22,21 +22,25 @@ export const isSceneEffect = (effect: BlueprintEffect): effect is SceneEffect =>
 export interface CompiledBlueprint { graph: BlueprintGraph; nodes: Map<Id, BlueprintNode>; ports: Map<Id, PortShape>; dataIn: Map<string, BlueprintConnection>; flowNext: Map<string, BlueprintConnection> }
 export interface PendingDelay { nodeId: Id; dueMs: number }
 export interface FlowBudget { visits: number; effects: number }
-export interface FlowResult { effects: BlueprintEffect[]; delays: PendingDelay[]; state: RunState }
+// `debug` holds the Debug Value samples of the run; they are not effects.
+export interface FlowResult { effects: BlueprintEffect[]; delays: PendingDelay[]; state: RunState; debug: DebugValueSample[] }
 
 const MAX_EVENT_VISITS = 512;
 const MAX_LOOP_ITERATIONS = 64;
 class LoopLimit extends Error {}
 type Frame = { kind: 'enter'; nodeId: Id; port: string } | { kind: 'loop'; nodeId: Id; index: number; last: number; clear: boolean };
 const evaluator = (node: BlueprintNode) => EVALUATORS[node.type] as Evaluator<BlueprintNode>;
-// Debug Value nodes that the run read, then each other Debug Value node on a copy of the state (a watch). A watch that fails has no value.
-const debugValues = (compiled: CompiledBlueprint, state: RunState, env: RunEnv, observed: ReadonlyMap<Id, BlueprintValue>): BlueprintEffect[] =>
- compiled.graph.nodes.flatMap(node => {
+// Debug Value nodes that the run read, then each other Debug Value node (a watch) on one copy of the state for the run.
+// A watch that fails has no value.
+const debugValues = (compiled: CompiledBlueprint, state: RunState, env: RunEnv, observed: ReadonlyMap<Id, BlueprintValue>): DebugValueSample[] => {
+ let scratch: RunState | undefined;
+ return compiled.graph.nodes.flatMap(node => {
   if (node.type !== 'debug.value') return [];
   let value = observed.get(node.id);
-  if (value === undefined) try { value = readInput(compiled, cloneState(state), node.id, 'value', env); } catch { return []; }
-  return [{ kind: 'debugValue' as const, nodeId: node.id, valueType: node.settings.valueType, value }];
+  if (value === undefined) try { value = readInput(compiled, scratch ??= cloneState(state), node.id, 'value', env); } catch { return []; }
+  return [{ nodeId: node.id, valueType: node.settings.valueType, value }];
  });
+};
 export const fail = (message: string, ids: string[] = []): Reply<never> => ({ ok: false, error: { code: 'INVALID_INPUT', message, ids } });
 const key = (nodeId: string, port: string) => `${nodeId}\0${port}`;
 
@@ -163,5 +167,5 @@ export function runFlow(compiled: CompiledBlueprint, start: { nodeId: Id; port: 
   } catch (error) { return fail(error instanceof LoopLimit ? 'Blueprint loop exceeded its iteration limit' : error instanceof BlueprintLimitError ? 'Blueprint value exceeds its limit' : 'Blueprint data could not be evaluated', [node.id]); }
   if (failure) return failure;
  }
- return { ok: true, data: { effects: [...effects, ...debugValues(compiled, next, env, observed)], delays, state: next } };
+ return { ok: true, data: { effects, delays, state: next, debug: debugValues(compiled, next, env, observed) } };
 }

@@ -56,9 +56,9 @@ it('records the value that a Debug Value node passes on, and watches an unread n
  const state = emptyState(7);
  const result = runFlow(compiled.data, { nodeId: 'go', port: 'flow' }, state, { visits: 100, effects: 1 }, 0);
  if (!result.ok) throw new Error(result.error.message);
- expect(result.data.effects[0]).toEqual({ kind: 'setVisibility', entityId: 'marker', visible: false });
- expect(result.data.effects.slice(1).map(effect => effect.kind === 'debugValue' && [effect.nodeId, effect.valueType])).toEqual([['probe', 'boolean'], ['watch', 'number']]);
- expect(result.data.effects[1]).toMatchObject({ value: false });
+ expect(result.data.effects).toEqual([{ kind: 'setVisibility', entityId: 'marker', visible: false }]);
+ expect(result.data.debug.map(sample => [sample.nodeId, sample.valueType])).toEqual([['probe', 'boolean'], ['watch', 'number']]);
+ expect(result.data.debug[0]).toMatchObject({ value: false });
  // The watch read Random on a copy, so the run state keeps its seed.
  expect(result.data.state.random).toBe(7);
 });
@@ -94,4 +94,14 @@ it('adds no entry for a failed run and keeps Debug Value values of existing node
  expect(read.values).toEqual([{ graphId: 'g', nodeId: 'probe', valueType: 'number', text: '3', changedMs: 0, seq: 2 }]);
  edit([{ kind: 'removeNode', graphId: 'g', nodeId: 'probe' }], 'b3');
  expect(session.debugBlueprints().values).toEqual([]);
+});
+
+it('adds no debug output when the scene commit of the step fails', () => {
+ const session = createSession({ ...makeSmokeScene(), revision: Number.MAX_SAFE_INTEGER }, 's');
+ session.editBlueprints({ clientId: 't', batchId: 'b1', ops: [{ kind: 'createGraph', graph: graph([
+  manual, node('log', 'debug.log', { level: 'info' }, { message: 'hidden' }), node('show', 'scene.setVisibility', { entityId: 'marker' }),
+  node('n', 'value.number', { value: 1 }), node('probe', 'debug.value', { valueType: 'number' }),
+ ], [wire('a', 'go', 'flow', 'log', 'flow'), wire('b', 'log', 'exit', 'show', 'flow'), wire('c', 'n', 'value', 'probe', 'value')]) }] });
+ expect(session.runBlueprint('g', 'go')).toMatchObject({ ok: false, error: { message: 'Revision limit reached' } });
+ expect(session.debugBlueprints()).toMatchObject({ latest: 0, entries: [], values: [] });
 });

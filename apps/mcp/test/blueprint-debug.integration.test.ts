@@ -23,7 +23,9 @@ it('reads Log lines, debug events, and Debug Value text through blueprint_debug_
    { id: 'c', sourceNodeId: 'n', sourcePort: 'value', targetNodeId: 'probe', targetPort: 'value' },
   ] };
   expect(await call('blueprint_edit', { clientId: 'mcp', batchId: 'b1', ops: [{ kind: 'createGraph', graph }] })).toMatchObject({ ok: true });
-  expect(await call('blueprint_debug_log', {})).toEqual({ ok: true, data: { latest: 0, next: 0, dropped: 0, entries: [], values: [] } });
+  const empty = await call('blueprint_debug_log', {});
+  expect(empty).toMatchObject({ ok: true, data: { latest: 0, next: 0, dropped: 0, entries: [], values: [] } });
+  expect(empty.data.epoch).toMatch(/^[0-9a-f-]{36}$/);
   expect(await call('blueprint_run', { graphId: 'g', triggerNodeId: 'go' })).toMatchObject({ ok: true });
   const first = await call('blueprint_debug_log', {});
   expect(first.data.entries).toEqual([
@@ -35,7 +37,9 @@ it('reads Log lines, debug events, and Debug Value text through blueprint_debug_
   expect(await call('blueprint_run', { graphId: 'g', triggerNodeId: 'go' })).toMatchObject({ ok: true });
   const next = await call('blueprint_debug_log', { since: first.data.next });
   expect(next.data.entries.map((entry: { seq: number; kind: string }) => [entry.seq, entry.kind])).toEqual([[4, 'log'], [5, 'event']]);
-  expect(next.data.values).toEqual([]);
+  // Values are the full set on each read; the value did not change, so its seq stays.
+  expect(next.data.values).toEqual(first.data.values);
+  expect(next.data.epoch).toBe(empty.data.epoch);
   expect((await client.callTool({ name: 'blueprint_debug_log', arguments: { since: -1 } })).isError).toBe(true);
  } finally { await client.close(); }
 }, 15000);
