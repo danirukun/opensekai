@@ -22,7 +22,8 @@ R5. Inline input values.
     - When a node reads a data input, the runtime uses the wire when the input has one. Else it uses the inline value. Else it uses the default of the input type (R2). A list input without a wire reads `[]`.
     - A data input without a wire is not a compile error. The compile error `Blueprint input is not connected` is removed. Flow ports do not change.
     - A wire does not remove the inline value. The value comes back into use when the wire is removed.
-    - `setNodeSettings` removes each inline value whose port is gone or whose port type is no longer the type of the value, as it removes wires that no longer connect.
+    - `setNodeSettings` checks the new settings first. Then it removes each inline value whose port is gone or whose port type is no longer the type of the value, as it removes wires that no longer connect.
+    - A change of an inline value applies to the next run. It does not reset the graph state and does not clear a runtime error, because the runtime logic key (`logicKey` in `blueprint-runtime.ts`, owned by slice D) does not include inline values. A settings change resets the state. Slice D or the integrator decides if inline values join the logic key.
 R6. Operation `setNodeInput { graphId, nodeId, port, value }`. `value` is a scalar value or `null`.
     - A value sets the inline value of the port. `null` removes it.
     - An unknown graph gives `NOT_FOUND` `Blueprint not found`. An unknown node gives `NOT_FOUND` `Node not found`.
@@ -45,8 +46,13 @@ R13. Editor.
     - The editor uses `@oshi-connect/ui` `Input` and adds no helper text.
     - Undo records `setNodeInput`, and two edits of one inline value within 500 ms merge into one step.
     - The Variables drawer adds, retypes, and edits each data type. A list default is a text area with one item on each line; a `vector3` item is `x, y, z`.
-R14. MCP. `blueprint_edit` accepts the new node, variable, and operation shapes through the shared contracts. The `opensekai://blueprint-nodes` resource lists the categories and port types that the catalog uses.
-R15. Tests. Unit tests for the compatibility rule, the value schemas and defaults, the limits, inline value validation, the `setNodeInput` operation, the settings prune, undo of an inline edit, and the list default parser. Session tests for an inline value in a run, a list input without a wire, a string and a list variable that keep their value, an integer to number wire, a rejected number to integer wire, and a run that fails at a limit with no state change. Rust tests for the new structural checks.
+R14. MCP. `blueprint_edit` accepts the new node, variable, and operation shapes through the shared contracts. The `opensekai://blueprint-nodes` resource adds `dataTypes` (R1) and `categories` (R9) next to `nodes` and `properties`. The `blueprint_edit` description names inline values and `setNodeInput`.
+R15. Tests.
+    - Unit: the compatibility rule, the value schemas and defaults, the limits, inline value validation, `setNodeInput`, the settings prune, typed variables, the Blueprint file and show round trip, `checkBlueprintValue`, the generic node state copy, undo of an inline edit, the graph patch, the canvas wired set, and the text parsers of the editors.
+    - Session: an inline value in a run, a wire that wins over it, the type default after a clear, and string, list, and integer variables through edits and in the initial run state.
+    - MCP integration (stdio): typed variables and an inline value through `blueprint_edit`, read back with `blueprint_inspect`.
+    - Rust: the new structural checks.
+    - Not in this slice: a session test of an integer to number wire, of a rejected number to integer wire, and of a run that fails at a limit. W0 has no node with an integer port or a node that makes a string or a list, so no graph can reach these paths. The unit tests of `canConnect`, `connectionType`, and `checkBlueprintValue` cover the rules. The first wave 2 slice that adds an integer output, an integer input, or a string or list output adds these session tests.
 
 ## E — Entities
 
@@ -68,7 +74,7 @@ Put the value model in one new contracts module (`blueprint-values.ts`) with pur
 - `packages/session/src/blueprint.ts` (compile and read), `blueprint-eval/types.ts`.
 - `crates/contracts/src/lib.rs`, `crates/contracts/tests/blueprint.rs`, `fixtures/protocol/blueprint-variables.json`.
 - `apps/desktop/src/blueprints/rete-editor.ts` (sockets and inline input wiring only), `fields.ts`, `graph-patch.ts`, `undo.ts`; `components/BlueprintNodeView.svelte`, `BlueprintSocketView.svelte`, `BlueprintVariables.svelte`, `BlueprintNodeFields.svelte`; `app.css` (socket and inline editor rules).
-- `apps/mcp/src/server.ts` (tool description only).
+- `apps/mcp/src/server.ts` (tool description only), `resources.ts` (node resource).
 - Tests in `packages/contracts/test`, `packages/session/test`, `apps/desktop/test`.
 - `docs/evaluation/blueprint-w0-value-model.md`.
 
@@ -122,10 +128,14 @@ export type InlineInputs = Partial<Record<string, ScalarValue>>;
 export function connectionType(source: BlueprintNode, sourcePort: string, target: BlueprintNode, targetPort: string): PortType | null;
 // The scalar type of an input that can hold an inline value, else null.
 export const inlineInputType: (node: BlueprintNode, port: string) => ScalarType | null;
+// True when each inline value of the node is on a scalar data input and has the type of that input.
+export const inlineInputsFit: (node: BlueprintNode) => boolean;
 // The value an unconnected input reads: the inline value, else the type default.
-export const unconnectedInputValue: (node: BlueprintNode, port: string) => BlueprintValue;
+export function unconnectedInputValue(node: BlueprintNode, port: string): BlueprintValue;
+// A copy of the node with one inline value set, or removed when value is null. It does not check the value.
+export function withInlineInput<N extends BlueprintNode>(node: N, port: string, value: ScalarValue | null): N;
 // A copy of the node without inline values that no longer fit its ports.
-export const pruneInlineInputs: (node: BlueprintNode) => BlueprintNode;
+export function pruneInlineInputs<N extends BlueprintNode>(node: N): N;
 
 // packages/contracts/src/blueprint-ops.ts (appended)
 { kind: 'setNodeInput'; graphId: Id; nodeId: Id; port: string; value: ScalarValue | null }
@@ -144,6 +154,8 @@ export const clearNodeState: (state: RunState, nodeId: Id) => void;
 export const checkBlueprintValue: (type: DataType, value: unknown) => void;
 export class BlueprintLimitError extends RangeError {}
 ```
+
+`blueprintNodeCatalog()` computes the default ports with sample references that contain one variable of each data type (ID equal to the type name), so a wave 2 variable node with `defaults` that need a variable of its type is in the catalog.
 
 A wave 2 evaluator reads inputs with `read(port)` as before. It does not read `node.inputs`; the runtime resolves the wire, the inline value, and the default. A data evaluator returns a value of its output type; the runtime checks it (R7).
 

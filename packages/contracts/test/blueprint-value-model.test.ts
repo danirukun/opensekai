@@ -106,6 +106,7 @@ it('drops inline values that a settings change makes invalid and keeps the other
  expect(scale.nodes[0]!.inputs).toEqual({ value: [1, 2, 3] });
  const visible = ok(applyBlueprintOps([graphOf([set])], [{ kind: 'setNodeSettings', graphId: 'g', nodeId: 'set', settings: { entityId: 'e', property: 'visible' } }]));
  expect(visible.nodes[0]).not.toHaveProperty('inputs');
+ expect(applyBlueprintOps([graphOf([set])], [{ kind: 'setNodeSettings', graphId: 'g', nodeId: 'set', settings: { entityId: 'e', property: 'bogus' } }])).toMatchObject({ ok: false, error: { message: 'Invalid node settings' } });
 });
 
 it('keeps the port type of an input as the connection type', () => {

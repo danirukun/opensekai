@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import { BlueprintConnectionSchema, BlueprintGraphSchema, BlueprintSetSchema, BlueprintVariableSchema, type BlueprintGraph } from './blueprint';
-import type { BlueprintNode } from './blueprint-nodes';
 import { BlueprintNodeSchema, BlueprintPositionSchema, connectionType, inlineInputType, pruneInlineInputs, withInlineInput } from './blueprint-nodes';
 import { DATA_TYPES, defaultBlueprintValue, isBlueprintValue, ScalarValueSchema } from './blueprint-values';
 import type { Reply } from './types';
@@ -63,9 +62,11 @@ export function applyBlueprintOps(graphs: readonly BlueprintGraph[], ops: readon
    case 'setNodeSettings': {
     const i = nodeAt(op.nodeId);
     if (i < 0) return reject('NOT_FOUND', 'Node not found', [op.nodeId]);
-    const parsed = BlueprintNodeSchema.safeParse(pruneInlineInputs({ ...graph.nodes[i]!, settings: op.settings } as BlueprintNode));
+    // Settings are checked first, so the inline values are checked against valid ports.
+    const { inputs, ...bare } = graph.nodes[i]!;
+    const parsed = BlueprintNodeSchema.safeParse({ ...bare, settings: op.settings });
     if (!parsed.success) return reject('INVALID_INPUT', 'Invalid node settings', [op.nodeId]);
-    graph.nodes[i] = parsed.data;
+    graph.nodes[i] = pruneInlineInputs(inputs ? { ...parsed.data, inputs } : parsed.data);
     // A settings change can remove a port or change its type; wires and inline values that no longer type-check go.
     graph.connections = graph.connections.filter(c => {
      if (c.sourceNodeId !== op.nodeId && c.targetNodeId !== op.nodeId) return true;
