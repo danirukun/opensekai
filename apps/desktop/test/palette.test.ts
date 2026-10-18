@@ -29,8 +29,8 @@ it('collapses saved sections, and opens every matching section during a search w
  const math = search.sections.find(section => section.key === 'Math')!;
  expect(search.searching).toBe(true);
  expect(math.open).toBe(true);
- expect(math.entries.map(entry => entry.type)).toEqual(['math.random']);
- expect(sectionCount(math, true)).toBe(`1/${collapsed.sections.find(section => section.key === 'Math')!.total}`);
+ expect(math.entries.map(entry => entry.type)).toEqual(['math.random', 'integer.random']);
+ expect(sectionCount(math, true)).toBe(`2/${collapsed.sections.find(section => section.key === 'Math')!.total}`);
  // An empty query brings the saved state back.
  expect(paletteSections('  ', refs, { favorites: [], collapsed: ['Math'] }).sections.find(section => section.key === 'Math')!.open).toBe(false);
 });

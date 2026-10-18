@@ -41,3 +41,7 @@ export const empty = z.strictObject({});
 export const exit = { exit: 'flow' } as const;
 export const numbered = (prefix: string, count: number): Record<string, PortType> =>
  Object.fromEntries(Array.from({ length: count }, (_, i) => [`${prefix}${i}`, 'flow' as const]));
+// A factory for node types without settings: fixed ports, shared keywords, and optional input defaults.
+export const plainNodes = (category: NodeCategory, sharedKeywords: readonly string[] = []) =>
+ <const T extends string>(type: T, label: string, keywords: readonly string[], ports: () => PortShape, inputDefaults?: Readonly<Record<string, ScalarValue>>) =>
+  defineNode({ type, label, category, keywords: [...sharedKeywords, ...keywords], settings: empty, ports, defaults: () => ({}), fields: [], ...(inputDefaults ? { inputDefaults } : {}) });
