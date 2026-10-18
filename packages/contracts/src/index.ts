@@ -14,5 +14,6 @@ export * from './blueprint-file';
 export * from './quality';
 export * from './expressions';
 export * from './blueprint-templates';
+export * from './easing';
 export * from './blueprint-comments';
 export * from './blueprint-duplicate';

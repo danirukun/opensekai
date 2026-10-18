@@ -41,10 +41,16 @@ export const ExpressionStateSchema = z.strictObject({ avatarId: z.string().min(1
 // Names that face tracking or lip sync drives (VRM presets and the OVR visemes). Lower case, so the comparison ignores case.
 // Keep in step with `is_tracked_expression` in the Rust contracts.
 const VISEMES = ['sil', 'pp', 'ff', 'th', 'dd', 'kk', 'ch', 'ss', 'nn', 'rr'];
-const TRACKED = new Set(['aa', 'ih', 'ou', 'ee', 'oh', 'blink', 'blinkleft', 'blinkright', 'lookup', 'lookdown', 'lookleft', 'lookright', 'neutral', ...VISEMES]);
+// The VRM preset names that tracking drives. Every VRM model has them, possibly empty.
+const TRACKED_PRESETS = ['aa', 'ih', 'ou', 'ee', 'oh', 'blink', 'blinkLeft', 'blinkRight', 'lookUp', 'lookDown', 'lookLeft', 'lookRight', 'neutral'];
+const TRACKED = new Set([...TRACKED_PRESETS.map(name => name.toLowerCase()), ...VISEMES]);
 export const isTrackedExpression = (name: string): boolean => TRACKED.has(name.toLowerCase()) || canonicalArkitName(name) !== undefined;
 export const triggerableExpressions = (record: { expressions: readonly AssetExpression[] }): AssetExpression[] =>
  record.expressions.filter(entry => !isTrackedExpression(entry.name));
+
+// The names that the renderer can drive by name: the record's expressions, the tracked VRM presets, then the ARKit names.
+export const blendShapeNames = (record: { expressions: readonly AssetExpression[] }): string[] =>
+ [...new Set([...record.expressions.map(entry => entry.name), ...TRACKED_PRESETS, ...ARKIT_NAMES])];
 
 export const DEFAULT_FADE_SECONDS = 0.4;
 // The settings of each triggerable expression: the stored entry, or the Warudo default (presets on layer 0, each custom expression on its own layer).

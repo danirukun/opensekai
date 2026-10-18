@@ -63,12 +63,14 @@ export const inlineInputsFit = (node: BlueprintNode, ports: PortShape = blueprin
  const entries = Object.entries(node.inputs ?? {});
  return entries.length <= MAX_INLINE_INPUTS && entries.every(([port, value]) => fits(ports, port, value));
 };
-// The value that an input without a wire reads: its inline value, else the default of its type.
+// The value that an input without a wire reads: its inline value, else the node's input default, else the default of its type.
 export function unconnectedInputValue(node: BlueprintNode, port: string, ports: PortShape = blueprintPorts(node)): BlueprintValue {
  const type = ownPort(ports, 'inputs', port);
  if (!type || type === 'flow') throw new RangeError('Not a data input');
  const inline = node.inputs && Object.hasOwn(node.inputs, port) ? node.inputs[port] : undefined;
- return inline !== undefined && isScalarType(type) ? inline : defaultBlueprintValue(type);
+ if (!isScalarType(type)) return defaultBlueprintValue(type);
+ const fallback = nodeDefinition(node.type).inputDefaults;
+ return inline ?? (fallback && Object.hasOwn(fallback, port) ? fallback[port]! : defaultBlueprintValue(type));
 }
 // A copy of the node with one inline value set, or removed when `value` is null. It does not check the value.
 export function withInlineInput<N extends BlueprintNode>(node: N, port: string, value: ScalarValue | null): N {

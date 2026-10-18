@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { DataType } from '../blueprint-values';
+import type { DataType, ScalarValue } from '../blueprint-values';
 import type { KeystrokeSettings } from './events';
 
 export type PortType = 'flow' | DataType;
@@ -19,7 +19,8 @@ export type BlueprintField =
  | { key: string; label: string; kind: 'variable'; variableType: DataType }
  | { key: string; label: string; kind: 'cases' }
  | { key: string; label: string; kind: 'keystroke' }
- | { key: string; label: string; kind: 'key' | 'property' | 'space' | 'bone' };
+ | { key: string; label: string; kind: 'key' | 'property' | 'space' | 'bone' }
+ | { key: string; label: string; kind: 'blendshape' | 'easing' };
 export interface NodeDefinition<T extends string = string, S extends z.ZodType = z.ZodType> {
  type: T; label: string; category: NodeCategory; keywords: readonly string[];
  settings: S;
@@ -28,6 +29,8 @@ export interface NodeDefinition<T extends string = string, S extends z.ZodType =
  defaults(refs: DefaultRefs): z.output<S> | null;
  fields: readonly BlueprintField[];
  dynamicPorts?: boolean;
+ // The value that an unconnected input without an inline value reads, when the type default (0, false, '') does not fit the node.
+ inputDefaults?: Readonly<Record<string, ScalarValue>>;
 }
 export const defineNode = <const T extends string, S extends z.ZodType>(definition: NodeDefinition<T, S>): NodeDefinition<T, S> => definition;
 
