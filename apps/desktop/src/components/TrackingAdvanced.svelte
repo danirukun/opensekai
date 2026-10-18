@@ -14,6 +14,7 @@
   ['Generation',String(generation)],
   ['Packets',status?String(status.packets):unknown],
   ['Invalid packets',status?String(status.invalidPackets):unknown],
+  ...(status?.unmatchedPackets?[['Unmatched packets',String(status.unmatchedPackets)]]:[]),
   ['Packet rate',rate?.perSecond!=null?`${rate.perSecond.toFixed(1)}/s`:unknown],
   ...(kind==='mediapipe'?[['Inference',status?.inferenceMs!==undefined?`${status.inferenceMs.toFixed(1)} ms`:unknown]]:[]),
  ]);

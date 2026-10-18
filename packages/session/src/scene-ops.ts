@@ -4,6 +4,25 @@ import { delta, followers, shifted } from "./camera-follow";
 
 const failure = (code: ErrorCode, message: string, ids: Id[] = []): Reply<never> => ({ ok: false, error: { code, message, ids } });
 
+// Each source with two or more avatars gives one key per avatar pair: `source avatarA avatarB`.
+const sharedSources = (scene: SceneView): Map<string, Id[]> => {
+ const users = new Map<Id, Id[]>();
+ for (const entity of scene.entities) {
+  if (entity.kind !== 'avatar' || !entity.tracking) continue;
+  const sources = new Set([entity.tracking.bodySourceId, entity.tracking.faceSourceId].filter((id): id is Id => id !== null));
+  for (const source of sources) users.set(source, [...(users.get(source) ?? []), entity.id]);
+ }
+ return new Map([...users].flatMap(([source, avatars]) =>
+  avatars.flatMap((a, i) => avatars.slice(i + 1).map(b => [`${source} ${[a, b].sort().join(' ')}`, [a, b]] as [string, Id[]]))));
+};
+
+// A patch cannot add a source share between two avatars. A share that the start state has stays valid.
+const newShare = (before: SceneView, after: SceneView): Id[] | null => {
+ const old = sharedSources(before);
+ const added = [...sharedSources(after)].filter(([key]) => !old.has(key)).flatMap(([, avatars]) => avatars);
+ return added.length ? [...new Set(added)] : null;
+};
+
 export function applyOperations(scene: SceneView, operations: ScenePatch["operations"], generation: number): Reply<SceneView> {
             const next = structuredClone(scene);
             // A camera that the patch places itself does not follow its target.
@@ -54,6 +73,8 @@ export function applyOperations(scene: SceneView, operations: ScenePatch["operat
                 }
             }
             if(!SceneViewSchema.safeParse(next).success)return failure('INVALID_INPUT','Invalid scene references or budget');
+            const shared=newShare(scene,next);
+            if(shared)return failure('INVALID_INPUT','Tracking source used by another avatar',shared);
             return { ok: true, data: next };
 }
 
