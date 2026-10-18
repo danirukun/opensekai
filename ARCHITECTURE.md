@@ -25,7 +25,7 @@ flowchart LR
 | --- | --- |
 | `packages/contracts` | zod schemas and types for scenes, shows, patches, assets, Blueprints, tracking, and the call API. The source of truth for the wire shape. |
 | `crates/contracts` | Rust mirror of the contracts. `fixtures/protocol/validation-vectors.json` keeps both sides equal. |
-| `packages/session` | Session worker: scene operations (`scene-ops.ts`), ECS, tracking filters, idle, Blueprint runtime and evaluators. |
+| `packages/session` | Session worker: scene operations (`scene-ops.ts`), ECS, tracking filters, idle, bone offset layer (`bone-offsets.ts`), Blueprint runtime and evaluators. |
 | `packages/renderer` | three.js `WebGPURenderer` (WebGL 2 fallback), VRM loading, load jobs, texture sharing and limits, editor viewport and gizmos, diagnostics. |
 | `packages/extensions` | Extension sandbox: manifest schema, one QuickJS WASM instance for each extension, worker protocol, and a main-thread client with a watchdog. No app process loads it yet. |
 | `packages/browser-client` | WebSocket client, frame stream, `readAsset` over `GET /assets/{id}`. Used by every TypeScript client. |
@@ -41,6 +41,13 @@ flowchart LR
 ## Command path
 
 Editor and MCP edits use the same route: a call (for example `scenePatch`) goes to the host router (`service/router.rs`). The router checks the role capability and relays the call to the publisher. Expression triggers (`expressionGet`, `expressionSet`) take the same relay, but they change runtime state in the session (`expressions.ts`), not the scene, so they do not increase the revision. The host answers two calls itself and does not relay them: `appStatus` (connection and output state) and `assetList` (one page of asset summaries from the registry). Evaluation calls (`captureFrame`, `benchmark*`, `evidenceRead`) go to the native evaluation handler. Editor viewport navigation (`renderer/src/viewport-navigation.ts`) sends its camera moves as ordinary `scenePatch` calls, at most one every 100 ms and only after the previous reply. A gizmo drag (`renderer/src/editor-viewport.ts`) sends `setTransform` through the same committer, at most one every 33 ms and a last one on release, so the OBS output follows the drag; the preview also draws a dragged light at the gizmo pose on each frame (`withDrafts`). Inspector sliders and the color swatch send live edits through `editor/live-edit.ts` (latest value only, one request in flight). The session validates the patch against `expectedRevision`, applies the operations, and validates the whole scene again with `SceneViewSchema`. Each accepted edit increases the scene revision. Do not add an edit path that skips this route.
+
+## Tracking path
+
+1. **Receive.** The host tracking manager (`src-tauri/src/tracking/mod.rs`) binds one UDP socket for each endpoint. The pure function `endpoint_routes` (`tracking/endpoints.rs`) makes the endpoint plan from the enabled VMC and iFacialMocap sources on each accepted revision. Two sources of the same kind can share one endpoint when each has a different sender or phone address; the host gives each datagram to the source whose address equals the sender IP, before parsing, and counts other datagrams in `unmatchedPackets`. Overlapping sources that cannot share get "Endpoint used by <name>"; the source that holds the endpoint wins. Each source keeps its own decoder (`tracking/parser.rs`), generation, counters, and sample. An iFacialMocap source with a phone address sends the handshake from the endpoint socket to the phone, and again each 2 s while no packet arrives. `appStatus` also returns the IPv4 addresses of this computer (`localAddresses`).
+2. **Clock.** The host sends the latest samples and statuses to the publisher in the credited `clock` envelope.
+3. **Compose.** The session applies each avatar's body and face sources (smoothing, hold, fade, idle) and makes one `AvatarPose` for each avatar. A `scenePatch` that makes two avatars use one source is rejected. Blueprint `character.offsetBoneRotation` writes to a bone offset layer that is empty at the start of each tick; the session adds it to the frame pose as `boneOffsets`. The layer is never committed or saved. `character.getBoneRotation` reads the pose of the previous tick.
+4. **Render.** The renderer applies each pose to its own VRM instance (`renderer/src/avatar-pose.ts`): normalized bones, raw bones, root, expressions, then `boneOffsets` in the parent frame of each bone.
 
 ## Asset path
 
