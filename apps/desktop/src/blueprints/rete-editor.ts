@@ -4,25 +4,30 @@ import { AreaExtensions, AreaPlugin } from 'rete-area-plugin';
 import { getDOMSocketPosition } from 'rete-render-utils';
 import { ConnectionPlugin, Presets as ConnectionPresets } from 'rete-connection-plugin';
 import { Presets, SveltePlugin, type SvelteArea2D } from 'rete-svelte-plugin/5';
-import { BLUEPRINT_LABELS, blueprintPorts, connectionType, ownPort, type BlueprintConnection, type BlueprintGraph, type BlueprintNode, type BlueprintOp, type PortType } from '@opensekai/contracts';
+import { BLUEPRINT_LABELS, blueprintPorts, connectionType, DATA_TYPE_LABELS, DATA_TYPES, ownPort, withInlineInput, type BlueprintConnection, type BlueprintGraph, type BlueprintNode, type BlueprintOp, type PortType, type ScalarValue } from '@opensekai/contracts';
 import { graphPatch } from './graph-patch';
 
 export { graphPatch } from './graph-patch';
 export type BlueprintKind = BlueprintNode['type'];
 
-const sockets: Record<PortType, ClassicPreset.Socket> = {
- flow: new ClassicPreset.Socket('Flow'),
- number: new ClassicPreset.Socket('Number'),
- boolean: new ClassicPreset.Socket('Boolean'),
- vector3: new ClassicPreset.Socket('Vector3'),
-};
+// The socket view reads `kind` for its appearance and `name` for its title.
+class TypedSocket extends ClassicPreset.Socket {
+ kind: PortType;
+ constructor(kind: PortType) { super(kind === 'flow' ? 'Flow' : DATA_TYPE_LABELS[kind]); this.kind = kind; }
+}
+const sockets = Object.fromEntries((['flow', ...DATA_TYPES] as const).map(kind => [kind, new TypedSocket(kind)])) as Record<PortType, TypedSocket>;
 
+export type InlineEdit = (port: string, value: ScalarValue | null) => void;
 class GraphNode extends ClassicPreset.Node {
  data: BlueprintNode;
- constructor(data: BlueprintNode) {
+ // Inputs with a wire; the node view shows an inline editor on the other scalar data inputs.
+ wired = new Set<string>();
+ setInput: InlineEdit;
+ constructor(data: BlueprintNode, setInput: InlineEdit) {
   super(BLUEPRINT_LABELS[data.type]);
   this.id = data.id;
   this.data = data;
+  this.setInput = setInput;
   this.syncPorts();
  }
  // Flow inputs take many wires and flow outputs one; data inputs take one wire and data outputs many.
@@ -118,6 +123,7 @@ export async function mountReteBlueprint(container: HTMLElement, initial: Bluepr
   return context;
  });
  editor.addPipe(context => {
+  if (context.type === 'connectioncreated' || context.type === 'connectionremoved') rewire(context.data.target);
   if (silent) return context;
   if (context.type === 'connectioncreated' && !ownWires.has(context.data.id)) {
    const c = context.data;
@@ -140,8 +146,23 @@ export async function mountReteBlueprint(container: HTMLElement, initial: Bluepr
   try { await work(); } finally { if (!nested) ownNodes.delete(id); }
  };
  const place = (id: string, position: BlueprintNode['position']) => ownNode(id, () => area.translate(id, position));
+ // An inline edit changes the canvas copy first, so the echo of the session needs no redraw.
+ const setInput = (nodeId: string): InlineEdit => (port, value) => {
+  const node = editor.getNode(nodeId) as GraphNode | undefined;
+  if (destroyed || !node) return;
+  node.data = withInlineInput(node.data, port, value);
+  track(graph => ({ ...graph, nodes: graph.nodes.map(item => item.id === nodeId ? withInlineInput(item, port, value) : item) }));
+  void area.update('node', nodeId);
+  handlers.onOps([{ kind: 'setNodeInput', graphId, nodeId, port, value }]);
+ };
+ const rewire = (nodeId: string) => {
+  const node = editor.getNode(nodeId) as GraphNode | undefined;
+  if (!node) return;
+  node.wired = new Set(editor.getConnections().filter(c => c.target === nodeId).map(c => String(c.targetInput)));
+  void area.update('node', nodeId);
+ };
  const addNode = (data: BlueprintNode) => ownNode(data.id, async () => {
-  await editor.addNode(new GraphNode(data));
+  await editor.addNode(new GraphNode(data, setInput(data.id)));
   await place(data.id, data.position);
  });
  const addWire = async (wire: BlueprintConnection) => {

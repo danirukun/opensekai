@@ -107,3 +107,27 @@ it('does not merge a quick move into a step when another change landed between t
  expect(quick(false)).toBe(1);
  expect(quick(true)).toBe(2);
 });
+
+it('undoes and redoes an inline value, and merges quick edits of one value into one step', () => {
+ let time = 0;
+ const history = createUndoHistory(() => time);
+ const start = apply(flash(), [{ kind: 'disconnect', graphId: 'flash-marker', connectionId: 'w2' }]);
+ let current = start;
+ const act = (ops: BlueprintOp[]) => { const next = apply(current, ops); history.record('flash-marker', current, next, ops); current = next; };
+ const take = (ops: BlueprintOp[]) => { current = apply(current, ops); return true; };
+ act([{ kind: 'setNodeInput', graphId: 'flash-marker', nodeId: 'show', port: 'visible', value: true }]); time += 100;
+ act([{ kind: 'setNodeInput', graphId: 'flash-marker', nodeId: 'show', port: 'visible', value: false }]);
+ expect(history.undo('flash-marker', take)).toBe(true);
+ expect(norm(current)).toEqual(norm(start));
+ expect(history.redo('flash-marker', take)).toBe(true);
+ expect(current.nodes.find(node => node.id === 'show')!.inputs).toEqual({ visible: false });
+});
+
+it('restores an inline value that a settings change dropped', () => {
+ const set = { id: 'set', version: 1 as const, type: 'property.set' as const, settings: { entityId: 'marker', property: 'position' as const }, position: { x: 0, y: 0 }, inputs: { value: [1, 2, 3] as [number, number, number] } };
+ const before: BlueprintGraph = { ...flash(), nodes: [...flash().nodes, set] };
+ const after = apply(before, [{ kind: 'setNodeSettings', graphId: 'flash-marker', nodeId: 'set', settings: { entityId: 'marker', property: 'visible' } }]);
+ expect(after.nodes.find(node => node.id === 'set')).not.toHaveProperty('inputs');
+ expect(norm(apply(after, diffOps(after, before)))).toEqual(norm(before));
+ expect(norm(apply(before, diffOps(before, after)))).toEqual(norm(after));
+});

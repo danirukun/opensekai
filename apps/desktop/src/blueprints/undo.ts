@@ -1,4 +1,4 @@
-import type { BlueprintGraph, BlueprintOp } from '@opensekai/contracts';
+import { inlineInputType, type BlueprintGraph, type BlueprintOp } from '@opensekai/contracts';
 import { graphPatch } from './graph-patch';
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
@@ -17,7 +17,16 @@ export function diffOps(from: BlueprintGraph, to: BlueprintGraph): BlueprintOp[]
   else if (!same(old, variable)) ops.push({ kind: 'updateVariable', graphId, variableId: variable.id, name: variable.name, type: variable.type, default: variable.default });
  }
  for (const node of [...patch.addNodes, ...retyped]) ops.push({ kind: 'addNode', graphId, node });
- for (const node of patch.updateNodes) if (oldTypes.get(node.id) === node.type) ops.push({ kind: 'setNodeSettings', graphId, nodeId: node.id, settings: node.settings });
+ const oldNodes = new Map(from.nodes.map(node => [node.id, node] as const));
+ for (const node of patch.updateNodes) {
+  const old = oldNodes.get(node.id);
+  if (!old || old.type !== node.type) continue;
+  if (!same(old.settings, node.settings)) ops.push({ kind: 'setNodeSettings', graphId, nodeId: node.id, settings: node.settings });
+  // After the settings: a settings change already drops the inline values of ports that it removes or retypes.
+  const before = old.inputs ?? {}, after = node.inputs ?? {};
+  for (const port of new Set([...Object.keys(before), ...Object.keys(after)]))
+   if (!same(before[port], after[port]) && inlineInputType(node, port)) ops.push({ kind: 'setNodeInput', graphId, nodeId: node.id, port, value: after[port] ?? null });
+ }
  for (const move of patch.moveNodes) ops.push({ kind: 'moveNode', graphId, nodeId: move.id, position: move.position });
  // Wires go last: a settings change can drop wires, and a retyped node lost all of its wires.
  const added = new Set(patch.addConnections.map(wire => wire.id)), redone = new Set(retyped.map(node => node.id));
@@ -37,12 +46,12 @@ export interface UndoHistory {
  clear(): void;
 }
 const LIMIT = 64, MERGE_MS = 500;
-// Only a drag (moves) or repeated edits of one node's settings or one variable merge; any other action is one step.
+// Only a drag (moves) or repeated edits of one node's settings, one inline value, or one variable merge; any other action is one step.
 const shape = (ops: readonly BlueprintOp[]) => {
  if (ops.length > 0 && ops.every(op => op.kind === 'moveNode')) return 'move';
  const [only] = ops;
  if (ops.length !== 1 || !only) return '';
- return only.kind === 'setNodeSettings' ? `settings:${only.nodeId}` : only.kind === 'updateVariable' ? `variable:${only.variableId}` : '';
+ return only.kind === 'setNodeSettings' ? `settings:${only.nodeId}` : only.kind === 'setNodeInput' ? `input:${only.nodeId}:${only.port}` : only.kind === 'updateVariable' ? `variable:${only.variableId}` : '';
 };
 
 export function createUndoHistory(now: () => number = () => performance.now()): UndoHistory {

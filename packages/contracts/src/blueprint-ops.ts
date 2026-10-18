@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { BlueprintConnectionSchema, BlueprintGraphSchema, BlueprintSetSchema, BlueprintVariableSchema, type BlueprintGraph } from './blueprint';
 import type { BlueprintNode } from './blueprint-nodes';
-import { BlueprintNodeSchema, BlueprintPositionSchema, connectionType, inlineInputType, pruneInlineInputs } from './blueprint-nodes';
+import { BlueprintNodeSchema, BlueprintPositionSchema, connectionType, inlineInputType, pruneInlineInputs, withInlineInput } from './blueprint-nodes';
 import { DATA_TYPES, defaultBlueprintValue, isBlueprintValue, ScalarValueSchema } from './blueprint-values';
 import type { Reply } from './types';
 
@@ -110,10 +110,7 @@ export function applyBlueprintOps(graphs: readonly BlueprintGraph[], ops: readon
     if (i < 0) return reject('NOT_FOUND', 'Node not found', [op.nodeId]);
     const node = graph.nodes[i]!, type = inlineInputType(node, op.port);
     if (!type || (op.value !== null && !isBlueprintValue(type, op.value))) return reject('INVALID_INPUT', 'Invalid inline input', [op.nodeId]);
-    const { [op.port]: _old, ...others } = node.inputs ?? {};
-    const inputs = op.value === null ? others : { ...others, [op.port]: structuredClone(op.value) };
-    const { inputs: _inputs, ...rest } = node;
-    graph.nodes[i] = (Object.keys(inputs).length === 0 ? rest : { ...rest, inputs }) as BlueprintNode;
+    graph.nodes[i] = withInlineInput(node, op.port, structuredClone(op.value));
     break;
    }
   }

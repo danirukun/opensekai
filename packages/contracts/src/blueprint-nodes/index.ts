@@ -69,6 +69,13 @@ export function unconnectedInputValue(node: BlueprintNode, port: string): Bluepr
  const inline = node.inputs && Object.hasOwn(node.inputs, port) ? node.inputs[port] : undefined;
  return inline !== undefined && isScalarType(type) ? inline : defaultBlueprintValue(type);
 }
+// A copy of the node with one inline value set, or removed when `value` is null. It does not check the value.
+export function withInlineInput<N extends BlueprintNode>(node: N, port: string, value: ScalarValue | null): N {
+ const { [port]: _old, ...others } = node.inputs ?? {};
+ const inputs = value === null ? others : { ...others, [port]: value };
+ const { inputs: _inputs, ...rest } = node;
+ return (Object.keys(inputs).length === 0 ? rest : { ...rest, inputs }) as N;
+}
 // A copy of the node without the inline values that no longer fit its ports, for example after a settings change.
 export function pruneInlineInputs<N extends BlueprintNode>(node: N): N {
  if (!node.inputs) return node;

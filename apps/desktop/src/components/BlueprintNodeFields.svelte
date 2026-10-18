@@ -1,8 +1,8 @@
 <script lang="ts">
  import { Input, Select } from '@oshi-connect/ui';
- import { nodeDefinition, triggerableExpressions, type AssetRecord, type BlueprintField, type BlueprintNode, type BlueprintVariable, type KeystrokeSettings, type SceneView } from '@opensekai/contracts';
+ import { nodeDefinition, triggerableExpressions, type AssetRecord, type BlueprintField, type BlueprintNode, type BlueprintVariable, type KeystrokeSettings, type SceneView, type Vec3 } from '@opensekai/contracts';
  import KeystrokeField from './KeystrokeField.svelte';
- import { boneOptions, fitPropertySettings, formatCases, keyOptions, parseCases, propertyOptions } from '../blueprints/fields';
+ import { boneOptions, fitPropertySettings, formatCases, keyOptions, parseCases, parseScalar, propertyOptions, vectorParts } from '../blueprints/fields';
 
  let { node, scene, assets = [], variables, platform, unavailable, onsettings }: {
   node: BlueprintNode; scene: SceneView | null; assets?: readonly AssetRecord[]; variables: readonly BlueprintVariable[]; platform: string; unavailable: boolean;
@@ -19,6 +19,15 @@
  const numberInput = (field: Extract<BlueprintField, { kind: 'number' }>, text: string) => {
   const value = Number(text);
   if (text !== '' && Number.isFinite(value) && (field.min === undefined || value >= field.min) && (field.max === undefined || value <= field.max)) set(field.key, value);
+ };
+ const integerInput = (field: Extract<BlueprintField, { kind: 'integer' }>, text: string) => {
+  const value = parseScalar('integer', text);
+  if (typeof value === 'number' && (field.min === undefined || value >= field.min) && (field.max === undefined || value <= field.max)) set(field.key, value);
+ };
+ const stringInput = (field: Extract<BlueprintField, { kind: 'string' }>, input: HTMLInputElement) => {
+  const value = parseScalar('string', input.value);
+  if (typeof value === 'string' && (field.maxLength === undefined || value.length <= field.maxLength)) set(field.key, value);
+  else input.value = String(settings[field.key]);
  };
  const choices = (field: BlueprintField) =>
   field.kind === 'entity' ? (scene?.entities ?? []).filter(entity => entity.kind !== 'tracking').map(entity => ({ value: entity.id, label: entity.name }))
@@ -45,6 +54,17 @@
 {#each fields as field (field.key)}
  {#if field.kind === 'number'}
   <Input type="number" label={field.label} min={field.min} max={field.max} step="any" value={String(settings[field.key])} oninput={event => numberInput(field, event.currentTarget.value)} />
+ {:else if field.kind === 'integer'}
+  <Input type="number" label={field.label} min={field.min} max={field.max} step={1} value={String(settings[field.key])} oninput={event => integerInput(field, event.currentTarget.value)} />
+ {:else if field.kind === 'string'}
+  <Input label={field.label} value={String(settings[field.key])} onchange={event => stringInput(field, event.currentTarget)} />
+ {:else if field.kind === 'vector3'}
+  {@const vector = settings[field.key] as Vec3}
+  <div class="blueprint-field-vector" role="group" aria-label={field.label}>
+   {#each vector as part, index (index)}
+    <Input type="number" step="any" label={index === 0 ? field.label : undefined} value={String(part)} oninput={event => { const next = vectorParts(vector, index, event.currentTarget.value); if (next) set(field.key, next); }} />
+   {/each}
+  </div>
  {:else if field.kind === 'boolean' && node.type === 'value.boolean'}
   <Select label={field.label} value={String(Boolean(settings[field.key]))} options={truth} onchange={event => set(field.key, event.currentTarget.value === 'true')} />
  {:else if field.kind === 'boolean'}
