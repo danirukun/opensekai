@@ -14,7 +14,9 @@ it('has one definition per type, its label, and one field per settings key', () 
  expect(new Set(NODE_DEFINITIONS.map(d => d.type)).size).toBe(NODE_DEFINITIONS.length);
  for (const definition of NODE_DEFINITIONS) {
   expect(BLUEPRINT_LABELS[definition.type]).toBe(definition.label);
-  const keys = Object.keys(definition.defaults(refs) ?? {}).sort();
+  // Optional settings (a transition) have a field but no default value.
+  const keys = Object.keys((definition.settings as unknown as { shape: object }).shape).sort();
+  expect(Object.keys(definition.defaults(refs) ?? {}).every(key => keys.includes(key)), definition.type).toBe(true);
   const fieldKeys = definition.fields.flatMap(field => field.kind === 'keystroke' ? ['alt', 'code', 'control', 'meta', 'shift'] : [field.key]).sort();
   expect(fieldKeys, definition.type).toEqual(keys);
  }
@@ -55,7 +57,7 @@ it('returns null defaults when the scene lacks the entity, camera, or output', (
 it('publishes a catalog of every node with its ports and settings schema', () => {
  const catalog = blueprintNodeCatalog();
  expect(catalog).toHaveLength(NODE_DEFINITIONS.length);
- expect(catalog).toHaveLength(66);
+ expect(catalog).toHaveLength(68);
  const sequence = catalog.find(entry => entry.type === 'flow.sequence')!;
  expect(sequence).toMatchObject({ label: 'Sequence', category: 'Flow', portsDependOnSettings: true, settings: { type: 'object', required: ['outputs'] } });
  expect(catalog.find(entry => entry.type === 'variable.setNumber')!.ports).toEqual({ inputs: { flow: 'flow', value: 'number' }, outputs: { exit: 'flow' } });

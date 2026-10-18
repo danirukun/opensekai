@@ -30,6 +30,15 @@ it('filters to nodes with a compatible port and names that port', () => {
  expect(intoNumber.some(entry => entry.type === 'event.manual')).toBe(false);
 });
 
+it('offers number inputs for a wire from an integer output, and not the other way round', () => {
+ const fromInteger = searchNodes('', refs, { side: 'inputs', type: 'integer' }).flatMap(group => group.entries);
+ expect(fromInteger.find(entry => entry.type === 'math.add')?.port).toBe('a');
+ expect(fromInteger.some(entry => entry.type === 'flow.branch')).toBe(false);
+ // A number output cannot feed an integer input, so a wire from an integer input finds no number-only output.
+ const intoInteger = searchNodes('', refs, { side: 'outputs', type: 'integer' }).flatMap(group => group.entries);
+ expect(intoInteger.some(entry => entry.type === 'value.number')).toBe(false);
+});
+
 it('puts the closest label match first', () => {
  const first = (query: string) => searchNodes(query, refs)[0]!.entries[0]!.type;
  expect(first('number')).toBe('value.number');

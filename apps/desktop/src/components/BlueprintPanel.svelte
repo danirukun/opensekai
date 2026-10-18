@@ -1,7 +1,7 @@
 <script lang="ts">
- import { onMount } from 'svelte';
+ import { onMount, tick } from 'svelte';
  import { invoke } from '@tauri-apps/api/core';
- import { Button } from '@oshi-connect/ui';
+ import { Button, Textarea } from '@oshi-connect/ui';
  import { Play, Search, Trash2, Variable } from '@lucide/svelte';
  import { BLUEPRINT_LABELS, blueprintPorts, exportBlueprint, importBlueprint, serializeBlueprintFile, nodeDefinition, defaultBlueprintSettings, keystrokeAccelerator, type AppApi, type AppStatus, type BlueprintGraph, type BlueprintNode, type BlueprintOp, type BlueprintStatus, type DefaultRefs, type SceneView, type AssetRecord, triggerableExpressions } from '@opensekai/contracts';
  import { issueText, type BlueprintSync, type SyncIssue } from '../blueprints/blueprint-sync';
@@ -12,6 +12,8 @@
  import { templatesEnabled, upperBodyRotation } from '../blueprints/templates';
  import { shortcutFor } from '../blueprints/keys';
  import { copyNodes, duplicateAnchor, pasteOps, type BlueprintClipboard } from '../blueprints/clipboard';
+ import { formatLayout, formatOps } from '../blueprints/layout';
+ import { wrapComment } from '../blueprints/comments';
  import type { EditorMemory } from '../blueprints/editor-memory';
  import type { SearchEntry, WireNeed } from '../blueprints/node-search';
  import CanvasMenu from './CanvasMenu.svelte';
@@ -34,6 +36,8 @@
  let issue = $state.raw<SyncIssue>(null);
  let selectedId = $state<string | null>(null);
  let nodeId = $state<string | null>(null);
+ let commentIds = $state.raw<string[]>([]);
+ const commentField = 'blueprint-comment-text';
  let missing = $state<string[]>([]);
  let importing = false;
  let runError = $state<string | null>(null), busy = $state(false);
@@ -54,6 +58,7 @@
  const remember = (clip: BlueprintClipboard | null) => { clipboard = memory.clipboard.current = clip ?? clipboard; };
  const graph = $derived(graphs.find(item => item.id === selectedId) ?? null);
  const node = $derived(graph?.nodes.find(item => item.id === nodeId) ?? null);
+ const comment = $derived(!node && commentIds.length === 1 ? graph?.comments?.find(item => item.id === commentIds[0]) ?? null : null);
  const trigger = $derived(graph?.nodes.find(item => item.type === 'event.manual') ?? null);
  const targets = $derived(scene?.entities.filter(entity => entity.kind !== 'tracking') ?? []);
  const cameras = $derived(scene?.entities.filter(entity => entity.kind === 'camera') ?? []);
@@ -81,6 +86,11 @@
 
  const act = (ops: BlueprintOp[]) => {
   const before = sync.view().find(item => item.id === selectedId);
+  // A disabled panel sends no inline value; the canvas goes back to the stored graph.
+  if (disabled && ops.some(op => op.kind === 'setNodeInput')) {
+   if (before) void editor?.show(before);
+   return { ok: false, error: { code: 'UNAVAILABLE', message: 'Blueprint editing is unavailable', ids: [] } } as const;
+  }
   if (ops.length === 0 || !before) return { ok: true, data: sync.view() } as const;
   const result = edit(ops);
   if (result.ok) { changedElsewhere = false; const after = result.data.find(item => item.id === before.id); if (after) history.record(before.id, before, after, ops); }
@@ -94,36 +104,77 @@
  }
  function paste(clip: BlueprintClipboard, anchor: { x: number; y: number }) {
   if (!graph) return;
-  const { ops, nodeIds } = pasteOps(clip, graph.id, anchor);
+  const { ops, nodeIds, commentIds: notes } = pasteOps(clip, graph.id, anchor);
   if (!act(ops).ok) return;
   const latest = sync.view().find(item => item.id === graph!.id);
-  if (latest) void editor?.show(latest).then(() => editor?.selectMany(nodeIds));
+  // A paste of comments only still replaces the node selection.
+  if (latest) void editor?.show(latest).then(() => { editor?.select(null); editor?.selectMany(nodeIds); editor?.selectComments(notes); });
  }
+ // The selected nodes, or the whole graph when fewer than two nodes are selected.
+ function format(ids: string[]) {
+  if (!graph || !editor || disabled) return;
+  const chosen = ids.length > 1 ? graph.nodes.filter(item => ids.includes(item.id)) : graph.nodes;
+  act(formatOps(graph.id, chosen, formatLayout(chosen, graph.connections, editor.sizes())));
+ }
+ function addComment(ids: string[], at: { x: number; y: number }) {
+  if (!graph || !editor || disabled) return;
+  const added = wrapComment(crypto.randomUUID(), editor.boxes().filter(box => ids.includes(box.id)), at);
+  if (!act([{ kind: 'addComment', graphId: graph.id, comment: added }]).ok) return;
+  const latest = sync.view().find(item => item.id === graph!.id);
+  if (latest) void editor.show(latest).then(() => { editor?.select(null); editor?.selectComments([added.id]); });
+ }
+ async function openComment(id: string) {
+  commentIds = [id]; nodeId = null;
+  await tick();
+  (document.getElementById(commentField) as HTMLTextAreaElement | null)?.focus();
+ }
+ // Comment text is sent shortly after typing stops, to the comment it was typed for, and at once when the field or the selection changes.
+ let draftText: { graphId: string; commentId: string; text: string } | null = null;
+ let draftTimer: ReturnType<typeof setTimeout> | undefined;
+ function flushComment() {
+  clearTimeout(draftTimer);
+  const pending = draftText;
+  draftText = null;
+  if (!pending) return;
+  const target = sync.view().find(item => item.id === pending.graphId)?.comments?.find(item => item.id === pending.commentId);
+  if (!target || target.text === pending.text) return;
+  const ops: BlueprintOp[] = [{ kind: 'updateComment', graphId: pending.graphId, commentId: pending.commentId, text: pending.text }];
+  if (pending.graphId === selectedId) act(ops); else edit(ops);
+ }
+ function commentInput(commentId: string, text: string) {
+  if (!graph || disabled) return;
+  draftText = { graphId: graph.id, commentId, text: text.slice(0, 512) };
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(flushComment, 400);
+ }
+ const commentKey = $derived(comment && selectedId ? `${selectedId}:${comment.id}` : null);
+ $effect(() => { void commentKey; return () => flushComment(); });
  function shortcut(event: KeyboardEvent) {
   const action = shortcutFor(event, platform);
   if (!action || !graph || !editor) return;
   event.preventDefault();
   if (disabled && !['copy', 'selectAll', 'escape'].includes(action)) return;
-  const selection = editor.selected();
-  if (action === 'delete') act(deleteOps(graph, selection));
-  if (action === 'copy') remember(copyNodes(graph, selection));
+  const selection = editor.selected(), notes = editor.selectedComments();
+  if (action === 'delete') act(deleteOps(graph, selection, notes));
+  if (action === 'copy') remember(copyNodes(graph, selection, notes));
   if (action === 'paste' && clipboard) paste(clipboard, editor.pointer());
-  if (action === 'duplicate') { const clip = copyNodes(graph, selection); if (clip) paste(clip, duplicateAnchor(clip)); }
-  if (action === 'selectAll') editor.selectMany(graph.nodes.map(item => item.id));
+  if (action === 'duplicate') { const clip = copyNodes(graph, selection, notes); if (clip) paste(clip, duplicateAnchor(clip)); }
+  if (action === 'selectAll') { editor.selectMany(graph.nodes.map(item => item.id)); editor.selectComments((graph.comments ?? []).map(item => item.id)); }
   if (action === 'undo') step('undo', graph.id);
   if (action === 'redo') step('redo', graph.id);
   if (action === 'escape') { if (menu) menu = null; else { editor.select(null); nodeId = null; } }
  }
  async function mount(id: string | null) {
   const mine = ++generation;
-  editor?.destroy(); editor = null; mountedFor = id; nodeId = null;
+  editor?.destroy(); editor = null; mountedFor = id; nodeId = null; commentIds = [];
   const target = graphs.find(item => item.id === id);
   if (!target) return;
   try {
    const { mountReteBlueprint } = await import('../blueprints/rete-editor');
-   const mounted = await mountReteBlueprint(canvas, target, { onSelect: picked => { nodeId = picked; }, onOps: ops => { act(ops); }, onContextMenu: openMenu, onWireDrop: openDrop }, { views: { node: BlueprintNodeView, socket: BlueprintSocketView, connection: BlueprintConnectionView } });
+   const mounted = await mountReteBlueprint(canvas, target, { onSelect: picked => { nodeId = picked; }, onOps: ops => { act(ops); }, onContextMenu: openMenu, onWireDrop: openDrop, onCommentSelect: ids => { commentIds = ids; }, onCommentOpen: id => { void openComment(id); } }, { views: { node: BlueprintNodeView, socket: BlueprintSocketView, connection: BlueprintConnectionView } });
    if (mine !== generation) { mounted.destroy(); return; }
    editor = mounted;
+   mounted.setEditable(!disabled);
    const latest = sync.view().find(item => item.id === id);
    if (latest) void mounted.show(latest);
   } catch { if (mine === generation) runError = 'Blueprint canvas unavailable'; }
@@ -143,6 +194,7 @@
   graphs = next; errors = sync.errors(); issue = sync.issue();
   if (selectedId === null || !next.some(item => item.id === selectedId)) { choose(next[0]?.id ?? null); return; }
   if (nodeId && !graph?.nodes.some(item => item.id === nodeId)) nodeId = null;
+  if (commentIds.some(id => !graph?.comments?.some(item => item.id === id))) commentIds = commentIds.filter(id => graph?.comments?.some(item => item.id === id));
   const current = next.find(item => item.id === selectedId);
   if (current) void editor?.show(current);
   revealError();
@@ -189,6 +241,14 @@
   choose(imported.data.graph.id);
   missing = imported.data.report.missing.map(item => item.name);
  }
+ function duplicate(id: string) {
+  if (disabled) return;
+  const newGraphId = crypto.randomUUID();
+  const result = edit([{ kind: 'duplicateGraph', graphId: id, newGraphId }]);
+  if (!result.ok) { runError = result.error.message; return; }
+  runError = null;
+  choose(newGraphId);
+ }
  async function exportFile(id: string) {
   if (!api || !scene) return;
   try {
@@ -200,7 +260,7 @@
   } catch (error) { runError = message(error, 'Export failed'); }
  }
  type Wire = { nodeId: string; port: string; side: 'input' | 'output' };
- type Menu = { x: number; y: number; at: { x: number; y: number } } & ({ kind: 'canvas' } | { kind: 'node'; nodeIds: string[] } | { kind: 'wire'; connectionId: string } | { kind: 'drop'; from: Wire; need: WireNeed });
+ type Menu = { x: number; y: number; at: { x: number; y: number } } & ({ kind: 'canvas' } | { kind: 'node'; nodeIds: string[] } | { kind: 'wire'; connectionId: string } | { kind: 'comment'; commentId: string } | { kind: 'drop'; from: Wire; need: WireNeed });
  let menu = $state.raw<Menu | null>(null);
  function addAt(entry: SearchEntry, at: { x: number; y: number }, from?: Wire) {
   const settings = defaultBlueprintSettings(entry.type, refs);
@@ -222,6 +282,7 @@
   const at = editor.pointer(), place = { x: client.x, y: client.y, at };
   if (target.kind === 'canvas') menu = { ...place, kind: 'canvas' };
   else if (target.kind === 'wire') menu = { ...place, kind: 'wire', connectionId: target.connectionId };
+  else if (target.kind === 'comment') menu = { ...place, kind: 'comment', commentId: target.commentId };
   else {
    const selection = editor.selected();
    const nodeIds = selection.length > 1 && selection.includes(target.nodeId) ? selection : [target.nodeId];
@@ -241,6 +302,8 @@
   { value: 'duplicate', label: 'Duplicate' },
   { value: 'copy', label: 'Copy' },
   { value: 'disconnect', label: 'Disconnect all' },
+  ...(ids.length > 1 ? [{ value: 'format', label: 'Format' }] : []),
+  { value: 'comment', label: 'Add comment' },
   ...(ids.length === 1 && graph?.nodes.find(item => item.id === ids[0])?.type === 'event.manual' ? [{ value: 'run', label: 'Run' }] : []),
  ];
  function pick(action: string) {
@@ -255,9 +318,15 @@
   if (current.kind === 'canvas' && action === 'paste' && clipboard) paste(clipboard, current.at);
   if (current.kind === 'node' && action === 'run') void run(current.nodeIds[0]!);
   if (current.kind === 'wire' && action === 'delete') act([{ kind: 'disconnect', graphId: graph.id, connectionId: current.connectionId }]);
-  if (current.kind === 'canvas' && action === 'selectAll') editor?.selectMany(graph.nodes.map(item => item.id));
+  if (current.kind === 'canvas' && action === 'selectAll') { editor?.selectMany(graph.nodes.map(item => item.id)); editor?.selectComments((graph.comments ?? []).map(item => item.id)); }
+  if (current.kind === 'canvas' && action === 'format') format(editor?.selected() ?? []);
+  if (current.kind === 'node' && action === 'format') format(current.nodeIds);
+  if (current.kind === 'canvas' && action === 'comment') addComment(editor?.selected() ?? [], current.at);
+  if (current.kind === 'node' && action === 'comment') addComment(current.nodeIds, current.at);
+  if (current.kind === 'comment' && action === 'delete') act(deleteOps(graph, [], [current.commentId]));
  }
  function remove() { if (graph && nodeId) act(deleteOps(graph, [nodeId])); }
+ function removeComment() { if (graph && comment && !disabled) act(deleteOps(graph, [], [comment.id])); }
  function settings(next: BlueprintNode['settings']) { if (graph && nodeId) act([{ kind: 'setNodeSettings', graphId: graph.id, nodeId, settings: next }]); }
  async function run(triggerId = trigger?.id) {
   if (!api || !graph || !triggerId || busy || disabled) return;
@@ -268,6 +337,7 @@
   } catch { runError = 'Session unavailable'; }
   finally { busy = false; }
  }
+ $effect(() => { editor?.setEditable(!disabled); });
  onMount(() => {
   clipboard = memory.clipboard.current;
   const off = sync.subscribe(update);
@@ -283,13 +353,13 @@
  {#if inputWarning}<div class="blueprint-warning" role="alert">{inputWarning.message}{#if inputWarning.code === 'FORBIDDEN'}<Button variant="secondary" onclick={openInputSettings}>Open Settings</Button>{/if}</div>{/if}
  {#each deviceWarnings as warning (warning.ids[0])}<div class="blueprint-warning" role="alert">{warning.message}</div>{/each}
  <div class="blueprint-workspace">
-  <BlueprintList {graphs} {selectedId} {disabled} creatable={targets.length > 0} onselect={choose} onops={edit} oncreate={create} onimport={importFile} templatable={templatesEnabled(scene, graphs.length)} ontemplate={addTemplate} onexport={exportFile} />
+  <BlueprintList {graphs} {selectedId} {disabled} creatable={targets.length > 0} onselect={choose} onops={edit} oncreate={create} onimport={importFile} templatable={templatesEnabled(scene, graphs.length)} ontemplate={addTemplate} onexport={exportFile} onduplicate={duplicate} />
   <nav class="blueprint-tools" aria-label="Blueprint tools">
    <button type="button" class:active={drawer === 'nodes'} aria-pressed={drawer === 'nodes'} title="Nodes" aria-label="Nodes" onclick={() => toggleDrawer('nodes')}><Search size={16} /></button>
    <button type="button" class:active={drawer === 'variables'} aria-pressed={drawer === 'variables'} title="Variables" aria-label="Variables" onclick={() => toggleDrawer('variables')}><Variable size={16} /></button>
   </nav>
   {#if drawer === 'nodes'}
-   <aside class="blueprint-drawer" aria-label="Nodes"><NodeSearch {refs} disabled={disabled || !graph} onpick={entry => addAt(entry, freeSpot(graph?.nodes ?? [], editor?.center() ?? { x: 0, y: 0 }))} /></aside>
+   <aside class="blueprint-drawer" aria-label="Nodes"><NodeSearch {refs} prefs={memory.palette} menu disabled={disabled || !graph} onpick={entry => addAt(entry, freeSpot(graph?.nodes ?? [], editor?.center() ?? { x: 0, y: 0 }))} /></aside>
   {:else if drawer === 'variables' && graph}
    <aside class="blueprint-drawer"><BlueprintVariables graphId={graph.id} variables={graph.variables} {disabled} onops={ops => { act(ops); }} /></aside>
   {/if}
@@ -302,15 +372,20 @@
     <BlueprintNodeFields {node} {scene} {assets} variables={graph?.variables ?? []} {platform} unavailable={node.type === 'event.keystroke' && taken.has(keystrokeAccelerator(node.settings))} onsettings={settings} />
     <Button variant="ghost" {disabled} onclick={remove}><Trash2 size={14}/>Delete node</Button>
   </aside>
+  {:else if comment}
+  <aside class="blueprint-inspector" aria-label="Comment">
+   {#key comment.id}<Textarea id={commentField} label="Comment" value={comment.text} rows={6} maxlength={512} resize="vertical" {disabled} oninput={event => commentInput(comment.id, event.currentTarget.value)} onchange={flushComment} />{/key}
+   <Button variant="ghost" {disabled} onclick={removeComment}><Trash2 size={14}/>Delete comment</Button>
+  </aside>
   {/if}
  </div>
  {#if menu}
   <CanvasMenu x={menu.x} y={menu.y} onclose={() => { menu = null; canvas.focus({ preventScroll: true }); }} onpick={pick}
-   items={menu.kind === 'node' ? nodeItems(menu.nodeIds) : menu.kind === 'wire' ? [{ value: 'delete', label: 'Delete' }] : menu.kind === 'canvas' ? [...(clipboard ? [{ value: 'paste', label: 'Paste' }] : []), { value: 'selectAll', label: 'Select all' }] : []}>
+   items={menu.kind === 'node' ? nodeItems(menu.nodeIds) : menu.kind === 'wire' || menu.kind === 'comment' ? [{ value: 'delete', label: 'Delete' }] : menu.kind === 'canvas' ? [...(clipboard ? [{ value: 'paste', label: 'Paste' }] : []), { value: 'selectAll', label: 'Select all' }, { value: 'format', label: 'Format' }, { value: 'comment', label: 'Add comment' }] : []}>
    {#if menu.kind === 'canvas' || menu.kind === 'drop'}
     {@const at = menu.at}
     {@const from = menu.kind === 'drop' ? menu.from : undefined}
-    <NodeSearch {refs} need={menu.kind === 'drop' ? menu.need : undefined} focus onpick={entry => addAt(entry, at, from)} />
+    <NodeSearch {refs} prefs={memory.palette} need={menu.kind === 'drop' ? menu.need : undefined} focus onpick={entry => addAt(entry, at, from)} />
    {/if}
   </CanvasMenu>
  {/if}

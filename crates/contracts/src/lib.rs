@@ -947,25 +947,82 @@ fn variable_name_ok(name: &Value) -> bool {
     name.as_str()
         .is_some_and(|n| !n.trim().is_empty() && n.chars().count() <= 64)
 }
+const BLUEPRINT_SCALAR_TYPES: [&str; 5] = ["number", "integer", "boolean", "string", "vector3"];
+const MAX_BLUEPRINT_STRING_CHARS: usize = 1024;
+const MAX_BLUEPRINT_LIST_ITEMS: usize = 256;
+const MAX_BLUEPRINT_INLINE_INPUTS: usize = 16;
+const MAX_SAFE_INTEGER: f64 = 9_007_199_254_740_991.0;
+fn finite_number(v: &Value) -> bool {
+    v.as_f64().is_some_and(f64::is_finite)
+}
+fn safe_integer(v: &Value) -> bool {
+    v.as_f64()
+        .is_some_and(|f| f.fract() == 0.0 && f.abs() <= MAX_SAFE_INTEGER)
+}
+fn blueprint_string_ok(v: &Value) -> bool {
+    v.as_str()
+        .is_some_and(|s| s.chars().count() <= MAX_BLUEPRINT_STRING_CHARS)
+}
+fn vector3_ok(v: &Value) -> bool {
+    v.as_array()
+        .is_some_and(|a| a.len() == 3 && a.iter().all(finite_number))
+}
+// A scalar type name, or a scalar type name with `[]` for a list.
+fn blueprint_data_type_ok(kind: &str) -> bool {
+    BLUEPRINT_SCALAR_TYPES.contains(&kind.strip_suffix("[]").unwrap_or(kind))
+}
+fn blueprint_scalar_ok(kind: &str, v: &Value) -> bool {
+    match kind {
+        "number" => finite_number(v),
+        "integer" => safe_integer(v),
+        "boolean" => v.is_boolean(),
+        "string" => blueprint_string_ok(v),
+        "vector3" => vector3_ok(v),
+        _ => false,
+    }
+}
+fn blueprint_value_ok(kind: &str, v: &Value) -> bool {
+    blueprint_data_type_ok(kind)
+        && match kind.strip_suffix("[]") {
+            Some(item) => v.as_array().is_some_and(|a| {
+                a.len() <= MAX_BLUEPRINT_LIST_ITEMS
+                    && a.iter().all(|x| blueprint_scalar_ok(item, x))
+            }),
+            None => blueprint_scalar_ok(kind, v),
+        }
+}
+// Any scalar shape; the session checks the value against the port type.
+fn inline_value_ok(v: &Value) -> bool {
+    finite_number(v) || v.is_boolean() || blueprint_string_ok(v) || vector3_ok(v)
+}
+fn inline_inputs_ok(v: &Value) -> bool {
+    v.as_object().is_some_and(|o| {
+        o.len() <= MAX_BLUEPRINT_INLINE_INPUTS
+            && o.iter().all(|(port, value)| {
+                !port.is_empty() && port.chars().count() <= 64 && inline_value_ok(value)
+            })
+    })
+}
 fn variable_ok(v: &Value) -> bool {
     keys_within(v, &["id", "name", "type", "default"])
         && id_ok(&v["id"])
         && variable_name_ok(&v["name"])
-        && match v["type"].as_str() {
-            Some("number") => v["default"].as_f64().is_some_and(f64::is_finite),
-            Some("boolean") => v["default"].is_boolean(),
-            _ => false,
-        }
+        && v["type"]
+            .as_str()
+            .is_some_and(|kind| blueprint_value_ok(kind, &v["default"]))
 }
 
 pub fn validate_blueprint_node(node: &Value) -> Result<(), AppError> {
     require(
-        keys_within(node, &["id", "version", "type", "settings", "position"])
-            && id_ok(&node["id"])
+        keys_within(
+            node,
+            &["id", "version", "type", "settings", "position", "inputs"],
+        ) && id_ok(&node["id"])
             && node["version"].as_u64() == Some(1)
             && position_ok(&node["position"])
             && node["type"].as_str().is_some_and(node_type_ok)
-            && node["settings"].as_object().is_some_and(|s| s.len() <= 16),
+            && node["settings"].as_object().is_some_and(|s| s.len() <= 16)
+            && node.get("inputs").is_none_or(inline_inputs_ok),
         "Invalid Blueprint node",
     )
 }
@@ -1000,6 +1057,7 @@ pub fn validate_blueprint_graph(graph: &Value) -> Result<(), AppError> {
                 "nodes",
                 "connections",
                 "variables",
+                "comments",
             ],
         ),
         "Invalid Blueprint graph",
@@ -1054,6 +1112,7 @@ pub fn validate_blueprint_graph(graph: &Value) -> Result<(), AppError> {
             )?;
         }
     }
+    validate_blueprint_comments(graph)?;
     Ok(())
 }
 pub fn validate_blueprint_set(values: &[Value]) -> Result<(), AppError> {
@@ -1067,6 +1126,78 @@ pub fn validate_blueprint_set(values: &[Value]) -> Result<(), AppError> {
         )?;
     }
     Ok(())
+}
+fn comment_text_ok(text: &Value) -> bool {
+    text.as_str()
+        .is_some_and(|t| t.encode_utf16().count() <= 512)
+}
+fn comment_size_ok(size: &Value) -> bool {
+    keys_within(size, &["width", "height"])
+        && ["width", "height"].iter().all(|a| {
+            size[*a]
+                .as_f64()
+                .is_some_and(|v| v.is_finite() && (64.0..=8192.0).contains(&v))
+        })
+}
+fn comment_ok(c: &Value) -> bool {
+    keys_within(c, &["id", "text", "position", "size"])
+        && id_ok(&c["id"])
+        && comment_text_ok(&c["text"])
+        && position_ok(&c["position"])
+        && comment_size_ok(&c["size"])
+}
+// Comments are optional: a graph without the key is valid.
+fn validate_blueprint_comments(graph: &Value) -> Result<(), AppError> {
+    let Some(comments) = graph.get("comments") else {
+        return Ok(());
+    };
+    let comments = comments
+        .as_array()
+        .filter(|c| c.len() <= 32)
+        .ok_or_else(|| invalid("invalid Blueprint comments"))?;
+    let mut ids = std::collections::HashSet::new();
+    for c in comments {
+        require(comment_ok(c), "Invalid Blueprint comment")?;
+        require(
+            ids.insert(c["id"].as_str().unwrap_or_default()),
+            "Duplicate comment ID",
+        )?;
+    }
+    Ok(())
+}
+fn blueprint_authoring_op_ok(op: &Value) -> Option<bool> {
+    Some(match op["kind"].as_str()? {
+        "addComment" => {
+            keys_within(op, &["kind", "graphId", "comment"])
+                && id_ok(&op["graphId"])
+                && comment_ok(&op["comment"])
+        }
+        "updateComment" => {
+            keys_within(
+                op,
+                &["kind", "graphId", "commentId", "text", "position", "size"],
+            ) && id_ok(&op["graphId"])
+                && id_ok(&op["commentId"])
+                && op.get("text").is_none_or(comment_text_ok)
+                && op.get("position").is_none_or(position_ok)
+                && op.get("size").is_none_or(comment_size_ok)
+        }
+        "removeComment" => {
+            keys_within(op, &["kind", "graphId", "commentId"])
+                && id_ok(&op["graphId"])
+                && id_ok(&op["commentId"])
+        }
+        "duplicateGraph" => {
+            keys_within(op, &["kind", "graphId", "newGraphId", "name"])
+                && id_ok(&op["graphId"])
+                && id_ok(&op["newGraphId"])
+                && op.get("name").is_none_or(|n| {
+                    n.as_str()
+                        .is_some_and(|n| !n.trim().is_empty() && n.chars().count() <= 128)
+                })
+        }
+        _ => return None,
+    })
 }
 pub fn validate_blueprint_ops(ops: &[Value]) -> Result<(), AppError> {
     require(
@@ -1141,17 +1272,28 @@ pub fn validate_blueprint_ops(ops: &[Value]) -> Result<(), AppError> {
                     && op.get("name").is_none_or(variable_name_ok)
                     && op
                         .get("type")
-                        .is_none_or(|t| matches!(t.as_str(), Some("number" | "boolean")))
-                    && op
-                        .get("default")
-                        .is_none_or(|d| d.is_boolean() || d.as_f64().is_some_and(f64::is_finite))
+                        .is_none_or(|t| t.as_str().is_some_and(blueprint_data_type_ok))
+                    && op.get("default").is_none_or(|d| {
+                        inline_value_ok(d)
+                            || d.as_array()
+                                .is_some_and(|a| a.len() <= MAX_BLUEPRINT_LIST_ITEMS)
+                    })
             }
             Some("removeVariable") => {
                 keys_within(op, &["kind", "graphId", "variableId"])
                     && id_ok(&op["graphId"])
                     && id_ok(&op["variableId"])
             }
-            _ => false,
+            Some("setNodeInput") => {
+                keys_within(op, &["kind", "graphId", "nodeId", "port", "value"])
+                    && id_ok(&op["graphId"])
+                    && id_ok(&op["nodeId"])
+                    && port_ok(&op["port"])
+                    && op
+                        .get("value")
+                        .is_some_and(|v| v.is_null() || inline_value_ok(v))
+            }
+            _ => blueprint_authoring_op_ok(op).unwrap_or(false),
         };
         require(ok, "Invalid Blueprint operation")?;
     }

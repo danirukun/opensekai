@@ -1,19 +1,23 @@
 import type { OverrideWrite } from './overrides';
 import type { ExpressionEffect } from './expressions';
 import type { BoneOffsetEffect } from './bone-offsets';
-import { cloneState, EVALUATORS, NO_ENV, type BlueprintValue, type Evaluator, type RunEnv, type RunState } from './blueprint-eval';
-import { BlueprintGraphSchema, blueprintPorts, nodeDefinition, connectionType, type BlueprintConnection, type BlueprintGraph, type BlueprintNode, type Id, type Reply } from '@opensekai/contracts';
+import type { BlendShapeEffect } from './blend-shapes';
+import type { LookAtEffect } from './look-at';
+import { BlueprintLimitError, checkBlueprintValue, cloneState, EVALUATORS, NO_ENV, type BlueprintValue, type Evaluator, type RunEnv, type RunState } from './blueprint-eval';
+import { BlueprintGraphSchema, blueprintPorts, nodeDefinition, connectionType, ownPort, unconnectedInputValue, type BlueprintConnection, type BlueprintGraph, type BlueprintNode, type Id, type PortShape, type Reply } from '@opensekai/contracts';
 
 export type SceneEffect =
  | { kind: 'setVisibility'; entityId: Id; visible: boolean }
  | { kind: 'toggleVisibility'; entityId: Id }
  | { kind: 'selectCamera'; outputId: Id; cameraId: Id };
-export type BlueprintEffect = SceneEffect | OverrideWrite | ExpressionEffect | BoneOffsetEffect;
+export type CharacterLayerEffect = BlendShapeEffect | LookAtEffect;
+export type BlueprintEffect = SceneEffect | OverrideWrite | ExpressionEffect | BoneOffsetEffect | CharacterLayerEffect;
 export const isOverrideEffect = (effect: BlueprintEffect): effect is OverrideWrite => effect.kind === 'setProperty' || effect.kind === 'moveEntity';
 export const isExpressionEffect = (effect: BlueprintEffect): effect is ExpressionEffect => effect.kind === 'setExpression' || effect.kind === 'toggleExpression';
 export const isBoneOffsetEffect = (effect: BlueprintEffect): effect is BoneOffsetEffect => effect.kind === 'offsetBone';
-export const isSceneEffect = (effect: BlueprintEffect): effect is SceneEffect => !isOverrideEffect(effect) && !isExpressionEffect(effect) && !isBoneOffsetEffect(effect);
-export interface CompiledBlueprint { graph: BlueprintGraph; nodes: Map<Id, BlueprintNode>; dataIn: Map<string, BlueprintConnection>; flowNext: Map<string, BlueprintConnection> }
+export const isCharacterLayerEffect = (effect: BlueprintEffect): effect is CharacterLayerEffect => effect.kind === 'setBlendShape' || effect.kind === 'lookAt';
+export const isSceneEffect = (effect: BlueprintEffect): effect is SceneEffect => !isOverrideEffect(effect) && !isExpressionEffect(effect) && !isBoneOffsetEffect(effect) && !isCharacterLayerEffect(effect);
+export interface CompiledBlueprint { graph: BlueprintGraph; nodes: Map<Id, BlueprintNode>; ports: Map<Id, PortShape>; dataIn: Map<string, BlueprintConnection>; flowNext: Map<string, BlueprintConnection> }
 export interface PendingDelay { nodeId: Id; dueMs: number }
 export interface FlowBudget { visits: number; effects: number }
 export interface FlowResult { effects: BlueprintEffect[]; delays: PendingDelay[]; state: RunState }
@@ -69,30 +73,32 @@ export function compileBlueprint(input: unknown): Reply<CompiledBlueprint> {
    push(dataEdges, source.id, target.id);
   }
  }
- for (const node of graph.nodes)
-  for (const [port, type] of Object.entries(blueprintPorts(node).inputs))
-   if (type !== 'flow' && !dataIn.has(key(node.id, port))) return fail('Blueprint input is not connected', [node.id]);
  const ids = graph.nodes.map(node => node.id);
  const cycle = cycleIn(ids, dataEdges) ?? cycleIn(ids, flowEdges);
  if (cycle) return fail('Blueprint has an immediate cycle', [cycle]);
- return { ok: true, data: { graph, nodes, dataIn, flowNext } };
+ return { ok: true, data: { graph, nodes, ports: new Map(graph.nodes.map(node => [node.id, blueprintPorts(node)])), dataIn, flowNext } };
 }
 
+// A data input reads its wire, else the inline value on the node, else the default of its type.
 const readInput = (compiled: CompiledBlueprint, state: RunState, nodeId: Id, port: string, env: RunEnv): BlueprintValue => {
  const cache = new Map<string, BlueprintValue>();
+ const input = (id: Id, name: string): BlueprintValue => {
+  const wire = compiled.dataIn.get(key(id, name));
+  return wire ? evaluate(wire.sourceNodeId, wire.sourcePort) : unconnectedInputValue(compiled.nodes.get(id)!, name, compiled.ports.get(id)!);
+ };
  const evaluate = (id: Id, out: string): BlueprintValue => {
   const cached = cache.get(key(id, out));
   if (cached !== undefined) return cached;
   const node = compiled.nodes.get(id)!;
   const data = evaluator(node).data;
-  if (!data) throw new Error('Blueprint has an invalid data source');
-  const result = data(node, out, name => { const wire = compiled.dataIn.get(key(id, name))!; return evaluate(wire.sourceNodeId, wire.sourcePort); }, state, env);
-  if (Array.isArray(result) ? !result.every(Number.isFinite) : typeof result === 'number' && !Number.isFinite(result)) throw new RangeError('Blueprint number is not finite');
+  const type = ownPort(compiled.ports.get(id)!, 'outputs', out);
+  if (!data || !type || type === 'flow') throw new Error('Blueprint has an invalid data source');
+  const result = data(node, out, name => input(id, name), state, env);
+  checkBlueprintValue(type, result);
   cache.set(key(id, out), result);
   return result;
  };
- const wire = compiled.dataIn.get(key(nodeId, port))!;
- return evaluate(wire.sourceNodeId, wire.sourcePort);
+ return input(nodeId, port);
 };
 
 export function runFlow(compiled: CompiledBlueprint, start: { nodeId: Id; port: string }, state: RunState, budget: FlowBudget, nowMs: number, env: RunEnv = NO_ENV): Reply<FlowResult> {
@@ -134,7 +140,7 @@ export function runFlow(compiled: CompiledBlueprint, start: { nodeId: Id; port: 
      else stack.push({ kind: 'loop', nodeId: node.id, index: first, last });
     },
    });
-  } catch (error) { return fail(error instanceof LoopLimit ? 'Blueprint loop exceeded its iteration limit' : 'Blueprint data could not be evaluated', [node.id]); }
+  } catch (error) { return fail(error instanceof LoopLimit ? 'Blueprint loop exceeded its iteration limit' : error instanceof BlueprintLimitError ? 'Blueprint value exceeds its limit' : 'Blueprint data could not be evaluated', [node.id]); }
   if (failure) return failure;
  }
  return { ok: true, data: { effects, delays, state: next } };
