@@ -5,6 +5,7 @@
  let {label,value,range,disabled=false,onlive,onend,oncommit}:{label:string;value:number;range:SliderRange;disabled?:boolean;onlive?:(value:number)=>void;onend?:()=>void;oncommit?:(value:number)=>void}=$props();
  const STEPS=1000;
  // While the slider moves it shows its own value, not the scene value that the live replies bring back (B12 R12).
+ // The kit types `text` as a string, but its number field binds a number (or null); parseInRange takes both.
  let dragged=$state<number|null>(null),text=$state(untrack(()=>String(value)));
  let typing=false,settling=false,timer:ReturnType<typeof setTimeout>|undefined;
  const shown=$derived(dragged??value);

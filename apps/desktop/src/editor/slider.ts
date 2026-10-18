@@ -17,9 +17,10 @@ export function fromSlider(t:number,range:SliderRange):number {
  const u=clamp(t,0,1);
  return roundToStep(range.min+(range.curve==='cubic'?u**3:u)*(top(range)-range.min),range);
 }
-export function parseInRange(text:string,range:SliderRange):number|null {
- const value=Number(text.trim());
- return text.trim()!==''&&Number.isFinite(value)&&value>=range.min&&value<=range.max?value:null;
+// A number field binds a number (or null when empty), not a string.
+export function parseInRange(input:string|number|null|undefined,range:SliderRange):number|null {
+ const text=String(input??'').trim(),value=Number(text);
+ return text!==''&&Number.isFinite(value)&&value>=range.min&&value<=range.max?value:null;
 }
 // Field ranges (B12 R15). The hard limits are the contract limits.
 export const SLIDERS={

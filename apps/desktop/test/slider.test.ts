@@ -25,6 +25,14 @@ it('pins a typed value above the slider end and keeps the hard limit for typing'
  expect(parseInRange('',range)).toBeNull();
  expect(parseInRange('abc',range)).toBeNull();
 });
+it('accepts the number that a number field binds, and rejects its empty value',()=>{
+ const range=lightIntensitySlider('point');
+ expect(parseInRange(500,range)).toBe(500);
+ expect(parseInRange(0,range)).toBe(0);
+ expect(parseInRange(null,range)).toBeNull();
+ expect(parseInRange(undefined,range)).toBeNull();
+ expect(parseInRange(1001,range)).toBeNull();
+});
 it('starts a range above zero at its minimum',()=>{
  expect(fromSlider(0,SLIDERS.cutoff)).toBe(0.01);
  expect(toSlider(0.01,SLIDERS.cutoff)).toBe(0);
