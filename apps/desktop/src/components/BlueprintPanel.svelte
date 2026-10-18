@@ -69,6 +69,7 @@
  const refs = $derived<DefaultRefs>({ entityId: targets[0]?.id, avatarId: face?.avatarId, expression: face?.expression, cameraId: cameras[0]?.id, outputId, keystroke: defaultKeystroke(platform), variables: graph?.variables ?? [] });
  const taken = $derived(new Set((status?.warnings ?? []).flatMap(warning => warning.ids)));
  const inputWarning = $derived(status?.warnings.find(warning => warning.ids.includes('input-monitoring')));
+ const deviceWarnings = $derived((status?.warnings ?? []).filter(warning => warning.ids.some(id => id === 'device-gamepad' || id === 'device-midi' || id === 'device-pointer')));
  function openInputSettings() { try { void invoke('open_input_monitoring_settings').catch(() => {}); } catch { /* outside Tauri */ } }
 
  const edit = (ops: Parameters<BlueprintSync['edit']>[0]) => {
@@ -280,6 +281,7 @@
 <section class="blueprint-panel" aria-label="Blueprint editor">
  <header class="blueprint-toolbar"><h2>Blueprints</h2><span class="blueprint-state" role="status">{problem}</span><div class="spacer"></div>{#if trigger}<Button variant="secondary" disabled={disabled || busy || !graph} onclick={() => run()}><Play size={14}/>Run</Button>{/if}</header>
  {#if inputWarning}<div class="blueprint-warning" role="alert">{inputWarning.message}{#if inputWarning.code === 'FORBIDDEN'}<Button variant="secondary" onclick={openInputSettings}>Open Settings</Button>{/if}</div>{/if}
+ {#each deviceWarnings as warning (warning.ids[0])}<div class="blueprint-warning" role="alert">{warning.message}</div>{/each}
  <div class="blueprint-workspace">
   <BlueprintList {graphs} {selectedId} {disabled} creatable={targets.length > 0} onselect={choose} onops={edit} oncreate={create} onimport={importFile} templatable={templatesEnabled(scene, graphs.length)} ontemplate={addTemplate} onexport={exportFile} />
   <nav class="blueprint-tools" aria-label="Blueprint tools">

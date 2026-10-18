@@ -1,5 +1,5 @@
 //! Gamepads: player slots, dead zones, and the `gilrs` adapter (macOS and Windows).
-use opensekai_contracts::{GamepadAxes, GamepadButton, GamepadSnapshot, MAX_GAMEPADS};
+use opensekai_contracts::{DeviceEvent, GamepadAxes, GamepadButton, GamepadSnapshot, MAX_GAMEPADS};
 use std::collections::BTreeSet;
 
 pub const STICK_DEAD_ZONE: f64 = 0.15;
@@ -64,6 +64,65 @@ impl PadSlots {
     }
 }
 
+/// One pad change that the adapter reads from the platform.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PadInput {
+    Connected,
+    Disconnected,
+    Button(GamepadButton, bool),
+}
+
+/// Slots plus the buttons each slot reported down, so a disconnect can release them.
+#[derive(Debug, Default)]
+pub struct PadTracker {
+    slots: PadSlots,
+    held: [BTreeSet<GamepadButton>; MAX_GAMEPADS as usize],
+}
+impl PadTracker {
+    pub fn slot(&self, id: usize) -> Option<u8> {
+        self.slots.slot(id)
+    }
+    /// Applies one change of the pad with platform `id` and returns its wire events. A
+    /// disconnect releases each held button before the slot is freed.
+    pub fn apply(&mut self, id: usize, input: PadInput) -> Vec<DeviceEvent> {
+        match input {
+            PadInput::Connected => {
+                self.slots.assign(id);
+                vec![]
+            }
+            PadInput::Disconnected => {
+                let Some(pad) = self.slots.release(id) else {
+                    return vec![];
+                };
+                std::mem::take(&mut self.held[pad as usize - 1])
+                    .into_iter()
+                    .map(|button| DeviceEvent::GamepadButton {
+                        pad,
+                        button,
+                        pressed: false,
+                    })
+                    .collect()
+            }
+            PadInput::Button(button, pressed) => {
+                let Some(pad) = self.slots.slot(id) else {
+                    return vec![];
+                };
+                let held = &mut self.held[pad as usize - 1];
+                if pressed {
+                    held.insert(button);
+                } else {
+                    held.remove(&button);
+                }
+                vec![DeviceEvent::GamepadButton {
+                    pad,
+                    button,
+                    pressed,
+                }]
+            }
+        }
+    }
+}
+
 /// Raw pad values before the dead zones.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct RawAxes {
@@ -96,16 +155,20 @@ pub use adapter::{button, GilrsAdapter};
 
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 mod adapter {
-    use super::{snapshot, PadSlots, RawAxes};
-    use crate::input::devices::{locked, DeviceAdapter, DeviceState, DeviceStatus, SharedQueue};
+    use super::{snapshot, PadInput, PadTracker, RawAxes};
+    use crate::input::devices::{DeviceAdapter, DeviceState, DeviceStatus, SharedQueue};
+    use crate::input::locked;
     use gilrs::{Axis, Button, EventType, Gilrs};
     use opensekai_contracts::{DeviceEvent, DeviceKind, GamepadButton, GamepadSnapshot};
     use std::collections::BTreeSet;
+    use std::io;
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
     /// The event wait of the adapter thread.
     const WAIT: Duration = Duration::from_millis(100);
+    /// The most events read in one wake; the rest waits for the next.
+    const BATCH: usize = 1024;
     const BUTTONS: [Button; 17] = [
         Button::South,
         Button::East,
@@ -174,7 +237,7 @@ mod adapter {
         }
     }
 
-    fn read_pads(gilrs: &Gilrs, slots: &PadSlots) -> Vec<GamepadSnapshot> {
+    fn read_pads(gilrs: &Gilrs, slots: &PadTracker) -> Vec<GamepadSnapshot> {
         gilrs
             .gamepads()
             .filter_map(|(id, pad)| {
@@ -202,7 +265,31 @@ mod adapter {
             .collect()
     }
 
+    /// Marks the adapter Unavailable when its thread panics, so status never says Active
+    /// for a thread that is gone. It does not restart: a new `Gilrs` would leak another HID thread.
+    struct PanicGuard(Arc<Mutex<State>>);
+    impl Drop for PanicGuard {
+        fn drop(&mut self) {
+            if std::thread::panicking() {
+                let mut state = locked(&self.0);
+                state.status = Some(DeviceStatus::Unavailable);
+                state.pads.clear();
+            }
+        }
+    }
+
+    fn input(event: EventType) -> Option<PadInput> {
+        Some(match event {
+            EventType::Connected => PadInput::Connected,
+            EventType::Disconnected => PadInput::Disconnected,
+            EventType::ButtonPressed(b, _) => PadInput::Button(button(b)?, true),
+            EventType::ButtonReleased(b, _) => PadInput::Button(button(b)?, false),
+            _ => return None,
+        })
+    }
+
     fn run(state: Arc<Mutex<State>>, queue: SharedQueue) {
+        let _guard = PanicGuard(state.clone());
         let mut gilrs = match Gilrs::new() {
             Ok(gilrs) => gilrs,
             Err(gilrs::Error::NotImplemented(_)) => {
@@ -214,46 +301,54 @@ mod adapter {
                 return;
             }
         };
-        let mut slots = PadSlots::default();
+        let mut tracker = PadTracker::default();
         let ids: Vec<usize> = gilrs.gamepads().map(|(id, _)| id.into()).collect();
         for id in ids {
-            slots.assign(id);
+            tracker.apply(id, PadInput::Connected);
         }
         loop {
-            let event = gilrs.next_event_blocking(Some(WAIT));
-            let active = locked(&state).active;
-            let mut pressed = None;
-            if let Some(event) = event {
-                let id: usize = event.id.into();
-                match event.event {
-                    EventType::Connected => {
-                        slots.assign(id);
-                    }
-                    EventType::Disconnected => {
-                        slots.release(id);
-                    }
-                    EventType::ButtonPressed(b, _) => pressed = Some((id, b, true)),
-                    EventType::ButtonReleased(b, _) => pressed = Some((id, b, false)),
-                    _ => {}
+            // Wait for one event, then take every pending one, so a burst costs one read.
+            let mut batch: Vec<gilrs::Event> =
+                gilrs.next_event_blocking(Some(WAIT)).into_iter().collect();
+            while batch.len() < BATCH {
+                let Some(event) = gilrs.next_event() else {
+                    break;
+                };
+                batch.push(event);
+            }
+            // The tracker follows slots and held buttons also while not active.
+            let events: Vec<DeviceEvent> = batch
+                .into_iter()
+                .filter_map(|event| Some((event.id.into(), input(event.event)?)))
+                .flat_map(|(id, input)| tracker.apply(id, input))
+                .collect();
+            let active = {
+                let mut state = locked(&state);
+                if state.active {
+                    state.pads = read_pads(&gilrs, &tracker);
+                }
+                state.active
+            };
+            if active && !events.is_empty() {
+                let mut queue = locked(&queue);
+                for event in events {
+                    queue.push(event);
                 }
             }
-            if !active {
-                continue;
-            }
-            if let Some((id, b, down)) = pressed {
-                if let (Some(pad), Some(b)) = (slots.slot(id), button(b)) {
-                    locked(&queue).push(DeviceEvent::GamepadButton {
-                        pad,
-                        button: b,
-                        pressed: down,
-                    });
-                }
-            }
-            let pads = read_pads(&gilrs, &slots);
-            let mut state = locked(&state);
-            // A stop that came during the read keeps the state empty.
-            if state.active {
-                state.pads = pads;
+        }
+    }
+
+    /// Spawns the thread at the first start, or again after a failed spawn. A spawn that
+    /// succeeds clears a stale Unavailable status from an earlier failed spawn.
+    fn begin(state: &mut State, spawn: impl FnOnce() -> io::Result<()>) {
+        if std::mem::replace(&mut state.started, true) {
+            return;
+        }
+        match spawn() {
+            Ok(()) => state.status = None,
+            Err(_) => {
+                state.started = false;
+                state.status = Some(DeviceStatus::Unavailable);
             }
         }
     }
@@ -269,17 +364,14 @@ mod adapter {
                 state.pads.clear();
                 return;
             }
-            if std::mem::replace(&mut state.started, true) {
-                return;
-            }
             let (shared, queue) = (self.state.clone(), self.queue.clone());
-            let spawned = std::thread::Builder::new()
-                .name("opensekai-gamepad".into())
-                .spawn(move || run(shared, queue));
-            if spawned.is_err() {
-                state.started = false;
-                state.status = Some(DeviceStatus::Unavailable);
-            }
+            // The thread waits for this lock before it can set a status, so the clear comes first.
+            begin(&mut state, move || {
+                std::thread::Builder::new()
+                    .name("opensekai-gamepad".into())
+                    .spawn(move || run(shared, queue))
+                    .map(drop)
+            });
         }
         fn poll(&self, out: &mut DeviceState) {
             let state = locked(&self.state);
@@ -294,6 +386,54 @@ mod adapter {
             } else {
                 DeviceStatus::Idle
             })
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        fn adapter(state: State) -> GilrsAdapter {
+            GilrsAdapter {
+                state: Arc::new(Mutex::new(state)),
+                queue: SharedQueue::default(),
+            }
+        }
+
+        #[test]
+        fn a_spawn_that_succeeds_clears_a_stale_unavailable_status() {
+            let mut state = State::default();
+            begin(&mut state, || Err(io::Error::other("no thread")));
+            assert_eq!(
+                (state.started, state.status),
+                (false, Some(DeviceStatus::Unavailable))
+            );
+            begin(&mut state, || Ok(()));
+            assert_eq!((state.started, state.status), (true, None));
+            let mut spawned = false;
+            begin(&mut state, || {
+                spawned = true;
+                Ok(())
+            });
+            assert!(!spawned, "one thread only");
+        }
+
+        #[test]
+        fn a_panicked_thread_reports_unavailable_while_active() {
+            let pad = adapter(State {
+                active: true,
+                started: true,
+                ..State::default()
+            });
+            assert_eq!(pad.status(), DeviceStatus::Active);
+            let shared = pad.state.clone();
+            let joined = std::thread::spawn(move || {
+                let _guard = PanicGuard(shared);
+                panic!("gamepad thread failed");
+            })
+            .join();
+            assert!(joined.is_err());
+            assert_eq!(pad.status(), DeviceStatus::Unavailable);
         }
     }
 }
@@ -340,6 +480,48 @@ mod tests {
             [12, 11, 13, 14].map(|id| slots.slot(id)),
             [Some(1), Some(2), Some(3), Some(4)]
         );
+    }
+
+    #[test]
+    fn a_disconnect_releases_held_buttons_before_the_slot_is_freed() {
+        let mut pads = PadTracker::default();
+        pads.apply(10, PadInput::Connected);
+        pads.apply(11, PadInput::Connected);
+        let press = |b| PadInput::Button(b, true);
+        assert_eq!(
+            pads.apply(11, press(GamepadButton::South)),
+            vec![DeviceEvent::GamepadButton {
+                pad: 2,
+                button: GamepadButton::South,
+                pressed: true
+            }]
+        );
+        pads.apply(11, press(GamepadButton::DpadUp));
+        pads.apply(11, PadInput::Button(GamepadButton::South, false));
+        pads.apply(11, press(GamepadButton::North));
+        assert_eq!(
+            pads.apply(11, PadInput::Disconnected),
+            vec![
+                DeviceEvent::GamepadButton {
+                    pad: 2,
+                    button: GamepadButton::North,
+                    pressed: false
+                },
+                DeviceEvent::GamepadButton {
+                    pad: 2,
+                    button: GamepadButton::DpadUp,
+                    pressed: false
+                },
+            ]
+        );
+        assert_eq!(pads.slot(11), None);
+        // The next pad in slot 2 starts with no held button.
+        pads.apply(12, PadInput::Connected);
+        assert_eq!(pads.slot(12), Some(2));
+        assert!(pads.apply(12, PadInput::Disconnected).is_empty());
+        // A pad without a slot gives nothing.
+        assert!(pads.apply(99, press(GamepadButton::South)).is_empty());
+        assert!(pads.apply(99, PadInput::Disconnected).is_empty());
     }
 
     #[test]

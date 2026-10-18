@@ -662,15 +662,19 @@ export const WireMessageSchema = z.union([
     PingPongSchema
 ]);
 export type WireMessage = z.infer<typeof WireMessageSchema>;
-// A clock with device input may use the tracking clock limit: 32 device events and 4 pads exceed the plain limit.
-const deviceClock = (value: object) => 'input' in value && typeof value.input === 'object' && value.input !== null && 'devices' in value.input;
+// The byte limit of a clock message (mirrors `clock_byte_limit` in Rust). A clock with tracking or with device input
+// uses the large limit: tracking samples, and 32 device events with 4 pads, do not fit the plain limit.
+export const clockByteLimit = (clock: { tracking?: unknown; input?: unknown }): number => {
+    const devices = typeof clock.input === 'object' && clock.input !== null && 'devices' in clock.input && clock.input.devices !== undefined;
+    return clock.tracking !== undefined || devices ? LIMITS.trackingClockBytes : LIMITS.clockBytes;
+};
 export function parseWire(text: string): WireMessage {
     const value: unknown = JSON.parse(text);
     const capture = typeof value === "object" && value !== null && "kind" in value && value.kind === "captureReply";
     const diagnostics = typeof value === "object" && value !== null && "kind" in value && value.kind === "diagnostics";
     const clock = typeof value === "object" && value !== null && "kind" in value && value.kind === "clock";
     const screenshot = typeof value === "object" && value !== null && "kind" in value && value.kind === "screenshotReply";
-    if (new TextEncoder().encode(text).length > (clock ? (typeof value==='object' && value!==null && ('tracking' in value || deviceClock(value)) ? LIMITS.trackingClockBytes : LIMITS.clockBytes) : capture ? LIMITS.captureEnvelopeBytes : screenshot ? LIMITS.screenshotEnvelopeBytes : diagnostics ? LIMITS.diagnosticsBytes : LIMITS.jsonBytes))
+    if (new TextEncoder().encode(text).length > (clock ? clockByteLimit(value as { tracking?: unknown; input?: unknown }) : capture ? LIMITS.captureEnvelopeBytes : screenshot ? LIMITS.screenshotEnvelopeBytes : diagnostics ? LIMITS.diagnosticsBytes : LIMITS.jsonBytes))
         throw new Error("Message too large");
     return WireMessageSchema.parse(value);
 }

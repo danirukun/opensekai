@@ -32,13 +32,20 @@ pub fn decode(bytes: &[u8]) -> Option<DeviceEvent> {
     }
 }
 
+/// Whether a scan left MIDI input usable: a client exists, and when ports exist, at least
+/// one of them is connected. One port that fails does not make the adapter unavailable.
+pub fn usable(client: bool, ports: usize, connected: usize) -> bool {
+    client && (ports == 0 || connected > 0)
+}
+
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 pub use adapter::MidirAdapter;
 
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 mod adapter {
-    use super::decode;
-    use crate::input::devices::{locked, DeviceAdapter, DeviceState, DeviceStatus, SharedQueue};
+    use super::{decode, usable};
+    use crate::input::devices::{DeviceAdapter, DeviceState, DeviceStatus, SharedQueue};
+    use crate::input::locked;
     use midir::{Ignore, MidiInput, MidiInputConnection};
     use opensekai_contracts::DeviceKind;
     use std::collections::HashMap;
@@ -98,8 +105,9 @@ mod adapter {
         std::thread::sleep(Duration::from_secs_f64(SLICE_SECONDS));
     }
 
-    /// Connects new ports and drops the connections of ports that are gone. Returns false
-    /// when no MIDI client can be made. The lister client stays for the life of the thread.
+    /// Connects new ports and drops the connections of ports that are gone. Each port is tried
+    /// on its own; a failed one is tried again at the next scan. Returns whether input is
+    /// usable (see `usable`). The lister client stays for the life of the thread.
     fn scan(
         lister: &mut Option<MidiInput>,
         connections: &mut HashMap<String, MidiInputConnection<()>>,
@@ -109,7 +117,7 @@ mod adapter {
             *lister = MidiInput::new(CLIENT).ok();
         }
         let Some(input) = lister.as_ref() else {
-            return false;
+            return usable(false, 0, 0);
         };
         let ports = input.ports();
         let present: Vec<String> = ports.iter().map(|p| p.id()).collect();
@@ -119,11 +127,10 @@ mod adapter {
                 continue;
             }
             let Ok(mut client) = MidiInput::new(CLIENT) else {
-                return false;
+                continue;
             };
             client.ignore(Ignore::All);
             let queue = queue.clone();
-            // A failed connect (for example a port that just went away) is tried at the next scan.
             if let Ok(connection) = client.connect(
                 port,
                 "opensekai-input",
@@ -137,10 +144,21 @@ mod adapter {
                 connections.insert(id, connection);
             }
         }
-        true
+        usable(true, ports.len(), connections.len())
+    }
+
+    /// Marks the adapter Unavailable when its thread panics.
+    struct PanicGuard(Arc<Shared>);
+    impl Drop for PanicGuard {
+        fn drop(&mut self) {
+            if std::thread::panicking() {
+                locked(&self.0.state).failed = true;
+            }
+        }
     }
 
     fn run(shared: Arc<Shared>, queue: SharedQueue) {
+        let _guard = PanicGuard(shared.clone());
         let mut lister = None;
         let mut connections = HashMap::new();
         let mut next_scan = Instant::now();
@@ -185,10 +203,9 @@ mod adapter {
             let spawned = std::thread::Builder::new()
                 .name("opensekai-midi".into())
                 .spawn(move || run(shared, queue));
-            if spawned.is_err() {
-                state.started = false;
-                state.failed = true;
-            }
+            // The thread waits for this lock before a scan can set `failed`.
+            state.failed = spawned.is_err();
+            state.started = spawned.is_ok();
         }
         fn poll(&self, _: &mut DeviceState) {}
         fn status(&self) -> DeviceStatus {
@@ -205,6 +222,14 @@ mod adapter {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn one_failed_port_does_not_make_midi_unavailable() {
+        assert!(usable(true, 0, 0), "no port is not a failure");
+        assert!(usable(true, 3, 1));
+        assert!(!usable(true, 2, 0));
+        assert!(!usable(false, 0, 0));
+    }
 
     #[test]
     fn decodes_notes_with_one_based_channels() {

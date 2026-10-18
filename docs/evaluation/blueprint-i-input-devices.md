@@ -28,18 +28,18 @@ No JavaScript dependency was added.
 | Command | Pass | Fail | Skip | Notes |
 | --- | --- | --- | --- | --- |
 | `pnpm check` | 8 packages and scripts | 0 | 0 | svelte-check: 0 errors, 0 warnings |
-| `pnpm test:unit` | 1032 (138 files) | 0 | 0 | |
+| `pnpm test:unit` | 1036 (138 files) | 0 | 0 | |
 | `pnpm test:integration` | 37 (14 files) | 0 | 2 | A new worktree needs `artifacts/models` (the MediaPipe models) first, or the 4 `prepare-tracking` tests fail with `ENOENT`. |
-| `cargo test --workspace --no-fail-fast` | 305 | 0 | 1 | The skip is the pinned fixture benchmark test. |
+| `cargo test --workspace --no-fail-fast` | 311 | 0 | 1 | The skip is the pinned fixture benchmark test. |
 | `cargo clippy --workspace --all-targets` | Clean | 0 | — | One existing `map_or` warning in `input/monitor.rs` (new clippy lint) is fixed. |
 
 New tests:
 
-- Contracts (TypeScript): `packages/contracts/test/devices.test.ts`, and 7 shared vectors (`clock-device-input*`) in `fixtures/protocol/validation-vectors.json` that both sides run.
+- Contracts (TypeScript): `packages/contracts/test/devices.test.ts`, and 11 shared vectors (`clock-device-input*`, `clock-keys-input*`) for the device fields and the `clockByteLimit` rule in `fixtures/protocol/validation-vectors.json` that both sides run.
 - Contracts (Rust): `crates/contracts/src/devices.rs` unit tests, including the largest device clock (less than 16 KiB).
 - Session: `packages/session/test/device-nodes.test.ts`. Note runs with note and velocity, channel and note filters, gamepad and pointer edges, pad and pointer state in On Update, Control Change state, and the used device kinds.
 - Native: `input/devices.rs` (queue limits, Control Change coalescing, hub start and stop, problems), `devices/gamepad.rs` (dead zones, slots, snapshots, `gilrs` button names), `devices/midi.rs` (decoder), `devices/pointer.rs` (normalization, edges, held buttons).
-- Integration (`apps/desktop/src-tauri/tests/device_input_integration.rs`): the real service WebSocket. A `blueprintEdit` reply with `devices` starts the fake adapters, device events and pointer state ride the clock, a publisher disconnect stops each adapter, and app status warns for a used kind without an adapter. 15 repeated runs passed.
+- Integration (`apps/desktop/src-tauri/tests/device_input_integration.rs`): the real service WebSocket. A `blueprintEdit` reply with `devices` starts the fake adapters, device events and pointer state ride the clock, a publisher disconnect stops each adapter, and app status warns for a used kind without an adapter. 15 repeated runs passed, and 10 more after the review fixes.
 
 ## Local probe without a GUI
 
@@ -53,6 +53,7 @@ A scratch program (not committed) used `platform_hub()` from the desktop library
 | Start the adapter again | Events after 0.21 s (the same thread and run loop). |
 | Remove the source, wait 3 s, create a second source | No crash, no problem status. The second source gave events after 1.03 s. |
 | Start the pointer adapter | `x = 0.3551, y = 0.6175` (normalized to the main display), no held button. |
+| Read the button-down counters (`CGEventSourceCounterForEventType`, combined session state) | Left 897, right 12, other 0. No permission prompt. The counters grow with each click of the session. |
 | Start the gamepad adapter | No state, no problem status. |
 
 ## Permissions
@@ -67,18 +68,18 @@ Run these steps in the integrated QA run, on the release app, with OBS. Use a ga
 
 1. Gamepad. Build a graph: On Gamepad Button Pressed (Any, A / Cross) → Toggle Visibility. Give focus to another app. Press A: the entity toggles in the preview and in OBS, and the other app receives nothing new from OpenSekai. Hold the button: it toggles once.
 2. Gamepad axis. On Update → Move Entity with Make Vector3 (Gamepad Axis Left Stick X, 0, Gamepad Axis Left Stick Y) scaled by deltaSeconds. The character moves with the stick, stops at rest (dead zone), and the scene revision changes once after the stick returns to rest.
-3. Gamepad hot-plug. Disconnect the pad while the graph runs, and connect it again. The app does not stop, and the pad works again as pad 1.
+3. Gamepad hot-plug. Hold A and disconnect the pad while a graph with On Gamepad Button Released (A) runs: the released graph runs once. Connect it again. The app does not stop, and the pad works again as pad 1.
 4. Two pads (if available). Set Pad to 2 on a node: only the second connected pad starts it.
 5. MIDI notes. On MIDI Note On (Any channel, Any Note) → Set Asset Property with the note and velocity in a Vector3, or a Branch on velocity. Press pads: the run uses the note and velocity. On MIDI Note Off fires on release (also for a controller that sends Note On with velocity 0).
 6. MIDI knob. On Update → MIDI Control Value (the knob CC) → Set Asset Property (camera Field of View through math). The value follows the knob, 0 to 1. Disconnect and connect the controller while the graph runs: no crash, input returns within about 2 s.
-7. Pointer. On Update → Pointer Position → Set Asset Property. The value follows the mouse over other apps and is 0 to 1 on the main display. On Pointer Button Pressed (Right) runs on a right click in another app, and that app still receives the click. Is Pointer Button Held is true while the left button is down.
-8. Stop. Disable each graph. Check that `appStatus` has no device warning, and (Activity Monitor) that the MIDI and pointer adapters do no work. The gamepad thread stays and discards events (see the analysis).
+7. Pointer. On Update → Pointer Position → Set Asset Property. The value follows the mouse over other apps and is 0 to 1 on the main display. On Pointer Button Pressed (Right) runs on a right click in another app, and that app still receives the click. With trackpad tap-to-click on, a light tap fires On Pointer Button Pressed (Left) each time. Is Pointer Button Held is true while the left button is down.
+8. Warnings. On a build or platform without an adapter, the Blueprint panel shows the device message (for example `Gamepad input is unavailable`) where it shows the Input Monitoring warning. Disable each graph. Check that `appStatus` has no device warning, and (Activity Monitor) that the MIDI and pointer adapters do no work. The gamepad thread stays and discards events (see the analysis).
 9. Permissions. Confirm which prompt, if any, macOS shows for the gamepad, MIDI, and pointer. Record it in this note.
 10. Record app timing and OBS timing separately, the renderer backend, and the commit.
 
 ## Known limits
 
-- A pointer click shorter than one clock interval (about 16 ms) can be missed, because the adapter compares two reads.
+- Two or more clicks of one pointer button between two clock reads (about 16 ms) count as one click. Buttons 4 and 5 count as the middle button in the other-button counter.
 - The gamepad identity is a player slot (1 to 4), not a stable hardware ID. A pad that reconnects can take a different slot when another pad holds the lower slot.
 - The MIDI adapter connects to all input ports. There is no port selection and no MIDI learn.
 - After the first start, the `gilrs` HID thread stays for the life of the app (the macOS backend cannot stop it). The adapter discards its events while no graph uses a gamepad.

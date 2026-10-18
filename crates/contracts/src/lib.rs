@@ -1967,6 +1967,16 @@ pub fn validate_result(method: &str, result: &Value) -> Result<(), AppError> {
         _ => unreachable!(),
     }
 }
+/// The byte limit of a clock message (mirrors `clockByteLimit` in TypeScript). A clock with
+/// tracking or with device input uses the large limit: tracking samples, and 32 device events
+/// with 4 pads, do not fit the plain limit. Any other clock uses the plain limit.
+pub fn clock_byte_limit(tracking: Option<&TrackingUpdate>, input: Option<&InputUpdate>) -> usize {
+    if tracking.is_some() || input.is_some_and(|i| i.devices.is_some()) {
+        MAX_TRACKING_CLOCK_BYTES
+    } else {
+        MAX_CLOCK_BYTES
+    }
+}
 pub fn parse_wire(bytes: &[u8]) -> Result<WireMessage, AppError> {
     require(
         bytes.len() <= MAX_SCREENSHOT_MESSAGE_BYTES,
@@ -1993,15 +2003,8 @@ pub fn parse_wire(bytes: &[u8]) -> Result<WireMessage, AppError> {
             if let Some(update) = input {
                 update.validate()?;
             }
-            // Device input may use the tracking limit: 32 device events and 4 pads exceed the plain limit.
-            let devices = input.as_ref().is_some_and(|i| i.devices.is_some());
             require(
-                bytes.len()
-                    <= if tracking.is_some() || devices {
-                        MAX_TRACKING_CLOCK_BYTES
-                    } else {
-                        MAX_CLOCK_BYTES
-                    },
+                bytes.len() <= clock_byte_limit(tracking.as_ref(), input.as_ref()),
                 "oversized clock",
             )?;
             require(*elapsed_ms <= 9_007_199_254_740_991, "unsafe clock time")?;

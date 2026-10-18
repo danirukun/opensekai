@@ -4,11 +4,12 @@ pub mod gamepad;
 pub mod midi;
 pub mod pointer;
 
+use crate::input::locked;
 use opensekai_contracts::{
     DeviceEvent, DeviceKind, DeviceUpdate, GamepadSnapshot, PointerSnapshot, MAX_DEVICE_EVENTS,
 };
-use std::collections::{BTreeMap, BTreeSet, VecDeque};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::collections::{BTreeSet, VecDeque};
+use std::sync::{Arc, Mutex};
 
 /// Queued button and note events; the oldest goes when the queue is full.
 pub const QUEUE_CAPACITY: usize = 128;
@@ -39,10 +40,6 @@ pub trait DeviceAdapter: Send + Sync {
     fn status(&self) -> DeviceStatus;
 }
 
-pub(crate) fn locked<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
-}
-
 pub fn kind_of(event: &DeviceEvent) -> DeviceKind {
     match event {
         DeviceEvent::GamepadButton { .. } => DeviceKind::Gamepad,
@@ -51,51 +48,40 @@ pub fn kind_of(event: &DeviceEvent) -> DeviceKind {
     }
 }
 
-/// Events in arrival order, plus the last Control Change value of each channel and
-/// controller since the previous clock, so a fast knob gives one value for each clock.
+/// Events in arrival order. A Control Change replaces the pending value of the same channel
+/// and controller and moves to the back, so a fast knob gives one value for each clock and
+/// the order still follows the last arrival (the session's any-channel value is the latest).
 #[derive(Default)]
 pub struct DeviceQueue {
     events: VecDeque<DeviceEvent>,
-    controls: BTreeMap<(u8, u8), u8>,
+}
+fn same_control(a: &DeviceEvent, b: &DeviceEvent) -> bool {
+    matches!(
+        (a, b),
+        (
+            DeviceEvent::MidiControl { channel: c1, controller: k1, .. },
+            DeviceEvent::MidiControl { channel: c2, controller: k2, .. },
+        ) if c1 == c2 && k1 == k2
+    )
 }
 impl DeviceQueue {
     pub fn push(&mut self, event: DeviceEvent) {
-        if let DeviceEvent::MidiControl {
-            channel,
-            controller,
-            value,
-        } = event
-        {
-            self.controls.insert((channel, controller), value);
-            return;
+        if matches!(event, DeviceEvent::MidiControl { .. }) {
+            self.events.retain(|queued| !same_control(queued, &event));
         }
         if self.events.len() == QUEUE_CAPACITY {
             self.events.pop_front();
         }
         self.events.push_back(event);
     }
-    /// At most 32 events: queued events first, then Control Change values. The rest waits.
+    /// At most 32 events in arrival order. The rest waits for the next clock.
     pub fn drain(&mut self) -> Vec<DeviceEvent> {
         let n = self.events.len().min(MAX_DEVICE_EVENTS);
-        let mut out: Vec<DeviceEvent> = self.events.drain(..n).collect();
-        while out.len() < MAX_DEVICE_EVENTS {
-            let Some(((channel, controller), value)) = self.controls.pop_first() else {
-                break;
-            };
-            out.push(DeviceEvent::MidiControl {
-                channel,
-                controller,
-                value,
-            });
-        }
-        out
+        self.events.drain(..n).collect()
     }
     /// Drops queued events of kinds that are no longer watched.
     pub fn retain(&mut self, kinds: &BTreeSet<DeviceKind>) {
         self.events.retain(|event| kinds.contains(&kind_of(event)));
-        if !kinds.contains(&DeviceKind::Midi) {
-            self.controls.clear();
-        }
     }
 }
 
@@ -260,43 +246,44 @@ mod tests {
         assert_eq!(total, QUEUE_CAPACITY);
     }
 
+    fn control(channel: u8, value: u8) -> DeviceEvent {
+        DeviceEvent::MidiControl {
+            channel,
+            controller: 7,
+            value,
+        }
+    }
+
     #[test]
-    fn control_changes_keep_the_last_value_and_wait_for_room() {
+    fn control_changes_keep_the_last_value_in_order_of_the_last_arrival() {
         let mut queue = DeviceQueue::default();
         for value in 0..100 {
-            queue.push(DeviceEvent::MidiControl {
-                channel: 1,
-                controller: 7,
-                value,
-            });
+            queue.push(control(1, value));
         }
+        queue.push(note(60));
+        queue.push(control(2, 20));
+        queue.push(control(1, 30));
+        queue.push(note(61));
+        // Channel 1 moved behind channel 2, so the last value on any channel is 30.
+        assert_eq!(
+            queue.drain(),
+            vec![note(60), control(2, 20), control(1, 30), note(61)]
+        );
+        assert!(queue.drain().is_empty());
+    }
+
+    #[test]
+    fn control_changes_share_the_thirty_two_event_limit() {
+        let mut queue = DeviceQueue::default();
         for n in 0..31 {
             queue.push(note(n));
         }
-        queue.push(DeviceEvent::MidiControl {
-            channel: 2,
-            controller: 1,
-            value: 5,
-        });
+        queue.push(control(1, 1));
+        queue.push(control(2, 2));
         let first = queue.drain();
         assert_eq!(first.len(), 32);
-        assert_eq!(
-            first[31],
-            DeviceEvent::MidiControl {
-                channel: 1,
-                controller: 7,
-                value: 99
-            }
-        );
-        assert_eq!(
-            queue.drain(),
-            vec![DeviceEvent::MidiControl {
-                channel: 2,
-                controller: 1,
-                value: 5
-            }]
-        );
-        assert!(queue.drain().is_empty());
+        assert_eq!(first[31], control(1, 1));
+        assert_eq!(queue.drain(), vec![control(2, 2)]);
     }
 
     #[test]
