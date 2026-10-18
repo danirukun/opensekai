@@ -1,11 +1,11 @@
 <script lang="ts">
  import { Button, Dropdown, Input } from '@oshi-connect/ui';
- import { Eye, EyeOff, FileInput, FileOutput, LayoutTemplate, Plus, Trash2 } from '@lucide/svelte';
+ import { CopyPlus, Eye, EyeOff, FileInput, FileOutput, LayoutTemplate, Plus, Trash2 } from '@lucide/svelte';
  import type { BlueprintGraph, BlueprintOp } from '@opensekai/contracts';
 
- let { graphs, selectedId, disabled, creatable, templatable, onselect, onops, oncreate, onimport, ontemplate, onexport }: {
+ let { graphs, selectedId, disabled, creatable, templatable, onselect, onops, oncreate, onimport, ontemplate, onexport, onduplicate }: {
   graphs: BlueprintGraph[]; selectedId: string | null; disabled: boolean; creatable: boolean; templatable: boolean;
-  onselect: (id: string) => void; onops: (ops: BlueprintOp[]) => void; oncreate: () => void; onimport: () => void; ontemplate: (id: string) => void; onexport: (id: string) => void;
+  onselect: (id: string) => void; onops: (ops: BlueprintOp[]) => void; oncreate: () => void; onimport: () => void; ontemplate: (id: string) => void; onexport: (id: string) => void; onduplicate: (id: string) => void;
  } = $props();
  const templates = [{ value: 'upper-body-rotation', label: 'Upper Body Rotation' }];
  let template = $state('');
@@ -36,6 +36,7 @@
     {:else}
      <span class="blueprint-name" role="presentation" ondblclick={() => start(graph)} use:aria={{ 'aria-current': String(graph.id === selectedId) }}><Button variant="ghost" onclick={() => onselect(graph.id)}>{graph.name}</Button></span>
     {/if}
+ <button type="button" class="blueprint-icon-button row-action" title="Duplicate blueprint" aria-label="Duplicate blueprint" disabled={disabled || graphs.length >= 8} onclick={() => onduplicate(graph.id)}><CopyPlus size={14} /></button>
     <button type="button" class="blueprint-icon-button row-action" title="Export blueprint" aria-label="Export blueprint" {disabled} onclick={() => onexport(graph.id)}><FileOutput size={14} /></button>
     <button type="button" class="blueprint-icon-button row-action" title="Delete blueprint" aria-label="Delete blueprint" {disabled} onclick={() => onops([{ kind: 'removeGraph', graphId: graph.id }])}><Trash2 size={14} /></button>
     <button type="button" class="blueprint-icon-button" title={graph.enabled ? 'Disable' : 'Enable'} aria-label="Enabled" aria-pressed={graph.enabled} {disabled} onclick={() => onops([{ kind: 'updateGraph', graphId: graph.id, enabled: !graph.enabled }])}>{#if graph.enabled}<Eye size={14} />{:else}<EyeOff size={14} />{/if}</button>
