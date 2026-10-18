@@ -43,6 +43,8 @@ export interface SceneLights {
     /** Sets the group node set on each lit material of `root` and the shadow flags of its meshes. */
     assign(root: Object3D, group: LightGroup): void;
     signature(): string;
+    /** Increases on each node-set rebuild, so an A → B → A change still reassigns materials that hold the old nodes. */
+    generation(): number;
     shadows(): boolean;
     dispose(): void;
 }
@@ -61,7 +63,7 @@ export function createSceneLights(scene: Scene, renderer: WebGPURenderer): Scene
     scene.add(ambient, builtin, builtin.target);
     renderer.shadowMap.type = PCFShadowMap;
     const owned = new Map<Id, { type: LightSettings["type"]; light: ThreeLight }>();
-    let current = "", nodes: Record<LightGroup, ReturnType<typeof lights>> | null = null, shadows = false;
+    let current = "", generation = 0, nodes: Record<LightGroup, ReturnType<typeof lights>> | null = null, shadows = false;
     const create = (settings: LightSettings): ThreeLight => {
         if (settings.type === "point") {
             const light = new PointLight(0xffffff, 1, 0, 2);
@@ -122,6 +124,7 @@ export function createSceneLights(scene: Scene, renderer: WebGPURenderer): Scene
             const signature = lightSignature(entities);
             if (signature === current && nodes) return false;
             current = signature;
+            generation += 1;
             const groups = lightGroups(entities);
             const set = (ids: Id[]) => lights([ambient, ...(wanted.length ? ids.map(id => owned.get(id)!.light) : [builtin])]);
             nodes = { characters: set(groups.characters), props: set(groups.props), environment: set(groups.environment) };
@@ -145,6 +148,7 @@ export function createSceneLights(scene: Scene, renderer: WebGPURenderer): Scene
             });
         },
         signature: () => current,
+        generation: () => generation,
         shadows: () => shadows,
         dispose() {
             for (const value of owned.values()) release(value.light);

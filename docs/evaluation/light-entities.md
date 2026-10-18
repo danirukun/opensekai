@@ -27,6 +27,8 @@ Method. A scratch Vite page called the real `createRenderer` (`output_main`, `pr
 | Color `#ff0000` shows in the next applied frame (box RGB) | R9 | PASS. [165, 100, 121] at revision 2 | PASS. [165, 100, 121] |
 | `affectEnvironment: false` against the light hidden, fixture stage | R6 | PASS. 0 px | PASS. 0 px |
 | `affectEnvironment: true` against `false` | R6 | PASS. 1 613 012 px | PASS. 1 615 754 px |
+| Runtime flip of `affectEnvironment` true → false (fixture stage): off against the light hidden | R6, R7 | PASS. 0 px (off against on: 1 613 012 px) | PASS. 0 px (1 615 754 px) |
+| Runtime flip of `affectProps` true → false (fixture stage as a GLB prop): off against the light hidden | R6, R7 | PASS. 0 px (off against on: 1 922 793 px) | PASS. 0 px (1 923 540 px) |
 | Reflections Intensity 0 against 1 | R15 | PASS. 2 068 885 px | PASS. 2 069 175 px |
 | MToon body luminance, `affectCharacters` true / false | R6 | PASS. 210.9 / 122.4 | PASS. 204.9 / 118.5 |
 | `affectCharacters: false` against the light hidden | R6, R7 | PASS. 7706 px, below the idle-motion noise of two frames (13 634 px) | PASS. 11 091 px, noise 22 606 px |

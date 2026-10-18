@@ -112,3 +112,16 @@ describe('scene light reconcile', () => {
         expect(lit.version).toBe(again);
     });
 });
+describe('node-set generation', () => {
+    it('increases on each rebuild, also when the signature comes back (A → B → A)', () => {
+        const scene = new Scene(), lights = createSceneLights(scene, fake());
+        lights.apply([light('a')]);
+        const first = lights.generation(), signature = lights.signature();
+        lights.apply([light('a', { type: 'point' })]);
+        lights.apply([light('a')]);
+        expect(lights.signature()).toBe(signature);
+        expect(lights.generation()).toBe(first + 2);
+        lights.apply([light('a', {}, false)]);
+        expect(lights.generation()).toBe(first + 2);
+    });
+});

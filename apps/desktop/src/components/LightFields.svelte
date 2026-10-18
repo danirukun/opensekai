@@ -10,8 +10,13 @@
  // A scene change, an accepted change, or a rejected change shows the scene value again (R13).
  $effect(()=>{values=text(light);});
  const reset=()=>{values=text(light);};
+ // Enter fires change and then submit; one commit at a time keeps the second from failing as BUSY.
+ let committing=false;
  async function commit(next:LightSettings,control?:HTMLInputElement|HTMLSelectElement){
-  const reply=await oncommit?.(entityId,next,revision);
+  if(committing)return;
+  committing=true;
+  let reply:Reply<unknown>|undefined;
+  try{reply=await oncommit?.(entityId,next,revision);}finally{committing=false;}
   if(reply?.ok)return;
   reset();
   if(control instanceof HTMLInputElement&&control.type==='checkbox')control.checked=checkedValue(control.name);

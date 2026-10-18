@@ -48,7 +48,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     const antiAliasing = createAntiAliasing(renderer);
     const assets = createAssetCache(loadAsset);
     const environmentLight = createEnvironmentLight(roomEnvironmentMap(renderer));
-    type Ready = { root: Object3D; avatar?: ReturnType<typeof createAvatarBinding>; assetId?: string; assetDispose?: () => void; instanceDispose?: () => void; materials?: InstanceMaterials; lit: string; warnings: AppError[]; dispose(): void };
+    type Ready = { root: Object3D; avatar?: ReturnType<typeof createAvatarBinding>; assetId?: string; assetDispose?: () => void; instanceDispose?: () => void; materials?: InstanceMaterials; lit: number; warnings: AppError[]; dispose(): void };
     const loadListeners = new Set<(entries: AssetLoadStatus[]) => void>();
     const prepare = async (root: Object3D, report: (r: LoadReport) => void, cancelled: () => boolean) => {
         if (cancelled() || disposed) throw failure("CANCELLED", "Asset load cancelled");
@@ -66,7 +66,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
                 const avatar = createAvatarBinding(asset.vrm);
                 // The group node set goes on before GPU preparation, so the compiled pipelines are the ones the frame draws (R6).
                 sceneLights.assign(avatar.root, "characters");
-                const lit = sceneLights.signature();
+                const lit = sceneLights.generation();
                 await prepare(avatar.root, report, cancelled);
                 return { root: avatar.root, avatar, assetDispose: asset.dispose, lit, warnings: asset.warnings, dispose: asset.dispose };
             } catch (error) { asset.dispose(); throw error; }
@@ -77,7 +77,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         const materials = environmentLight.apply(root, request.kind === "environment");
         const release = () => { disposeInstance(root); materials.dispose(); };
         sceneLights.assign(root, request.kind === "environment" ? "environment" : "props");
-        const lit = sceneLights.signature();
+        const lit = sceneLights.generation();
         try { await prepare(root, report, cancelled); }
         catch (error) { release(); throw error; }
         return { root, assetId: request.assetId, warnings: asset.warnings, instanceDispose: materials.dispose, materials, lit, dispose: release };
@@ -96,7 +96,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         instanceDispose?: () => void;
         materials?: InstanceMaterials;
         group?: LightGroup;
-        lit?: string;
+        lit?: number;
         warnings?: AppError[];
     }>();
     const editor = options.editor ? createEditorViewport(options.canvas, camera, scene, objects, options.editor) : null;
@@ -227,8 +227,8 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         }
         for (const entry of jobs.status()) if (entry.stage !== "failed") warnings.push({ code: "BUSY", message: "Asset loading", ids: [entry.assetId] });
         // A change of the light set gives each lit material its new group node set (R6, R7).
-        const signature = sceneLights.signature();
-        for (const value of objects.values()) if (value.group && value.lit !== signature) { sceneLights.assign(value.root, value.group); value.lit = signature; }
+        const generation = sceneLights.generation();
+        for (const value of objects.values()) if (value.group && value.lit !== generation) { sceneLights.assign(value.root, value.group); value.lit = generation; }
         editor?.refresh();
         const used = new Set([...objects.values()].flatMap(x => x.assetId ? [x.assetId] : []));
         for (const id of jobs.assetIds()) used.add(id);
