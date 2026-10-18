@@ -2,7 +2,7 @@
  import { onMount, tick } from 'svelte';
  import { invoke } from '@tauri-apps/api/core';
  import { Button, Textarea } from '@oshi-connect/ui';
- import { Play, Search, Trash2, Variable } from '@lucide/svelte';
+ import { Play, Search, SquareTerminal, Trash2, Variable } from '@lucide/svelte';
  import { BLUEPRINT_LABELS, blueprintPorts, exportBlueprint, importBlueprint, serializeBlueprintFile, nodeDefinition, defaultBlueprintSettings, keystrokeAccelerator, type AppApi, type AppStatus, type BlueprintGraph, type BlueprintNode, type BlueprintOp, type BlueprintStatus, type DefaultRefs, type SceneView, type AssetRecord, triggerableExpressions } from '@opensekai/contracts';
  import { issueText, type BlueprintSync, type SyncIssue } from '../blueprints/blueprint-sync';
  import { currentPlatform, defaultKeystroke } from '../blueprints/keystroke-format';
@@ -24,9 +24,11 @@
  import BlueprintNodeView from './BlueprintNodeView.svelte';
  import BlueprintSocketView from './BlueprintSocketView.svelte';
  import BlueprintConnectionView from './BlueprintConnectionView.svelte';
+ import BlueprintDebugOutput from './BlueprintDebugOutput.svelte';
+ import { debugTime, EMPTY_DEBUG_FEED, type DebugFeed, type DebugFeedState } from '../blueprints/debug-feed';
 
- let { api, sync, memory, scene, assets = [], status, disabled, selectedEntityId = null, onrun }: {
-  api: AppApi | null; sync: BlueprintSync; memory: EditorMemory; scene: SceneView | null; assets?: readonly AssetRecord[]; status: AppStatus | null; disabled: boolean; selectedEntityId?: string | null; onrun: () => void;
+ let { api, sync, debug = null, memory, scene, assets = [], status, disabled, selectedEntityId = null, onrun }: {
+  api: AppApi | null; sync: BlueprintSync; debug?: DebugFeed | null; memory: EditorMemory; scene: SceneView | null; assets?: readonly AssetRecord[]; status: AppStatus | null; disabled: boolean; selectedEntityId?: string | null; onrun: () => void;
  } = $props();
  const platform = currentPlatform();
  let canvas: HTMLDivElement;
@@ -48,6 +50,19 @@
  function toggleDrawer(next: Exclude<Drawer, null>) {
   drawer = drawer === next ? null : next;
   try { localStorage.setItem(DRAWER_KEY, drawer ?? 'none'); } catch { /* the choice is a convenience only */ }
+ }
+ const OUTPUT_KEY = 'opensekai.blueprint.debugOutput';
+ const storedOutput = () => { try { return localStorage.getItem(OUTPUT_KEY) === 'open'; } catch { return false; } };
+ let output = $state(storedOutput());
+ function toggleOutput() {
+  output = !output;
+  try { localStorage.setItem(OUTPUT_KEY, output ? 'open' : 'closed'); } catch { /* the choice is a convenience only */ }
+ }
+ let debugState = $state.raw<DebugFeedState>(EMPTY_DEBUG_FEED);
+ // The Debug Value text of the shown graph, on its nodes.
+ function showDebugValues() {
+  const values = new Map([...debugState.values.values()].filter(value => value.graphId === mountedFor).map(value => [value.nodeId, { text: value.text, time: debugTime(value.changedMs) }] as const));
+  editor?.setDebugValues(values);
  }
  let mountedFor: string | null = null, generation = 0, announced = '';
  const history: EditorMemory['history'] = {
@@ -175,6 +190,7 @@
    if (mine !== generation) { mounted.destroy(); return; }
    editor = mounted;
    mounted.setEditable(!disabled);
+   showDebugValues();
    const latest = sync.view().find(item => item.id === id);
    if (latest) void mounted.show(latest);
   } catch { if (mine === generation) runError = 'Blueprint canvas unavailable'; }
@@ -341,10 +357,11 @@
  onMount(() => {
   clipboard = memory.clipboard.current;
   const off = sync.subscribe(update);
+  const offDebug = debug?.subscribe(next => { debugState = next; showDebugValues(); }) ?? (() => {});
   const timer = setInterval(() => { issue = sync.issue(); }, 500);
   void sync.load().then(() => update(sync.view()));
   update(sync.view());
-  return () => { off(); clearInterval(timer); generation++; editor?.destroy(); editor = null; };
+  return () => { off(); offDebug(); clearInterval(timer); generation++; editor?.destroy(); editor = null; };
  });
 </script>
 
@@ -357,6 +374,7 @@
   <nav class="blueprint-tools" aria-label="Blueprint tools">
    <button type="button" class:active={drawer === 'nodes'} aria-pressed={drawer === 'nodes'} title="Nodes" aria-label="Nodes" onclick={() => toggleDrawer('nodes')}><Search size={16} /></button>
    <button type="button" class:active={drawer === 'variables'} aria-pressed={drawer === 'variables'} title="Variables" aria-label="Variables" onclick={() => toggleDrawer('variables')}><Variable size={16} /></button>
+   {#if debug}<button type="button" class:active={output} aria-pressed={output} title="Debug output" aria-label="Debug output" onclick={toggleOutput}><SquareTerminal size={16} /></button>{/if}
   </nav>
   {#if drawer === 'nodes'}
    <aside class="blueprint-drawer" aria-label="Nodes"><NodeSearch {refs} prefs={memory.palette} menu disabled={disabled || !graph} onpick={entry => addAt(entry, freeSpot(graph?.nodes ?? [], editor?.center() ?? { x: 0, y: 0 }))} /></aside>
@@ -379,6 +397,7 @@
   </aside>
   {/if}
  </div>
+ {#if debug && output}<BlueprintDebugOutput entries={debugState.entries} {graphs} onclear={() => debug?.clear()} />{/if}
  {#if menu}
   <CanvasMenu x={menu.x} y={menu.y} onclose={() => { menu = null; canvas.focus({ preventScroll: true }); }} onpick={pick}
    items={menu.kind === 'node' ? nodeItems(menu.nodeIds) : menu.kind === 'wire' || menu.kind === 'comment' ? [{ value: 'delete', label: 'Delete' }] : menu.kind === 'canvas' ? [...(clipboard ? [{ value: 'paste', label: 'Paste' }] : []), { value: 'selectAll', label: 'Select all' }, { value: 'format', label: 'Format' }, { value: 'comment', label: 'Add comment' }] : []}>

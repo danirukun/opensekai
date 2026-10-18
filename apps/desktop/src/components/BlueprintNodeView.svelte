@@ -6,7 +6,7 @@
  import { parseScalar, vectorParts } from '../blueprints/fields';
 
  type Port = { socket: unknown; label?: string; index?: number };
- export let data: { id: string; label: string; selected?: boolean; data?: BlueprintNode; wired?: ReadonlyMap<string, number>; editable?: boolean; setInput?: (port: string, value: ScalarValue | null) => void; inputs: Record<string, Port | undefined>; outputs: Record<string, Port | undefined> };
+ export let data: { id: string; label: string; selected?: boolean; data?: BlueprintNode; wired?: ReadonlyMap<string, number>; editable?: boolean; debug?: { text: string; time: string } | null; setInput?: (port: string, value: ScalarValue | null) => void; inputs: Record<string, Port | undefined>; outputs: Record<string, Port | undefined> };
  export let emit: (props: unknown) => void;
 
  const sorted = (ports: Record<string, Port | undefined>) =>
@@ -43,6 +43,7 @@
  $: outputs = sorted(data.outputs);
  $: editable = data.editable !== false;
  $: editors = data && Object.fromEntries(inputs.map(([key]) => [key, inline(key)]));
+ $: debug = data.debug;
  $: category = data.data ? nodeDefinition(data.data.type).category.toLowerCase() : '';
 </script>
 
@@ -79,4 +80,5 @@
    {/each}
   </div>
  </div>
+ {#if debug}<div class="bp-node-debug"><span>{debug.text}</span><time>{debug.time}</time></div>{/if}
 </div>

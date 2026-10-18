@@ -75,6 +75,10 @@
     { "type": "midi.control", "warudoCategory": "MIDI", "warudoCandidate": "Get MIDI Control Change Value", "evidence": "tests", "note": "Candidate name; the BP-13 live palette pass confirms it." },
     { "type": "pointer.position", "warudoCategory": "Input", "warudoCandidate": "Get Mouse Position", "evidence": "tests", "note": "Candidate name; the BP-13 live palette pass confirms it." },
     { "type": "pointer.pressed", "warudoCategory": "Input", "warudoCandidate": "On Mouse Button Down", "evidence": "tests", "note": "Candidate name; the BP-13 live palette pass confirms it." },
-    { "type": "pointer.held", "warudoCategory": "Input", "warudoCandidate": "Is Mouse Button Pressed", "evidence": "tests", "note": "Candidate name; the BP-13 live palette pass confirms it." }
+    { "type": "pointer.held", "warudoCategory": "Input", "warudoCandidate": "Is Mouse Button Pressed", "evidence": "tests", "note": "Candidate name; the BP-13 live palette pass confirms it." },
+    { "type": "debug.log", "warudoCategory": "Debug", "warudoCandidate": "Log", "evidence": "tests", "note": "Candidate name; the BP-13 live palette pass confirms it." },
+    { "type": "debug.toast", "warudoCategory": "Debug", "warudoCandidate": "Show Toast", "evidence": "tests", "note": "Candidate name; the BP-13 live palette pass confirms it." },
+    { "type": "debug.value", "warudoCategory": "Debug", "warudoCandidate": "Debug Value", "evidence": "tests", "note": "Candidate name; the BP-13 live palette pass confirms it." },
+    { "type": "debug.event", "warudoCategory": "Debug", "warudoCandidate": "Emit Debug Event", "evidence": "tests", "note": "Candidate name; the BP-13 live palette pass confirms it." }
   ]
 }

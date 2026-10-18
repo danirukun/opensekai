@@ -24,12 +24,15 @@ class TypedSocket extends ClassicPreset.Socket {
 const sockets = Object.fromEntries((['flow', ...DATA_TYPES] as const).map(kind => [kind, new TypedSocket(kind)])) as Record<PortType, TypedSocket>;
 
 export type InlineEdit = (port: string, value: ScalarValue | null) => void;
+export interface DebugText { text: string; time: string }
 class GraphNode extends ClassicPreset.Node {
  data: BlueprintNode;
  // The wire count of each input with a wire; the node view shows an inline editor on the other scalar data inputs.
  wired = new Map<string, number>();
  // False while the panel is disabled: inline editors are disabled and send nothing.
  editable = true;
+ // The latest Debug Value text and the session time it changed (slice F R14).
+ debug: DebugText | null = null;
  setInput: InlineEdit;
  constructor(data: BlueprintNode, setInput: InlineEdit) {
   super(BLUEPRINT_LABELS[data.type]);
@@ -63,6 +66,8 @@ export interface ReteBlueprintEditor {
  show(graph: BlueprintGraph): Promise<void>;
  select(nodeId: string | null): void;
  setEditable(editable: boolean): void;
+ // Debug Value text by node ID; a node without an entry shows none.
+ setDebugValues(values: ReadonlyMap<string, DebugText>): void;
  zoomToFit(): Promise<void>;
  destroy(): void;
  selectedComments(): string[];
@@ -108,6 +113,7 @@ export async function mountReteBlueprint(container: HTMLElement, initial: Bluepr
  const selectable = AreaExtensions.selectableNodes(area, selector, { accumulating });
  options.inspect?.(area);
  let shown: BlueprintGraph = { ...initial, nodes: [], connections: [] };
+ let debugValues: ReadonlyMap<string, DebugText> = new Map();
  let queue: Promise<void> = Promise.resolve(), destroyed = false, applying = false, silent = false, dirty = false, editable = true;
  let targeted: MouseEvent | null = null;
  // Events that apply() itself causes are named here only while its own awaited call runs, so a user gesture during a patch still counts.
@@ -188,6 +194,7 @@ export async function mountReteBlueprint(container: HTMLElement, initial: Bluepr
  const addNode = (data: BlueprintNode) => ownNode(data.id, async () => {
   const node = new GraphNode(data, setInput(data.id));
   node.editable = editable;
+  node.debug = debugValues.get(data.id) ?? null;
   await editor.addNode(node);
   await place(data.id, data.position);
  });
@@ -280,6 +287,15 @@ export async function mountReteBlueprint(container: HTMLElement, initial: Bluepr
    if (next === editable) return;
    editable = next;
    for (const node of editor.getNodes() as GraphNode[]) { node.editable = next; void area.update('node', node.id); }
+  },
+  setDebugValues(next) {
+   debugValues = next;
+   for (const node of editor.getNodes() as GraphNode[]) {
+    const value = next.get(node.id) ?? null;
+    if (value?.text === node.debug?.text && value?.time === node.debug?.time) continue;
+    node.debug = value;
+    void area.update('node', node.id);
+   }
   },
   zoomToFit: () => AreaExtensions.zoomAt(area, editor.getNodes()),
   destroy() { destroyed = true; authoring.destroy(); accumulating.destroy(); area.destroy(); },
