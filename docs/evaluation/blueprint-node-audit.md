@@ -21,26 +21,26 @@ The OpenSekai count is the number of rows that map to the category. It is not a 
 | Warudo category | Warudo nodes | OpenSekai rows |
 | --- | --- | --- |
 | Animation | 5 | 0 |
-| Arithmetic | 183 | 23 |
+| Arithmetic | 183 | 90 |
 | Asset | 25 | 5 |
 | Audio | 3 | 0 |
 | Bilibili | 21 | 0 |
-| BlendShapes | 14 | 0 |
-| Blueprints | 3 | 0 |
-| Characters | 48 | 4 |
+| BlendShapes | 14 | 1 |
+| Blueprints | 3 | 4 |
+| Characters | 48 | 5 |
 | Cinematography | 16 | 1 |
-| Data | 6 | 0 |
-| Debug | 6 | 0 |
+| Data | 6 | 10 |
+| Debug | 6 | 4 |
 | Douyin | 4 | 0 |
-| Events | 7 | 4 |
+| Events | 7 | 7 |
 | External Integration | 2 | 0 |
-| Flow Control | 20 | 8 |
-| Input | 10 | 2 |
+| Flow Control | 20 | 12 |
+| Input | 10 | 9 |
 | Interactions | 13 | 0 |
 | Lattices | 2 | 0 |
 | Lights | 4 | 0 |
-| Literals | 31 | 2 |
-| MIDI | 5 | 0 |
+| Literals | 31 | 5 |
+| MIDI | 5 | 3 |
 | MikuMikuDance | 1 | 0 |
 | Miscellaneous | 3 | 0 |
 | Motion Capture | 15 | 0 |
@@ -48,10 +48,10 @@ The OpenSekai count is the number of rows that map to the category. It is not a 
 | Props | 7 | 0 |
 | Scene | 1 | 0 |
 | Stream Deck | 3 | 0 |
-| Switches | 6 | 1 |
-| Timer | 4 | 0 |
+| Switches | 6 | 3 |
+| Timer | 4 | 4 |
 | Twitch | 11 | 0 |
-| Variables | 29 | 6 |
+| Variables | 29 | 11 |
 | YouTube | 8 | 0 |
 
 ## Findings
@@ -61,6 +61,15 @@ The OpenSekai count is the number of rows that map to the category. It is not a 
 3. Variables has 29 Warudo nodes and 6 OpenSekai rows, for the same type reason.
 4. 19 of 56 OpenSekai node types have a live macOS run on record. 37 have unit or integration tests only.
 5. Each Warudo name and category in the data file is a candidate. `Delay` can be in Timer, not Flow Control. Compare, logic, and Vector3 nodes can be in a category other than Arithmetic.
+
+## B13 update (2026-10-18)
+
+Bundle B13 (branch `opensekai/blueprint-depth`) adds 118 node types. The catalog now has 174 node types, and the table above counts the rows at that point. The findings above describe the base commit. After B13:
+
+1. 17 of 33 Warudo categories have no OpenSekai row: Animation, Audio, Bilibili, Douyin, External Integration, Interactions, Lattices, Lights, MikuMikuDance, Miscellaneous, Motion Capture, Procedural Animations, Props, Scene, Stream Deck, Twitch, and YouTube.
+2. Ports and variables now have the Warudo data types: Boolean, Integer, Float (`number`), String, Vector3, and a list of each. Most new rows close the type gap that findings 2 and 3 name.
+3. 19 of 174 node types have a live macOS run on record. Each B13 row has `tests` evidence until the integrated macOS run records it.
+4. Each Warudo name in the B13 rows is a candidate or `null`, as before.
 
 ## What remains for BP-13
 
