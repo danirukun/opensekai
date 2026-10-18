@@ -106,7 +106,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
         let offsets = boneOffsets;
         let shapes = blendShapes;
         let looks = lookAts;
-        const env: StepEnv = { held, devices: deviceEnv, scene: () => applyOverrides(working ?? persistent, layer), previousPose: avatarId => previousPoses.get(avatarId) ?? null };
+        const env: StepEnv = { held, devices: deviceEnv, scene: () => applyOverrides(working ?? persistent, layer), previousPose: avatarId => previousPoses.get(avatarId) ?? null, tickMs: nowMs };
         // `elapsed` is the time of the values that a transition starts from.
         const startMs = transitionStart(nowMs, elapsed);
         const runs = runtime.step(events, nowMs, run => {

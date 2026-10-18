@@ -58,6 +58,9 @@ it('publishes a catalog of every node with its ports and settings schema', () =>
  const catalog = blueprintNodeCatalog();
  expect(catalog).toHaveLength(NODE_DEFINITIONS.length);
  expect(catalog).toHaveLength(118);
+ expect(catalog.find(entry => entry.type === 'math.lerp')!.inputDefaults).toEqual({ b: 1, t: 0.5 });
+ expect(catalog.find(entry => entry.type === 'vector3.scale')!.inputDefaults).toEqual({ factor: 1 });
+ expect(catalog.find(entry => entry.type === 'math.add')!.inputDefaults).toEqual({});
  const sequence = catalog.find(entry => entry.type === 'flow.sequence')!;
  expect(sequence).toMatchObject({ label: 'Sequence', category: 'Flow', portsDependOnSettings: true, settings: { type: 'object', required: ['outputs'] } });
  expect(catalog.find(entry => entry.type === 'variable.setNumber')!.ports).toEqual({ inputs: { flow: 'flow', value: 'number' }, outputs: { exit: 'flow' } });

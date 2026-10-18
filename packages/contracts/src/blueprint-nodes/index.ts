@@ -96,4 +96,6 @@ export const blueprintNodeCatalog = () => NODE_DEFINITIONS.map(definition => ({
  ports: definition.ports(definition.defaults(SAMPLE) as never),
  portsDependOnSettings: 'dynamicPorts' in definition && definition.dynamicPorts === true,
  settings: z.toJSONSchema(definition.settings),
+ // The value of an unconnected input without an inline value, where it is not the type default.
+ inputDefaults: { ...('inputDefaults' in definition ? definition.inputDefaults : {}) } as Record<string, ScalarValue>,
 }));

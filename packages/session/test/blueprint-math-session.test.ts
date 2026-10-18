@@ -1,7 +1,9 @@
 import { expect, it } from 'vitest';
 import type { BlueprintGraph } from '@opensekai/contracts';
 import { compileBlueprint, runFlow } from '../src/blueprint';
+import { makeSmokeScene, type RuntimeFrame } from '@opensekai/contracts';
 import { createBlueprintRuntime, initialState, type GraphRun } from '../src/blueprint-runtime';
+import { createSession } from '../src/session';
 
 const at = { x: 0, y: 0 };
 const node = (id: string, type: string, settings: object = {}, inputs?: object) => ({ id, version: 1, type, settings, position: at, ...(inputs ? { inputs } : {}) });
@@ -108,16 +110,17 @@ const damping = (id: string, double: boolean, negative = 'KeyS', enabled = true)
  wire('4', 'seq', 'then0', 's0', 'flow'), wire('5', 'damp', 'result', 's0', 'value'),
  ...(double ? [wire('6', 'seq', 'then1', 's1', 'flow'), wire('7', 'damp', 'result', 's1', 'value')] : []),
 ], id, enabled);
-const W = { held: new Set(['KeyW']), scene: () => null };
+// The session passes the tick time; these runtime tests pass it the same way.
+const W = (tickMs: number) => ({ held: new Set(['KeyW']), scene: () => null, tickMs });
 const fov = (runs: GraphRun[], graphId: string) => runs.filter(run => run.graphId === graphId).flatMap(run => run.effects.map(effect => (effect as { value: number }).value));
 
-it('moves Smooth Damp toward its target over On Update ticks, once per run even with two reads', () => {
+it('moves Smooth Damp toward its target over On Update ticks, once per tick even with two reads in one run', () => {
  const runtime = createBlueprintRuntime();
  runtime.install([damping('single', false), damping('double', true)]);
  expect(fov(runtime.step([{ kind: 'update' }], 0), 'single')).toEqual([0]);
  let previous = 0;
  for (let tick = 1; tick <= 120; tick++) {
-  const runs = runtime.step([{ kind: 'update' }], tick * 16, undefined, W);
+  const runs = runtime.step([{ kind: 'update' }], tick * 16, undefined, W(tick * 16));
   const [value] = fov(runs, 'single'), double = fov(runs, 'double');
   expect(double).toEqual([value, value]);
   expect(value!).toBeGreaterThan(previous); expect(value!).toBeLessThanOrEqual(10);
@@ -129,7 +132,7 @@ it('moves Smooth Damp toward its target over On Update ticks, once per run even 
 
 it('resets Smooth Damp on a logic change and on enable, and keeps it on a reinstall with the same logic', () => {
  const runtime = createBlueprintRuntime();
- const tick = (ms: number) => fov(runtime.step([{ kind: 'update' }], ms, undefined, W), 'g')[0];
+ const tick = (ms: number) => fov(runtime.step([{ kind: 'update' }], ms, undefined, W(ms)), 'g')[0];
  runtime.install([damping('g', false)]);
  runtime.step([{ kind: 'update' }], 0);
  const moving = [tick(16), tick(32)];
@@ -147,4 +150,31 @@ it('resets Smooth Damp on a logic change and on enable, and keeps it on a reinst
  runtime.install([damping('g', false, 'KeyS', false)]);
  runtime.install([damping('g', false, 'KeyS')]);
  expect(tick(96)).toBe(10);
+});
+
+// Session: On Update → Set Asset Property(camera_wide, Field of View) ← Smooth Damp ← 40 + 30 × Key Axis(S, W), with one or two On Update nodes.
+const zoom = (updates: number) => graph([
+ ...Array.from({ length: updates }, (_, i) => node(`tick${i}`, 'event.update')),
+ node('axis', 'input.keyAxis', { negative: 'KeyS', positive: 'KeyW' }), node('mul', 'math.multiply', {}, { b: 30 }), node('add', 'math.add', {}, { b: 40 }),
+ node('damp', 'math.smoothDamp', {}, { smoothTime: 0.2 }), node('lens', 'property.set', { entityId: 'camera_wide', property: 'fovDegrees' }),
+], [
+ ...Array.from({ length: updates }, (_, i) => wire(`f${i}`, `tick${i}`, 'flow', 'lens', 'flow')),
+ wire('1', 'axis', 'value', 'mul', 'a'), wire('2', 'mul', 'result', 'add', 'a'), wire('3', 'add', 'result', 'damp', 'target'), wire('4', 'damp', 'result', 'lens', 'value'),
+]);
+const lensOf = (frame: RuntimeFrame) => { const camera = frame.scene.entities.find(item => item.id === 'camera_wide')!; return camera.kind === 'camera' ? camera.lens.fovDegrees : NaN; };
+const zoomFrames = (updates: number) => {
+ const s = createSession(makeSmokeScene(), 's');
+ const loaded = s.editBlueprints({ clientId: 't', batchId: 'b', ops: [{ kind: 'replaceAll', graphs: [zoom(updates)] }] });
+ if (!loaded.ok) throw new Error(loaded.error.message);
+ const values = [lensOf(s.advance(0, 0))];
+ for (let ms = 20; ms <= 2000; ms += 20) values.push(lensOf(s.advance(ms, ms, { held: ['KeyW'] })));
+ return values;
+};
+
+it('steps Smooth Damp once per session tick when two On Update nodes read it', () => {
+ const one = zoomFrames(1), two = zoomFrames(2);
+ expect(one[0]).toBe(40);
+ expect(one[5]).toBeGreaterThan(40); expect(one[5]).toBeLessThan(65);
+ expect(one.at(-1)).toBeCloseTo(70, 2);
+ two.forEach((value, i) => expect(value, `tick ${i}`).toBeCloseTo(one[i]!, 9));
 });

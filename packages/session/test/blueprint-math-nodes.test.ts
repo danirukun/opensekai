@@ -93,7 +93,7 @@ describe('float math', () => {
   ['math.smoothStep', { min: 0, max: 1, value: 0.5 }, 0.5], ['math.smoothStep', { min: 0, max: 1, value: 0.25 }, 0.15625], ['math.smoothStep', { min: 0, max: 1, value: 2 }, 1],
   ['math.smoothStep', { min: 2, max: 2, value: 1 }, 0], ['math.smoothStep', { min: 2, max: 2, value: 2 }, 1],
   ['math.moveTowards', { current: 0, target: 10, maxDelta: 3 }, 3], ['math.moveTowards', { current: 0, target: -10, maxDelta: 3 }, -3],
-  ['math.moveTowards', { current: 9, target: 10, maxDelta: 3 }, 10], ['math.moveTowards', { current: 0, target: 10, maxDelta: -2 }, -2],
+  ['math.moveTowards', { current: 9, target: 10, maxDelta: 3 }, 10], ['math.moveTowards', { current: 5, target: 5, maxDelta: -1 }, 5], ['math.moveTowards', { current: 0, target: 10, maxDelta: -2 }, -2],
   ['math.remap', { value: 1e308, fromMin: 0, fromMax: 1, toMin: 0, toMax: 10, clamp: false }, ERROR],
  ]));
  it('computes trigonometry in radians and converts angles', () => table([
@@ -129,15 +129,24 @@ describe('Smooth Damp', () => {
   }
   expect(current.value).toBeCloseTo(10, 2);
  });
- it('gives the target on the first read and advances once per run state', () => {
-  const env = { ...NO_ENV, deltaSeconds: 0.1 };
-  const first = emptyState();
-  expect(evaluate('math.smoothDamp', { target: 4, smoothTime: 0.3 }, first, env)).toBe(4);
-  const run = { ...first, nodes: new Map(first.nodes) };
-  const moved = evaluate('math.smoothDamp', { target: 10, smoothTime: 0.3 }, run, env) as number;
+ it('gives the target on the first read, then steps once per tick and reads its inputs only when it steps', () => {
+  const tick = (tickMs: number, deltaSeconds = 0.1): RunEnv => ({ ...NO_ENV, deltaSeconds, tickMs });
+  const state = emptyState();
+  expect(evaluate('math.smoothDamp', { target: 4, smoothTime: 0.3 }, state, tick(0))).toBe(4);
+  expect(state.nodes.get('n')).toEqual({ value: 4, velocity: 0, stepMs: 0 });
+  // Reads that must not happen: the same tick, and a run without a time delta.
+  const unread = { get target(): never { throw new Error('read'); }, get smoothTime(): never { throw new Error('read'); } } as unknown as Inputs;
+  const moved = evaluate('math.smoothDamp', { target: 10, smoothTime: 0.3 }, state, tick(16)) as number;
   expect(moved).toBeGreaterThan(4); expect(moved).toBeLessThan(10);
-  expect(evaluate('math.smoothDamp', { target: 10, smoothTime: 0.3 }, run, env)).toBe(moved);
-  expect(first.nodes.get('n')).toEqual({ value: 4, velocity: 0 });
+  expect(evaluate('math.smoothDamp', unread, state, tick(16))).toBe(moved);
+  expect(evaluate('math.smoothDamp', unread, state, tick(20, 0))).toBe(moved);
+  expect(evaluate('math.smoothDamp', { target: 10, smoothTime: 0.3 }, state, tick(32))).toBeGreaterThan(moved);
+ });
+ it('steps at each read with a time delta when the env has no tick time', () => {
+  const env = { ...NO_ENV, deltaSeconds: 0.1 }, state = emptyState();
+  evaluate('math.smoothDamp', { target: 0, smoothTime: 0.3 }, state, env);
+  const first = evaluate('math.smoothDamp', { target: 10, smoothTime: 0.3 }, state, env) as number;
+  expect(evaluate('math.smoothDamp', { target: 10, smoothTime: 0.3 }, state, env)).toBeGreaterThan(first);
  });
  it('damps a Vector3 along the line to the target', () => {
   let current = { value: [0, 0, 0] as Vec3, velocity: [0, 0, 0] as Vec3 };
@@ -157,6 +166,9 @@ describe('Vector3', () => {
   ['vector3.dot', { a: [1, 2, 3], b: [4, -5, 6] }, 12], ['vector3.dot', { a: [1e200, 0, 0], b: [1e200, 0, 0] }, ERROR],
   ['vector3.cross', { a: [1, 0, 0], b: [0, 1, 0] }, [0, 0, 1]], ['vector3.cross', { a: [0, 1, 0], b: [1, 0, 0] }, [0, 0, -1]],
   ['vector3.normalize', { value: [0, 3, 4] }, [0, 0.6, 0.8]], ['vector3.normalize', { value: [0, 0, 0] }, [0, 0, 0]], ['vector3.normalize', { value: [1e-200, 0, 0] }, [1, 0, 0]],
+  ['vector3.normalize', { value: [5e-324, 0, -5e-324] }, [Math.SQRT1_2, 0, -Math.SQRT1_2]], ['vector3.normalize', { value: [1.7e308, 1.7e308, 0] }, [Math.SQRT1_2, Math.SQRT1_2, 0]],
+  ['vector3.length', { value: [1e300, 1e300, 0] }, 1e300 * Math.SQRT2], ['vector3.length', { value: [1.7e308, 1.7e308, 0] }, ERROR],
+  ['vector3.add', { a: [1.7e308, 0, 0], b: [1.7e308, 0, 0] }, ERROR], ['vector3.scale', { value: [1, 2, 3], factor: -2 }, [-2, -4, -6]], ['vector3.scale', { value: [1e300, 0, 0], factor: 1e10 }, ERROR],
   ['vector3.subtract', { a: [-1.7e308, 0, 0], b: [1.7e308, 0, 0] }, ERROR],
  ]));
  it('interpolates, moves towards, and clamps the length', () => table([
@@ -167,7 +179,8 @@ describe('Vector3', () => {
   ['vector3.moveTowards', { current: [0, 0, 0], target: [0, 0, 2], maxDistance: -1 }, [0, 0, -1]],
   ['vector3.clampLength', { value: [0, 3, 4], maxLength: 1 }, [0, 0.6, 0.8]], ['vector3.clampLength', { value: [0, 0.3, 0.4], maxLength: 1 }, [0, 0.3, 0.4]],
   ['vector3.clampLength', { value: [0, 3, 4], maxLength: 0 }, [0, 0, 0]], ['vector3.clampLength', { value: [0, 0, 0], maxLength: 0 }, [0, 0, 0]],
-  ['vector3.clampLength', { value: [1, 0, 0], maxLength: -1 }, ERROR],
+  ['vector3.clampLength', { value: [1, 0, 0], maxLength: -1 }, ERROR], ['vector3.clampLength', { value: [1.7e308, -1.7e308, 0], maxLength: 2 }, [Math.SQRT2, -Math.SQRT2, 0]],
+  ['vector3.moveTowards', { current: [5, 5, 5], target: [5, 5, 5], maxDistance: -1 }, [5, 5, 5]],
  ]));
  it('rotates by YXZ Euler degrees in the Get Bone Rotation convention', () => table([
   ['vector3.rotateByEuler', { value: [0, 0, 1], euler: [0, 90, 0] }, [1, 0, 0]],

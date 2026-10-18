@@ -1,5 +1,6 @@
 import type { Id } from '@opensekai/contracts';
-import { getNodeState, setNodeState, type BlueprintValue, type EvaluatorTable, type NodeState, type Read, type RunState } from './types';
+import { unit } from '../tweens';
+import { getNodeState, setNodeState, type BlueprintValue, type EvaluatorTable, type NodeState, type Read, type RunEnv, type RunState } from './types';
 
 export const num = (read: Read, port: string) => Number(read(port));
 // Throws so that the run fails; the runtime would also reject the value, but an explicit throw keeps the evaluators testable.
@@ -7,23 +8,10 @@ export const real = (value: number): number => {
  if (!Number.isFinite(value)) throw new RangeError('Blueprint number is not finite');
  return value + 0;
 };
-export const clamp01 = (value: number) => Math.min(Math.max(value, 0), 1);
 // Unity Mathf.InverseLerp: an empty range gives 0.
 export const inverseLerp = (a: number, b: number, value: number) => a === b ? 0 : (value - a) / (b - a);
 
-// Each run has its own RunState copy (cloneState in runFlow). A stateful data node uses it as the run key,
-// because the runtime data cache lives only for one input read, and the node must advance at most once per run.
-const perRun = new WeakMap<RunState, Map<Id, BlueprintValue>>();
-export function oncePerRun(state: RunState, nodeId: Id, compute: () => BlueprintValue): BlueprintValue {
- let seen = perRun.get(state);
- if (!seen) perRun.set(state, seen = new Map());
- if (seen.has(nodeId)) return seen.get(nodeId)!;
- const value = compute();
- seen.set(nodeId, value);
- return value;
-}
-
-export interface Damped<T> { value: T; velocity: T }
+export type Damped<T> = { value: T; velocity: T };
 export const MIN_SMOOTH_TIME = 0.0001;
 export const dampingFactors = (smoothTime: number, deltaSeconds: number) => {
  const omega = 2 / Math.max(MIN_SMOOTH_TIME, smoothTime), x = omega * deltaSeconds;
@@ -39,42 +27,44 @@ export function smoothDampStep(current: number, target: number, velocity: number
  if ((target - current > 0) === (value > target)) return { value: target, velocity: 0 };
  return { value, velocity: (velocity - omega * temp) * decay };
 }
-// The first read after a reset starts at the target.
-export const damped = <T extends BlueprintValue>(state: RunState, nodeId: Id, target: T, zero: T, step: (from: Damped<T>) => Damped<T>): T =>
- oncePerRun(state, nodeId, () => {
-  const stored = getNodeState<{ value: T; velocity: T }>(state, nodeId);
-  const next = stored ? step(stored) : { value: target, velocity: zero };
-  setNodeState(state, nodeId, next as unknown as NodeState);
-  return next.value;
- }) as T;
+// `stepMs` is the tick of the last step, or null when the env has no tick time.
+type DampState<T> = Damped<T> & { stepMs: number | null };
+// A Smooth Damp node starts at its target on the first read after a reset. Then it steps once per session tick with a time
+// delta: a second read in the same tick (another On Update run, or another input read in one run) gives the stored value
+// without reading the inputs again. Without `env.tickMs` (a bare runtime), it steps at each read with a time delta.
+export function damped<T extends BlueprintValue>(state: RunState, nodeId: Id, env: RunEnv, read: Read, zero: T, step: (from: Damped<T>, target: T, smoothTime: number, deltaSeconds: number) => Damped<T>): T {
+ const stored = getNodeState<DampState<T>>(state, nodeId);
+ const moving = env.deltaSeconds > 0, stepMs = moving ? env.tickMs ?? null : null;
+ const store = (next: Damped<T>) => { setNodeState(state, nodeId, { value: next.value, velocity: next.velocity, stepMs } as unknown as NodeState); return next.value; };
+ if (!stored) return store({ value: read('target') as T, velocity: zero });
+ const due = moving && (env.tickMs === undefined || stored.stepMs === null || env.tickMs > stored.stepMs);
+ return due ? store(step(stored, read('target') as T, num(read, 'smoothTime'), env.deltaSeconds)) : stored.value;
+}
 
 const unary = (f: (value: number) => number) => ({ data: (_n: unknown, _o: string, read: Read) => real(f(num(read, 'value'))) });
 export const MATH_EVALUATORS = {
- 'math.clamp01': unary(clamp01),
+ 'math.clamp01': unary(unit),
  'math.remap': { data: (_n, _o, read) => {
   const t = inverseLerp(num(read, 'fromMin'), num(read, 'fromMax'), num(read, 'value'));
   const toMin = num(read, 'toMin');
-  return real(toMin + (read('clamp') === true ? clamp01(t) : t) * (num(read, 'toMax') - toMin));
+  return real(toMin + (read('clamp') === true ? unit(t) : t) * (num(read, 'toMax') - toMin));
  } },
- 'math.lerp': { data: (_n, _o, read) => { const a = num(read, 'a'); return real(a + (num(read, 'b') - a) * clamp01(num(read, 't'))); } },
- 'math.inverseLerp': { data: (_n, _o, read) => real(clamp01(inverseLerp(num(read, 'a'), num(read, 'b'), num(read, 'value')))) },
+ 'math.lerp': { data: (_n, _o, read) => { const a = num(read, 'a'); return real(a + (num(read, 'b') - a) * unit(num(read, 't'))); } },
+ 'math.inverseLerp': { data: (_n, _o, read) => real(unit(inverseLerp(num(read, 'a'), num(read, 'b'), num(read, 'value')))) },
  'math.smoothStep': { data: (_n, _o, read) => {
   const min = num(read, 'min'), max = num(read, 'max'), value = num(read, 'value');
   if (min === max) return value < min ? 0 : 1;
-  const t = clamp01(inverseLerp(min, max, value));
+  const t = unit(inverseLerp(min, max, value));
   return real(t * t * (3 - 2 * t));
  } },
  'math.moveTowards': { data: (_n, _o, read) => {
   const current = num(read, 'current'), target = num(read, 'target'), maxDelta = num(read, 'maxDelta');
   return real(Math.abs(target - current) <= maxDelta ? target : current + Math.sign(target - current) * maxDelta);
  } },
- 'math.smoothDamp': { data: (node, _o, read, state, env) => {
-  const target = num(read, 'target'), smoothTime = num(read, 'smoothTime');
-  return damped(state, node.id, target, 0, from => {
-   const next = smoothDampStep(from.value, target, from.velocity, smoothTime, env.deltaSeconds);
-   return { value: real(next.value), velocity: real(next.velocity) };
-  });
- } },
+ 'math.smoothDamp': { data: (node, _o, read, state, env) => damped<number>(state, node.id, env, read, 0, (from, target, smoothTime, deltaSeconds) => {
+  const next = smoothDampStep(from.value, target, from.velocity, smoothTime, deltaSeconds);
+  return { value: real(next.value), velocity: real(next.velocity) };
+ }) },
  'math.sin': unary(Math.sin),
  'math.cos': unary(Math.cos),
  'math.tan': unary(Math.tan),

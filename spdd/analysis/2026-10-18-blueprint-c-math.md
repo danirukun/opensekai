@@ -32,8 +32,10 @@ The Warudo palette has 183 nodes in Arithmetic. OpenSekai has 23 rows there ([no
 - **Unity semantics where Warudo uses Unity.** Lerp and Inverse Lerp clamp to 0 to 1 (`Mathf.Lerp`, `Mathf.InverseLerp`). Inverse Lerp of an empty range gives 0. Move Towards and Smooth Damp follow `Mathf.MoveTowards` and `Mathf.SmoothDamp` (without a maximum speed). Smooth Step is the shader `smoothstep(min, max, value)`, because that is the common meaning of the name.
 - **Angles in radians for trigonometry.** Sin, Cos, Tan, Asin, Acos, and Atan2 use radians, like `Mathf`. Degrees to Radians and Radians to Degrees convert. Rotate By Euler and Direction From Euler use degrees, like Get Bone Rotation.
 - **Non-finite results fail.** Asin and Acos outside −1 to 1, Square Root of a negative number, Log of 0 or less, Power with a non-real result, Exp overflow, and float Modulo by 0 fail the run. This is the existing rule. There is no silent clamp.
+- **Move Towards with equal values gives the target.** `Mathf.MoveTowards(5, 5, -1)` is 4, because `Mathf.Sign(0)` is 1, but `Vector3.MoveTowards` gives the target. Both OpenSekai nodes give the target.
+- **Length without overflow.** Length, Distance, Normalize, and Clamp Length divide by the largest component size before `hypot`. Normalize of a subnormal vector gives a unit vector, not zero as in Unity.
 - **Sign of 0 is 0.** `Mathf.Sign(0)` is 1, but a three-way sign is more useful for a direction, and the name does not promise the Unity value. Recorded as a difference.
-- **Smooth Damp is stateful.** It keeps `{ value, velocity }` in `RunState.nodes`. The first evaluation starts at the target. It advances by `env.deltaSeconds` once for each run. A second evaluation in the same run gives the same value. The node keeps a per-run memo keyed by the run's `RunState` object, because the runtime data cache is per input read (see Facts) and the runtime belongs to slice D. A run with a delta of 0 (a manual or keystroke run) does not move it. The state resets with the graph state.
+- **Smooth Damp is stateful and steps once per tick.** It keeps `{ value, velocity, stepMs }` in `RunState.nodes`. The first evaluation starts at the target. It steps by `env.deltaSeconds` only when the tick time (`RunEnv.tickMs`, set by the session) is newer than the stored `stepMs`. Thus two On Update nodes, or two input reads in one run, do not make it move faster, and a read that does not step does not read its inputs (no upstream evaluation, no random draw). A run with a delta of 0 (a manual or keystroke run) does not move it. The state resets with the graph state.
 - **Vector3 nodes go into `vector3.ts`.** Subtract Vector3 is added too: Distance and direction graphs need it, and its absence makes Scale by −1 and Add necessary.
 - **Normalize of a zero vector is the zero vector.** Clamp Length with a negative limit fails the run.
 - **Direction From Euler rotates +Z.** +Z is the forward axis of a glTF and VRM 1.0 model. The rotation is the YXZ rotation of Get Bone Rotation.
@@ -44,11 +46,12 @@ The Warudo palette has 183 nodes in Arithmetic. OpenSekai has 23 rows there ([no
 - **A generic numeric port that is integer or float.** The owner decision keeps the two types separate, with widening only.
 - **Integer versions of each compare node.** They give the same result (see Decisions).
 - **Floored modulo.** It is better for a wrap-around index, but it differs from Warudo. A user can add the divisor and take Modulo again.
-- **A per-run data cache in `blueprint.ts`.** It would also change Random Number. It is in a file that this slice does not own. The local memo is enough for Smooth Damp.
+- **A per-run data cache in `blueprint.ts`.** It would also change Random Number, and it would not stop two On Update runs in one tick from stepping two times.
+- **A memo keyed by the run state object.** It held module state outside the run state and stepped once per run, not once per tick.
 - **A `maxSpeed` input on Smooth Damp.** An inline value must be finite, so "no limit" needs a special value. Not needed now.
 
 ## Risks
 
-- The per-run memo depends on one `RunState` object for each run. A session test reads one Smooth Damp from two flow inputs in one tick and checks that it moves once. A runtime change that breaks the assumption fails this test.
+- Smooth Damp depends on the session to set `tickMs`. A session test with two On Update nodes checks it.
 - Smooth Damp advances only in runs that read it. A graph that reads it only on some ticks sees a slower motion. Documented.
 - The Warudo names are not recorded, so each audit row has a `null` candidate.

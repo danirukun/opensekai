@@ -26,7 +26,7 @@ R4. Float math. Inputs and outputs are `number`. Output `result` unless stated. 
     - **Lerp** (`math.lerp`): inputs `a`, `b` (default 1), `t` (default 0.5). `t` is clamped to 0 to 1.
     - **Inverse Lerp** (`math.inverseLerp`): inputs `a`, `b` (default 1), `value`. Clamped to 0 to 1. `a = b` gives 0.
     - **Smooth Step** (`math.smoothStep`): inputs `min`, `max` (default 1), `value`. `t²(3 − 2t)` with `t` the clamped Inverse Lerp. `min = max` gives 0 below `min`, else 1.
-    - **Move Towards** (`math.moveTowards`): inputs `current`, `target`, `maxDelta` (default 1). `Mathf.MoveTowards`.
+    - **Move Towards** (`math.moveTowards`): inputs `current`, `target`, `maxDelta` (default 1). `Mathf.MoveTowards`, with one difference: when `current` equals `target`, the result is `target` for each `maxDelta`. Unity gives `current + maxDelta` for a negative `maxDelta` there, because `Mathf.Sign(0)` is 1. This keeps the float node the same as `Vector3.MoveTowards` and Move Towards Vector3.
     - **Smooth Damp** (`math.smoothDamp`): inputs `target`, `smoothTime` (default 0.3). See R6.
     - **Sin**, **Cos**, **Tan** (`math.sin`, `math.cos`, `math.tan`), **Asin**, **Acos** (`math.asin`, `math.acos`): input `value`, radians.
     - **Atan2** (`math.atan2`): inputs `y`, `x`; radians.
@@ -40,30 +40,34 @@ R5. Vector3. Category Math. Appended to `VECTOR3_NODES`.
     - **Subtract Vector3** (`vector3.subtract`): `a`, `b` → `result` (vector3).
     - **Vector3 Length** (`vector3.length`): `value` → `result` (number).
     - **Vector3 Distance** (`vector3.distance`): `a`, `b` → `result` (number).
+    - Length, Distance, Normalize, and Clamp Length divide the vector by its largest component size before `hypot`, so no intermediate square overflows or underflows. Length and Distance fail the run only when the length itself is above the largest finite number. Distance and Move Towards Vector3 also fail when the difference of the two vectors is not finite.
     - **Dot Product** (`vector3.dot`): `a`, `b` → `result` (number). **Cross Product** (`vector3.cross`): `a`, `b` → `result` (vector3).
-    - **Normalize Vector3** (`vector3.normalize`): `value` → `result`. A zero vector gives the zero vector.
+    - **Normalize Vector3** (`vector3.normalize`): `value` → `result`. A zero vector gives the zero vector. Each other vector, also a subnormal one, gives a unit vector. (Unity gives the zero vector below a length of 1e-5.)
     - **Lerp Vector3** (`vector3.lerp`): `a`, `b`, `t` (number, default 0.5, clamped) → `result`.
     - **Move Towards Vector3** (`vector3.moveTowards`): `current`, `target`, `maxDistance` (number, default 1) → `result`. `Vector3.MoveTowards`.
     - **Smooth Damp Vector3** (`vector3.smoothDamp`): `target`, `smoothTime` (number, default 0.3) → `result`. See R6.
     - **Rotate By Euler** (`vector3.rotateByEuler`): `value`, `euler` (degrees, YXZ, the convention of Get Bone Rotation) → `result`. The rotation is Ry · Rx · Rz.
     - **Direction From Euler** (`vector3.directionFromEuler`): `euler` → `result`, the forward axis +Z rotated by `euler`.
-    - **Clamp Vector3 Length** (`vector3.clampLength`): `value`, `maxLength` (number, default 1) → `result`. A negative `maxLength` fails the run.
-R6. Smooth Damp. The float and the Vector3 node keep `{ value, velocity }` in `RunState.nodes` under the node ID.
-    - The first evaluation after a reset gives the target and stores it with velocity 0.
-    - Else the node advances by `env.deltaSeconds` with the `Mathf.SmoothDamp` algorithm (no maximum speed; `smoothTime` below 0.0001 is 0.0001) and stores the new value and velocity. When the step reaches past the target, the value is the target and the velocity is 0.
-    - The node advances at most once for each run. Another evaluation in the same run gives the same value and does not advance.
-    - A run with `deltaSeconds` 0 does not move the value.
+    - **Clamp Vector3 Length** (`vector3.clampLength`): `value`, `maxLength` (number, default 1) → `result`. A negative `maxLength` fails the run. A vector with a length above the largest finite number gets the limit too.
+R6. Smooth Damp. The float and the Vector3 node keep `{ value, velocity, stepMs }` in `RunState.nodes` under the node ID. `stepMs` is the tick time of the last step, or null.
+    - `RunEnv` gets the optional field `tickMs`: the session time of the clock tick of the step. The session sets it in the step env.
+    - The first evaluation after a reset reads `target`, gives it, and stores it with velocity 0.
+    - Else the node steps when the run has a `deltaSeconds` above 0 and `tickMs` is newer than `stepMs`. A step reads `target` and `smoothTime`, advances by `deltaSeconds` with the `Mathf.SmoothDamp` algorithm (no maximum speed; `smoothTime` below 0.0001 is 0.0001), and stores the new value, velocity, and `tickMs`. When the step reaches past the target, the value is the target and the velocity is 0.
+    - Else the node gives the stored value and does not read its inputs. So a second read in the same tick (a second On Update node, or a second input read in one run) neither evaluates the upstream nodes again nor uses random numbers, and a run with `deltaSeconds` 0 (manual, keystroke, On Enable) does not move the value.
+    - Without `tickMs` (a runtime that a test drives with no tick time), the node steps at each evaluation with a `deltaSeconds` above 0.
     - The state resets with the graph state (catalog contract R5): on install, on a logic change, and on enable. A failed run does not keep it (catalog contract R7).
 R7. Inline input defaults. The inputs in R2, R4, and R5 that state a default use `NodeDefinition.inputDefaults`. The existing nodes get these defaults: Clamp `max` 1, Divide `b` 1, Random Number `max` 1, Scale Vector3 `factor` 1. The ports, settings, and behavior with a wire or an inline value do not change.
-R8. Audit. `docs/evaluation/blueprint-node-audit.json` has one row for each new node type: Warudo category `Arithmetic`, candidate `null`, evidence `tests`.
-R9. Tests.
+R8. Catalog. Each `blueprintNodeCatalog()` entry has `inputDefaults`: the node input defaults, or `{}`. The `blueprint_edit` description says that an unconnected input reads its inline value, then the input default of the node, then the type default.
+R9. Audit. `docs/evaluation/blueprint-node-audit.json` has one row for each new node type: Warudo category `Arithmetic`, candidate `null`, evidence `tests`.
+R10. Tests.
     - Unit: table-driven tests of each new evaluator, with edge cases: NaN and infinity, zero vectors, integer overflow, divide and modulo by zero, negative modulo, empty ranges, and Smooth Damp steps.
-    - Session: Random Integer → Modulo Integer → Switch On Number runs through widening; integer outputs into the float compare nodes; a `number` output into an `integer` input fails to compile; Smooth Damp converges over On Update ticks, moves once in a tick with two reads, and resets on a logic change and on enable; divide by zero fails the run and changes no state.
+    - Session: Random Integer → Modulo Integer → Switch On Number runs through widening; integer outputs into the float compare nodes; a `number` output into an `integer` input fails to compile; Smooth Damp converges over On Update ticks, moves once in a tick with two reads in one run and with two On Update nodes (through `createSession`), and resets on a logic change and on enable; divide by zero fails the run and changes no state.
 
 ## E — Entities
 
 - New node types: 16 `integer.*`, 22 `math.*`, 12 `vector3.*` (50 in total).
 - Smooth Damp state: `{ value: number; velocity: number }` or `{ value: Vec3; velocity: Vec3 }` as `NodeState`.
+- `RunEnv.tickMs?: number` (appended).
 - No change to `RunState`, `PortType`, `BlueprintValue`, the effect union, or the file format.
 
 ## A — Approach
@@ -72,7 +76,8 @@ Add the definitions in the contracts package, then the evaluators in the session
 
 ## S — Structure
 
-- `packages/contracts/src/blueprint-nodes/integer.ts` (new), `math.ts`, `vector3.ts`; one entry in `NODE_DEFINITIONS` in `blueprint-nodes/index.ts`.
+- `packages/contracts/src/blueprint-nodes/integer.ts` (new), `math.ts`, `vector3.ts`, `logic.ts`; one entry in `NODE_DEFINITIONS` and the catalog field `inputDefaults` in `blueprint-nodes/index.ts`; the factory `plainNodes` in `define.ts`.
+- `packages/session/src/blueprint-eval/types.ts` (`tickMs`), `session.ts` (one field in the step env), `blueprint-eval/values.ts` (shares `num`); `apps/mcp/src/server.ts` (the `blueprint_edit` description).
 - `packages/session/src/blueprint-eval/integer.ts` (new), `math.ts` (new), `vector3.ts`; one import and one entry in `EVALUATORS` in `blueprint-eval/index.ts`.
 - Tests: `packages/session/test/blueprint-math-nodes.test.ts` (unit, evaluators), `packages/session/test/blueprint-math-session.test.ts` (runtime and session), the catalog count in `packages/contracts/test/blueprint-definitions.test.ts`, and search expectations in `apps/desktop/test` when a new label matches.
 - `docs/evaluation/blueprint-node-audit.json`, `docs/evaluation/blueprint-c-math.md`.
@@ -80,8 +85,16 @@ Add the definitions in the contracts package, then the evaluators in the session
 ## Published interfaces
 
 ```ts
+// packages/contracts/src/blueprint-nodes/define.ts
+// A factory for node types without settings: fixed ports, shared keywords, and optional input defaults.
+export const plainNodes: (category: NodeCategory, sharedKeywords?: readonly string[]) =>
+ <const T extends string>(type: T, label: string, keywords: readonly string[], ports: () => PortShape, inputDefaults?: Readonly<Record<string, ScalarValue>>) => NodeDefinition<T, typeof empty>;
+// packages/contracts/src/blueprint-nodes/index.ts: each blueprintNodeCatalog() entry adds
+//   inputDefaults: Record<string, ScalarValue>
+// packages/session/src/blueprint-eval/types.ts
+export interface RunEnv { …; tickMs?: number }
 // packages/session/src/blueprint-eval/math.ts
-export interface Damped<T> { value: T; velocity: T }
+export type Damped<T> = { value: T; velocity: T };
 export const smoothDampStep: (current: number, target: number, velocity: number, smoothTime: number, deltaSeconds: number) => Damped<number>;
 // packages/session/src/blueprint-eval/vector3.ts
 export const smoothDampVectorStep: (current: Vec3, target: Vec3, velocity: Vec3, smoothTime: number, deltaSeconds: number) => Damped<Vec3>;

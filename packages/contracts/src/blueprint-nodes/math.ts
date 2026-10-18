@@ -1,11 +1,9 @@
-import type { ScalarValue } from '../blueprint-values';
-import { defineNode, empty, type PortShape } from './define';
+import { plainNodes, type PortShape } from './define';
 
 const binary = (): PortShape => ({ inputs: { a: 'number', b: 'number' }, outputs: { result: 'number' } });
 const unary = (): PortShape => ({ inputs: { value: 'number' }, outputs: { result: 'number' } });
 const numbers = (...names: string[]): PortShape => ({ inputs: Object.fromEntries(names.map(name => [name, 'number' as const])), outputs: { result: 'number' } });
-const math = <const T extends string>(type: T, label: string, keywords: string[], ports: () => PortShape, inputDefaults?: Record<string, ScalarValue>) =>
- defineNode({ type, label, category: 'Math', keywords, settings: empty, ports, defaults: () => ({}), fields: [], ...(inputDefaults ? { inputDefaults } : {}) });
+const math = plainNodes('Math');
 export const MATH_NODES = [
  math('math.add', 'Add', ['plus', 'sum', '+'], binary),
  math('math.subtract', 'Subtract', ['minus', 'difference', '-'], binary),
