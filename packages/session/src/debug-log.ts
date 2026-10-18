@@ -32,12 +32,15 @@ export interface DebugLog {
 export function createDebugLog(): DebugLog {
  let seq = 0, dropped = 0;
  let entries: DebugEntry[] = [];
- const windows = new Map<string, RateWindow>();
+ // Toasts share one window for each graph; the other kinds have one for each node.
+ const nodeWindows = new Map<string, RateWindow>(), toastWindows = new Map<string, RateWindow>();
  const values = new Map<string, DebugValue>();
  const key = (graphId: Id, nodeId: Id) => `${graphId}\0${nodeId}`;
  const prune = (nowMs: number) => {
-  if (windows.size <= 4 * MAX_DEBUG_VALUES) return;
-  for (const [id, window] of windows) if (window.pending === 0 && nowMs - window.startMs >= DEBUG_WINDOW_MS) windows.delete(id);
+  for (const windows of [nodeWindows, toastWindows]) {
+   if (windows.size <= 4 * MAX_DEBUG_VALUES) continue;
+   for (const [id, window] of windows) if (window.pending === 0 && nowMs - window.startMs >= DEBUG_WINDOW_MS) windows.delete(id);
+  }
  };
  const setValue = (graphId: Id, effect: DebugValueEffect, nowMs: number) => {
   const id = key(graphId, effect.nodeId), text = formatDebugValue(effect.valueType, effect.value), old = values.get(id);
@@ -49,8 +52,8 @@ export function createDebugLog(): DebugLog {
   record(graphId, effects, nowMs) {
    for (const effect of effects) {
     if (effect.kind === 'debugValue') { setValue(graphId, effect, nowMs); continue; }
-    // Toasts share one window for each graph; the other kinds have one for each node.
-    const id = effect.kind === 'debugToast' ? `toast\0${graphId}` : key(graphId, effect.nodeId);
+    const windows = effect.kind === 'debugToast' ? toastWindows : nodeWindows;
+    const id = effect.kind === 'debugToast' ? graphId : key(graphId, effect.nodeId);
     const decision = admit(windows.get(id), nowMs, effect.kind === 'debugToast' ? DEBUG_TOAST_RATE : DEBUG_NODE_RATE);
     windows.set(id, decision.window);
     if (!decision.kept) { dropped += 1; continue; }
