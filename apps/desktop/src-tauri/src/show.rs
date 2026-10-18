@@ -153,6 +153,14 @@ mod tests {
     }
 
     #[test]
+    fn example_stage_show_opens() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("stage-lights.osekai");
+        std::fs::write(&path, include_str!("../../../../fixtures/shows/stage-lights.osekai")).unwrap();
+        assert!(read_show(&path).is_ok());
+    }
+
+    #[test]
     fn invalid_open_or_save_preserves_existing_file() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("concert.osekai");

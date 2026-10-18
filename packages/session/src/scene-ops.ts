@@ -37,6 +37,7 @@ export function applyOperations(scene: SceneView, operations: ScenePatch["operat
                  case 'setEnvironmentModel':if(entity.kind!=='environment')return failure('INVALID_INPUT','Entity is not an environment',[entity.id]);entity.assetId=operation.assetId;break;
                  case 'setEnvironmentReflections':if(entity.kind!=='environment')return failure('INVALID_INPUT','Entity is not an environment',[entity.id]);entity.reflectionsIntensity=operation.reflectionsIntensity;break;
                  case 'setLight':if(entity.kind!=='light')return failure('INVALID_INPUT','Entity is not a light',[entity.id]);entity.light=structuredClone(operation.light);break;
+                 case 'setHaze':if(entity.kind!=='haze')return failure('INVALID_INPUT','Entity is not a haze',[entity.id]);entity.haze=structuredClone(operation.haze);break;
                  case 'setAvatarExpression':{
                   if(entity.kind!=='avatar')return failure('INVALID_INPUT','Entity is not an avatar',[entity.id]);
                   // Entries, not property writes: a model can name an expression `__proto__`.

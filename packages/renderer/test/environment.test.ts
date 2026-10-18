@@ -1,7 +1,7 @@
 import { it, expect, vi, beforeEach, describe } from 'vitest';
-import { Group, Mesh, MeshStandardMaterial, MeshBasicMaterial, MeshPhongMaterial, MeshLambertMaterial, MeshToonMaterial, BoxGeometry, Texture, type Object3D } from 'three/webgpu';
+import { Group, Mesh, MeshStandardMaterial, MeshPhysicalMaterial, MeshBasicMaterial, MeshPhongMaterial, MeshLambertMaterial, MeshToonMaterial, BoxGeometry, Texture, type MeshStandardNodeMaterial, type NodeBuilder, type Object3D } from 'three/webgpu';
 import { QUALITY_PROFILES, makeSmokeFrame, type RuntimeFrame, type SceneEntity } from '@opensekai/contracts';
-const ports = vi.hoisted(() => ({ load: vi.fn(), render: vi.fn(), compile: vi.fn(), light: { apply: vi.fn(), dispose: vi.fn() } }));
+const ports = vi.hoisted(() => ({ load: vi.fn(), render: vi.fn(), compile: vi.fn(), light: { apply: vi.fn(), room: vi.fn(), dispose: vi.fn() } }));
 const instance = (dispose: () => void = () => {}) => ({ dispose, reflections: vi.fn() });
 vi.mock('../src/backend', () => ({ initializeBackend: async () => ({ backend: 'webgl2', renderer: { shadowMap: { enabled: false }, info: { memory: { geometries: 0, textures: 0 } }, setSize: vi.fn(), renderAsync: ports.render, compileAsync: ports.compile, dispose: vi.fn() } }) }));
 vi.mock('../src/assets', async original => ({ ...await original<typeof import('../src/assets')>(), createAssetLoader: () => ports.load }));
@@ -19,7 +19,7 @@ function frame(options: { assetId?: string | null; flag?: boolean } = {}): Runti
 }
 const rendered = () => ports.render.mock.lastCall![0] as Group;
 const room = () => { const root = new Group(); root.name = 'room'; return { scene: root, warnings: [], dispose: vi.fn() }; };
-beforeEach(() => { ports.load.mockReset(); ports.render.mockReset().mockResolvedValue(undefined); ports.compile.mockReset().mockResolvedValue(undefined); ports.light.apply.mockReset().mockImplementation(() => instance()); ports.light.dispose.mockReset(); });
+beforeEach(() => { ports.load.mockReset(); ports.render.mockReset().mockResolvedValue(undefined); ports.compile.mockReset().mockResolvedValue(undefined); ports.light.apply.mockReset().mockImplementation(() => instance()); ports.light.room.mockReset(); ports.light.dispose.mockReset(); });
 const make = (outputId: 'output_main' | 'preview_main' = 'output_main') => createRenderer({ canvas: { width: 1920, height: 1080 } as HTMLCanvasElement, outputId, mode: 'force-webgl2', resources: { readAsset: vi.fn() }, diagnostics: false, quality: QUALITY_PROFILES.production_v1 });
 
 it('loads the environment, lights it before GPU preparation, and draws it', async () => {
@@ -195,6 +195,48 @@ it('sets the reflections intensity on environment copies (R15)', async () => {
     copies.reflections(0.25);
     expect(copy.envMapIntensity).toBe(0.25);
     expect(source.envMapIntensity).toBe(1);
+});
+it('scales the room reflections and the room fill of environment copies by the room light (B13 R4a)', async () => {
+    const { createEnvironmentLight } = await vi.importActual<typeof import('../src/environment-light')>('../src/environment-light');
+    const texture = new Texture();
+    const light = createEnvironmentLight(() => ({ texture, dispose() {} }));
+    const root = new Group(); root.add(new Mesh(new BoxGeometry(), new MeshStandardMaterial({ roughness: 0.3 })), new Mesh(new BoxGeometry(), new MeshPhysicalMaterial({ clearcoat: 1 })));
+    light.apply(root, true);
+    type Share = { bNode: { value: number | { toArray(): number[] } } };
+    const shares = root.children.map(child => {
+        const copy = (child as Mesh).material as MeshStandardNodeMaterial;
+        expect(copy.envMap).toBe(texture);
+        // Build the environment light of the copy with a context that records what it adds.
+        const added = { radiance: [] as Share[], irradiance: [] as Share[], clearcoat: [] as Share[] };
+        const record = (list: Share[]) => ({ addAssign: (node: Share) => list.push(node) });
+        const builder = { material: copy, context: { radiance: record(added.radiance), iblIrradiance: record(added.irradiance), lightingModel: { clearcoatRadiance: record(added.clearcoat) } } } as unknown as NodeBuilder;
+        const environment = copy.setupEnvironment(builder)!;
+        (environment as unknown as { setup(builder: NodeBuilder): void }).setup(builder);
+        expect([added.radiance.length, added.irradiance.length, added.clearcoat.length]).toEqual([1, 1, 1]);
+        return { reflections: added.radiance[0]!.bNode, clearcoat: added.clearcoat[0]!.bNode, fill: added.irradiance[0]!.bNode };
+    });
+    expect(((root.children[0] as Mesh).material as MeshStandardMaterial).roughness).toBe(0.3);
+    expect(((root.children[1] as Mesh).material as MeshPhysicalMaterial).isMeshPhysicalMaterial).toBe(true);
+    const values = () => shares.map(s => [s.fill.value, (s.reflections.value as { toArray(): number[] }).toArray(), (s.clearcoat.value as { toArray(): number[] }).toArray()]);
+    expect(values()).toEqual([[1, [1, 1, 1], [1, 1, 1]], [1, [1, 1, 1], [1, 1, 1]]]);
+    light.room({ fill: 0, reflections: [0.25, 0.5, 0.75] });
+    expect(values()).toEqual([[0, [0.25, 0.5, 0.75], [0.25, 0.5, 0.75]], [0, [0.25, 0.5, 0.75], [0.25, 0.5, 0.75]]]);
+});
+it('sets the room light from the ambient light entities on each frame (B13 R4a)', async () => {
+    const { roomLight } = await import('../src/scene-lights');
+    ports.load.mockResolvedValue(room());
+    const r = await make();
+    await r.applyFrame(frame()); await settle();
+    await r.applyFrame(frame());
+    expect(ports.light.room).toHaveBeenLastCalledWith({ fill: 1, reflections: [1, 1, 1] });
+    const lit = frame();
+    lit.scene.entities.push({ id: 'fill', name: 'Ambient Light', visible: true, transform: { position: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] }, kind: 'light', light: { type: 'ambient', color: '#8090ff', intensity: 0.15, range: 0, affectCharacters: true, affectProps: true, affectEnvironment: true, shadow: { enabled: false, intensity: 1, soft: true, bias: -0.0005, normalBias: 0.02 } } });
+    await r.applyFrame(lit);
+    expect(ports.light.room).toHaveBeenLastCalledWith(roomLight(lit.scene.entities));
+    expect(ports.light.room.mock.lastCall![0].fill).toBe(0);
+    await r.applyFrame(frame());
+    expect(ports.light.room).toHaveBeenLastCalledWith({ fill: 1, reflections: [1, 1, 1] });
+    r.dispose();
 });
 it('passes the environment reflections intensity to the installed instance', async () => {
     const copies = instance();

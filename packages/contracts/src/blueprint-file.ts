@@ -5,7 +5,7 @@ import type { ErrorCode, Id, Reply, SceneEntity, SceneView } from './types';
 
 export const BLUEPRINT_FILE_FORMAT = 'opensekai.blueprint';
 export const MAX_BLUEPRINT_FILE_BYTES = 1024 * 1024;
-const REFERENCE_KINDS = ['avatar', 'environment', 'mesh', 'light', 'camera', 'output', 'unknown'] as const;
+const REFERENCE_KINDS = ['avatar', 'environment', 'mesh', 'light', 'haze', 'camera', 'output', 'unknown'] as const;
 export const BlueprintReferenceSchema = z.strictObject({ id: z.string().min(1).max(256), kind: z.enum(REFERENCE_KINDS), name: z.string().min(1).max(256) });
 export const BlueprintFileSchema = z.strictObject({
  format: z.literal(BLUEPRINT_FILE_FORMAT),

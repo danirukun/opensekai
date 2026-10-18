@@ -34,5 +34,11 @@ export const SLIDERS={
  cutoff:{min:0.01,max:120,step:0.01,curve:'cubic',sliderMax:20},
  beta:{min:0,max:100,step:0.001,curve:'cubic',sliderMax:10},
  fade:{min:0,max:5,step:0.1,curve:'linear'},
+ angle:{min:1,max:170,step:1,curve:'linear'},
+ penumbra:{min:0,max:1,step:0.01,curve:'linear'},
+ hazeDensity:{min:0,max:2,step:0.01,curve:'linear'},
+ smoke:{min:0,max:3,step:0.01,curve:'linear'},
+ hazeIntensity:{min:0,max:4,step:0.01,curve:'linear'},
+ drift:{min:0,max:2,step:0.01,curve:'linear'},
 } as const satisfies Record<string,SliderRange>;
-export const lightIntensitySlider=(type:LightSettings['type']):SliderRange=>({min:0,max:1000,step:0.01,curve:'cubic',sliderMax:type==='directional'?10:100});
+export const lightIntensitySlider=(type:LightSettings['type']):SliderRange=>({min:0,max:1000,step:0.01,curve:'cubic',sliderMax:type==='directional'?10:type==='ambient'?2:100});

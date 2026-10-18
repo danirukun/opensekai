@@ -21,7 +21,8 @@ export const LIMITS = {
     screenshotTimeoutMs: 5000,
     cameras: 8,
     lights: 8,
-    shadowLights: 2
+    shadowLights: 2,
+    hazes: 1
 } as const;
 export const IdSchema = z.string().min(1).max(256);
 const n = z.number().finite(), u = n.int().nonnegative().max(Number.MAX_SAFE_INTEGER);
@@ -115,15 +116,30 @@ export const LightShadowSchema = z.strictObject({
     bias: n.min(-0.01).max(0.01),
     normalBias: n.min(0).max(1)
 });
+// The full cone angle in degrees, as Warudo and Unity show it (B13 R1).
+export const LightConeSchema = z.strictObject({
+    angleDegrees: n.min(1).max(170),
+    penumbra: n.min(0).max(1)
+});
 export const LightSettingsSchema = z.strictObject({
-    type: z.enum(["directional", "point"]),
+    type: z.enum(["directional", "point", "spot", "ambient"]),
     color: LightColorSchema,
     intensity: n.min(0).max(1000),
     range: n.min(0).max(1000),
     affectCharacters: z.boolean(),
     affectProps: z.boolean(),
     affectEnvironment: z.boolean(),
-    shadow: LightShadowSchema
+    shadow: LightShadowSchema,
+    cone: LightConeSchema.optional(),
+    volumetric: z.boolean().optional()
+}).refine(l => l.type !== "spot" || l.cone !== undefined, "A spot light needs a cone")
+    .refine(l => l.type !== "ambient" || !l.shadow.enabled, "An ambient light has no shadow")
+    .refine(l => l.volumetric !== true || l.type === "point" || l.type === "spot", "Only point and spot lights scatter in haze");
+export const HazeSettingsSchema = z.strictObject({
+    density: n.min(0).max(2),
+    smoke: n.min(0).max(3),
+    intensity: n.min(0).max(4),
+    drift: n.min(0).max(2)
 });
 export const ReflectionsIntensitySchema = n.min(0).max(2);
 export const SceneEntitySchema = z.discriminatedUnion("kind", [
@@ -157,6 +173,10 @@ export const SceneEntitySchema = z.discriminatedUnion("kind", [
         light: LightSettingsSchema
     }),
     EntityBaseSchema.extend({
+        kind: z.literal("haze"),
+        haze: HazeSettingsSchema
+    }),
+    EntityBaseSchema.extend({
         kind: z.literal("camera"),
         lens: LensSchema,
         renderEnvironment: z.boolean().optional(),
@@ -183,6 +203,7 @@ export const SceneViewSchema = z.strictObject({
  if(sources.length>4||s.entities.filter(e=>e.kind==='avatar').length>2||s.entities.filter(e=>e.kind==='camera').length>LIMITS.cameras)return false;
  const lights=s.entities.filter(e=>e.kind==='light');
  if(lights.length>LIMITS.lights||lights.filter(e=>e.light.shadow.enabled).length>LIMITS.shadowLights)return false;
+ if(s.entities.filter(e=>e.kind==='haze').length>LIMITS.hazes)return false;
  if(!s.entities.every(e=>{if(e.kind!=='camera'||e.navigation?.mode!=='orbitCharacter')return true;const target=e.navigation.targetId;return target===null||s.entities.some(a=>a.id===target&&a.kind==='avatar');}))return false;
  if(new Set(s.entities.map(e=>e.id)).size!==s.entities.length||new Set(s.outputs.map(o=>o.id)).size!==s.outputs.length||!s.outputs.every(o=>s.entities.some(e=>e.id===o.cameraId&&e.kind==='camera')))return false;
  return s.entities.every(e=>e.kind!=='avatar'||!e.tracking||[e.tracking.bodySourceId,e.tracking.faceSourceId].every((id,index)=>id===null||sources.some(source=>source.id===id&&(index===1||source.config.kind!=='ifacialmocap'))));
@@ -209,6 +230,7 @@ export const PatchOpSchema = z.discriminatedUnion("kind", [
     z.strictObject({kind:z.literal('setEnvironmentModel'),entityId:IdSchema,assetId:IdSchema.nullable()}),
     z.strictObject({kind:z.literal('setEnvironmentReflections'),entityId:IdSchema,reflectionsIntensity:ReflectionsIntensitySchema}),
     z.strictObject({kind:z.literal('setLight'),entityId:IdSchema,light:LightSettingsSchema}),
+    z.strictObject({kind:z.literal('setHaze'),entityId:IdSchema,haze:HazeSettingsSchema}),
     z.strictObject({kind:z.literal('setAvatarExpression'),entityId:IdSchema,name:ExpressionNameSchema,settings:ExpressionSettingsSchema.nullable()}),
     z.strictObject({kind:z.literal('setCameraRenderEnvironment'),entityId:IdSchema,renderEnvironment:z.boolean()}),
     z.strictObject({kind:z.literal('setCameraAntiAliasing'),entityId:IdSchema,antiAliasing:CameraAntiAliasingSchema}),

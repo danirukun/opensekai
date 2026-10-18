@@ -50,7 +50,7 @@ fn light_fields_use_the_zod_ranges() {
         ("intensity", json!({"intensity":1000.5})),
         ("negative intensity", json!({"intensity":-1})),
         ("range", json!({"range":1001})),
-        ("type", json!({"type":"spot"})),
+        ("unknown type", json!({"type":"area"})),
     ] {
         let value = with(|l| {
             for (key, field) in change.as_object().unwrap() {

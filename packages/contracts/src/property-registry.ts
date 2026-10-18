@@ -3,22 +3,25 @@ import type { Id, Reply, SceneEntity, Vec3 } from './types';
 export type PropertyType = 'number' | 'boolean' | 'vector3';
 export type PropertyValue = number | boolean | Vec3;
 export type PropertyRule = { kind: 'finite' } | { kind: 'positive' } | { kind: 'range'; min: number; max: number } | { kind: 'boolean' };
-export const PROPERTY_KEYS = ['position', 'rotation', 'scale', 'visible', 'fovDegrees', 'renderEnvironment', 'intensity'] as const;
+export const PROPERTY_KEYS = ['position', 'rotation', 'scale', 'visible', 'fovDegrees', 'renderEnvironment', 'intensity', 'hazeDensity'] as const;
 export type PropertyKey = (typeof PROPERTY_KEYS)[number];
 type Kind = SceneEntity['kind'];
 export interface AssetProperty { key: PropertyKey; label: string; kinds: readonly Kind[]; type: PropertyType; rule: PropertyRule }
 
 const placed: readonly Kind[] = ['mesh', 'avatar', 'camera', 'environment'];
 // Scale has no effect on a light, so a light has no scale target.
-const lit: readonly Kind[] = [...placed, 'light'];
+const lit: readonly Kind[] = [...placed, 'light', 'haze'];
+// A haze box has a size, so it has a scale target (B13 R14).
+const sized: readonly Kind[] = [...placed, 'haze'];
 export const PROPERTY_REGISTRY: readonly AssetProperty[] = [
  { key: 'position', label: 'Position', kinds: lit, type: 'vector3', rule: { kind: 'finite' } },
  { key: 'rotation', label: 'Rotation', kinds: lit, type: 'vector3', rule: { kind: 'finite' } },
- { key: 'scale', label: 'Scale', kinds: placed, type: 'vector3', rule: { kind: 'positive' } },
+ { key: 'scale', label: 'Scale', kinds: sized, type: 'vector3', rule: { kind: 'positive' } },
  { key: 'visible', label: 'Visible', kinds: lit, type: 'boolean', rule: { kind: 'boolean' } },
  { key: 'fovDegrees', label: 'Field of View', kinds: ['camera'], type: 'number', rule: { kind: 'range', min: 1, max: 179 } },
  { key: 'renderEnvironment', label: 'Render Environment', kinds: ['camera'], type: 'boolean', rule: { kind: 'boolean' } },
  { key: 'intensity', label: 'Intensity', kinds: ['light'], type: 'number', rule: { kind: 'range', min: 0, max: 1000 } },
+ { key: 'hazeDensity', label: 'Haze Density', kinds: ['haze'], type: 'number', rule: { kind: 'range', min: 0, max: 2 } },
 ];
 export const assetProperty = (key: PropertyKey): AssetProperty => PROPERTY_REGISTRY.find(property => property.key === key)!;
 export const propertiesFor = (kind: Kind): AssetProperty[] => PROPERTY_REGISTRY.filter(property => property.kinds.includes(kind));
@@ -62,6 +65,7 @@ export function readProperty(entity: SceneEntity, key: PropertyKey): PropertyVal
   case 'fovDegrees': return entity.kind === 'camera' ? entity.lens.fovDegrees : undefined;
   case 'renderEnvironment': return entity.kind === 'camera' ? entity.renderEnvironment !== false : undefined;
   case 'intensity': return entity.kind === 'light' ? entity.light.intensity : undefined;
+  case 'hazeDensity': return entity.kind === 'haze' ? entity.haze.density : undefined;
  }
 }
 const fail = (message: string, ids: Id[]): Reply<never> => ({ ok: false, error: { code: 'INVALID_INPUT', message, ids } });
@@ -78,6 +82,7 @@ export function writeProperty(entity: SceneEntity, key: PropertyKey, value: Prop
   // An absent field reads true; writing true keeps it absent, so the write is a no-op and the show shape stays the same.
   case 'renderEnvironment': if (next.kind === 'camera' && (value === false || next.renderEnvironment !== undefined)) next.renderEnvironment = value as boolean; break;
   case 'intensity': if (next.kind === 'light') next.light = { ...next.light, intensity: value as number }; break;
+  case 'hazeDensity': if (next.kind === 'haze') next.haze = { ...next.haze, density: value as number }; break;
  }
  return { ok: true, data: next };
 }

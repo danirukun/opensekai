@@ -1,6 +1,8 @@
-import { HalfFloatType, NodeMaterial, QuadMesh, RenderTarget, UnsignedByteType, type Camera, type Object3D, type Scene, type WebGPURenderer } from "three/webgpu";
-import { renderOutput, texture } from "three/tsl";
+import { DepthTexture, HalfFloatType, NodeMaterial, QuadMesh, RenderTarget, UnsignedByteType, type Camera, type Object3D, type Scene, type WebGPURenderer } from "three/webgpu";
+import { renderOutput, texture, uniform } from "three/tsl";
 import { fxaa } from "three/addons/tsl/display/FXAANode.js";
+import { gaussianBlur } from "three/addons/tsl/display/GaussianBlurNode.js";
+import { HAZE_BLUR, HAZE_LAYER, HAZE_RESOLUTION, hazeComposite, type Haze } from "./haze";
 import type { Backend, CameraAntiAliasing } from "@opensekai/contracts";
 
 export const SCREENSHOT_WIDTH = 1920;
@@ -102,12 +104,17 @@ export interface ScreenshotRender {
     show: Map<Object3D, boolean>;
     antiAliasing: CameraAntiAliasing;
     msaaSamples: number;
+    /** A visible haze draws as in the output: its own pass with the screenshot depth, blurred and added (B13 R10). */
+    haze?: Haze | null;
 }
 
 /** Renders one 1920 × 1080 frame to offscreen targets with a transparent clear, reads it once, and returns the PNG. The canvas is not drawn. */
-export async function renderScreenshot({ renderer, backend, scene, camera, show, antiAliasing, msaaSamples }: ScreenshotRender): Promise<Uint8Array> {
+export async function renderScreenshot({ renderer, backend, scene, camera, show, antiAliasing, msaaSamples, haze = null }: ScreenshotRender): Promise<Uint8Array> {
     const width = SCREENSHOT_WIDTH, height = SCREENSHOT_HEIGHT;
     const sceneTarget = new RenderTarget(width, height, { type: HalfFloatType, samples: msaaSamples, depthBuffer: true });
+    if (haze) sceneTarget.depthTexture = new DepthTexture(width, height);
+    const hazeTarget = haze ? new RenderTarget(Math.round(width * HAZE_RESOLUTION), Math.round(height * HAZE_RESOLUTION), { type: HalfFloatType, depthBuffer: false }) : null;
+    const blur = hazeTarget ? gaussianBlur(texture(hazeTarget.texture), uniform(HAZE_BLUR)) : null;
     const colorTarget = new RenderTarget(width, height, { type: UnsignedByteType, depthBuffer: false });
     const fxaaTarget = antiAliasing === "fxaa" ? new RenderTarget(width, height, { type: UnsignedByteType, depthBuffer: false }) : null;
     const materials: NodeMaterial[] = [];
@@ -118,9 +125,19 @@ export async function renderScreenshot({ renderer, backend, scene, camera, show,
         for (const [child] of saved) if (!(child as { isLight?: boolean }).isLight) child.visible = show.get(child) ?? false;
         renderer.setRenderTarget(sceneTarget);
         await renderer.renderAsync(scene, camera);
-        // The same display transform as the canvas output; FXAA then works on display-referred color, as in anti-aliasing.ts.
+        let color = texture(sceneTarget.texture) as unknown as Parameters<typeof hazeComposite>[0];
+        if (haze && hazeTarget && blur && sceneTarget.depthTexture) {
+            const mask = camera.layers.mask;
+            haze.mesh.visible = true;
+            haze.setDepth(sceneTarget.depthTexture);
+            camera.layers.set(HAZE_LAYER);
+            try { renderer.setRenderTarget(hazeTarget); await renderer.renderAsync(scene, camera); }
+            finally { camera.layers.mask = mask; }
+            color = hazeComposite(color, blur as unknown as typeof color, haze.intensity as unknown as typeof color) as unknown as typeof color;
+        }
+        // The same display transform as the canvas output; FXAA then works on display-referred color, as in post-chain.ts.
         renderer.setRenderTarget(colorTarget);
-        await quad(renderOutput(texture(sceneTarget.texture), renderer.toneMapping, renderer.outputColorSpace)).renderAsync(renderer);
+        await quad(renderOutput(color, renderer.toneMapping, renderer.outputColorSpace)).renderAsync(renderer);
         if (fxaaTarget) {
             renderer.setRenderTarget(fxaaTarget);
             await quad(fxaa(texture(colorTarget.texture))).renderAsync(renderer);
@@ -132,6 +149,6 @@ export async function renderScreenshot({ renderer, backend, scene, camera, show,
         renderer.setRenderTarget(previousTarget);
         for (const [child, visible] of saved) child.visible = visible;
         for (const material of materials) material.dispose();
-        sceneTarget.dispose(); colorTarget.dispose(); fxaaTarget?.dispose();
+        sceneTarget.dispose(); colorTarget.dispose(); fxaaTarget?.dispose(); hazeTarget?.dispose(); blur?.dispose();
     }
 }
