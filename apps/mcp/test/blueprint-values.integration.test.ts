@@ -12,6 +12,9 @@ it('creates typed variables and inline values through blueprint_edit and reads t
  try {
   const catalog = JSON.parse(((await client.readResource({ uri: 'opensekai://blueprint-nodes' })).contents[0] as { text: string }).text);
   expect(catalog.dataTypes).toContain('string[]');
+  expect(catalog.nodes.find((node: { type: string }) => node.type === 'math.lerp').inputDefaults).toEqual({ b: 1, t: 0.5 });
+  expect(catalog.nodes.find((node: { type: string }) => node.type === 'math.add').inputDefaults).toEqual({});
+  expect((await client.listTools()).tools.find(tool => tool.name === 'blueprint_edit')!.description).toContain('else the input default of the node (inputDefaults in the node catalog), else the default of its type');
   const graph = { schemaVersion: 1, id: 'g', name: 'G', enabled: true, nodes: [
    { id: 'go', version: 1, type: 'event.manual', settings: {}, position: at },
    { id: 'set', version: 1, type: 'property.set', settings: { entityId: 'reference', property: 'position' }, position: at },

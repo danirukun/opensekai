@@ -5,7 +5,8 @@ export type { BlueprintValue } from '@opensekai/contracts';
 // Per-run inputs from outside the graph.
 // `scene` is read on demand, so a run sees the writes of earlier runs in the same tick.
 // `previousPose` is the avatar pose of the previous tick, before expressions and bone offsets.
-export interface RunEnv { deltaSeconds: number; held: ReadonlySet<string>; scene: () => SceneView | null; previousPose?: (avatarId: Id) => AvatarPose | null }
+// `tickMs` is the session time of the clock tick that started the step; a node that must change once per tick compares it.
+export interface RunEnv { deltaSeconds: number; held: ReadonlySet<string>; scene: () => SceneView | null; previousPose?: (avatarId: Id) => AvatarPose | null; tickMs?: number }
 export const NO_ENV: RunEnv = { deltaSeconds: 0, held: new Set(), scene: () => null };
 // Plain data that a stateful node keeps between runs. A node replaces its entry and never changes a stored object,
 // because a run copy shares the stored objects with the committed state.

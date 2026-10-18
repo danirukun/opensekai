@@ -11,7 +11,7 @@ it('groups matches by category in palette order and matches keywords', () => {
  expect(types(searchNodes('hotkey', refs))).toEqual(['event.keystroke']);
  expect(types(searchNodes('cooldown', refs))).toEqual(['flow.throttle']);
  expect(types(searchNodes('cooldown camera', refs))).toEqual([]);
- expect(types(searchNodes('RANDOM', refs))).toEqual(['list.random', 'math.random']);
+ expect(types(searchNodes('RANDOM', refs))).toEqual(['list.random', 'math.random', 'integer.random']);
 });
 
 it('hides nodes whose defaults are unavailable', () => {

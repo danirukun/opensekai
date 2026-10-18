@@ -1,12 +1,11 @@
 import { z } from 'zod';
 import { DATA_TYPE_LABELS, SCALAR_TYPES, type ScalarType } from '../blueprint-values';
 import { BlueprintStringSchema } from './literals';
-import { defineNode, empty, numbered, type PortShape } from './define';
+import { defineNode, numbered, plainNodes, type PortShape } from './define';
 
 export const MAX_FORMAT_ARGS = 8;
 const STRINGABLE = ['number', 'integer', 'boolean', 'vector3'] as const;
-const pure = <const T extends string>(type: T, label: string, keywords: string[], ports: () => PortShape, inputDefaults?: Record<string, string>) =>
- defineNode({ type, label, category: 'Text', keywords: ['string', 'text', ...keywords], settings: empty, ports, defaults: () => ({}), fields: [], ...(inputDefaults ? { inputDefaults } : {}) });
+const pure = plainNodes('Text', ['string', 'text']);
 const unary = (): PortShape => ({ inputs: { text: 'string' }, outputs: { result: 'string' } });
 const test = (): PortShape => ({ inputs: { text: 'string', search: 'string' }, outputs: { result: 'boolean' } });
 const parse = (type: 'number' | 'integer') => (): PortShape => ({ inputs: { text: 'string' }, outputs: { value: type, ok: 'boolean' } });
