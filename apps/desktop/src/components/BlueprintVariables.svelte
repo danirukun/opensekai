@@ -15,6 +15,8 @@
   else input.value = variable.name;
  };
  const typed = (variable: BlueprintVariable, type: 'number' | 'integer' | 'string', text: string) => { const value = parseScalar(type, text); if (value !== null) update(variable.id, { default: value }); };
+ // On change (Enter or blur), text that is not a value of the type goes back to the stored value.
+ const settle = (field: HTMLInputElement, type: 'number' | 'integer' | 'string', stored: unknown) => { if (parseScalar(type, field.value) === null) field.value = String(stored); };
  const list = (variable: BlueprintVariable, field: HTMLTextAreaElement) => {
   const value = isListType(variable.type) ? parseList(variable.type, field.value) : null;
   if (value !== null) update(variable.id, { default: value });
@@ -39,16 +41,16 @@
    <Select value={variable.type} options={types} {disabled} onchange={event => { const type = asDataType(event.currentTarget.value); if (type) update(variable.id, { type }); }} />
    {#if variable.type === 'number' || variable.type === 'integer'}
     {@const type = variable.type}
-    <Input type="number" step={type === 'integer' ? 1 : 'any'} value={String(variable.default)} {disabled} oninput={event => typed(variable, type, event.currentTarget.value)} />
+    <Input type="number" step={type === 'integer' ? 1 : 'any'} value={String(variable.default)} {disabled} oninput={event => typed(variable, type, event.currentTarget.value)} onchange={event => settle(event.currentTarget, type, variable.default)} />
    {:else if variable.type === 'boolean'}
     <label class="blueprint-checkbox"><input type="checkbox" checked={variable.default} {disabled} onchange={event => update(variable.id, { default: event.currentTarget.checked })} />Default</label>
    {:else if variable.type === 'string'}
-    <Input value={variable.default} {disabled} onchange={event => { if (parseScalar('string', event.currentTarget.value) === null) event.currentTarget.value = variable.default as string; else typed(variable, 'string', event.currentTarget.value); }} />
+    <Input value={variable.default} {disabled} onchange={event => { if (parseScalar('string', event.currentTarget.value) === null) settle(event.currentTarget, 'string', variable.default); else typed(variable, 'string', event.currentTarget.value); }} />
    {:else if variable.type === 'vector3'}
     {@const vector = variable.default as Vec3}
     <div class="blueprint-vector">
      {#each vector as part, index (index)}
-      <Input type="number" step="any" value={String(part)} {disabled} oninput={event => { const next = vectorParts(vector, index, event.currentTarget.value); if (next) update(variable.id, { default: next }); }} />
+      <Input type="number" step="any" value={String(part)} {disabled} oninput={event => { const next = vectorParts(vector, index, event.currentTarget.value); if (next) update(variable.id, { default: next }); }} onchange={event => settle(event.currentTarget, 'number', part)} />
      {/each}
     </div>
    {:else}

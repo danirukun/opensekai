@@ -80,7 +80,7 @@ const readInput = (compiled: CompiledBlueprint, state: RunState, nodeId: Id, por
  const cache = new Map<string, BlueprintValue>();
  const input = (id: Id, name: string): BlueprintValue => {
   const wire = compiled.dataIn.get(key(id, name));
-  return wire ? evaluate(wire.sourceNodeId, wire.sourcePort) : unconnectedInputValue(compiled.nodes.get(id)!, name);
+  return wire ? evaluate(wire.sourceNodeId, wire.sourcePort) : unconnectedInputValue(compiled.nodes.get(id)!, name, compiled.ports.get(id)!);
  };
  const evaluate = (id: Id, out: string): BlueprintValue => {
   const cached = cache.get(key(id, out));

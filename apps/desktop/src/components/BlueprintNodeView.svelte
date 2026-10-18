@@ -6,7 +6,7 @@
  import { parseScalar, vectorParts } from '../blueprints/fields';
 
  type Port = { socket: unknown; label?: string; index?: number };
- export let data: { id: string; label: string; selected?: boolean; data?: BlueprintNode; wired?: ReadonlySet<string>; setInput?: (port: string, value: ScalarValue | null) => void; inputs: Record<string, Port | undefined>; outputs: Record<string, Port | undefined> };
+ export let data: { id: string; label: string; selected?: boolean; data?: BlueprintNode; wired?: ReadonlyMap<string, number>; editable?: boolean; setInput?: (port: string, value: ScalarValue | null) => void; inputs: Record<string, Port | undefined>; outputs: Record<string, Port | undefined> };
  export let emit: (props: unknown) => void;
 
  const sorted = (ports: Record<string, Port | undefined>) =>
@@ -41,6 +41,7 @@
 
  $: inputs = sorted(data.inputs);
  $: outputs = sorted(data.outputs);
+ $: editable = data.editable !== false;
  $: editors = data && Object.fromEntries(inputs.map(([key]) => [key, inline(key)]));
  $: category = data.data ? nodeDefinition(data.data.type).category.toLowerCase() : '';
 </script>
@@ -56,16 +57,16 @@
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <span class="bp-inline" data-type={editor.type} onpointerdown={keep} ondblclick={keep}>
        {#if editor.type === 'boolean'}
-        <input type="checkbox" aria-label={label(key)} checked={editor.value === true} onchange={event => data.setInput?.(key, event.currentTarget.checked)} />
+        <input type="checkbox" aria-label={label(key)} checked={editor.value === true} disabled={!editable} onchange={event => data.setInput?.(key, event.currentTarget.checked)} />
        {:else if editor.type === 'vector3'}
         {@const vector = editor.value as Vec3}
         {#each vector as part, index (index)}
-         <Input type="number" step="any" value={String(part)} onchange={event => commitPart(key, vector, index, event.currentTarget)} />
+         <Input type="number" step="any" value={String(part)} disabled={!editable} onchange={event => commitPart(key, vector, index, event.currentTarget)} />
         {/each}
        {:else}
         {@const type = editor.type}
         {@const current = editor.value}
-        <Input type={type === 'string' ? 'text' : 'number'} step={type === 'integer' ? 1 : type === 'number' ? 'any' : undefined} value={String(current)} onchange={event => commit(key, type, event.currentTarget, current)} />
+        <Input type={type === 'string' ? 'text' : 'number'} step={type === 'integer' ? 1 : type === 'number' ? 'any' : undefined} value={String(current)} disabled={!editable} onchange={event => commit(key, type, event.currentTarget, current)} />
        {/if}
       </span>
      {/if}

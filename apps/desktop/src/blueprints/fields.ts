@@ -24,13 +24,18 @@ export function parseScalar(type: Exclude<ScalarType, 'boolean'>, text: string):
   : number(text);
  return value !== null && isBlueprintValue(type, value) ? value as ScalarValue : null;
 }
-const formatScalar = (value: ScalarValue): string => Array.isArray(value) ? value.join(', ') : String(value);
-// A list default as text: one item on each line.
+// A string item is one JSON string, so an empty item and an item with a line break keep their value.
+const formatScalar = (value: ScalarValue): string => Array.isArray(value) ? value.join(', ') : typeof value === 'string' ? JSON.stringify(value) : String(value);
+const parseString = (line: string): string | null => {
+ try { const value: unknown = JSON.parse(line); return typeof value === 'string' ? value : null; } catch { return null; }
+};
+// A list default as text: one item on each line. Blank lines are ignored.
 export const formatList = (values: readonly ScalarValue[]): string => values.map(formatScalar).join('\n');
 export function parseList(type: ListType, text: string): BlueprintValue | null {
- const item = itemType(type), lines = text.split('\n').map(line => item === 'string' ? line : line.trim()).filter(line => line !== '');
+ const item = itemType(type), lines = text.split('\n').map(line => line.trim()).filter(line => line !== '');
  if (lines.length > MAX_BLUEPRINT_LIST_LENGTH) return null;
- const items = lines.map(line => item === 'boolean' ? ({ true: true, false: false } as Record<string, boolean>)[line.toLowerCase()] ?? null : parseScalar(item, line));
+ const items = lines.map(line => item === 'boolean' ? ({ true: true, false: false } as Record<string, boolean>)[line.toLowerCase()] ?? null
+  : item === 'string' ? parseString(line) : parseScalar(item, line));
  return items.every(value => value !== null) && isBlueprintValue(type, items) ? items as BlueprintValue : null;
 }
 export const vectorParts = (value: Vec3, index: number, text: string): Vec3 | null => {

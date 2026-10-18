@@ -2,17 +2,18 @@
 
 Checked 2026-10-18 on macOS 27.0.1 (arm64), Node 26.12.0, pnpm 12.8.1. Base commit: `671e2f8` (plan commit on `opensekai/blueprint-depth`). Branch: `opensekai/bp-w0-value-model`. Contract: [Blueprint value model](../../spdd/prompt/2026-10-18-blueprint-w0-value-model.md).
 
-This check covers the automated tests only. The desktop app was not started and Rust was not built in this slice (batch plan: one integrated macOS QA run later). The renderer backend, the quality profile, and OBS do not apply to these checks.
+This check covers the automated tests only. The desktop app was not started in this slice (batch plan: one integrated macOS QA run later). After the integrator review, the Rust contracts crate was built with the shared target directory of the integration worktree. The renderer backend, the quality profile, and OBS do not apply to these checks.
 
 ## Automated checks
 
 | Command | Base `671e2f8` | This branch | Notes |
 | --- | --- | --- | --- |
 | `pnpm check` | — | Pass. svelte-check: 0 errors, 0 warnings | 8 packages and `tsconfig.scripts.json` |
-| `pnpm test:unit` | 1017 passed (136 files) | 1040 passed (138 files), 0 failed | |
+| `pnpm test:unit` | 1017 passed (136 files) | 1042 passed (138 files), 0 failed | |
 | `pnpm test:integration` | 33 passed, 4 failed, 2 skipped (39) | 38 passed, 0 failed, 2 skipped (40) | See the note below |
-| `cargo test --workspace` | not run | not run | Not built in this slice. See "Not verified" |
-| `rustfmt --edition 2021 --check` on `crates/contracts/src/lib.rs` and `crates/contracts/tests/blueprint.rs` | — | Clean | Parses the changed Rust files. It does not compile them |
+| `cargo test -p opensekai-contracts` | — | 65 passed, 0 failed | `CARGO_TARGET_DIR` = the `blueprint-depth` worktree `target` |
+| `cargo clippy -p opensekai-contracts --all-targets` | — | 0 warnings, 0 errors | Same target directory |
+| `cargo test --workspace` | not run | not run | The integrated QA run builds the desktop crate |
 
 The 4 integration failures on the base commit are in `scripts/prepare-tracking.test.ts`. Each one is `ENOENT ... artifacts/models/face_landmarker.task`: a new worktree has no ignored `artifacts/models/` folder. After a copy of that folder from the main checkout, the same command gave 38 passed and 2 skipped on this branch. The failures are not related to this slice.
 
@@ -23,11 +24,12 @@ The 4 integration failures on the base commit are in `scripts/prepare-tracking.t
 - Changed session tests: a graph with an unwired data input now compiles. The tests that needed a compile error now use a Get Number Variable node with a missing variable.
 - MCP (`apps/mcp/test/blueprint-values.integration.test.ts`, stdio boundary with a real session): typed variables and an inline value through `blueprint_edit`, a rejected inline value, `blueprint_inspect`, `blueprint_run`, and `dataTypes` in the node resource.
 - Editor: list and scalar text parsers, typed new variables, undo of inline values (with merge) and of an inline value that a settings change dropped, the canvas patch, and the wired-input set and `setNodeInput` of the Rete adapter.
-- Rust (`crates/contracts/tests/blueprint.rs`): typed variables, inline inputs, and `setNodeInput` structure checks. Written, not run.
+- Rust (`crates/contracts/tests/blueprint.rs`): typed variables, inline inputs, and `setNodeInput` structure checks.
+- Review fixes: the fast value check agrees with the zod schema for each type on a sample set; a string list keeps an empty item and a line break through format and parse; `updateVariable` with a `null` default is rejected; a disabled canvas sends no `setNodeInput`; the canvas counts wires for each input.
 
 ## Not verified
 
-- `cargo test --workspace` and `cargo clippy`: the Rust contract checks changed (`crates/contracts`) and were not compiled. The integrated QA run must build and test them.
+- `cargo test --workspace`: the desktop crate (`show.rs` and the router use the changed checks) was not built.
 - The editor in the running app: the socket colors, the inline editors on nodes (number, integer, checkbox, text, Vector3), pointer and key handling in an inline editor, the Variables drawer for each type, the list text area, and the inspector field kinds.
 - A session test of an integer to number wire, of a rejected number to integer wire, and of a run that fails at a size limit. No W0 node has an integer port or makes a string or a list. Wave 2 adds these tests with its first such node.
 - Save and open of a show with inline values and typed variables through the Rust host (`show.rs` uses `validate_blueprint_set`).
@@ -35,6 +37,7 @@ The 4 integration failures on the base commit are in `scripts/prepare-tracking.t
 ## macOS QA steps
 
 1. Build and run `cargo test --workspace --no-fail-fast` and `cargo clippy --workspace --all-targets`.
+1a. Disconnect the session (or open the editor without one): the inline editors on nodes are disabled.
 2. Start the app. In a Blueprint, add Manual Trigger and Set Asset Property (Position of a box). Do not wire `value`. Type `1, 2, 3` in the three inline fields, then Run. The box moves to (1, 2, 3) in the preview and the OBS output.
 3. Add Make Vector3, type values on its inline fields, and wire it to `value`. The inline editor on `value` goes away. Run: the box takes the Make Vector3 value. Remove the wire: the inline editor comes back with (1, 2, 3).
 4. Click into an inline field and press Delete, Backspace, ⌘Z, and ⌘A. The node stays, and the keys edit the text. Drag on an inline field: the node does not move.

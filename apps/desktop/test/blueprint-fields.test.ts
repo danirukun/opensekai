@@ -61,10 +61,18 @@ it('reads a list default with one item on each line', () => {
  expect(parseList('integer[]', '1\n2.5')).toBeNull();
  expect(parseList('boolean[]', 'true\nFalse')).toEqual([true, false]);
  expect(parseList('boolean[]', 'yes')).toBeNull();
- expect(parseList('string[]', 'a b\n c')).toEqual(['a b', ' c']);
+ expect(parseList('string[]', '"a b"\n " c" ')).toEqual(['a b', ' c']);
+ expect(parseList('string[]', 'a')).toBeNull();
+ expect(parseList('string[]', '1')).toBeNull();
  expect(parseList('vector3[]', '0, 1, 0\n1,1,1')).toEqual([[0, 1, 0], [1, 1, 1]]);
  expect(parseList('number[]', '')).toEqual([]);
  expect(parseList('number[]', Array.from({ length: 257 }, () => '1').join('\n'))).toBeNull();
  expect(formatList([[0, 1, 0], [1, 1, 1]])).toBe('0, 1, 0\n1, 1, 1');
  expect(parseList('vector3[]', formatList([[0, 1.5, -2]]))).toEqual([[0, 1.5, -2]]);
+});
+
+it('keeps each string list item through format and parse, also an empty item and a line break', () => {
+ const items = ['', 'a\nb', ' padded ', '"quoted"', 'back\\slash', 'plain'];
+ expect(parseList('string[]', formatList(items))).toEqual(items);
+ expect(formatList(items).split('\n')).toHaveLength(items.length);
 });

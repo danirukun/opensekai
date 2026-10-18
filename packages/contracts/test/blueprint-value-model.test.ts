@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import vectors from '../../../fixtures/protocol/blueprint-variables.json';
 import {
- applyBlueprintOps, blueprintValueProblem, BlueprintGraphSchema, BlueprintNodeSchema, BlueprintOpSchema, canConnect, connectionType, DATA_TYPES, DATA_TYPE_LABELS,
+ applyBlueprintOps, blueprintValueProblem, blueprintValueSchema, BlueprintGraphSchema, BlueprintNodeSchema, BlueprintOpSchema, canConnect, connectionType, DATA_TYPES, DATA_TYPE_LABELS,
  defaultBlueprintValue, inlineInputType, isBlueprintValue, itemType, listOf, MAX_BLUEPRINT_LIST_LENGTH, MAX_BLUEPRINT_STRING_LENGTH,
  exportBlueprint, importBlueprint, makeSmokeScene, pruneInlineInputs, serializeBlueprintFile, ShowDocumentSchema, unconnectedInputValue, type BlueprintGraph, type BlueprintNode,
 } from '../src';
@@ -15,6 +15,13 @@ it('names ten data types: five scalars and a list of each', () => {
  expect(listOf('string')).toBe('string[]');
  expect(itemType('vector3[]')).toBe('vector3');
  expect(DATA_TYPE_LABELS['integer[]']).toBe('Integer List');
+});
+
+it('agrees with the value schema in the fast value check', () => {
+ const samples: unknown[] = [0, -0, 1.5, Number.NaN, Number.POSITIVE_INFINITY, Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER + 2, true, '', 'x'.repeat(MAX_BLUEPRINT_STRING_LENGTH), 'x'.repeat(MAX_BLUEPRINT_STRING_LENGTH + 1),
+  [0, 0, 0], [0, 0], [0, 0, 0, 0], [0, Number.NaN, 0], ['0', 0, 0], [], [1, 2], [true], [''], [[1, 2, 3]], [[1, 2]], null, undefined, {}, Array.from({ length: MAX_BLUEPRINT_LIST_LENGTH + 1 }, () => 0)];
+ for (const type of DATA_TYPES) for (const value of samples)
+  expect(isBlueprintValue(type, value), `${type} ${JSON.stringify(value)?.slice(0, 40)}`).toBe(blueprintValueSchema(type).safeParse(value).success);
 });
 
 it('connects equal types and widens an integer output into a number input only', () => {
@@ -60,6 +67,8 @@ it('retypes a variable to the default of its new type and checks a new default a
  expect(ok(applyBlueprintOps(graphs, [{ kind: 'updateVariable', graphId: 'counter', variableId: 'count', type: 'vector3', default: [1, 2, 3] }])).variables[0]!.default).toEqual([1, 2, 3]);
  expect(applyBlueprintOps(graphs, [{ kind: 'updateVariable', graphId: 'counter', variableId: 'count', type: 'integer', default: 0.5 }])).toMatchObject({ ok: false, error: { message: 'Invalid variable' } });
  expect(BlueprintOpSchema.safeParse({ kind: 'updateVariable', graphId: 'counter', variableId: 'count', type: 'color' }).success).toBe(false);
+ expect(BlueprintOpSchema.safeParse({ kind: 'updateVariable', graphId: 'counter', variableId: 'count', default: null }).success).toBe(false);
+ expect(applyBlueprintOps(graphs, [{ kind: 'updateVariable', graphId: 'counter', variableId: 'count', default: null } as never])).toMatchObject({ ok: false, error: { message: 'Invalid variable' } });
 });
 
 it('accepts inline values that match scalar data inputs and rejects all others', () => {

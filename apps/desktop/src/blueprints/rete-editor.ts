@@ -20,8 +20,10 @@ const sockets = Object.fromEntries((['flow', ...DATA_TYPES] as const).map(kind =
 export type InlineEdit = (port: string, value: ScalarValue | null) => void;
 class GraphNode extends ClassicPreset.Node {
  data: BlueprintNode;
- // Inputs with a wire; the node view shows an inline editor on the other scalar data inputs.
- wired = new Set<string>();
+ // The wire count of each input with a wire; the node view shows an inline editor on the other scalar data inputs.
+ wired = new Map<string, number>();
+ // False while the panel is disabled: inline editors are disabled and send nothing.
+ editable = true;
  setInput: InlineEdit;
  constructor(data: BlueprintNode, setInput: InlineEdit) {
   super(BLUEPRINT_LABELS[data.type]);
@@ -54,6 +56,7 @@ export interface ReteBlueprintEditor {
  center(): { x: number; y: number };
  show(graph: BlueprintGraph): Promise<void>;
  select(nodeId: string | null): void;
+ setEditable(editable: boolean): void;
  zoomToFit(): Promise<void>;
  destroy(): void;
 }
@@ -91,7 +94,7 @@ export async function mountReteBlueprint(container: HTMLElement, initial: Bluepr
  const selectable = AreaExtensions.selectableNodes(area, selector, { accumulating: AreaExtensions.accumulateOnCtrl() });
  options.inspect?.(area);
  let shown: BlueprintGraph = { ...initial, nodes: [], connections: [] };
- let queue: Promise<void> = Promise.resolve(), destroyed = false, applying = false, silent = false, dirty = false;
+ let queue: Promise<void> = Promise.resolve(), destroyed = false, applying = false, silent = false, dirty = false, editable = true;
  let targeted: MouseEvent | null = null;
  // Events that apply() itself causes are named here only while its own awaited call runs, so a user gesture during a patch still counts.
  const ownNodes = new Set<string>(), ownWires = new Set<string>();
@@ -123,7 +126,7 @@ export async function mountReteBlueprint(container: HTMLElement, initial: Bluepr
   return context;
  });
  editor.addPipe(context => {
-  if (context.type === 'connectioncreated' || context.type === 'connectionremoved') rewire(context.data.target);
+  if (context.type === 'connectioncreated' || context.type === 'connectionremoved') countWire(context.data.target, String(context.data.targetInput), context.type === 'connectioncreated' ? 1 : -1);
   if (silent) return context;
   if (context.type === 'connectioncreated' && !ownWires.has(context.data.id)) {
    const c = context.data;
@@ -149,20 +152,24 @@ export async function mountReteBlueprint(container: HTMLElement, initial: Bluepr
  // An inline edit changes the canvas copy first, so the echo of the session needs no redraw.
  const setInput = (nodeId: string): InlineEdit => (port, value) => {
   const node = editor.getNode(nodeId) as GraphNode | undefined;
-  if (destroyed || !node) return;
+  if (destroyed || !node || !editable) return;
   node.data = withInlineInput(node.data, port, value);
   track(graph => ({ ...graph, nodes: graph.nodes.map(item => item.id === nodeId ? withInlineInput(item, port, value) : item) }));
   void area.update('node', nodeId);
   handlers.onOps([{ kind: 'setNodeInput', graphId, nodeId, port, value }]);
  };
- const rewire = (nodeId: string) => {
+ // Only the input of the added or removed wire changes; the node redraws when that input gains its first wire or loses its last.
+ const countWire = (nodeId: string, port: string, change: 1 | -1) => {
   const node = editor.getNode(nodeId) as GraphNode | undefined;
   if (!node) return;
-  node.wired = new Set(editor.getConnections().filter(c => c.target === nodeId).map(c => String(c.targetInput)));
-  void area.update('node', nodeId);
+  const count = (node.wired.get(port) ?? 0) + change;
+  if (count > 0) node.wired.set(port, count); else node.wired.delete(port);
+  if (count === 0 || (count === 1 && change === 1)) void area.update('node', nodeId);
  };
  const addNode = (data: BlueprintNode) => ownNode(data.id, async () => {
-  await editor.addNode(new GraphNode(data, setInput(data.id)));
+  const node = new GraphNode(data, setInput(data.id));
+  node.editable = editable;
+  await editor.addNode(node);
   await place(data.id, data.position);
  });
  const addWire = async (wire: BlueprintConnection) => {
@@ -243,6 +250,11 @@ export async function mountReteBlueprint(container: HTMLElement, initial: Bluepr
   select(nodeId) {
    if (nodeId === null) { for (const node of editor.getNodes()) selectable.unselect(node.id); return; }
    if (editor.getNode(nodeId)) selectable.select(nodeId, false);
+  },
+  setEditable(next) {
+   if (next === editable) return;
+   editable = next;
+   for (const node of editor.getNodes() as GraphNode[]) { node.editable = next; void area.update('node', node.id); }
   },
   zoomToFit: () => AreaExtensions.zoomAt(area, editor.getNodes()),
   destroy() { destroyed = true; area.destroy(); },

@@ -15,7 +15,7 @@ R2. Values.
     - The defaults are `0`, `0`, `false`, `''`, `[0, 0, 0]`, and `[]` for each list type.
     - Values are immutable. Code that makes a new list or vector makes a new array. It never changes an array that it read.
 R3. Connections. An output connects to an input when the two types are equal, or when the output is `integer` and the input is `number`. The integer value goes through with no change. No other pair connects. A float goes to an integer input only through an explicit node (wave 2). The `connect` operation, the settings change in `setNodeSettings`, the compiler, and the editor use this one rule.
-R4. Variables. A variable has any data type (R1) and a default value of that type (R2). The limit stays 32 variables for each graph. `updateVariable` accepts each data type. A new type without a new default starts from the default of that type (R2). The existing six variable node types keep their type, settings, ports, and behavior. This slice adds no variable node type.
+R4. Variables. A variable has any data type (R1) and a default value of that type (R2). The limit stays 32 variables for each graph. `updateVariable` accepts each data type. A new type without a new default starts from the default of that type (R2). A `default` of `null` is not valid (`Invalid variable`); the Rust host also rejects it. The existing six variable node types keep their type, settings, ports, and behavior. This slice adds no variable node type.
 R5. Inline input values.
     - A node has an optional `inputs` object. Each key is the name of a data input of the node that has a scalar type. Each value is a value of that type (R2). A node has at most 16 inline values. A node without inline values has no `inputs` key.
     - A node that breaks one of these rules is not valid (`Invalid inline input`).
@@ -45,7 +45,10 @@ R13. Editor.
     - A change commits on `change` (Enter or blur) and sends one `setNodeInput`. An integer editor accepts only a safe integer. An invalid entry goes back to the stored value.
     - The editor uses `@oshi-connect/ui` `Input` and adds no helper text.
     - Undo records `setNodeInput`, and two edits of one inline value within 500 ms merge into one step.
-    - The Variables drawer adds, retypes, and edits each data type. A list default is a text area with one item on each line; a `vector3` item is `x, y, z`.
+    - The Variables drawer adds, retypes, and edits each data type. A list default is a text area with one item on each line; blank lines are ignored. A `vector3` item is `x, y, z`. A `string` item is one JSON string (`""`, `"a\nb"`), so an empty item and an item with a line break keep their value.
+    - Text that is not a value of the type goes back to the stored value on `change`, in the Variables drawer, in the inspector, and on the node.
+    - While the panel is disabled, the inline editors are disabled, the canvas sends no `setNodeInput`, and the panel does not send one.
+    - The canvas keeps a wire count for each input and changes it for each added or removed wire. It does not scan all wires.
 R14. MCP. `blueprint_edit` accepts the new node, variable, and operation shapes through the shared contracts. The `opensekai://blueprint-nodes` resource adds `dataTypes` (R1) and `categories` (R9) next to `nodes` and `properties`. The `blueprint_edit` description names inline values and `setNodeInput`.
 R15. Tests.
     - Unit: the compatibility rule, the value schemas and defaults, the limits, inline value validation, `setNodeInput`, the settings prune, typed variables, the Blueprint file and show round trip, `checkBlueprintValue`, the generic node state copy, undo of an inline edit, the graph patch, the canvas wired set, and the text parsers of the editors.
@@ -103,6 +106,7 @@ export type ValueOf<T extends DataType>;                 // 'integer' -> number,
 export const blueprintValueSchema: (type: DataType) => z.ZodType<BlueprintValue>;
 export const ScalarValueSchema: z.ZodType<ScalarValue>;  // any scalar value, used for the op and inputs
 export const defaultBlueprintValue: <T extends DataType>(type: T) => ValueOf<T>;
+// typeof and length checks only (no zod), so the runtime can call it on each value; it agrees with blueprintValueSchema.
 export const isBlueprintValue: (type: DataType, value: unknown) => boolean;
 // 'limit' when a string or list is too long, 'type' for any other mismatch, null when the value fits.
 export const blueprintValueProblem: (type: DataType, value: unknown) => 'type' | 'limit' | null;
@@ -127,15 +131,16 @@ export type InlineInputs = Partial<Record<string, ScalarValue>>;
 // The port type when a wire from the output can enter the input, else null. Callers test `=== 'flow'`.
 export function connectionType(source: BlueprintNode, sourcePort: string, target: BlueprintNode, targetPort: string): PortType | null;
 // The scalar type of an input that can hold an inline value, else null.
-export const inlineInputType: (node: BlueprintNode, port: string) => ScalarType | null;
+// `ports` is optional in this group; the session passes the ports from its compile.
+export const inlineInputType: (node: BlueprintNode, port: string, ports?: PortShape) => ScalarType | null;
 // True when each inline value of the node is on a scalar data input and has the type of that input.
-export const inlineInputsFit: (node: BlueprintNode) => boolean;
+export const inlineInputsFit: (node: BlueprintNode, ports?: PortShape) => boolean;
 // The value an unconnected input reads: the inline value, else the type default.
-export function unconnectedInputValue(node: BlueprintNode, port: string): BlueprintValue;
+export function unconnectedInputValue(node: BlueprintNode, port: string, ports?: PortShape): BlueprintValue;
 // A copy of the node with one inline value set, or removed when value is null. It does not check the value.
 export function withInlineInput<N extends BlueprintNode>(node: N, port: string, value: ScalarValue | null): N;
 // A copy of the node without inline values that no longer fit its ports.
-export function pruneInlineInputs<N extends BlueprintNode>(node: N): N;
+export function pruneInlineInputs<N extends BlueprintNode>(node: N, ports?: PortShape): N;
 
 // packages/contracts/src/blueprint-ops.ts (appended)
 { kind: 'setNodeInput'; graphId: Id; nodeId: Id; port: string; value: ScalarValue | null }

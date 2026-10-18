@@ -52,19 +52,20 @@ export function connectionType(source: BlueprintNode, sourcePort: string, target
  return output && input && canConnect(output, input) ? input : null;
 }
 
+// The functions below take the node's ports when the caller has them (for example from a compile), so a hot path does not compute them again.
 // The scalar type of an input that can hold an inline value, or null.
-export const inlineInputType = (node: BlueprintNode, port: string): ScalarType | null => {
- const type = ownPort(blueprintPorts(node), 'inputs', port);
+export const inlineInputType = (node: BlueprintNode, port: string, ports: PortShape = blueprintPorts(node)): ScalarType | null => {
+ const type = ownPort(ports, 'inputs', port);
  return type && isScalarType(type) ? type : null;
 };
-const fits = (node: BlueprintNode, port: string, value: unknown) => { const type = inlineInputType(node, port); return type !== null && isBlueprintValue(type, value); };
-export const inlineInputsFit = (node: BlueprintNode): boolean => {
+const fits = (ports: PortShape, port: string, value: unknown) => { const type = ownPort(ports, 'inputs', port); return type !== undefined && isScalarType(type) && isBlueprintValue(type, value); };
+export const inlineInputsFit = (node: BlueprintNode, ports: PortShape = blueprintPorts(node)): boolean => {
  const entries = Object.entries(node.inputs ?? {});
- return entries.length <= MAX_INLINE_INPUTS && entries.every(([port, value]) => fits(node, port, value));
+ return entries.length <= MAX_INLINE_INPUTS && entries.every(([port, value]) => fits(ports, port, value));
 };
 // The value that an input without a wire reads: its inline value, else the default of its type.
-export function unconnectedInputValue(node: BlueprintNode, port: string): BlueprintValue {
- const type = ownPort(blueprintPorts(node), 'inputs', port);
+export function unconnectedInputValue(node: BlueprintNode, port: string, ports: PortShape = blueprintPorts(node)): BlueprintValue {
+ const type = ownPort(ports, 'inputs', port);
  if (!type || type === 'flow') throw new RangeError('Not a data input');
  const inline = node.inputs && Object.hasOwn(node.inputs, port) ? node.inputs[port] : undefined;
  return inline !== undefined && isScalarType(type) ? inline : defaultBlueprintValue(type);
@@ -77,9 +78,9 @@ export function withInlineInput<N extends BlueprintNode>(node: N, port: string, 
  return (Object.keys(inputs).length === 0 ? rest : { ...rest, inputs }) as N;
 }
 // A copy of the node without the inline values that no longer fit its ports, for example after a settings change.
-export function pruneInlineInputs<N extends BlueprintNode>(node: N): N {
+export function pruneInlineInputs<N extends BlueprintNode>(node: N, ports: PortShape = blueprintPorts(node)): N {
  if (!node.inputs) return node;
- const kept = Object.entries(node.inputs).filter(([port, value]) => fits(node, port, value));
+ const kept = Object.entries(node.inputs).filter(([port, value]) => fits(ports, port, value));
  const { inputs: _inputs, ...rest } = node;
  return (kept.length === 0 ? rest : { ...rest, inputs: Object.fromEntries(kept) }) as N;
 }

@@ -1,4 +1,4 @@
-import { blueprintValueProblem, type AvatarPose, type BlueprintKind, type BlueprintNodeOf, type BlueprintValue, type DataType, type Id, type SceneView } from '@opensekai/contracts';
+import { blueprintValueProblem, isBlueprintValue, type AvatarPose, type BlueprintKind, type BlueprintNodeOf, type BlueprintValue, type DataType, type Id, type SceneView } from '@opensekai/contracts';
 import type { BlueprintEffect } from '../blueprint';
 
 export type { BlueprintValue } from '@opensekai/contracts';
@@ -21,6 +21,7 @@ export const clearNodeState = (state: RunState, nodeId: Id): void => { state.nod
 export class BlueprintLimitError extends RangeError {}
 // Throws when a value does not fit its type, so the run fails and its state is not kept.
 export function checkBlueprintValue(type: DataType, value: unknown): void {
+ if (isBlueprintValue(type, value)) return;
  const problem = blueprintValueProblem(type, value);
  if (problem === 'limit') throw new BlueprintLimitError('Blueprint value exceeds its limit');
  if (problem === 'type') throw new RangeError('Blueprint value does not match its type');

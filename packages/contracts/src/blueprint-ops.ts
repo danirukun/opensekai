@@ -18,7 +18,7 @@ export const BlueprintOpSchema = z.discriminatedUnion('kind', [
  z.strictObject({ kind: z.literal('disconnect'), graphId: IdSchema, connectionId: IdSchema }),
  z.strictObject({ kind: z.literal('addVariable'), graphId: IdSchema, variable: BlueprintVariableSchema }),
  // `default` is checked against the variable type when the operation applies.
- z.strictObject({ kind: z.literal('updateVariable'), graphId: IdSchema, variableId: IdSchema, name: z.string().trim().min(1).max(64).optional(), type: z.enum(DATA_TYPES as [string, ...string[]]).optional(), default: z.unknown().optional() }),
+ z.strictObject({ kind: z.literal('updateVariable'), graphId: IdSchema, variableId: IdSchema, name: z.string().trim().min(1).max(64).optional(), type: z.enum(DATA_TYPES as [string, ...string[]]).optional(), default: z.unknown().refine(value => value !== null, 'A default cannot be null').optional() }),
  z.strictObject({ kind: z.literal('removeVariable'), graphId: IdSchema, variableId: IdSchema }),
  // `value: null` removes the inline value; the input then reads the default of its type.
  z.strictObject({ kind: z.literal('setNodeInput'), graphId: IdSchema, nodeId: IdSchema, port: z.string().min(1).max(64), value: ScalarValueSchema.nullable() }),
@@ -99,7 +99,7 @@ export function applyBlueprintOps(graphs: readonly BlueprintGraph[], ops: readon
     const old = graph.variables[i]!, type = op.type ?? old.type;
     // A new type without a new default starts from that type's zero value.
     const fallback = type === old.type ? old.default : defaultBlueprintValue(type as typeof old.type);
-    const parsed = BlueprintVariableSchema.safeParse({ id: old.id, name: op.name ?? old.name, type, default: op.default ?? fallback });
+    const parsed = BlueprintVariableSchema.safeParse({ id: old.id, name: op.name ?? old.name, type, default: op.default !== undefined ? op.default : fallback });
     if (!parsed.success) return reject('INVALID_INPUT', 'Invalid variable', [op.variableId]);
     graph.variables[i] = parsed.data; break;
    }

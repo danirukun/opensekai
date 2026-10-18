@@ -42,13 +42,31 @@ const SCALAR_DEFAULTS: { [T in ScalarType]: () => ScalarValueOf<T> } = { number:
 export const defaultBlueprintValue = <T extends DataType>(type: T): ValueOf<T> =>
  (isListType(type) ? [] : SCALAR_DEFAULTS[type as ScalarType]()) as ValueOf<T>;
 
+// The runtime checks each data value, so this check uses typeof and array length only; it agrees with `blueprintValueSchema`.
+const finiteNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
+const scalarFits = (type: ScalarType, value: unknown): boolean => {
+ switch (type) {
+  case 'number': return finiteNumber(value);
+  case 'integer': return Number.isSafeInteger(value);
+  case 'boolean': return typeof value === 'boolean';
+  case 'string': return typeof value === 'string' && value.length <= MAX_BLUEPRINT_STRING_LENGTH;
+  case 'vector3': return Array.isArray(value) && value.length === 3 && finiteNumber(value[0]) && finiteNumber(value[1]) && finiteNumber(value[2]);
+ }
+};
+export function isBlueprintValue(type: DataType, value: unknown): boolean {
+ if (!isListType(type)) return scalarFits(type, value);
+ if (!Array.isArray(value) || value.length > MAX_BLUEPRINT_LIST_LENGTH) return false;
+ const item = itemType(type);
+ for (const entry of value) if (!scalarFits(item, entry)) return false;
+ return true;
+}
 const tooLong = (value: unknown) => (typeof value === 'string' && value.length > MAX_BLUEPRINT_STRING_LENGTH) || (Array.isArray(value) && value.length > MAX_BLUEPRINT_LIST_LENGTH);
+// The diagnosis runs only after the fast check fails.
 export function blueprintValueProblem(type: DataType, value: unknown): 'type' | 'limit' | null {
- if (SCHEMAS[type].safeParse(value).success) return null;
+ if (isBlueprintValue(type, value)) return null;
  const items = isListType(type) && Array.isArray(value) ? value : [];
  return tooLong(value) || items.some(tooLong) ? 'limit' : 'type';
 }
-export const isBlueprintValue = (type: DataType, value: unknown): boolean => SCHEMAS[type].safeParse(value).success;
 
 // The one connection rule: equal types, or an integer output into a number (float) input.
 export const canConnect = (output: PortType, input: PortType): boolean => output === input || (output === 'integer' && input === 'number');

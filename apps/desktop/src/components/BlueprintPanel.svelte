@@ -80,6 +80,11 @@
 
  const act = (ops: BlueprintOp[]) => {
   const before = sync.view().find(item => item.id === selectedId);
+  // A disabled panel sends no inline value; the canvas goes back to the stored graph.
+  if (disabled && ops.some(op => op.kind === 'setNodeInput')) {
+   if (before) void editor?.show(before);
+   return { ok: false, error: { code: 'UNAVAILABLE', message: 'Blueprint editing is unavailable', ids: [] } } as const;
+  }
   if (ops.length === 0 || !before) return { ok: true, data: sync.view() } as const;
   const result = edit(ops);
   if (result.ok) { changedElsewhere = false; const after = result.data.find(item => item.id === before.id); if (after) history.record(before.id, before, after, ops); }
@@ -123,6 +128,7 @@
    const mounted = await mountReteBlueprint(canvas, target, { onSelect: picked => { nodeId = picked; }, onOps: ops => { act(ops); }, onContextMenu: openMenu, onWireDrop: openDrop }, { views: { node: BlueprintNodeView, socket: BlueprintSocketView, connection: BlueprintConnectionView } });
    if (mine !== generation) { mounted.destroy(); return; }
    editor = mounted;
+   mounted.setEditable(!disabled);
    const latest = sync.view().find(item => item.id === id);
    if (latest) void mounted.show(latest);
   } catch { if (mine === generation) runError = 'Blueprint canvas unavailable'; }
@@ -267,6 +273,7 @@
   } catch { runError = 'Session unavailable'; }
   finally { busy = false; }
  }
+ $effect(() => { editor?.setEditable(!disabled); });
  onMount(() => {
   clipboard = memory.clipboard.current;
   const off = sync.subscribe(update);
