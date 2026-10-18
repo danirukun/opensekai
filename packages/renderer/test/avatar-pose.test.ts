@@ -211,3 +211,22 @@ it('applies direct morphs after real VRM binds and preserves their writes after 
  binding.apply({avatarId:'a',bones:{},expressions:{A:.4}});expect(mesh.morphTargetInfluences![0]).toBe(.4);
  binding.apply();expect(mesh.morphTargetInfluences![0]).toBe(0);
 });
+it('applies a bone offset in the parent frame after normalized and raw pose bones',()=>{
+ const {binding,head,bones}=fixture(),yaw=new Quaternion().setFromAxisAngle(new Vector3(0,1,0),Math.PI/6),pitch=new Quaternion().setFromAxisAngle(new Vector3(1,0,0),Math.PI/5);
+ binding.apply({avatarId:'a',bones:{head:{rotation:pitch.toArray(),space:'normalized'},hips:{rotation:pitch.toArray(),space:'raw'}},expressions:{},boneOffsets:{head:yaw.toArray(),hips:yaw.toArray(),spine:yaw.toArray()}});
+ const expected=yaw.clone().multiply(pitch);
+ expect(head.quaternion.angleTo(expected)).toBeLessThan(1e-6);
+ expect(bones.hips.node.quaternion.angleTo(expected)).toBeLessThan(1e-6);
+ expect(bones.spine.node.quaternion.angleTo(yaw)).toBeLessThan(1e-6);
+ binding.apply({avatarId:'a',bones:{},expressions:{}});
+ expect(head.quaternion.angleTo(new Quaternion())).toBeLessThan(1e-7);expect(bones.spine.node.quaternion.angleTo(new Quaternion())).toBeLessThan(1e-7);
+});
+it('turns the spine for a chest offset on a chestless rig and drops an unknown bone',()=>{
+ const chestless=fixture(),withChest=fixture(new Quaternion(),new Vector3(0,1,0),true),yaw=new Quaternion().setFromAxisAngle(new Vector3(0,1,0),Math.PI/6);
+ const pose={avatarId:'a',bones:{},expressions:{},boneOffsets:{chest:yaw.toArray() as [number,number,number,number],leftToes:yaw.toArray() as [number,number,number,number]}};
+ expect(()=>chestless.binding.apply(pose)).not.toThrow();
+ expect(chestless.bones.spine.node.quaternion.angleTo(yaw)).toBeLessThan(1e-6);
+ withChest.binding.apply(pose);
+ expect(withChest.bones.chest!.node.quaternion.angleTo(yaw)).toBeLessThan(1e-6);
+ expect(withChest.bones.spine.node.quaternion.angleTo(new Quaternion())).toBeLessThan(1e-7);
+});
