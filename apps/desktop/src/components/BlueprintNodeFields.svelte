@@ -4,8 +4,8 @@
  import KeystrokeField from './KeystrokeField.svelte';
  import { boneOptions, fitPropertySettings, formatCases, keyOptions, parseCases, parseScalar, propertyOptions, vectorParts } from '../blueprints/fields';
 
- let { node, scene, assets = [], variables, platform, unavailable, onsettings }: {
-  node: BlueprintNode; scene: SceneView | null; assets?: readonly AssetRecord[]; variables: readonly BlueprintVariable[]; platform: string; unavailable: boolean;
+ let { node, scene, assets = [], graphs = [], variables, platform, unavailable, onsettings }: {
+  node: BlueprintNode; scene: SceneView | null; assets?: readonly AssetRecord[]; graphs?: readonly { id: string; name: string }[]; variables: readonly BlueprintVariable[]; platform: string; unavailable: boolean;
   onsettings: (settings: BlueprintNode['settings']) => void;
  } = $props();
  const settings = $derived(node.settings as Record<string, unknown>);
@@ -55,6 +55,7 @@
   : field.kind === 'camera' ? (scene?.entities ?? []).filter(entity => entity.kind === 'camera').map(entity => ({ value: entity.id, label: entity.name }))
   : field.kind === 'output' ? (scene?.outputs ?? []).map(output => ({ value: output.id, label: output.id }))
   : field.kind === 'variable' ? variables.filter(variable => variable.type === field.variableType).map(variable => ({ value: variable.id, label: variable.name }))
+  : field.kind === 'graph' ? graphs.map(graph => ({ value: graph.id, label: graph.name }))
   : field.kind === 'bone' ? boneOptions()
   : field.kind === 'count' ? Array.from({ length: field.max - field.min + 1 }, (_, i) => ({ value: String(field.min + i), label: String(field.min + i) }))
   : [];
@@ -70,7 +71,7 @@
  }
  const options = (field: BlueprintField) => {
   const list = choices(field), value = settings[field.key];
-  return (field.kind === 'entity' || field.kind === 'camera' || field.kind === 'output' || field.kind === 'avatar' || field.kind === 'expression' || field.kind === 'blendshape') && typeof value === 'string' && !list.some(item => item.value === value)
+  return (field.kind === 'entity' || field.kind === 'camera' || field.kind === 'output' || field.kind === 'avatar' || field.kind === 'expression' || field.kind === 'blendshape' || field.kind === 'graph') && typeof value === 'string' && !list.some(item => item.value === value)
    ? [{ value, label: 'Missing' }, ...list] : list;
  };
 </script>
