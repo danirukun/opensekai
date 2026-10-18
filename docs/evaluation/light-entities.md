@@ -97,6 +97,6 @@ The first run found a defect: Set Direction From Main Camera called `structuredC
 ## Gaps
 
 - The built-in light comes back when the last light entity is removed. The Inspector and MCP give no signal for it (R5).
-- Owner checks on macOS (contract Safeguards): the light look on MToon and on the environment in WebGPU; a character shadow on an environment floor in OBS with alpha; the MToon look under a point light; shadow acne and the bias defaults on a real GPU; soft (radius 4) and hard (radius 1) shadows at 2048 px and 1024 px; the frame cost of 8 lights and of 2 point shadows (12 shadow passes) at 60 fps in OBS; the recompile hitch in OBS when a light is added; continued motion while the editor is minimized.
+- Owner checks on macOS (contract Safeguards): the light look on MToon and on the environment in WebGPU; a character shadow on an environment floor in OBS with alpha; the MToon look under a point light; shadow acne and the bias defaults on a real GPU; soft (radius 2, owner decision after radius 4 streaks) and hard (radius 1) shadows at 2048 px and 1024 px; the frame cost of 8 lights and of 2 point shadows (12 shadow passes) at 60 fps in OBS; the recompile hitch in OBS when a light is added; continued motion while the editor is minimized.
 - The 20 m shadow box gives no directional shadow outside it in a large environment.
 - Windows is not checked.

@@ -94,7 +94,8 @@ export function createSceneLights(scene: Scene, renderer: WebGPURenderer): Scene
         light.shadow.intensity = settings.shadow.intensity;
         light.shadow.bias = settings.shadow.bias;
         light.shadow.normalBias = settings.shadow.normalBias;
-        light.shadow.radius = settings.shadow.soft ? 4 : 1;
+        // Soft radius 2: radius 4 gave diagonal streaks at 2048 px in the owner's macOS check.
+        light.shadow.radius = settings.shadow.soft ? 2 : 1;
         if ((light as PointLight).isPointLight) {
             const point = light as PointLight;
             point.position.fromArray(transform.position);

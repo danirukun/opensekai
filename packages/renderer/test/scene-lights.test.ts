@@ -141,3 +141,12 @@ describe('material refresh', () => {
         expect(disposed).toBe(1);
     });
 });
+describe('soft shadow radius', () => {
+    it('uses PCF radius 2 for soft shadows and 1 for hard shadows (owner decision on #202)', () => {
+        const scene = new Scene(), lights = createSceneLights(scene, fake());
+        lights.apply([light('a', { shadow: { ...settings().shadow, enabled: true, soft: true } })]);
+        expect(threeLights(scene)[1]!.shadow.radius).toBe(2);
+        lights.apply([light('a', { shadow: { ...settings().shadow, enabled: true, soft: false } })]);
+        expect(threeLights(scene)[1]!.shadow.radius).toBe(1);
+    });
+});
