@@ -140,7 +140,12 @@ impl DeviceHub {
         state
             .gamepads
             .truncate(opensekai_contracts::MAX_GAMEPADS as usize);
-        let events = locked(&self.queue).drain();
+        let events = {
+            let mut queue = locked(&self.queue);
+            // An adapter thread can queue one event after its stop.
+            queue.retain(&watched);
+            queue.drain()
+        };
         let update = DeviceUpdate {
             events: (!events.is_empty()).then_some(events),
             gamepads: (!state.gamepads.is_empty()).then_some(state.gamepads),
