@@ -142,8 +142,12 @@ export function createSceneLights(scene: Scene, renderer: WebGPURenderer): Scene
                     if (!isLitMaterial(material)) continue;
                     const holder = material as Material & { lightsNode: unknown };
                     if (holder.lightsNode === node) continue;
+                    const used = holder.lightsNode !== undefined;
                     holder.lightsNode = node;
                     material.needsUpdate = true;
+                    // three.js 0.180 leaves `lightsNode` out of the render-object cache key of a plain (glTF) material, so
+                    // `needsUpdate` alone keeps the old pipeline on the canvas. Dispose drops its render objects; textures stay.
+                    if (used) material.dispose();
                 }
             });
         },

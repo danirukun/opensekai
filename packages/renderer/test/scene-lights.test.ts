@@ -125,3 +125,19 @@ describe('node-set generation', () => {
         expect(lights.generation()).toBe(first + 2);
     });
 });
+describe('material refresh', () => {
+    it('disposes a lit material when its node set changes after first use, so a plain material rebuilds (owner QA finding 1)', () => {
+        const scene = new Scene(), lights = createSceneLights(scene, fake());
+        const lit = new MeshStandardMaterial();
+        const root = new Group(); root.add(new Mesh(new BoxGeometry(), lit));
+        let disposed = 0; lit.addEventListener('dispose', () => { disposed++; });
+        lights.apply([light('a')]);
+        lights.assign(root, 'environment');
+        expect(disposed).toBe(0);
+        lights.apply([light('a', { affectEnvironment: false })]);
+        lights.assign(root, 'environment');
+        expect(disposed).toBe(1);
+        lights.assign(root, 'environment');
+        expect(disposed).toBe(1);
+    });
+});

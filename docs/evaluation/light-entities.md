@@ -44,6 +44,22 @@ A visibility change keeps `lightSignature` (unit test), so it does not rebuild t
 | --- | --- | --- | --- |
 | ![Directional shadow](light-entities/directional-shadow.png) | ![Point shadow](light-entities/point-shadow.png) | ![Floor not affected](light-entities/shadow-floor-unaffected.png) | ![Red point light](light-entities/point-light-red.png) |
 
+## Canvas path (after owner QA, finding 1)
+
+The owner's macOS check found that a runtime change of Affect Environment did not change the OBS frame. The checks above read pixels with `renderer.screenshot`, which draws into a new offscreen target and so builds new render objects; that hid the defect. Cause: three.js 0.180 leaves `lightsNode` out of the render-object cache key of a plain (glTF) material, so `needsUpdate` keeps the old pipeline on the canvas. Fix: `scene-lights.ts` disposes a lit material when its node set changes after first use.
+
+Method. The same scratch page read the canvas with `renderer.capture()` (the evaluation path that reads what the preview and OBS draw). WebGL 2 only: a headless WebGPU canvas reads back empty, so the WebGPU canvas result stays for the owner.
+
+| Check (WebGL 2 canvas) | Before the fix | After the fix |
+| --- | --- | --- |
+| `affectEnvironment` true → false, fixture stage: off against on | FAIL. 0 px | PASS. 1 615 755 px |
+| Back to true: against the first frame | — | PASS. 0 px |
+| Off against the light hidden | FAIL. 1 615 755 px | PASS. 0 px |
+| `affectProps` true → false, GLB prop: off against on / off against hidden | FAIL. 0 / 1 923 539 px | PASS. 1 923 539 / 0 px |
+| Directional shadow beside the legs, at start / turned on later | — | PASS. 14 274 / 14 074 px |
+| Point shadow beside the legs, at start / turned on later | — | PASS. 36 730 / 36 448 px |
+| Shadow light with `affectProps: false`: floor against no shadow | — | PASS. 0 px (all four) |
+
 ## Editor flow (O5)
 
 Method. A scratch Svelte page mounted the real `Hierarchy` and `Inspector` with a real `createEditorModel` on a real `createSession`, and the real `createRenderer` with an editor on `preview_main`. The start scene was `makeEmptyScene()` with a box. Playwright used the controls and the 960 × 540 canvas. The run passed on WebGPU and on WebGL 2.
