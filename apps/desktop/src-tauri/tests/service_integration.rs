@@ -180,6 +180,40 @@ async fn expression_calls_reach_the_session_publisher() {
     service.shutdown().await.unwrap();
 }
 #[tokio::test]
+async fn blueprint_debug_reaches_the_session_publisher_and_checks_the_reply() {
+    let (_dir, service) = service(false).await;
+    let mut publisher = auth(&service.publisher_descriptor()).await;
+    let mut operator = auth(&service.operator_descriptor()).await;
+    let fixture: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../../fixtures/protocol/blueprint-debug.json"),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    let mut bad = fixture["valid"].clone();
+    bad["entries"][0]["level"] = json!("trace");
+    for (id, data, ok) in [
+        ("good", fixture["valid"].clone(), true),
+        ("bad", bad, false),
+    ] {
+        send(
+            &mut operator,
+            call(id, "blueprintDebug", json!({"since": 0})),
+        )
+        .await;
+        let relayed = recv(&mut publisher).await;
+        assert_eq!(relayed["method"], "blueprintDebug");
+        assert_eq!(relayed["params"], json!({"since": 0}));
+        send(&mut publisher, json!({"kind":"reply","requestId":relayed["requestId"],"result":{"ok":true,"data":data}})).await;
+        let response = recv(&mut operator).await;
+        assert_eq!(response["requestId"], id);
+        assert_eq!(response["result"]["ok"], ok, "{response}");
+    }
+    service.shutdown().await.unwrap();
+}
+#[tokio::test]
 async fn service_auth_denies_stale_token_second_publisher_and_wrong_output() {
     let (_dir, service) = service(false).await;
     let descriptor = service.publisher_descriptor();

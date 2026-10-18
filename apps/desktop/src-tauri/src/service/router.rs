@@ -213,6 +213,7 @@ impl Shared {
                 | "blueprintRun"
                 | "blueprintEdit"
                 | "blueprintInspect"
+                | "blueprintDebug"
                 | "expressionGet"
                 | "expressionSet"
         ) {
@@ -375,6 +376,7 @@ impl Shared {
                 | "blueprintRun"
                 | "blueprintEdit"
                 | "blueprintInspect"
+                | "blueprintDebug"
                 | "expressionGet"
                 | "expressionSet"
         ) {

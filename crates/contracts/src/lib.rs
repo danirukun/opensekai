@@ -869,6 +869,12 @@ pub struct BlueprintInspectParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub since_revision: Option<u64>,
 }
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BlueprintDebugParams {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub since: Option<u64>,
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
@@ -1315,6 +1321,92 @@ fn validate_blueprint_errors(data: &Value) -> Result<(), AppError> {
         decode::<AppError>(&e["error"])?;
     }
     Ok(())
+}
+const MAX_DEBUG_PAGE: usize = 50;
+const MAX_DEBUG_VALUES: usize = 64;
+const MAX_DEBUG_TEXT_CHARS: usize = 256;
+fn debug_count_ok(v: &Value) -> bool {
+    v.as_u64().is_some_and(|n| n as f64 <= MAX_SAFE_INTEGER)
+}
+fn debug_seq_ok(v: &Value) -> bool {
+    debug_count_ok(v) && v.as_u64() != Some(0)
+}
+fn debug_text_ok(v: &Value) -> bool {
+    v.as_str()
+        .is_some_and(|s| s.chars().count() <= MAX_DEBUG_TEXT_CHARS)
+}
+fn debug_time_ok(v: &Value) -> bool {
+    v.as_f64().is_some_and(|t| t.is_finite() && t >= 0.0)
+}
+fn debug_entry_ok(e: &Value) -> bool {
+    let common = debug_seq_ok(&e["seq"])
+        && debug_time_ok(&e["atMs"])
+        && id_ok(&e["graphId"])
+        && id_ok(&e["nodeId"])
+        && e.get("dropped").is_none_or(debug_seq_ok);
+    let keys = |extra: &[&str]| {
+        let mut allowed = vec!["seq", "atMs", "graphId", "nodeId", "kind", "dropped"];
+        allowed.extend_from_slice(extra);
+        keys_within(e, &allowed)
+    };
+    common
+        && match e["kind"].as_str() {
+            Some("log") => {
+                keys(&["level", "message"])
+                    && matches!(
+                        e["level"].as_str(),
+                        Some("debug" | "info" | "warning" | "error")
+                    )
+                    && blueprint_string_ok(&e["message"])
+            }
+            Some("toast") => {
+                keys(&["variant", "header", "caption", "durationSeconds"])
+                    && matches!(
+                        e["variant"].as_str(),
+                        Some("success" | "info" | "warning" | "error")
+                    )
+                    && blueprint_string_ok(&e["header"])
+                    && blueprint_string_ok(&e["caption"])
+                    && e["durationSeconds"]
+                        .as_f64()
+                        .is_some_and(|d| (1.0..=30.0).contains(&d))
+            }
+            Some("event") => {
+                keys(&["name", "valueType", "text"])
+                    && blueprint_string_ok(&e["name"])
+                    && e.get("valueType")
+                        .is_none_or(|t| t.as_str().is_some_and(blueprint_data_type_ok))
+                    && e.get("text").is_none_or(debug_text_ok)
+            }
+            _ => false,
+        }
+}
+fn debug_value_ok(v: &Value) -> bool {
+    keys_within(
+        v,
+        &["graphId", "nodeId", "valueType", "text", "changedMs", "seq"],
+    ) && id_ok(&v["graphId"])
+        && id_ok(&v["nodeId"])
+        && v["valueType"].as_str().is_some_and(blueprint_data_type_ok)
+        && debug_text_ok(&v["text"])
+        && debug_time_ok(&v["changedMs"])
+        && debug_seq_ok(&v["seq"])
+}
+// The Blueprint debug log page of slice F: entries, Debug Value values, and counters.
+pub fn validate_blueprint_debug(data: &Value) -> Result<(), AppError> {
+    require(
+        keys_within(data, &["latest", "next", "dropped", "entries", "values"])
+            && debug_count_ok(&data["latest"])
+            && debug_count_ok(&data["next"])
+            && debug_count_ok(&data["dropped"])
+            && data["entries"].as_array().is_some_and(|entries| {
+                entries.len() <= MAX_DEBUG_PAGE && entries.iter().all(debug_entry_ok)
+            })
+            && data["values"].as_array().is_some_and(|values| {
+                values.len() <= MAX_DEBUG_VALUES && values.iter().all(debug_value_ok)
+            }),
+        "invalid Blueprint debug log",
+    )
 }
 fn validate_blueprint_inspect(data: &Value) -> Result<(), AppError> {
     require(
@@ -1998,6 +2090,7 @@ pub fn validate_call(method: &str, params: &Value) -> Result<(), AppError> {
         "blueprintRun" => decode::<BlueprintRunParams>(params).map(|_| ()),
         "blueprintEdit" => validate_blueprint_ops(&decode::<BlueprintEditParams>(params)?.ops),
         "blueprintInspect" => decode::<BlueprintInspectParams>(params).map(|_| ()),
+        "blueprintDebug" => decode::<BlueprintDebugParams>(params).map(|_| ()),
         "captureFrame" => decode::<CaptureParams>(params)?.validate(),
         "benchmarkStart" => decode::<BenchmarkParams>(params).map(|_| ()),
         "benchmarkStatus" | "benchmarkCancel" => decode::<RunParams>(params).map(|_| ()),
@@ -2058,6 +2151,7 @@ pub fn validate_result(method: &str, result: &Value) -> Result<(), AppError> {
             | "blueprintRun"
             | "blueprintEdit"
             | "blueprintInspect"
+            | "blueprintDebug"
             | "captureFrame"
             | "benchmarkStart"
             | "benchmarkStatus"
@@ -2098,6 +2192,7 @@ pub fn validate_result(method: &str, result: &Value) -> Result<(), AppError> {
             validate_device_kinds(&r.devices)
         }
         "blueprintInspect" => validate_blueprint_inspect(data),
+        "blueprintDebug" => validate_blueprint_debug(data),
         "captureFrame" => decode::<CaptureRecord>(data)?.validate(),
         "benchmarkStart" | "benchmarkStatus" | "benchmarkCancel" => {
             decode::<BenchmarkRun>(data)?.validate()
