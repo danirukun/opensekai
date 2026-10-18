@@ -4,6 +4,8 @@ OpenSekai is the working name for an open-source 3D VTubing and live production 
 
 Start on macOS. Keep the core portable to Windows, and keep a path to mobile. Use web technology for rendering, a Tauri v2 desktop host, and external tracking apps. The main performance target is a 3D concert hall with one or two performers at 1920 × 1080 and 60 FPS.
 
+![The OpenSekai Editor beside the transparent OBS output of a two-light stage demo](docs/images/editor-and-obs.png)
+
 ## Status
 
 The macOS app runs a session worker as the single scene authority. It also has a VRM/glTF renderer, a separate editor window, a transparent OBS output, and MCP tools. The [Warudo parity checklist](docs/warudo-parity.md) owns feature status. It claims only behavior that was verified.
