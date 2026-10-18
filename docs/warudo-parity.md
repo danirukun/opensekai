@@ -305,6 +305,7 @@ These split the first editor slice from broad OSE-08 and SCN-02. The broad boxes
 - [x] UI-09 — Asset Rename/Duplicate/Remove menu, inline name editing, safe stopped/unassigned copies, camera guard and source cleanup on macOS. Duplicate-VRM memory failure reproduced and corrected with bounded textures. [Check](evaluation/asset-management.md). [GitHub #137](https://github.com/danirukun/opensekai/issues/137)
 - [x] UI-10 — Exact Scene preview camera frame, responsive fit, and editor-only output boundary. [GitHub #138](https://github.com/danirukun/opensekai/issues/138)
 - [ ] UI-11 — Toggleable stats.js Scene preview monitor. Source and release build pass; live macOS toggle and OBS isolation check remain. [Check](evaluation/scene-performance-monitor.md). The preview renders at display rate, not 15 Hz ([avatar performance](evaluation/avatar-performance.md)). A macOS dev-build smoke check showed 56 FPS (range 0–60) on the monitor ([character check](evaluation/character-model-editor.md)). [GitHub #141](https://github.com/danirukun/opensekai/issues/141)
+- [ ] UI-12 — Editor-only camera preview guides (center mark, rule-of-thirds grid), saved per user. Later. [GitHub #203](https://github.com/danirukun/opensekai/issues/203)
 
 ## Evidence ledger
 
