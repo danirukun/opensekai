@@ -51,6 +51,17 @@ R13. **Audit.** `docs/evaluation/blueprint-node-audit.json` has one row for `cha
 
 R14. **Tests.** Unit tests: each easing at 0, 0.5, and 1; the overshoot of Back and Elastic; the tween sample for number, Vector3, and rotation (slerp on the shortest path, not Euler); replacement from the current value; cancel by an immediate write and by a patch; the tween limit; the blend shape and look-at math. Session tests through `createSession`: a graph eases a camera Field of View and an entity Position over N ticks, the frames show the intermediate values, and the scene revision increases once after the end; ticks without a Blueprint run continue the tween; an expression fade with easing; a blend shape weight; a look-at weight. No test of static copy.
 
+## Implementation notes (2026-10-18)
+
+These notes record the reversible choices of the implementation. They add to the requirements above.
+
+- R3 and R7: an expression weight and a blend shape weight are clamped to 0 to 1 at each sample, because `AvatarPose.expressions` accepts only that range. A Back or Elastic ease therefore does not overshoot a weight. A rotation sample can overshoot.
+- R3: the tween writes through the same `writeOverride` function as an immediate write, so the follow rule of an Orbit Character camera (camera workflow R6a) applies to each sample.
+- R4: an immediate write stops the tween only when the write is valid. A failed immediate write leaves the tween and becomes the runtime error of its graph.
+- R8 and R11: `transitionSeconds` 0 on Set BlendShape or Look At changes the value at once, as without the setting.
+- R2: the definition test now compares the fields of a node with the keys of its settings schema, not with the keys of its defaults, because the transition settings have no default.
+- Tick order: Blueprint step, tween samples, idle commit, frame evaluation, expression, blend shape, and look-at advance, then pose composition (expressions, blend shapes, bone offsets with look-at).
+
 ## E — Entities
 
 - `EASINGS`, `Easing`, `EasingSchema`, `ease(name, t)` (`packages/contracts/src/easing.ts`).
