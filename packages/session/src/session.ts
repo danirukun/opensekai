@@ -1,8 +1,10 @@
-import { IdSchema, ParamSchemas, AssetRecordSchema, type AssetRecord, type ExpressionState, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate, type AppError, type InputUpdate, type BlueprintInspect, type AvatarPose } from "@opensekai/contracts";
+import { IdSchema, ParamSchemas, AssetRecordSchema, type AssetRecord, type ExpressionState, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate, type AppError, type InputUpdate, type BlueprintInspect, type AvatarPose, type DeviceKind } from "@opensekai/contracts";
 import { createTransformAdapter } from "./ecs";
 import {createTrackingComposer} from "./tracking";
 import { createBlueprintRuntime, logicKey, type BlueprintEvent, type GraphRun, type StepEnv } from './blueprint-runtime';
 import { createBlueprintStore } from './blueprint-store';
+import { NO_DEVICES, type DeviceEnv } from './blueprint-eval';
+import { createDeviceInput } from './devices';
 import { applyEffects, applyOperations } from './scene-ops';
 import { isBoneOffsetEffect, isExpressionEffect, isOverrideEffect, isSceneEffect } from './blueprint';
 import { composeBoneOffsets, EMPTY_BONE_OFFSETS, writeBoneOffset, type BoneOffsets } from './bone-offsets';
@@ -23,7 +25,7 @@ export interface Session {
     }>;
     ingestTracking(update:TrackingUpdate):Reply<null>;
     advance(elapsedMs: number, trackingNowMs?:number, input?: InputUpdate): RuntimeFrame;
-    editBlueprints(batch: unknown): Reply<{ revision: number; keystrokes: string[]; heldKeys?: string[] }>;
+    editBlueprints(batch: unknown): Reply<{ revision: number; keystrokes: string[]; heldKeys?: string[]; devices?: DeviceKind[] }>;
     inspectBlueprints(sinceRevision?: number): BlueprintInspect;
     runBlueprint(graphId: Id, triggerNodeId: Id): Reply<{revision: number}>;
     setAssetRecords(records: readonly AssetRecord[]): void;
@@ -71,12 +73,15 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
         console.error('Blueprint step failed', error);
     };
     // Each run's effects go onto a scratch copy first, so a run whose effects fail leaves no Flip Flop or delay change behind.
+    const devices = createDeviceInput();
+    // The device state of the last clock; a manual run reads it too.
+    let deviceEnv: DeviceEnv = NO_DEVICES;
     const stepBlueprints = (events: BlueprintEvent[], nowMs: number, held: ReadonlySet<string>): { runs: GraphRun[]; committed: Reply<{ revision: number }> } => {
         let working: SceneView | null = null;
         let layer = overrides;
         let faces = reconcileExpressions(expressions, persistent);
         let offsets = boneOffsets;
-        const env: StepEnv = { held, scene: () => applyOverrides(working ?? persistent, layer), previousPose: avatarId => previousPoses.get(avatarId) ?? null };
+        const env: StepEnv = { held, devices: deviceEnv, scene: () => applyOverrides(working ?? persistent, layer), previousPose: avatarId => previousPoses.get(avatarId) ?? null };
         const runs = runtime.step(events, nowMs, run => {
             if (run.effects.length === 0) return null;
             const sceneEffects = run.effects.filter(isSceneEffect);
@@ -216,7 +221,9 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             failedThisTick = false;
             boneOffsets = EMPTY_BONE_OFFSETS;
             try {
-                const events: BlueprintEvent[] = [...(input?.events?.map(event => ({ kind: 'keystroke' as const, accelerator: event.accelerator })) ?? []), { kind: 'update' }];
+                const device = devices.ingest(input?.devices);
+                const events: BlueprintEvent[] = [...(input?.events?.map(event => ({ kind: 'keystroke' as const, accelerator: event.accelerator })) ?? []), ...device.events.map(event => ({ kind: 'device' as const, event })), { kind: 'update' }];
+                deviceEnv = device.env;
                 stepBlueprints(events, elapsedMs, new Set(input?.held ?? []));
                 commitIdle(elapsedMs);
             } catch (error) {

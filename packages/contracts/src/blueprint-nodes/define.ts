@@ -14,7 +14,8 @@ export type BlueprintField =
  | { key: string; label: string; kind: 'variable'; variableType: 'number' | 'boolean' }
  | { key: string; label: string; kind: 'cases' }
  | { key: string; label: string; kind: 'keystroke' }
- | { key: string; label: string; kind: 'key' | 'property' | 'space' | 'bone' };
+ | { key: string; label: string; kind: 'key' | 'property' | 'space' | 'bone' }
+ | { key: string; label: string; kind: 'choice'; options: readonly { value: string | number; label: string }[] };
 export interface NodeDefinition<T extends string = string, S extends z.ZodType = z.ZodType> {
  type: T; label: string; category: NodeCategory; keywords: readonly string[];
  settings: S;

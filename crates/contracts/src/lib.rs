@@ -22,6 +22,8 @@ macro_rules! object { ($name:ident { $($field:ident : $ty:ty),* $(,)? }) => {#[d
 macro_rules! strings { ($name:ident { $($variant:ident => $wire:literal),* $(,)? }) => {#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)] pub enum $name {$(#[serde(rename=$wire)] $variant),*}} }
 mod tracking;
 pub use tracking::*;
+mod devices;
+pub use devices::*;
 strings!(Backend { Webgpu=>"webgpu", Webgl2=>"webgl2" });
 strings!(Capability { Read=>"read", Edit=>"edit", Capture=>"capture", Benchmark=>"benchmark" });
 strings!(Role { Publisher=>"publisher", Operator=>"operator", Renderer=>"renderer" });
@@ -858,6 +860,8 @@ pub struct BlueprintEditResult {
     pub keystrokes: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub held_keys: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub devices: Option<Vec<DeviceKind>>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -878,15 +882,20 @@ pub struct InputUpdate {
     pub events: Vec<InputEvent>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub held: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub devices: Option<DeviceUpdate>,
 }
 impl InputUpdate {
     pub fn validate(&self) -> Result<(), AppError> {
         require(
             self.events.len() <= 16
                 && self.held.len() <= 16
-                && !(self.events.is_empty() && self.held.is_empty()),
+                && !(self.events.is_empty() && self.held.is_empty() && self.devices.is_none()),
             "invalid input event count",
         )?;
+        if let Some(devices) = &self.devices {
+            devices.validate()?;
+        }
         for code in &self.held {
             require(
                 !code.is_empty() && code.chars().count() <= 32,
@@ -1182,6 +1191,9 @@ fn validate_blueprint_inspect(data: &Value) -> Result<(), AppError> {
             "invalid held keys",
         )?;
     }
+    if let Some(devices) = data.get("devices") {
+        validate_device_kinds(&Some(decode::<Vec<DeviceKind>>(devices)?))?;
+    }
     match data["kind"].as_str() {
         Some("snapshot") => {
             require(
@@ -1194,6 +1206,7 @@ fn validate_blueprint_inspect(data: &Value) -> Result<(), AppError> {
                         "errors",
                         "keystrokes",
                         "heldKeys",
+                        "devices",
                     ],
                 ),
                 "invalid Blueprint snapshot",
@@ -1215,6 +1228,7 @@ fn validate_blueprint_inspect(data: &Value) -> Result<(), AppError> {
                         "errors",
                         "keystrokes",
                         "heldKeys",
+                        "devices",
                     ],
                 ),
                 "invalid Blueprint delta",
@@ -1938,7 +1952,8 @@ pub fn validate_result(method: &str, result: &Value) -> Result<(), AppError> {
                         .iter()
                         .all(|k| (1..=32).contains(&k.chars().count())),
                 "invalid held keys",
-            )
+            )?;
+            validate_device_kinds(&r.devices)
         }
         "blueprintInspect" => validate_blueprint_inspect(data),
         "captureFrame" => decode::<CaptureRecord>(data)?.validate(),
@@ -1978,9 +1993,11 @@ pub fn parse_wire(bytes: &[u8]) -> Result<WireMessage, AppError> {
             if let Some(update) = input {
                 update.validate()?;
             }
+            // Device input may use the tracking limit: 32 device events and 4 pads exceed the plain limit.
+            let devices = input.as_ref().is_some_and(|i| i.devices.is_some());
             require(
                 bytes.len()
-                    <= if tracking.is_some() {
+                    <= if tracking.is_some() || devices {
                         MAX_TRACKING_CLOCK_BYTES
                     } else {
                         MAX_CLOCK_BYTES

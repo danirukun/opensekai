@@ -1,12 +1,14 @@
 import { applyBlueprintOps, MAX_BLUEPRINT_SET_BYTES, BlueprintBatchSchema, type AppError, type BlueprintBatch, type BlueprintGraph, type BlueprintInspect, type Id, type Reply } from '@opensekai/contracts';
 import { compileBlueprint, fail, type CompiledBlueprint } from './blueprint';
 import { activeAccelerators, activeHeldKeys, type BlueprintRuntime } from './blueprint-runtime';
+import type { DeviceKind } from '@opensekai/contracts';
 
 const heldKeysField = (keys: string[]) => (keys.length ? { heldKeys: keys } : {});
+const devicesField = (kinds: DeviceKind[]) => (kinds.length ? { devices: kinds } : {});
 const JOURNAL = 64, DELTA = 32, MAX_ACCELERATORS = 64, MAX_HELD_KEYS = 16, DELTA_BYTES = 160 * 1024;
 const encoder = new TextEncoder();
 export interface BlueprintStore {
- edit(batch: unknown): Reply<{ revision: number; keystrokes: string[]; heldKeys?: string[] }>;
+ edit(batch: unknown): Reply<{ revision: number; keystrokes: string[]; heldKeys?: string[]; devices?: DeviceKind[] }>;
  inspect(sinceRevision?: number, runtimeErrors?: ReadonlyMap<Id, AppError>): BlueprintInspect;
  revision(): number;
  active(graphId: Id): BlueprintGraph | undefined;
@@ -59,7 +61,7 @@ export function createBlueprintStore(runtime: BlueprintRuntime): BlueprintStore 
    keys.clear(); for (const [id, key] of nextKeys) keys.set(id, key);
    revision += 1;
    journal = [...journal, { ...batch.data, revision }].slice(-JOURNAL);
-   return { ok: true, data: { revision, keystrokes: runtime.keystrokes(), ...heldKeysField(runtime.heldKeys()) } };
+   return { ok: true, data: { revision, keystrokes: runtime.keystrokes(), ...heldKeysField(runtime.heldKeys()), ...devicesField(runtime.devices()) } };
   },
   inspect(since, runtimeErrors = new Map()) {
    const errors = [
@@ -70,7 +72,7 @@ export function createBlueprintStore(runtime: BlueprintRuntime): BlueprintStore 
    const range = since === undefined ? [] : journal.filter(entry => entry.revision > since);
    const delta = since !== undefined && since <= revision && since >= oldest - 1 && range.length <= DELTA
     && !range.some(entry => entry.ops.some(op => op.kind === 'replaceAll' || op.kind === 'createGraph'));
-   const keystrokes = runtime.keystrokes(), held = heldKeysField(runtime.heldKeys());
+   const keystrokes = runtime.keystrokes(), held = { ...heldKeysField(runtime.heldKeys()), ...devicesField(runtime.devices()) };
    const reply: BlueprintInspect = delta
     ? { kind: 'delta', revision, batches: structuredClone(range), errors, keystrokes, ...held }
     : { kind: 'snapshot', revision, blueprints: structuredClone(documents), errors, keystrokes, ...held };

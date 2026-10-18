@@ -213,6 +213,7 @@ impl Shared {
                     update = Some(InputUpdate {
                         events: vec![],
                         held,
+                        devices: None,
                     })
                 }
             }

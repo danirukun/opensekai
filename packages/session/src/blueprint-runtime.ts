@@ -1,14 +1,15 @@
-import { BlueprintSetSchema, keystrokeAccelerator, type AppError, type BlueprintGraph, type Id, type Reply } from '@opensekai/contracts';
-import { emptyState, type RunEnv, type RunState } from './blueprint-eval';
+import { BlueprintSetSchema, keystrokeAccelerator, type AppError, type BlueprintGraph, type DeviceEvent, type DeviceKind, type Id, type Reply } from '@opensekai/contracts';
+import { deviceTrigger, emptyState, type RunEnv, type RunState } from './blueprint-eval';
+import { activeDevices } from './devices';
 import { fnv1a } from './blueprint-random';
 import { compileBlueprint, fail, runFlow, type BlueprintEffect, type CompiledBlueprint, type FlowBudget, type PendingDelay } from './blueprint';
 
-export type BlueprintEvent = { kind: 'manual'; graphId: Id; nodeId: Id } | { kind: 'keystroke'; accelerator: string } | { kind: 'update' };
+export type BlueprintEvent = { kind: 'manual'; graphId: Id; nodeId: Id } | { kind: 'keystroke'; accelerator: string } | { kind: 'device'; event: DeviceEvent } | { kind: 'update' };
 export type StepEnv = Omit<RunEnv, 'deltaSeconds'>;
 export interface GraphRun { graphId: Id; effects: BlueprintEffect[]; error: AppError | null }
 // Called once per run, right after the run, before the next one. A returned error keeps the run's Flip Flop state and new delays uncommitted.
 export type RunGate = (run: GraphRun) => AppError | null;
-export interface BlueprintRuntime { install(graphs: unknown, fresh?: boolean): Reply<BlueprintGraph[]>; installCompiled(graphs: readonly CompiledBlueprint[], fresh?: boolean): void; keystrokes(): string[]; heldKeys(): string[]; step(events: BlueprintEvent[], nowMs: number, gate?: RunGate, env?: StepEnv): GraphRun[] }
+export interface BlueprintRuntime { install(graphs: unknown, fresh?: boolean): Reply<BlueprintGraph[]>; installCompiled(graphs: readonly CompiledBlueprint[], fresh?: boolean): void; keystrokes(): string[]; heldKeys(): string[]; devices(): DeviceKind[]; step(events: BlueprintEvent[], nowMs: number, gate?: RunGate, env?: StepEnv): GraphRun[] }
 
 interface Active { compiled: CompiledBlueprint; logic: string; state: RunState; delays: (PendingDelay & { order: number })[]; enable: boolean; lastUpdateMs?: number }
 const MAX_DELAYS = 32, TICK_VISITS = 1024, TICK_EFFECTS = 64;
@@ -64,6 +65,7 @@ export function createBlueprintRuntime(): BlueprintRuntime {
   },
   keystrokes: () => activeAccelerators(active.map(entry => entry.compiled.graph)),
   heldKeys: () => activeHeldKeys(active.map(entry => entry.compiled.graph)),
+  devices: () => activeDevices(active.map(entry => entry.compiled.graph)),
   step(events, nowMs, gate = () => null, base: StepEnv = { held: new Set<string>(), scene: () => null }) {
    const budget: FlowBudget = { visits: TICK_VISITS, effects: TICK_EFFECTS };
    const instant: RunEnv = { ...base, deltaSeconds: 0 };
@@ -90,6 +92,12 @@ export function createBlueprintRuntime(): BlueprintRuntime {
       entry.lastUpdateMs = nowMs;
       for (const node of starts) runs.push(run(entry, { nodeId: node.id, port: 'flow' }, budget, nowMs, gate, { ...base, deltaSeconds }));
      }
+     continue;
+    }
+    if (event.kind === 'device') {
+     for (const entry of active)
+      for (const node of entry.compiled.graph.enabled ? entry.compiled.graph.nodes : [])
+       if (deviceTrigger(node, event.event)) runs.push(run(entry, { nodeId: node.id, port: 'flow' }, budget, nowMs, gate, { ...instant, trigger: event.event }));
      continue;
     }
     for (const entry of active) {

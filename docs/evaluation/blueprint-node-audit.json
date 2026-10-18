@@ -63,6 +63,16 @@
     { "type": "character.setExpression", "warudoCategory": "Characters", "warudoCandidate": null, "evidence": "tests", "note": "Warudo name not recorded. Added by the character expressions slice (CHR-03, contract R13)." },
     { "type": "character.toggleExpression", "warudoCategory": "Characters", "warudoCandidate": null, "evidence": "tests", "note": "Warudo name not recorded. Added by the character expressions slice (CHR-03, contract R13)." },
     { "type": "character.getBoneRotation", "warudoCategory": "Characters", "warudoCandidate": "Get Character Bone Rotation", "evidence": "tests", "note": "Name from the Warudo Upper Body Rotation template file. Added by bundle B5 (contract R18). Reads normalized bones only; a raw (VMC) bone reads zero." },
-    { "type": "character.offsetBoneRotation", "warudoCategory": "Characters", "warudoCandidate": "Offset Character Bone Rotations", "evidence": "tests", "note": "Name from the Warudo Upper Body Rotation template file. Added by bundle B5 (contract R19). One bone for each node; the offset stops on the first tick after its graph stops." }
+    { "type": "character.offsetBoneRotation", "warudoCategory": "Characters", "warudoCandidate": "Offset Character Bone Rotations", "evidence": "tests", "note": "Name from the Warudo Upper Body Rotation template file. Added by bundle B5 (contract R19). One bone for each node; the offset stops on the first tick after its graph stops." },
+    { "type": "gamepad.pressed", "warudoCategory": "Input", "warudoCandidate": "On Gamepad Button Down", "evidence": "tests", "note": "Candidate name; the BP-13 live palette pass confirms it." },
+    { "type": "gamepad.released", "warudoCategory": "Input", "warudoCandidate": "On Gamepad Button Up", "evidence": "tests", "note": "Candidate name; the BP-13 live palette pass confirms it." },
+    { "type": "gamepad.held", "warudoCategory": "Input", "warudoCandidate": "Is Gamepad Button Pressed", "evidence": "tests", "note": "Candidate name; the BP-13 live palette pass confirms it." },
+    { "type": "gamepad.axis", "warudoCategory": "Input", "warudoCandidate": "Get Gamepad Axis", "evidence": "tests", "note": "Candidate name; the BP-13 live palette pass confirms it." },
+    { "type": "midi.noteOn", "warudoCategory": "MIDI", "warudoCandidate": "On MIDI Note On", "evidence": "tests", "note": "Candidate name; the BP-13 live palette pass confirms it." },
+    { "type": "midi.noteOff", "warudoCategory": "MIDI", "warudoCandidate": "On MIDI Note Off", "evidence": "tests", "note": "Candidate name; the BP-13 live palette pass confirms it." },
+    { "type": "midi.control", "warudoCategory": "MIDI", "warudoCandidate": "Get MIDI Control Change Value", "evidence": "tests", "note": "Candidate name; the BP-13 live palette pass confirms it." },
+    { "type": "pointer.position", "warudoCategory": "Input", "warudoCandidate": "Get Mouse Position", "evidence": "tests", "note": "Candidate name; the BP-13 live palette pass confirms it." },
+    { "type": "pointer.pressed", "warudoCategory": "Input", "warudoCandidate": "On Mouse Button Down", "evidence": "tests", "note": "Candidate name; the BP-13 live palette pass confirms it." },
+    { "type": "pointer.held", "warudoCategory": "Input", "warudoCandidate": "Is Mouse Button Pressed", "evidence": "tests", "note": "Candidate name; the BP-13 live palette pass confirms it." }
   ]
 }

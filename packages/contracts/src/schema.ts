@@ -2,6 +2,7 @@ import {TrackingConfigSchema,TrackingSmoothingSchema,AvatarIdleSchema,AvatarTrac
 import { BlueprintGraphSchema, BlueprintSetSchema } from './blueprint';
 import { BlueprintBatchSchema } from './blueprint-ops';
 import { KEYSTROKE_CODES } from './blueprint-nodes';
+import { DeviceKindListSchema, DeviceUpdateSchema } from './devices';
 import { z } from "zod";
 import { CameraAntiAliasingSchema, QualityProfileIdSchema } from './quality';
 import { AssetExpressionsSchema, AvatarExpressionsSchema, ExpressionNameSchema, ExpressionSettingsSchema, ExpressionStateSchema } from './expressions';
@@ -445,12 +446,13 @@ export const HeldCodeListSchema = z.array(z.enum(KEYSTROKE_CODES as [string, ...
 export const InputUpdateSchema = z.strictObject({
     events: z.array(z.strictObject({ kind: z.literal('keystroke'), accelerator: z.string().min(1).max(64) })).min(1).max(16).optional(),
     held: HeldCodeListSchema.optional(),
-}).refine(update => update.events !== undefined || update.held !== undefined, 'Input update is empty');
+    devices: DeviceUpdateSchema.optional(),
+}).refine(update => update.events !== undefined || update.held !== undefined || update.devices !== undefined, 'Input update is empty');
 export const BlueprintStatusSchema = z.strictObject({ graphId: IdSchema, kind: z.enum(['compile', 'runtime']), error: AppErrorSchema });
 const KeystrokeListSchema = z.array(z.string().min(1).max(64)).max(64);
 export const BlueprintInspectSchema = z.discriminatedUnion('kind', [
-    z.strictObject({ kind: z.literal('snapshot'), revision: u, blueprints: BlueprintSetSchema, errors: z.array(BlueprintStatusSchema).max(16), keystrokes: KeystrokeListSchema.optional(), heldKeys: HeldCodeListSchema.optional() }),
-    z.strictObject({ kind: z.literal('delta'), revision: u, batches: z.array(BlueprintBatchSchema.extend({ revision: u })).max(32).refine(batches => batches.every(b => b.ops.every(op => op.kind !== 'replaceAll' && op.kind !== 'createGraph')), 'A delta cannot carry replaceAll or createGraph'), errors: z.array(BlueprintStatusSchema).max(16), keystrokes: KeystrokeListSchema.optional(), heldKeys: HeldCodeListSchema.optional() }),
+    z.strictObject({ kind: z.literal('snapshot'), revision: u, blueprints: BlueprintSetSchema, errors: z.array(BlueprintStatusSchema).max(16), keystrokes: KeystrokeListSchema.optional(), heldKeys: HeldCodeListSchema.optional(), devices: DeviceKindListSchema.optional() }),
+    z.strictObject({ kind: z.literal('delta'), revision: u, batches: z.array(BlueprintBatchSchema.extend({ revision: u })).max(32).refine(batches => batches.every(b => b.ops.every(op => op.kind !== 'replaceAll' && op.kind !== 'createGraph')), 'A delta cannot carry replaceAll or createGraph'), errors: z.array(BlueprintStatusSchema).max(16), keystrokes: KeystrokeListSchema.optional(), heldKeys: HeldCodeListSchema.optional(), devices: DeviceKindListSchema.optional() }),
 ]);
 export type InputUpdate = z.infer<typeof InputUpdateSchema>;
 export type BlueprintStatus = z.infer<typeof BlueprintStatusSchema>;
@@ -497,7 +499,7 @@ export const ResultSchemas = {
         revision: u
     }),
     blueprintRun: z.strictObject({ revision: u }),
-    blueprintEdit: z.strictObject({ revision: u, keystrokes: KeystrokeListSchema, heldKeys: HeldCodeListSchema.optional() }),
+    blueprintEdit: z.strictObject({ revision: u, keystrokes: KeystrokeListSchema, heldKeys: HeldCodeListSchema.optional(), devices: DeviceKindListSchema.optional() }),
     blueprintInspect: BlueprintInspectSchema,
     captureFrame: CaptureRecordSchema,
     benchmarkStart: BenchmarkRunSchema,
@@ -660,13 +662,15 @@ export const WireMessageSchema = z.union([
     PingPongSchema
 ]);
 export type WireMessage = z.infer<typeof WireMessageSchema>;
+// A clock with device input may use the tracking clock limit: 32 device events and 4 pads exceed the plain limit.
+const deviceClock = (value: object) => 'input' in value && typeof value.input === 'object' && value.input !== null && 'devices' in value.input;
 export function parseWire(text: string): WireMessage {
     const value: unknown = JSON.parse(text);
     const capture = typeof value === "object" && value !== null && "kind" in value && value.kind === "captureReply";
     const diagnostics = typeof value === "object" && value !== null && "kind" in value && value.kind === "diagnostics";
     const clock = typeof value === "object" && value !== null && "kind" in value && value.kind === "clock";
     const screenshot = typeof value === "object" && value !== null && "kind" in value && value.kind === "screenshotReply";
-    if (new TextEncoder().encode(text).length > (clock ? (typeof value==='object' && value!==null && 'tracking' in value ? LIMITS.trackingClockBytes : LIMITS.clockBytes) : capture ? LIMITS.captureEnvelopeBytes : screenshot ? LIMITS.screenshotEnvelopeBytes : diagnostics ? LIMITS.diagnosticsBytes : LIMITS.jsonBytes))
+    if (new TextEncoder().encode(text).length > (clock ? (typeof value==='object' && value!==null && ('tracking' in value || deviceClock(value)) ? LIMITS.trackingClockBytes : LIMITS.clockBytes) : capture ? LIMITS.captureEnvelopeBytes : screenshot ? LIMITS.screenshotEnvelopeBytes : diagnostics ? LIMITS.diagnosticsBytes : LIMITS.jsonBytes))
         throw new Error("Message too large");
     return WireMessageSchema.parse(value);
 }

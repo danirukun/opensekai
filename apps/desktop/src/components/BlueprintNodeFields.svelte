@@ -59,6 +59,8 @@
   <Select label={field.label} value={String(settings[field.key])} options={propertyOptions(scene, String(settings.entityId))} onchange={event => set(field.key, event.currentTarget.value)} />
  {:else if field.kind === 'space'}
   <Select label={field.label} value={String(settings[field.key])} options={spaces} onchange={event => set(field.key, event.currentTarget.value)} />
+ {:else if field.kind === 'choice'}
+  <Select label={field.label} value={String(settings[field.key])} options={field.options.map(option => ({ value: String(option.value), label: option.label }))} onchange={event => set(field.key, field.options.find(option => String(option.value) === event.currentTarget.value)?.value)} />
  {:else if field.kind === 'keystroke'}
   <KeystrokeField value={settings as KeystrokeSettings} {platform} {unavailable} onchange={next => onsettings(next)} />
  {:else}
