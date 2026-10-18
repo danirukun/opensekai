@@ -1,13 +1,12 @@
 import { z } from 'zod';
 import { BlueprintNodeSchema, keystrokeHasModifier } from './blueprint-nodes';
+import { blueprintValueSchema, DATA_TYPES, type DataType, type ValueOf } from './blueprint-values';
 import { BlueprintCommentsSchema } from './blueprint-comments';
 const IdSchema = z.string().min(1).max(256);
 const VariableName = z.string().trim().min(1).max(64);
-export const BlueprintVariableSchema = z.discriminatedUnion('type', [
- z.strictObject({ id: IdSchema, name: VariableName, type: z.literal('number'), default: z.number().finite() }),
- z.strictObject({ id: IdSchema, name: VariableName, type: z.literal('boolean'), default: z.boolean() }),
-]);
-export type BlueprintVariable = z.infer<typeof BlueprintVariableSchema>;
+export type BlueprintVariable = { [T in DataType]: { id: string; name: string; type: T; default: ValueOf<T> } }[DataType];
+const variableOptions = DATA_TYPES.map(type => z.strictObject({ id: IdSchema, name: VariableName, type: z.literal(type), default: blueprintValueSchema(type) }));
+export const BlueprintVariableSchema = z.discriminatedUnion('type', variableOptions as unknown as [(typeof variableOptions)[number], ...(typeof variableOptions)[number][]]) as unknown as z.ZodType<BlueprintVariable>;
 
 export const BlueprintConnectionSchema = z.strictObject({
  id: IdSchema,

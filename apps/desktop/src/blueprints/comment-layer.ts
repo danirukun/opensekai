@@ -13,6 +13,8 @@ export interface CommentLayerEvents {
  open(id: string): void;
  // A press on a comment stops the event, so the canvas takes the keyboard focus here.
  focus(): void;
+ // False while the editor is read-only: a comment can then be selected but not moved or resized.
+ editable(): boolean;
 }
 export interface CommentLayer {
  sync(comments: readonly BlueprintComment[]): void;
@@ -70,6 +72,7 @@ export function createCommentLayer(holder: HTMLElement, zoom: () => number, even
    if (event.button !== 0) return;
    event.stopPropagation(); event.preventDefault(); events.focus();
    if (!chosen.has(id) || additive(event)) events.select([id], additive(event));
+   if (!events.editable()) return;
    const origin = { ...view.data.position };
    drag(id, event, (delta, phase) => {
     const to = { x: Math.round(origin.x + delta.x), y: Math.round(origin.y + delta.y) };
@@ -80,6 +83,7 @@ export function createCommentLayer(holder: HTMLElement, zoom: () => number, even
   handle.addEventListener('pointerdown', event => {
    if (event.button !== 0) return;
    event.stopPropagation(); event.preventDefault(); events.focus();
+   if (!events.editable()) return;
    const origin = { ...view.data.size };
    drag(id, event, (delta, phase) => {
     const size = commentSize({ width: origin.width + delta.x, height: origin.height + delta.y });

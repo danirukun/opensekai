@@ -85,6 +85,11 @@
 
  const act = (ops: BlueprintOp[]) => {
   const before = sync.view().find(item => item.id === selectedId);
+  // A disabled panel sends no inline value; the canvas goes back to the stored graph.
+  if (disabled && ops.some(op => op.kind === 'setNodeInput')) {
+   if (before) void editor?.show(before);
+   return { ok: false, error: { code: 'UNAVAILABLE', message: 'Blueprint editing is unavailable', ids: [] } } as const;
+  }
   if (ops.length === 0 || !before) return { ok: true, data: sync.view() } as const;
   const result = edit(ops);
   if (result.ok) { changedElsewhere = false; const after = result.data.find(item => item.id === before.id); if (after) history.record(before.id, before, after, ops); }
@@ -106,12 +111,12 @@
  }
  // The selected nodes, or the whole graph when fewer than two nodes are selected.
  function format(ids: string[]) {
-  if (!graph || !editor) return;
+  if (!graph || !editor || disabled) return;
   const chosen = ids.length > 1 ? graph.nodes.filter(item => ids.includes(item.id)) : graph.nodes;
   act(formatOps(graph.id, chosen, formatLayout(chosen, graph.connections, editor.sizes())));
  }
  function addComment(ids: string[], at: { x: number; y: number }) {
-  if (!graph || !editor) return;
+  if (!graph || !editor || disabled) return;
   const added = wrapComment(crypto.randomUUID(), editor.boxes().filter(box => ids.includes(box.id)), at);
   if (!act([{ kind: 'addComment', graphId: graph.id, comment: added }]).ok) return;
   const latest = sync.view().find(item => item.id === graph!.id);
@@ -168,6 +173,7 @@
    const mounted = await mountReteBlueprint(canvas, target, { onSelect: picked => { nodeId = picked; }, onOps: ops => { act(ops); }, onContextMenu: openMenu, onWireDrop: openDrop, onCommentSelect: ids => { commentIds = ids; }, onCommentOpen: id => { void openComment(id); } }, { views: { node: BlueprintNodeView, socket: BlueprintSocketView, connection: BlueprintConnectionView } });
    if (mine !== generation) { mounted.destroy(); return; }
    editor = mounted;
+   mounted.setEditable(!disabled);
    const latest = sync.view().find(item => item.id === id);
    if (latest) void mounted.show(latest);
   } catch { if (mine === generation) runError = 'Blueprint canvas unavailable'; }
@@ -319,7 +325,7 @@
   if (current.kind === 'comment' && action === 'delete') act(deleteOps(graph, [], [current.commentId]));
  }
  function remove() { if (graph && nodeId) act(deleteOps(graph, [nodeId])); }
- function removeComment() { if (graph && comment) act(deleteOps(graph, [], [comment.id])); }
+ function removeComment() { if (graph && comment && !disabled) act(deleteOps(graph, [], [comment.id])); }
  function settings(next: BlueprintNode['settings']) { if (graph && nodeId) act([{ kind: 'setNodeSettings', graphId: graph.id, nodeId, settings: next }]); }
  async function run(triggerId = trigger?.id) {
   if (!api || !graph || !triggerId || busy || disabled) return;
@@ -330,6 +336,7 @@
   } catch { runError = 'Session unavailable'; }
   finally { busy = false; }
  }
+ $effect(() => { editor?.setEditable(!disabled); });
  onMount(() => {
   clipboard = memory.clipboard.current;
   const off = sync.subscribe(update);

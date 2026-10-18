@@ -4,6 +4,7 @@ export * from "./fixtures";
 export * from "./marker";
 
 export * from './tracking';
+export * from './blueprint-values';
 export * from './blueprint';
 export * from './blueprint-nodes';
 export * from './blueprint-ops';

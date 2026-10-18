@@ -56,7 +56,7 @@ it('reloads after its batch is rejected because a remote client removed the node
 
 it('reports a compile error from the session without blocking the edit', async () => {
  const { a } = await setup();
- a.edit([{ kind: 'disconnect', graphId: 'flash-marker', connectionId: 'w2' }]);
+ a.edit([{ kind: 'addNode', graphId: 'flash-marker', node: { id: 'broken', version: 1, type: 'variable.getNumber', settings: { variableId: 'missing' }, position: { x: 0, y: 0 } } }]);
  await a.idle();
  expect(a.errors()).toEqual([expect.objectContaining({ graphId: 'flash-marker', kind: 'compile' })]);
 });

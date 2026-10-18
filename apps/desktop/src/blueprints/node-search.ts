@@ -1,4 +1,4 @@
-import { NODE_CATEGORIES, NODE_DEFINITIONS, type BlueprintKind, type DefaultRefs, type NodeCategory, type PortType } from '@opensekai/contracts';
+import { canConnect, NODE_CATEGORIES, NODE_DEFINITIONS, type BlueprintKind, type DefaultRefs, type NodeCategory, type PortType } from '@opensekai/contracts';
 
 export interface WireNeed { side: 'inputs' | 'outputs'; type: PortType }
 export interface SearchEntry { type: BlueprintKind; label: string; port?: string }
@@ -24,7 +24,8 @@ export function searchNodes(query: string, refs: DefaultRefs, need?: WireNeed, f
   let port: string | undefined;
   if (need) {
    const ports = definition.ports(settings as never)[need.side];
-   port = Object.keys(ports).find(name => ports[name] === need.type);
+   // The dragged port is the output when the candidate offers an input, and the input otherwise.
+   port = Object.keys(ports).find(name => need.side === 'inputs' ? canConnect(need.type, ports[name]!) : canConnect(ports[name]!, need.type));
    if (port === undefined) continue;
   }
   const list = groups.get(definition.category) ?? [];
