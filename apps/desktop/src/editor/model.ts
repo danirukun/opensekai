@@ -1,5 +1,5 @@
-import { ExpressionNameSchema,ExpressionSettingsSchema,TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,TrackingSmoothingSchema,EntityNameSchema,ShowSceneSchema,IdSchema,CameraAntiAliasingSchema,CameraNavigationSchema } from '@opensekai/contracts';
-import type { ExpressionSettings, AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing, CameraAntiAliasing, CameraNavigation, CameraScreenshotResult } from '@opensekai/contracts';
+import { ExpressionNameSchema,ExpressionSettingsSchema,TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,TrackingSmoothingSchema,EntityNameSchema,ShowSceneSchema,IdSchema,CameraAntiAliasingSchema,CameraNavigationSchema,LightSettingsSchema,ReflectionsIntensitySchema } from '@opensekai/contracts';
+import type { ExpressionSettings, AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing, CameraAntiAliasing, CameraNavigation, CameraScreenshotResult, LightSettings } from '@opensekai/contracts';
 import {makeEntityCopy} from './asset-management';
 type CameraLens=Extract<SceneEntity,{kind:'camera'}>['lens'];
 export interface EditorView {
@@ -118,6 +118,14 @@ export function createEditorModel(api: AppApi) {
   setEnvironmentModel(entityId:Id,assetId:Id|null,expectedRevision?:number):Promise<Reply<{revision:number}>> {
    const parsed=IdSchema.nullable().safeParse(assetId);if(!ofKind(entityId,'environment')||!parsed.success)return invalid();
    return patch({kind:'setEnvironmentModel',entityId,assetId:parsed.data},expectedRevision);
+  },
+  setEnvironmentReflections(entityId:Id,reflectionsIntensity:number,expectedRevision?:number):Promise<Reply<{revision:number}>> {
+   const parsed=ReflectionsIntensitySchema.safeParse(reflectionsIntensity);if(!ofKind(entityId,'environment')||!parsed.success)return invalid();
+   return patch({kind:'setEnvironmentReflections',entityId,reflectionsIntensity:parsed.data},expectedRevision);
+  },
+  setLight(entityId:Id,light:LightSettings,expectedRevision?:number):Promise<Reply<{revision:number}>> {
+   const parsed=LightSettingsSchema.safeParse(light);if(!ofKind(entityId,'light')||!parsed.success)return invalid();
+   return patch({kind:'setLight',entityId,light:parsed.data},expectedRevision);
   },
   setCameraRenderEnvironment(entityId:Id,renderEnvironment:boolean,expectedRevision?:number):Promise<Reply<{revision:number}>> {
    if(!ofKind(entityId,'camera'))return invalid();

@@ -2,7 +2,7 @@ import {it,expect,vi,beforeEach} from 'vitest';
 import {Group,Object3D} from 'three/webgpu';
 import {QUALITY_PROFILES,makeSmokeFrame,type RuntimeFrame} from '@opensekai/contracts';
 const ports=vi.hoisted(()=>({load:vi.fn(),render:vi.fn(),compile:vi.fn()}));
-vi.mock('../src/backend',()=>({initializeBackend:async()=>({backend:'webgl2',renderer:{info:{memory:{geometries:0,textures:0}},setSize:vi.fn(),renderAsync:ports.render,compileAsync:ports.compile,dispose:vi.fn()}})}));
+vi.mock('../src/backend',()=>({initializeBackend:async()=>({backend:'webgl2',renderer:{shadowMap:{enabled:false},info:{memory:{geometries:0,textures:0}},setSize:vi.fn(),renderAsync:ports.render,compileAsync:ports.compile,dispose:vi.fn()}})}));
 vi.mock('../src/assets',async original=>({...await original<typeof import('../src/assets')>(),createAssetLoader:()=>ports.load}));
 vi.mock('../src/avatar-pose',()=>({createAvatarBinding:(vrm:{root:Group})=>({root:vrm.root,apply:vi.fn()})}));
 import {createRenderer} from '../src/renderer';

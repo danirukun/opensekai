@@ -15,6 +15,8 @@ pub const MAX_SCREENSHOT_PNG_BYTES: usize = 8 * 1024 * 1024;
 pub const MAX_SCREENSHOT_MESSAGE_BYTES: usize = 12 * 1024 * 1024;
 pub const SCREENSHOT_TIMEOUT_MS: u64 = 5000;
 pub const MAX_CAMERAS: usize = 8;
+pub const MAX_LIGHTS: usize = 8;
+pub const MAX_SHADOW_LIGHTS: usize = 2;
 macro_rules! object { ($name:ident { $($field:ident : $ty:ty),* $(,)? }) => {#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)] #[serde(rename_all="camelCase", deny_unknown_fields)] pub struct $name {$(pub $field: $ty),*}} }
 macro_rules! strings { ($name:ident { $($variant:ident => $wire:literal),* $(,)? }) => {#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)] pub enum $name {$(#[serde(rename=$wire)] $variant),*}} }
 mod tracking;
@@ -31,6 +33,7 @@ strings!(FixtureId { SmokeV1=>"smoke_v1" });
 strings!(ProfileId { WebgpuSmokeV1=>"webgpu_smoke_v1", Webgl2SmokeV1=>"webgl2_smoke_v1" });
 strings!(QualityProfileId { PreviewV1=>"preview_v1", ProductionV1=>"production_v1", PerformanceV1=>"performance_v1" });
 strings!(CameraAntiAliasing { None=>"none", Fxaa=>"fxaa" });
+strings!(LightType { Directional=>"directional", Point=>"point" });
 strings!(MimeType { ImagePng=>"image/png" });
 object!(AppError {code:ErrorCode,message:String,ids:Vec<Id>});
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -117,6 +120,52 @@ impl Validate for CameraNavigation {
         }
     }
 }
+object!(LightShadow {
+    enabled: bool,
+    intensity: f64,
+    soft: bool,
+    bias: f64,
+    normal_bias: f64
+});
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LightSettings {
+    #[serde(rename = "type")]
+    pub light_type: LightType,
+    pub color: String,
+    pub intensity: f64,
+    pub range: f64,
+    pub affect_characters: bool,
+    pub affect_props: bool,
+    pub affect_environment: bool,
+    pub shadow: LightShadow,
+}
+fn light_color_ok(color: &str) -> bool {
+    color.len() == 7
+        && color.starts_with('#')
+        && color[1..]
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+}
+impl Validate for LightSettings {
+    fn validate(&self) -> Result<(), AppError> {
+        let within = |n: f64, min: f64, max: f64| n.is_finite() && (min..=max).contains(&n);
+        require(light_color_ok(&self.color), "invalid light color")?;
+        require(
+            within(self.intensity, 0., 1000.) && within(self.range, 0., 1000.),
+            "invalid light",
+        )?;
+        require(
+            within(self.shadow.intensity, 0., 1.)
+                && within(self.shadow.bias, -0.01, 0.01)
+                && within(self.shadow.normal_bias, 0., 1.),
+            "invalid light shadow",
+        )
+    }
+}
+fn reflections_intensity_ok(n: f64) -> bool {
+    n.is_finite() && (0. ..=2.).contains(&n)
+}
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub enum SceneEntity {
@@ -162,6 +211,19 @@ pub enum SceneEntity {
         transform: Transform,
         #[serde(rename = "assetId")]
         asset_id: Option<Id>,
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            rename = "reflectionsIntensity"
+        )]
+        reflections_intensity: Option<f64>,
+    },
+    Light {
+        id: Id,
+        name: String,
+        visible: bool,
+        transform: Transform,
+        light: LightSettings,
     },
     Camera {
         id: Id,
@@ -192,6 +254,7 @@ impl SceneEntity {
             | Self::Avatar { id, .. }
             | Self::Environment { id, .. }
             | Self::Camera { id, .. }
+            | Self::Light { id, .. }
             | Self::Tracking { id, .. } => id,
         }
     }
@@ -201,6 +264,7 @@ impl SceneEntity {
             | Self::Avatar { transform, .. }
             | Self::Environment { transform, .. }
             | Self::Camera { transform, .. }
+            | Self::Light { transform, .. }
             | Self::Tracking { transform, .. } => transform,
         }
     }
@@ -255,6 +319,17 @@ pub enum PatchOp {
         entity_id: Id,
         #[serde(rename = "assetId")]
         asset_id: Option<Id>,
+    },
+    SetEnvironmentReflections {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+        #[serde(rename = "reflectionsIntensity")]
+        reflections_intensity: f64,
+    },
+    SetLight {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+        light: LightSettings,
     },
     SetCameraRenderEnvironment {
         #[serde(rename = "entityId")]
@@ -1415,6 +1490,19 @@ impl Validate for SceneView {
             "too many environments",
         )?;
         require(cameras.len() <= MAX_CAMERAS, "too many cameras")?;
+        let lights: Vec<_> = self
+            .entities
+            .iter()
+            .filter_map(|e| match e {
+                SceneEntity::Light { light, .. } => Some(light),
+                _ => None,
+            })
+            .collect();
+        require(
+            lights.len() <= MAX_LIGHTS
+                && lights.iter().filter(|l| l.shadow.enabled).count() <= MAX_SHADOW_LIGHTS,
+            "too many lights",
+        )?;
         for e in &self.entities {
             if let SceneEntity::Camera {
                 navigation:
@@ -1499,6 +1587,14 @@ impl Validate for ScenePatch {
                 PatchOp::CreateEntity { entity } => entity.validate()?,
                 PatchOp::SetCameraLens { lens, .. } => lens.validate()?,
                 PatchOp::SetCameraNavigation { navigation, .. } => navigation.validate()?,
+                PatchOp::SetLight { light, .. } => light.validate()?,
+                PatchOp::SetEnvironmentReflections {
+                    reflections_intensity,
+                    ..
+                } => require(
+                    reflections_intensity_ok(*reflections_intensity),
+                    "invalid reflections intensity",
+                )?,
                 PatchOp::SetTrackingConfig { config, .. } => config.validate()?,
                 PatchOp::SetTrackingSmoothing { smoothing, .. } => smoothing.validate()?,
                 PatchOp::SetAvatarExpression { name, settings, .. } => {
@@ -2142,6 +2238,19 @@ impl Validate for SceneEntity {
             if let Some(navigation) = navigation {
                 navigation.validate()?;
             }
+        }
+        if let Self::Light { light, .. } = self {
+            light.validate()?;
+        }
+        if let Self::Environment {
+            reflections_intensity: Some(n),
+            ..
+        } = self
+        {
+            require(
+                reflections_intensity_ok(*n),
+                "invalid reflections intensity",
+            )?;
         }
         if let Self::Avatar {
             expressions: Some(expressions),
