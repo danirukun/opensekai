@@ -1,14 +1,14 @@
 # Blueprint debug check
 
-Slice F of bundle B13 ([contract](../../spdd/prompt/2026-10-18-blueprint-f-debug.md), #199). Checked 2026-10-18 on macOS 27.0.1 (arm64), Node 26.12.0, pnpm 12.8.1, on branch `opensekai/bp-f-debug`, last merged with the integration branch at `097d37a` (after slices I, C, and A). The review fixes (epoch, full value set, commit-gated recording, separate Debug Value samples, ring buffer, toast plan per poll) are included. Only automated checks ran. The desktop app, the editor window, the renderer, and OBS did not run, so no editor, macOS, or OBS result is claimed.
+Slice F of bundle B13 ([contract](../../spdd/prompt/2026-10-18-blueprint-f-debug.md), #199). Checked 2026-10-18 on macOS 27.0.1 (arm64), Node 26.12.0, pnpm 12.8.1, on branch `opensekai/bp-f-debug`, last merged with the integration branch at `eafcef0` (after slices I, C, A, and D). The review fixes (epoch, full value set, commit-gated recording, separate Debug Value samples, ring buffer, toast plan per poll) are included. Only automated checks ran. The desktop app, the editor window, the renderer, and OBS did not run, so no editor, macOS, or OBS result is claimed.
 
 ## Automated checks
 
 | Command | Result |
 | --- | --- |
 | `pnpm check` | Passed: all packages and `tsconfig.scripts.json`; svelte-check 0 errors, 0 warnings |
-| `pnpm test:unit` | 1138 passed in 152 files, 0 failed |
-| `pnpm test:integration` | 43 passed, 2 skipped in 20 files (19 passed, 1 skipped), with the ignored `artifacts/models/` files copied from the main checkout |
+| `pnpm test:unit` | 1224 passed in 160 files, 0 failed |
+| `pnpm test:integration` | 53 passed, 2 skipped in 22 files (21 passed, 1 skipped), with the ignored `artifacts/models/` files copied from the main checkout |
 | `cargo test -p opensekai-contracts` | 73 passed, 0 failed |
 | `cargo test -p opensekai-desktop` | 232 passed, 1 ignored, 0 failed (needs the ignored `src-tauri/resources/output/` bundle, copied from the main checkout) |
 
