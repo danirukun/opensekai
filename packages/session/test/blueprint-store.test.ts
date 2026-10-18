@@ -27,11 +27,11 @@ it('answers with a snapshot outside the journal or across a whole-graph batch', 
 
 it('keeps a document that does not compile, reports it, and keeps the last valid version active', () => {
  const store = loaded();
- const reply = store.edit(batch('cut', [{ kind: 'disconnect', graphId: 'flash-marker', connectionId: 'w2' }]));
+ const reply = store.edit(batch('cut', [{ kind: 'disconnect', graphId: 'flash-marker', connectionId: 'w2' }, { kind: 'addNode', graphId: 'flash-marker', node: { id: 'broken', version: 1, type: 'variable.getNumber', settings: { variableId: 'missing' }, position: { x: 0, y: 0 } } }]));
  expect(reply).toMatchObject({ ok: true, data: { keystrokes: ['Control+Alt+KeyH', 'Control+Alt+KeyJ'] } });
  const view = store.inspect();
  expect(view.kind === 'snapshot' && view.blueprints[1]!.connections.map(c => c.id)).not.toContain('w2');
- expect(view.errors).toEqual([{ graphId: 'flash-marker', kind: 'compile', error: expect.objectContaining({ message: 'Blueprint input is not connected', ids: ['show'] }) }]);
+ expect(view.errors).toEqual([{ graphId: 'flash-marker', kind: 'compile', error: expect.objectContaining({ message: 'Blueprint variable is missing', ids: ['broken'] }) }]);
  expect(store.active('flash-marker')!.connections.map(c => c.id)).toContain('w2');
  store.edit(batch('off', [{ kind: 'updateGraph', graphId: 'flash-marker', enabled: false }]));
  expect(store.active('flash-marker')!.enabled).toBe(false);
@@ -120,7 +120,7 @@ it('keeps a maximum-size snapshot below the message limit', () => {
  expect(bytes + 64 * 1024).toBeLessThan(LIMITS.jsonBytes);
 });
 
-const invalidToggle = () => ({ ...structuredClone(fixture.blueprints[0]!), nodes: [...structuredClone(fixture.blueprints[0]!.nodes), { id: 'dangling', version: 1, type: 'scene.setVisibility', settings: { entityId: 'performer' }, position: { x: 0, y: 0 } }] });
+const invalidToggle = () => ({ ...structuredClone(fixture.blueprints[0]!), nodes: [...structuredClone(fixture.blueprints[0]!.nodes), { id: 'dangling', version: 1, type: 'variable.getNumber', settings: { variableId: 'missing' }, position: { x: 0, y: 0 } }] });
 
 it('drops the old show last valid versions when a show is opened', () => {
  const store = loaded();

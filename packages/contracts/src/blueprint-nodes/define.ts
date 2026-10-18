@@ -1,17 +1,22 @@
 import { z } from 'zod';
+import type { DataType } from '../blueprint-values';
 import type { KeystrokeSettings } from './events';
 
-export type PortType = 'flow' | 'number' | 'boolean' | 'vector3';
+export type PortType = 'flow' | DataType;
 export interface PortShape { inputs: Record<string, PortType>; outputs: Record<string, PortType> }
-export type NodeCategory = 'Events' | 'Input' | 'Flow' | 'Values' | 'Math' | 'Logic' | 'Variables' | 'Scene' | 'Character';
-export const NODE_CATEGORIES: readonly NodeCategory[] = ['Events', 'Input', 'Flow', 'Values', 'Math', 'Logic', 'Variables', 'Scene', 'Character'];
-export interface DefaultRefs { entityId?: string; avatarId?: string; expression?: string; cameraId?: string; outputId?: string; keystroke: KeystrokeSettings; variables?: readonly { id: string; type: 'number' | 'boolean' }[] }
+export type NodeCategory = 'Events' | 'Input' | 'Flow' | 'Switches' | 'Timer' | 'Values' | 'Text' | 'Lists' | 'Math' | 'Logic' | 'Variables' | 'Scene' | 'Camera' | 'Character' | 'Blueprints' | 'Debug';
+// Palette order.
+export const NODE_CATEGORIES: readonly NodeCategory[] = ['Events', 'Input', 'Flow', 'Switches', 'Timer', 'Values', 'Text', 'Lists', 'Math', 'Logic', 'Variables', 'Scene', 'Camera', 'Character', 'Blueprints', 'Debug'];
+export interface DefaultRefs { entityId?: string; avatarId?: string; expression?: string; cameraId?: string; outputId?: string; keystroke: KeystrokeSettings; variables?: readonly { id: string; type: DataType }[] }
 export type BlueprintField =
  | { key: string; label: string; kind: 'number'; min?: number; max?: number }
  | { key: string; label: string; kind: 'boolean' }
  | { key: string; label: string; kind: 'count'; min: number; max: number }
  | { key: string; label: string; kind: 'entity' | 'camera' | 'output' | 'avatar' | 'expression' }
- | { key: string; label: string; kind: 'variable'; variableType: 'number' | 'boolean' }
+ | { key: string; label: string; kind: 'integer'; min?: number; max?: number }
+ | { key: string; label: string; kind: 'string'; maxLength?: number }
+ | { key: string; label: string; kind: 'vector3' }
+ | { key: string; label: string; kind: 'variable'; variableType: DataType }
  | { key: string; label: string; kind: 'cases' }
  | { key: string; label: string; kind: 'keystroke' }
  | { key: string; label: string; kind: 'key' | 'property' | 'space' | 'bone' };
