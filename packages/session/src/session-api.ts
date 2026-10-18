@@ -13,7 +13,7 @@ export function sessionApi(session: Session): Pick<AppApi, SessionMethod> {
   scenePatch: async patch => session.applyPatch(patch),
   sceneReplace: async ({ scene, expectedRevision }) => session.replaceScene(scene, expectedRevision),
   cameraSelect: async params => session.selectCamera(params),
-  blueprintRun: async ({ graphId, triggerNodeId }) => session.runBlueprint(graphId, triggerNodeId),
+  blueprintRun: async params => ('event' in params ? session.emitBlueprintEvent(params.event, params.payload) : session.runBlueprint(params.graphId, params.triggerNodeId)),
   blueprintEdit: async batch => session.editBlueprints(batch),
   blueprintInspect: async ({ sinceRevision }) => ({ ok: true, data: session.inspectBlueprints(sinceRevision) }) satisfies Reply<unknown>,
   blueprintDebug: async ({ since }) => ({ ok: true, data: session.debugBlueprints(since) }) satisfies Reply<unknown>,

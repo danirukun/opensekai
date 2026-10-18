@@ -86,7 +86,7 @@
   const first = record ? triggerableExpressions(record)[0] : undefined;
   return first ? [{ avatarId: entity.id, expression: first.name }] : [];
  })[0]);
- const refs = $derived<DefaultRefs>({ entityId: targets[0]?.id, avatarId: face?.avatarId, expression: face?.expression, cameraId: cameras[0]?.id, outputId, keystroke: defaultKeystroke(platform), variables: graph?.variables ?? [] });
+ const refs = $derived<DefaultRefs>({ entityId: targets[0]?.id, avatarId: face?.avatarId, expression: face?.expression, cameraId: cameras[0]?.id, outputId, keystroke: defaultKeystroke(platform), variables: graph?.variables ?? [], graphId: graph?.id });
  const taken = $derived(new Set((status?.warnings ?? []).flatMap(warning => warning.ids)));
  const inputWarning = $derived(status?.warnings.find(warning => warning.ids.includes('input-monitoring')));
  const deviceWarnings = $derived((status?.warnings ?? []).filter(warning => warning.ids.some(id => id === 'device-gamepad' || id === 'device-midi' || id === 'device-pointer')));
@@ -387,7 +387,7 @@
   <aside class="blueprint-inspector" aria-label="Node properties">
     <strong>{BLUEPRINT_LABELS[node.type]}</strong>
     <span class="blueprint-inspector-category" data-category={nodeDefinition(node.type).category.toLowerCase()}>{nodeDefinition(node.type).category}</span>
-    <BlueprintNodeFields {node} {scene} {assets} variables={graph?.variables ?? []} {platform} unavailable={node.type === 'event.keystroke' && taken.has(keystrokeAccelerator(node.settings))} onsettings={settings} />
+    <BlueprintNodeFields {node} {scene} {assets} {graphs} variables={graph?.variables ?? []} {platform} unavailable={node.type === 'event.keystroke' && taken.has(keystrokeAccelerator(node.settings))} onsettings={settings} />
     <Button variant="ghost" {disabled} onclick={remove}><Trash2 size={14}/>Delete node</Button>
   </aside>
   {:else if comment}

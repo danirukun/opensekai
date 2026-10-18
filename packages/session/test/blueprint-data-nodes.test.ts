@@ -230,9 +230,9 @@ it('fails a run that goes above the string or list limit and keeps the variables
  expect(runtime.install([graph]).ok).toBe(true);
  const manual = (nodeId: string) => ({ kind: 'manual' as const, graphId: 'g', nodeId });
  expect(runtime.step([manual('string'), manual('list'), manual('check')], 0)).toEqual([
-  { graphId: 'g', effects: [], error: { code: 'INVALID_INPUT', message: 'Blueprint value exceeds its limit', ids: ['second'] } },
-  { graphId: 'g', effects: [], error: { code: 'INVALID_INPUT', message: 'Blueprint value exceeds its limit', ids: ['append'] } },
-  { graphId: 'g', effects: [{ kind: 'setVisibility', entityId: 'marker', visible: true }], error: null },
+  { graphId: 'g', effects: [], error: { code: 'INVALID_INPUT', message: 'Blueprint value exceeds its limit', ids: ['second'] }, nodeId: 'string' },
+  { graphId: 'g', effects: [], error: { code: 'INVALID_INPUT', message: 'Blueprint value exceeds its limit', ids: ['append'] }, nodeId: 'list' },
+  { graphId: 'g', effects: [{ kind: 'setVisibility', entityId: 'marker', visible: true }], error: null, nodeId: 'check' },
  ]);
 });
 

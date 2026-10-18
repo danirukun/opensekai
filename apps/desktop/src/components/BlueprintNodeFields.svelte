@@ -5,8 +5,8 @@
  import { chooseTypedVariable, formatStringCases, parseStringCases, resizeTypes, typedVariableOptions } from '../blueprints/data-fields';
  import { boneOptions, dataTypeOptions, fitPropertySettings, formatCases, keyOptions, parseCases, parseScalar, propertyOptions, vectorParts } from '../blueprints/fields';
 
- let { node, scene, assets = [], variables, platform, unavailable, onsettings }: {
-  node: BlueprintNode; scene: SceneView | null; assets?: readonly AssetRecord[]; variables: readonly BlueprintVariable[]; platform: string; unavailable: boolean;
+ let { node, scene, assets = [], graphs = [], variables, platform, unavailable, onsettings }: {
+  node: BlueprintNode; scene: SceneView | null; assets?: readonly AssetRecord[]; graphs?: readonly { id: string; name: string }[]; variables: readonly BlueprintVariable[]; platform: string; unavailable: boolean;
   onsettings: (settings: BlueprintNode['settings']) => void;
  } = $props();
  const settings = $derived(node.settings as Record<string, unknown>);
@@ -43,7 +43,9 @@
  const settle = (field: HTMLInputElement, valid: boolean, stored: unknown) => { if (!valid) field.value = String(stored); };
  const stringInput = (field: Extract<BlueprintField, { kind: 'string' }>, input: HTMLInputElement) => {
   const value = parseScalar('string', input.value);
-  if (typeof value === 'string' && (field.maxLength === undefined || value.length <= field.maxLength)) set(field.key, value);
+  // The settings schema decides too: an event or timer name cannot be empty or only spaces.
+  const fits = typeof value === 'string' && (field.maxLength === undefined || value.length <= field.maxLength) && nodeDefinition(node.type).settings.safeParse({ ...settings, [field.key]: value }).success;
+  if (fits) set(field.key, value);
   else input.value = String(settings[field.key]);
  };
  const choices = (field: BlueprintField) =>
@@ -56,6 +58,7 @@
   : field.kind === 'camera' ? (scene?.entities ?? []).filter(entity => entity.kind === 'camera').map(entity => ({ value: entity.id, label: entity.name }))
   : field.kind === 'output' ? (scene?.outputs ?? []).map(output => ({ value: output.id, label: output.id }))
   : field.kind === 'variable' ? variables.filter(variable => variable.type === field.variableType).map(variable => ({ value: variable.id, label: variable.name }))
+  : field.kind === 'graph' ? graphs.map(graph => ({ value: graph.id, label: graph.name }))
   : field.kind === 'typedVariable' ? typedVariableOptions(variables, field.lists === true)
   : field.kind === 'bone' ? boneOptions()
   : field.kind === 'count' ? Array.from({ length: field.max - field.min + 1 }, (_, i) => ({ value: String(field.min + i), label: String(field.min + i) }))
@@ -78,7 +81,7 @@
  const counts = (max: number) => Array.from({ length: max + 1 }, (_, i) => ({ value: String(i), label: String(i) }));
  const options = (field: BlueprintField) => {
   const list = choices(field), value = settings[field.key];
-  return (field.kind === 'entity' || field.kind === 'camera' || field.kind === 'output' || field.kind === 'avatar' || field.kind === 'expression' || field.kind === 'blendshape' || field.kind === 'typedVariable') && typeof value === 'string' && !list.some(item => item.value === value)
+  return (field.kind === 'entity' || field.kind === 'camera' || field.kind === 'output' || field.kind === 'avatar' || field.kind === 'expression' || field.kind === 'blendshape' || field.kind === 'typedVariable' || field.kind === 'graph') && typeof value === 'string' && !list.some(item => item.value === value)
    ? [{ value, label: 'Missing' }, ...list] : list;
  };
 </script>

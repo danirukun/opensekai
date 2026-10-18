@@ -1,4 +1,5 @@
 import type { BlueprintGraph } from './blueprint';
+import { nodeDefinition, type BlueprintNode } from './blueprint-nodes';
 
 const MAX_NAME = 128;
 const SEEDS = [0x811c9dc5, 0x050c5d1f, 0x2b7e1516, 0x6a09e667] as const;
@@ -25,7 +26,13 @@ export function copyName(name: string, taken: readonly string[]): string {
  }
 }
 
-// Node, wire, and comment IDs are new; variable IDs are local to the graph and node settings refer to them, so they stay.
+// A copy of the node whose `graph` fields name `from` name `to` instead (a Blueprint control node that targets its own graph).
+export function retargetGraph<N extends BlueprintNode>(node: N, from: string, to: string): N {
+ const keys = nodeDefinition(node.type).fields.flatMap(field => (field.kind === 'graph' && (node.settings as Record<string, unknown>)[field.key] === from ? [field.key] : []));
+ return keys.length === 0 ? node : { ...node, settings: { ...node.settings, ...Object.fromEntries(keys.map(key => [key, to])) } };
+}
+
+// Node, wire, and comment IDs are new; a node that targets the graph itself targets the copy; variable IDs are local to the graph and node settings refer to them, so they stay.
 export function duplicateGraph(graph: BlueprintGraph, newGraphId: string, name: string): BlueprintGraph {
  const id = (old: string) => derivedId(newGraphId, old);
  const copy = structuredClone(graph);
@@ -34,7 +41,7 @@ export function duplicateGraph(graph: BlueprintGraph, newGraphId: string, name: 
   id: newGraphId,
   name,
   enabled: false,
-  nodes: copy.nodes.map(node => ({ ...node, id: id(node.id) })),
+  nodes: copy.nodes.map(node => retargetGraph({ ...node, id: id(node.id) }, graph.id, newGraphId)),
   connections: copy.connections.map(wire => ({ ...wire, id: id(wire.id), sourceNodeId: id(wire.sourceNodeId), targetNodeId: id(wire.targetNodeId) })),
   ...(copy.comments ? { comments: copy.comments.map(comment => ({ ...comment, id: id(comment.id) })) } : {}),
  };

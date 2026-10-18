@@ -88,7 +88,7 @@ it('fails an integer overflow and a division by zero, and the failed run changes
  const runtime = createBlueprintRuntime(), fresh = createBlueprintRuntime();
  runtime.install([doc]); fresh.install([doc]);
  const failed = runtime.step([{ kind: 'manual', graphId: 'g', nodeId: 'go' }], 0);
- expect(failed).toEqual([{ graphId: 'g', effects: [], error: { code: 'INVALID_INPUT', message: 'Blueprint data could not be evaluated', ids: ['second'] } }]);
+ expect(failed).toEqual([{ graphId: 'g', effects: [], error: { code: 'INVALID_INPUT', message: 'Blueprint data could not be evaluated', ids: ['second'] }, nodeId: 'go' }]);
  const held = { held: new Set(['KeyW']), scene: () => null };
  const after = values(runtime.step([{ kind: 'manual', graphId: 'g', nodeId: 'go' }], 10, undefined, held));
  // The failed run drew a random integer, but the draw was not kept: the next run draws the first value of a fresh state.

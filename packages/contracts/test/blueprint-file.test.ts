@@ -161,3 +161,13 @@ it('imports an avatar reference by ID, then by unique avatar name, and never to 
  const byIdMesh = exportBlueprint(graph([offset('turn', 'marker')]), scene);
  expect(ok(importBlueprint(byIdMesh, scene, ids())).report.missing).toEqual([{ name: 'marker', kind: 'mesh', id: 'marker', nodeIds: ['turn'] }]);
 });
+
+it('retargets a Blueprint control node of the own graph, and lists a target outside the file as missing', () => {
+ const control = (id: string, type: string, graphId: string) => ({ id, version: 1, type, settings: { graphId }, position: at });
+ const file = exportBlueprint(graph([manual, control('self', 'blueprint.disable', 'g'), control('other', 'blueprint.enable', 'elsewhere'), control('probe', 'blueprint.isEnabled', 'elsewhere')]), scene);
+ const imported = ok(importBlueprint(file, scene, ids()));
+ expect(imported.graph.nodes.map(node => (node.settings as { graphId?: string }).graphId)).toEqual([undefined, 'new-1', 'elsewhere', 'elsewhere']);
+ expect(imported.report).toMatchObject({ enabled: false, missing: [{ name: 'elsewhere', kind: 'blueprint', id: 'elsewhere', nodeIds: ['other', 'probe'] }] });
+ const own = ok(importBlueprint(exportBlueprint(graph([manual, control('self', 'blueprint.toggle', 'g')]), scene), scene, ids()));
+ expect(own.report).toMatchObject({ enabled: true, missing: [] });
+});

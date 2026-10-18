@@ -99,3 +99,15 @@ it('keeps comments through Blueprint file export and import', () => {
  const plain = importBlueprint(serializeBlueprintFile(exportBlueprint(find(base(), 'flash-marker'), scene)), scene, () => 'new');
  expect(plain.ok && plain.data.graph).not.toHaveProperty('comments');
 });
+
+it('points a Blueprint control node of the duplicated graph at the copy, and keeps targets in other graphs', () => {
+ const control = (id: string, type: string, graphId: string) => ({ id, version: 1 as const, type, settings: { graphId }, position: { x: 0, y: 0 } });
+ const source = ok(applyBlueprintOps(base(), [
+  { kind: 'addNode', graphId: 'flash-marker', node: control('self', 'blueprint.toggle', 'flash-marker') as BlueprintGraph['nodes'][number] },
+  { kind: 'addNode', graphId: 'flash-marker', node: control('peer', 'blueprint.enable', 'toggle-performer') as BlueprintGraph['nodes'][number] },
+ ]));
+ const copy = find(ok(applyBlueprintOps(source, [{ kind: 'duplicateGraph', graphId: 'flash-marker', newGraphId: 'copy-1' }])), 'copy-1');
+ const target = (id: string) => (copy.nodes.find(node => node.id === derivedId('copy-1', id))!.settings as { graphId: string }).graphId;
+ expect(target('self')).toBe('copy-1');
+ expect(target('peer')).toBe('toggle-performer');
+});

@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { BLUEPRINT_LABELS, BlueprintNodeSchema, NODE_DEFINITIONS, blueprintNodeCatalog, blueprintPorts, defaultBlueprintSettings, type BlueprintKind, type BlueprintNode, type DefaultRefs } from '../src';
 
-const refs: DefaultRefs = { entityId: 'e', avatarId: 'a', expression: 'happy', cameraId: 'c', outputId: 'o', keystroke: { code: 'KeyH', control: true, alt: true, shift: false, meta: false }, variables: [{ id: 'n', type: 'number' }, { id: 'b', type: 'boolean' }, { id: 'i', type: 'integer' }, { id: 'l', type: 'string[]' }] };
+const refs: DefaultRefs = { entityId: 'e', avatarId: 'a', expression: 'happy', cameraId: 'c', outputId: 'o', keystroke: { code: 'KeyH', control: true, alt: true, shift: false, meta: false }, variables: [{ id: 'n', type: 'number' }, { id: 'b', type: 'boolean' }, { id: 'i', type: 'integer' }, { id: 'l', type: 'string[]' }], graphId: 'g' };
 const nodeOf = (type: string, settings: unknown) => ({ id: 'x', version: 1, type, settings, position: { x: 0, y: 0 } });
 const ports = (type: BlueprintKind) => blueprintPorts(nodeOf(type, defaultBlueprintSettings(type, refs)) as BlueprintNode);
 
@@ -57,7 +57,7 @@ it('returns null defaults when the scene lacks the entity, camera, or output', (
 it('publishes a catalog of every node with its ports and settings schema', () => {
  const catalog = blueprintNodeCatalog();
  expect(catalog).toHaveLength(NODE_DEFINITIONS.length);
- expect(catalog).toHaveLength(160);
+ expect(catalog).toHaveLength(174);
  expect(catalog.find(entry => entry.type === 'math.lerp')!.inputDefaults).toEqual({ b: 1, t: 0.5 });
  expect(catalog.find(entry => entry.type === 'vector3.scale')!.inputDefaults).toEqual({ factor: 1 });
  expect(catalog.find(entry => entry.type === 'math.add')!.inputDefaults).toEqual({});

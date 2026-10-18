@@ -4,7 +4,7 @@ import type { BoneOffsetEffect } from './bone-offsets';
 import type { BlendShapeEffect } from './blend-shapes';
 import type { LookAtEffect } from './look-at';
 import { DEBUG_EFFECT_KINDS, type DebugEffect, type DebugValueSample } from './debug-log';
-import { BlueprintLimitError, checkBlueprintValue, clearNodeState, cloneState, EVALUATORS, NO_ENV, type BlueprintValue, type Evaluator, type RunEnv, type RunState } from './blueprint-eval';
+import { BlueprintLimitError, checkBlueprintValue, clearNodeState, cloneState, EVALUATORS, NO_ENV, type BlueprintValue, type Evaluator, type NodeRequest, type RunEnv, type RunState } from './blueprint-eval';
 import { BlueprintGraphSchema, blueprintPorts, nodeDefinition, connectionType, ownPort, unconnectedInputValue, type BlueprintConnection, type BlueprintGraph, type BlueprintNode, type Id, type PortShape, type Reply } from '@opensekai/contracts';
 
 export type SceneEffect =
@@ -23,7 +23,7 @@ export interface CompiledBlueprint { graph: BlueprintGraph; nodes: Map<Id, Bluep
 export interface PendingDelay { nodeId: Id; dueMs: number }
 export interface FlowBudget { visits: number; effects: number }
 // `debug` holds the Debug Value samples of the run; they are not effects.
-export interface FlowResult { effects: BlueprintEffect[]; delays: PendingDelay[]; state: RunState; debug: DebugValueSample[] }
+export interface FlowResult { effects: BlueprintEffect[]; delays: PendingDelay[]; state: RunState; requests: NodeRequest[]; debug: DebugValueSample[] }
 
 const MAX_EVENT_VISITS = 512;
 const MAX_LOOP_ITERATIONS = 64;
@@ -81,7 +81,8 @@ export function compileBlueprint(input: unknown): Reply<CompiledBlueprint> {
   if (type === 'flow') {
    if (flowNext.has(key(source.id, connection.sourcePort))) return fail('Blueprint flow output has multiple connections', [source.id]);
    flowNext.set(key(source.id, connection.sourcePort), connection);
-   if (source.type !== 'flow.delay') push(flowEdges, source.id, target.id);
+   // The exit of Delay and Debounce runs in a later run, so it is not an immediate cycle.
+   if (source.type !== 'flow.delay' && source.type !== 'flow.debounce') push(flowEdges, source.id, target.id);
   } else {
    if (dataIn.has(key(target.id, connection.targetPort))) return fail('Blueprint input has multiple connections', [target.id]);
    dataIn.set(key(target.id, connection.targetPort), connection);
@@ -118,9 +119,11 @@ const readInput = (compiled: CompiledBlueprint, state: RunState, nodeId: Id, por
  return input(nodeId, port);
 };
 
-export function runFlow(compiled: CompiledBlueprint, start: { nodeId: Id; port: string }, state: RunState, budget: FlowBudget, nowMs: number, env: RunEnv = NO_ENV): Reply<FlowResult> {
+// `seed` writes into the state copy before the run (an On Event payload), so a failed run leaves the stored state as it was.
+export function runFlow(compiled: CompiledBlueprint, start: { nodeId: Id; port: string }, state: RunState, budget: FlowBudget, nowMs: number, env: RunEnv = NO_ENV, seed?: (state: RunState) => void): Reply<FlowResult> {
  const next = cloneState(state);
- const effects: BlueprintEffect[] = [], delays: PendingDelay[] = [], stack: Frame[] = [];
+ seed?.(next);
+ const effects: BlueprintEffect[] = [], delays: PendingDelay[] = [], stack: Frame[] = [], requests: NodeRequest[] = [];
  const observed = new Map<Id, BlueprintValue>();
  const follow = (nodeId: Id, ports: string[]) => {
   for (const port of [...ports].reverse()) { const wire = compiled.flowNext.get(key(nodeId, port)); if (wire) stack.push({ kind: 'enter', nodeId: wire.targetNodeId, port: wire.targetPort }); }
@@ -158,6 +161,7 @@ export function runFlow(compiled: CompiledBlueprint, start: { nodeId: Id; port: 
      effects.push(effect); follow(node.id, ['exit']);
     },
     delay: seconds => { delays.push({ nodeId: node.id, dueMs: nowMs + seconds * 1000 }); },
+    request: request => { requests.push({ ...request, nodeId: node.id }); },
     loop: (first, last, options = {}) => {
      if (last - first + 1 > (options.limit ?? MAX_LOOP_ITERATIONS)) throw new LoopLimit();
      if (last < first) endLoop(node.id, options.clear === true);
@@ -167,5 +171,5 @@ export function runFlow(compiled: CompiledBlueprint, start: { nodeId: Id; port: 
   } catch (error) { return fail(error instanceof LoopLimit ? 'Blueprint loop exceeded its iteration limit' : error instanceof BlueprintLimitError ? 'Blueprint value exceeds its limit' : 'Blueprint data could not be evaluated', [node.id]); }
   if (failure) return failure;
  }
- return { ok: true, data: { effects, delays, state: next, debug: debugValues(compiled, next, env, observed) } };
+ return { ok: true, data: { effects, delays, state: next, requests, debug: debugValues(compiled, next, env, observed) } };
 }

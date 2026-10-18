@@ -1,6 +1,6 @@
 import { applyBlueprintOps, MAX_BLUEPRINT_SET_BYTES, BlueprintBatchSchema, type AppError, type BlueprintBatch, type BlueprintGraph, type BlueprintInspect, type Id, type Reply } from '@opensekai/contracts';
 import { compileBlueprint, fail, type CompiledBlueprint } from './blueprint';
-import { activeAccelerators, activeHeldKeys, type BlueprintRuntime } from './blueprint-runtime';
+import { activeAccelerators, activeHeldKeys, listenedGraphs, type BlueprintRuntime } from './blueprint-runtime';
 import type { DeviceKind } from '@opensekai/contracts';
 
 const heldKeysField = (keys: string[]) => (keys.length ? { heldKeys: keys } : {});
@@ -52,8 +52,9 @@ export function createBlueprintStore(runtime: BlueprintRuntime): BlueprintStore 
     else nextErrors.set(doc.id, compiled.error);
    }
    const nextActive = withEnabled(next.data, nextValid);
-   if (activeAccelerators(nextActive.map(entry => entry.graph)).length > MAX_ACCELERATORS) return fail('Too many active keystrokes');
-   if (activeHeldKeys(nextActive.map(entry => entry.graph)).length > MAX_HELD_KEYS) return fail('Too many held keys');
+   const listened = listenedGraphs(nextActive.map(entry => entry.graph));
+   if (activeAccelerators(listened).length > MAX_ACCELERATORS) return fail('Too many active keystrokes');
+   if (activeHeldKeys(listened).length > MAX_HELD_KEYS) return fail('Too many held keys');
    runtime.installCompiled(nextActive, opened);
    documents = next.data;
    valid.clear(); for (const [id, compiled] of nextValid) valid.set(id, compiled);

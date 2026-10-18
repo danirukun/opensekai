@@ -20,12 +20,14 @@ import { TEXT_NODES } from './text';
 import { LIST_NODES } from './lists';
 import { SWITCH_NODES } from './switches';
 import { TYPED_VARIABLE_NODES } from './typed-variables';
+import { TIMER_NODES } from './timer';
+import { GRAPH_CONTROL_NODES } from './graph-control';
 
 export { defineNode, IntegerCasesSchema, MAX_SWITCH_CASES, NODE_CATEGORIES, type PortType, type PortShape, type NodeCategory, type DefaultRefs, type BlueprintField, type NodeDefinition } from './define';
 export { KEYSTROKE_CODES, KeystrokeSettingsSchema, keystrokeAccelerator, keystrokeHasModifier, type KeystrokeSettings } from './events';
 
 // Palette order inside a category follows this list.
-export const NODE_DEFINITIONS = [...EVENT_NODES, ...INPUT_NODES, ...FLOW_NODES, ...VALUE_NODES, ...MATH_NODES, ...VECTOR3_NODES, ...LOGIC_NODES, ...VARIABLE_NODES, ...SCENE_NODES, ...PROPERTY_NODES, ...CHARACTER_NODES, ...DEVICE_NODES, ...INTEGER_NODES, ...LITERAL_NODES, ...TEXT_NODES, ...LIST_NODES, ...SWITCH_NODES, ...TYPED_VARIABLE_NODES, ...DEBUG_NODES] as const;
+export const NODE_DEFINITIONS = [...EVENT_NODES, ...INPUT_NODES, ...FLOW_NODES, ...VALUE_NODES, ...MATH_NODES, ...VECTOR3_NODES, ...LOGIC_NODES, ...VARIABLE_NODES, ...SCENE_NODES, ...PROPERTY_NODES, ...CHARACTER_NODES, ...DEVICE_NODES, ...INTEGER_NODES, ...LITERAL_NODES, ...TEXT_NODES, ...LIST_NODES, ...SWITCH_NODES, ...TYPED_VARIABLE_NODES, ...TIMER_NODES, ...GRAPH_CONTROL_NODES, ...DEBUG_NODES] as const;
 type Definition = (typeof NODE_DEFINITIONS)[number];
 export type BlueprintKind = Definition['type'];
 export const BlueprintPositionSchema = z.strictObject({ x: finite, y: finite });
@@ -95,7 +97,7 @@ export function pruneInlineInputs<N extends BlueprintNode>(node: N, ports: PortS
  return (kept.length === 0 ? rest : { ...rest, inputs: Object.fromEntries(kept) }) as N;
 }
 
-const SAMPLE: DefaultRefs = { entityId: 'entity', cameraId: 'camera', outputId: 'output', avatarId: 'avatar', expression: 'happy', keystroke: { code: 'KeyH', control: true, alt: true, shift: false, meta: false }, variables: DATA_TYPES.map(type => ({ id: type, type })) };
+const SAMPLE: DefaultRefs = { entityId: 'entity', cameraId: 'camera', outputId: 'output', avatarId: 'avatar', expression: 'happy', keystroke: { code: 'KeyH', control: true, alt: true, shift: false, meta: false }, variables: DATA_TYPES.map(type => ({ id: type, type })), graphId: 'graph' };
 // Ports are shown for the default settings; `portsDependOnSettings` marks nodes whose port list changes with them.
 export const blueprintNodeCatalog = () => NODE_DEFINITIONS.map(definition => ({
  type: definition.type, label: definition.label, category: definition.category, keywords: [...definition.keywords],

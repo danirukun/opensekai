@@ -10379,5 +10379,28 @@
       "since": 4,
       "graphId": "g"
     }
+  },
+  {
+    "name": "blueprint-run-event-null-payload",
+    "target": "call",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "event": "show",
+      "payload": null
+    },
+    "method": "blueprintRun"
+  },
+  {
+    "name": "blueprint-run-event-and-trigger",
+    "target": "call",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "event": "show",
+      "graphId": "g",
+      "triggerNodeId": "n"
+    },
+    "method": "blueprintRun"
   }
 ]

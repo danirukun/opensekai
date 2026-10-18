@@ -848,10 +848,47 @@ impl Validate for ScreenshotReplyData {
         validate_base64(&self.png_base64, MAX_SCREENSHOT_PNG_BYTES)
     }
 }
-object!(BlueprintRunParams {
-    graph_id: Id,
-    trigger_node_id: Id
-});
+/// Either `{ graphId, triggerNodeId }` (a Manual Trigger) or `{ event, payload? }` (a custom event).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BlueprintRunParams {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub graph_id: Option<Id>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trigger_node_id: Option<Id>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub event: Option<String>,
+    /// `null` stays `Some(Value::Null)`, so `validate` rejects it as the TypeScript schema does.
+    #[serde(
+        default,
+        deserialize_with = "present_value",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub payload: Option<Value>,
+}
+fn present_value<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<Value>, D::Error> {
+    Value::deserialize(deserializer).map(Some)
+}
+impl BlueprintRunParams {
+    pub fn validate(&self) -> Result<(), AppError> {
+        let trigger = self.graph_id.is_some() && self.trigger_node_id.is_some();
+        let event = self.event.as_deref().is_some_and(|name| {
+            let name = name.trim();
+            !name.is_empty() && name.encode_utf16().count() <= 64
+        });
+        require(
+            (trigger && self.event.is_none() && self.payload.is_none())
+                || (event && self.graph_id.is_none() && self.trigger_node_id.is_none()),
+            "invalid Blueprint run",
+        )?;
+        require(
+            self.payload.as_ref().is_none_or(inline_value_ok),
+            "invalid event payload",
+        )
+    }
+}
 object!(BlueprintEditParams { client_id: Id, batch_id: Id, ops: Vec<Value> });
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -2090,7 +2127,7 @@ pub fn validate_call(method: &str, params: &Value) -> Result<(), AppError> {
         "scenePatch" => decode::<ScenePatch>(params)?.validate(),
         "sceneReplace" => decode::<SceneReplaceParams>(params)?.validate(),
         "cameraSelect" => decode::<CameraSelectParams>(params).map(|_| ()),
-        "blueprintRun" => decode::<BlueprintRunParams>(params).map(|_| ()),
+        "blueprintRun" => decode::<BlueprintRunParams>(params)?.validate(),
         "blueprintEdit" => validate_blueprint_ops(&decode::<BlueprintEditParams>(params)?.ops),
         "blueprintInspect" => decode::<BlueprintInspectParams>(params).map(|_| ()),
         "blueprintDebug" => decode::<BlueprintDebugParams>(params).map(|_| ()),
