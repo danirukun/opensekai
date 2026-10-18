@@ -62,8 +62,7 @@ it('reads a list default with one item on each line', () => {
  expect(parseList('boolean[]', 'true\nFalse')).toEqual([true, false]);
  expect(parseList('boolean[]', 'yes')).toBeNull();
  expect(parseList('string[]', '"a b"\n " c" ')).toEqual(['a b', ' c']);
- expect(parseList('string[]', 'a')).toBeNull();
- expect(parseList('string[]', '1')).toBeNull();
+ expect(parseList('string[]', 'a\n1')).toEqual(['a', '1']);
  expect(parseList('vector3[]', '0, 1, 0\n1,1,1')).toEqual([[0, 1, 0], [1, 1, 1]]);
  expect(parseList('number[]', '')).toEqual([]);
  expect(parseList('number[]', Array.from({ length: 257 }, () => '1').join('\n'))).toBeNull();
@@ -72,7 +71,20 @@ it('reads a list default with one item on each line', () => {
 });
 
 it('keeps each string list item through format and parse, also an empty item and a line break', () => {
- const items = ['', 'a\nb', ' padded ', '"quoted"', 'back\\slash', 'plain'];
+ const items = ['', 'a\nb', ' padded ', '"quoted"', 'back\\slash', 'plain', 'say "hi"', '“curly”', "'single'", '"', 'it’s'];
  expect(parseList('string[]', formatList(items))).toEqual(items);
  expect(formatList(items).split('\n')).toHaveLength(items.length);
+});
+
+it('writes safe string items as plain text and JSON only where needed', () => {
+ expect(formatList(['Ann', 'say "hi"', 'a, b'])).toBe('Ann\nsay "hi"\na, b');
+ expect(formatList(['', ' x', 'a\nb', '"q"', '“q”'])).toBe('""\n" x"\n"a\\nb"\n"\\"q\\""\n"“q”"');
+});
+
+it('reads smart quotes from macOS as straight quotes', () => {
+ expect(parseList('string[]', '“Ann”\n‘Bo’\n“mixed"\n"x”')).toEqual(['Ann', 'Bo', 'mixed', 'x']);
+ expect(parseList('string[]', '“”\n“ a ”\n“a\\nb”')).toEqual(['', ' a ', 'a\nb']);
+ expect(parseList('string[]', '“say \\“hi\\””')).toEqual(['say "hi"']);
+ // A wrapped line that is not a JSON string stays literal text.
+ expect(parseList('string[]', '"a"b"\n“\\x”')).toEqual(['"a"b"', '“\\x”']);
 });

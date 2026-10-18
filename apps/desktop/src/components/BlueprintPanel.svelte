@@ -21,6 +21,7 @@
  import BlueprintList from './BlueprintList.svelte';
  import BlueprintNodeFields from './BlueprintNodeFields.svelte';
  import BlueprintVariables from './BlueprintVariables.svelte';
+ import { plainText } from '../blueprints/plain-text';
  import BlueprintNodeView from './BlueprintNodeView.svelte';
  import BlueprintSocketView from './BlueprintSocketView.svelte';
  import BlueprintConnectionView from './BlueprintConnectionView.svelte';
@@ -384,7 +385,7 @@
   <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
   <div class="blueprint-canvas" bind:this={canvas} tabindex="0" role="application" aria-label="Blueprint canvas" onkeydown={shortcut} onpointerdown={() => canvas.focus()}></div>
   {#if node}
-  <aside class="blueprint-inspector" aria-label="Node properties">
+  <aside class="blueprint-inspector" aria-label="Node properties" use:plainText>
     <strong>{BLUEPRINT_LABELS[node.type]}</strong>
     <span class="blueprint-inspector-category" data-category={nodeDefinition(node.type).category.toLowerCase()}>{nodeDefinition(node.type).category}</span>
     <BlueprintNodeFields {node} {scene} {assets} {graphs} variables={graph?.variables ?? []} {platform} unavailable={node.type === 'event.keystroke' && taken.has(keystrokeAccelerator(node.settings))} onsettings={settings} />

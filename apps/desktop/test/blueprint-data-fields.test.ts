@@ -6,7 +6,7 @@ it('keeps string cases as one JSON string on each line and rejects bad case list
  for (const cases of [['happy', 'sad'], ['', 'two\nlines', ' a ', 'say "hi"']]) expect(parseStringCases(formatStringCases(cases))).toEqual(cases);
  expect(formatStringCases(['', 'a\nb'])).toBe('""\n"a\\nb"');
  expect(parseStringCases('"a"\n\n"b"')).toEqual(['a', 'b']);
- expect(parseStringCases('happy')).toBeNull();
+ expect(parseStringCases('happy\n“sad”')).toEqual(['happy', 'sad']);
  expect(parseStringCases('\n\n')).toBeNull();
  expect(parseStringCases('"a"\n"a"')).toBeNull();
  expect(parseStringCases(Array.from({ length: MAX_SWITCH_CASES + 1 }, (_, i) => `"c${i}"`).join('\n'))).toBeNull();

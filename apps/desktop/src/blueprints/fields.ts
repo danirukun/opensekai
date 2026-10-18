@@ -24,18 +24,29 @@ export function parseScalar(type: Exclude<ScalarType, 'boolean'>, text: string):
   : number(text);
  return value !== null && isBlueprintValue(type, value) ? value as ScalarValue : null;
 }
-// A string item is one JSON string, so an empty item and an item with a line break keep their value.
-const formatScalar = (value: ScalarValue): string => Array.isArray(value) ? value.join(', ') : typeof value === 'string' ? JSON.stringify(value) : String(value);
-const parseString = (line: string): string | null => {
- try { const value: unknown = JSON.parse(line); return typeof value === 'string' ? value : null; } catch { return null; }
-};
+// A string item is plain text when that is safe, else one JSON string, so an empty item, an item with a line break or edge
+// spaces, and an item that starts with a quote keep their value. macOS smart quotes turn typed `"` into `“` or `”`.
+const QUOTES = `"'\u201c\u201d\u2018\u2019`;
+const plainSafe = (text: string) => text !== '' && !/[\r\n]/.test(text) && text.trim() === text && !QUOTES.includes(text[0]!);
+export const formatStringItem = (text: string): string => plainSafe(text) ? text : JSON.stringify(text);
+// A line wrapped in straight or curly quotes is a JSON string (the outer quotes become straight). Any other line, and a
+// wrapped line that is not valid JSON, is literal text.
+export function parseStringItem(line: string): string {
+ if (line.length >= 2 && QUOTES.includes(line[0]!) && QUOTES.includes(line.at(-1)!)) {
+  // A smart quote after a backslash was an escaped straight quote.
+  const inner = line.slice(1, -1).replace(/\\[\u201c\u201d]/g, '\\"');
+  try { const value: unknown = JSON.parse(`"${inner}"`); if (typeof value === 'string') return value; } catch { /* literal text */ }
+ }
+ return line;
+}
+const formatScalar = (value: ScalarValue): string => Array.isArray(value) ? value.join(', ') : typeof value === 'string' ? formatStringItem(value) : String(value);
 // A list default as text: one item on each line. Blank lines are ignored.
 export const formatList = (values: readonly ScalarValue[]): string => values.map(formatScalar).join('\n');
 export function parseList(type: ListType, text: string): BlueprintValue | null {
  const item = itemType(type), lines = text.split('\n').map(line => line.trim()).filter(line => line !== '');
  if (lines.length > MAX_BLUEPRINT_LIST_LENGTH) return null;
  const items = lines.map(line => item === 'boolean' ? ({ true: true, false: false } as Record<string, boolean>)[line.toLowerCase()] ?? null
-  : item === 'string' ? parseString(line) : parseScalar(item, line));
+  : item === 'string' ? parseStringItem(line) : parseScalar(item, line));
  return items.every(value => value !== null) && isBlueprintValue(type, items) ? items as BlueprintValue : null;
 }
 export const vectorParts = (value: Vec3, index: number, text: string): Vec3 | null => {

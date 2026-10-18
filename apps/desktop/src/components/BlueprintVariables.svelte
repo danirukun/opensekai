@@ -3,6 +3,7 @@
  import { Plus, Trash2 } from '@lucide/svelte';
  import { isListType, type BlueprintOp, type BlueprintValue, type BlueprintVariable, type DataType, type ScalarValue, type Vec3 } from '@opensekai/contracts';
  import { asDataType, dataTypeOptions, formatList, newVariable, parseList, parseScalar, vectorParts } from '../blueprints/fields';
+ import { plainText } from '../blueprints/plain-text';
 
  let { graphId, variables, disabled, onops }: { graphId: string; variables: readonly BlueprintVariable[]; disabled: boolean; onops: (ops: BlueprintOp[]) => void } = $props();
  let picked = $state('');
@@ -17,10 +18,12 @@
  const typed = (variable: BlueprintVariable, type: 'number' | 'integer' | 'string', text: string) => { const value = parseScalar(type, text); if (value !== null) update(variable.id, { default: value }); };
  // On change (Enter or blur), text that is not a value of the type goes back to the stored value.
  const settle = (field: HTMLInputElement, type: 'number' | 'integer' | 'string', stored: unknown) => { if (parseScalar(type, field.value) === null) field.value = String(stored); };
+ // Text that is not a list of the type stays in the field and shows the error state, so the operator can correct it.
+ let invalid = $state<Record<string, boolean>>({});
  const list = (variable: BlueprintVariable, field: HTMLTextAreaElement) => {
   const value = isListType(variable.type) ? parseList(variable.type, field.value) : null;
+  invalid = { ...invalid, [variable.id]: value === null };
   if (value !== null) update(variable.id, { default: value });
-  else field.value = formatList(variable.default as readonly ScalarValue[]);
  };
 </script>
 
@@ -33,7 +36,7 @@
    </Dropdown>
   {/if}
  </header>
- <div class="blueprint-variable-list">
+ <div class="blueprint-variable-list" use:plainText>
  {#each variables as variable (variable.id)}
   <div class="blueprint-variable">
    <Input value={variable.name} {disabled} onchange={event => rename(variable, event.currentTarget)} />
@@ -54,7 +57,7 @@
      {/each}
     </div>
    {:else}
-    <Textarea class="blueprint-variable-items" rows={3} resize="vertical" value={formatList(variable.default as readonly ScalarValue[])} {disabled} onchange={event => list(variable, event.currentTarget)} />
+    <Textarea class="blueprint-variable-items" rows={3} resize="vertical" state={invalid[variable.id] ? 'error' : 'default'} value={formatList(variable.default as readonly ScalarValue[])} {disabled} onchange={event => list(variable, event.currentTarget)} />
    {/if}
   </div>
  {/each}

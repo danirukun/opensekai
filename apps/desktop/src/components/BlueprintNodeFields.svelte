@@ -77,6 +77,8 @@
   const next = chooseTypedVariable(settings, field.key, field.typeKey, variables, id);
   if (next) onsettings(next as BlueprintNode['settings']);
  };
+ // Cases text that does not parse stays in the field and shows the error state.
+ let invalidCases = $state<string | null>(null);
  const types = (field: Extract<BlueprintField, { kind: 'types' }>) => settings[field.key] as DataType[];
  const counts = (max: number) => Array.from({ length: max + 1 }, (_, i) => ({ value: String(i), label: String(i) }));
  const options = (field: BlueprintField) => {
@@ -119,7 +121,7 @@
  {:else if field.kind === 'choice'}
   <Select label={field.label} value={String(settings[field.key])} options={field.options.map(option => ({ value: String(option.value), label: option.label }))} onchange={event => set(field.key, field.options.find(option => String(option.value) === event.currentTarget.value)?.value)} />
  {:else if field.kind === 'stringCases'}
-  <Textarea label={field.label} rows={3} resize="vertical" value={formatStringCases(settings[field.key] as string[])} onchange={event => { const cases = parseStringCases(event.currentTarget.value); if (cases) set(field.key, cases); else event.currentTarget.value = formatStringCases(settings[field.key] as string[]); }} />
+  <Textarea label={field.label} rows={3} resize="vertical" state={invalidCases === `${node.id}:${field.key}` ? 'error' : 'default'} value={formatStringCases(settings[field.key] as string[])} onchange={event => { const cases = parseStringCases(event.currentTarget.value); invalidCases = cases ? null : `${node.id}:${field.key}`; if (cases) set(field.key, cases); }} />
  {:else if field.kind === 'typedVariable'}
   <Select label={field.label} value={String(settings[field.key])} options={options(field)} onchange={event => chooseVariable(field, event.currentTarget.value)} />
  {:else if field.kind === 'types'}

@@ -33,7 +33,7 @@
 .blueprint-add>button:hover{background:#ddd3ec}
 .blueprint-variables{display:flex;flex-direction:column;gap:8px;min-height:0}.blueprint-variable-list{display:flex;flex-direction:column;gap:8px;min-height:0;overflow:auto}
 .blueprint-variable{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 24px;align-items:center;gap:6px;padding:8px;border:1px solid #e6e2ec;border-radius:6px;background:#fff;animation:bp-fade .14s ease-out}
-.blueprint-variable>:first-child{grid-column:1/3}.blueprint-variable>:nth-child(4){grid-column:2/4}
+.blueprint-variable>:first-child{grid-column:1/3}.blueprint-variable>:nth-child(3),.blueprint-variable>:nth-child(4){grid-column:1/4}
 .blueprint-variable>.blueprint-variable-remove{grid-column:3;grid-row:1;opacity:0;transition:opacity .12s}
 .blueprint-variable:hover>.blueprint-variable-remove,.blueprint-variable:focus-within>.blueprint-variable-remove{opacity:1}
 .blueprint-variable .blueprint-checkbox{display:flex;align-items:center;gap:6px;font-size:12px;color:#78717f}

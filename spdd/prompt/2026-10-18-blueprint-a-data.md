@@ -86,7 +86,8 @@ R7. Variable nodes (category Variables).
 
 R8. Field kinds. `BlueprintField` appends three kinds:
 - `{ kind: 'types'; options: readonly DataType[]; max: number }`: a list of types. The inspector shows a count select (0..`max`) and one select for each entry, labelled `{0}`, `{1}`, ….
-- `{ kind: 'stringCases' }`: the inspector shows a text area with one case on each line as a JSON string (`"happy"`, `""`, `"a\nb"`), the encoding of a String List default (W0 R13). So an empty case and a case with a line break keep their value. Empty lines are ignored. Text that is not one JSON string on each line, with 0 or more than 8 cases, a duplicate, or a case above the limit goes back to the stored value on `change`.
+- `{ kind: 'stringCases' }`: the inspector shows a text area with one case on each line, in the encoding of a String List default (W0 R13): plain text when that is safe (`happy`), else a JSON string (`""`, `"a\nb"`). Lines in macOS smart quotes read as JSON strings. So an empty case and a case with a line break keep their value. Empty lines are ignored. Text with 0 or more than 8 cases, a duplicate, or a case above the limit stays in the field and shows the error state; the settings do not change.
+- The inspector and the Variables drawer set `autocorrect="off"`, `autocapitalize="off"`, and `spellcheck="false"` on their text fields (an action, because the UI kit does not pass these attributes).
 - `{ kind: 'typedVariable'; typeKey: string; lists?: boolean }`: the inspector shows one select of the graph variables (list variables only when `lists`). A choice sets the key of the field to the variable ID and `typeKey` to the variable type in one settings change. An unknown ID shows as `Missing` (the shared fallback of the other reference selects).
 The `itemType` and To String `type` settings use the `choice` kind of slice I.
 
