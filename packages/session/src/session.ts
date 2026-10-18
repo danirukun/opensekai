@@ -1,4 +1,4 @@
-import { IdSchema, ParamSchemas, AssetRecordSchema, type AssetRecord, type ExpressionState, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate, type AppError, type InputUpdate, type BlueprintInspect, type AvatarPose, type DeviceKind } from "@opensekai/contracts";
+import { IdSchema, ParamSchemas, AssetRecordSchema, type AssetRecord, type ExpressionState, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate, type AppError, type InputUpdate, type BlueprintInspect, type BlueprintDebug, type AvatarPose, type DeviceKind } from "@opensekai/contracts";
 import { createTransformAdapter } from "./ecs";
 import {createTrackingComposer} from "./tracking";
 import { createBlueprintRuntime, logicKey, type BlueprintEvent, type GraphRun, type StepEnv } from './blueprint-runtime';
@@ -6,7 +6,8 @@ import { createBlueprintStore } from './blueprint-store';
 import { NO_DEVICES, type DeviceEnv } from './blueprint-eval';
 import { createDeviceInput } from './devices';
 import { applyEffects, applyOperations } from './scene-ops';
-import { isBoneOffsetEffect, isCharacterLayerEffect, isExpressionEffect, isOverrideEffect, isSceneEffect } from './blueprint';
+import { isBoneOffsetEffect, isCharacterLayerEffect, isDebugEffect, isExpressionEffect, isOverrideEffect, isSceneEffect } from './blueprint';
+import { createDebugLog, type DebugEffect } from './debug-log';
 import { composeBoneOffsets, EMPTY_BONE_OFFSETS, writeBoneOffset, type BoneOffsets } from './bone-offsets';
 import { advanceExpressions, composeExpressions, dropExpressionFades, EMPTY_EXPRESSIONS, expressionOwners, expressionView, reconcileExpressions, setExpression, type ExpressionStates } from './expressions';
 import { applyOverrides, dropOverrides, EMPTY_OVERRIDES, evaluatedEntity, takeIdle, type OverrideLayer } from './overrides';
@@ -30,6 +31,7 @@ export interface Session {
     advance(elapsedMs: number, trackingNowMs?:number, input?: InputUpdate): RuntimeFrame;
     editBlueprints(batch: unknown): Reply<{ revision: number; keystrokes: string[]; heldKeys?: string[]; devices?: DeviceKind[] }>;
     inspectBlueprints(sinceRevision?: number): BlueprintInspect;
+    debugBlueprints(since?: number): BlueprintDebug;
     runBlueprint(graphId: Id, triggerNodeId: Id): Reply<{revision: number}>;
     setAssetRecords(records: readonly AssetRecord[]): void;
     getExpressions(avatarId: Id): Reply<ExpressionState>;
@@ -69,6 +71,8 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
     const runtime = createBlueprintRuntime();
     const store = createBlueprintStore(runtime);
     const runtimeErrors = new Map<Id, AppError>();
+    // Log lines, toasts, debug events, and Debug Value values of accepted runs.
+    const debugLog = createDebugLog();
     // A failed tween reports here, so a later clean run of its graph does not hide the error. It stays until the graph changes.
     const tweenErrors = new Map<Id, AppError>();
     const errorsForInspect = () => new Map([...tweenErrors, ...runtimeErrors]);
@@ -106,6 +110,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
         let offsets = boneOffsets;
         let shapes = blendShapes;
         let looks = lookAts;
+        const debug: { graphId: Id; effects: DebugEffect[] }[] = [];
         const env: StepEnv = { held, devices: deviceEnv, scene: () => applyOverrides(working ?? persistent, layer), previousPose: avatarId => previousPoses.get(avatarId) ?? null };
         // `elapsed` is the time of the values that a transition starts from.
         const startMs = transitionStart(nowMs, elapsed);
@@ -154,6 +159,8 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             offsets = nextOffsets;
             shapes = nextShapes;
             looks = nextLooks;
+            const debugEffects = run.effects.filter(isDebugEffect);
+            if (debugEffects.length) debug.push({ graphId: run.graphId, effects: debugEffects });
             return null;
         }, env);
         overrides = layer;
@@ -162,6 +169,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
         boneOffsets = offsets;
         blendShapes = shapes;
         lookAts = looks;
+        for (const entry of debug) debugLog.record(entry.graphId, entry.effects, nowMs);
         for (const run of runs) if (run.error) runtimeErrors.set(run.graphId, run.error); else runtimeErrors.delete(run.graphId);
         const changed = working !== null && JSON.stringify(working) !== JSON.stringify(persistent);
         return { runs, committed: changed ? commit(working!) : { ok: true, data: { revision: persistent.revision } } };
@@ -203,6 +211,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             const before = new Map([...runtimeErrors.keys()].map(id => { const graph = store.active(id); return [id, graph && logicKey(graph)] as const; }));
             const owners = new Map([...transitionOwners()].map(id => [id, ownerKey(id)] as const));
             const reply = store.edit(batch);
+            if (reply.ok) debugLog.retainValues((graphId, nodeId) => store.active(graphId)?.nodes.some(node => node.id === nodeId && node.type === 'debug.value') ?? false);
             if (reply.ok) dropGraphs(new Set([...owners].filter(([id, key]) => key === null || ownerKey(id) !== key).map(([id]) => id)));
             if (reply.ok)
                 for (const [id, key] of before) {
@@ -212,6 +221,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             return reply;
         },
         inspectBlueprints: since => store.inspect(since, errorsForInspect()),
+        debugBlueprints: since => debugLog.read(since),
         runBlueprint(graphId, triggerNodeId) {
             const graph = store.active(graphId);
             if (!graph) return failure('NOT_FOUND', 'Blueprint not found', [graphId]);
