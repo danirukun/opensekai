@@ -6,11 +6,11 @@ import { createBlueprintStore } from './blueprint-store';
 import { applyEffects, applyOperations } from './scene-ops';
 import { isBoneOffsetEffect, isCharacterLayerEffect, isExpressionEffect, isOverrideEffect, isSceneEffect } from './blueprint';
 import { composeBoneOffsets, EMPTY_BONE_OFFSETS, writeBoneOffset, type BoneOffsets } from './bone-offsets';
-import { advanceExpressions, composeExpressions, EMPTY_EXPRESSIONS, expressionView, reconcileExpressions, setExpression, type ExpressionStates } from './expressions';
-import { applyOverrides, dropOverrides, EMPTY_OVERRIDES, takeIdle, type OverrideLayer } from './overrides';
-import { advanceTweens, dropTweens, EMPTY_TWEENS, tweening, writeTransitioned, type TweenLayer } from './tweens';
-import { advanceBlendShapes, composeBlendShapes, EMPTY_BLEND_SHAPES, setBlendShape, type BlendShapeStates } from './blend-shapes';
-import { advanceLookAt, composeLookAt, EMPTY_LOOK_AT, setLookAt, type LookAtStates } from './look-at';
+import { advanceExpressions, composeExpressions, dropExpressionFades, EMPTY_EXPRESSIONS, expressionOwners, expressionView, reconcileExpressions, setExpression, type ExpressionStates } from './expressions';
+import { applyOverrides, dropOverrides, EMPTY_OVERRIDES, evaluatedEntity, takeIdle, type OverrideLayer } from './overrides';
+import { advanceTweens, dropGraphTweens, dropTweens, EMPTY_TWEENS, transitionStart, tweenOwners, tweening, writeTransitioned, type TweenLayer } from './tweens';
+import { advanceBlendShapes, blendShapeOwners, composeBlendShapes, dropGraphBlendShapes, EMPTY_BLEND_SHAPES, setBlendShape, type BlendShapeStates } from './blend-shapes';
+import { dropGraphLookAts, EMPTY_LOOK_AT, lookAtOwners, sceneLookup, setLookAt, stepLookAt, type LookAtStates } from './look-at';
 export interface Session {
     inspect(): SceneView;
     replaceScene(scene: SceneView, expectedRevision: number): Reply<SceneView>;
@@ -67,6 +67,21 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
     const runtime = createBlueprintRuntime();
     const store = createBlueprintStore(runtime);
     const runtimeErrors = new Map<Id, AppError>();
+    // A failed tween reports here, so a later clean run of its graph does not hide the error. It stays until the graph changes.
+    const tweenErrors = new Map<Id, AppError>();
+    const errorsForInspect = () => new Map([...tweenErrors, ...runtimeErrors]);
+    // The logic of an enabled graph, or null when it is disabled or gone.
+    const ownerKey = (graphId: Id) => { const graph = store.active(graphId); return graph?.enabled ? logicKey(graph) : null; };
+    const transitionOwners = () => new Set([...tweenOwners(tweens), ...expressionOwners(expressions), ...blendShapeOwners(blendShapes), ...lookAtOwners(lookAts), ...tweenErrors.keys()]);
+    // A graph that is disabled, deleted, or changed stops its transitions, blend shapes, and look-at.
+    const dropGraphs = (graphIds: ReadonlySet<Id>) => {
+        if (graphIds.size === 0) return;
+        tweens = dropGraphTweens(tweens, graphIds);
+        expressions = dropExpressionFades(expressions, graphIds);
+        blendShapes = dropGraphBlendShapes(blendShapes, graphIds);
+        lookAts = dropGraphLookAts(lookAts, graphIds);
+        for (const id of graphIds) tweenErrors.delete(id);
+    };
     const loggedFailures = new Set<string>();
     let failedThisTick = false;
     const logOnce = (error: unknown) => {
@@ -87,6 +102,8 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
         let shapes = blendShapes;
         let looks = lookAts;
         const env: StepEnv = { held, scene: () => applyOverrides(working ?? persistent, layer), previousPose: avatarId => previousPoses.get(avatarId) ?? null };
+        // `elapsed` is the time of the values that a transition starts from.
+        const startMs = transitionStart(nowMs, elapsed);
         const runs = runtime.step(events, nowMs, run => {
             if (run.effects.length === 0) return null;
             const sceneEffects = run.effects.filter(isSceneEffect);
@@ -94,14 +111,14 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             if (sceneEffects.length) { const next = applyEffects(scene, sceneEffects); if (!next.ok) return next.error; scene = next.data; }
             let nextLayers = { overrides: layer, tweens: moving };
             for (const effect of run.effects.filter(isOverrideEffect)) {
-                const written = writeTransitioned(nextLayers, scene, effect, run.graphId, nowMs);
+                const written = writeTransitioned(nextLayers, scene, effect, run.graphId, nowMs, startMs);
                 if (!written.ok) return written.error;
                 nextLayers = written.data;
             }
             // Expression effects apply only when the scene effects of the same run apply.
             let nextFaces = faces;
             for (const effect of run.effects.filter(isExpressionEffect)) {
-                const set = setExpression(nextFaces, scene, record, effect, nowMs);
+                const set = setExpression(nextFaces, scene, record, effect, startMs, run.graphId);
                 if (!set.ok) return set.error;
                 nextFaces = set.data;
             }
@@ -114,18 +131,19 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             let nextShapes = shapes, nextLooks = looks;
             for (const effect of run.effects.filter(isCharacterLayerEffect)) {
                 if (effect.kind === 'setBlendShape') {
-                    const set = setBlendShape(nextShapes, scene, record, effect, nowMs);
+                    const set = setBlendShape(nextShapes, scene, record, effect, startMs, run.graphId);
                     if (!set.ok) return set.error;
                     nextShapes = set.data;
                 } else {
-                    // Look At reads positions from the evaluated scene, so it aims at a moving target.
-                    const set = setLookAt(nextLooks, applyOverrides(scene, nextLayers.overrides), effect, nowMs);
+                    // Look At reads its two entities from the evaluated scene, so it aims at a moving target.
+                    const set = setLookAt(nextLooks, entityId => evaluatedEntity(scene, nextLayers.overrides, entityId), effect, startMs, run.graphId);
                     if (!set.ok) return set.error;
                     nextLooks = set.data;
                 }
             }
             if (sceneEffects.length) working = scene;
             layer = nextLayers.overrides;
+            if (nextLayers.tweens !== moving) tweenErrors.delete(run.graphId);
             moving = nextLayers.tweens;
             faces = nextFaces;
             offsets = nextOffsets;
@@ -147,7 +165,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
     const stepTweens = (nowMs: number) => {
         const stepped = advanceTweens({ overrides, tweens }, persistent, nowMs);
         ({ overrides, tweens } = stepped.layers);
-        for (const failure of stepped.failures) runtimeErrors.set(failure.graphId, failure.error);
+        for (const failure of stepped.failures) if (ownerKey(failure.graphId) !== null) tweenErrors.set(failure.graphId, failure.error);
     };
     // Overrides with no write for 250 ms go to the persistent scene in one commit. An override under a tween waits for its end.
     const commitIdle = (nowMs: number) => {
@@ -168,6 +186,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             tracking = createTrackingComposer();
             overrides = EMPTY_OVERRIDES;
             tweens = EMPTY_TWEENS;
+            tweenErrors.clear();
             expressions = EMPTY_EXPRESSIONS;
             boneOffsets = EMPTY_BONE_OFFSETS;
             blendShapes = EMPTY_BLEND_SHAPES;
@@ -177,7 +196,9 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
         },
         editBlueprints(batch) {
             const before = new Map([...runtimeErrors.keys()].map(id => { const graph = store.active(id); return [id, graph && logicKey(graph)] as const; }));
+            const owners = new Map([...transitionOwners()].map(id => [id, ownerKey(id)] as const));
             const reply = store.edit(batch);
+            if (reply.ok) dropGraphs(new Set([...owners].filter(([id, key]) => key === null || ownerKey(id) !== key).map(([id]) => id)));
             if (reply.ok)
                 for (const [id, key] of before) {
                     const graph = store.active(id);
@@ -185,7 +206,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
                 }
             return reply;
         },
-        inspectBlueprints: since => store.inspect(since, runtimeErrors),
+        inspectBlueprints: since => store.inspect(since, errorsForInspect()),
         runBlueprint(graphId, triggerNodeId) {
             const graph = store.active(graphId);
             if (!graph) return failure('NOT_FOUND', 'Blueprint not found', [graphId]);
@@ -256,10 +277,15 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             try {
                 const events: BlueprintEvent[] = [...(input?.events?.map(event => ({ kind: 'keystroke' as const, accelerator: event.accelerator })) ?? []), { kind: 'update' }];
                 stepBlueprints(events, elapsedMs, new Set(input?.held ?? []));
+            } catch (error) {
+                // An unexpected Blueprint failure must not abort the frame.
+                logOnce(error);
+            }
+            // Separate, so a Blueprint step that throws does not stop running transitions or the idle commit.
+            try {
                 stepTweens(elapsedMs);
                 commitIdle(elapsedMs);
             } catch (error) {
-                // An unexpected Blueprint failure must not abort the frame.
                 logOnce(error);
             }
             if (!failedThisTick) loggedFailures.clear();
@@ -267,13 +293,14 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             const scene = adapter.evaluate(shown, elapsedMs);
             expressions = advanceExpressions(expressions, persistent, record, (elapsedMs - elapsed) / 1000, elapsedMs);
             blendShapes = advanceBlendShapes(blendShapes, persistent, elapsedMs);
-            lookAts = advanceLookAt(lookAts, shown, elapsedMs);
+            const looked = stepLookAt(lookAts, sceneLookup(shown), elapsedMs, boneOffsets);
+            lookAts = looked.states;
             elapsed = elapsedMs;
             sequence += 1;
             const live=tracking.evaluate(shown,trackingNowMs??elapsedMs,elapsedMs);
             previousPoses = new Map(live.avatarPoses.map(pose => [pose.avatarId, structuredClone(pose)]));
             const faces = composeBlendShapes(composeExpressions(live.avatarPoses, expressions, persistent, record), blendShapes);
-            const avatarPoses = composeBoneOffsets(faces, composeLookAt(boneOffsets, lookAts, shown, elapsedMs));
+            const avatarPoses = composeBoneOffsets(faces, looked.offsets);
             return { schemaVersion: 1, sessionId, sequence, tick, elapsedMs, scene, blueprintRevision: store.revision(), ...(avatarPoses.length?{avatarPoses}:{}),...(live.trackingStatus.length?{trackingStatus:live.trackingStatus}:{}) };
         },
     };

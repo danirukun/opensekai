@@ -7,14 +7,14 @@ Slice H of bundle B13 ([contract](../../spdd/prompt/2026-10-18-blueprint-h-trans
 | Command | Result |
 | --- | --- |
 | `pnpm check` | Passed: all packages and `tsconfig.scripts.json`; svelte-check 0 errors, 0 warnings |
-| `pnpm test:unit` | 1040 passed in 139 files, 0 failed |
+| `pnpm test:unit` | 1044 passed in 139 files, 0 failed |
 | `pnpm test:integration` | 37 passed, 2 skipped in 15 files, when the local tracking models are present. In a new worktree without the ignored `artifacts/models/` files, the 4 tests of `scripts/prepare-tracking.test.ts` fail with `ENOENT … face_landmarker.task`. With the files copied from the main checkout, they pass. This slice does not change that script |
 
-New tests (23):
+New tests (27):
 
 - `packages/contracts/test/easing.test.ts` (5): exact ends, clamped progress, easings.net values at 0.25 and 0.5, InOut symmetry, Back and Elastic overshoot, range of the other families, `blendShapeNames` order, and node settings that load with and without a transition.
-- `packages/session/test/tweens.test.ts` (11): number, Vector3, and rotation samples (slerp through 180 degrees where an Euler lerp would pass 0); overshoot clamp; replacement from the current value; cancel by an immediate write, by Move Entity, and by a patch; zero seconds and Boolean properties; the 64-tween limit; the commit guard; a failed write; blend shape set, fade, clamp, release, and model change; look-at yaw, pitch, clamp, character rotation, weight fade, release, and errors.
-- `packages/session/test/transitions-session.test.ts` (7), through `createSession`: one manual run eases the camera Field of View (InOutSine) and an entity Position over 20 ms ticks with no further Blueprint run; the frames show the intermediate values; the revision stays 0 during the transition and becomes 1 at the first tick 250 ms after the end; an old graph without the settings stays immediate; a patch stops a transition; an expression fade with InQuad; a blend shape weight; a Look At head offset; rollback of a failed run.
+- `packages/session/test/tweens.test.ts` (13): a tween that a graph retargets on each tick moves on each tick; a running tween to the same target keeps running; number, Vector3, and rotation samples (slerp through 180 degrees where an Euler lerp would pass 0); overshoot clamp; replacement from the current value; cancel by an immediate write, by Move Entity, and by a patch; zero seconds and Boolean properties; the 64-tween limit; the commit guard; a failed write; blend shape set, fade, clamp, release, and model change; look-at yaw, pitch, clamp, character rotation, weight fade, release, and errors.
+- `packages/session/test/transitions-session.test.ts` (9), through `createSession`: On Update triggers all four layers on every tick and each reaches its target, with one Field of View commit; disabling a graph stops its tween, blend shape, and look-at, and the last sample commits; one manual run eases the camera Field of View (InOutSine) and an entity Position over 20 ms ticks with no further Blueprint run; the frames show the intermediate values; the revision stays 0 during the transition and becomes 1 at the first tick 250 ms after the end; an old graph without the settings stays immediate; a patch stops a transition; an expression fade with InQuad; a blend shape weight; a Look At head offset; rollback of a failed run.
 
 ## What the macOS and OBS run must check
 

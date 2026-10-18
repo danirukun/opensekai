@@ -23,6 +23,11 @@ export function overriddenEntity(scene: SceneView, layer: OverrideLayer, entityI
  }
  return entity;
 }
+// One entity of the evaluated scene, without evaluating the others.
+export function evaluatedEntity(scene: SceneView, layer: OverrideLayer, entityId: Id): SceneEntity | undefined {
+ const entity = layer.has(entityId) ? overriddenEntity(scene, layer, entityId) : scene.entities.find(item => item.id === entityId);
+ return entity ? followed(scene, layer, entity) : undefined;
+}
 export const applyOverrides = (scene: SceneView, layer: OverrideLayer): SceneView =>
  layer.size === 0 ? scene : { ...scene, entities: scene.entities.map(entity => followed(scene, layer, layer.has(entity.id) ? overriddenEntity(scene, layer, entity.id)! : entity)) };
 // An Orbit Character camera follows the position override of its target (R6a): it moves by the override's offset from the

@@ -17,11 +17,18 @@
  const spaces = [{ value: 'world', label: 'World' }, { value: 'local', label: 'Local' }];
  const truth = [{ value: 'true', label: 'True' }, { value: 'false', label: 'False' }];
  const numberInput = (field: Extract<BlueprintField, { kind: 'number' }>, text: string) => {
+  // An empty field clears an optional setting (a transition), so the node falls back to its default behavior.
+  if (text === '') {
+   const { [field.key]: _cleared, ...rest } = settings;
+   if (nodeDefinition(node.type).settings.safeParse(rest).success) onsettings(rest as BlueprintNode['settings']);
+   return;
+  }
   const value = Number(text);
   if (text !== '' && Number.isFinite(value) && (field.min === undefined || value >= field.min) && (field.max === undefined || value <= field.max)) set(field.key, value);
  };
  const choices = (field: BlueprintField) =>
-  field.kind === 'entity' ? (scene?.entities ?? []).filter(entity => entity.kind !== 'tracking').map(entity => ({ value: entity.id, label: entity.name }))
+  // A second entity field (the Look At target) does not offer the node's own character.
+  field.kind === 'entity' ? (scene?.entities ?? []).filter(entity => entity.kind !== 'tracking' && (field.key === 'entityId' || entity.id !== settings.entityId)).map(entity => ({ value: entity.id, label: entity.name }))
   : field.kind === 'avatar' ? (scene?.entities ?? []).filter(entity => entity.kind === 'avatar').map(entity => ({ value: entity.id, label: entity.name }))
   : field.kind === 'expression' ? expressionChoices()
   : field.kind === 'blendshape' ? blendShapeChoices()

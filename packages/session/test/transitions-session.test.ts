@@ -117,3 +117,58 @@ it('rolls back the character layers of a run whose effects fail', () => {
  expect(s.runBlueprint('g', 'go')).toMatchObject({ ok: false, error: { message: 'Look At target is the character' } });
  expect(pose(s.advance(20))).toBeUndefined();
 });
+
+it('reaches the target when On Update triggers each transition again on every tick', () => {
+ const s = createSession(makeSmokeScene(), 's', [record]);
+ const loaded = s.editBlueprints({ clientId: 't', batchId: 'b', ops: [{ kind: 'replaceAll', graphs: [{ ...graph([
+  node('tick', 'event.update', {}), num('wide', 85), num('weight', 0.8), num('one', 1), node('yes', 'value.boolean', { value: true }),
+  node('lens', 'property.set', { entityId: 'camera_wide', property: 'fovDegrees', transitionSeconds: 0.5 }),
+  node('face', 'character.setExpression', { entityId: 'performer', expression: 'happy', transitionSeconds: 0.5 }),
+  node('shape', 'character.setBlendShape', { entityId: 'performer', blendShape: 'blink', transitionSeconds: 0.5 }),
+  node('look', 'character.lookAt', { entityId: 'performer', targetId: 'camera_wide', transitionSeconds: 0.5 }),
+ ], [
+  wire('a', 'tick', 'flow', 'lens', 'flow'), wire('b', 'wide', 'value', 'lens', 'value'),
+  wire('c', 'lens', 'exit', 'face', 'flow'), wire('d', 'yes', 'value', 'face', 'active'),
+  wire('e', 'face', 'exit', 'shape', 'flow'), wire('f', 'weight', 'value', 'shape', 'weight'),
+  wire('g', 'shape', 'exit', 'look', 'flow'), wire('h', 'one', 'value', 'look', 'weight'),
+ ]) }] }] });
+ if (!loaded.ok) throw new Error(loaded.error.message);
+ const frames = ticks(s, 0, 1500);
+ const pitch = (frame: RuntimeFrame) => quatToEuler(pose(frame)!.boneOffsets!.head!)[0];
+ const full = Math.atan2(0.2, 3) * 180 / Math.PI;
+ const mid = frames.get(260)!;
+ expect(fov(mid)).toBeGreaterThan(55);
+ expect(fov(mid)).toBeLessThan(85);
+ expect(pose(mid)?.expressions.happy).toBeGreaterThan(0.3);
+ expect(pose(mid)?.expressions.blink).toBeGreaterThan(0.3);
+ expect(pitch(mid)).toBeGreaterThan(full * 0.3);
+ const end = frames.get(1500)!;
+ expect(fov(end)).toBe(85);
+ expect(pose(end)?.expressions).toMatchObject({ happy: 1, blink: 0.8 });
+ expect(pitch(end)).toBeCloseTo(full);
+ // The repeated write of the reached value changes nothing, so the Field of View commits once.
+ expect(s.inspect().revision).toBe(1);
+});
+
+it('stops the transitions, blend shapes, and look-at of a graph that is disabled', () => {
+ const s = start([
+  num('wide', 85), num('weight', 0.8), num('one', 1),
+  node('lens', 'property.set', { entityId: 'camera_wide', property: 'fovDegrees', transitionSeconds: 1 }),
+  node('shape', 'character.setBlendShape', { entityId: 'performer', blendShape: 'blink', transitionSeconds: 1 }),
+  node('look', 'character.lookAt', { entityId: 'performer', targetId: 'camera_wide', transitionSeconds: 1 }),
+ ], [
+  wire('a', 'go', 'flow', 'lens', 'flow'), wire('b', 'wide', 'value', 'lens', 'value'), wire('c', 'lens', 'exit', 'shape', 'flow'),
+  wire('d', 'weight', 'value', 'shape', 'weight'), wire('e', 'shape', 'exit', 'look', 'flow'), wire('f', 'one', 'value', 'look', 'weight'),
+ ]);
+ run(s);
+ const before = ticks(s, 20, 500).get(500)!;
+ expect(fov(before)).toBeCloseTo(65);
+ expect(pose(before)?.expressions.blink).toBeCloseTo(0.4);
+ expect(s.editBlueprints({ clientId: 't', batchId: 'off', ops: [{ kind: 'updateGraph', graphId: 'g', enabled: false }] }).ok).toBe(true);
+ const after = ticks(s, 520, 1200);
+ expect(fov(after.get(1000)!)).toBeCloseTo(fov(before));
+ expect(pose(after.get(520)!)).toBeUndefined();
+ // The last sample commits as the value of the stopped transition.
+ expect(s.inspect().revision).toBe(1);
+ expect(s.inspect().entities.find(e => e.id === 'camera_wide')).toMatchObject({ lens: { fovDegrees: fov(before) } });
+});

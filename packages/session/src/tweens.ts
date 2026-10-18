@@ -1,5 +1,5 @@
 import { assetProperty, DEFAULT_EASING, ease, eulerFromQuaternion, quaternionFromEuler, readProperty, writeProperty, type Easing, type Id, type PropertyKey, type PropertyValue, type Quat, type Reply, type AppError, type SceneView, type Vec3 } from '@opensekai/contracts';
-import { slerpQuat } from './bone-offsets';
+import { normalize, slerpQuat } from './bone-offsets';
 import { overriddenEntity, touchedProperties, writeOverride, type OverrideLayer, type OverrideWrite } from './overrides';
 
 export interface Transition { seconds: number; easing: Easing }
@@ -13,7 +13,12 @@ export const withTransition = (settings: { transitionSeconds?: number; easing?: 
  const transition = transitionOf(settings);
  return transition ? { transition } : {};
 };
-export const timing = (transition: Transition, nowMs: number): Timing => ({ startMs: nowMs, seconds: transition.seconds, easing: transition.easing });
+export const timing = (transition: Transition, startMs: number): Timing => ({ startMs, seconds: transition.seconds, easing: transition.easing });
+// A transition starts at the time of the value that it starts from: the previous advance, at most 100 ms back.
+// So a transition that a graph starts again on each tick still moves on that tick.
+export const MAX_CATCH_UP_MS = 100;
+export const transitionStart = (nowMs: number, sampledAtMs: number): number => Math.min(nowMs, Math.max(sampledAtMs, nowMs - MAX_CATCH_UP_MS));
+export const running = (time: Timing | undefined, nowMs: number): boolean => time !== undefined && progress(time, nowMs) < 1;
 export const progress = (time: Timing, nowMs: number): number =>
  time.seconds <= 0 ? 1 : Math.min(Math.max((nowMs - time.startMs) / (time.seconds * 1000), 0), 1);
 export const eased = (time: Timing, nowMs: number): number => ease(time.easing, progress(time, nowMs));
@@ -51,22 +56,26 @@ export function sampleTween(tween: PropertyTween, nowMs: number): { value: Prope
  }
 }
 
-const normalized = (q: Quat): Quat => { const length = Math.hypot(...q); return length > 0 ? q.map(n => n / length) as Quat : [0, 0, 0, 1]; };
 const fail = (message: string, ids: Id[]): Reply<never> => ({ ok: false, error: { code: 'INVALID_INPUT', message, ids } });
 type SetProperty = Extract<OverrideWrite, { kind: 'setProperty' }>;
-export function startTween(layer: TweenLayer, scene: SceneView, overrides: OverrideLayer, write: SetProperty, transition: Transition, graphId: Id, nowMs: number): Reply<TweenLayer> {
+const sameValue = (a: readonly number[] | number, b: readonly number[] | number) => JSON.stringify(a) === JSON.stringify(b);
+const targetOf = (value: TweenValue) => (value.kind === 'rotation' ? value.target : value.to);
+// A running tween to the same target keeps running. A target equal to the current value starts nothing.
+export function startTween(layer: TweenLayer, scene: SceneView, overrides: OverrideLayer, write: SetProperty, transition: Transition, graphId: Id, startMs: number): Reply<TweenLayer> {
  const entity = overriddenEntity(scene, overrides, write.entityId);
  if (!entity) return { ok: false, error: { code: 'NOT_FOUND', message: 'Entity not found', ids: [write.entityId] } };
  const checked = writeProperty(entity, write.property, write.value);
  if (!checked.ok) return checked;
- const id = key(write.entityId, write.property);
- if (!layer.has(id) && layer.size >= MAX_TWEENS) return fail('Transition limit reached', [write.entityId]);
+ const id = key(write.entityId, write.property), active = layer.get(id);
+ if (active && sameValue(targetOf(active.value), write.value as Vec3 | number)) return { ok: true, data: layer };
+ if (!active && JSON.stringify(checked.data) === JSON.stringify(entity)) return { ok: true, data: layer };
+ if (!active && layer.size >= MAX_TWEENS) return fail('Transition limit reached', [write.entityId]);
  const current = readProperty(entity, write.property)!;
  const value: TweenValue = write.property === 'rotation'
-  ? { kind: 'rotation', from: normalized(entity.transform.rotation as Quat), to: quaternionFromEuler(write.value as Vec3), target: [...write.value as Vec3] }
+  ? { kind: 'rotation', from: normalize(entity.transform.rotation as Quat), to: quaternionFromEuler(write.value as Vec3), target: [...write.value as Vec3] }
   : typeof current === 'number' ? { kind: 'number', from: current, to: write.value as number }
   : { kind: 'vector3', from: current as Vec3, to: [...write.value as Vec3] };
- return { ok: true, data: new Map(layer).set(id, { entityId: write.entityId, property: write.property, value, graphId, ...timing(transition, nowMs) }) };
+ return { ok: true, data: new Map(layer).set(id, { entityId: write.entityId, property: write.property, value, graphId, ...timing(transition, startMs) }) };
 }
 
 const without = (layer: TweenLayer, ids: readonly string[]): TweenLayer => {
@@ -77,9 +86,9 @@ const without = (layer: TweenLayer, ids: readonly string[]): TweenLayer => {
 };
 
 // Set Asset Property with a transition starts a tween. Each other write goes to the override layer and stops the tween of its property.
-export function writeTransitioned(layers: PropertyLayers, scene: SceneView, write: OverrideWrite, graphId: Id, nowMs: number): Reply<PropertyLayers> {
+export function writeTransitioned(layers: PropertyLayers, scene: SceneView, write: OverrideWrite, graphId: Id, nowMs: number, startMs = nowMs): Reply<PropertyLayers> {
  if (write.kind === 'setProperty' && write.transition && write.transition.seconds > 0 && assetProperty(write.property).type !== 'boolean') {
-  const started = startTween(layers.tweens, scene, layers.overrides, write, write.transition, graphId, nowMs);
+  const started = startTween(layers.tweens, scene, layers.overrides, write, write.transition, graphId, startMs);
   return started.ok ? { ok: true, data: { ...layers, tweens: started.data } } : started;
  }
  const written = writeOverride(layers.overrides, scene, write, graphId, nowMs);
@@ -114,4 +123,10 @@ export function dropTweens(layer: TweenLayer, operations: Parameters<typeof touc
   for (const tween of layer.values()) if (tween.entityId === entityId && (keys === 'all' || keys.includes(tween.property))) ids.push(key(entityId, tween.property));
  }
  return without(layer, ids);
+}
+
+// The graphs that own a tween, and the layer without the tweens of the given graphs.
+export const tweenOwners = (layer: TweenLayer): Id[] => [...layer.values()].map(tween => tween.graphId);
+export function dropGraphTweens(layer: TweenLayer, graphIds: ReadonlySet<Id>): TweenLayer {
+ return without(layer, [...layer].filter(([, tween]) => graphIds.has(tween.graphId)).map(([id]) => id));
 }

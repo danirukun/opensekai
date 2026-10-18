@@ -1,19 +1,20 @@
 import { blendShapeNames, type AvatarPose, type Id, type Reply, type SceneView } from '@opensekai/contracts';
-import type { RecordLookup } from './expressions';
+import { POSE_EXPRESSION_LIMIT, type RecordLookup } from './expressions';
 import { eased, lerp, progress, timing, unit, type Timing, type Transition } from './tweens';
 
 // Runtime state only, like expressions: never committed, saved, or counted in the scene revision.
-export interface BlendShapeEntry { readonly weight: number; readonly fade?: Timing & { readonly from: number; readonly to: number } }
+// `graphId` is the graph that set the weight.
+export interface BlendShapeEntry { readonly weight: number; readonly graphId: Id; readonly fade?: Timing & { readonly from: number; readonly to: number } }
 export interface AvatarBlendShapes { readonly assetId: Id; readonly entries: ReadonlyMap<string, BlendShapeEntry> }
 export type BlendShapeStates = ReadonlyMap<Id, AvatarBlendShapes>;
 export interface BlendShapeEffect { kind: 'setBlendShape'; entityId: Id; blendShape: string; weight: number; transition?: Transition }
 export const EMPTY_BLEND_SHAPES: BlendShapeStates = new Map();
 export const MAX_BLEND_SHAPES = 64;
-const POSE_EXPRESSION_LIMIT = 64;
 
 const invalid = (message: string, ids: Id[]): Reply<never> => ({ ok: false, error: { code: 'INVALID_INPUT', message, ids } });
 
-export function setBlendShape(states: BlendShapeStates, scene: SceneView, records: RecordLookup, effect: BlendShapeEffect, nowMs: number): Reply<BlendShapeStates> {
+// A running fade to the same weight keeps running.
+export function setBlendShape(states: BlendShapeStates, scene: SceneView, records: RecordLookup, effect: BlendShapeEffect, startMs: number, graphId: Id): Reply<BlendShapeStates> {
  const avatar = scene.entities.find(item => item.id === effect.entityId);
  if (!avatar) return { ok: false, error: { code: 'NOT_FOUND', message: 'Entity not found', ids: [effect.entityId] } };
  if (avatar.kind !== 'avatar') return invalid('Entity is not an avatar', [effect.entityId]);
@@ -25,7 +26,8 @@ export function setBlendShape(states: BlendShapeStates, scene: SceneView, record
  const current = entries.get(effect.blendShape);
  if (!current && entries.size >= MAX_BLEND_SHAPES) return invalid('BlendShape limit reached', [effect.entityId]);
  const weight = unit(effect.weight), from = current?.weight ?? 0;
- const entry: BlendShapeEntry = effect.transition && effect.transition.seconds > 0 ? { weight: from, fade: { ...timing(effect.transition, nowMs), from, to: weight } } : { weight };
+ if (current && (current.fade ? current.fade.to === weight : current.weight === weight)) return { ok: true, data: states };
+ const entry: BlendShapeEntry = effect.transition && effect.transition.seconds > 0 ? { weight: from, graphId, fade: { ...timing(effect.transition, startMs), from, to: weight } } : { weight, graphId };
  if (entry.weight === 0 && !entry.fade) entries.delete(effect.blendShape); else entries.set(effect.blendShape, entry);
  const next = new Map(states);
  if (entries.size) next.set(avatar.id, { assetId: record.id, entries }); else next.delete(avatar.id);
@@ -44,7 +46,7 @@ export function advanceBlendShapes(states: BlendShapeStates, scene: SceneView, n
    if (!entry.fade) { entries.set(name, entry); continue; }
    const weight = unit(lerp(entry.fade.from, entry.fade.to, eased(entry.fade, nowMs)));
    if (progress(entry.fade, nowMs) < 1) entries.set(name, { ...entry, weight });
-   else if (entry.fade.to > 0) entries.set(name, { weight: entry.fade.to });
+   else if (entry.fade.to > 0) entries.set(name, { weight: entry.fade.to, graphId: entry.graphId });
   }
   if (entries.size) next.set(avatarId, { assetId: state.assetId, entries });
  }
@@ -69,4 +71,16 @@ export function composeBlendShapes(poses: readonly AvatarPose[], states: BlendSh
   if (index >= 0) result[index] = pose; else result.push(pose);
  }
  return result;
+}
+
+export const blendShapeOwners = (states: BlendShapeStates): Id[] => [...states.values()].flatMap(state => [...state.entries.values()].map(entry => entry.graphId));
+// Releases the weights that the given graphs set.
+export function dropGraphBlendShapes(states: BlendShapeStates, graphIds: ReadonlySet<Id>): BlendShapeStates {
+ if (!blendShapeOwners(states).some(id => graphIds.has(id))) return states;
+ const next = new Map<Id, AvatarBlendShapes>();
+ for (const [avatarId, state] of states) {
+  const entries = new Map([...state.entries].filter(([, entry]) => !graphIds.has(entry.graphId)));
+  if (entries.size) next.set(avatarId, { assetId: state.assetId, entries });
+ }
+ return next;
 }

@@ -3,14 +3,15 @@ import { eased, lerp, progress, timing, unit, type Timing, type Transition } fro
 
 // Runtime state only: it never changes the scene revision and never goes into a show.
 // `fade` is a Blueprint transition from `from` to the target; without it the weight moves linearly by the Fade time.
-export interface ExpressionEntry { readonly target: 0 | 1; readonly weight: number; readonly fade?: Timing & { readonly from: number } }
+// `graphId` is the graph that started the transition.
+export interface ExpressionEntry { readonly target: 0 | 1; readonly weight: number; readonly fade?: Timing & { readonly from: number; readonly graphId?: Id } }
 // `assetId` is the model that the entries belong to. A different model clears them.
 export interface AvatarExpressions { readonly assetId: Id; readonly entries: ReadonlyMap<string, ExpressionEntry> }
 export type ExpressionStates = ReadonlyMap<Id, AvatarExpressions>;
 export type RecordLookup = (assetId: Id) => AssetRecord | undefined;
 export type ExpressionEffect = { kind: 'setExpression'; entityId: Id; expression: string; active: boolean; transition?: Transition } | { kind: 'toggleExpression'; entityId: Id; expression: string; transition?: Transition };
 export const EMPTY_EXPRESSIONS: ExpressionStates = new Map();
-const POSE_EXPRESSION_LIMIT = 64;
+export const POSE_EXPRESSION_LIMIT = 64;
 
 const failure = (code: ErrorCode, message: string, ids: Id[]): Reply<never> => ({ ok: false, error: { code, message, ids } });
 type Avatar = Extract<SceneEntity, { kind: 'avatar' }>;
@@ -54,8 +55,9 @@ export function expressionView(states: ExpressionStates, scene: SceneView, recor
 }
 
 // Sets the target of one expression. Activation clears the other expressions on its layer.
-// A transition fades the chosen expression and the cleared ones from their current weights, from `nowMs`.
-export function setExpression(states: ExpressionStates, scene: SceneView, records: RecordLookup, effect: ExpressionEffect, nowMs = 0): Reply<ExpressionStates> {
+// A transition fades the chosen expression and the cleared ones from their current weights, from `startMs`.
+// An entry that already goes to (or is at) the same target keeps its fade.
+export function setExpression(states: ExpressionStates, scene: SceneView, records: RecordLookup, effect: ExpressionEffect, startMs = 0, graphId?: Id): Reply<ExpressionStates> {
  const avatar = findAvatar(scene, effect.entityId);
  if (!avatar.ok) return avatar;
  const settings = settingsOf(avatar.data, records);
@@ -64,12 +66,15 @@ export function setExpression(states: ExpressionStates, scene: SceneView, record
  const entries = new Map(live(states, avatar.data) ?? []);
  const current = entries.get(chosen.name);
  const active = effect.kind === 'toggleExpression' ? current?.target !== 1 : effect.active;
- const retarget = (target: 0 | 1, weight: number): ExpressionEntry =>
-  effect.transition ? { target, weight, fade: { ...timing(effect.transition, nowMs), from: weight } } : { target, weight };
- entries.set(chosen.name, retarget(active ? 1 : 0, current?.weight ?? 0));
+ const retarget = (target: 0 | 1, entry: ExpressionEntry | undefined): ExpressionEntry => {
+  if (entry && entry.target === target && (entry.fade || entry.weight === target)) return entry;
+  const weight = entry?.weight ?? 0;
+  return effect.transition ? { target, weight, fade: { ...timing(effect.transition, startMs), from: weight, ...(graphId ? { graphId } : {}) } } : { target, weight };
+ };
+ entries.set(chosen.name, retarget(active ? 1 : 0, current));
  if (active)
   for (const other of settings)
-   if (other.name !== chosen.name && other.layer === chosen.layer && entries.has(other.name)) entries.set(other.name, retarget(0, entries.get(other.name)!.weight));
+   if (other.name !== chosen.name && other.layer === chosen.layer && entries.has(other.name)) entries.set(other.name, retarget(0, entries.get(other.name)));
  const next = new Map(states);
  next.set(avatar.data.id, { assetId: avatar.data.assetId, entries });
  return { ok: true, data: next };
@@ -97,6 +102,15 @@ export function advanceExpressions(states: ExpressionStates, scene: SceneView, r
   if (entries.size) next.set(avatarId, { assetId: state.assetId, entries });
  }
  return next;
+}
+
+export const expressionOwners = (states: ExpressionStates): Id[] =>
+ [...states.values()].flatMap(state => [...state.entries.values()].flatMap(entry => (entry.fade?.graphId ? [entry.fade.graphId] : [])));
+// Ends the transitions of the given graphs; their expressions continue with the Fade time.
+export function dropExpressionFades(states: ExpressionStates, graphIds: ReadonlySet<Id>): ExpressionStates {
+ if (!expressionOwners(states).some(id => graphIds.has(id))) return states;
+ return new Map([...states].map(([avatarId, state]) => [avatarId, { ...state, entries: new Map([...state.entries].map(([name, entry]) =>
+  [name, entry.fade?.graphId && graphIds.has(entry.fade.graphId) ? { target: entry.target, weight: entry.weight } : entry])) }]));
 }
 
 // Suppresses the tracking groups of active expressions, then merges expression weights with `max`.

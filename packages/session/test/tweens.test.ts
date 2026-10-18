@@ -3,7 +3,7 @@ import { eulerFromQuaternion, makeSmokeScene, quaternionFromEuler, type AssetRec
 import { EMPTY_OVERRIDES, applyOverrides, takeIdle } from '../src/overrides';
 import { advanceTweens, dropTweens, EMPTY_TWEENS, MAX_TWEENS, sampleTween, startTween, tweening, writeTransitioned, type PropertyLayers, type Transition } from '../src/tweens';
 import { advanceBlendShapes, composeBlendShapes, EMPTY_BLEND_SHAPES, setBlendShape } from '../src/blend-shapes';
-import { advanceLookAt, composeLookAt, EMPTY_LOOK_AT, lookRotation, MAX_PITCH, MAX_YAW, setLookAt } from '../src/look-at';
+import { EMPTY_LOOK_AT, lookRotation, MAX_PITCH, MAX_YAW, sceneLookup, setLookAt, stepLookAt, type LookAtStates } from '../src/look-at';
 import { quatToEuler } from '../src/bone-offsets';
 
 const scene = makeSmokeScene();
@@ -110,52 +110,74 @@ const record: AssetRecord = { id: 'fixture_vrm_1', format: 'vrm', sha256: 'a'.re
 const records = (id: string) => (id === record.id ? record : undefined);
 
 it('sets, fades, clamps, and releases blend shape weights', () => {
- let shapes = ok(setBlendShape(EMPTY_BLEND_SHAPES, scene, records, { kind: 'setBlendShape', entityId: 'performer', blendShape: 'mouthSmileLeft', weight: 1.5 }, 0));
+ let shapes = ok(setBlendShape(EMPTY_BLEND_SHAPES, scene, records, { kind: 'setBlendShape', entityId: 'performer', blendShape: 'mouthSmileLeft', weight: 1.5 }, 0, 'g'));
  expect(shapes.get('performer')?.entries.get('mouthSmileLeft')?.weight).toBe(1);
- shapes = ok(setBlendShape(shapes, scene, records, { kind: 'setBlendShape', entityId: 'performer', blendShape: 'Wink', weight: 0.8, transition: { seconds: 1, easing: 'Linear' } }, 1000));
+ shapes = ok(setBlendShape(shapes, scene, records, { kind: 'setBlendShape', entityId: 'performer', blendShape: 'Wink', weight: 0.8, transition: { seconds: 1, easing: 'Linear' } }, 1000, 'g'));
  shapes = advanceBlendShapes(shapes, scene, 1250);
  expect(composeBlendShapes([], shapes)).toEqual([{ avatarId: 'performer', bones: {}, expressions: { mouthSmileLeft: 1, Wink: expect.closeTo(0.2) } }]);
  expect(composeBlendShapes([{ avatarId: 'performer', bones: {}, expressions: { mouthSmileLeft: 0.4, blink: 0.3 } }], shapes)[0]!.expressions).toMatchObject({ mouthSmileLeft: 1, blink: 0.3 });
- shapes = ok(setBlendShape(shapes, scene, records, { kind: 'setBlendShape', entityId: 'performer', blendShape: 'mouthSmileLeft', weight: 0 }, 1250));
- shapes = ok(setBlendShape(shapes, scene, records, { kind: 'setBlendShape', entityId: 'performer', blendShape: 'Wink', weight: 0, transition: { seconds: 0.5, easing: 'Linear' } }, 1250));
+ shapes = ok(setBlendShape(shapes, scene, records, { kind: 'setBlendShape', entityId: 'performer', blendShape: 'mouthSmileLeft', weight: 0 }, 1250, 'g'));
+ shapes = ok(setBlendShape(shapes, scene, records, { kind: 'setBlendShape', entityId: 'performer', blendShape: 'Wink', weight: 0, transition: { seconds: 0.5, easing: 'Linear' } }, 1250, 'g'));
  expect(advanceBlendShapes(shapes, scene, 1500).get('performer')?.entries.get('Wink')?.weight).toBeCloseTo(0.1);
  expect(advanceBlendShapes(shapes, scene, 1750).size).toBe(0);
- expect(setBlendShape(EMPTY_BLEND_SHAPES, scene, records, { kind: 'setBlendShape', entityId: 'performer', blendShape: 'NotAName', weight: 1 }, 0)).toMatchObject({ ok: false, error: { message: 'BlendShape not found' } });
- expect(setBlendShape(EMPTY_BLEND_SHAPES, scene, records, { kind: 'setBlendShape', entityId: 'marker', blendShape: 'blink', weight: 1 }, 0)).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+ expect(setBlendShape(EMPTY_BLEND_SHAPES, scene, records, { kind: 'setBlendShape', entityId: 'performer', blendShape: 'NotAName', weight: 1 }, 0, 'g')).toMatchObject({ ok: false, error: { message: 'BlendShape not found' } });
+ expect(setBlendShape(EMPTY_BLEND_SHAPES, scene, records, { kind: 'setBlendShape', entityId: 'marker', blendShape: 'blink', weight: 1 }, 0, 'g')).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
  const swapped: SceneView = { ...scene, entities: scene.entities.map(e => e.id === 'performer' && e.kind === 'avatar' ? { ...e, assetId: 'avatar_other' } : e) };
- expect(advanceBlendShapes(ok(setBlendShape(EMPTY_BLEND_SHAPES, scene, records, { kind: 'setBlendShape', entityId: 'performer', blendShape: 'blink', weight: 1 }, 0)), swapped, 16).size).toBe(0);
+ expect(advanceBlendShapes(ok(setBlendShape(EMPTY_BLEND_SHAPES, scene, records, { kind: 'setBlendShape', entityId: 'performer', blendShape: 'blink', weight: 1 }, 0, 'g')), swapped, 16).size).toBe(0);
 });
 
 const at = (position: [number, number, number]): SceneView => ({ ...scene, entities: scene.entities.map(e => e.id === 'reference' ? { ...e, transform: { ...e.transform, position } } : e) });
 const euler = (q: Quat | null) => quatToEuler(q!);
 
 it('aims the head at the target in the character frame and clamps yaw and pitch', () => {
- expect(euler(lookRotation(at([0, 1.4, 5]), 'performer', 'reference'))).toEqual([0, 0, 0]);
- const [, yaw] = euler(lookRotation(at([5, 1.4, 5]), 'performer', 'reference'));
+ expect(euler(lookRotation(sceneLookup(at([0, 1.4, 5])), 'performer', 'reference'))).toEqual([0, 0, 0]);
+ const [, yaw] = euler(lookRotation(sceneLookup(at([5, 1.4, 5])), 'performer', 'reference'));
  expect(yaw).toBeCloseTo(45);
- const [pitch] = euler(lookRotation(at([0, 1.4 + 5, 5]), 'performer', 'reference'));
+ const [pitch] = euler(lookRotation(sceneLookup(at([0, 1.4 + 5, 5])), 'performer', 'reference'));
  expect(pitch).toBeCloseTo(-45);
- expect(euler(lookRotation(at([5, 1.4, 0]), 'performer', 'reference'))[1]).toBeCloseTo(MAX_YAW);
- expect(euler(lookRotation(at([0, -10, 0.1]), 'performer', 'reference'))[0]).toBeCloseTo(MAX_PITCH);
+ expect(euler(lookRotation(sceneLookup(at([5, 1.4, 0])), 'performer', 'reference'))[1]).toBeCloseTo(MAX_YAW);
+ expect(euler(lookRotation(sceneLookup(at([0, -10, 0.1])), 'performer', 'reference'))[0]).toBeCloseTo(MAX_PITCH);
  const turned: SceneView = { ...at([5, 1.4, 0]), entities: at([5, 1.4, 0]).entities.map(e => e.id === 'performer' ? { ...e, transform: { ...e.transform, rotation: quaternionFromEuler([0, 90, 0]) } } : e) };
- expect(euler(lookRotation(turned, 'performer', 'reference'))[1]).toBeCloseTo(0);
+ expect(euler(lookRotation(sceneLookup(turned), 'performer', 'reference'))[1]).toBeCloseTo(0);
 });
 
 it('fades the look-at weight and adds it to the head offset, then releases at weight 0', () => {
  const target = at([5, 1.4, 5]);
- let looks = ok(setLookAt(EMPTY_LOOK_AT, target, { kind: 'lookAt', entityId: 'performer', targetId: 'reference', weight: 1, transition: { seconds: 1, easing: 'Linear' } }, 0));
- const headYaw = (now: number) => euler(composeLookAt(new Map(), looks, target, now).get('performer')!.get('head')!)[1];
+ let looks = ok(setLookAt(EMPTY_LOOK_AT, sceneLookup(target), { kind: 'lookAt', entityId: 'performer', targetId: 'reference', weight: 1, transition: { seconds: 1, easing: 'Linear' } }, 0, 'g'));
+ const step = (states: LookAtStates, now: number) => stepLookAt(states, sceneLookup(target), now, new Map());
+ const headYaw = (now: number) => euler(step(looks, now).offsets.get('performer')!.get('head')!)[1];
  expect(headYaw(0)).toBeCloseTo(0);
  expect(headYaw(500)).toBeCloseTo(22.5);
- looks = advanceLookAt(looks, target, 1000);
+ looks = step(looks, 1000).states;
  expect(headYaw(1000)).toBeCloseTo(45);
- looks = ok(setLookAt(looks, target, { kind: 'lookAt', entityId: 'performer', targetId: 'reference', weight: 0.5 }, 1000));
+ looks = ok(setLookAt(looks, sceneLookup(target), { kind: 'lookAt', entityId: 'performer', targetId: 'reference', weight: 0.5 }, 1000, 'g'));
  expect(headYaw(1000)).toBeCloseTo(22.5);
- looks = ok(setLookAt(looks, target, { kind: 'lookAt', entityId: 'performer', targetId: 'reference', weight: 0 }, 1000));
+ looks = ok(setLookAt(looks, sceneLookup(target), { kind: 'lookAt', entityId: 'performer', targetId: 'reference', weight: 0 }, 1000, 'g'));
  expect(looks.size).toBe(0);
- expect(setLookAt(EMPTY_LOOK_AT, target, { kind: 'lookAt', entityId: 'performer', targetId: 'performer', weight: 1 }, 0)).toMatchObject({ ok: false, error: { message: 'Look At target is the character' } });
- expect(setLookAt(EMPTY_LOOK_AT, target, { kind: 'lookAt', entityId: 'performer', targetId: 'nobody', weight: 1 }, 0)).toMatchObject({ ok: false, error: { code: 'NOT_FOUND' } });
- expect(setLookAt(EMPTY_LOOK_AT, target, { kind: 'lookAt', entityId: 'marker', targetId: 'reference', weight: 1 }, 0)).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+ expect(setLookAt(EMPTY_LOOK_AT, sceneLookup(target), { kind: 'lookAt', entityId: 'performer', targetId: 'performer', weight: 1 }, 0, 'g')).toMatchObject({ ok: false, error: { message: 'Look At target is the character' } });
+ expect(setLookAt(EMPTY_LOOK_AT, sceneLookup(target), { kind: 'lookAt', entityId: 'performer', targetId: 'nobody', weight: 1 }, 0, 'g')).toMatchObject({ ok: false, error: { code: 'NOT_FOUND' } });
+ expect(setLookAt(EMPTY_LOOK_AT, sceneLookup(target), { kind: 'lookAt', entityId: 'marker', targetId: 'reference', weight: 1 }, 0, 'g')).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
  const gone: SceneView = { ...target, entities: target.entities.filter(e => e.id !== 'reference') };
- expect(advanceLookAt(ok(setLookAt(EMPTY_LOOK_AT, target, { kind: 'lookAt', entityId: 'performer', targetId: 'reference', weight: 1 }, 0)), gone, 16).size).toBe(0);
+ expect(stepLookAt(ok(setLookAt(EMPTY_LOOK_AT, sceneLookup(target), { kind: 'lookAt', entityId: 'performer', targetId: 'reference', weight: 1 }, 0, 'g')), sceneLookup(gone), 16, new Map()).states.size).toBe(0);
+});
+
+it('moves on each tick when a graph retargets the tween on every tick', () => {
+ // As in the session: the effect starts the tween at the previous tick, then the tick samples it.
+ let layers = EMPTY;
+ const values: number[] = [];
+ for (let t = 20; t <= 1000; t += 20) {
+  layers = ok(writeTransitioned(layers, scene, { kind: 'setProperty', entityId: 'camera_wide', property: 'fovDegrees', value: t % 40 ? 80 : 81, transition: linear(1) }, 'g', t, t - 20));
+  const step = fovAt(layers, t);
+  layers = step.layers;
+  values.push(step.fov);
+ }
+ expect(values.every((value, i) => i === 0 || value > values[i - 1]!)).toBe(true);
+ expect(values.at(-1)).toBeGreaterThan(60);
+});
+
+it('keeps a running tween when the same target comes again', () => {
+ const first = setFov(EMPTY, 85, linear(1), 0);
+ const again = setFov(fovAt(first, 300).layers, 85, linear(1), 300);
+ expect([...again.tweens.values()][0]!.startMs).toBe(0);
+ expect(fovAt(again, 1000).fov).toBe(85);
 });

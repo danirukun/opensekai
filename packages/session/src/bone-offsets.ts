@@ -4,14 +4,14 @@ import type { AvatarPose, Id, Quat, Reply, SceneView, Vec3 } from '@opensekai/co
 export interface BoneOffsetEffect { kind: 'offsetBone'; entityId: Id; bone: string; euler: Vec3 }
 export type BoneOffsets = ReadonlyMap<Id, ReadonlyMap<string, Quat>>;
 export const EMPTY_BONE_OFFSETS: BoneOffsets = new Map();
-const IDENTITY: Quat = [0, 0, 0, 1];
+export const IDENTITY: Quat = [0, 0, 0, 1];
 const RADIANS = Math.PI / 180;
 
 export function multiplyQuat(a: Quat, b: Quat): Quat {
  const [ax, ay, az, aw] = a, [bx, by, bz, bw] = b;
  return [ax * bw + aw * bx + ay * bz - az * by, ay * bw + aw * by + az * bx - ax * bz, az * bw + aw * bz + ax * by - ay * bx, aw * bw - ax * bx - ay * by - az * bz];
 }
-const normalize = (q: Quat): Quat => { const length = Math.hypot(...q); return length > 0 ? q.map(value => value / length) as Quat : IDENTITY; };
+export const normalize = (q: Quat): Quat => { const length = Math.hypot(...q); return length > 0 ? q.map(value => value / length) as Quat : IDENTITY; };
 const axis = (index: 0 | 1 | 2, degrees: number): Quat => {
  const half = degrees * RADIANS / 2, q: Quat = [0, 0, 0, Math.cos(half)];
  q[index] = Math.sin(half);
