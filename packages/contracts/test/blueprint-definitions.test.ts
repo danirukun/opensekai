@@ -39,6 +39,12 @@ it('keeps the ports of the existing node types', () => {
  expect(ports('camera.switch')).toEqual({ inputs: { flow: 'flow' }, outputs: exit });
 });
 
+it('defaults the bone nodes to the first avatar with head and chest, and needs an avatar', () => {
+ expect(defaultBlueprintSettings('character.getBoneRotation', refs)).toEqual({ entityId: 'a', bone: 'head' });
+ expect(defaultBlueprintSettings('character.offsetBoneRotation', refs)).toEqual({ entityId: 'a', bone: 'chest' });
+ expect(defaultBlueprintSettings('character.offsetBoneRotation', { keystroke: refs.keystroke })).toBeNull();
+});
+
 it('returns null defaults when the scene lacks the entity, camera, or output', () => {
  const bare: DefaultRefs = { keystroke: refs.keystroke };
  expect(defaultBlueprintSettings('scene.setVisibility', bare)).toBeNull();
@@ -49,10 +55,12 @@ it('returns null defaults when the scene lacks the entity, camera, or output', (
 it('publishes a catalog of every node with its ports and settings schema', () => {
  const catalog = blueprintNodeCatalog();
  expect(catalog).toHaveLength(NODE_DEFINITIONS.length);
- expect(catalog).toHaveLength(54);
+ expect(catalog).toHaveLength(56);
  const sequence = catalog.find(entry => entry.type === 'flow.sequence')!;
  expect(sequence).toMatchObject({ label: 'Sequence', category: 'Flow', portsDependOnSettings: true, settings: { type: 'object', required: ['outputs'] } });
  expect(catalog.find(entry => entry.type === 'variable.setNumber')!.ports).toEqual({ inputs: { flow: 'flow', value: 'number' }, outputs: { exit: 'flow' } });
  expect(JSON.parse(JSON.stringify(catalog))).toEqual(catalog);
+ expect(catalog.find(entry => entry.type === 'character.getBoneRotation')).toMatchObject({ label: 'Get Bone Rotation', category: 'Character', ports: { inputs: {}, outputs: { euler: 'vector3' } }, settings: { required: ['entityId', 'bone'] } });
+ expect(catalog.find(entry => entry.type === 'character.offsetBoneRotation')).toMatchObject({ label: 'Offset Bone Rotation', category: 'Character', ports: { inputs: { flow: 'flow', euler: 'vector3' }, outputs: { exit: 'flow' } } });
  expect(catalog.find(entry => entry.type === 'character.setExpression')).toMatchObject({ label: 'Set Expression', category: 'Character', ports: { inputs: { flow: 'flow', active: 'boolean' }, outputs: { exit: 'flow' } }, settings: { required: ['entityId', 'expression'] } });
 });
