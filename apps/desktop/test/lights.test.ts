@@ -4,7 +4,7 @@ import {createSession} from '@opensekai/session';
 import {makeAuthoringEntity,makeEmptyScene} from '../src/editor/authoring';
 import {groupEntities} from '../src/editor/asset-groups';
 import {createEditorModel} from '../src/editor/model';
-import {directionFromMainCamera,lightForType,lightLimitReached,parseBounded,parseLightColor,POINT_LIGHT} from '../src/editor/lights';
+import {directionFromMainCamera,lightForType,lightLimitReached,parseLightColor,POINT_LIGHT} from '../src/editor/lights';
 
 const close=(a:readonly number[],b:readonly number[])=>a.forEach((v,i)=>expect(v).toBeCloseTo(b[i]!,4));
 it('makes a directional light with the built-in light values (R10)',()=>{
@@ -35,12 +35,9 @@ it('reaches the light limit at 8 lights',()=>{
  expect(lightLimitReached(lights.slice(0,7))).toBe(false);
  expect(lightLimitReached(lights)).toBe(true);
 });
-it('parses color and bounded numbers for the Inspector (R13)',()=>{
+it('parses a color for the Inspector (R13)',()=>{
  expect(parseLightColor(' #FFAA00 ')).toBe('#ffaa00');
  for(const bad of ['#fff','red','#gggggg',''])expect(parseLightColor(bad)).toBeNull();
- expect(parseBounded('12.5',0,1000)).toBe(12.5);
- expect(parseBounded(0.5,0,1)).toBe(0.5);
- for(const bad of ['','1001','abc'])expect(parseBounded(bad,0,1000)).toBeNull();
 });
 it('keeps color, flags, and shadow on a type change and takes the type default intensity and range',()=>{
  const directional=makeAuthoringEntity('directionalLight','l',[]);

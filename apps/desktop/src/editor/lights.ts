@@ -21,11 +21,6 @@ export function parseLightColor(input:string):string|null {
  const value=input.trim().toLowerCase();
  return LightColorSchema.safeParse(value).success?value:null;
 }
-// A number field can hand over a number or a string.
-export function parseBounded(input:string|number,min:number,max:number):number|null {
- const text=String(input).trim(),value=Number(text);
- return text!==''&&Number.isFinite(value)&&value>=min&&value<=max?value:null;
-}
 // Set Direction From Main Camera: the light keeps its position and takes the rotation of the output_main camera (R13).
 export function directionFromMainCamera(scene:SceneView,lightId:string):Transform|null {
  const light=scene.entities.find(entity=>entity.id===lightId&&entity.kind==='light');

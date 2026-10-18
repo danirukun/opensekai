@@ -15,10 +15,6 @@ export function focusOptions(entities:readonly SceneEntity[]):{value:string;labe
  return [{value:'',label:'None'},...entities.filter(entity=>entity.kind==='avatar').map(entity=>({value:entity.id,label:entity.name}))];
 }
 // A number field can hand over a number or a string.
-export function parseSensitivity(input:string|number):number|null {
- const text=String(input).trim(),value=Number(text);
- return text!==''&&Number.isFinite(value)&&value>=.1&&value<=10?value:null;
-}
 // Tab and Ctrl+Tab: the next or previous camera in scene order, with wrap, from the camera that the preview draws.
 export function cycleCamera(scene:SceneView|null,direction:1|-1):Id|null {
  const cameras=scene?.entities.filter(entity=>entity.kind==='camera')??[];

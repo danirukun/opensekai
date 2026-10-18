@@ -1,4 +1,4 @@
-import {LensSchema,TrackingConfigSchema,TrackingSmoothingSchema} from '@opensekai/contracts';
+import {LensSchema,TrackingConfigSchema} from '@opensekai/contracts';
 import type {SceneEntity,TrackingConfig,AvatarIdle,AvatarTracking,TrackingStatus,TrackingSmoothing} from '@opensekai/contracts';
 export type CameraLens=Extract<SceneEntity,{kind:'camera'}>['lens'];
 export type AddKind='camera'|'character'|'environment'|'directionalLight'|'pointLight'|TrackingConfig['kind'];
@@ -14,6 +14,5 @@ export function initialTrackingDraft(config:TrackingConfig){return {config:{...c
 
 export function cameraOptions(entities:readonly SceneEntity[]){return entities.filter(entity=>entity.kind==='camera').map(entity=>({value:entity.id,label:entity.name}));}
 
-export function parseTrackingSmoothing(enabled:boolean,values:Record<'minCutoff'|'beta'|'derivativeCutoff',string|number|undefined>):TrackingSmoothing|null {const parsed=TrackingSmoothingSchema.safeParse({enabled,...Object.fromEntries(Object.entries(values).map(([key,value])=>[key,typeof value==='number'?value:typeof value==='string'&&value.trim()!==''?Number(value):NaN]))});return parsed.success?parsed.data:null;}
 export const antiAliasingOptions=[{value:'none',label:'None'},{value:'fxaa',label:'FXAA'}];
 export const qualityOptions=[{value:'production_v1',label:'Production'},{value:'performance_v1',label:'Performance'},{value:'preview_v1',label:'Preview'}];
