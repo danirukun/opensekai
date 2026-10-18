@@ -19,6 +19,35 @@ fn monitor_warning(watching: bool, status: MonitorStatus) -> Option<AppError> {
         ids: vec!["input-monitoring".into()],
     })
 }
+/// The computer addresses for the iFacialMocap Inspector (R7): the IPv4 addresses of up,
+/// non-loopback, non-link-local interfaces, at most 8, in numeric order.
+fn local_addresses(interfaces: impl IntoIterator<Item = (std::net::IpAddr, bool)>) -> Vec<String> {
+    let mut addresses: Vec<std::net::Ipv4Addr> = interfaces
+        .into_iter()
+        .filter_map(|(ip, up)| match ip {
+            std::net::IpAddr::V4(v4)
+                if up && !v4.is_loopback() && !v4.is_link_local() && !v4.is_unspecified() =>
+            {
+                Some(v4)
+            }
+            _ => None,
+        })
+        .collect();
+    addresses.sort();
+    addresses.dedup();
+    addresses
+        .into_iter()
+        .take(8)
+        .map(|a| a.to_string())
+        .collect()
+}
+/// Reads the interfaces with `if-addrs`; "up" is its operational status (`IFF_RUNNING` on
+/// macOS and Linux, `OperStatus` on Windows).
+fn computer_addresses() -> Vec<String> {
+    if_addrs::get_if_addrs()
+        .map(|list| local_addresses(list.iter().map(|i| (i.ip(), i.is_oper_up()))))
+        .unwrap_or_default()
+}
 #[derive(Debug, Clone)]
 pub struct RpcContext {
     pub client_id: String,
@@ -289,7 +318,7 @@ impl Shared {
                     .as_ref()
                     .and_then(|f| f.tracking_status.clone()),
                 blueprint_revision: inner.latest.as_ref().and_then(|f| f.blueprint_revision),
-                local_addresses: None,
+                local_addresses: Some(computer_addresses()),
             }));
         }
         if call.method == "cameraScreenshot" {
@@ -487,5 +516,33 @@ impl Shared {
             camera_id,
             revision,
         })
+    }
+}
+#[cfg(test)]
+mod local_address_tests {
+    use super::local_addresses;
+    #[test]
+    fn local_addresses_keep_up_ipv4_non_loopback_non_link_local_in_numeric_order() {
+        let ip = |s: &str| s.parse().unwrap();
+        let mut interfaces = vec![
+            (ip("127.0.0.1"), true),
+            (ip("169.254.10.2"), true),
+            (ip("192.168.1.9"), false),
+            (ip("fe80::1"), true),
+            (ip("2001:db8::1"), true),
+            (ip("192.168.1.20"), true),
+            (ip("10.0.0.2"), true),
+            (ip("192.168.1.3"), true),
+            (ip("10.0.0.2"), true),
+        ];
+        assert_eq!(
+            local_addresses(interfaces.clone()),
+            vec!["10.0.0.2", "192.168.1.3", "192.168.1.20"]
+        );
+        interfaces.extend((1..=9).map(|n| (ip(&format!("172.16.0.{n}")), true)));
+        let limited = local_addresses(interfaces);
+        assert_eq!(limited.len(), 8);
+        assert_eq!(limited[0], "10.0.0.2");
+        assert_eq!(limited[7], "172.16.0.7");
     }
 }
