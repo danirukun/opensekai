@@ -2,6 +2,7 @@ import { AmbientLight, DirectionalLight, MathUtils, PointLight, PCFShadowMap, Sp
 import { lights } from "three/tsl";
 import type { Id, LightSettings, SceneEntity, Transform, Vec3 } from "@opensekai/contracts";
 import { rotateByQuaternion } from "@opensekai/contracts";
+import { HAZE_LAYER } from "./haze";
 
 export type LightGroup = "characters" | "props" | "environment" | "haze";
 export type LightGroups = Record<LightGroup, Id[]>;
@@ -84,7 +85,17 @@ export function createSceneLights(scene: Scene, renderer: WebGPURenderer): Scene
     renderer.shadowMap.type = PCFShadowMap;
     const owned = new Map<Id, { type: LightSettings["type"]; light: ThreeLight }>();
     let current = "", generation = 0, nodes: Record<LightGroup, ReturnType<typeof lights>> | null = null, shadows = false;
+    // A placed light is also on the haze layer, so the haze pass sees it; its shadow camera keeps layer 0 and the haze
+    // layer, so a shadow map drawn during the haze pass still has its casters (three.js r180 example, B13 R7).
     const create = (settings: LightSettings): ThreeLight => {
+        const light = build(settings);
+        if ((light as AmbientLight).isAmbientLight) return light;
+        const placed = light as PointLight | SpotLight | DirectionalLight;
+        placed.layers.enable(HAZE_LAYER);
+        placed.shadow.camera.layers.enable(HAZE_LAYER);
+        return light;
+    };
+    const build = (settings: LightSettings): ThreeLight => {
         if (settings.type === "ambient") {
             const light = new AmbientLight(0xffffff, 1);
             scene.add(light);

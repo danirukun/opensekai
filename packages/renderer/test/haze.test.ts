@@ -81,3 +81,19 @@ describe('editor helpers (B13 R13)', () => {
         expect(root.getObjectByName('haze-box')).toBeDefined();
     });
 });
+
+describe('three.js r180 volumetric workarounds (macOS probe finding)', () => {
+    it('scatters a light without a shadow, where r180 multiplies by a missing shadow node', async () => {
+        const { createHaze } = await import('../src/haze');
+        const haze = createHaze();
+        const model = (haze.mesh.material as unknown as { setupLightingModel(): { direct(input: unknown, builder: unknown): void; scatteringLight(light: unknown, builder: unknown): void } }).setupLightingModel();
+        expect(model.constructor.name).toBe('HazeLightingModel');
+        const scattered: unknown[] = [];
+        model.scatteringLight = light => { scattered.push(light); };
+        const { vec3 } = await import('three/tsl');
+        model.direct({ lightNode: { light: { distance: 10 } }, lightColor: vec3(1, 1, 1) }, {});
+        model.direct({ lightNode: { light: {} }, lightColor: vec3(1, 1, 1) }, {});
+        expect(scattered).toHaveLength(1);
+        haze.dispose();
+    });
+});

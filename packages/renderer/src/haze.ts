@@ -43,6 +43,23 @@ export const hazeComposite = (scene: AnyNode, haze: AnyNode, intensity: AnyNode)
     return vec4(scene.rgb.add(beam), scene.a.add(scene.a.oneMinus().mul(coverage)));
 };
 
+// three.js r180 VolumetricLightingModel multiplies each light by its shadow node, which a light without a shadow lacks, so such
+// a light scatters nothing. The model class is internal; take it from a material and skip the factor when there is no shadow.
+type LightingModel = { scatteringLight(light: unknown, builder: unknown): void };
+type DirectInput = { lightNode: { light: { distance?: number }; shadowNode?: unknown }; lightColor: AnyNode };
+const VolumetricLightingModel = new VolumeNodeMaterial().setupLightingModel().constructor as new () => LightingModel;
+class HazeLightingModel extends VolumetricLightingModel {
+    direct({ lightNode, lightColor }: DirectInput, builder: unknown) {
+        if (lightNode.light.distance === undefined) return;
+        const light = lightColor.xyz.toVar();
+        if (lightNode.shadowNode) light.mulAssign(lightNode.shadowNode as AnyNode);
+        this.scatteringLight(light, builder);
+    }
+}
+class HazeMaterial extends VolumeNodeMaterial {
+    setupLightingModel() { return new HazeLightingModel() as unknown as ReturnType<VolumeNodeMaterial["setupLightingModel"]>; }
+}
+
 export interface Haze {
     readonly mesh: Mesh;
     readonly intensity: ReturnType<typeof uniform>;
@@ -57,11 +74,12 @@ export interface Haze {
 export function createHaze(): Haze {
     const noise = noiseVolume();
     const density = uniform(1), smoke = uniform(1), drift = uniform(0.2), elapsed = uniform(0), intensity = uniform(1);
-    const depth = texture(new DepthTexture(1, 1));
-    const material = new VolumeNodeMaterial();
+    // One node with its UV: `.sample()` would clone the node, and a later `value` change would miss the clone.
+    const depth = texture(new DepthTexture(1, 1), screenUV);
+    const material = new HazeMaterial();
     material.steps = HAZE_STEPS;
     material.offsetNode = bayer16(screenCoordinate);
-    material.depthNode = depth.sample(screenUV);
+    material.depthNode = depth;
     material.scatteringNode = Fn(({ positionRay }: { positionRay: AnyNode }) => {
         const flow = vec3(elapsed, 0, elapsed.mul(0.3)).mul(drift);
         const grain = (scale: number, speed = 1) => texture3D(noise, positionRay.add(flow.mul(speed)).mul(scale).mod(1), 0).r.add(0.5);

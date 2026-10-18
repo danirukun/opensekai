@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { AmbientLight, BackSide, DirectionalLight, DoubleSide, FrontSide, Group, Mesh, BoxGeometry, MeshBasicMaterial, MeshStandardMaterial, PointLight, Scene, SpotLight, type PerspectiveCamera, type WebGPURenderer } from 'three/webgpu';
 import type { LightSettings, SceneEntity } from '@opensekai/contracts';
+import { HAZE_LAYER } from '../src/haze';
 import { createSceneLights, lightDirection, lightGroups, lightSignature, scattersInHaze, shadowsOn, spotAngle, usesFixedAmbient, withDrafts, DIRECTIONAL_DISTANCE, SPOT_SHADOW_FAR } from '../src/scene-lights';
 
 const settings = (patch: Partial<LightSettings> = {}): LightSettings => ({ type: 'directional', color: '#ffffff', intensity: 3, range: 0, affectCharacters: true, affectProps: true, affectEnvironment: true, shadow: { enabled: false, intensity: 1, soft: true, bias: -0.0005, normalBias: 0.02 }, ...patch });
@@ -234,6 +235,17 @@ describe('stage lights (B13)', () => {
         expect(lightsOf(lights.node('props'))).not.toContain(fixed);
         lights.apply([light('d')]);
         expect(lightsOf(lights.node('characters'))).toContain(fixed);
+    });
+    it('puts placed lights and their shadow cameras on the haze layer, so the haze pass sees them and keeps the shadow casters (R7)', () => {
+        const scene = new Scene(), lights = createSceneLights(scene, fake());
+        lights.apply([spot('s', { volumetric: true }), light('p', { type: 'point' }), light('d'), light('a', { type: 'ambient' })]);
+        const placed = scene.children.filter(c => (c as SpotLight).isSpotLight || (c as PointLight).isPointLight || (c as DirectionalLight).isDirectionalLight) as (SpotLight | PointLight | DirectionalLight)[];
+        // The built-in light (intensity 0 here) never scatters and has no shadow.
+        expect(placed.filter(own => own.intensity > 0)).toHaveLength(3);
+        for (const own of placed.filter(own => own.intensity > 0)) {
+            expect(own.layers.isEnabled(HAZE_LAYER) && own.layers.isEnabled(0)).toBe(true);
+            expect(own.shadow.camera.layers.isEnabled(HAZE_LAYER) && own.shadow.camera.layers.isEnabled(0)).toBe(true);
+        }
     });
     it('gives the haze set only the volumetric lights, with no ambient light (R7)', () => {
         const scene = new Scene(), lights = createSceneLights(scene, fake());
