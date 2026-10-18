@@ -1,10 +1,11 @@
-import type { BlueprintKind, BlueprintNodeOf, Id, SceneView, Vec3 } from '@opensekai/contracts';
+import type { AvatarPose, BlueprintKind, BlueprintNodeOf, Id, SceneView, Vec3 } from '@opensekai/contracts';
 import type { BlueprintEffect } from '../blueprint';
 
 export type BlueprintValue = number | boolean | Vec3;
 // Per-run inputs from outside the graph.
 // `scene` is read on demand, so a run sees the writes of earlier runs in the same tick.
-export interface RunEnv { deltaSeconds: number; held: ReadonlySet<string>; scene: () => SceneView | null }
+// `previousPose` is the avatar pose of the previous tick, before expressions and bone offsets.
+export interface RunEnv { deltaSeconds: number; held: ReadonlySet<string>; scene: () => SceneView | null; previousPose?: (avatarId: Id) => AvatarPose | null }
 export const NO_ENV: RunEnv = { deltaSeconds: 0, held: new Set(), scene: () => null };
 export interface RunState { variables: Map<Id, BlueprintValue>; flip: Map<Id, boolean>; gates: Map<Id, boolean>; multi: Map<Id, number>; throttle: Map<Id, number>; loops: Map<Id, number>; random: number }
 export const emptyState = (seed = 0): RunState => ({ variables: new Map(), flip: new Map(), gates: new Map(), multi: new Map(), throttle: new Map(), loops: new Map(), random: seed });

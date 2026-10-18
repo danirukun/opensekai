@@ -74,3 +74,4 @@
 .canvas-menu .node-search-results{max-height:220px}
 .canvas-menu .node-search:has(+button){margin-bottom:4px;border-bottom:1px solid #eeecf2}
 .blueprint-canvas,.bp-node,.canvas-menu>button{-webkit-user-select:none;user-select:none}
+.blueprint-templates>button{padding:4px;border-radius:4px;color:#665581;background:transparent;border:0;cursor:pointer}.blueprint-templates>button:hover:not(:disabled){background:#ece6f4}.blueprint-templates>button:disabled{opacity:.4;cursor:default}

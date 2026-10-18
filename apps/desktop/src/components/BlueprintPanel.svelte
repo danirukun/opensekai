@@ -9,6 +9,7 @@
  import type { MenuTarget, ReteBlueprintEditor } from '../blueprints/rete-editor';
  import { deleteOps, disconnectOps } from '../blueprints/selection-ops';
  import { freeSpot } from '../blueprints/placement';
+ import { templatesEnabled, upperBodyRotation } from '../blueprints/templates';
  import { shortcutFor } from '../blueprints/keys';
  import { copyNodes, duplicateAnchor, pasteOps, type BlueprintClipboard } from '../blueprints/clipboard';
  import type { EditorMemory } from '../blueprints/editor-memory';
@@ -22,8 +23,8 @@
  import BlueprintSocketView from './BlueprintSocketView.svelte';
  import BlueprintConnectionView from './BlueprintConnectionView.svelte';
 
- let { api, sync, memory, scene, assets = [], status, disabled, onrun }: {
-  api: AppApi | null; sync: BlueprintSync; memory: EditorMemory; scene: SceneView | null; assets?: readonly AssetRecord[]; status: AppStatus | null; disabled: boolean; onrun: () => void;
+ let { api, sync, memory, scene, assets = [], status, disabled, selectedEntityId = null, onrun }: {
+  api: AppApi | null; sync: BlueprintSync; memory: EditorMemory; scene: SceneView | null; assets?: readonly AssetRecord[]; status: AppStatus | null; disabled: boolean; selectedEntityId?: string | null; onrun: () => void;
  } = $props();
  const platform = currentPlatform();
  let canvas: HTMLDivElement;
@@ -177,6 +178,16 @@
   choose(imported.data.graph.id);
   missing = imported.data.report.missing.map(item => item.name);
  }
+ function addTemplate() {
+  if (!scene || disabled || !templatesEnabled(scene, graphs.length)) return;
+  const imported = upperBodyRotation(scene, selectedEntityId, () => crypto.randomUUID());
+  if (!imported.ok) { runError = imported.error.message; return; }
+  const result = edit([{ kind: 'createGraph', graph: imported.data.graph }]);
+  if (!result.ok) { runError = result.error.message; return; }
+  runError = null;
+  choose(imported.data.graph.id);
+  missing = imported.data.report.missing.map(item => item.name);
+ }
  async function exportFile(id: string) {
   if (!api || !scene) return;
   try {
@@ -270,7 +281,7 @@
  <header class="blueprint-toolbar"><h2>Blueprints</h2><span class="blueprint-state" role="status">{problem}</span><div class="spacer"></div>{#if trigger}<Button variant="secondary" disabled={disabled || busy || !graph} onclick={() => run()}><Play size={14}/>Run</Button>{/if}</header>
  {#if inputWarning}<div class="blueprint-warning" role="alert">{inputWarning.message}{#if inputWarning.code === 'FORBIDDEN'}<Button variant="secondary" onclick={openInputSettings}>Open Settings</Button>{/if}</div>{/if}
  <div class="blueprint-workspace">
-  <BlueprintList {graphs} {selectedId} {disabled} creatable={targets.length > 0} onselect={choose} onops={edit} oncreate={create} onimport={importFile} onexport={exportFile} />
+  <BlueprintList {graphs} {selectedId} {disabled} creatable={targets.length > 0} onselect={choose} onops={edit} oncreate={create} onimport={importFile} templatable={templatesEnabled(scene, graphs.length)} ontemplate={addTemplate} onexport={exportFile} />
   <nav class="blueprint-tools" aria-label="Blueprint tools">
    <button type="button" class:active={drawer === 'nodes'} aria-pressed={drawer === 'nodes'} title="Nodes" aria-label="Nodes" onclick={() => toggleDrawer('nodes')}><Search size={16} /></button>
    <button type="button" class:active={drawer === 'variables'} aria-pressed={drawer === 'variables'} title="Variables" aria-label="Variables" onclick={() => toggleDrawer('variables')}><Variable size={16} /></button>

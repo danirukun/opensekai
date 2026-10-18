@@ -1,10 +1,11 @@
-import { IdSchema, ParamSchemas, AssetRecordSchema, type AssetRecord, type ExpressionState, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate, type AppError, type InputUpdate, type BlueprintInspect } from "@opensekai/contracts";
+import { IdSchema, ParamSchemas, AssetRecordSchema, type AssetRecord, type ExpressionState, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate, type AppError, type InputUpdate, type BlueprintInspect, type AvatarPose } from "@opensekai/contracts";
 import { createTransformAdapter } from "./ecs";
 import {createTrackingComposer} from "./tracking";
 import { createBlueprintRuntime, logicKey, type BlueprintEvent, type GraphRun, type StepEnv } from './blueprint-runtime';
 import { createBlueprintStore } from './blueprint-store';
 import { applyEffects, applyOperations } from './scene-ops';
-import { isExpressionEffect, isOverrideEffect, isSceneEffect } from './blueprint';
+import { isBoneOffsetEffect, isExpressionEffect, isOverrideEffect, isSceneEffect } from './blueprint';
+import { composeBoneOffsets, EMPTY_BONE_OFFSETS, writeBoneOffset, type BoneOffsets } from './bone-offsets';
 import { advanceExpressions, composeExpressions, EMPTY_EXPRESSIONS, expressionView, reconcileExpressions, setExpression, type ExpressionStates } from './expressions';
 import { applyOverrides, dropOverrides, EMPTY_OVERRIDES, takeIdle, writeOverride, type OverrideLayer } from './overrides';
 export interface Session {
@@ -37,6 +38,9 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
     let tracking=createTrackingComposer();
     let overrides: OverrideLayer = EMPTY_OVERRIDES;
     let expressions: ExpressionStates = EMPTY_EXPRESSIONS;
+    // Never committed or saved: rebuilt by the Blueprint step of each tick.
+    let boneOffsets: BoneOffsets = EMPTY_BONE_OFFSETS;
+    let previousPoses = new Map<Id, AvatarPose>();
     let records = new Map<Id, AssetRecord>();
     const record = (assetId: Id) => records.get(assetId);
     const storeRecords = (list: readonly AssetRecord[]) => { records = new Map(list.flatMap(item => { const parsed = AssetRecordSchema.safeParse(item); return parsed.success ? [[parsed.data.id, parsed.data] as const] : []; })); };
@@ -71,7 +75,8 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
         let working: SceneView | null = null;
         let layer = overrides;
         let faces = reconcileExpressions(expressions, persistent);
-        const env: StepEnv = { held, scene: () => applyOverrides(working ?? persistent, layer) };
+        let offsets = boneOffsets;
+        const env: StepEnv = { held, scene: () => applyOverrides(working ?? persistent, layer), previousPose: avatarId => previousPoses.get(avatarId) ?? null };
         const runs = runtime.step(events, nowMs, run => {
             if (run.effects.length === 0) return null;
             const sceneEffects = run.effects.filter(isSceneEffect);
@@ -90,13 +95,21 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
                 if (!set.ok) return set.error;
                 nextFaces = set.data;
             }
+            let nextOffsets = offsets;
+            for (const effect of run.effects.filter(isBoneOffsetEffect)) {
+                const written = writeBoneOffset(nextOffsets, scene, effect);
+                if (!written.ok) return written.error;
+                nextOffsets = written.data;
+            }
             if (sceneEffects.length) working = scene;
             layer = nextLayer;
             faces = nextFaces;
+            offsets = nextOffsets;
             return null;
         }, env);
         overrides = layer;
         expressions = faces;
+        boneOffsets = offsets;
         for (const run of runs) if (run.error) runtimeErrors.set(run.graphId, run.error); else runtimeErrors.delete(run.graphId);
         const changed = working !== null && JSON.stringify(working) !== JSON.stringify(persistent);
         return { runs, committed: changed ? commit(working!) : { ok: true, data: { revision: persistent.revision } } };
@@ -120,6 +133,8 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             tracking = createTrackingComposer();
             overrides = EMPTY_OVERRIDES;
             expressions = EMPTY_EXPRESSIONS;
+            boneOffsets = EMPTY_BONE_OFFSETS;
+            previousPoses = new Map();
             return { ok: true, data: structuredClone(persistent) };
         },
         editBlueprints(batch) {
@@ -199,6 +214,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
                 throw new RangeError("Elapsed time must be finite, nonnegative and monotonic within safe counter limits");
             }
             failedThisTick = false;
+            boneOffsets = EMPTY_BONE_OFFSETS;
             try {
                 const events: BlueprintEvent[] = [...(input?.events?.map(event => ({ kind: 'keystroke' as const, accelerator: event.accelerator })) ?? []), { kind: 'update' }];
                 stepBlueprints(events, elapsedMs, new Set(input?.held ?? []));
@@ -214,7 +230,8 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             elapsed = elapsedMs;
             sequence += 1;
             const live=tracking.evaluate(shown,trackingNowMs??elapsedMs,elapsedMs);
-            const avatarPoses = composeExpressions(live.avatarPoses, expressions, persistent, record);
+            previousPoses = new Map(live.avatarPoses.map(pose => [pose.avatarId, structuredClone(pose)]));
+            const avatarPoses = composeBoneOffsets(composeExpressions(live.avatarPoses, expressions, persistent, record), boneOffsets);
             return { schemaVersion: 1, sessionId, sequence, tick, elapsedMs, scene, blueprintRevision: store.revision(), ...(avatarPoses.length?{avatarPoses}:{}),...(live.trackingStatus.length?{trackingStatus:live.trackingStatus}:{}) };
         },
     };

@@ -23,16 +23,16 @@ export interface BlueprintImportReport {
 }
 export interface BlueprintImport { graph: BlueprintGraph; report: BlueprintImportReport }
 
-type FieldKind = 'entity' | 'camera' | 'output';
+type FieldKind = 'entity' | 'avatar' | 'camera' | 'output';
 interface Use { nodeId: Id; key: string; kind: FieldKind; value: Id }
-const isFieldKind = (kind: string): kind is FieldKind => kind === 'entity' || kind === 'camera' || kind === 'output';
-// Each value of an entity, camera, or output field, in node order and then catalog field order.
+const isFieldKind = (kind: string): kind is FieldKind => kind === 'entity' || kind === 'avatar' || kind === 'camera' || kind === 'output';
+// Each value of an entity, avatar, camera, or output field, in node order and then catalog field order.
 const uses = (graph: BlueprintGraph): Use[] => graph.nodes.flatMap(node => nodeDefinition(node.type).fields.flatMap(field => {
  const value = (node.settings as Record<string, unknown>)[field.key];
  return isFieldKind(field.kind) && typeof value === 'string' ? [{ nodeId: node.id, key: field.key, kind: field.kind, value }] : [];
 }));
 const referable = (entity: SceneEntity): entity is Exclude<SceneEntity, { kind: 'tracking' }> => entity.kind !== 'tracking';
-const accepts = (kind: Exclude<FieldKind, 'output'>, entity: SceneEntity) => kind === 'camera' ? entity.kind === 'camera' : referable(entity);
+const accepts = (kind: Exclude<FieldKind, 'output'>, entity: SceneEntity) => kind === 'camera' || kind === 'avatar' ? entity.kind === kind : referable(entity);
 
 export function exportBlueprint(graph: BlueprintGraph, scene: SceneView): BlueprintFile {
  const references = new Map<Id, BlueprintReference>();

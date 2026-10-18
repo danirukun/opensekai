@@ -136,3 +136,28 @@ it('rejects a file whose graph is larger than the Blueprint store limit', () => 
  expect(text.length).toBeLessThan(1024 * 1024);
  expect(importBlueprint(text, scene, ids())).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', message: 'Blueprint file is too large' } });
 });
+
+const express = (id: string, entityId: string) => ({ id, version: 1, type: 'character.toggleExpression', settings: { entityId, expression: 'happy' }, position: at });
+const offset = (id: string, entityId: string) => ({ id, version: 1, type: 'character.offsetBoneRotation', settings: { entityId, bone: 'chest' }, position: at });
+
+it('exports avatar references for expression and bone nodes and round-trips them', () => {
+ const avatarGraph = graph([manual, express('face', 'performer'), offset('turn', 'performer')], [wire('w1', 'run', 'face')]);
+ const file = exportBlueprint(avatarGraph, scene);
+ expect(file.references).toEqual([{ id: 'performer', kind: 'avatar', name: 'performer' }]);
+ const imported = ok(importBlueprint(serializeBlueprintFile(file), scene, ids()));
+ expect(imported.graph).toEqual({ ...avatarGraph, id: 'new-1' });
+ expect(imported.report).toEqual({ graphId: 'new-1', enabled: true, remapped: [], missing: [] });
+ expect(exportBlueprint(imported.graph, scene)).toEqual({ ...file, graph: imported.graph });
+});
+
+it('imports an avatar reference by ID, then by unique avatar name, and never to another kind', () => {
+ const old = rename(scene, 'performer', { id: 'old-performer' });
+ const file = exportBlueprint(graph([offset('turn', 'old-performer'), express('face', 'old-performer')]), old);
+ const imported = ok(importBlueprint(file, scene, ids()));
+ expect(imported.graph.nodes.map(node => node.settings)).toEqual([{ entityId: 'performer', bone: 'chest' }, { entityId: 'performer', expression: 'happy' }]);
+ expect(imported.report.remapped).toEqual([{ name: 'performer', kind: 'avatar', from: 'old-performer', to: 'performer' }]);
+ const meshNamed = rename(rename(scene, 'performer', { name: 'someone' }), 'marker', { name: 'performer' });
+ expect(ok(importBlueprint(file, meshNamed, ids())).report).toMatchObject({ enabled: false, missing: [{ name: 'performer', kind: 'avatar', id: 'old-performer', nodeIds: ['turn', 'face'] }] });
+ const byIdMesh = exportBlueprint(graph([offset('turn', 'marker')]), scene);
+ expect(ok(importBlueprint(byIdMesh, scene, ids())).report.missing).toEqual([{ name: 'marker', kind: 'mesh', id: 'marker', nodeIds: ['turn'] }]);
+});
