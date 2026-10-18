@@ -60,6 +60,18 @@ Method. The same scratch page read the canvas with `renderer.capture()` (the eva
 | Point shadow beside the legs, at start / turned on later | — | PASS. 36 730 / 36 448 px |
 | Shadow light with `affectProps: false`: floor against no shadow | — | PASS. 0 px (all four) |
 
+## Pipeline failure log (after owner QA, finding 2, option 3)
+
+The owner saw `bracket nesting level exceeded maximum of 256` from the Metal translation on macOS after many light-set rebuilds. The cloud could not reproduce it: across 29 owner-like steps (environment and shadow in one patch, Soft off, up to 8 lights with 2 shadows, flag, shadow, and type changes, environment removal and re-add), Dawn compiled every pipeline. The WGSL nesting depth stayed at most 19, and the shader size depended only on the current light set (at most 48 KB).
+
+The owner chose option 3: log the failing shader. `pipeline-diagnostics.ts` wraps the WebGPU device (R9a).
+
+| Check | Result |
+| --- | --- |
+| Unit tests: async and sync failures, one report for each shader pair, at most 16, restore | PASS (`pipeline-diagnostics.test.ts`, 5 tests) |
+| Real WebGPU device (Dawn, SwiftShader): a good pipeline, then a bad shader through `createRenderPipeline` and `createRenderPipelineAsync` | PASS. No report for the good pipeline; one report with the WGSL for the sync failure; the async failure of the same pair is not logged again |
+| Real renderer with the watch: point light, affect flags, shadows at start and later, 40-step stress | PASS on WebGPU and WebGL 2; no `Pipeline compile failed` warning |
+
 ## Editor flow (O5)
 
 Method. A scratch Svelte page mounted the real `Hierarchy` and `Inspector` with a real `createEditorModel` on a real `createSession`, and the real `createRenderer` with an editor on `preview_main`. The start scene was `makeEmptyScene()` with a box. Playwright used the controls and the 960 × 540 canvas. The run passed on WebGPU and on WebGL 2.

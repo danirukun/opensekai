@@ -13,6 +13,7 @@ import { createCapturePolicy, readPng } from "./capture";
 import { createLoadJobs, type AssetLoadStatus, type LoadReport, type LoadRequest } from "./load-jobs";
 import { createEnvironmentLight, roomEnvironmentMap, type InstanceMaterials } from "./environment-light";
 import { createSceneLights, groupOf, type LightGroup } from "./scene-lights";
+import { logPipelineFailure, watchPipelineErrors, type PipelineDevice } from "./pipeline-diagnostics";
 import { createDiagnosticMarker } from "./diagnostic-marker";
 import { createAntiAliasing } from "./anti-aliasing";
 import { renderScreenshot, SCREENSHOT_HEIGHT, SCREENSHOT_WIDTH } from "./screenshot";
@@ -44,6 +45,10 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     const scene = new Scene();
     scene.background = null;
     const sceneLights = createSceneLights(scene, renderer);
+    // A failed pipeline compile is logged with its WGSL and named in frame warnings until the next light-set rebuild.
+    let pipelineFailed = false;
+    const device = backend === "webgpu" ? (renderer.backend as unknown as { device?: PipelineDevice }).device : undefined;
+    const unwatchPipelines = device ? watchPipelineErrors(device, (failure, first) => { pipelineFailed = true; if (first) logPipelineFailure(failure); }) : null;
     const loadAsset = createAssetLoader(options.resources, {maxTextureSize: quality.maxTextureSize});
     const antiAliasing = createAntiAliasing(renderer);
     const assets = createAssetCache(loadAsset);
@@ -120,6 +125,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         assets.dispose();
         environmentLight.dispose();
         sceneLights.dispose();
+        unwatchPipelines?.();
         antiAliasing.dispose();
         marker?.dispose();
         scene.clear();
@@ -143,6 +149,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             renderer.setSize(width, height, false);
         const warnings: AppError[] = [];
         const lightsRebuilt = sceneLights.apply(frame.scene.entities);
+        if (lightsRebuilt) pipelineFailed = false;
         // Cameras and lights have a scene object only in the editor viewport, as a pick target and helper (R14).
         const wanted = new Set(frame.scene.entities.filter(x => x.kind !== "tracking" && (editor || (x.kind !== "camera" && x.kind !== "light"))).map(x => x.id));
         for (const [id, value] of objects) {
@@ -226,6 +233,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             if (message) warnings.push({ code: "UNAVAILABLE", message: "Asset load failed: " + message, ids: [request.assetId] });
         }
         for (const entry of jobs.status()) if (entry.stage !== "failed") warnings.push({ code: "BUSY", message: "Asset loading", ids: [entry.assetId] });
+        if (pipelineFailed) warnings.push({ code: "UNSUPPORTED", message: "Pipeline compile failed", ids: [] });
         // A change of the light set gives each lit material its new group node set (R6, R7).
         const generation = sceneLights.generation();
         for (const value of objects.values()) if (value.group && value.lit !== generation) { sceneLights.assign(value.root, value.group); value.lit = generation; }
