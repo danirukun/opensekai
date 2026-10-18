@@ -58,6 +58,8 @@ export function watchPipelineErrors(device: PipelineDevice, report: (failure: Pi
 /** Logs a failure for the owner: one summary line, then each shader source. */
 export function logPipelineFailure(failure: PipelineFailure) {
     console.error("Pipeline compile failed", JSON.stringify({ message: failure.message.slice(0, 2000), label: failure.label, maxNesting: failure.maxNesting, vertexLength: failure.vertex?.length ?? null, fragmentLength: failure.fragment?.length ?? null }));
+    // A Metal compiler message carries the generated source before its error line, so a long message is logged in full.
+    if (failure.message.length > 2000) console.error("Failed pipeline message\n" + failure.message);
     if (failure.vertex) console.error("Failed pipeline vertex WGSL\n" + failure.vertex);
     if (failure.fragment) console.error("Failed pipeline fragment WGSL\n" + failure.fragment);
 }

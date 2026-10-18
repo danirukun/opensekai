@@ -55,3 +55,16 @@ describe('pipeline diagnostics (owner QA finding 2, option 3)', () => {
         expect(device.createRenderPipeline).toBe(before);
     });
 });
+describe('pipeline failure log', () => {
+    it('logs a message longer than 2000 characters in full, so the compiler error line is kept', async () => {
+        const { logPipelineFailure } = await import('../src/pipeline-diagnostics');
+        const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        const message = 'x'.repeat(5000) + '\nprogram_source:1: error: bracket nesting level exceeded maximum of 256';
+        logPipelineFailure({ message, label: 'shadow', vertex: 'v', fragment: 'f', maxNesting: 3 });
+        expect(error.mock.calls.some(call => String(call[0]).endsWith('exceeded maximum of 256'))).toBe(true);
+        error.mockClear();
+        logPipelineFailure({ message: 'short', label: null, vertex: null, fragment: null, maxNesting: 0 });
+        expect(error).toHaveBeenCalledTimes(1);
+        error.mockRestore();
+    });
+});
