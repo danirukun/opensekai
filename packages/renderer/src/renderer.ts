@@ -14,6 +14,7 @@ import { createLoadJobs, type AssetLoadStatus, type LoadReport, type LoadRequest
 import { createEnvironmentLight, roomEnvironmentMap, type InstanceMaterials } from "./environment-light";
 import { createSceneLights, groupOf, type LightGroup } from "./scene-lights";
 import { logPipelineFailure, watchPipelineErrors, type PipelineDevice } from "./pipeline-diagnostics";
+import { freshModulePerPipeline, isWebKit } from "./webkit-shader-modules";
 import { createDiagnosticMarker } from "./diagnostic-marker";
 import { createAntiAliasing } from "./anti-aliasing";
 import { renderScreenshot, SCREENSHOT_HEIGHT, SCREENSHOT_WIDTH } from "./screenshot";
@@ -49,6 +50,8 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     let pipelineFailed = false;
     const device = backend === "webgpu" ? (renderer.backend as unknown as { device?: PipelineDevice }).device : undefined;
     const unwatchPipelines = device ? watchPipelineErrors(device, (failure, first) => { pipelineFailed = true; if (first) logPipelineFailure(failure); }) : null;
+    // After the watch, so that each new module still has its WGSL for the failure log (R9b).
+    const restoreModules = device && isWebKit(navigator.userAgent) ? freshModulePerPipeline(device) : null;
     const loadAsset = createAssetLoader(options.resources, {maxTextureSize: quality.maxTextureSize});
     const antiAliasing = createAntiAliasing(renderer);
     const assets = createAssetCache(loadAsset);
@@ -125,6 +128,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         assets.dispose();
         environmentLight.dispose();
         sceneLights.dispose();
+        restoreModules?.();
         unwatchPipelines?.();
         antiAliasing.dispose();
         marker?.dispose();

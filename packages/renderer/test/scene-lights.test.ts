@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DirectionalLight, Group, Mesh, BoxGeometry, MeshBasicMaterial, MeshStandardMaterial, PointLight, Scene, type WebGPURenderer } from 'three/webgpu';
+import { BackSide, DirectionalLight, DoubleSide, FrontSide, Group, Mesh, BoxGeometry, MeshBasicMaterial, MeshStandardMaterial, PointLight, Scene, type WebGPURenderer } from 'three/webgpu';
 import type { LightSettings, SceneEntity } from '@opensekai/contracts';
 import { createSceneLights, lightDirection, lightGroups, lightSignature, shadowsOn, DIRECTIONAL_DISTANCE } from '../src/scene-lights';
 
@@ -139,6 +139,21 @@ describe('material refresh', () => {
         expect(disposed).toBe(1);
         lights.assign(root, 'environment');
         expect(disposed).toBe(1);
+    });
+});
+describe('shadow side of a multi-material mesh', () => {
+    it('casts every group with the shadow side of the first material, so the shared shadow material does not flip (R8a)', () => {
+        const scene = new Scene(), lights = createSceneLights(scene, fake());
+        const base = new MeshStandardMaterial({ side: DoubleSide }), outline = new MeshStandardMaterial({ side: BackSide });
+        const single = new MeshStandardMaterial({ side: FrontSide });
+        const root = new Group(); root.add(new Mesh(new BoxGeometry(), [base, outline]), new Mesh(new BoxGeometry(), single));
+        lights.apply([light('a', { shadow: { ...settings().shadow, enabled: true } })]);
+        lights.assign(root, 'characters');
+        const side = (m: MeshStandardMaterial) => m.shadowSide ?? m.side;
+        expect(side(outline)).toBe(DoubleSide);
+        expect(side(base)).toBe(DoubleSide);
+        expect(outline.side).toBe(BackSide);
+        expect(single.shadowSide).toBeNull();
     });
 });
 describe('soft shadow radius', () => {

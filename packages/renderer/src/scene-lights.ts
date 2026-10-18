@@ -139,7 +139,12 @@ export function createSceneLights(scene: Scene, renderer: WebGPURenderer): Scene
                 const mesh = object as Object3D & { isMesh?: boolean; material?: Material | Material[] };
                 if (!mesh.isMesh) return;
                 if (mesh.castShadow !== shadows || mesh.receiveShadow !== shadows) { mesh.castShadow = shadows; mesh.receiveShadow = shadows; }
-                for (const material of [mesh.material ?? []].flat()) {
+                const materials = [mesh.material ?? []].flat();
+                // three.js 0.180 draws all groups of a mesh in the shadow pass through one render object; a side that differs
+                // per group (MToon outline) rebuilds its pipeline on each draw (R8a).
+                const side = materials[0] ? materials[0].shadowSide ?? materials[0].side : null;
+                for (const material of materials.slice(1)) if ((material.shadowSide ?? material.side) !== side) material.shadowSide = side;
+                for (const material of materials) {
                     if (!isLitMaterial(material)) continue;
                     const holder = material as Material & { lightsNode: unknown };
                     if (holder.lightsNode === node) continue;

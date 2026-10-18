@@ -72,6 +72,26 @@ The owner chose option 3: log the failing shader. `pipeline-diagnostics.ts` wrap
 | Real WebGPU device (Dawn, SwiftShader): a good pipeline, then a bad shader through `createRenderPipeline` and `createRenderPipelineAsync` | PASS. No report for the good pipeline; one report with the WGSL for the sync failure; the async failure of the same pair is not logged again |
 | Real renderer with the watch: point light, affect flags, shadows at start and later, 40-step stress | PASS on WebGPU and WebGL 2; no `Pipeline compile failed` warning |
 
+## Shadow pipeline churn
+
+Owner QA on macOS 27.0.1, Apple M3 Pro, commit `651d3d5`, `pnpm dev:desktop`. Scene: Nina (VRM 1, MToon with outlines) and TV01 Stage. One click on Shadow for the Directional Light, after a fresh start, stopped the Scene preview with `Pipeline compile failed` (`renderPipeline_ShadowMaterial_*`, 3 times) and dropped the OBS output to 0.9 fps. This happened on 2 of 2 fresh starts.
+
+A temporary hook on the three.js pipeline cache showed the cause. Each MToon mesh has two geometry groups over the same vertices: the base material (`DoubleSide`) and the outline material (`BackSide`). In the shadow pass, three.js 0.180 draws both groups through one render object with the shared `ShadowMaterial`, and it copies the side of each group onto that material. The side changes on each draw, so three.js releases the pipeline and builds the other one, about twice each frame for each outlined mesh: about 6,300 new shadow pipelines in 20 s.
+
+R8a gives the outline the shadow side of the base material (`material.shadowSide`). After the change, the same click built 13 shadow pipelines once, and no vertex module had 25 uses.
+
+| Check (macOS, WebKit preview and OBS on `production_v1`) | Result |
+| --- | --- |
+| Unit test: a mesh with a `DoubleSide` and a `BackSide` material casts both with `DoubleSide`; a single-material mesh keeps `shadowSide` null | PASS (`scene-lights.test.ts`) |
+| One click on Shadow after a fresh start | PASS. 0 `Pipeline compile failed`; preview and OBS at the new revision with no warning; OBS 59.9 fps |
+| 30 s later, Soft Shadows off, a point light with a shadow added, the directional shadow off and on | PASS. OBS 60.0–60.2 fps, 0 failures; the preview draws both shadows at 58 fps |
+
+## WebKit shader module reuse
+
+A Swift `WKWebView` harness on the system WebKit (macOS 27.0.1) made render pipelines from a vertex shader that reads a uniform `array<vec4<f32>, 2>` in a loop, which is the shape of the three.js morph-target shadow shader. With one shared module, pipeline 255 failed with `bracket nesting level exceeded maximum of 256`. With a new module for each pipeline, 400 pipelines compiled. The generated Metal of the app failure had the same array index inside 333 nested `__wgslMin` calls, and the count grew by one with each failure. WebKit adds the bounds clamp again each time a pipeline uses the module.
+
+R9b makes a new module from the same WGSL for each pipeline in a WebKit WebView. Check: with R8a turned off on purpose, the churn came back (about 6,300 pipelines in 20 s), and there were 0 failures; OBS stayed at 59.9 fps, and the preview dropped to 52 fps. Thus R9b stops the failure, and R8a removes the cost. Unit tests: `webkit-shader-modules.test.ts` (new modules with the same WGSL for each pipeline, restore, and WebKit detection without Chromium).
+
 ## Editor flow (O5)
 
 Method. A scratch Svelte page mounted the real `Hierarchy` and `Inspector` with a real `createEditorModel` on a real `createSession`, and the real `createRenderer` with an editor on `preview_main`. The start scene was `makeEmptyScene()` with a box. Playwright used the controls and the 960 × 540 canvas. The run passed on WebGPU and on WebGL 2.
