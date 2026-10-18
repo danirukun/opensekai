@@ -28,6 +28,8 @@ export function checkBlueprintValue(type: DataType, value: unknown): void {
  if (problem === 'type') throw new RangeError('Blueprint value does not match its type');
 }
 
+// `limit` is the iteration limit (64 when not set). `clear` removes the loop index and the node state when the loop ends.
+export interface LoopOptions { limit?: number; clear?: boolean }
 export interface FlowContext {
  // The flow input that this visit entered.
  port: string;
@@ -37,7 +39,7 @@ export interface FlowContext {
  emit(effect: BlueprintEffect): void;
  delay(seconds: number): void;
  // Runs `body` once per index from first to last, then `completed`.
- loop(first: number, last: number): void;
+ loop(first: number, last: number, options?: LoopOptions): void;
  state: RunState;
  nowMs: number;
  env: RunEnv;
