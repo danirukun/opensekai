@@ -1,6 +1,6 @@
 # Tracking receive and two performers analysis
 
-Date: 2026-10-18. Scope: bundle B5 (#18 TRK-01 first subset, #19 TRK-02 first subset, #16 CHR-10 first subset for two performers). Contract: [tracking receive and two performers](../prompt/2026-10-18-tracking-receive-two-performers.md).
+Date: 2026-10-18. Scope: bundle B5 (#18 TRK-01 first subset, #19 TRK-02 first subset, #16 CHR-10 first subset for two performers, #91 BP-11 Upper Body Rotation template, #85 BP-05 bone rotation part). The owner added the template to this bundle on 2026-10-18. Contract: [tracking receive and two performers](../prompt/2026-10-18-tracking-receive-two-performers.md).
 
 ## Sources
 
@@ -8,6 +8,9 @@ Date: 2026-10-18. Scope: bundle B5 (#18 TRK-01 first subset, #19 TRK-02 first su
 - [Warudo iFacialMocap](https://docs.warudo.app/docs/mocap/ifacialmocap), read 2026-10-18. It gives: the user enters the computer IP address in the phone app (**Destination IP address**); the **iFacialMocap Receiver** asset shows the computer IP addresses ("If several IPs are listed, try each one"); FaceMotion3D works through **Compatible with iFacialMocap**; the received data is 52 ARKit blendshapes, head rotation, and head translation; calibration is **Calibrate iFacialMocap**. It gives no port number. Troubleshooting names the input port, the input IP, the same Wi-Fi, a private network, and the firewall.
 - [Warudo Motion capture overview](https://docs.warudo.app/docs/mocap/overview), read 2026-10-18. Receivers only receive data; tracking Blueprints connect it to a character. **Setup Motion Capture** on a character adds face and pose tracking for that character. Some receivers have a **Port** that must match the sender. iFacialMocap can add body movement (**Body Movement Intensity**). The page says nothing about two characters.
 - [Warudo Character](https://docs.warudo.app/docs/assets/character), read 2026-10-18. A scene can have more characters through **Add Asset**. Motion capture is set up for each character. The page says nothing about which character a tracker drives.
+- [Warudo Upper Body Rotation](https://docs.warudo.app/docs/blueprints/templates/upper-body-rotation), read 2026-10-18. The template adds natural upper body rotation when the head turns. It needs face tracking. The user imports `upper-body-rotation.json`; it works out of the box; Comment nodes explain the settings; the Character option may need a change. A caution says that since Warudo 0.12.0 the face tracking does this by default.
+- The Warudo template file `upper-body-rotation.json`, read 2026-10-18. On Update drives Override Character Bone Rotation Offsets. Get Character Bone Rotation reads the Head local rotation as Euler angles. Three Scale Vector3 nodes multiply it by `(0, 0.6, 0)` for Chest, `(0, 0.4, 0)` for Spine, and `(0, 0.3, 0)` for Hips, and three Offset Character Bone Rotations nodes chain the offsets onto the animation pipeline offsets. Thus only the head yaw turns the upper body. A README comment says that the template must be disabled when face tracking is disabled.
+- [Warudo Customizing Face Tracking](https://docs.warudo.app/docs/mocap/face-tracking), read 2026-10-18. Receivers have Body Movement Intensity and Body Rotation Type (None, Normal, Inverted, Custom; default Inverted).
 - [Architecture design](../../docs/superpowers/specs/2026-10-02-opensekai-architecture-design.md), Tracking: "For each performer, assign body and face sources independently. … Prevent one source from applying to both performers by accident."
 - [Minimum live VTubing contract](../prompt/2026-10-03-minimum-live-vtubing.md): the existing receive rules (addresses, conversion, limits, default endpoints, handshake, hold and fade).
 - [Benchmark contract](../../docs/evaluation/benchmark-contract.md): "Two representative VRM performers; repeat with one."
@@ -19,6 +22,7 @@ Date: 2026-10-18. Scope: bundle B5 (#18 TRK-01 first subset, #19 TRK-02 first su
 - **Endpoints.** Each VMC and iFacialMocap source binds its own UDP socket. A second source on the same address and port gets "Cannot bind receiver endpoint". The iFacialMocap app has no destination port setting in the Warudo steps, so two phones send to the same port.
 - **Sources and assignment.** A scene holds at most 4 tracking sources and 2 avatars. Each avatar has `tracking: { bodySourceId, faceSourceId }`. The session evaluates each avatar on its own. Nothing stops one source from driving both avatars. Duplicate clears the assignment of a copied character. Add Character puts each new character at the world origin, so a second character stands inside the first.
 - **Editor.** The Inspector shows the bind address, port, sender or phone address, Start/Stop, state, error, and diagnostics. It does not show the computer IP address that the phone app needs.
+- **Blueprints.** The catalog has Vector3 Make, Break, Add, and Scale (by a number), math nodes, number variables, On Update, and Character Set and Toggle Expression. No node reads or writes a bone. The session has no bone offset layer. Import of an OpenSekai Blueprint file remaps references by name. There are no templates.
 - **MCP.** Tracking goes through `scene_patch` and `app_status`. The `scene_patch` description does not name the tracking operations. No MCP test covers tracking.
 
 ## Decisions
@@ -33,13 +37,14 @@ These decisions are reversible. The owner can change each one in review of this 
 6. **One source for one performer.** A `scenePatch` is rejected when its end state has a source that two avatars use and its start state did not. This covers `setAvatarTracking`, `createEntity`, and a swap in one patch, and it keeps an existing share valid. One avatar can use the same source for body and face. Scene load and `sceneReplace` still accept an old show that shares a source, so no show stops loading. The editor source selects disable a source that the other character uses. Alternative: a schema rule for each scene, which can stop an old show from loading.
 7. **Second character place.** Add Character puts a new character 1 m along world +X from the last character, so two performers do not stand inside each other. Duplicate does the same. Alternative: the world origin, as today.
 8. **Calibration and head movement wait for B6.** Head translation, **Body Movement Intensity**, and **Calibrate iFacialMocap** belong to TRK-04 and TRK-05 (bundle B6). This slice does not change the sample shape.
-9. **No new MCP tools.** The `scene_patch` description names the tracking operations. `app_status` returns `localAddresses`.
+9. **Upper Body Rotation is a Blueprint template, as the owner asked.** Two new Character nodes (Get Bone Rotation, Offset Bone Rotation) and a session bone offset layer that is empty at the start of each tick. Thus a disabled template stops at once, and the Warudo warning about a disabled face tracking does not apply. The renderer applies the offsets from a new optional `AvatarPose.boneOffsets` field, so they compose with both normalized and raw bones. Get Bone Rotation reads normalized bones only (a raw VMC head reads zero). The template comes from a **Templates** menu in the Blueprint list and uses the import path, after avatar references join the Blueprint file format (this also fixes Set Expression references, which do not export today). Comments do not exist in OpenSekai yet, so the three factors are graph number variables. Alternative: a built-in Body Rotation Type on each face source, as Warudo 0.12 does; that belongs with B6.
+10. **No new MCP tools.** The `scene_patch` description names the tracking operations. `app_status` returns `localAddresses`.
 
 ## Effects
 
 - An operator can connect a VMC application that sends extra addresses or type tags, and can connect an iFacialMocap phone that starts before or after OpenSekai.
 - An operator can run two performers: two characters, each with its own body and face sources, also with two phones on one port.
-- The show format and the sample shape do not change. `AppStatus` and `TrackingStatus` each get one optional field. `apps/desktop/src-tauri` gets the `if-addrs` dependency. The host gets a shared endpoint data path, which `ARCHITECTURE.md` records.
+- The show format and the sample shape do not change. `AppStatus`, `TrackingStatus`, and `AvatarPose` each get one optional field. The Blueprint catalog gets two Character nodes, and Blueprint files get avatar references. `apps/desktop/src-tauri` gets the `if-addrs` dependency. The host gets a shared endpoint data path, which `ARCHITECTURE.md` records.
 
 ## Risks
 
@@ -48,8 +53,10 @@ These decisions are reversible. The owner can change each one in review of this 
 - Some VMC senders send `Bone/Pos` for bones that the avatar does not have. Skipping them keeps the rest of the pose; the bone mapping does not change.
 - The handshake retry sends a small datagram each 2 s to a phone that does not answer. It pauses while the source receives data and stops when the source stops.
 - The real UDP test of a shared endpoint needs a second loopback address. Linux has it; macOS does not by default. On macOS only the pure routing tests and the owner check cover it.
+- The template reads the head pose of the previous tick, so the body follows the head one tick late (about 16 ms at 60 Hz).
+- With a body source that tracks the chest, spine, or hips, the template adds its offset to the tracked rotation. The user disables the template for a full-body source, as Warudo does.
 - The cloud has no phone, no VMC application, and no OBS. Two-performer cost at 60 fps is unknown until the owner measures it.
 
 ## Out of scope
 
-FaceMotion3D (TRK-03), calibration and source offsets (TRK-04, TRK-05), head translation, Body Movement Intensity, iFacialMocap TCP modes, VMC sending (MED-09), VMC tracker, HMD, controller, camera, and light addresses, more than 2 characters, more than 4 sources, and tracking Blueprints.
+FaceMotion3D (TRK-03), calibration and source offsets (TRK-04, TRK-05), head translation, Body Movement Intensity, iFacialMocap TCP modes, VMC sending (MED-09), VMC tracker, HMD, controller, camera, and light addresses, more than 2 characters, more than 4 sources, tracking Blueprints, Body Rotation Type on a face source, pen hand sync, and sway presets.
