@@ -1,4 +1,5 @@
 import { rotateByQuaternion, writeProperty, type Id, type PropertyKey, type PropertyValue, type Reply, type SceneEntity, type ScenePatch, type SceneView, type Vec3 } from '@opensekai/contracts';
+import { delta, shifted } from './camera-follow';
 
 export interface OverrideEntry { value: PropertyValue; lastWriteMs: number; graphIds: readonly Id[] }
 export type OverrideLayer = ReadonlyMap<Id, ReadonlyMap<PropertyKey, OverrideEntry>>;
@@ -22,7 +23,17 @@ export function overriddenEntity(scene: SceneView, layer: OverrideLayer, entityI
  return entity;
 }
 export const applyOverrides = (scene: SceneView, layer: OverrideLayer): SceneView =>
- layer.size === 0 ? scene : { ...scene, entities: scene.entities.map(entity => (layer.has(entity.id) ? overriddenEntity(scene, layer, entity.id)! : entity)) };
+ layer.size === 0 ? scene : { ...scene, entities: scene.entities.map(entity => followed(scene, layer, layer.has(entity.id) ? overriddenEntity(scene, layer, entity.id)! : entity)) };
+// An Orbit Character camera follows the position override of its target (R6a): it moves by the override's offset from the
+// persistent target. The idle commit moves the persistent camera by the same offset, so the evaluated camera does not jump.
+function followed(scene: SceneView, layer: OverrideLayer, entity: SceneEntity): SceneEntity {
+ if (entity.kind !== 'camera' || entity.navigation?.mode !== 'orbitCharacter' || layer.get(entity.id)?.has('position')) return entity;
+ const targetId = entity.navigation.targetId;
+ const override = targetId ? layer.get(targetId)?.get('position') : undefined;
+ const target = override && scene.entities.find(item => item.id === targetId);
+ if (!override || !target) return entity;
+ return { ...entity, transform: { ...entity.transform, position: shifted(entity.transform.position, delta(target.transform.position, override.value as Vec3)) } };
+}
 
 export function writeOverride(layer: OverrideLayer, scene: SceneView, write: OverrideWrite, graphId: Id, nowMs: number): Reply<OverrideLayer> {
  const entity = overriddenEntity(scene, layer, write.entityId);

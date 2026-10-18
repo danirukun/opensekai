@@ -59,6 +59,49 @@ it('wasd moves the character forward while W is held and reports its held keys',
  expect(z).toBeGreaterThan(1.5 * 0.016 * 28);
 });
 
+it('wasd moves an Orbit Character camera with the character in each frame and in the commit (R6a)', () => {
+ const { session, ticks, entity } = start('wasd');
+ expect(session.applyPatch({ sceneId: 'scene_smoke', expectedRevision: session.inspect().revision, operations: [{ kind: 'setCameraNavigation', entityId: 'camera_wide', navigation: { mode: 'orbitCharacter', sensitivity: 1, targetId: 'performer', pivotOffset: [0, 1.3, 0] } }] }).ok).toBe(true);
+ const revision = session.inspect().revision;
+ const offset = (a: number[], b: number[]) => a.map((value, i) => value - b[i]!);
+ const start0 = offset(entity('camera_wide').transform.position, entity('performer').transform.position);
+ const rotation = entity('camera_wide').transform.rotation;
+ ticks(1);
+ const frame = ticks(30, { held: ['KeyW'] });
+ const shown = (id: string) => frame.scene.entities.find(item => item.id === id)!.transform;
+ expect(shown('performer').position[2]).toBeGreaterThan(entity('performer').transform.position[2]);
+ // The smoke performer sways in x and y in the evaluated frame; the camera follows the root, so compare z.
+ expect(shown('camera_wide').position[2] - shown('performer').position[2]).toBeCloseTo(start0[2]!, 9);
+ expect(shown('camera_wide').position.slice(0, 2)).toEqual(entity('camera_wide').transform.position.slice(0, 2));
+ expect(shown('camera_wide').rotation).toEqual(rotation);
+ ticks(20);
+ expect(session.inspect().revision).toBe(revision + 1);
+ offset(entity('camera_wide').transform.position, entity('performer').transform.position).forEach((value, i) => expect(value).toBeCloseTo(start0[i]!, 9));
+});
+
+it('keeps the walk offset when a navigation commit sets the camera during the walk, and does not move the camera on the idle commit (R6a)', () => {
+ const { session, ticks, entity } = start('wasd');
+ const nav = { mode: 'orbitCharacter' as const, sensitivity: 1, targetId: 'performer', pivotOffset: [0, 1.3, 0] as [number, number, number] };
+ expect(session.applyPatch({ sceneId: 'scene_smoke', expectedRevision: session.inspect().revision, operations: [{ kind: 'setCameraNavigation', entityId: 'camera_wide', navigation: nav }] }).ok).toBe(true);
+ const z = (frame: ReturnType<typeof ticks>, id: string) => frame.scene.entities.find(item => item.id === id)!.transform.position[2];
+ ticks(1);
+ let frame = ticks(20, { held: ['KeyW'] });
+ const walked = z(frame, 'performer') - entity('performer').transform.position[2];
+ expect(walked).toBeGreaterThan(0.3);
+ // A navigation commit is in persistent coordinates; the evaluated camera adds the walk offset again.
+ const transform = { ...entity('camera_wide').transform, position: [1, 1.5, 4] as [number, number, number] };
+ expect(session.applyPatch({ sceneId: 'scene_smoke', expectedRevision: session.inspect().revision, operations: [{ kind: 'setTransform', entityId: 'camera_wide', transform }] }).ok).toBe(true);
+ frame = ticks(1, { held: ['KeyW'] });
+ const offset = z(frame, 'performer') - entity('performer').transform.position[2];
+ expect(z(frame, 'camera_wide')).toBeCloseTo(4 + offset, 9);
+ const before = z(ticks(1), 'camera_wide');
+ const revision = session.inspect().revision;
+ frame = ticks(20);
+ expect(session.inspect().revision).toBe(revision + 1);
+ expect(z(frame, 'camera_wide')).toBeCloseTo(before, 9);
+ expect(entity('camera_wide').transform.position[2]).toBeCloseTo(before, 9);
+});
+
 it('camera-flip and counter switch the preview camera on each keystroke', () => {
  const flip = start('camera-flip');
  expect(flip.imported[0]!.edit.keystrokes).toContain('Control+Alt+KeyH');

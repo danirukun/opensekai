@@ -8,6 +8,8 @@ export type NavigationEnd = { ok: true; revision: number; committed: boolean } |
 export interface CommitterOptions {
     send(commit: NavigationCommit): Promise<Reply<{ revision: number }>>;
     onEnd(end: NavigationEnd): void;
+    // A CONFLICT reply: true holds the gesture for `rebase`, false ends it.
+    onConflict?(): boolean;
     now(): number;
     setTimer(run: () => void, ms: number): unknown;
     clearTimer(handle: unknown): void;
@@ -17,18 +19,21 @@ export interface NavigationCommitter {
     offer(draft: NavigationDraft): void;
     finish(): void;
     abort(): void;
+    // Hold the sends until `rebase` names the new scene revision and maps the waiting draft to it.
+    hold(): void;
+    rebase(revision: number, map: (draft: NavigationDraft) => NavigationDraft): void;
     // A frame revision that this gesture's own commits explain. A later revision is another edit.
     owns(revision: number): boolean;
     active(): boolean;
 }
 export function createNavigationCommitter(revision: number, options: CommitterOptions): NavigationCommitter {
     const interval = options.intervalMs ?? 100;
-    let base = revision, pending = false, finishing = false, done = false, committed = false;
+    let base = revision, pending = false, finishing = false, done = false, committed = false, held = false;
     let dirty: NavigationDraft | null = null, lastSent = -Infinity, timer: unknown = null;
     const stopTimer = () => { if (timer !== null) { options.clearTimer(timer); timer = null; } };
     const end = (result: NavigationEnd) => { if (done) return; done = true; stopTimer(); dirty = null; options.onEnd(result); };
     const pump = () => {
-        if (done || pending) return;
+        if (done || pending || held) return;
         if (!dirty) { if (finishing) end({ ok: true, revision: base, committed }); return; }
         const wait = lastSent + interval - options.now();
         // A timer can fire a fraction of a millisecond early against `now`, so wait one more.
@@ -44,7 +49,12 @@ export function createNavigationCommitter(revision: number, options: CommitterOp
         sent.then(reply => {
             pending = false;
             if (done) return;
-            if (!reply.ok) { end({ ok: false }); return; }
+            if (!reply.ok) {
+                // The draft that the other edit rejected waits for the rebase, unless a newer one came.
+                if (reply.error.code === 'CONFLICT' && options.onConflict?.()) { held = true; dirty ??= draft; return; }
+                end({ ok: false });
+                return;
+            }
             base = reply.data.revision;
             committed = true;
             pump();
@@ -54,6 +64,8 @@ export function createNavigationCommitter(revision: number, options: CommitterOp
         offer(draft) { if (done || finishing) return; dirty = structuredClone(draft); pump(); },
         finish() { if (done) return; finishing = true; pump(); },
         abort() { if (done) return; done = true; stopTimer(); dirty = null; },
+        hold() { if (!done) { held = true; stopTimer(); } },
+        rebase(next, map) { if (done) return; base = next; held = false; if (dirty) dirty = map(dirty); pump(); },
         owns(value) { return value <= base + (pending ? 1 : 0); },
         active() { return !done; },
     };

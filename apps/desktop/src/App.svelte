@@ -54,6 +54,7 @@
    // Navigation commits go straight to the patch route, so the model does not block the gesture as pending.
    onNavigate(edit){return session!.client.api.scenePatch(edit);},
    onNavigateEnd(){void model?.load();notify({kind:'refresh'});},
+   onInspect(sceneId){return session!.client.api.sceneInspect({sceneId});},
    onCycleCamera(direction){const state=model?.read();const next=cycleCamera(state?.scene??null,direction);if(next&&!state?.pending)void model?.selectCamera(next).then(()=>notify({kind:'refresh'}));},
   },{begin(){if(!perfVisible)return false;stats.begin();return true;},end(){stats.end();}}).then(async value=>{if(disposed){await value.stop();return;}session=value;offLoads=value.onLoadStatus(entries=>{loads=entries;loadSender.offer(entries);});canEdit=value.canEdit;model=createEditorModel(value.client.api);
    tracker=createMediaPipeTracker({now:()=>value.tracking.now()??0,onSample:sample=>value.tracking.submit({samples:[sample],statuses:[]}),onStatus:status=>value.tracking.submit({samples:[],statuses:[status]}),onDevices:choices=>{devices=choices.slice(0,8).map(device=>({deviceId:device.deviceId.slice(0,512),label:device.label.slice(0,128)}));notify({kind:'trackingDevices',devices});}});

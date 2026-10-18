@@ -30,6 +30,19 @@ The smoke scene moves the performer root. The orbit pivot uses the evaluated roo
 | --- | --- | --- |
 | ![Before](camera-workflow/freelook-before.png) | ![After a turn](camera-workflow/freelook-after-turn.png) | ![After a pan](camera-workflow/orbit-after-pan.png) |
 
+## Orbit follow (R6a, macOS)
+
+Date: 2026-10-18. Platform: macOS, debug build from `pnpm dev:desktop` (WebGPU preview), the owner's show (REM, `Camera Close Up` in Orbit Character). Method: an MCP stdio client on the running app. A test Blueprint (On Update, Move Entity on REM at 0.4 m/s) stood in for WASD, because MCP cannot hold keys. `scene_patch` sent 10 Hz camera commits as an orbit drag does. The scene was restored after each run.
+
+| Check | Result |
+| --- | --- |
+| A patch moves REM by 0.2 m | PASS. The camera moved by the same 0.2 m in the same revision. |
+| Before the fix: drag commits during the walk | FAIL (repro). The orbit pivot stayed at the drag start; each commit reset the evaluated camera, so it jittered; the idle commit after the walk changed the revision, the next commit got `CONFLICT`, and the camera jumped 0.75 m. |
+| After the fix: drag commits in persistent coordinates during the walk | PASS. 15 commits, no conflict. |
+| After the fix: walk released during the drag | PASS. The idle commit moved REM and the camera by the same 0.746 m, so the rebase rule applies; the drag continued (25 commits, 1 rebase). The final camera kept the orbit distance (2.2847 m) and looked at the pivot (0.000°). |
+| Scene window during a 0.8 m/s walk (screen captures) | PASS. REM kept her place in the frame while the background moved; no jump at the idle commit. |
+| A real orbit drag with WASD held and released | PASS (owner, by hand). |
+
 ## Inspector controls (headless Chromium)
 
 Method. A scratch Svelte page mounted the real `Inspector` and `Hierarchy` components with a real `createEditorModel` on a real `createSession` (smoke scene, `camera_wide` selected). `cameraScreenshot` and Open Screenshots Folder were fakes at the call boundary. Playwright used the controls.

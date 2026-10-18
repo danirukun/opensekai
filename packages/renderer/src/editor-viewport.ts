@@ -14,6 +14,8 @@ export interface EditorOptions {
     // Camera navigation (R4–R9): each commit is one scenePatch through the normal route.
     onNavigate?(edit: NavigationEdit): Promise<Reply<{revision: number}>>;
     onNavigateEnd?(): void;
+    // A fresh persistent scene, read when an Orbit Character gesture meets a revision that it did not make.
+    onInspect?(sceneId: Id): Promise<Reply<SceneView>>;
     // Tab selects the next camera and Ctrl+Tab the previous one while the canvas has focus.
     onCycleCamera?(direction: 1 | -1): void;
 }
@@ -37,6 +39,8 @@ export function createEditorViewport(canvas: HTMLCanvasElement, camera: Perspect
         canvas,
         allowed: () => state.enabled && !pending && !disposed && !gesture && !controls.dragging,
         gizmoHit: () => controls.axis !== null || controls.dragging,
+        persistent: () => state.scene,
+        inspect: sceneId => options.onInspect?.(sceneId) ?? Promise.resolve({ ok: false, error: { code: 'UNAVAILABLE', message: 'Scene read unavailable', ids: [] } }),
         onNavigate: edit => options.onNavigate!(edit),
         onEnd: () => options.onNavigateEnd?.(),
         onChange: () => refresh(),

@@ -67,3 +67,18 @@ it('ignores a write that does not change the value, so motion that stops can com
  expect(takeIdle(scene, still, 250).operations).toHaveLength(1);
  expect(ok(set(EMPTY_OVERRIDES, 'reference', 'visible', true as never))).toBe(EMPTY_OVERRIDES);
 });
+
+it('moves each Orbit Character camera by the position override of its target in the evaluated scene only (R6a)', () => {
+ const orbit = { ...scene, entities: scene.entities.map(e => e.id === 'camera_wide' && e.kind === 'camera' ? { ...e, navigation: { mode: 'orbitCharacter' as const, sensitivity: 1, targetId: 'performer', pivotOffset: [0, 1.3, 0] as [number, number, number] } } : e) };
+ const at = (s: typeof scene, id: string) => s.entities.find(e => e.id === id)!.transform;
+ const layer = ok(writeOverride(EMPTY_OVERRIDES, orbit, { kind: 'moveEntity', entityId: 'performer', space: 'world', delta: [1, 0, -2] }, 'g', 0));
+ const shown = applyOverrides(orbit, layer);
+ const [x, y, z] = at(orbit, 'camera_wide').position;
+ expect(at(shown, 'camera_wide')).toEqual({ ...at(orbit, 'camera_wide'), position: [x + 1, y, z - 2] });
+ expect(at(shown, 'camera_close')).toEqual(at(orbit, 'camera_close'));
+ expect(layer.has('camera_wide')).toBe(false);
+ // The camera's own override wins over the follow.
+ const own = ok(writeOverride(layer, orbit, { kind: 'setProperty', entityId: 'camera_wide', property: 'position', value: [5, 1, 5] }, 'g', 0));
+ expect(at(applyOverrides(orbit, own), 'camera_wide').position).toEqual([5, 1, 5]);
+ expect(takeIdle(orbit, layer, 250).operations.map(operation => 'entityId' in operation && operation.entityId)).toEqual(['performer']);
+});

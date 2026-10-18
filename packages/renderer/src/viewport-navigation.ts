@@ -1,6 +1,7 @@
 import type { CameraNavigation, Id, PatchOp, Reply, SceneEntity, SceneView, Transform, Vec3 } from '@opensekai/contracts';
 import { NAVIGATION, freeLookFromTransform, freeLookStep, freeLookTurn, orbitDrag, orbitFromTransform, orbitPan, orbitPivot, orbitZoom, transformFromFreeLook, transformFromOrbit, type FreeLookState, type OrbitState } from './camera-navigation';
 import { createNavigationCommitter, type NavigationCommitter, type NavigationDraft } from './navigation-commits';
+import { add, followOffset, followShift, shiftTransform, type Follow } from './orbit-follow';
 
 export interface NavigationEdit { sceneId: Id; expectedRevision: number; operations: PatchOp[] }
 export interface NavigationHost {
@@ -8,13 +9,17 @@ export interface NavigationHost {
     // Selection and gizmo state allow navigation (R9), and the press did not hit a gizmo handle.
     allowed(): boolean;
     gizmoHit(): boolean;
+    // The persistent scene of the editor model, and a fresh read of it from the session.
+    persistent(): SceneView | null;
+    inspect(sceneId: Id): Promise<Reply<SceneView>>;
     onNavigate(edit: NavigationEdit): Promise<Reply<{ revision: number }>>;
     onEnd(): void;
     onChange(): void;
 }
 type Camera = Extract<SceneEntity, { kind: 'camera' }>;
 type Mode = { kind: 'freeLook'; state: FreeLookState } | { kind: 'orbit'; state: OrbitState; panned: boolean };
-interface Gesture { ending: boolean; cameraId: Id; sceneId: Id; navigation: CameraNavigation; scale: Vec3; fov: number; mode: Mode; committer: NavigationCommitter; transform: Transform | null; pivotOffset: Vec3 | null }
+// `transform` is the persistent draft. With `follow`, it is drawn with the follow offset of the target, and `committed` is the persistent camera.
+interface Gesture { ending: boolean; cameraId: Id; sceneId: Id; navigation: CameraNavigation; scale: Vec3; fov: number; mode: Mode; committer: NavigationCommitter; transform: Transform | null; pivotOffset: Vec3 | null; follow: Follow | null; committed: Transform; resyncing: boolean }
 interface Press { button: number; pointerId: number; x: number; y: number; lastX: number; lastY: number; moved: boolean }
 const CLICK_PX = 4;
 const WHEEL_IDLE_MS = 150;
@@ -35,7 +40,7 @@ export function createViewportNavigation(host: NavigationHost) {
     let scene: SceneView | null = null;
     let gesture: Gesture | null = null;
     let press: Press | null = null;
-    let settling: { cameraId: Id; revision: number; transform: Transform } | null = null;
+    let settling: { cameraId: Id; revision: number; transform: Transform; follow: Follow | null } | null = null;
     let wheelTimer: ReturnType<typeof setTimeout> | null = null;
     let suppressMenu = false, menuTimer: ReturnType<typeof setTimeout> | null = null;
     const keys = new Set<string>();
@@ -52,23 +57,39 @@ export function createViewportNavigation(host: NavigationHost) {
         if (!scene || !host.allowed()) return null;
         const mode = navigation(camera);
         if (mode.mode === 'none') return null;
-        let start: Mode;
+        let start: Mode, follow: Follow | null = null, committed = camera.transform;
         if (mode.mode === 'freeLook') start = { kind: 'freeLook', state: freeLookFromTransform(camera.transform) };
-        else {
-            const target = mode.targetId ? scene.entities.find(entity => entity.id === mode.targetId && entity.kind === 'avatar') : undefined;
-            start = { kind: 'orbit', state: orbitFromTransform(camera.transform, orbitPivot(target?.transform.position ?? null, mode.pivotOffset)), panned: false };
-        }
+        else if (mode.targetId) {
+            // The orbit works around the persistent target, so it starts when the editor scene is the frame revision (R6a).
+            const persistent = host.persistent();
+            const saved = persistent?.revision === scene.revision ? persistent : null;
+            const savedCamera = saved?.entities.find(entity => entity.id === camera.id);
+            const target = saved?.entities.find(entity => entity.id === mode.targetId && entity.kind === 'avatar');
+            if (!savedCamera || !target) return null;
+            follow = { cameraId: camera.id, targetId: mode.targetId, base: [...target.transform.position] };
+            committed = savedCamera.transform;
+            start = { kind: 'orbit', state: orbitFromTransform(committed, orbitPivot(target.transform.position, mode.pivotOffset)), panned: false };
+        } else start = { kind: 'orbit', state: orbitFromTransform(camera.transform, orbitPivot(null, mode.pivotOffset)), panned: false };
         const cameraId = camera.id, sceneId = scene.sceneId;
         const committer = createNavigationCommitter(scene.revision, {
             send: commit => {
                 const operations: PatchOp[] = [{ kind: 'setTransform', entityId: cameraId, transform: commit.transform }];
                 if (commit.pivotOffset && mode.mode === 'orbitCharacter') operations.push({ kind: 'setCameraNavigation', entityId: cameraId, navigation: { ...mode, pivotOffset: commit.pivotOffset } });
-                return host.onNavigate({ sceneId, expectedRevision: commit.expectedRevision, operations });
+                return host.onNavigate({ sceneId, expectedRevision: commit.expectedRevision, operations }).then(reply => {
+                    if (reply.ok && gesture?.committer === committer) gesture.committed = commit.transform;
+                    return reply;
+                });
+            },
+            onConflict: () => {
+                const active = gesture?.committer === committer ? gesture : null;
+                if (!active?.follow) return false;
+                resync(active);
+                return true;
             },
             onEnd: end => {
                 const last = gesture?.committer === committer ? gesture : null;
                 if (last) gesture = null;
-                settling = end.ok && end.committed && last?.transform ? { cameraId, revision: end.revision, transform: last.transform } : null;
+                settling = end.ok && end.committed && last?.transform ? { cameraId, revision: end.revision, transform: last.transform, follow: last.follow } : null;
                 host.onChange();
                 host.onEnd();
             },
@@ -76,7 +97,7 @@ export function createViewportNavigation(host: NavigationHost) {
             setTimer: (run, ms) => setTimeout(run, ms),
             clearTimer: handle => clearTimeout(handle as ReturnType<typeof setTimeout>),
         });
-        gesture = { ending: false, cameraId, sceneId, navigation: mode, scale: [...camera.transform.scale], fov: camera.lens.fovDegrees, mode: start, committer, transform: null, pivotOffset: null };
+        gesture = { ending: false, cameraId, sceneId, navigation: mode, scale: [...camera.transform.scale], fov: camera.lens.fovDegrees, mode: start, committer, transform: null, pivotOffset: null, follow, committed: structuredClone(committed), resyncing: false };
         settling = null;
         host.onChange();
         return gesture;
@@ -95,6 +116,24 @@ export function createViewportNavigation(host: NavigationHost) {
         stopKeys();
         stopWheel();
         if (active) { active.committer.abort(); settling = null; host.onChange(); host.onEnd(); }
+    };
+    // A revision that the gesture did not make. When it only moved the target and the camera together (the Blueprint idle
+    // commit of a walk), the gesture moves with them and continues; any other change ends it (R8).
+    const resync = (active: Gesture) => {
+        if (active.resyncing || !active.follow) return;
+        active.resyncing = true;
+        active.committer.hold();
+        host.inspect(active.sceneId).then(reply => {
+            if (gesture !== active || !active.follow) return;
+            const moved = reply.ok ? followShift(reply.data, active.follow, active.committed) : null;
+            if (!reply.ok || !moved) { abort(); return; }
+            active.follow = { ...active.follow, base: add(active.follow.base, moved) };
+            active.committed = shiftTransform(active.committed, moved);
+            if (active.mode.kind === 'orbit') active.mode = { ...active.mode, state: { ...active.mode.state, pivot: add(active.mode.state.pivot, moved) } };
+            if (active.transform) active.transform = shiftTransform(active.transform, moved);
+            active.resyncing = false;
+            active.committer.rebase(reply.data.revision, draft => ({ ...draft, transform: shiftTransform(draft.transform, moved) }));
+        }, () => { if (gesture === active) abort(); });
     };
     const finish = () => {
         stopKeys();
@@ -207,14 +246,16 @@ export function createViewportNavigation(host: NavigationHost) {
             const active = gesture;
             if (active) {
                 const camera = navigationCamera(next);
-                if (camera?.id !== active.cameraId || navigation(camera).mode !== active.navigation.mode || !active.committer.owns(next.revision)) abort();
+                if (camera?.id !== active.cameraId || navigation(camera).mode !== active.navigation.mode) abort();
+                else if (!active.committer.owns(next.revision)) { if (active.follow) resync(active); else abort(); }
             }
             if (settling && (next.revision >= settling.revision || navigationCamera(next)?.id !== settling.cameraId)) { settling = null; host.onChange(); }
         },
         // The camera transform to draw: the gesture draft until the scene shows the last commit.
         transform(cameraId: Id): Transform | null {
-            if (gesture?.cameraId === cameraId && gesture.transform) return gesture.transform;
-            return settling?.cameraId === cameraId ? settling.transform : null;
+            const drawn = (transform: Transform, follow: Follow | null) => follow ? shiftTransform(transform, followOffset(scene, follow)) : transform;
+            if (gesture?.cameraId === cameraId && gesture.transform) return drawn(gesture.transform, gesture.follow);
+            return settling?.cameraId === cameraId ? drawn(settling.transform, settling.follow) : null;
         },
         active() { return gesture !== null; },
         allowedChanged() { if (gesture && !host.allowed()) abort(); },

@@ -85,3 +85,40 @@ it('owns only the revisions its own commits explain', async () => {
     expect(committer.owns(6)).toBe(true);
     expect(committer.owns(7)).toBe(false);
 });
+
+it('holds on CONFLICT when asked, then sends the mapped draft with the rebased revision', async () => {
+    let conflicts = 0;
+    let now = 0;
+    const sent: { commit: NavigationCommit; resolve(reply: Reply<{ revision: number }>): void }[] = [];
+    const ends: NavigationEnd[] = [];
+    const committer = createNavigationCommitter(5, {
+        now: () => now, setTimer: () => null, clearTimer: () => {},
+        send: commit => new Promise(resolve => { sent.push({ commit, resolve }); }),
+        onEnd: end => { ends.push(end); },
+        onConflict: () => { conflicts++; return true; },
+    });
+    const settle = async () => { await Promise.resolve(); await Promise.resolve(); };
+    committer.offer({ transform: at(1) });
+    sent[0]!.resolve({ ok: false, error: { code: 'CONFLICT', message: 'CONFLICT', ids: [] } });
+    await settle();
+    expect(conflicts).toBe(1);
+    expect(ends).toEqual([]);
+    now = 500;
+    committer.finish();
+    expect(sent).toHaveLength(1); // held until the rebase
+    committer.rebase(8, draft => ({ ...draft, transform: at(draft.transform.position[0] + 10) }));
+    expect(sent[1]!.commit).toEqual({ transform: at(11), expectedRevision: 8 });
+    sent[1]!.resolve(ok(9));
+    await settle();
+    expect(ends).toEqual([{ ok: true, revision: 9, committed: true }]);
+});
+
+it('holds the sends after hold() until a rebase', () => {
+    const sent: NavigationCommit[] = [];
+    const committer = createNavigationCommitter(5, { now: () => 1000, setTimer: () => null, clearTimer: () => {}, send: commit => { sent.push(commit); return new Promise(() => {}); }, onEnd: () => {} });
+    committer.hold();
+    committer.offer({ transform: at(1) });
+    expect(sent).toEqual([]);
+    committer.rebase(7, draft => draft);
+    expect(sent).toEqual([{ transform: at(1), expectedRevision: 7 }]);
+});

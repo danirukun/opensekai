@@ -1,10 +1,13 @@
 import { SceneViewSchema, type ErrorCode, type Id, type Reply, type ScenePatch, type SceneView } from "@opensekai/contracts";
 import type { SceneEffect } from "./blueprint";
+import { delta, followers, shifted } from "./camera-follow";
 
 const failure = (code: ErrorCode, message: string, ids: Id[] = []): Reply<never> => ({ ok: false, error: { code, message, ids } });
 
 export function applyOperations(scene: SceneView, operations: ScenePatch["operations"], generation: number): Reply<SceneView> {
             const next = structuredClone(scene);
+            // A camera that the patch places itself does not follow its target.
+            const placed = new Set(operations.flatMap(operation => operation.kind === 'setTransform' ? [operation.entityId] : []));
             for (const operation of operations) {
                 if(operation.kind==='createEntity'){
                     if(next.entities.some(e=>e.id===operation.entity.id))return failure('INVALID_INPUT','Duplicate entity ID',[operation.entity.id]);
@@ -21,7 +24,12 @@ export function applyOperations(scene: SceneView, operations: ScenePatch["operat
                   if(entity.kind==='tracking')for(const avatar of next.entities){if(avatar.kind!=='avatar'||!avatar.tracking)continue;if(avatar.tracking.bodySourceId===entity.id)avatar.tracking.bodySourceId=null;if(avatar.tracking.faceSourceId===entity.id)avatar.tracking.faceSourceId=null;}
                   break;
                  case 'setVisibility':entity.visible=operation.visible;break;
-                 case 'setTransform':if(entity.kind==='tracking')return failure('INVALID_INPUT','Tracking assets have no scene transform',[entity.id]);entity.transform=structuredClone(operation.transform);break;
+                 case 'setTransform':if(entity.kind==='tracking')return failure('INVALID_INPUT','Tracking assets have no scene transform',[entity.id]);{
+                  const moved=delta(entity.transform.position,operation.transform.position);
+                  entity.transform=structuredClone(operation.transform);
+                  if(entity.kind==='avatar')for(const id of followers(next,entity.id))if(!placed.has(id)){const camera=next.entities.find(item=>item.id===id)!;camera.transform.position=shifted(camera.transform.position,moved);}
+                  break;
+                 }
                  case 'setCameraLens':if(entity.kind!=='camera')return failure('INVALID_INPUT','Entity is not a camera',[entity.id]);entity.lens=structuredClone(operation.lens);break;
                  case 'setAvatarIdle':if(entity.kind!=='avatar')return failure('INVALID_INPUT','Entity is not an avatar',[entity.id]);entity.idleAnimation=structuredClone(operation.idleAnimation);break;
                  case 'setAvatarTracking':if(entity.kind!=='avatar')return failure('INVALID_INPUT','Entity is not an avatar',[entity.id]);entity.tracking=structuredClone(operation.tracking);break;

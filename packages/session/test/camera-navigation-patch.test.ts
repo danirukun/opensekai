@@ -74,3 +74,22 @@ it('cuts between two cameras on each output and keeps the tick running (R13)', (
     }
     expect(s.applyPatch(patch(revision, [{ kind: 'removeEntity', entityId: 'camera_close' }]))).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
 });
+
+it('moves each Orbit Character camera with its target and keeps its own transform when the patch sets one (R6a)', () => {
+    const s = createSession(makeSmokeScene(), 'nav-test');
+    expect(s.applyPatch(patch(0, [
+        { kind: 'setCameraNavigation', entityId: 'camera_wide', navigation: orbit },
+        { kind: 'setCameraNavigation', entityId: 'camera_close', navigation: { mode: 'freeLook', sensitivity: 1 } },
+    ])).ok).toBe(true);
+    const before = s.inspect();
+    const at = (id: string) => before.entities.find(e => e.id === id)!.transform;
+    const performer = at('performer');
+    const moved = { ...performer, position: [performer.position[0] + 1, performer.position[1], performer.position[2] - 2] };
+    expect(s.applyPatch(patch(1, [{ kind: 'setTransform', entityId: 'performer', transform: moved }]))).toEqual({ ok: true, data: { revision: 2 } });
+    const wide = at('camera_wide');
+    expect(camera(s, 'camera_wide').transform).toEqual({ ...wide, position: [wide.position[0] + 1, wide.position[1], wide.position[2] - 2] });
+    expect(camera(s, 'camera_close').transform).toEqual(at('camera_close'));
+    const own = { position: [4, 1, 4], rotation: [0, 0, 0, 1], scale: [1, 1, 1] };
+    expect(s.applyPatch(patch(2, [{ kind: 'setTransform', entityId: 'camera_wide', transform: own }, { kind: 'setTransform', entityId: 'performer', transform: performer }])).ok).toBe(true);
+    expect(camera(s, 'camera_wide').transform).toEqual(own);
+});
