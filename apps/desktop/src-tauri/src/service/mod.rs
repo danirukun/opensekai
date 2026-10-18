@@ -16,6 +16,7 @@ use axum::{
 use futures_util::{FutureExt, SinkExt, StreamExt};
 use opensekai_contracts::*;
 use queues::{StateQueue, CONTROL_CAPACITY, PENDING_CAPACITY};
+use router::ReplyKind;
 pub use router::{RpcContext, RpcHandler};
 use serde_json::{json, Value};
 use std::{
@@ -55,6 +56,8 @@ pub struct ServiceConfig {
 pub struct ServicePorts {
     shared: Arc<Shared>,
 }
+/// The UTC time that names a screenshot file. Tests fix it to force a name collision.
+pub type ScreenshotClock = Arc<dyn Fn() -> chrono::DateTime<chrono::Utc> + Send + Sync>;
 pub type EvidenceReader =
     Arc<dyn Fn(&str, &str) -> Result<(Vec<u8>, &'static str), AppError> + Send + Sync>;
 pub struct ServiceHandle {
@@ -84,6 +87,10 @@ struct Shared {
     keystrokes_stopped: watch::Sender<bool>,
     stop: watch::Sender<bool>,
     connections: Notify,
+    last_screenshot: Mutex<Option<Instant>>,
+    screenshot_timeout: Mutex<Duration>,
+    screenshot_clock: Mutex<ScreenshotClock>,
+    screenshot_folder: PathBuf,
 }
 #[derive(Default)]
 struct Inner {
@@ -524,6 +531,13 @@ pub async fn start_service(config: ServiceConfig) -> Result<ServiceHandle, AppEr
         .map_err(|_| err(ErrorCode::Unavailable, "Cannot read local address"))?;
     let (stop, _) = watch::channel(false);
     let clock = Instant::now();
+    // The evidence folder is `<app local data>/evidence`, as the asset library is `<app local data>/assets`.
+    let screenshot_folder = crate::screenshots::folder(
+        config
+            .evidence_root
+            .parent()
+            .unwrap_or(&config.evidence_root),
+    );
     let shared = Arc::new(Shared {
         origin: format!("http://{address}"),
         session: Uuid::new_v4().to_string(),
@@ -550,6 +564,10 @@ pub async fn start_service(config: ServiceConfig) -> Result<ServiceHandle, AppEr
         keystrokes_stopped: watch::channel(false).0,
         stop,
         connections: Notify::new(),
+        last_screenshot: Mutex::new(None),
+        screenshot_timeout: Mutex::new(Duration::from_millis(SCREENSHOT_TIMEOUT_MS)),
+        screenshot_clock: Mutex::new(Arc::new(chrono::Utc::now)),
+        screenshot_folder,
     });
     let router = Router::new()
         .route("/ws", get(upgrade))
@@ -793,6 +811,20 @@ impl ServiceHandle {
     pub fn set_asset_hook(&self, hook: Option<AssetHook>) {
         *lock(&self.shared.asset_hook) = hook;
     }
+    /// The folder that receives screenshot files.
+    pub fn screenshot_folder(&self) -> PathBuf {
+        self.shared.screenshot_folder.clone()
+    }
+    /// Tests shorten the relay timeout. The product keeps `SCREENSHOT_TIMEOUT_MS`.
+    #[doc(hidden)]
+    pub fn set_screenshot_timeout(&self, timeout: Duration) {
+        *lock(&self.shared.screenshot_timeout) = timeout;
+    }
+    /// Tests fix the time that names a screenshot file. The product uses the system UTC time.
+    #[doc(hidden)]
+    pub fn set_screenshot_clock(&self, clock: ScreenshotClock) {
+        *lock(&self.shared.screenshot_clock) = clock;
+    }
     pub fn publisher_descriptor(&self) -> ConnectionDescriptor {
         self.shared
             .descriptor(Role::Publisher, self.shared.publisher_token.clone(), None)
@@ -956,8 +988,10 @@ async fn upgrade(
             None => eprintln!("OpenSekai accepted WS Origin: absent"),
         }
     }
-    ws.max_message_size(MAX_CAPTURE_MESSAGE_BYTES)
-        .max_frame_size(MAX_CAPTURE_MESSAGE_BYTES)
+    // A renderer can send a screenshot reply. The role is known only after auth, so the
+    // connection loop applies the smaller limit to every other role.
+    ws.max_message_size(MAX_SCREENSHOT_MESSAGE_BYTES)
+        .max_frame_size(MAX_SCREENSHOT_MESSAGE_BYTES)
         .on_upgrade(move |socket| socket_connection(socket, shared))
         .into_response()
 }
@@ -1074,6 +1108,9 @@ async fn connection_loop(mut socket: WebSocket, shared: &Arc<Shared>) {
     let Ok(Some(Ok(Message::Text(text)))) = first else {
         return;
     };
+    if text.len() > MAX_MESSAGE_BYTES {
+        return;
+    }
     let Ok(WireMessage::Auth {
         role,
         token,
@@ -1170,6 +1207,11 @@ async fn connection_loop(mut socket: WebSocket, shared: &Arc<Shared>) {
     });
     let mut calls = tokio::task::JoinSet::new();
     let mut writer_finished = false;
+    let message_limit = if role == Role::Renderer {
+        MAX_SCREENSHOT_MESSAGE_BYTES
+    } else {
+        MAX_CAPTURE_MESSAGE_BYTES
+    };
     loop {
         tokio::select! {
             _=shutdown.changed()=>break,
@@ -1178,7 +1220,17 @@ async fn connection_loop(mut socket: WebSocket, shared: &Arc<Shared>) {
             Some(_)=calls.join_next(),if !calls.is_empty()=>{},
             message=stream.next()=>{
                 let Some(Ok(Message::Text(text)))=message else {break;};
-                let Ok(message)=parse_wire(text.as_bytes()) else {break;};
+                if text.len() > message_limit { break; }
+                let Ok(message)=parse_wire(text.as_bytes()) else {
+                    // A renderer answer to a pending screenshot that fails the wire checks (for
+                    // example a PNG above 8 MiB) fails that call; the preview stays connected.
+                    if role == Role::Renderer {
+                        if let Some(id) = screenshot_reply_id(&text) {
+                            if shared.reject_screenshot_reply(&connection.id, &id, invalid("Invalid screenshot reply")) { continue; }
+                        }
+                    }
+                    break;
+                };
                 match message {
                     WireMessage::Ping{request_id}=>{if Shared::send(&connection,json!(WireMessage::Pong{request_id})).is_err(){break;}},
                     WireMessage::Frame { frame } if role == Role::Publisher => {
@@ -1263,8 +1315,9 @@ async fn connection_loop(mut socket: WebSocket, shared: &Arc<Shared>) {
                         }
                         inner.diagnostics.insert(diagnostics.output_id.clone(),(diagnostics,now));
                     },
-                    WireMessage::Reply{request_id,result} if role==Role::Publisher=>shared.accept_reply(&connection.id,&request_id,result,false),
-                    WireMessage::CaptureReply{request_id,result} if role==Role::Renderer=>shared.accept_reply(&connection.id,&request_id,result,true),
+                    WireMessage::Reply{request_id,result} if role==Role::Publisher=>shared.accept_reply(&connection.id,&request_id,result,ReplyKind::Call),
+                    WireMessage::CaptureReply{request_id,result} if role==Role::Renderer=>shared.accept_reply(&connection.id,&request_id,result,ReplyKind::Capture),
+                    WireMessage::ScreenshotReply{request_id,result} if role==Role::Renderer=>shared.accept_reply(&connection.id,&request_id,result,ReplyKind::Screenshot),
                     WireMessage::Call{request_id,method,params}=>{
                         if calls.len()>=PENDING_CAPACITY {if Shared::send(&connection,json!(WireMessage::Reply{request_id,result:failure(err(ErrorCode::RateLimited,"Too many pending calls"))})).is_err(){break;}continue;}
                         let Ok(call)=parse_call(text.as_bytes()) else {break;};
@@ -1285,6 +1338,14 @@ async fn connection_loop(mut socket: WebSocket, shared: &Arc<Shared>) {
     while calls.join_next().await.is_some() {}
 }
 
+/// The request ID of a text that is a `screenshotReply` envelope, before its data is checked.
+fn screenshot_reply_id(text: &str) -> Option<String> {
+    let value: Value = serde_json::from_str(text).ok()?;
+    if value.get("kind")?.as_str()? != "screenshotReply" {
+        return None;
+    }
+    Some(value.get("requestId")?.as_str()?.to_owned())
+}
 async fn write_connection(
     mut sink: futures_util::stream::SplitSink<WebSocket, Message>,
     mut control: mpsc::Receiver<Value>,

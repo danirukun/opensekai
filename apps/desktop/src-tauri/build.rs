@@ -40,6 +40,7 @@ fn main() {
             "hide_editor",
             "set_keystroke_capture",
             "open_input_monitoring_settings",
+            "open_screenshots_folder",
             "import_avatar",
             "import_scene",
             "save_show",

@@ -1,5 +1,5 @@
 import { ConnectionDescriptorSchema, CaptureBytesSchema, RuntimeFrameSchema, FrameAppliedSchema, RendererDiagnosticsSchema, ResultSchemas, LIMITS, validateCall, requiredCapability, replySchema, parseWire } from "@opensekai/contracts";
-import type { AppApi, AppError, BrowserClient, CaptureBytes, CaptureParams, ConnectionDescriptor, FrameApplied, PublisherClient, Reply, RuntimeFrame, ValidatedCall, WireMessage, TrackingUpdate, InputUpdate } from "@opensekai/contracts";
+import type { AppApi, AppError, BrowserClient, CameraScreenshotParams, CaptureBytes, CaptureParams, ConnectionDescriptor, ScreenshotBytes, FrameApplied, PublisherClient, Reply, RuntimeFrame, ValidatedCall, WireMessage, TrackingUpdate, InputUpdate } from "@opensekai/contracts";
 import { reconnectDelay } from "./reconnect";
 type Socket = Pick<WebSocket, "send" | "close" | "addEventListener" | "removeEventListener" | "bufferedAmount">;
 export interface ClientPorts {
@@ -38,6 +38,7 @@ export function connectWithPorts(raw: ConnectionDescriptor, ports: ClientPorts =
             :listener(clock.elapsedMs);
         const frames = new Set<(f: RuntimeFrame) => void>();
         let capture: ((p: CaptureParams) => Promise<Reply<CaptureBytes>>) | undefined;
+        let screenshot: ((p: CameraScreenshotParams) => Promise<Reply<ScreenshotBytes>>) | undefined;
         let callListener: ((c: ValidatedCall & {
             requestId: string;
         }) => Promise<Reply<unknown>>) | undefined;
@@ -47,7 +48,7 @@ export function connectWithPorts(raw: ConnectionDescriptor, ports: ClientPorts =
             timer: ReturnType<typeof setTimeout>;
         }>();
         const callbackTimers = new Map<ReturnType<typeof setTimeout>, () => void>();
-        const bounded = <T>(operation: () => Promise<Reply<T>>): Promise<Reply<T>> => new Promise(resolveBounded => {
+        const bounded = <T>(operation: () => Promise<Reply<T>>, timeoutMs: number = LIMITS.rpcTimeoutMs): Promise<Reply<T>> => new Promise(resolveBounded => {
             const finish = (value: Reply<T>) => {
                 if (!callbackTimers.has(timer))
                     return;
@@ -55,7 +56,7 @@ export function connectWithPorts(raw: ConnectionDescriptor, ports: ClientPorts =
                 callbackTimers.delete(timer);
                 resolveBounded(value);
             };
-            const timer = ports.setTimeout(() => finish(error("TIMEOUT", "Handler timed out")), LIMITS.rpcTimeoutMs);
+            const timer = ports.setTimeout(() => finish(error("TIMEOUT", "Handler timed out")), timeoutMs);
             callbackTimers.set(timer, () => finish(error("UNAVAILABLE", "Connection closed")));
             Promise.resolve().then(operation).then(finish, () => finish(error("UNAVAILABLE", "Handler failed")));
         });
@@ -87,7 +88,7 @@ export function connectWithPorts(raw: ConnectionDescriptor, ports: ClientPorts =
             try {
                 const text = JSON.stringify(message);
                 const bytes = new TextEncoder().encode(text).length;
-                const limit = message.kind === "captureReply" ? LIMITS.captureEnvelopeBytes : message.kind === "diagnostics" ? LIMITS.diagnosticsBytes : LIMITS.jsonBytes;
+                const limit = message.kind === "captureReply" ? LIMITS.captureEnvelopeBytes : message.kind === "screenshotReply" ? LIMITS.screenshotEnvelopeBytes : message.kind === "diagnostics" ? LIMITS.diagnosticsBytes : LIMITS.jsonBytes;
                 const queueLimit = LIMITS.jsonBytes * LIMITS.queuedFrames;
                 const queueFull = state
                     ? socket.bufferedAmount + bytes > Math.min(bytes * LIMITS.queuedFrames, queueLimit)
@@ -123,6 +124,7 @@ export function connectWithPorts(raw: ConnectionDescriptor, ports: ClientPorts =
             pendingClock = undefined;
             latest = undefined;
             capture = undefined;
+            screenshot = undefined;
             callListener = undefined;
             active.clear();
             if (!everReady)
@@ -150,10 +152,12 @@ export function connectWithPorts(raw: ConnectionDescriptor, ports: ClientPorts =
                     return;
                 }
                 const requestId = String(++nextId);
+                // The host waits up to the screenshot timeout for the Scene window, so the caller waits longer.
+                const timeoutMs = m === "cameraScreenshot" ? LIMITS.screenshotTimeoutMs + LIMITS.rpcTimeoutMs : LIMITS.rpcTimeoutMs;
                 const timer = ports.setTimeout(() => {
                     pending.delete(requestId);
                     resolveCall(error("TIMEOUT", "Call timed out"));
-                }, LIMITS.rpcTimeoutMs);
+                }, timeoutMs);
                 pending.set(requestId, {
                     method: m,
                     resolve: resolveCall,
@@ -229,6 +233,13 @@ export function connectWithPorts(raw: ConnectionDescriptor, ports: ClientPorts =
                 return () => {
                     if (capture === listener)
                         capture = undefined;
+                };
+            },
+            onScreenshot(listener) {
+                screenshot = listener;
+                return () => {
+                    if (screenshot === listener)
+                        screenshot = undefined;
                 };
             },
             readResource(uri) {
@@ -405,6 +416,26 @@ export function connectWithPorts(raw: ConnectionDescriptor, ports: ClientPorts =
                     });
                 return;
             }
+            if (message.kind === "screenshotRequest") {
+                if (descriptor.role !== "renderer" || active.size >= LIMITS.pendingCalls || active.has(message.requestId)) {
+                    disconnect();
+                    return;
+                }
+                const gen = generation;
+                active.add(message.requestId);
+                let result: Reply<ScreenshotBytes>;
+                try {
+                    result = screenshot ? await bounded(() => screenshot!(message.params), LIMITS.screenshotTimeoutMs) : error("UNAVAILABLE", "No screenshot listener");
+                }
+                catch {
+                    result = error("UNAVAILABLE", "Screenshot failed");
+                }
+                if (closed || gen !== generation)
+                    return;
+                active.delete(message.requestId);
+                send({ kind: "screenshotReply", requestId: message.requestId, result: screenshotReply(result, descriptor.sessionId) });
+                return;
+            }
             if (message.kind === "call") {
                 if (descriptor.role !== "publisher" || active.size >= LIMITS.pendingCalls || active.has(message.requestId)) {
                     disconnect();
@@ -474,6 +505,26 @@ export function connectWithPorts(raw: ConnectionDescriptor, ports: ClientPorts =
         }
         open();
     });
+}
+/** The wire result for a screenshot: the PNG as base64, or an error for data that the host would reject. */
+function screenshotReply(result: Reply<ScreenshotBytes>, sessionId: string): Reply<{ sessionId: string; revision: number; cameraId: string; width: 1920; height: 1080; pngBase64: string }> {
+    if (!result.ok)
+        return result;
+    const { data } = result;
+    if (!(data.png instanceof Uint8Array) || data.png.byteLength === 0 || data.sessionId !== sessionId || data.width !== 1920 || data.height !== 1080 || !Number.isSafeInteger(data.revision) || data.revision < 0 || typeof data.cameraId !== "string")
+        return error("INVALID_INPUT", "Invalid screenshot");
+    if (data.png.byteLength > LIMITS.screenshotPngBytes)
+        return error("INVALID_INPUT", "Screenshot PNG exceeds 8 MiB");
+    return { ok: true, data: { sessionId: data.sessionId, revision: data.revision, cameraId: data.cameraId, width: 1920, height: 1080, pngBase64: toBase64(data.png) } };
+}
+function toBase64(bytes: Uint8Array): string {
+    const native = (bytes as Uint8Array & { toBase64?: () => string }).toBase64;
+    if (typeof native === "function")
+        return native.call(bytes);
+    const chunks: string[] = [];
+    for (let offset = 0; offset < bytes.byteLength; offset += 0x8000)
+        chunks.push(String.fromCharCode(...bytes.subarray(offset, offset + 0x8000)));
+    return btoa(chunks.join(""));
 }
 export async function connectClient(descriptor: ConnectionDescriptor): Promise<BrowserClient> {
     if (descriptor.role === "publisher")

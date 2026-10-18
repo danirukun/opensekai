@@ -130,6 +130,10 @@ fn expanded_shared_vectors() {
             "wire" => parse_wire(&serde_json::to_vec(p).unwrap()).map(|_| ()),
             "call" => opensekai_contracts::validate_call(vector["method"].as_str().unwrap(), p),
             "wireText" => parse_wire(p.as_str().unwrap().as_bytes()).map(|_| ()),
+            "screenshotResult" => validate_result(
+                "cameraScreenshot",
+                &serde_json::json!({"ok": true, "data": p}),
+            ),
             target => panic!("unknown target {target}"),
         };
         assert_eq!(

@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { makeSmokeScene, validateCall, requiredCapability, tagId, encodeMarker, SceneViewSchema } from "../src/index";
+import { makeSmokeScene, validateCall, requiredCapability, tagId, encodeMarker, SceneViewSchema, ResultSchemas } from "../src/index";
 it("rejects nonfinite transforms and method mismatch", () => {
     const transform = makeSmokeScene().entities[0].transform;
     transform.position[0] = NaN;
@@ -72,6 +72,10 @@ for (const vector of vectors)
         }
         if (vector.valid && vector.target === "applied") {
             expect(FrameAppliedSchema.safeParse(vector.payload).success).toBe(true);
+            return;
+        }
+        if (vector.target === "screenshotResult") {
+            expect(ResultSchemas.cameraScreenshot.safeParse(vector.payload).success).toBe(vector.valid);
             return;
         }
         if (vector.valid) {

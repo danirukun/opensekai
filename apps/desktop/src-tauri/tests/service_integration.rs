@@ -812,3 +812,419 @@ async fn service_slow_renderer_bounds_inflight_and_coalesces_at_60hz() {
     .unwrap();
     service.shutdown().await.unwrap();
 }
+
+// Camera screenshots (CAM-05). Boundary: a real loopback WebSocket with a fake `preview_main`
+// renderer client, and the real screenshot folder below a temporary app data folder.
+mod screenshots {
+    use super::*;
+    use base64::{engine::general_purpose::STANDARD, Engine};
+    use chrono::TimeZone;
+    use std::{path::PathBuf, sync::Arc, time::Instant};
+    const NAME: &str = "20261017-090507-042-camera_main";
+    struct Shot {
+        _dir: tempfile::TempDir,
+        folder: PathBuf,
+        service: ServiceHandle,
+        session: String,
+        operator: Socket,
+        renderer: Socket,
+        publisher: tokio::task::JoinHandle<()>,
+    }
+    fn scene_frame(session: &str, sequence: u64) -> Value {
+        let camera = |id: &str| json!({"kind":"camera","id":id,"name":id,"visible":true,"transform":{"position":[0,1,5],"rotation":[0,0,0,1],"scale":[1,1,1]},"lens":{"fovDegrees":45,"near":0.1,"far":100}});
+        json!({"kind":"frame","frame":{"schemaVersion":1,"sessionId":session,"sequence":sequence,"tick":sequence,"elapsedMs":sequence as f64,"scene":{"schemaVersion":1,"sceneId":"scene_main","revision":3,"entities":[camera("camera_main"),camera("camera_side")],"outputs":[{"id":"output_main","cameraId":"camera_main","width":1920,"height":1080,"fps":60},{"id":"preview_main","cameraId":"camera_main","width":1920,"height":1080,"fps":60}]}}})
+    }
+    fn png(width: u32, height: u32) -> Vec<u8> {
+        let mut out = Vec::new();
+        let mut encoder = png::Encoder::new(&mut out, width, height);
+        encoder.set_color(png::ColorType::Rgba);
+        encoder.set_depth(png::BitDepth::Eight);
+        let mut writer = encoder.write_header().unwrap();
+        let mut pixels = vec![0u8; (width * height * 4) as usize];
+        pixels[..4].copy_from_slice(&[255, 0, 0, 128]);
+        writer.write_image_data(&pixels).unwrap();
+        drop(writer);
+        out
+    }
+    fn shot_call(id: &str, camera: &str, revision: u64) -> Value {
+        call(
+            id,
+            "cameraScreenshot",
+            json!({"cameraId":camera,"expectedRevision":revision}),
+        )
+    }
+    fn reply_data(session: &str, revision: u64, camera: &str, png: &[u8]) -> Value {
+        json!({"ok":true,"data":{"sessionId":session,"revision":revision,"cameraId":camera,"width":1920,"height":1080,"pngBase64":STANDARD.encode(png)}})
+    }
+    /// Answers each clock with a frame, so the publisher keeps its clock credit and the
+    /// latest scene stays known for the whole test.
+    fn keep_publishing(mut publisher: Socket, session: String) -> tokio::task::JoinHandle<()> {
+        tokio::spawn(async move {
+            let mut sequence = 1;
+            send(&mut publisher, scene_frame(&session, sequence)).await;
+            while let Some(Ok(message)) = publisher.next().await {
+                let Ok(text) = message.into_text() else {
+                    continue;
+                };
+                let value: Value = serde_json::from_str(&text).unwrap_or_default();
+                if value["kind"] == "clock" {
+                    sequence += 1;
+                    send(&mut publisher, scene_frame(&session, sequence)).await;
+                }
+            }
+        })
+    }
+    /// The next message of `kind`. Frames and other state messages are skipped.
+    async fn recv_kind(socket: &mut Socket, kind: &str) -> Value {
+        tokio::time::timeout(Duration::from_secs(3), async {
+            loop {
+                let value = recv(socket).await;
+                if value["kind"] == kind {
+                    return value;
+                }
+                assert_eq!(value["kind"], "frame", "unexpected message {value}");
+            }
+        })
+        .await
+        .unwrap_or_else(|_| panic!("no {kind} message"))
+    }
+    async fn no_request(socket: &mut Socket, within: Duration) {
+        let deadline = tokio::time::Instant::now() + within;
+        while let Ok(Some(Ok(message))) = tokio::time::timeout_at(deadline, socket.next()).await {
+            let value: Value = serde_json::from_str(&message.into_text().unwrap()).unwrap();
+            assert_ne!(
+                value["kind"], "screenshotRequest",
+                "the host relayed a request"
+            );
+        }
+    }
+    async fn wait_for_scene(operator: &mut Socket) {
+        let deadline = Instant::now() + Duration::from_secs(3);
+        loop {
+            send(operator, call("status", "appStatus", json!({}))).await;
+            let status = recv(operator).await;
+            if status["result"]["data"]["revision"] == 3 {
+                return;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "scene revision not known: {status}"
+            );
+            tokio::task::yield_now().await;
+        }
+    }
+    async fn start() -> Shot {
+        let dir = tempfile::tempdir().unwrap();
+        let manifest = dir.path().join("manifest.json");
+        std::fs::write(
+            &manifest,
+            r#"{"schemaVersion":1,"fixtureId":"smoke_v1","assets":[]}"#,
+        )
+        .unwrap();
+        std::fs::write(dir.path().join("index.html"), "shell").unwrap();
+        // As in the product: `<app local data>/evidence`, so the folder is `<app local data>/screenshots`.
+        let service = start_service(ServiceConfig {
+            output_root: dir.path().into(),
+            asset_manifest: manifest,
+            evidence_root: dir.path().join("evidence"),
+            evaluation_enabled: false,
+        })
+        .await
+        .unwrap();
+        let fixed = chrono::Utc.with_ymd_and_hms(2026, 10, 17, 9, 5, 7).unwrap()
+            + chrono::Duration::milliseconds(42);
+        service.set_screenshot_clock(Arc::new(move || fixed));
+        let folder = dir.path().join("screenshots");
+        assert_eq!(service.screenshot_folder(), folder);
+        let descriptor = service.publisher_descriptor();
+        let publisher = keep_publishing(auth(&descriptor).await, descriptor.session_id.clone());
+        let renderer = auth(&service.renderer_descriptor("preview_main").unwrap()).await;
+        let mut operator = auth(&service.operator_descriptor()).await;
+        wait_for_scene(&mut operator).await;
+        Shot {
+            _dir: dir,
+            folder,
+            service,
+            session: descriptor.session_id,
+            operator,
+            renderer,
+            publisher,
+        }
+    }
+    impl Shot {
+        /// Calls `cameraScreenshot` and lets the fake renderer answer with `reply`.
+        async fn take(&mut self, id: &str, reply: impl FnOnce(&Value) -> Value) -> Value {
+            send(&mut self.operator, shot_call(id, "camera_main", 3)).await;
+            let request = recv_kind(&mut self.renderer, "screenshotRequest").await;
+            assert_ne!(request["requestId"], id);
+            assert_eq!(
+                request["params"],
+                json!({"cameraId":"camera_main","expectedRevision":3})
+            );
+            send(
+                &mut self.renderer,
+                json!({"kind":"screenshotReply","requestId":request["requestId"],"result":reply(&request)}),
+            )
+            .await;
+            let response = recv(&mut self.operator).await;
+            assert_eq!(response["requestId"], id);
+            response["result"].clone()
+        }
+        async fn stop(self) {
+            self.publisher.abort();
+            self.service.shutdown().await.unwrap();
+        }
+    }
+    /// The host-wide limit is 1 s. The test measures that interval itself.
+    async fn after_rate_limit(since: Instant) {
+        tokio::time::sleep_until((since + Duration::from_millis(1010)).into()).await;
+    }
+
+    #[tokio::test]
+    async fn screenshot_relay_writes_a_new_file_and_never_overwrites() {
+        let mut shot = start().await;
+        let image = png(1920, 1080);
+        let session = shot.session.clone();
+        let first = Instant::now();
+        let result = shot
+            .take("one", |_| reply_data(&session, 3, "camera_main", &image))
+            .await;
+        assert_eq!(result["ok"], true, "{result}");
+        let data = &result["data"];
+        assert_eq!(data["fileName"], format!("{NAME}.png"));
+        assert_eq!(
+            (data["width"].clone(), data["height"].clone()),
+            (json!(1920), json!(1080))
+        );
+        assert_eq!(data["bytes"], image.len());
+        assert_eq!(data["cameraId"], "camera_main");
+        assert_eq!(data["revision"], 3);
+        let written = std::fs::read(shot.folder.join(format!("{NAME}.png"))).unwrap();
+        assert_eq!(written, image);
+        use sha2::Digest;
+        let digest: String = sha2::Sha256::digest(&written)
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect();
+        assert_eq!(data["sha256"], digest);
+        // The same UTC millisecond gives the same name: the host adds a suffix.
+        after_rate_limit(first).await;
+        let second = Instant::now();
+        let mut other_png = image.clone();
+        other_png.extend_from_slice(b"different bytes");
+        let result = shot
+            .take("two", |_| {
+                reply_data(&session, 3, "camera_main", &other_png)
+            })
+            .await;
+        assert_eq!(result["data"]["fileName"], format!("{NAME}-1.png"));
+        assert_eq!(
+            std::fs::read(shot.folder.join(format!("{NAME}.png"))).unwrap(),
+            image
+        );
+        assert_eq!(
+            std::fs::read(shot.folder.join(format!("{NAME}-1.png"))).unwrap(),
+            other_png
+        );
+        for n in 2..=9 {
+            std::fs::write(shot.folder.join(format!("{NAME}-{n}.png")), b"kept").unwrap();
+        }
+        after_rate_limit(second).await;
+        let result = shot
+            .take("three", |_| reply_data(&session, 3, "camera_main", &image))
+            .await;
+        assert_eq!(result["error"]["code"], "BUSY", "{result}");
+        assert_eq!(std::fs::read_dir(&shot.folder).unwrap().count(), 10);
+        assert_eq!(
+            std::fs::read(shot.folder.join(format!("{NAME}-9.png"))).unwrap(),
+            b"kept"
+        );
+        shot.stop().await;
+    }
+
+    #[tokio::test]
+    async fn screenshot_rate_limit_is_host_wide() {
+        let mut shot = start().await;
+        let image = png(1920, 1080);
+        let session = shot.session.clone();
+        let first = Instant::now();
+        let result = shot
+            .take("one", |_| reply_data(&session, 3, "camera_main", &image))
+            .await;
+        assert_eq!(result["ok"], true, "{result}");
+        let mut second_client = auth(&shot.service.operator_descriptor()).await;
+        send(&mut second_client, shot_call("two", "camera_main", 3)).await;
+        let limited = recv(&mut second_client).await;
+        assert!(first.elapsed() < Duration::from_secs(1));
+        assert_eq!(limited["result"]["error"]["code"], "RATE_LIMITED");
+        no_request(&mut shot.renderer, Duration::from_millis(50)).await;
+        after_rate_limit(first).await;
+        send(&mut second_client, shot_call("three", "camera_main", 3)).await;
+        let request = recv_kind(&mut shot.renderer, "screenshotRequest").await;
+        send(&mut shot.renderer, json!({"kind":"screenshotReply","requestId":request["requestId"],"result":reply_data(&session, 3, "camera_main", &image)})).await;
+        let response = recv(&mut second_client).await;
+        assert_eq!(
+            response["result"]["data"]["fileName"],
+            format!("{NAME}-1.png")
+        );
+        shot.stop().await;
+    }
+
+    #[tokio::test]
+    async fn screenshot_checks_renderer_scene_revision_and_camera_before_relay() {
+        let mut shot = start().await;
+        for (id, camera, revision, code) in [
+            ("stale", "camera_main", 2, "CONFLICT"),
+            ("missing", "camera_missing", 3, "NOT_FOUND"),
+        ] {
+            send(&mut shot.operator, shot_call(id, camera, revision)).await;
+            let response = recv(&mut shot.operator).await;
+            assert_eq!(response["result"]["error"]["code"], code, "{response}");
+        }
+        no_request(&mut shot.renderer, Duration::from_millis(50)).await;
+        // A failed check does not take the rate slot; the renderer answers for camera_side.
+        send(&mut shot.operator, shot_call("side", "camera_side", 3)).await;
+        let request = recv_kind(&mut shot.renderer, "screenshotRequest").await;
+        assert_eq!(request["params"]["cameraId"], "camera_side");
+        send(&mut shot.renderer, json!({"kind":"screenshotReply","requestId":request["requestId"],"result":{"ok":false,"error":{"code":"NOT_FOUND","message":"Camera not found","ids":["camera_side"]}}})).await;
+        assert_eq!(
+            recv(&mut shot.operator).await["result"]["error"]["code"],
+            "NOT_FOUND"
+        );
+        // Without a preview_main renderer the call is unavailable.
+        shot.renderer.close(None).await.unwrap();
+        let deadline = Instant::now() + Duration::from_secs(3);
+        loop {
+            send(&mut shot.operator, shot_call("gone", "camera_main", 3)).await;
+            let response = recv(&mut shot.operator).await;
+            if response["result"]["error"]["code"] == "UNAVAILABLE" {
+                break;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "renderer still registered: {response}"
+            );
+            tokio::task::yield_now().await;
+        }
+        shot.stop().await;
+    }
+
+    #[tokio::test]
+    async fn screenshot_rejects_stale_invalid_and_oversize_replies() {
+        let image = png(1920, 1080);
+        let small = png(16, 9);
+        let oversize = vec![0u8; MAX_SCREENSHOT_PNG_BYTES + 1];
+        type Reply<'a> = Box<dyn Fn(&str) -> Value + 'a>;
+        let cases: Vec<(&str, Reply)> = vec![
+            (
+                "STALE_FRAME",
+                Box::new(|_| reply_data("other_session", 3, "camera_main", &image)),
+            ),
+            (
+                "STALE_FRAME",
+                Box::new(|s| reply_data(s, 4, "camera_main", &image)),
+            ),
+            (
+                "STALE_FRAME",
+                Box::new(|s| reply_data(s, 3, "camera_side", &image)),
+            ),
+            (
+                "INVALID_INPUT",
+                Box::new(|s| reply_data(s, 3, "camera_main", b"not a png")),
+            ),
+            (
+                "INVALID_INPUT",
+                Box::new(|s| {
+                    let mut data = reply_data(s, 3, "camera_main", &image);
+                    data["data"]["pngBase64"] = json!(STANDARD.encode(&small));
+                    data
+                }),
+            ),
+            (
+                "INVALID_INPUT",
+                Box::new(|s| reply_data(s, 3, "camera_main", &oversize)),
+            ),
+        ];
+        // A fresh host for each case, so the 1 s limit does not apply between cases.
+        for (code, reply) in cases {
+            let mut shot = start().await;
+            let session = shot.session.clone();
+            let result = shot.take("shot", |_| reply(&session)).await;
+            assert_eq!(result["error"]["code"], code, "{result}");
+            assert!(!shot.folder.exists() || std::fs::read_dir(&shot.folder).unwrap().count() == 0);
+            // The preview renderer stays connected after a bad reply.
+            send(
+                &mut shot.renderer,
+                json!({"kind":"ping","requestId":"alive"}),
+            )
+            .await;
+            assert_eq!(
+                recv_kind(&mut shot.renderer, "pong").await["requestId"],
+                "alive"
+            );
+            shot.stop().await;
+        }
+    }
+
+    #[tokio::test]
+    async fn screenshot_times_out_and_ignores_a_late_reply() {
+        let mut shot = start().await;
+        let timeout = Duration::from_millis(300);
+        shot.service.set_screenshot_timeout(timeout);
+        let started = Instant::now();
+        send(&mut shot.operator, shot_call("slow", "camera_main", 3)).await;
+        let request = recv_kind(&mut shot.renderer, "screenshotRequest").await;
+        let response = recv(&mut shot.operator).await;
+        assert_eq!(response["result"]["error"]["code"], "TIMEOUT");
+        assert!(started.elapsed() >= timeout);
+        let session = shot.session.clone();
+        send(&mut shot.renderer, json!({"kind":"screenshotReply","requestId":request["requestId"],"result":reply_data(&session, 3, "camera_main", &png(1920, 1080))})).await;
+        send(
+            &mut shot.renderer,
+            json!({"kind":"ping","requestId":"alive"}),
+        )
+        .await;
+        assert_eq!(
+            recv_kind(&mut shot.renderer, "pong").await["requestId"],
+            "alive"
+        );
+        assert!(!shot.folder.exists());
+        shot.stop().await;
+    }
+
+    #[tokio::test]
+    async fn screenshot_default_timeout_is_the_contract_limit() {
+        assert_eq!(SCREENSHOT_TIMEOUT_MS, 5000);
+        assert_eq!(MAX_SCREENSHOT_MESSAGE_BYTES, 12 * 1024 * 1024);
+    }
+
+    #[tokio::test]
+    async fn screenshot_reply_is_accepted_only_from_a_renderer_and_large_messages_only_there() {
+        let mut shot = start().await;
+        // An operator that sends a screenshot reply loses its connection.
+        let mut intruder = auth(&shot.service.operator_descriptor()).await;
+        send(&mut intruder, json!({"kind":"screenshotReply","requestId":"x","result":{"ok":false,"error":{"code":"UNAVAILABLE","message":"x","ids":[]}}})).await;
+        closed(&mut intruder).await;
+        // An operator message above the capture envelope closes the connection, as before.
+        let mut large = auth(&shot.service.operator_descriptor()).await;
+        send(
+            &mut large,
+            json!({"kind":"ping","requestId":"x".repeat(MAX_CAPTURE_MESSAGE_BYTES)}),
+        )
+        .await;
+        closed(&mut large).await;
+        // A renderer reply without a pending request closes the renderer.
+        send(&mut shot.renderer, json!({"kind":"screenshotReply","requestId":"unknown","result":{"ok":true,"data":{"sessionId":"x","revision":3,"cameraId":"c","width":1920,"height":1080,"pngBase64":STANDARD.encode(vec![0u8; MAX_SCREENSHOT_PNG_BYTES + 3])}}})).await;
+        tokio::time::timeout(Duration::from_secs(3), async {
+            while let Some(Ok(message)) = shot.renderer.next().await {
+                if let Message::Text(text) = message {
+                    let value: Value = serde_json::from_str(&text).unwrap();
+                    assert_eq!(value["kind"], "frame", "unexpected message {value}");
+                }
+            }
+        })
+        .await
+        .expect("renderer still connected");
+        shot.stop().await;
+    }
+}
