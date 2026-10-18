@@ -10,6 +10,7 @@ R3. The clock `InputUpdate` gains an optional `devices` object. An update must h
     - `events`: 1 to 32 device events, in arrival order.
     - `gamepads`: 1 to 4 pad states `{ pad, buttons?, axes? }`. `pad` is the slot 1 to 4, unique in the list. `buttons` lists 1 to 17 unique held buttons. `axes` has the non-zero values of `leftX`, `leftY`, `rightX`, `rightY` (−1 to 1) and `leftTrigger`, `rightTrigger` (0 to 1). The host sends a pad only when a button is held or an axis is not zero. A missing pad has no held button and all axes at 0.
     - `pointer`: `{ x, y, buttons? }`. `x` and `y` are finite and in −16 to 16. `buttons` lists 1 to 3 unique held buttons. The host sends `pointer` on each clock while the pointer adapter is active.
+    A clock with `input.devices` may use the tracking clock byte limit (64 KiB) on both sides, because 32 device events and 4 pads exceed the plain 2 KiB limit. The largest valid device clock is less than 16 KiB.
 R4. Device events:
     - `{ kind: 'gamepadButton', pad, button, pressed }`.
     - `{ kind: 'midiNote', channel, note, velocity, on }`. `channel` is 1 to 16. `note` and `velocity` are 0 to 127.
@@ -62,9 +63,9 @@ Extend the input contract first in TypeScript and Rust with shared vectors. Then
 
 ## S — Structure
 
-- Contracts: `packages/contracts/src/devices.ts` (new), `schema.ts` (`InputUpdateSchema`, results), `types.ts`, `index.ts`, `blueprint-nodes/devices.ts` (new), `blueprint-nodes/index.ts` (one import and one array entry), `blueprint-nodes/define.ts` (append `choice`); `crates/contracts/src/lib.rs`; `fixtures/protocol/validation-vectors.json`.
+- Contracts: `packages/contracts/src/devices.ts` (new), `schema.ts` (`InputUpdateSchema`, results, clock size rule), `types.ts`, `index.ts`, `blueprint-nodes/devices.ts` (new), `blueprint-nodes/index.ts` (one import and one array entry), `blueprint-nodes/define.ts` (append `choice`); `crates/contracts/src/devices.rs` (new), `crates/contracts/src/lib.rs`; `fixtures/protocol/validation-vectors.json`.
 - Session: `packages/session/src/devices.ts` (new), `blueprint-eval/devices.ts` (new, with a `RunEnv` augmentation), `blueprint-eval/index.ts`, `blueprint-runtime.ts` (device event, `devices()`), `blueprint-store.ts`, `session.ts` (clock ingest).
-- Native: `apps/desktop/src-tauri/src/input/devices.rs` (new hub, queue, trait) with `input/devices/{gamepad,midi,pointer}.rs` (new); `input.rs`; `service/mod.rs`, `service/router.rs`; `lib.rs`; `Cargo.toml`, `Cargo.lock`; `tests/device_input_integration.rs` (new).
+- Native: `apps/desktop/src-tauri/src/input/devices.rs` (new hub, queue, trait) with `input/devices/{gamepad,midi,pointer}.rs` (new); `input.rs`; `service/mod.rs`, `service/router.rs`; `bootstrap.rs` (installs the platform hub); `Cargo.toml`, `Cargo.lock`, `docs/dependencies.md`; `tests/device_input_integration.rs` (new).
 - Editor: `apps/desktop/src/components/BlueprintNodeFields.svelte` (the `choice` field).
 - Evidence: `docs/evaluation/blueprint-i-input-devices.md`, `docs/evaluation/blueprint-node-audit.json`.
 
