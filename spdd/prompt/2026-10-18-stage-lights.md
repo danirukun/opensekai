@@ -51,7 +51,7 @@ R10. The screenshot path (`screenshot.ts`) draws through the same chain, so a sc
 R11. The Add menu adds **Spot Light**, **Ambient Light**, and **Haze**:
 - Spot Light: position (0, 3, 2), aimed at (0, 1, 0), intensity 60, range 15, cone 40° with penumbra 0.3, `volumetric: true`, shadow off.
 - Ambient Light: white, intensity 0.3, all affect flags on.
-- Haze: position (0, 4, 0), scale (20, 8, 20), density 1, smoke 1, intensity 1, drift 0.2.
+- Haze: position (0, 4, 0), scale (20, 8, 20), density 1, smoke 1, intensity 2.5, drift 0.2. (Owner choice after the macOS check: at intensity 1 a beam over a dark background was faint.)
 
 The light items are disabled at 8 lights. Haze is disabled when a haze exists. The Hierarchy shows the haze in the Lights group.
 R12. The light Inspector:

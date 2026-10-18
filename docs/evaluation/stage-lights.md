@@ -48,15 +48,20 @@ A fourth defect was in the depth node: `texture().sample()` made a clone that th
 | WebGL 2 (Chromium, `?backend=webgl2`) | O6 | Partial. The floor, the spot shadow, and the haze draw. The avatar does not: its vertex shader uniform block exceeds `GL_MAX_UNIFORM_BLOCK_SIZE` (16 384). With the haze, the spot, and the ambient light removed, the same error stays, so this is not from B13. |
 | A haze pipeline failure stops the haze until the next rebuild | R9 | Unit test only (`haze.test.ts`). |
 
+## Example show and defaults (owner follow-up)
+
+- The haze default intensity is now 2.5 (owner choice).
+- `fixtures/shows/stage-lights.osekai` is an example stage without a character: a dim directional light, a blue ambient fill, a warm and a blue spot light (30°, shadow and Volumetric on), a haze at intensity 2.5, and a floor. The spot lights are in front at (±2.4, 3.4, 1.6) and aim at face height (0, 1.35, 0). A TS test and a Rust test (`show.rs`, the File › Open path) check that it opens.
+- On macOS with OBS, with Nina added at the origin, the face is lit warm and blue, and both shadows fall behind her ([OBS](stage-lights/obs-example-show-face-lit.png)). The cones now come toward the camera, so they read as a veil in front of her more than as side beams.
+
 ## Open points
 
-- **Default look.** At the default haze intensity of 1, a beam over a dark background is faint; intensity about 2.5 gives clear cones. The owner chooses the default.
 - **Shadow shafts.** They are hard to see with one character at these settings.
 - **Not done.** Windows, a contract-length benchmark, and GPU time.
 - **Dev build.** A Vite reload of the Scene window ends at "Session startup failed". Each renderer edit during this check needed a restart of the app (not new in B13).
 
 ## Tests
 
-- `pnpm vitest run --project unit`: 981 passed. `pnpm vitest run --project integration`: 36 passed. `pnpm -r check`: no errors.
+- `pnpm vitest run --project unit`: 982 passed. `pnpm vitest run --project integration`: 36 passed. `pnpm -r check`: no errors.
 - `cargo test -p opensekai-contracts`: 62 passed, with 101 shared vectors.
 - The MCP stdio integration test for spot and haze passes.

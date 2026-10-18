@@ -17,7 +17,8 @@ export function lightTransform(type:LightSettings['type']):Transform {
  if(type==='spot')return {position:[0,3,2],rotation:[...SPOT_LIGHT_ROTATION],scale:[1,1,1]};
  return {position:type==='ambient'?[0,2.5,0]:[0,2,1],rotation:[0,0,0,1],scale:[1,1,1]};
 }
-export const HAZE:HazeSettings={density:1,smoke:1,intensity:1,drift:0.2};
+// Intensity 2.5: at 1 a beam over a dark OBS background was faint in the owner's macOS check (B13 R11).
+export const HAZE:HazeSettings={density:1,smoke:1,intensity:2.5,drift:0.2};
 export const hazeTransform=():Transform=>({position:[0,4,0],rotation:[0,0,0,1],scale:[20,8,20]});
 export const hazeLimitReached=(entities:readonly SceneEntity[]):boolean=>entities.filter(entity=>entity.kind==='haze').length>=LIMITS.hazes;
 export const lightLimitReached=(entities:readonly SceneEntity[]):boolean=>entities.filter(entity=>entity.kind==='light').length>=LIMITS.lights;

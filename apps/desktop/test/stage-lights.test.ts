@@ -18,7 +18,7 @@ it('makes an ambient light and a haze with the stage defaults (B13 R11)',()=>{
  expect(SceneEntitySchema.safeParse(ambient).success).toBe(true);
  expect(ambient).toMatchObject({kind:'light',name:'Ambient Light',light:{type:'ambient',color:'#ffffff',intensity:0.3}});
  expect(SceneEntitySchema.safeParse(haze).success).toBe(true);
- expect(haze).toMatchObject({kind:'haze',name:'Haze',transform:{position:[0,4,0],scale:[20,8,20]},haze:{density:1,smoke:1,intensity:1,drift:0.2}});
+ expect(haze).toMatchObject({kind:'haze',name:'Haze',transform:{position:[0,4,0],scale:[20,8,20]},haze:{density:1,smoke:1,intensity:2.5,drift:0.2}});
 });
 it('limits a scene to one haze and shows it in the Lights group',()=>{
  const scene=makeSmokeScene();
@@ -55,4 +55,23 @@ it('sends setHaze through the model and rejects it for a light',async()=>{
  expect(session.inspect().entities.find(e=>e.id==='h')).toMatchObject({haze:{density:2,smoke:0,intensity:4,drift:0}});
  expect((await model.setHaze('s',{density:1,smoke:1,intensity:1,drift:0})).ok).toBe(false);
  expect((await model.setHaze('h',{density:3,smoke:1,intensity:1,drift:0})).ok).toBe(false);
+});
+it('ships a stage example show with two face-lit spot lights, an ambient fill, and haze, and no character',async()=>{
+ const {readFileSync}=await import('node:fs');
+ const {ShowDocumentSchema}=await import('@opensekai/contracts');
+ const show=ShowDocumentSchema.parse(JSON.parse(readFileSync(new URL('../../../fixtures/shows/stage-lights.osekai',import.meta.url),'utf8')));
+ const entities=show.scene.entities;
+ expect(entities.some(e=>e.kind==='avatar')).toBe(false);
+ expect(entities.filter(e=>e.kind==='haze').map(e=>e.kind==='haze'&&e.haze.intensity)).toEqual([2.5]);
+ const spots=entities.filter(e=>e.kind==='light'&&e.light.type==='spot');
+ expect(spots).toHaveLength(2);
+ expect(entities.some(e=>e.kind==='light'&&e.light.type==='ambient')).toBe(true);
+ // Each spot points at face height in front of the character, so the face is lit.
+ for(const spot of spots){
+  const [x,y,z]=spot.transform.position,dir=rotateByQuaternion([0,0,-1],spot.transform.rotation);
+  expect(z).toBeGreaterThan(0);
+  const t=-z/dir[2]!;
+  expect(x+dir[0]!*t).toBeCloseTo(0,2);
+  expect(y+dir[1]!*t).toBeCloseTo(1.35,2);
+ }
 });
