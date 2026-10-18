@@ -5,6 +5,7 @@ import { CHARACTER_NODES } from './character';
 import { EVENT_NODES } from './events';
 import { FLOW_NODES } from './flow';
 import { INPUT_NODES } from './input';
+import { INTEGER_NODES } from './integer';
 import { LOGIC_NODES } from './logic';
 import { MATH_NODES } from './math';
 import { PROPERTY_NODES } from './properties';
@@ -13,14 +14,19 @@ import { VALUE_NODES } from './values';
 import { VARIABLE_NODES } from './variables';
 import { VECTOR3_NODES } from './vector3';
 import { DEVICE_NODES } from './devices';
+import { LITERAL_NODES } from './literals';
+import { TEXT_NODES } from './text';
+import { LIST_NODES } from './lists';
+import { SWITCH_NODES } from './switches';
+import { TYPED_VARIABLE_NODES } from './typed-variables';
 import { TIMER_NODES } from './timer';
 import { GRAPH_CONTROL_NODES } from './graph-control';
 
-export { defineNode, NODE_CATEGORIES, type PortType, type PortShape, type NodeCategory, type DefaultRefs, type BlueprintField, type NodeDefinition } from './define';
+export { defineNode, IntegerCasesSchema, MAX_SWITCH_CASES, NODE_CATEGORIES, type PortType, type PortShape, type NodeCategory, type DefaultRefs, type BlueprintField, type NodeDefinition } from './define';
 export { KEYSTROKE_CODES, KeystrokeSettingsSchema, keystrokeAccelerator, keystrokeHasModifier, type KeystrokeSettings } from './events';
 
 // Palette order inside a category follows this list.
-export const NODE_DEFINITIONS = [...EVENT_NODES, ...INPUT_NODES, ...FLOW_NODES, ...VALUE_NODES, ...MATH_NODES, ...VECTOR3_NODES, ...LOGIC_NODES, ...VARIABLE_NODES, ...SCENE_NODES, ...PROPERTY_NODES, ...CHARACTER_NODES, ...DEVICE_NODES, ...TIMER_NODES, ...GRAPH_CONTROL_NODES] as const;
+export const NODE_DEFINITIONS = [...EVENT_NODES, ...INPUT_NODES, ...FLOW_NODES, ...VALUE_NODES, ...MATH_NODES, ...VECTOR3_NODES, ...LOGIC_NODES, ...VARIABLE_NODES, ...SCENE_NODES, ...PROPERTY_NODES, ...CHARACTER_NODES, ...DEVICE_NODES, ...INTEGER_NODES, ...LITERAL_NODES, ...TEXT_NODES, ...LIST_NODES, ...SWITCH_NODES, ...TYPED_VARIABLE_NODES, ...TIMER_NODES, ...GRAPH_CONTROL_NODES] as const;
 type Definition = (typeof NODE_DEFINITIONS)[number];
 export type BlueprintKind = Definition['type'];
 export const BlueprintPositionSchema = z.strictObject({ x: finite, y: finite });
@@ -97,4 +103,6 @@ export const blueprintNodeCatalog = () => NODE_DEFINITIONS.map(definition => ({
  ports: definition.ports(definition.defaults(SAMPLE) as never),
  portsDependOnSettings: 'dynamicPorts' in definition && definition.dynamicPorts === true,
  settings: z.toJSONSchema(definition.settings),
+ // The value of an unconnected input without an inline value, where it is not the type default.
+ inputDefaults: { ...('inputDefaults' in definition ? definition.inputDefaults : {}) } as Record<string, ScalarValue>,
 }));

@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { BLUEPRINT_LABELS, BlueprintNodeSchema, NODE_DEFINITIONS, blueprintNodeCatalog, blueprintPorts, defaultBlueprintSettings, type BlueprintKind, type BlueprintNode, type DefaultRefs } from '../src';
 
-const refs: DefaultRefs = { entityId: 'e', avatarId: 'a', expression: 'happy', cameraId: 'c', outputId: 'o', keystroke: { code: 'KeyH', control: true, alt: true, shift: false, meta: false }, variables: [{ id: 'n', type: 'number' }, { id: 'b', type: 'boolean' }], graphId: 'g' };
+const refs: DefaultRefs = { entityId: 'e', avatarId: 'a', expression: 'happy', cameraId: 'c', outputId: 'o', keystroke: { code: 'KeyH', control: true, alt: true, shift: false, meta: false }, variables: [{ id: 'n', type: 'number' }, { id: 'b', type: 'boolean' }, { id: 'i', type: 'integer' }, { id: 'l', type: 'string[]' }], graphId: 'g' };
 const nodeOf = (type: string, settings: unknown) => ({ id: 'x', version: 1, type, settings, position: { x: 0, y: 0 } });
 const ports = (type: BlueprintKind) => blueprintPorts(nodeOf(type, defaultBlueprintSettings(type, refs)) as BlueprintNode);
 
@@ -17,7 +17,7 @@ it('has one definition per type, its label, and one field per settings key', () 
   // Optional settings (a transition) have a field but no default value.
   const keys = Object.keys((definition.settings as unknown as { shape: object }).shape).sort();
   expect(Object.keys(definition.defaults(refs) ?? {}).every(key => keys.includes(key)), definition.type).toBe(true);
-  const fieldKeys = definition.fields.flatMap(field => field.kind === 'keystroke' ? ['alt', 'code', 'control', 'meta', 'shift'] : [field.key]).sort();
+  const fieldKeys = definition.fields.flatMap(field => field.kind === 'keystroke' ? ['alt', 'code', 'control', 'meta', 'shift'] : field.kind === 'typedVariable' ? [field.key, field.typeKey] : [field.key]).sort();
   expect(fieldKeys, definition.type).toEqual(keys);
  }
 });
@@ -57,7 +57,10 @@ it('returns null defaults when the scene lacks the entity, camera, or output', (
 it('publishes a catalog of every node with its ports and settings schema', () => {
  const catalog = blueprintNodeCatalog();
  expect(catalog).toHaveLength(NODE_DEFINITIONS.length);
- expect(catalog).toHaveLength(82);
+ expect(catalog).toHaveLength(170);
+ expect(catalog.find(entry => entry.type === 'math.lerp')!.inputDefaults).toEqual({ b: 1, t: 0.5 });
+ expect(catalog.find(entry => entry.type === 'vector3.scale')!.inputDefaults).toEqual({ factor: 1 });
+ expect(catalog.find(entry => entry.type === 'math.add')!.inputDefaults).toEqual({});
  const sequence = catalog.find(entry => entry.type === 'flow.sequence')!;
  expect(sequence).toMatchObject({ label: 'Sequence', category: 'Flow', portsDependOnSettings: true, settings: { type: 'object', required: ['outputs'] } });
  expect(catalog.find(entry => entry.type === 'variable.setNumber')!.ports).toEqual({ inputs: { flow: 'flow', value: 'number' }, outputs: { exit: 'flow' } });

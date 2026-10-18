@@ -7,7 +7,7 @@ export function parseCases(text: string): number[] | null {
  return new Set(cases).size === cases.length && cases.every(value => Math.abs(value) <= 1e6) ? cases : null;
 }
 export const formatCases = (cases: readonly number[]): string => cases.join(', ');
-export const dataTypeOptions = () => DATA_TYPES.map(type => ({ value: type, label: DATA_TYPE_LABELS[type] }));
+export const dataTypeOptions = (types: readonly DataType[] = DATA_TYPES) => types.map(type => ({ value: type, label: DATA_TYPE_LABELS[type] }));
 export const asDataType = (text: string): DataType | null => (DATA_TYPES as readonly string[]).includes(text) ? text as DataType : null;
 export function newVariable(existing: readonly BlueprintVariable[], type: DataType, id: string): BlueprintVariable {
  const label = DATA_TYPE_LABELS[type], names = new Set(existing.map(variable => variable.name));

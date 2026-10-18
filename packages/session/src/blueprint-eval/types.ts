@@ -5,7 +5,8 @@ export type { BlueprintValue } from '@opensekai/contracts';
 // Per-run inputs from outside the graph.
 // `scene` is read on demand, so a run sees the writes of earlier runs in the same tick.
 // `previousPose` is the avatar pose of the previous tick, before expressions and bone offsets.
-export interface RunEnv { deltaSeconds: number; held: ReadonlySet<string>; scene: () => SceneView | null; previousPose?: (avatarId: Id) => AvatarPose | null }
+// `tickMs` is the session time of the clock tick that started the step; a node that must change once per tick compares it.
+export interface RunEnv { deltaSeconds: number; held: ReadonlySet<string>; scene: () => SceneView | null; previousPose?: (avatarId: Id) => AvatarPose | null; tickMs?: number }
 export const NO_ENV: RunEnv = { deltaSeconds: 0, held: new Set(), scene: () => null };
 // Plain data that a stateful node keeps between runs. A node replaces its entry and never changes a stored object,
 // because a run copy shares the stored objects with the committed state.
@@ -27,6 +28,8 @@ export function checkBlueprintValue(type: DataType, value: unknown): void {
  if (problem === 'type') throw new RangeError('Blueprint value does not match its type');
 }
 
+// `limit` is the iteration limit (64 when not set). `clear` removes the loop index and the node state when the loop ends.
+export interface LoopOptions { limit?: number; clear?: boolean }
 export interface FlowContext {
  // The flow input that this visit entered.
  port: string;
@@ -36,7 +39,7 @@ export interface FlowContext {
  emit(effect: BlueprintEffect): void;
  delay(seconds: number): void;
  // Runs `body` once per index from first to last, then `completed`.
- loop(first: number, last: number): void;
+ loop(first: number, last: number, options?: LoopOptions): void;
  state: RunState;
  nowMs: number;
  env: RunEnv;
