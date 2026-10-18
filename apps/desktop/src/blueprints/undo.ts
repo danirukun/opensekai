@@ -23,7 +23,21 @@ export function diffOps(from: BlueprintGraph, to: BlueprintGraph): BlueprintOp[]
  const added = new Set(patch.addConnections.map(wire => wire.id)), redone = new Set(retyped.map(node => node.id));
  const rewire = to.connections.filter(wire => !added.has(wire.id) && (redone.has(wire.sourceNodeId) || redone.has(wire.targetNodeId)));
  for (const connection of [...patch.addConnections, ...rewire]) ops.push({ kind: 'connect', graphId, connection });
+ ops.push(...commentDiff(from, to));
  return ops;
+}
+
+// Comments are independent of nodes and wires, so their operations can go last.
+function commentDiff(from: BlueprintGraph, to: BlueprintGraph): BlueprintOp[] {
+ const graphId = to.id, before = new Map((from.comments ?? []).map(c => [c.id, c] as const)), after = new Set((to.comments ?? []).map(c => c.id));
+ return [
+  ...[...before.keys()].filter(id => !after.has(id)).map(commentId => ({ kind: 'removeComment' as const, graphId, commentId })),
+  ...(to.comments ?? []).flatMap((comment): BlueprintOp[] => {
+   const old = before.get(comment.id);
+   if (!old) return [{ kind: 'addComment', graphId, comment }];
+   return same(old, comment) ? [] : [{ kind: 'updateComment', graphId, commentId: comment.id, text: comment.text, position: comment.position, size: comment.size }];
+  }),
+ ];
 }
 
 interface Step { before: BlueprintGraph; after: BlueprintGraph; undo: BlueprintOp[]; redo: BlueprintOp[]; shape: string; at: number }
