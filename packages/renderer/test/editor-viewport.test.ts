@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Scene, PerspectiveCamera, Object3D } from 'three/webgpu';
 import { makeSmokeScene } from '@opensekai/contracts';
-import { assertEditorScope, createEditorViewport, GIZMO_COMMIT_MS, pickRoots } from '../src/editor-viewport';
+import { assertEditorScope, createEditorViewport, createLightHelper, GIZMO_COMMIT_MS, pickRoots, updateLightHelper } from '../src/editor-viewport';
+import type { LightSettings } from '@opensekai/contracts';
 const mock=vi.hoisted(()=>({controls:null as any}));
 vi.mock('three/addons/controls/TransformControls.js',()=>({TransformControls:class {
  listeners=new Map<string,()=>void>(); dragging=false;enabled=false;axis=null;helper=new Object3D();
@@ -68,4 +69,14 @@ describe('live gizmo commits (B12)',()=>{
   expect(x.editor.draftTransform(x.id)?.position).toEqual([8,0,0]);x.root.position.x=20;
   mock.controls.emit('mouseUp');await flush();expect(x.onCommit).not.toHaveBeenCalled();expect(x.editor.draftTransform(x.id)).toBeNull();expect(x.editor.frozen(x.id)).toBe(false);x.editor.dispose();
  });
+});
+
+it('outlines the shadow box of a directional light with a shadow as four line segments (B12 R10)',()=>{
+ const light:LightSettings={type:'directional',color:'#ff0000',intensity:3,range:0,affectCharacters:true,affectProps:true,affectEnvironment:true,shadow:{enabled:false,intensity:1,soft:true,bias:-0.0005,normalBias:0.02}};
+ const root=createLightHelper(light),box=root.getObjectByName('shadow-box') as Object3D & {isLineSegments?:boolean;geometry:{getAttribute(name:string):{count:number;getX(i:number):number;getY(i:number):number}}};
+ expect(box.isLineSegments).toBe(true);expect(box.visible).toBe(false);
+ const position=box.geometry.getAttribute('position');expect(position.count).toBe(8);
+ expect(Math.max(...Array.from({length:8},(_,i)=>Math.abs(position.getX(i))))).toBe(10);
+ updateLightHelper(root,{...light,shadow:{...light.shadow,enabled:true}});expect(box.visible).toBe(true);
+ expect(createLightHelper({...light,type:'point'}).getObjectByName('shadow-box')).toBeUndefined();
 });

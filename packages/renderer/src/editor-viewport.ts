@@ -1,4 +1,4 @@
-import { BufferGeometry, CircleGeometry, ConeGeometry, CylinderGeometry, DoubleSide, Float32BufferAttribute, Group, LineBasicNodeMaterial, LineLoop, Mesh, MeshBasicNodeMaterial, Raycaster, Vector2 } from 'three/webgpu';
+import { BufferGeometry, CircleGeometry, ConeGeometry, CylinderGeometry, DoubleSide, Float32BufferAttribute, Group, LineBasicNodeMaterial, LineSegments, Mesh, MeshBasicNodeMaterial, Raycaster, Vector2 } from 'three/webgpu';
 import type { Object3D, PerspectiveCamera, Scene } from 'three/webgpu';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import type { Id, LightSettings, Reply, SceneView, Transform } from '@opensekai/contracts';
@@ -40,8 +40,11 @@ export function createLightHelper(light: LightSettings): Object3D {
         const tip = new Mesh(new ConeGeometry(0.05, 0.12, 12), material);
         tip.rotation.x = -Math.PI / 2;
         tip.position.z = -0.46;
-        const outline = new BufferGeometry().setAttribute('position', new Float32BufferAttribute([-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0].map(v => v * SHADOW_BOX), 3));
-        const box = new LineLoop(outline, new LineBasicNodeMaterial({ color: light.color, toneMapped: false, transparent: true, opacity: 0.5 }));
+        // Four edges as line segments: three.js 0.180 does not draw a LineLoop.
+        const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
+        const edges = corners.flatMap(([x, y], i) => { const [nx, ny] = corners[(i + 1) % 4]!; return [x!, y!, 0, nx!, ny!, 0]; });
+        const outline = new BufferGeometry().setAttribute('position', new Float32BufferAttribute(edges.map(v => v * SHADOW_BOX), 3));
+        const box = new LineSegments(outline, new LineBasicNodeMaterial({ color: light.color, toneMapped: false, transparent: true, opacity: 0.5 }));
         box.name = 'shadow-box';
         // The outline is an aid only: a click on it does not select the light.
         box.raycast = () => {};
