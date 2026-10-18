@@ -37,7 +37,7 @@ R6. **Custom events** (category Events).
 - The `payload` output gives the payload of the event that started the run, when the payload is a value of the output type (W0 R2). Else it gives the default of the type. The value stays in the node state until the next event, so a later run of the graph reads the last payload.
 
 R7. **Event delivery.**
-- An emitted event goes to a FIFO queue of the step when its run commits. The runtime drains the queue after each run, before the next run of the step. In the departure phase the queue waits until the On Enable phase ends (R4).
+- An emitted event goes to a FIFO queue of the step when its run commits. The runtime drains the queue after each run, before the next run of the step. In the departure phase and the On Enable phase the queue waits until the On Enable phase ends (R4, R10), so a new version does not receive an event before its On Enable runs.
 - A delivery visits each enabled graph in the installed order (the emitter too), and in each graph each On Event node with the event name, in node order. Each match is one run with its own state copy and run gate.
 - An event has a hop count. An event from a run that an input, a delay, a timer, On Enable, On Disable, or `blueprintRun` started has hop 1. An event from a run that an event of hop h started has hop h + 1. The hop limit is 8.
 - A step delivers at most 64 events (the event budget).
@@ -57,10 +57,10 @@ R9. **Control requests apply as a document edit.**
 
 R10. **Step order.** A step runs these phases in order:
 1. Departures: On Disable of each departing version (R4).
-2. On Enable of each new state (catalog R6), then delivery of the events that the departure phase emitted.
+2. On Enable of each new state (catalog R6), then delivery of the events that phases 1 and 2 emitted, in FIFO order.
 3. Due delays, debounces, and timers, merged by due time, then by schedule order.
 4. Input events in their order: keystroke, device, `blueprintRun` (Manual Trigger or event), On Update.
-After each run in phases 2 to 4, the runtime delivers the events of that run (R7). After the step, the session applies the control requests (R9).
+After each run in phases 3 and 4, the runtime delivers the events of that run (R7). After the step, the session applies the control requests (R9).
 
 R11. **Reported key and device sets.** The accelerator set, the held-key set, and the device set come from the listened graphs: each enabled graph, and each graph that an Enable Blueprint or Toggle Blueprint node of a listened graph names (transitive). So a node that enables a graph does not change the sets, and the host needs no new report. The edit limits of 64 accelerators and 16 held keys apply to these sets. Events of a disabled graph still start no run.
 
@@ -83,7 +83,7 @@ R15. **Tests.**
 - Session (not protocol): `RuntimeRequest = { kind: 'emit'; name; payload } | { kind: 'control'; graphId; action: 'enable' | 'disable' | 'toggle' } | { kind: 'startTimer'; name; seconds; repeat } | { kind: 'stopTimer'; name } | { kind: 'debounce'; seconds }`. `FlowContext.request(request)`. `FlowResult.requests`. `RunEnv.nowMs?`, `RunEnv.graphEnabled?` (declaration merging, as slice I does for devices).
 - Runtime entry adds `timers` (name → due time, interval, repeat, order) and keeps departing entries until the next step.
 - `BlueprintEvent` adds `{ kind: 'custom'; name; payload }`.
-- `BlueprintRuntime` adds `takeControlRequests()`.
+- `BlueprintRuntime` adds `takeControlRequests()`. `GraphRun` adds an optional `nodeId` (the node that started the run), so `blueprintRun` reports the error of its own Manual Trigger run when events run after it.
 - `blueprintRun` params: `{ graphId, triggerNodeId } | { event, payload? }`.
 
 ## A — Approach
