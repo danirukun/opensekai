@@ -148,11 +148,12 @@ impl TrackingManager {
                 .collect(),
         }
     }
-    /// Reconciles the receivers from the endpoint plan (R8-R10). A source that keeps its
-    /// generation and config keeps its socket, decoder, counters, sample, and handshake retry.
+    /// Reconciles the receivers from the endpoint plan (R8-R10) once for each accepted revision,
+    /// so a failed bind retries on the next revision and not on each frame. A source that keeps
+    /// its generation and config keeps its socket, decoder, counters, sample, and handshake retry.
     pub async fn reconcile(&self, scene: &SceneView) {
         let mut life = self.lifecycle.lock().await;
-        if life.stopped || life.revision.is_some_and(|r| scene.revision < r) {
+        if life.stopped || life.revision.is_some_and(|r| scene.revision <= r) {
             return;
         }
         life.revision = Some(scene.revision);
@@ -616,6 +617,23 @@ mod tests {
             .reconcile(&scene(occupied.local_addr().unwrap().port(), 1, true))
             .await;
         assert_eq!(manager.snapshot().statuses[0].state, TrackingState::Error);
+        manager.shutdown().await;
+    }
+    // A frame repeats its revision about 60 times each second; only a new revision binds again.
+    #[tokio::test]
+    async fn failed_bind_waits_for_the_next_revision() {
+        let occupied = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
+        let port = occupied.local_addr().unwrap().port();
+        let manager = TrackingManager::new(Instant::now());
+        manager.reconcile(&scene(port, 1, true)).await;
+        assert_eq!(manager.snapshot().statuses[0].state, TrackingState::Error);
+        drop(occupied);
+        manager.reconcile(&scene(port, 1, true)).await;
+        assert_eq!(manager.snapshot().statuses[0].state, TrackingState::Error);
+        let mut next = scene(port, 1, true);
+        next.revision = 2;
+        manager.reconcile(&next).await;
+        assert_eq!(manager.snapshot().statuses[0].state, TrackingState::Waiting);
         manager.shutdown().await;
     }
 }

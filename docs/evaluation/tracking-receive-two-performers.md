@@ -33,4 +33,5 @@ Date: 2026-10-18. Contract: [tracking receive and two performers](../../spdd/pro
 
 - Get Bone Rotation reads 0 for a raw (VMC) head, because the session does not know the rest rotation. With a VMC face source, the template does nothing.
 - The template reads the head of the previous tick, so the body follows one tick late.
+- A shared endpoint keeps the bind address of its first source after that source leaves (contract implementation notes). A remaining `0.0.0.0` source then stays on a loopback socket until its config changes.
 - Not checked (owner on macOS): a real VMC sender on port 39539; an iPhone with iFacialMocap that starts after OpenSekai; the port the phone sends to; two iPhones on one port; the editor source selects in the app; the two-performer frame cost at 60 fps in OBS with alpha; continued motion of both characters with the editor minimized; the look of the template in the preview and in OBS. These measurements are unknown.
