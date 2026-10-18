@@ -1,11 +1,12 @@
 <script lang="ts">
+ import {untrack} from 'svelte';
  import {Button,Input,Select} from '@oshi-connect/ui';
  import type {LightSettings,Reply} from '@opensekai/contracts';
  import {lightForType,lightTypeOptions,parseBounded,parseLightColor} from '../editor/lights';
  let {entityId,light,revision,disabled=false,oncommit,ondirection}:{entityId:string;light:LightSettings;revision:number;disabled?:boolean;oncommit?:(id:string,light:LightSettings,revision:number)=>Promise<Reply<unknown>|undefined>;ondirection?:(id:string,revision:number)=>Promise<Reply<unknown>|undefined>}=$props();
  type Field='color'|'intensity'|'range'|'shadowIntensity'|'bias'|'normalBias';
  const text=(l:LightSettings):Record<Field,string>=>({color:l.color,intensity:String(l.intensity),range:String(l.range),shadowIntensity:String(l.shadow.intensity),bias:String(l.shadow.bias),normalBias:String(l.shadow.normalBias)});
- let values=$state<Record<Field,string>>(text(light));
+ let values=$state<Record<Field,string>>(untrack(()=>text(light)));
  // A scene change, an accepted change, or a rejected change shows the scene value again (R13).
  $effect(()=>{values=text(light);});
  const reset=()=>{values=text(light);};
