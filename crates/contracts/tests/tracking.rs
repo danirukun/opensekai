@@ -1,4 +1,6 @@
-use opensekai_contracts::{parse_wire, validate_value, SceneEntity, ScenePatch};
+use opensekai_contracts::{
+    parse_wire, validate_value, AppStatus, AvatarPose, SceneEntity, ScenePatch, TrackingStatus,
+};
 use serde_json::json;
 fn source() -> serde_json::Value {
     json!({"kind":"tracking","id":"s","name":"VMC","visible":true,"transform":{"position":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"generation":2,"config":{"kind":"vmc","enabled":true,"bindAddress":"127.0.0.1","port":39539,"senderAddress":null}})
@@ -129,4 +131,21 @@ fn smoothing_rejects_nonfinite_native_values() {
             assert!(settings.validate().is_err());
         }
     }
+}
+#[test]
+fn b5_optional_fields_match_typescript() {
+    let mut app = json!({"schemaVersion":1,"sessionId":"s","ready":true,"revision":0,"capabilities":[],"warnings":[],"outputs":[],"localAddresses":["192.168.1.20"]});
+    assert!(validate_value::<AppStatus>(&app).is_ok());
+    app["localAddresses"] = json!(["fe80::1"]);
+    assert!(validate_value::<AppStatus>(&app).is_err());
+    app["localAddresses"] = json!((0..9).map(|i| format!("10.0.0.{i}")).collect::<Vec<_>>());
+    assert!(validate_value::<AppStatus>(&app).is_err());
+    let status = json!({"sourceId":"s","generation":1,"state":"waiting","packets":0,"invalidPackets":0,"lastReceivedAtMs":null,"error":null,"unmatchedPackets":3});
+    assert!(validate_value::<TrackingStatus>(&status).is_ok());
+    let mut pose = json!({"avatarId":"a","bones":{},"expressions":{},"boneOffsets":{"chest":[0,0.1045,0,0.9945]}});
+    assert!(validate_value::<AvatarPose>(&pose).is_ok());
+    pose["boneOffsets"] = json!({"tail":[0,0,0,1]});
+    assert!(validate_value::<AvatarPose>(&pose).is_err());
+    pose["boneOffsets"] = json!({"chest":[0,1,0,1]});
+    assert!(validate_value::<AvatarPose>(&pose).is_err());
 }

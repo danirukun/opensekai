@@ -1,0 +1,375 @@
+{
+  "format": "opensekai.blueprint",
+  "formatVersion": 1,
+  "graph": {
+    "schemaVersion": 1,
+    "id": "upper-body-rotation",
+    "name": "Upper Body Rotation",
+    "enabled": true,
+    "nodes": [
+      {
+        "id": "update",
+        "version": 1,
+        "type": "event.update",
+        "settings": {},
+        "position": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      {
+        "id": "head",
+        "version": 1,
+        "type": "character.getBoneRotation",
+        "settings": {
+          "entityId": "character",
+          "bone": "head"
+        },
+        "position": {
+          "x": 0,
+          "y": 200
+        }
+      },
+      {
+        "id": "head-angles",
+        "version": 1,
+        "type": "vector3.break",
+        "settings": {},
+        "position": {
+          "x": 260,
+          "y": 200
+        }
+      },
+      {
+        "id": "zero",
+        "version": 1,
+        "type": "value.number",
+        "settings": {
+          "value": 0
+        },
+        "position": {
+          "x": 260,
+          "y": 420
+        }
+      },
+      {
+        "id": "chest-factor",
+        "version": 1,
+        "type": "variable.getNumber",
+        "settings": {
+          "variableId": "chest-factor"
+        },
+        "position": {
+          "x": 520,
+          "y": 120
+        }
+      },
+      {
+        "id": "chest-yaw",
+        "version": 1,
+        "type": "math.multiply",
+        "settings": {},
+        "position": {
+          "x": 780,
+          "y": 60
+        }
+      },
+      {
+        "id": "chest-euler",
+        "version": 1,
+        "type": "vector3.make",
+        "settings": {},
+        "position": {
+          "x": 1040,
+          "y": 60
+        }
+      },
+      {
+        "id": "chest-offset",
+        "version": 1,
+        "type": "character.offsetBoneRotation",
+        "settings": {
+          "entityId": "character",
+          "bone": "chest"
+        },
+        "position": {
+          "x": 1300,
+          "y": 0
+        }
+      },
+      {
+        "id": "spine-factor",
+        "version": 1,
+        "type": "variable.getNumber",
+        "settings": {
+          "variableId": "spine-factor"
+        },
+        "position": {
+          "x": 520,
+          "y": 340
+        }
+      },
+      {
+        "id": "spine-yaw",
+        "version": 1,
+        "type": "math.multiply",
+        "settings": {},
+        "position": {
+          "x": 780,
+          "y": 280
+        }
+      },
+      {
+        "id": "spine-euler",
+        "version": 1,
+        "type": "vector3.make",
+        "settings": {},
+        "position": {
+          "x": 1040,
+          "y": 280
+        }
+      },
+      {
+        "id": "spine-offset",
+        "version": 1,
+        "type": "character.offsetBoneRotation",
+        "settings": {
+          "entityId": "character",
+          "bone": "spine"
+        },
+        "position": {
+          "x": 1300,
+          "y": 220
+        }
+      },
+      {
+        "id": "hips-factor",
+        "version": 1,
+        "type": "variable.getNumber",
+        "settings": {
+          "variableId": "hips-factor"
+        },
+        "position": {
+          "x": 520,
+          "y": 560
+        }
+      },
+      {
+        "id": "hips-yaw",
+        "version": 1,
+        "type": "math.multiply",
+        "settings": {},
+        "position": {
+          "x": 780,
+          "y": 500
+        }
+      },
+      {
+        "id": "hips-euler",
+        "version": 1,
+        "type": "vector3.make",
+        "settings": {},
+        "position": {
+          "x": 1040,
+          "y": 500
+        }
+      },
+      {
+        "id": "hips-offset",
+        "version": 1,
+        "type": "character.offsetBoneRotation",
+        "settings": {
+          "entityId": "character",
+          "bone": "hips"
+        },
+        "position": {
+          "x": 1300,
+          "y": 440
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "head.euler-head-angles.value",
+        "sourceNodeId": "head",
+        "sourcePort": "euler",
+        "targetNodeId": "head-angles",
+        "targetPort": "value"
+      },
+      {
+        "id": "head-angles.y-chest-yaw.a",
+        "sourceNodeId": "head-angles",
+        "sourcePort": "y",
+        "targetNodeId": "chest-yaw",
+        "targetPort": "a"
+      },
+      {
+        "id": "chest-factor.value-chest-yaw.b",
+        "sourceNodeId": "chest-factor",
+        "sourcePort": "value",
+        "targetNodeId": "chest-yaw",
+        "targetPort": "b"
+      },
+      {
+        "id": "zero.value-chest-euler.x",
+        "sourceNodeId": "zero",
+        "sourcePort": "value",
+        "targetNodeId": "chest-euler",
+        "targetPort": "x"
+      },
+      {
+        "id": "chest-yaw.result-chest-euler.y",
+        "sourceNodeId": "chest-yaw",
+        "sourcePort": "result",
+        "targetNodeId": "chest-euler",
+        "targetPort": "y"
+      },
+      {
+        "id": "zero.value-chest-euler.z",
+        "sourceNodeId": "zero",
+        "sourcePort": "value",
+        "targetNodeId": "chest-euler",
+        "targetPort": "z"
+      },
+      {
+        "id": "chest-euler.value-chest-offset.euler",
+        "sourceNodeId": "chest-euler",
+        "sourcePort": "value",
+        "targetNodeId": "chest-offset",
+        "targetPort": "euler"
+      },
+      {
+        "id": "update.flow-chest-offset.flow",
+        "sourceNodeId": "update",
+        "sourcePort": "flow",
+        "targetNodeId": "chest-offset",
+        "targetPort": "flow"
+      },
+      {
+        "id": "head-angles.y-spine-yaw.a",
+        "sourceNodeId": "head-angles",
+        "sourcePort": "y",
+        "targetNodeId": "spine-yaw",
+        "targetPort": "a"
+      },
+      {
+        "id": "spine-factor.value-spine-yaw.b",
+        "sourceNodeId": "spine-factor",
+        "sourcePort": "value",
+        "targetNodeId": "spine-yaw",
+        "targetPort": "b"
+      },
+      {
+        "id": "zero.value-spine-euler.x",
+        "sourceNodeId": "zero",
+        "sourcePort": "value",
+        "targetNodeId": "spine-euler",
+        "targetPort": "x"
+      },
+      {
+        "id": "spine-yaw.result-spine-euler.y",
+        "sourceNodeId": "spine-yaw",
+        "sourcePort": "result",
+        "targetNodeId": "spine-euler",
+        "targetPort": "y"
+      },
+      {
+        "id": "zero.value-spine-euler.z",
+        "sourceNodeId": "zero",
+        "sourcePort": "value",
+        "targetNodeId": "spine-euler",
+        "targetPort": "z"
+      },
+      {
+        "id": "spine-euler.value-spine-offset.euler",
+        "sourceNodeId": "spine-euler",
+        "sourcePort": "value",
+        "targetNodeId": "spine-offset",
+        "targetPort": "euler"
+      },
+      {
+        "id": "chest-offset.exit-spine-offset.flow",
+        "sourceNodeId": "chest-offset",
+        "sourcePort": "exit",
+        "targetNodeId": "spine-offset",
+        "targetPort": "flow"
+      },
+      {
+        "id": "head-angles.y-hips-yaw.a",
+        "sourceNodeId": "head-angles",
+        "sourcePort": "y",
+        "targetNodeId": "hips-yaw",
+        "targetPort": "a"
+      },
+      {
+        "id": "hips-factor.value-hips-yaw.b",
+        "sourceNodeId": "hips-factor",
+        "sourcePort": "value",
+        "targetNodeId": "hips-yaw",
+        "targetPort": "b"
+      },
+      {
+        "id": "zero.value-hips-euler.x",
+        "sourceNodeId": "zero",
+        "sourcePort": "value",
+        "targetNodeId": "hips-euler",
+        "targetPort": "x"
+      },
+      {
+        "id": "hips-yaw.result-hips-euler.y",
+        "sourceNodeId": "hips-yaw",
+        "sourcePort": "result",
+        "targetNodeId": "hips-euler",
+        "targetPort": "y"
+      },
+      {
+        "id": "zero.value-hips-euler.z",
+        "sourceNodeId": "zero",
+        "sourcePort": "value",
+        "targetNodeId": "hips-euler",
+        "targetPort": "z"
+      },
+      {
+        "id": "hips-euler.value-hips-offset.euler",
+        "sourceNodeId": "hips-euler",
+        "sourcePort": "value",
+        "targetNodeId": "hips-offset",
+        "targetPort": "euler"
+      },
+      {
+        "id": "spine-offset.exit-hips-offset.flow",
+        "sourceNodeId": "spine-offset",
+        "sourcePort": "exit",
+        "targetNodeId": "hips-offset",
+        "targetPort": "flow"
+      }
+    ],
+    "variables": [
+      {
+        "id": "chest-factor",
+        "name": "Chest Factor",
+        "type": "number",
+        "default": 0.6
+      },
+      {
+        "id": "spine-factor",
+        "name": "Spine Factor",
+        "type": "number",
+        "default": 0.4
+      },
+      {
+        "id": "hips-factor",
+        "name": "Hips Factor",
+        "type": "number",
+        "default": 0.3
+      }
+    ]
+  },
+  "references": [
+    {
+      "id": "character",
+      "kind": "avatar",
+      "name": "Character"
+    }
+  ]
+}

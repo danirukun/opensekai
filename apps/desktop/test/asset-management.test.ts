@@ -24,3 +24,14 @@ it('bounds long copy names without splitting Unicode pairs',()=>{
  expect(copy.name.length).toBeLessThanOrEqual(128);
  expect(new TextDecoder().decode(new TextEncoder().encode(copy.name))).toBe(copy.name);
 });
+
+it('places a copied character by the next avatar rule and does not move a following camera',()=>{
+ const scene=makeSmokeScene(),avatar=scene.entities.find(e=>e.kind==='avatar')!;
+ avatar.transform={position:[.5,0,1],rotation:[0,.6,0,.8],scale:[1.1,1.1,1.1]};
+ const camera=scene.entities.find(e=>e.id==='camera_wide')!;if(camera.kind==='camera')camera.navigation={mode:'orbitCharacter',targetId:avatar.id,sensitivity:1} as typeof camera.navigation;
+ const before=structuredClone(camera.transform);
+ const copy=makeEntityCopy(avatar,'copy',scene.entities);
+ expect(copy.transform).toEqual({position:[1.5,0,1],rotation:[0,.6,0,.8],scale:[1.1,1.1,1.1]});
+ expect(avatar.transform.position).toEqual([.5,0,1]);
+ expect(camera.transform).toEqual(before);
+});

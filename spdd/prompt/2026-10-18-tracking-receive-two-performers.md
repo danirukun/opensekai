@@ -118,3 +118,16 @@ Change the decoders first, with unit tests for each rule. Then the endpoint rout
 - Do not add a dependency other than `if-addrs`.
 - Do not commit or save bone offsets, and do not read Warudo template files at run time.
 - Do not claim a macOS, OBS, phone, or VMC application result. These stay for the owner: a real VMC sender (for example VSeeFace or VirtualMotionCapture on a Windows computer, or XR Animator) on port 39539 drives a character on macOS with no invalid packets; an iPhone with iFacialMocap that starts after OpenSekai connects through the handshake retry, with the address from the Inspector; the port that the phone sends to (49983, or the handshake source port); two iPhones on one port drive two characters; one source cannot be assigned to both characters in the editor; the two-performer frame cost at 60 fps in OBS with alpha; continued motion of both characters while the editor is minimized; and the look of the Upper Body Rotation template with an iPhone face source on macOS, in the preview and in OBS.
+
+## Implementation notes
+
+The implementation run (2026-10-18) took these reversible choices. The owner can change each one in review.
+
+- **R20, frame of an offset.** An offset on a bone that the pose drives in normalized space is applied to the normalized pose before the humanoid update (`offset × rotation`), so it turns about the world-aligned parent axis also when the parent rest rotation is not identity. An offset on a bone that the pose drives raw is applied to the raw node (`offset × node.quaternion`). For VRM 0.x the x and z of the offset are negated, as for `baseBones`. On a rig without a chest, the spine offset is applied before the chest offset.
+- **R10, retry.** The host reconciles once for each new scene revision. A frame that repeats a revision does not bind again.
+- **R8, held endpoint.** A held endpoint keeps the bind address of its first source after that source leaves. A remaining source with another bind address (for example `0.0.0.0` after `127.0.0.1` left) keeps the old socket until its own config changes.
+- **R6, test time.** The retry rule is a pure function with injected instants. The real UDP test measures the gap with real time (at least 1900 ms at the receiver), because the workspace tokio has no `test-util` feature.
+- **R3, bone limit test.** There are 55 humanoid bones, so the test sends 55 known and 9 unknown bones, then 64 unknown bones.
+- **R13, disabled options.** The `@oshi-connect/ui` `Select` has no disabled option. The editor sets `disabled` on the rendered options with a small attachment. A `disabled` field on the kit `SelectOption` would replace it.
+- **R21, template target.** The template helper sets the avatar reference and the `entityId` of each node to the selected character.
+- **Windows.** The receive loop ignores `ConnectionReset` and `ConnectionRefused`, which Windows reports after a handshake to a closed phone port.

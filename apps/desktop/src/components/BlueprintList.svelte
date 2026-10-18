@@ -1,12 +1,15 @@
 <script lang="ts">
- import { Button, Input } from '@oshi-connect/ui';
- import { Eye, EyeOff, FileInput, FileOutput, Plus, Trash2 } from '@lucide/svelte';
+ import { Button, Dropdown, Input } from '@oshi-connect/ui';
+ import { Eye, EyeOff, FileInput, FileOutput, LayoutTemplate, Plus, Trash2 } from '@lucide/svelte';
  import type { BlueprintGraph, BlueprintOp } from '@opensekai/contracts';
 
- let { graphs, selectedId, disabled, creatable, onselect, onops, oncreate, onimport, onexport }: {
-  graphs: BlueprintGraph[]; selectedId: string | null; disabled: boolean; creatable: boolean;
-  onselect: (id: string) => void; onops: (ops: BlueprintOp[]) => void; oncreate: () => void; onimport: () => void; onexport: (id: string) => void;
+ let { graphs, selectedId, disabled, creatable, templatable, onselect, onops, oncreate, onimport, ontemplate, onexport }: {
+  graphs: BlueprintGraph[]; selectedId: string | null; disabled: boolean; creatable: boolean; templatable: boolean;
+  onselect: (id: string) => void; onops: (ops: BlueprintOp[]) => void; oncreate: () => void; onimport: () => void; ontemplate: (id: string) => void; onexport: (id: string) => void;
  } = $props();
+ const templates = [{ value: 'upper-body-rotation', label: 'Upper Body Rotation' }];
+ let template = $state('');
+ const pick = (id: string) => { template = ''; ontemplate(id); };
  let renaming = $state<string | null>(null), draft = $state('');
  function commit(graph: BlueprintGraph) {
   const name = draft.trim();
@@ -24,7 +27,7 @@
 </script>
 
 <aside class="blueprint-list" aria-label="Blueprints">
- <header><button type="button" class="blueprint-icon-button" title="New blueprint" aria-label="New blueprint" disabled={disabled || !creatable || graphs.length >= 8} onclick={oncreate}><Plus size={14} /></button><button type="button" class="blueprint-icon-button" title="Import blueprint" aria-label="Import blueprint" disabled={disabled || !creatable || graphs.length >= 8} onclick={onimport}><FileInput size={14} /></button></header>
+ <header><button type="button" class="blueprint-icon-button" title="New blueprint" aria-label="New blueprint" disabled={disabled || !creatable || graphs.length >= 8} onclick={oncreate}><Plus size={14} /></button><button type="button" class="blueprint-icon-button" title="Import blueprint" aria-label="Import blueprint" disabled={disabled || !creatable || graphs.length >= 8} onclick={onimport}><FileInput size={14} /></button><Dropdown bind:value={template} items={templates} triggerLabel="Templates" disabled={disabled || !templatable} align="end" class="blueprint-templates" onselect={pick}>{#snippet trigger()}<LayoutTemplate size={14} />{/snippet}</Dropdown></header>
  <ul>
   {#each graphs as graph (graph.id)}
    <li class:selected={graph.id === selectedId} class:off={!graph.enabled}>

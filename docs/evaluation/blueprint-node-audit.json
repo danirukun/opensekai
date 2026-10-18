@@ -61,6 +61,8 @@
     { "type": "property.set", "warudoCategory": "Asset", "warudoCandidate": "Set Asset Property", "evidence": "tests" },
     { "type": "entity.move", "warudoCategory": "Asset", "warudoCandidate": null, "evidence": "macOS" },
     { "type": "character.setExpression", "warudoCategory": "Characters", "warudoCandidate": null, "evidence": "tests", "note": "Warudo name not recorded. Added by the character expressions slice (CHR-03, contract R13)." },
-    { "type": "character.toggleExpression", "warudoCategory": "Characters", "warudoCandidate": null, "evidence": "tests", "note": "Warudo name not recorded. Added by the character expressions slice (CHR-03, contract R13)." }
+    { "type": "character.toggleExpression", "warudoCategory": "Characters", "warudoCandidate": null, "evidence": "tests", "note": "Warudo name not recorded. Added by the character expressions slice (CHR-03, contract R13)." },
+    { "type": "character.getBoneRotation", "warudoCategory": "Characters", "warudoCandidate": "Get Character Bone Rotation", "evidence": "tests", "note": "Name from the Warudo Upper Body Rotation template file. Added by bundle B5 (contract R18). Reads normalized bones only; a raw (VMC) bone reads zero." },
+    { "type": "character.offsetBoneRotation", "warudoCategory": "Characters", "warudoCandidate": "Offset Character Bone Rotations", "evidence": "tests", "note": "Name from the Warudo Upper Body Rotation template file. Added by bundle B5 (contract R19). One bone for each node; the offset stops on the first tick after its graph stops." }
   ]
 }

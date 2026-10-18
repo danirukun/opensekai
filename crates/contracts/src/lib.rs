@@ -693,6 +693,8 @@ pub struct AppStatus {
     pub tracking_status: Option<Vec<TrackingStatus>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub blueprint_revision: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub local_addresses: Option<Vec<String>>,
 }
 object!(CaptureParams {
     output_id: Id,
@@ -1781,6 +1783,15 @@ impl Validate for AppStatus {
         require(self.schema_version == 1, "unsupported schema version")?;
         if let Some(statuses) = &self.tracking_status {
             validate_statuses(statuses)?;
+        }
+        if let Some(addresses) = &self.local_addresses {
+            require(
+                addresses.len() <= 8
+                    && addresses
+                        .iter()
+                        .all(|a| a.parse::<std::net::Ipv4Addr>().is_ok()),
+                "invalid local addresses",
+            )?;
         }
         for o in &self.outputs {
             if let Some(f) = &o.last_frame {

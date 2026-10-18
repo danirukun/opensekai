@@ -34,6 +34,30 @@ export function createAvatarBinding(vrm: VRM) {
             delete normalized.chest;
         }
     };
+    // An offset turns the bone in its parent frame after the pose. Normalized bones take it in the
+    // normalized (rest-aligned) frame; a bone that this pose drives raw takes it on the raw node.
+    const sign=vrm.meta.metaVersion==='0'?-1:1;
+    const offsetEntries=(pose?:AvatarPose) => {
+        // Spine before chest, so a chestless rig composes them as resolveChest does.
+        const entries=Object.entries(pose?.boneOffsets ?? {}).sort(([a],[b])=>Number(a==='chest')-Number(b==='chest'));
+        return entries.map(([name,[x,y,z,w]]) => {
+            const target=(name==='chest' && !vrm.humanoid.getRawBoneNode('chest') ? 'spine' : name) as VRMHumanBoneName;
+            return {target,raw:pose?.bones[target]?.space==='raw',offset:new Quaternion(x*sign,y,z*sign,w).normalize()};
+        });
+    };
+    const applyNormalizedOffsets=(normalized:VRMPose,pose?:AvatarPose) => {
+        for (const {target,raw,offset} of offsetEntries(pose)) {
+            if (raw || !vrm.humanoid.getNormalizedBoneNode(target)) continue;
+            const current=normalized[target];
+            normalized[target]={...current,rotation:offset.clone().multiply(new Quaternion().fromArray(current?.rotation ?? [0,0,0,1])).toArray()};
+        }
+    };
+    const applyRawOffsets=(pose?:AvatarPose) => {
+        for (const {target,raw,offset} of offsetEntries(pose)) {
+            const node=raw ? vrm.humanoid.getRawBoneNode(target) : null;
+            if (node) node.quaternion.premultiply(offset);
+        }
+    };
     const names = new Set(vrm.expressionManager?.expressions.map(expression=>expression.expressionName) ?? []);
     const morphs=createArkitMorphBinding(vrm.scene);
     return {root, apply(pose?: AvatarPose) {
@@ -59,6 +83,7 @@ export function createAvatarBinding(vrm: VRM) {
             normalized[target as VRMHumanBoneName]={rotation,...(position ? {position} : {})};
         }
         resolveChest(normalized);
+        applyNormalizedOffsets(normalized,pose);
         vrm.humanoid.setNormalizedPose(normalized);
         vrm.humanoid.update();
         for (const [name,bone] of Object.entries(pose?.bones ?? {})) {
@@ -75,6 +100,7 @@ export function createAvatarBinding(vrm: VRM) {
                 if(bone.position) node.position.lerp(new Vector3().fromArray(bone.position),weight);
             }
         }
+        applyRawOffsets(pose);
         motion.position.fromArray(pose?.root?.position ?? [0,0,0]);
         motion.quaternion.fromArray(pose?.root?.rotation ?? [0,0,0,1]);
         const direct:Record<string,number>=Object.create(null),remaining:Record<string,number>=Object.create(null);

@@ -9,18 +9,60 @@ pub struct Decoder {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 enum Arg {
     String(String),
     Float(f64),
     Int(i32),
+    Long(i64),
+    Double(f64),
+    Blob(Vec<u8>),
+    Time(u64),
+    Bool(bool),
+    Nil,
+    Impulse,
 }
 fn number(arg: &Arg) -> Result<f64, AppError> {
-    if let Arg::Float(n) = arg {
-        if n.is_finite() {
-            return Ok(*n);
-        }
+    let n = match arg {
+        Arg::Float(n) | Arg::Double(n) => *n,
+        Arg::Int(n) => *n as f64,
+        _ => return Err(invalid("Invalid OSC number")),
+    };
+    if n.is_finite() {
+        Ok(n)
+    } else {
+        Err(invalid("Invalid OSC number"))
     }
-    Err(invalid("Invalid OSC float"))
+}
+fn word<const N: usize>(bytes: &[u8], offset: &mut usize) -> Result<[u8; N], AppError> {
+    let word = bytes
+        .get(*offset..*offset + N)
+        .ok_or_else(|| invalid("Truncated OSC number"))?
+        .try_into()
+        .unwrap();
+    *offset += N;
+    Ok(word)
+}
+fn blob(bytes: &[u8], offset: &mut usize) -> Result<Vec<u8>, AppError> {
+    let size = usize::try_from(i32::from_be_bytes(word(bytes, offset)?))
+        .map_err(|_| invalid("Invalid OSC blob"))?;
+    let start = *offset;
+    let end = start
+        .checked_add(size)
+        .filter(|end| *end <= bytes.len())
+        .ok_or_else(|| invalid("Truncated OSC blob"))?;
+    *offset = (end + 3) & !3;
+    if *offset > bytes.len() || bytes[end..*offset].iter().any(|b| *b != 0) {
+        return Err(invalid("Invalid OSC padding"));
+    }
+    Ok(bytes[start..end].to_vec())
+}
+fn finite(n: f64) -> Result<f64, AppError> {
+    if n.is_finite() {
+        Ok(n)
+    } else {
+        Err(invalid("Nonfinite OSC number"))
+    }
 }
 fn text(arg: &Arg) -> Result<&str, AppError> {
     if let Arg::String(s) = arg {
@@ -91,22 +133,16 @@ fn messages(bytes: &[u8], depth: usize, out: &mut Vec<(String, Vec<Arg>)>) -> Re
     for tag in tags.chars() {
         args.push(match tag {
             's' => Arg::String(string(bytes, &mut i)?.to_owned()),
-            'f' | 'i' => {
-                let word = bytes
-                    .get(i..i + 4)
-                    .ok_or_else(|| invalid("Truncated OSC number"))?;
-                i += 4;
-                let word = word.try_into().unwrap();
-                if tag == 'f' {
-                    let n = f32::from_be_bytes(word) as f64;
-                    if !n.is_finite() {
-                        return Err(invalid("Nonfinite OSC number"));
-                    }
-                    Arg::Float(n)
-                } else {
-                    Arg::Int(i32::from_be_bytes(word))
-                }
-            }
+            'f' => Arg::Float(finite(f32::from_be_bytes(word(bytes, &mut i)?) as f64)?),
+            'i' => Arg::Int(i32::from_be_bytes(word(bytes, &mut i)?)),
+            'd' => Arg::Double(finite(f64::from_be_bytes(word(bytes, &mut i)?))?),
+            'h' => Arg::Long(i64::from_be_bytes(word(bytes, &mut i)?)),
+            't' => Arg::Time(u64::from_be_bytes(word(bytes, &mut i)?)),
+            'b' => Arg::Blob(blob(bytes, &mut i)?),
+            'T' => Arg::Bool(true),
+            'F' => Arg::Bool(false),
+            'N' => Arg::Nil,
+            'I' => Arg::Impulse,
             _ => return Err(invalid("Unsupported OSC type")),
         });
     }
@@ -176,10 +212,10 @@ impl Decoder {
                         "rightThumbIntermediate" => "rightThumbProximal".into(),
                         _ => name,
                     };
-                    if !humanoid_bone(&name) {
-                        return Err(invalid("Unknown VMC bone"));
-                    }
                     let pose = unity_pose(&args)?;
+                    if !humanoid_bone(&name) {
+                        continue;
+                    }
                     next.bones.insert(
                         name,
                         TrackingBone {
@@ -254,9 +290,6 @@ impl Decoder {
             let part = part.trim();
             if let Some((name, values)) = part.split_once('#') {
                 let name = name.trim_start_matches('=').trim();
-                if !["head", "leftEye", "rightEye"].contains(&name) {
-                    return Err(invalid("Unknown IFacial bone"));
-                }
                 let values = values
                     .split(',')
                     .map(|n| {
@@ -265,9 +298,13 @@ impl Decoder {
                             .map_err(|_| invalid("Invalid IFacial angle"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
-                if values.iter().any(|n| !n.is_finite())
-                    || values.len() != if name == "head" { 6 } else { 3 }
-                {
+                if values.iter().any(|n| !n.is_finite()) {
+                    return Err(invalid("Invalid IFacial transform"));
+                }
+                if !["head", "leftEye", "rightEye"].contains(&name) {
+                    continue;
+                }
+                if values.len() != if name == "head" { 6 } else { 3 } {
                     return Err(invalid("Invalid IFacial transform"));
                 }
                 next.bones.insert(
@@ -397,22 +434,6 @@ mod tests {
         assert!(d.vmc(b"/VMC").is_err());
         assert!(d
             .vmc(&osc(
-                "/VMC/Ext/Bone/Pos",
-                ",sfffffff",
-                &[
-                    b"Bad\0",
-                    &float(0.),
-                    &float(0.),
-                    &float(0.),
-                    &float(0.),
-                    &float(0.),
-                    &float(0.),
-                    &float(1.)
-                ]
-            ))
-            .is_err());
-        assert!(d
-            .vmc(&osc(
                 "/VMC/Ext/Blend/Val",
                 ",sf",
                 &[b"Joy\0", &float(f32::NAN)]
@@ -470,5 +491,248 @@ mod bundle_tests {
         b.extend(b"bad");
         assert!(d.vmc(&b).is_err());
         assert!(d.staged.is_empty());
+    }
+}
+#[cfg(test)]
+mod tolerance_tests {
+    use super::*;
+    fn pad(b: &mut Vec<u8>) {
+        while !b.len().is_multiple_of(4) {
+            b.push(0);
+        }
+    }
+    fn string(b: &mut Vec<u8>, s: &str) {
+        b.extend(s.as_bytes());
+        b.push(0);
+        pad(b);
+    }
+    fn message(address: &str, tags: &str, payload: &[u8]) -> Vec<u8> {
+        let mut b = vec![];
+        string(&mut b, address);
+        string(&mut b, tags);
+        b.extend(payload);
+        b
+    }
+    fn bundle(messages: &[Vec<u8>]) -> Vec<u8> {
+        let mut b = b"#bundle\0".to_vec();
+        b.extend([0; 8]);
+        for m in messages {
+            b.extend((m.len() as u32).to_be_bytes());
+            b.extend(m);
+        }
+        b
+    }
+    fn pose(name: &str, values: [f32; 7]) -> Vec<u8> {
+        let mut payload = vec![];
+        string(&mut payload, name);
+        for v in values {
+            payload.extend(v.to_be_bytes());
+        }
+        message("/VMC/Ext/Bone/Pos", ",sfffffff", &payload)
+    }
+    fn bone(name: &str) -> Vec<u8> {
+        pose(name, [0., 0., 0., 0., 0., 0., 1.])
+    }
+    // Ignored address with every extended tag, in tag order h d t s b T F N I.
+    fn extended(blob: &[u8]) -> Vec<u8> {
+        let mut payload = vec![];
+        payload.extend((-2i64).to_be_bytes());
+        payload.extend(1.5f64.to_be_bytes());
+        payload.extend(7u64.to_be_bytes());
+        string(&mut payload, "x");
+        payload.extend(blob);
+        message("/VMC/Ext/Hmd/Pos", ",hdtsbTFNI", &payload)
+    }
+    fn blob(len: i32, data: &[u8]) -> Vec<u8> {
+        let mut b = len.to_be_bytes().to_vec();
+        b.extend(data);
+        b
+    }
+    #[test]
+    fn extended_type_tags_read_with_osc_sizes() {
+        let mut d = Decoder::default();
+        assert!(!d.vmc(&extended(&blob(3, b"abc\0"))).unwrap());
+        assert!(!d.vmc(&extended(&blob(4, b"abcd"))).unwrap());
+        assert!(!d.vmc(&extended(&blob(0, b""))).unwrap());
+        // Bad blob padding, negative length, length past the end.
+        assert!(d.vmc(&extended(&blob(3, b"abc\x01"))).is_err());
+        assert!(d.vmc(&extended(&blob(-1, b""))).is_err());
+        assert!(d.vmc(&extended(&blob(8, b"abcd"))).is_err());
+        // Truncated 8-byte word and trailing bytes.
+        assert!(d.vmc(&message("/VMC/Ext/X", ",h", &[0, 0, 0, 0])).is_err());
+        assert!(d.vmc(&message("/VMC/Ext/X", ",T", &[0, 0, 0, 0])).is_err());
+        // Non-finite double.
+        assert!(d
+            .vmc(&message("/VMC/Ext/X", ",d", &f64::NAN.to_be_bytes()))
+            .is_err());
+    }
+    #[test]
+    fn ignored_address_with_known_tags_never_rejects_handled_data() {
+        let mut d = Decoder::default();
+        let mut payload = vec![];
+        payload.extend(2.0f64.to_be_bytes());
+        payload.extend(blob(2, b"hi\0\0"));
+        let extra = message("/VMC/Ext/Con", ",Tdb", &payload);
+        assert!(d.vmc(&bundle(&[extra, bone("Head")])).unwrap());
+        assert!(d.bones.contains_key("head"));
+    }
+    #[test]
+    fn unknown_tag_rejects_also_in_ignored_address() {
+        let mut d = Decoder::default();
+        for tags in [",c", ",r", ",m", ",S", ",[]"] {
+            let extra = message("/VMC/Ext/Other", tags, &[0, 0, 0, 65]);
+            assert!(d.vmc(&bundle(&[bone("Head"), extra])).is_err(), "{tags}");
+        }
+        assert!(d.bones.is_empty());
+    }
+    #[test]
+    fn handled_numbers_accept_double_and_int() {
+        let mut d = Decoder::default();
+        let mut payload = vec![];
+        string(&mut payload, "Head");
+        payload.extend(1.0f64.to_be_bytes());
+        payload.extend(2i32.to_be_bytes());
+        payload.extend(3.0f32.to_be_bytes());
+        for v in [0.0f64, 0., 0., 1.] {
+            payload.extend(v.to_be_bytes());
+        }
+        assert!(d
+            .vmc(&message("/VMC/Ext/Bone/Pos", ",sdifdddd", &payload))
+            .unwrap());
+        assert_eq!(d.bones["head"].position, Some([1., 2., -3.]));
+        let mut blend = vec![];
+        string(&mut blend, "Joy");
+        blend.extend(0.25f64.to_be_bytes());
+        d.vmc(&bundle(&[
+            message("/VMC/Ext/Blend/Val", ",sd", &blend),
+            message("/VMC/Ext/Blend/Apply", ",", &[]),
+        ]))
+        .unwrap();
+        assert_eq!(d.expressions["Joy"], 0.25);
+    }
+    #[test]
+    fn unknown_bone_between_known_bones_is_skipped() {
+        let mut d = Decoder::default();
+        let packet = bundle(&[bone("Head"), bone("Tail"), bone("Neck")]);
+        assert!(d.vmc(&packet).unwrap());
+        assert_eq!(d.bones.keys().collect::<Vec<_>>(), vec!["head", "neck"]);
+    }
+    #[test]
+    fn malformed_unknown_bone_rejects() {
+        let mut d = Decoder::default();
+        let zero = pose("Tail", [0.; 7]);
+        let short = message("/VMC/Ext/Bone/Pos", ",sf", b"Tail\0\0\0\0\0\0\0\0");
+        let nan = pose("Tail", [f32::NAN, 0., 0., 0., 0., 0., 1.]);
+        for bad in [zero, short, nan] {
+            assert!(d.vmc(&bundle(&[bone("Head"), bad])).is_err());
+        }
+        assert!(d.bones.is_empty());
+    }
+    const BONES: [&str; 55] = [
+        "Hips",
+        "Spine",
+        "Chest",
+        "UpperChest",
+        "Neck",
+        "Head",
+        "LeftEye",
+        "RightEye",
+        "Jaw",
+        "LeftUpperLeg",
+        "LeftLowerLeg",
+        "LeftFoot",
+        "LeftToes",
+        "RightUpperLeg",
+        "RightLowerLeg",
+        "RightFoot",
+        "RightToes",
+        "LeftShoulder",
+        "LeftUpperArm",
+        "LeftLowerArm",
+        "LeftHand",
+        "RightShoulder",
+        "RightUpperArm",
+        "RightLowerArm",
+        "RightHand",
+        "LeftThumbProximal",
+        "LeftThumbIntermediate",
+        "LeftThumbDistal",
+        "LeftIndexProximal",
+        "LeftIndexIntermediate",
+        "LeftIndexDistal",
+        "LeftMiddleProximal",
+        "LeftMiddleIntermediate",
+        "LeftMiddleDistal",
+        "LeftRingProximal",
+        "LeftRingIntermediate",
+        "LeftRingDistal",
+        "LeftLittleProximal",
+        "LeftLittleIntermediate",
+        "LeftLittleDistal",
+        "RightThumbProximal",
+        "RightThumbIntermediate",
+        "RightThumbDistal",
+        "RightIndexProximal",
+        "RightIndexIntermediate",
+        "RightIndexDistal",
+        "RightMiddleProximal",
+        "RightMiddleIntermediate",
+        "RightMiddleDistal",
+        "RightRingProximal",
+        "RightRingIntermediate",
+        "RightRingDistal",
+        "RightLittleProximal",
+        "RightLittleIntermediate",
+        "RightLittleDistal",
+    ];
+    #[test]
+    fn skipped_bones_do_not_count_toward_bone_limit() {
+        let mut d = Decoder::default();
+        let mut all: Vec<_> = BONES.iter().map(|n| bone(n)).collect();
+        all.extend((0..9).map(|n| bone(&format!("Extra{n}"))));
+        assert!(d.vmc(&bundle(&all)).unwrap());
+        assert_eq!(d.bones.len(), 55);
+        let unknown: Vec<_> = (0..64).map(|n| bone(&format!("Tail{n}"))).collect();
+        assert!(!d.vmc(&bundle(&unknown)).unwrap());
+        assert_eq!(d.bones.len(), 55);
+    }
+    #[test]
+    fn only_unknown_bones_is_not_recognized() {
+        let mut d = Decoder::default();
+        assert!(!d.vmc(&bundle(&[bone("Tail"), bone("Wing")])).unwrap());
+        assert!(d.bones.is_empty());
+    }
+    #[test]
+    fn bundle_applies_root_bone_and_expressions() {
+        let mut d = Decoder::default();
+        let mut root = vec![];
+        string(&mut root, "root");
+        for v in [1.0f32, 0., 2., 0., 0., 0., 1.] {
+            root.extend(v.to_be_bytes());
+        }
+        let mut blend = vec![];
+        string(&mut blend, "Joy");
+        blend.extend(0.5f32.to_be_bytes());
+        let packet = bundle(&[
+            message("/VMC/Ext/Root/Pos", ",sfffffff", &root),
+            bone("Head"),
+            message("/VMC/Ext/Blend/Val", ",sf", &blend),
+            message("/VMC/Ext/Blend/Apply", ",", &[]),
+        ]);
+        assert!(d.vmc(&packet).unwrap());
+        assert_eq!(d.root.as_ref().unwrap().position, [1., 0., -2.]);
+        assert!(d.bones.contains_key("head"));
+        assert_eq!(d.expressions["Joy"], 0.5);
+    }
+    #[test]
+    fn ifacial_unknown_bone_key_is_skipped_after_format_check() {
+        let mut d = Decoder::default();
+        assert!(d
+            .ifacial(b"jawOpen&50|=head#0,10,0,0,0,0|hips#1,2,3|leftEye#0,0,0|")
+            .unwrap());
+        assert_eq!(d.expressions["jawOpen"], 0.5);
+        assert_eq!(d.bones.keys().collect::<Vec<_>>(), vec!["head", "leftEye"]);
+        assert!(d.ifacial(b"jawOpen&50|hips#1,NaN,3|").is_err());
+        assert!(d.ifacial(b"jawOpen&50|hips#1,x,3|").is_err());
     }
 }

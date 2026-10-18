@@ -3,8 +3,8 @@ import {Object3D,Group,Quaternion,Vector3,Mesh} from 'three';
 import {VRM,VRMHumanoid,VRMExpression,VRMExpressionManager,VRMExpressionMorphTargetBind,VRMUtils,type VRMHumanBones} from '@pixiv/three-vrm';
 import {arkitNames,canonicalArkitName} from '../src/arkit-expressions';
 import {createAvatarBinding,expressionWeights} from '../src/avatar-pose';
-function fixture(restRotation = new Quaternion(), restPosition = new Vector3(0,1,0), withChest=false) {
- const scene=new Group(),hips=new Object3D(),head=new Object3D();scene.add(hips);hips.add(head);head.position.copy(restPosition);head.quaternion.copy(restRotation);
+function fixture(restRotation = new Quaternion(), restPosition = new Vector3(0,1,0), withChest=false, hipsRest = new Quaternion()) {
+ const scene=new Group(),hips=new Object3D(),head=new Object3D();scene.add(hips);hips.quaternion.copy(hipsRest);hips.add(head);head.position.copy(restPosition);head.quaternion.copy(restRotation);
  const bones={hips:{node:hips},head:{node:head}} as VRMHumanBones;
  for(const name of ['spine','leftUpperLeg','leftLowerLeg','leftFoot','rightUpperLeg','rightLowerLeg','rightFoot','leftUpperArm','leftLowerArm','leftHand','rightUpperArm','rightLowerArm','rightHand'] as const){const node=new Object3D();hips.add(node);bones[name]={node};}
  const torso=bones.spine.node;
@@ -210,4 +210,38 @@ it('applies direct morphs after real VRM binds and preserves their writes after 
  binding.apply({avatarId:'a',bones:{},expressions:{jawOpen:.8}});expect(mesh.morphTargetInfluences![0]).toBe(.8);expect(vrm.expressionManager!.getValue('aa')).toBe(0);
  binding.apply({avatarId:'a',bones:{},expressions:{A:.4}});expect(mesh.morphTargetInfluences![0]).toBe(.4);
  binding.apply();expect(mesh.morphTargetInfluences![0]).toBe(0);
+});
+it('applies a bone offset in the parent frame after normalized and raw pose bones',()=>{
+ const {binding,head,bones}=fixture(),yaw=new Quaternion().setFromAxisAngle(new Vector3(0,1,0),Math.PI/6),pitch=new Quaternion().setFromAxisAngle(new Vector3(1,0,0),Math.PI/5);
+ binding.apply({avatarId:'a',bones:{head:{rotation:pitch.toArray(),space:'normalized'},hips:{rotation:pitch.toArray(),space:'raw'}},expressions:{},boneOffsets:{head:yaw.toArray(),hips:yaw.toArray(),spine:yaw.toArray()}});
+ const expected=yaw.clone().multiply(pitch);
+ expect(head.quaternion.angleTo(expected)).toBeLessThan(1e-6);
+ expect(bones.hips.node.quaternion.angleTo(expected)).toBeLessThan(1e-6);
+ expect(bones.spine.node.quaternion.angleTo(yaw)).toBeLessThan(1e-6);
+ binding.apply({avatarId:'a',bones:{},expressions:{}});
+ expect(head.quaternion.angleTo(new Quaternion())).toBeLessThan(1e-7);expect(bones.spine.node.quaternion.angleTo(new Quaternion())).toBeLessThan(1e-7);
+});
+it('turns the spine for a chest offset on a chestless rig and drops an unknown bone',()=>{
+ const chestless=fixture(),withChest=fixture(new Quaternion(),new Vector3(0,1,0),true),yaw=new Quaternion().setFromAxisAngle(new Vector3(0,1,0),Math.PI/6);
+ const pose={avatarId:'a',bones:{},expressions:{},boneOffsets:{chest:yaw.toArray() as [number,number,number,number],leftToes:yaw.toArray() as [number,number,number,number]}};
+ expect(()=>chestless.binding.apply(pose)).not.toThrow();
+ expect(chestless.bones.spine.node.quaternion.angleTo(yaw)).toBeLessThan(1e-6);
+ withChest.binding.apply(pose);
+ expect(withChest.bones.chest!.node.quaternion.angleTo(yaw)).toBeLessThan(1e-6);
+ expect(withChest.bones.spine.node.quaternion.angleTo(new Quaternion())).toBeLessThan(1e-7);
+});
+it('turns a normalized bone about the world-aligned parent axis when the parent rest is rotated',()=>{
+ const roll=new Quaternion().setFromAxisAngle(new Vector3(0,0,1),Math.PI/2),yaw=new Quaternion().setFromAxisAngle(new Vector3(0,1,0),Math.PI/6);
+ const {binding,bones}=fixture(new Quaternion(),new Vector3(0,1,0),false,roll);
+ binding.apply({avatarId:'a',bones:{},expressions:{},boneOffsets:{spine:yaw.toArray() as [number,number,number,number]}});
+ const world=bones.spine.node.getWorldQuaternion(new Quaternion());
+ expect(world.angleTo(yaw.clone().multiply(roll))).toBeLessThan(1e-6);
+});
+it('composes spine then chest offsets on a chestless rig whatever the key order',()=>{
+ const yaw=new Quaternion().setFromAxisAngle(new Vector3(0,1,0),Math.PI/6),pitch=new Quaternion().setFromAxisAngle(new Vector3(1,0,0),Math.PI/5);
+ const a=fixture(),b=fixture();
+ a.binding.apply({avatarId:'a',bones:{},expressions:{},boneOffsets:{chest:pitch.toArray() as [number,number,number,number],spine:yaw.toArray() as [number,number,number,number]}});
+ b.binding.apply({avatarId:'a',bones:{},expressions:{},boneOffsets:{spine:yaw.toArray() as [number,number,number,number],chest:pitch.toArray() as [number,number,number,number]}});
+ expect(a.bones.spine.node.quaternion.angleTo(pitch.clone().multiply(yaw))).toBeLessThan(1e-6);
+ expect(b.bones.spine.node.quaternion.angleTo(a.bones.spine.node.quaternion)).toBeLessThan(1e-7);
 });
