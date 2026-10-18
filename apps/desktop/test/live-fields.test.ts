@@ -4,7 +4,23 @@ import {parseLens,reconcileDraft,sourceOptions,parseTrackingConfig,matchingStatu
 describe('live property drafts',()=>{
  it('validates the complete lens',()=>{expect(parseLens({fovDegrees:'60',near:'0.1',far:'100'})).toEqual({fovDegrees:60,near:.1,far:100});for(const values of [{fovDegrees:'',near:'1',far:'2'},{fovDegrees:'180',near:'1',far:'2'},{fovDegrees:'60',near:'2',far:'2'}])expect(parseLens(values)).toBeNull();});
  it('retains ordinary drafts through equal polls and resets on revision or selection change',()=>{const draft={value:'unfinished'};expect(reconcileDraft('a:2',{entityId:'a',revision:2},draft,{value:'base'}).values).toBe(draft);expect(reconcileDraft('a:2',{entityId:'a',revision:3},draft,{value:'base'}).values).toEqual({value:'base'});expect(reconcileDraft('a:2',{entityId:'b',revision:2},draft,{value:'base'}).values).toEqual({value:'base'});});
- it('excludes face-only sources from body choices',()=>{const base={visible:true,transform:{position:[0,0,0],rotation:[0,0,0,1],scale:[1,1,1]},generation:0};const sources=[{...base,id:'face',name:'Phone',kind:'tracking',config:{kind:'ifacialmocap'}},{...base,id:'body',name:'VMC',kind:'tracking',config:{kind:'vmc'}}] as SceneEntity[];expect(sourceOptions(sources,'body').map(x=>x.value)).toEqual(['','body']);expect(sourceOptions(sources,'face').map(x=>x.value)).toEqual(['','face','body']);});
+ it('excludes face-only sources from body choices',()=>{const base={visible:true,transform:{position:[0,0,0],rotation:[0,0,0,1],scale:[1,1,1]},generation:0};const sources=[{...base,id:'face',name:'Phone',kind:'tracking',config:{kind:'ifacialmocap'}},{...base,id:'body',name:'VMC',kind:'tracking',config:{kind:'vmc'}}] as SceneEntity[];expect(sourceOptions(sources,'body','avatar').map(x=>x.value)).toEqual(['','body']);expect(sourceOptions(sources,'face','avatar').map(x=>x.value)).toEqual(['','face','body']);});
+ it('disables a source that another avatar uses and keeps the current value enabled',()=>{
+  const base={visible:true,transform:{position:[0,0,0],rotation:[0,0,0,1],scale:[1,1,1]},generation:0};
+  const source=(id:string,kind:'vmc'|'ifacialmocap')=>({...base,id,name:id,kind:'tracking',config:{kind}});
+  const avatar=(id:string,bodySourceId:string|null,faceSourceId:string|null)=>({...base,id,name:id,kind:'avatar',assetId:null,tracking:{bodySourceId,faceSourceId}});
+  const entities=[source('vmc-a','vmc'),source('vmc-b','vmc'),source('phone-a','ifacialmocap'),source('phone-b','ifacialmocap'),avatar('a','vmc-a','phone-a'),avatar('b',null,'phone-b')] as SceneEntity[];
+  const disabled=(channel:'body'|'face',id:string)=>sourceOptions(entities,channel,id).filter(x=>x.disabled).map(x=>x.value);
+  expect(disabled('body','b')).toEqual(['vmc-a']);
+  expect(disabled('face','b')).toEqual(['vmc-a','phone-a']);
+  expect(disabled('body','a')).toEqual([]);
+  expect(disabled('face','a')).toEqual(['phone-b']);
+  // An old show that shares a source: the current value stays enabled, and the avatar's own body source is free for its face.
+  const shared=[...entities.slice(0,4),avatar('a','vmc-a','vmc-a'),avatar('b','vmc-a',null)] as SceneEntity[];
+  expect(sourceOptions(shared,'body','b').filter(x=>x.disabled).map(x=>x.value)).toEqual([]);
+  expect(sourceOptions(shared,'face','b').filter(x=>x.disabled).map(x=>x.value)).toEqual(['vmc-a']);
+  expect(sourceOptions(shared,'face','a').filter(x=>x.disabled).map(x=>x.value)).toEqual([]);
+ });
  it('rejects invalid endpoint drafts without changing source kind',()=>{const c={kind:'vmc',enabled:false,bindAddress:'127.0.0.1',port:39539,senderAddress:null} as const;expect(parseTrackingConfig(c,{bindAddress:'bad',port:'1',address:''})).toBeNull();expect(parseTrackingConfig(c,{bindAddress:'127.0.0.1',port:'49983',address:''})).toEqual({...c,port:49983});});
  it('ignores superseded runtime status',()=>{const status:TrackingStatus={sourceId:'source',generation:4,state:'error',packets:0,invalidPackets:0,lastReceivedAtMs:null,error:'Bind failed'};expect(matchingStatus([status],'source',5)).toBeUndefined();expect(matchingStatus([status],'source',4)).toBe(status);});
  it('requires a channel before enabling webcam tracking',()=>{expect(parseTrackingConfig({kind:'mediapipe',enabled:true,deviceId:'',face:false,upperBody:false,hands:false,mirror:false},{bindAddress:'',port:'',address:''})).toBeNull();});
