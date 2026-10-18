@@ -36,16 +36,16 @@ R9. Pointer adapter (macOS):
     - A button that is down now and was up at the previous read gives `pointerButton` pressed. The opposite gives released. A down counter that changed shows a click between the two reads: up then up gives pressed and released (for example a trackpad tap shorter than one clock), down then up gives released, pressed, released, and down then down gives released and pressed. Two or more clicks of one button between two reads count as one. The first read after activation gives no events.
 R10. The Blueprint panel shows these warnings in the same place as the Input Monitoring warning, with the message only. App status gains one warning for each used device kind whose adapter is `UNSUPPORTED` (no adapter on the platform) or `UNAVAILABLE` (the adapter failed to start), while a publisher is connected. IDs: `device-gamepad`, `device-midi`, `device-pointer`. Messages: `Gamepad input is unavailable`, `MIDI input is unavailable`, `Pointer input is unavailable`.
 R11. Session: each clock replaces the gamepad and pointer state. MIDI Control Change values update a map of the last value for each channel and controller, and for each controller on any channel. The map lasts for the session. `gamepadButton`, `midiNote`, and `pointerButton` events start runs in arrival order, after keystroke events and before On Update.
-R12. Nodes (category Input; port types `flow`, `number`, `boolean` only):
+R12. Nodes (category Input; port types `flow`, `number`, `integer`, `boolean`). The integer outputs widen into number inputs (value model rule). No node has a data input, so no inline input default applies:
     - **On Gamepad Button Pressed** (`gamepad.pressed`) and **On Gamepad Button Released** (`gamepad.released`): settings `{ pad: 0..4, button }`, 0 means any pad; output `flow`.
     - **Is Gamepad Button Held** (`gamepad.held`): settings `{ pad, button }`; output `held` (boolean).
     - **Gamepad Axis** (`gamepad.axis`): settings `{ pad, axis }`; output `value` (number). With any pad, the value with the largest magnitude.
-    - **On MIDI Note On** (`midi.noteOn`) and **On MIDI Note Off** (`midi.noteOff`): settings `{ channel: 0..16, anyNote: boolean, note: 0..127 }`, channel 0 means any; outputs `flow`, `note`, `velocity` (number). The data outputs read the event that started the run; otherwise 0.
-    - **MIDI Control Value** (`midi.control`): settings `{ channel, controller: 0..127 }`; outputs `value` (0 to 1) and `raw` (0 to 127). 0 before the first message.
+    - **On MIDI Note On** (`midi.noteOn`) and **On MIDI Note Off** (`midi.noteOff`): settings `{ channel: 0..16, anyNote: boolean, note: 0..127 }`, channel 0 means any; outputs `flow`, `note`, `velocity` (integer). The data outputs read the event that started the run; otherwise 0.
+    - **MIDI Control Value** (`midi.control`): settings `{ channel, controller: 0..127 }`; outputs `value` (number, 0 to 1) and `raw` (integer, 0 to 127). 0 before the first message.
     - **Pointer Position** (`pointer.position`): outputs `x`, `y` (number). 0 while the clock has no pointer state.
     - **On Pointer Button Pressed** (`pointer.pressed`): settings `{ button }`; output `flow`.
     - **Is Pointer Button Held** (`pointer.held`): settings `{ button }`; output `held` (boolean).
-R13. The editor shows the settings with a new field kind `choice` (a fixed list of options) for pad, button, axis, channel, and pointer button, the existing `number` kind for note and controller, and the existing `boolean` kind for Any note.
+R13. The editor shows the settings with a new field kind `choice` (a fixed list of options) for pad, button, axis, channel, and pointer button, the `integer` kind of the value model for note and controller, and the existing `boolean` kind for Any note.
 R14. Each new node type has a row in `docs/evaluation/blueprint-node-audit.json` with `evidence: "tests"`.
 
 ## E — Entities

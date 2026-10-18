@@ -20,7 +20,7 @@ Blueprints react only to the keyboard. On Keystroke Pressed uses OS hotkeys, and
 - **Pointer position is normalized to the main display.** X goes from 0 at the left edge to 1 at the right edge. Y goes from 0 at the top edge to 1 at the bottom edge. A pointer on another display gives a value out of 0 to 1. Pixels differ between Retina and other displays. A normalized value maps directly to a look direction.
 - **Linux and other platforms report `UNSUPPORTED`.** `gilrs` on Linux needs udev headers and `midir` needs ALSA headers. The Linux cloud baseline has neither, so the crates are target dependencies for macOS and Windows only. The pointer adapter is macOS only in this slice. Windows uses `GetCursorPos` in a later slice.
 - **Event data comes from the trigger.** On MIDI Note On gives `note` and `velocity` from the event that started the run, as On Update gives `deltaSeconds`. Outside that run (for example after a Delay) the values are 0.
-- **Ports.** All number outputs use the `number` port type. Note, velocity, and the raw controller value are integers. They move to the `integer` port type when the W0 value model is merged.
+- **Ports.** Note, velocity, and the raw controller value use the `integer` port type of the value model; they widen into number inputs. The other value outputs use `number` or `boolean`. The device nodes have no data inputs, so they use no inline input defaults.
 
 ## Rejected approaches
 

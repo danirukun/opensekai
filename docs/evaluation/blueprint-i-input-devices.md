@@ -1,6 +1,6 @@
 # Blueprint input devices check (slice I, BP-06 partial)
 
-Date: 2026-10-18. Base: `opensekai/blueprint-depth` at `671e2f8`. Branch: `opensekai/bp-i-input-devices`. Contract: [input devices](../../spdd/prompt/2026-10-18-blueprint-i-input-devices.md). Issue: [#86](https://github.com/danirukun/opensekai/issues/86).
+Date: 2026-10-18. Base: `opensekai/blueprint-depth` at `671e2f8`, merged again at `0cd51be` (value model, transitions, editor authoring). Branch: `opensekai/bp-i-input-devices`. Contract: [input devices](../../spdd/prompt/2026-10-18-blueprint-i-input-devices.md). Issue: [#86](https://github.com/danirukun/opensekai/issues/86).
 
 ## Status
 
@@ -28,9 +28,9 @@ No JavaScript dependency was added.
 | Command | Pass | Fail | Skip | Notes |
 | --- | --- | --- | --- | --- |
 | `pnpm check` | 8 packages and scripts | 0 | 0 | svelte-check: 0 errors, 0 warnings |
-| `pnpm test:unit` | 1036 (138 files) | 0 | 0 | |
-| `pnpm test:integration` | 37 (14 files) | 0 | 2 | A new worktree needs `artifacts/models` (the MediaPipe models) first, or the 4 `prepare-tracking` tests fail with `ENOENT`. |
-| `cargo test --workspace --no-fail-fast` | 311 | 0 | 1 | The skip is the pinned fixture benchmark test. |
+| `pnpm test:unit` | 1115 (147 files) | 0 | 0 | |
+| `pnpm test:integration` | 41 (17 files) | 0 | 2 | A new worktree needs `artifacts/models` (the MediaPipe models) first, or the 4 `prepare-tracking` tests fail with `ENOENT`. |
+| `cargo test --workspace --no-fail-fast` | 315 | 0 | 1 | The skip is the pinned fixture benchmark test. |
 | `cargo clippy --workspace --all-targets` | Clean | 0 | — | One existing `map_or` warning in `input/monitor.rs` (new clippy lint) is fixed. |
 
 New tests:
@@ -83,4 +83,3 @@ Run these steps in the integrated QA run, on the release app, with OBS. Use a ga
 - The gamepad identity is a player slot (1 to 4), not a stable hardware ID. A pad that reconnects can take a different slot when another pad holds the lower slot.
 - The MIDI adapter connects to all input ports. There is no port selection and no MIDI learn.
 - After the first start, the `gilrs` HID thread stays for the life of the app (the macOS backend cannot stop it). The adapter discards its events while no graph uses a gamepad.
-- The note, velocity, and raw Control Change outputs use the `number` port type. They move to `integer` after the W0 value model.

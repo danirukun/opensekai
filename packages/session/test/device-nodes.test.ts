@@ -98,3 +98,12 @@ it('reports the device kinds of enabled graphs only', () => {
  expect(session.editBlueprints({ clientId: 't', batchId: 'c', ops: [{ kind: 'removeGraph', graphId: 'pad' }] })).toEqual({ ok: true, data: { revision: 2, keystrokes: [] } });
  expect(session.inspectBlueprints().devices).toBeUndefined();
 });
+
+it('widens the integer note and velocity outputs into number inputs', () => {
+ const session = createSession(makeSmokeScene(), 's');
+ const noteOn = node('on', 'midi.noteOn', { channel: 0, anyNote: true, note: 60 });
+ expect(session.editBlueprints({ clientId: 't', batchId: 'b', ops: [{ kind: 'replaceAll', graphs: [writePosition(noteOn, ['on', 'note'], ['on', 'velocity'])] }] })).toMatchObject({ ok: true, data: { devices: ['midi'] } });
+ expect(session.inspectBlueprints().errors).toEqual([]);
+ const scene = session.advance(16, 16, { devices: { events: [{ kind: 'midiNote', channel: 3, note: 64, velocity: 101, on: true }] } }).scene;
+ expect(scene.entities.find(item => item.id === 'marker')!.transform.position).toEqual([64, 101, 0]);
+});
