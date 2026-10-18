@@ -37,6 +37,57 @@ These items remain open:
 - **Platforms:** Windows acceptance.
 - **Measurements:** GPU memory reclamation, minimum hardware, and the concert benchmark. These remain unknown.
 
+## Architecture
+
+OpenSekai is one Tauri desktop app. A small Rust service in the app connects its windows and its external clients. [ARCHITECTURE.md](ARCHITECTURE.md) is the detailed map of the code. [The architecture design](docs/superpowers/specs/2026-10-02-opensekai-architecture-design.md) gives the direction.
+
+```mermaid
+flowchart LR
+  subgraph inputs["Inputs"]
+    Trackers["VMC and iFacialMocap apps"]
+    Keys["Global hotkeys"]
+    Webcam["Webcam"]
+  end
+
+  subgraph app["OpenSekai desktop app"]
+    Host["Rust host<br/>loopback HTTP + WebSocket service<br/>router, tokens, 60 Hz clock,<br/>asset library, show files"]
+    Scene["Scene window<br/>session worker (scene authority)<br/>MediaPipe tracking,<br/>preview renderer + editor viewport"]
+    Editor["Editor window<br/>Svelte 5 + @oshi-connect/ui<br/>inspector, Blueprints"]
+  end
+
+  MCP["MCP server<br/>apps/mcp (stdio)"]
+  OBS["OBS Browser Source<br/>apps/output renderer"]
+
+  Trackers -- UDP --> Host
+  Keys --> Host
+  Webcam --> Scene
+  Editor -- "calls (operator)" --> Host
+  MCP -- "calls (operator)" --> Host
+  Host -- "clock, tracking, relayed calls" --> Scene
+  Scene -- "evaluated frames (publisher)" --> Host
+  Host -- "frames (renderer)" --> OBS
+  OBS -- "GET /assets/{id}" --> Host
+```
+
+The design follows these rules:
+
+- **One authority.** The session worker (`packages/session`) runs in the Scene window. It owns the scene state, the simulation, tracking, idle animation, expressions, and Blueprints. The host does not own scene state.
+- **One command path.** The editor and the MCP server send the same validated calls (`packages/contracts`). The host router checks the role of the caller and relays the call to the session. Each accepted edit increases the scene revision.
+- **State, not pixels.** On each tick of the host clock, the session publishes an evaluated frame: the scene view, the avatar poses, and the tracking status. The host sends each frame to each renderer. Each renderer draws the frame with the same three.js renderer (`packages/renderer`) and loads assets from `GET /assets/{id}`. No image data goes through Tauri IPC.
+- **Local trust.** The service listens on `127.0.0.1` on a random port. Each connection has a token and one role: `publisher`, `operator`, or `renderer`. The host checks the `Host` and `Origin` headers. A stored asset is one self-contained GLB, and the host and the renderer both reject external URIs.
+
+| Layer | Path |
+| --- | --- |
+| Wire contracts (zod and Rust mirror) | `packages/contracts`, `crates/contracts` |
+| Scene authority | `packages/session` |
+| Renderer | `packages/renderer` |
+| Client for all TypeScript connections | `packages/browser-client` |
+| Native host, service, and assets | `apps/desktop/src-tauri` |
+| Scene and Editor windows | `apps/desktop/src` |
+| OBS output page | `apps/output` |
+| MCP server | `apps/mcp` |
+| Extension sandbox (QuickJS) | `packages/extensions` |
+
 ## Requirements
 
 - macOS (the first target).
