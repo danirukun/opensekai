@@ -105,3 +105,35 @@ it('adds no debug output when the scene commit of the step fails', () => {
  expect(session.runBlueprint('g', 'go')).toMatchObject({ ok: false, error: { message: 'Revision limit reached' } });
  expect(session.debugBlueprints()).toMatchObject({ latest: 0, entries: [], values: [] });
 });
+
+// macOS QA of PR #211: Random Integer → Modulo Integer → Switch On Number, with a Debug Value on the chain.
+// The shown value must be the value that the branch used, also when the Debug Value only watches the chain.
+const randomChain = (watch: boolean) => graph([
+ manual,
+ node('rnd', 'integer.random', {}, { min: 0, max: 9 }),
+ node('mod', 'integer.modulo', {}, { b: 2 }),
+ node('probe', 'debug.value', { valueType: 'integer' }),
+ node('switch', 'flow.switch', { cases: [0, 1] }),
+ node('log0', 'debug.log', { level: 'info' }, { message: 'case0' }),
+ node('log1', 'debug.log', { level: 'info' }, { message: 'case1' }),
+], [
+ wire('a', 'go', 'flow', 'switch', 'flow'), wire('b', 'rnd', 'result', 'mod', 'a'), wire('c', 'mod', 'result', 'probe', 'value'),
+ watch ? wire('d', 'mod', 'result', 'switch', 'value') : wire('d', 'probe', 'value', 'switch', 'value'),
+ wire('e', 'switch', 'case0', 'log0', 'flow'), wire('f', 'switch', 'case1', 'log1', 'flow'),
+]);
+for (const watch of [false, true]) it(`shows the value that a random chain gave the branch on each run (${watch ? 'watch' : 'pass-through'})`, () => {
+ const session = createSession(makeSmokeScene(), 's');
+ session.editBlueprints({ clientId: 't', batchId: 'b1', ops: [{ kind: 'createGraph', graph: randomChain(watch) }] });
+ const seen: [string, string][] = [];
+ for (let run = 0; run < 12; run++) {
+  session.advance(run * 100);
+  const before = session.debugBlueprints().latest;
+  expect(session.runBlueprint('g', 'go').ok).toBe(true);
+  const read = session.debugBlueprints(before);
+  const entry = read.entries.at(-1)!;
+  seen.push([entry.kind === 'log' ? entry.message : '', `case${read.values.find(value => value.nodeId === 'probe')!.text}`]);
+ }
+ expect(seen.map(([, shown]) => shown)).toEqual(seen.map(([branch]) => branch));
+ // The chain gives both branches, so the check is not trivial.
+ expect(new Set(seen.map(([branch]) => branch)).size).toBe(2);
+});
