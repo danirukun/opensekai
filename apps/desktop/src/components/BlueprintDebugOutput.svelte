@@ -1,20 +1,20 @@
 <script lang="ts">
  import { tick } from 'svelte';
  import { Button, Select } from '@oshi-connect/ui';
- import type { BlueprintGraph, DebugEntry } from '@opensekai/contracts';
- import { debugTime } from '../blueprints/debug-feed';
+ import { DEBUG_LEVEL_LABELS, DEBUG_LEVELS, type BlueprintGraph, type DebugEntry } from '@opensekai/contracts';
+ import { debugTime, debugToastText } from '../blueprints/debug-feed';
 
  let { entries, graphs, onclear }: { entries: readonly DebugEntry[]; graphs: readonly BlueprintGraph[]; onclear: () => void } = $props();
  let graphId = $state(''), level = $state('');
  let list: HTMLOListElement | undefined = $state();
- const levels = [{ value: '', label: 'All' }, { value: 'debug', label: 'Debug' }, { value: 'info', label: 'Info' }, { value: 'warning', label: 'Warning' }, { value: 'error', label: 'Error' }];
+ const levels = [{ value: '', label: 'All' }, ...DEBUG_LEVELS.map(value => ({ value, label: DEBUG_LEVEL_LABELS[value] }))];
  const graphOptions = $derived([{ value: '', label: 'All graphs' }, ...graphs.map(graph => ({ value: graph.id, label: graph.name }))]);
  const names = $derived(new Map(graphs.map(graph => [graph.id, graph.name])));
  // Toast and event rows have no level, so a level filter shows Log rows only.
  const shown = $derived(entries.filter(entry => (!graphId || entry.graphId === graphId) && (!level || (entry.kind === 'log' && entry.level === level))));
  const kind = (entry: DebugEntry) => entry.kind === 'log' ? entry.level : entry.kind;
  const text = (entry: DebugEntry) => entry.kind === 'log' ? entry.message
-  : entry.kind === 'toast' ? [entry.header, entry.caption].filter(Boolean).join(': ')
+  : entry.kind === 'toast' ? debugToastText(entry)
   : entry.text === undefined ? entry.name : `${entry.name} ${entry.text}`;
  // Follow new rows only when the list is at its end, so a scroll back stays where it is.
  let following = true;

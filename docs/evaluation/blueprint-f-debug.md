@@ -1,6 +1,6 @@
 # Blueprint debug check
 
-Slice F of bundle B13 ([contract](../../spdd/prompt/2026-10-18-blueprint-f-debug.md), #199). Checked 2026-10-18 on macOS 27.0.1 (arm64), Node 26.12.0, pnpm 12.8.1, on branch `opensekai/bp-f-debug` from base `3e0a7ea` (the integration branch after slice I). Only automated checks ran. The desktop app, the editor window, the renderer, and OBS did not run, so no editor, macOS, or OBS result is claimed.
+Slice F of bundle B13 ([contract](../../spdd/prompt/2026-10-18-blueprint-f-debug.md), #199). Checked 2026-10-18 on macOS 27.0.1 (arm64), Node 26.12.0, pnpm 12.8.1, on branch `opensekai/bp-f-debug`, last merged with the integration branch at `097d37a` (after slices I, C, and A). The review fixes (epoch, full value set, commit-gated recording, separate Debug Value samples, ring buffer, toast plan per poll) are included. Only automated checks ran. The desktop app, the editor window, the renderer, and OBS did not run, so no editor, macOS, or OBS result is claimed.
 
 ## Automated checks
 
