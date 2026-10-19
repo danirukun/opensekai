@@ -139,6 +139,25 @@ cargo test --workspace  # Rust contracts and native host
 
 Verify UI changes in the running app. Use the OBS output for changes to alpha, camera, material, or visual performance. See [Development and checkpoints](docs/development-workflow.md) and [the evaluation rubric](docs/evaluation/rubric-v1.md).
 
+## Test stage
+
+[Download the OpenSekai Test Stage](https://assets.oshi-connect.net/opensekai/test-stage/opensekai-test-stage-fbeb8623.glb) (GLB, 15 MB, [CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)). It is a 10 × 10 m environment for visual checks. It has these parts:
+- a floor grid with camera marks;
+- two walls with a resolution chart, a Siemens star, a zone plate, and a colour checker;
+- focus targets at three depths;
+- shadow props;
+- chrome and grey reference balls;
+- a green cyclorama cove.
+
+SHA-256: `fbeb862301bc8a78851849b2b0bf750cbb5f570425efce889c28f41332655f6b`.
+
+To use it:
+1. In the editor, do Add › Environment, then Source › Import file…, and choose the GLB.
+2. Open `fixtures/shows/test-stage.osekai`. The show has a sun and a spot light with shadows, an ambient fill, and four cameras: Wide, Chart, Cove, and Corner.
+3. Choose a character model for Performer.
+
+`pnpm build:test-stage` builds the stage with Blender. [The test stage contract](spdd/prompt/2026-10-18-test-stage.md) gives the layout.
+
 ## MCP
 
 The app writes an owner-only operator descriptor. The MCP server uses the same validated commands as the editor. To set up a client, see [MCP client setup](docs/mcp-client-setup.md).

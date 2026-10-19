@@ -155,9 +155,20 @@ mod tests {
     #[test]
     fn example_stage_show_opens() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("stage-lights.osekai");
-        std::fs::write(&path, include_str!("../../../../fixtures/shows/stage-lights.osekai")).unwrap();
-        assert!(read_show(&path).is_ok());
+        for (name, text) in [
+            (
+                "stage-lights.osekai",
+                include_str!("../../../../fixtures/shows/stage-lights.osekai"),
+            ),
+            (
+                "test-stage.osekai",
+                include_str!("../../../../fixtures/shows/test-stage.osekai"),
+            ),
+        ] {
+            let path = dir.path().join(name);
+            std::fs::write(&path, text).unwrap();
+            assert!(read_show(&path).is_ok(), "{name}");
+        }
     }
 
     #[test]

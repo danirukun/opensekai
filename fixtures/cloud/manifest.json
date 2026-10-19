@@ -49,6 +49,26 @@
           "sourceUrl": "https://sketchfab.com/3d-models/tv01-stage-3ed17abfce1842aebafd6745eef9d748"
         }
       }
+    },
+    {
+      "file": "test-stage.glb",
+      "key": "sha256/fbeb862301bc8a78851849b2b0bf750cbb5f570425efce889c28f41332655f6b.glb",
+      "record": {
+        "id": "fixture_test_stage",
+        "format": "glb",
+        "sha256": "fbeb862301bc8a78851849b2b0bf750cbb5f570425efce889c28f41332655f6b",
+        "bytes": 15387580,
+        "sourceUrl": null,
+        "licenseLabel": "CC0-1.0",
+        "importerVersion": 1,
+        "name": "OpenSekai Test Stage",
+        "credits": {
+          "title": "OpenSekai Test Stage",
+          "author": "Oshi Connect",
+          "license": "CC0-1.0",
+          "sourceUrl": null
+        }
+      }
     }
   ]
 }
