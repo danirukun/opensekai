@@ -382,30 +382,21 @@ mod tests {
             .await;
         state.wait_ready().await.unwrap();
         let pipe = dir.path().join("room.glb");
-        assert!(std::process::Command::new("mkfifo")
-            .arg(&pipe)
-            .status()
-            .unwrap()
-            .success());
+        assert!(std::process::Command::new("mkfifo").arg(&pipe).status().unwrap().success());
         let import = tokio::spawn({
             let (state, pipe) = (state.clone(), pipe.clone());
             async move { state.import_scene(pipe).await }
         });
         // Opening the write end returns only after the import opened the read end.
-        let writer = tokio::task::spawn_blocking(move || {
-            std::fs::OpenOptions::new().write(true).open(pipe).unwrap()
-        })
-        .await
-        .unwrap();
+        let writer = tokio::task::spawn_blocking(move || std::fs::OpenOptions::new().write(true).open(pipe).unwrap())
+            .await
+            .unwrap();
         tokio::time::timeout(Duration::from_secs(5), state.shutdown())
             .await
             .expect("shutdown waited for the import")
             .unwrap();
         drop(writer);
-        assert_eq!(
-            import.await.unwrap().unwrap_err().code,
-            ErrorCode::InvalidInput
-        );
+        assert_eq!(import.await.unwrap().unwrap_err().code, ErrorCode::InvalidInput);
     }
     // Real RPC boundary: bootstrap must install evaluation before readiness.
     #[tokio::test]
