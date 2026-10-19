@@ -5,7 +5,7 @@ export type MediaPipeConfig=Extract<TrackingConfig,{kind:'mediapipe'}>;
 export type WorkerRequest=
  |{kind:'init';config:MediaPipeConfig;assetBase:string}
  |{kind:'frame';image:ImageBitmap;timestamp:number;nativeEpochOffsetMs:number;sourceId:string;generation:number}
- |{kind:'calibrate'}|{kind:'stop'};
+ |{kind:'stop'};
 export type WorkerReply={kind:'ready'}|{kind:'sample';sample:TrackingSample;inferenceMs:number}|{kind:'error';error:string}|{kind:'stopped'};
 const scope=self as unknown as {onmessage:((event:MessageEvent<WorkerRequest>)=>void)|null;postMessage:(data:WorkerReply)=>void;close:()=>void;import?:(url:string)=>Promise<void>;ModuleFactory?:unknown};
 // The pinned Tasks loader clears ModuleFactory after each model. Reuse the module's
@@ -35,7 +35,6 @@ function infer(message:Extract<WorkerRequest,{kind:'frame'}>){const started=perf
 }
 scope.onmessage=event=>{const m=event.data;
  if(m.kind==='stop'){stopped=true;closeModels();scope.postMessage({kind:'stopped'});scope.close();return;}
- if(m.kind==='calibrate'){retarget.calibrate();return;}
  if(m.kind==='init'){void initialize(m).catch(error=>{closeModels();if(!stopped)scope.postMessage({kind:'error',error:String(error).slice(0,512)});});return;}
  try{infer(m);}catch(error){scope.postMessage({kind:'error',error:String(error).slice(0,512)});}
 };

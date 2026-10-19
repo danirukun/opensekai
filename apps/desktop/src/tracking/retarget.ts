@@ -29,14 +29,13 @@ function point(p:Landmark|undefined):Vec3|null{return p&&[p.x,p.y,p.z].every(Num
 function faceRotation(m:number[]|undefined):Quat|null {if(!m||m.length!==16||!m.every(Number.isFinite))return null;const x=unit([m[0],m[1],m[2]]);if(!x)return null;const z=unit(cross(x,[m[4],m[5],m[6]]));if(!z)return null;return fromBasis(x,cross(z,x),z);}
 const sideName=(name:string)=>name.startsWith('left')?'right'+name.slice(4):name.startsWith('right')?'left'+name.slice(5):name.endsWith('Left')?name.slice(0,-4)+'Right':name.endsWith('Right')?name.slice(0,-5)+'Left':name;
 export function createRetargeter(){
- let neutral:Quat|null=null;
  return {
-  calibrate(){neutral=null;},
   map(observation:Observation,config:Config,sourceId:string,generation:number,receivedAtMs:number):TrackingSample {
    const bones:Record<string,TrackingBone>={},expressions:Record<string,number>={},global:Record<string,Quat>={};
    const set=(name:string,q:Quat|null)=>{if(q)bones[name]={rotation:normalize(q),space:'normalized'};};
+   // The face rotation stays in camera space; the session applies the saved calibration (B6 R6).
    let faceWorld:Quat|null=null;
-   if(config.face&&observation.face){const q=faceRotation(observation.face.matrix);if(q){neutral??=q;faceWorld=mul(inverse(neutral),q);}
+   if(config.face&&observation.face){const q=faceRotation(observation.face.matrix);if(q)faceWorld=q;
     for(const b of observation.face.blendshapes??[])if(b.categoryName!=='_neutral'&&/^[a-zA-Z][a-zA-Z0-9]{0,63}$/.test(b.categoryName)&&Number.isFinite(b.score)&&Object.keys(expressions).length<64)expressions[b.categoryName]=Math.max(0,Math.min(1,b.score));
    }
    if(config.upperBody&&observation.pose){const p=observation.pose.map(point),ls=p[11],rs=p[12],lh=p[23],rh=p[24];

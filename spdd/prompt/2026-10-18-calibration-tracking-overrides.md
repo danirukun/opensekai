@@ -103,3 +103,13 @@ Add the schemas in TypeScript and Rust first, with round-trip tests. Then the pu
 - Do not keep a calibration or a neutral outside the scene state.
 - Do not add a dependency, a CI job, or a vendor service.
 - Do not claim a macOS, OBS, phone, or camera result. These stay for the owner: Calibrate with an iPhone (iFacialMocap) on macOS makes a straight-ahead head neutral, and it stays after a restart of the app with the saved show; Calibrate with a physical webcam (MediaPipe) does the same for the head and the upper body; head intensity, head offset, a blend shape range, sensitivity, and linked blink look correct on a perfect sync VRM in the preview and in OBS with alpha; MediaPipe fingers with a VMC body on one character; continued motion while the editor is minimized.
+
+## Implementation notes
+
+The implementation run (2026-10-19) took these reversible choices. The owner can change each one in review.
+
+- **R12, empty finger slot.** The scene keeps a missing `fingersSourceId`, not `null`. `setAvatarTracking` with `fingersSourceId: null` and `removeEntity` of a finger source remove the field. Rust also writes a missing field, so the two languages store the same form.
+- **R3, accessor.** `currentSample(sourceId, nowMs)` returns the smoothed sample when it is at most 500 ms old at `nowMs`. The session checks the source, the enabled state, and the generation itself, so each failure has its own message.
+- **R7, error place.** A failed Calibrate or Reset shows the error message under the source runtime row in the tracking Inspector, next to the source error. The Inspector alert also shows the error code, as for each failed patch.
+- **R11, commit.** Each number field commits on its change event (Enter or focus loss). Blend shape rows are in a collapsed **Blend shapes** section. Each row shows the ARKit name above its four fields.
+- **Rust size.** The Rust entity keeps `calibration` and `mapping` in a `Box`, so `PatchOp` stays within the Clippy enum size rule. The JSON shape does not change.

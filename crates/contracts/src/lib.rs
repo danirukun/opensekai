@@ -252,6 +252,10 @@ pub enum SceneEntity {
         config: TrackingConfig,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         smoothing: Option<TrackingSmoothing>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        calibration: Option<Box<TrackingCalibration>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        mapping: Option<Box<TrackingMapping>>,
         generation: u64,
     },
     Environment {
@@ -427,6 +431,20 @@ pub enum PatchOp {
         #[serde(rename = "entityId")]
         entity_id: Id,
         config: TrackingConfig,
+    },
+    CalibrateTracking {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+    },
+    SetTrackingCalibration {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+        calibration: Option<TrackingCalibration>,
+    },
+    SetTrackingMapping {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+        mapping: TrackingMapping,
     },
     SetTransform {
         #[serde(rename = "entityId")]
@@ -1887,9 +1905,15 @@ impl Validate for SceneView {
                 tracking: Some(t), ..
             } = e
             {
-                for id in [&t.body_source_id, &t.face_source_id].into_iter().flatten() {
+                for id in [&t.body_source_id, &t.face_source_id, &t.fingers_source_id]
+                    .into_iter()
+                    .flatten()
+                {
                     require(sources.contains(id.as_str()), "missing tracking source")?;
-                    if t.body_source_id.as_ref() == Some(id) {
+                    // Only the face slot accepts an iFacialMocap source.
+                    if t.body_source_id.as_ref() == Some(id)
+                        || t.fingers_source_id.as_ref() == Some(id)
+                    {
                         require(self.entities.iter().any(|e| matches!(e, SceneEntity::Tracking { id: source_id, config, .. } if source_id == id && !matches!(config, TrackingConfig::IFacialMocap { .. }))), "invalid body source")?;
                     }
                 }
@@ -1959,6 +1983,11 @@ impl Validate for ScenePatch {
                 )?,
                 PatchOp::SetTrackingConfig { config, .. } => config.validate()?,
                 PatchOp::SetTrackingSmoothing { smoothing, .. } => smoothing.validate()?,
+                PatchOp::SetTrackingCalibration {
+                    calibration: Some(calibration),
+                    ..
+                } => calibration.validate()?,
+                PatchOp::SetTrackingMapping { mapping, .. } => mapping.validate()?,
                 PatchOp::SetAvatarExpression { name, settings, .. } => {
                     require(expression_name_ok(name), "invalid expression name")?;
                     if let Some(settings) = settings {
@@ -2602,12 +2631,22 @@ impl Validate for SceneEntity {
         scalar_checks(&serde_json::to_value(self).map_err(|e| invalid(e.to_string()))?)?;
         self.transform().validate()?;
         if let Self::Tracking {
-            config, smoothing, ..
+            config,
+            smoothing,
+            calibration,
+            mapping,
+            ..
         } = self
         {
             config.validate()?;
             if let Some(smoothing) = smoothing {
                 smoothing.validate()?;
+            }
+            if let Some(calibration) = calibration {
+                calibration.validate()?;
+            }
+            if let Some(mapping) = mapping {
+                mapping.validate()?;
             }
         }
         if let Self::Camera {

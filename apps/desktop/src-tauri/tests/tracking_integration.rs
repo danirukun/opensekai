@@ -34,6 +34,8 @@ fn free_port() -> u16 {
 fn source(id: &str, generation: u64, config: TrackingConfig) -> SceneEntity {
     SceneEntity::Tracking {
         smoothing: None,
+        calibration: None,
+        mapping: None,
         id: id.into(),
         name: format!("Source {id}"),
         visible: true,

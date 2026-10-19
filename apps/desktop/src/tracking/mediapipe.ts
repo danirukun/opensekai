@@ -77,7 +77,6 @@ export function createMediaPipeTracker(options:MediaPipeTrackerOptions){
   },
   stop(){for(const run of runs.values()){dispose(run);status(run,'stopped');}runs.clear();},
   shutdown(){shutdown=true;this.stop();},
-  calibrate(){for(const run of runs.values())if(!run.disposed)run.worker?.postMessage({kind:'calibrate'});},
  };
 }
 /** Runs actual bundled model initialization and inference without camera permission. */
