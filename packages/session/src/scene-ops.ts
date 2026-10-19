@@ -36,7 +36,7 @@ export function applyOperations(scene: SceneView, operations: ScenePatch["operat
             for (const operation of operations) {
                 if(operation.kind==='createEntity'){
                     if(next.entities.some(e=>e.id===operation.entity.id))return failure('INVALID_INPUT','Duplicate entity ID',[operation.entity.id]);
-                    const created=structuredClone(operation.entity);if(created.kind==='tracking')created.generation=generation;next.entities.push(created);continue;
+                    const created=structuredClone(operation.entity);if(created.kind==='tracking')created.generation=generation;if(created.kind==='avatar'&&created.tracking)created.tracking=withoutNullFingers(created.tracking);next.entities.push(created);continue;
                 }
                 const entity = next.entities.find(entity => entity.id === operation.entityId);
                 if (!entity)return failure("NOT_FOUND", "Entity not found", [operation.entityId]);

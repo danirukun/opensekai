@@ -27,9 +27,9 @@ export function applyMapping(sample: TrackingSample, mapping: TrackingMapping | 
   return [name, clamp(mapped * mapping.blendShapeSensitivity)];
  }));
  if (mapping.linkedBlink) {
-  const left = Object.keys(expressions).find(name => canonicalArkitName(name) === 'eyeBlinkLeft');
-  const right = Object.keys(expressions).find(name => canonicalArkitName(name) === 'eyeBlinkRight');
-  if (left && right) { const value = Math.max(expressions[left]!, expressions[right]!); expressions[left] = value; expressions[right] = value; }
+  // A sender can send two names for one channel (eyeBlink_L and eyeBlinkLeft); link each of them.
+  const blinks = Object.keys(expressions).filter(name => ['eyeBlinkLeft', 'eyeBlinkRight'].includes(canonicalArkitName(name) ?? ''));
+  if (new Set(blinks.map(canonicalArkitName)).size === 2) { const value = Math.max(...blinks.map(name => expressions[name]!)); for (const name of blinks) expressions[name] = value; }
  }
  return { ...sample, bones, expressions };
 }

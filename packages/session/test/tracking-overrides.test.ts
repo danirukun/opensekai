@@ -88,6 +88,7 @@ describe('mapping', () => {
  it('gives both blink channels the larger value with linked blink', () => {
   expect(applyMapping(sample({}, { eyeBlink_L: .2, eyeBlink_R: .9, jawOpen: .3 }), mapping({ linkedBlink: true })).expressions).toEqual({ eyeBlink_L: .9, eyeBlink_R: .9, jawOpen: .3 });
   expect(applyMapping(sample({}, { eyeBlinkLeft: .2 }), mapping({ linkedBlink: true })).expressions).toEqual({ eyeBlinkLeft: .2 });
+  expect(applyMapping(sample({}, { eyeBlink_L: .2, eyeBlinkLeft: .3, eyeBlinkRight: .6 }), mapping({ linkedBlink: true })).expressions).toEqual({ eyeBlink_L: .6, eyeBlinkLeft: .6, eyeBlinkRight: .6 });
  });
  it('leaves a sample unchanged with the default mapping', () => {
   const input = sample({ head: bone(qy(130)), leftEye: bone(qx(8)) }, { jawOpen: .4, customSmile: .7 });
@@ -191,7 +192,7 @@ describe('session calibrateTracking', () => {
   expect(calibrate(first.session).ok).toBe(true);
   const stopped = receiving([{ ...source('face', 'ifacialmocap'), config: defaultTrackingConfig('ifacialmocap') } as SceneEntity]);
   stopped.session.advance(16, 0);
-  expect(calibrate(stopped.session)).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', ids: ['face'] } });
+  expect(calibrate(stopped.session)).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', message: 'Tracking source is stopped', ids: ['face'] } });
  });
  it('fails on a sample of an old generation and on a sample without calibration bones', () => {
   const { session, send } = receiving([source('face', 'ifacialmocap', { generation: 7 })]);
