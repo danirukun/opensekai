@@ -45,10 +45,13 @@ Recorded 2026-10-15 on `main` at `c395dcc`, Node 26.10.0, pnpm 12.8.1, rustc 1.9
 | `fixture_vrm_1` | VRM 1.0 sample (pixiv) | Public URL |
 | `fixture_vrm0_arkit` | VRM 0.x avatar with ARKit (perfect sync) blend shapes, 57 meshes, 16 MToon materials | Private R2 bucket |
 | `fixture_glb_stage` | Stage environment (TV01 Stage, CC-BY-4.0), 25 meshes, 25 materials | Private R2 bucket |
+| `fixture_test_stage` | Project test stage (CC0): 10 × 10 m floor grid, two walls, resolution and colour charts, focus targets, shadow props, and a green cove. 30 meshes, 12 materials | Private R2 bucket |
 
 The private files are in the R2 bucket `opensekai-fixtures`. Setup reads them only when the environment has `OPENSEKAI_FIXTURES_S3_ENDPOINT`, `OPENSEKAI_FIXTURES_ACCESS_KEY_ID`, and `OPENSEKAI_FIXTURES_SECRET_ACCESS_KEY` (a read-only R2 token). Any S3 API endpoint works. Without these variables, setup skips the private files.
 
 The avatar license prohibits redistribution. Do not commit a private fixture file, attach it to an issue, or upload it to another service. Screenshots of a render are permitted as pull request evidence. To add a fixture, upload it to the bucket under `sha256/<hash>.<extension>` and add an entry to `fixtures/cloud/manifest.json`.
+
+`pnpm build:test-stage` rebuilds the test stage with Blender 5.2 or later (`BLENDER` sets the binary) into `fixtures/local/cache/test-stage/test-stage.glb`, and validates it. The [test stage contract](../spdd/prompt/2026-10-18-test-stage.md) gives the layout. A rebuild is not byte-identical, so a changed stage is a new fixture revision: upload it and change its manifest entry.
 
 Tools for fixture checks:
 

@@ -35,7 +35,7 @@ flowchart LR
 | `apps/mcp` | MCP stdio server. Each tool maps to one call in the same API as the editor (`tools.ts`). |
 | `crates/evaluation`, `tools/evaluation` | Capture and benchmark run records, and the Blueprint node audit check against the node catalog. |
 | `scripts/` | UI kit snapshot, output bundle, tracking model download, test fixture download, glTF validation, GPU probe. |
-| `fixtures/` | Smoke scene and assets, protocol vectors, Blueprint fixtures. `cloud/manifest.json` lists the test fixtures that `scripts/prepare-fixtures.ts` downloads (public URLs and the private R2 bucket `opensekai-fixtures`) into ignored `local/`. |
+| `fixtures/` | Smoke scene and assets, protocol vectors, Blueprint fixtures. `cloud/manifest.json` lists the test fixtures that `scripts/prepare-fixtures.ts` downloads (public URLs and the private R2 bucket `opensekai-fixtures`) into ignored `local/`. `scripts/test-stage` builds the test stage fixture with Blender. |
 | `spdd/`, `docs/` | Analysis, REASONS contracts, design specs, plans, evaluation evidence, parity. |
 
 ## Command path

@@ -16,7 +16,8 @@
     "build:mac": "pnpm build && CARGO_PROFILE_RELEASE_STRIP=none pnpm --filter @opensekai/desktop tauri build --bundles app",
     "mcp": "tsx apps/mcp/src/cli.ts",
     "evaluate:smoke": "tsx tools/evaluation/src/run-smoke.ts",
-    "evaluate:blueprints": "tsx tools/evaluation/src/run-blueprints.ts"
+    "evaluate:blueprints": "tsx tools/evaluation/src/run-blueprints.ts",
+    "build:test-stage": "tsx scripts/build-test-stage.ts"
   },
   "devDependencies": {
     "@gltf-transform/cli": "4.5.1",
