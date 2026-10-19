@@ -1,11 +1,12 @@
 <script lang="ts">
  import {untrack} from 'svelte';
  import {ChevronRight} from '@lucide/svelte';
- import type {TrackingConfig,TrackingSmoothing,TrackingStatus} from '@opensekai/contracts';
+ import type {TrackingConfig,TrackingMapping,TrackingSmoothing,TrackingStatus} from '@opensekai/contracts';
  import TrackingSmoothingFields from './TrackingSmoothingFields.svelte';
+ import TrackingMappingFields from './TrackingMappingFields.svelte';
  import {nextPacketRate,type PacketRate} from '../editor/tracking-diagnostics';
  import type {Commit} from '../editor/live-fields';
- let {entityId,kind,smoothing,generation,status,revision,disabled=false,oncommit,onlive,onliveend}:{entityId:string;kind:TrackingConfig['kind'];smoothing?:TrackingSmoothing;generation:number;status?:TrackingStatus;revision:number;disabled?:boolean;oncommit?:Commit<TrackingSmoothing>;onlive?:(id:string,smoothing:TrackingSmoothing)=>void;onliveend?:()=>void}=$props();
+ let {entityId,kind,smoothing,mapping,onmapping,generation,status,revision,disabled=false,oncommit,onlive,onliveend}:{entityId:string;kind:TrackingConfig['kind'];smoothing?:TrackingSmoothing;mapping?:TrackingMapping;onmapping?:Commit<TrackingMapping>;generation:number;status?:TrackingStatus;revision:number;disabled?:boolean;oncommit?:Commit<TrackingSmoothing>;onlive?:(id:string,smoothing:TrackingSmoothing)=>void;onliveend?:()=>void}=$props();
  let rate=$state<PacketRate|null>(null);
  $effect(()=>{const next=status;rate=next?nextPacketRate(untrack(()=>rate),next,performance.now()):null;});
  const unknown='—';
@@ -23,6 +24,7 @@
  <summary><ChevronRight size={14}/>Advanced</summary>
  <div class="body">
   <TrackingSmoothingFields {entityId} {smoothing} {revision} {disabled} {oncommit} {onlive} {onliveend}/>
+  <TrackingMappingFields {entityId} {mapping} {revision} {disabled} oncommit={onmapping}/>
   <section aria-label="Diagnostics"><h4>Diagnostics</h4><dl>{#each rows as [term,value]}<dt>{term}</dt><dd>{value}</dd>{/each}</dl></section>
  </div>
 </details>

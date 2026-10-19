@@ -1,0 +1,421 @@
+{
+ "withFields": {
+  "schemaVersion": 1,
+  "sceneId": "scene_tracking_overrides",
+  "revision": 3,
+  "entities": [
+   {
+    "id": "avatar_a",
+    "name": "Character",
+    "visible": true,
+    "transform": {
+     "position": [
+      0,
+      0,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    },
+    "kind": "avatar",
+    "assetId": null,
+    "tracking": {
+     "bodySourceId": "source_vmc",
+     "faceSourceId": "source_face",
+     "fingersSourceId": "source_camera"
+    }
+   },
+   {
+    "id": "source_vmc",
+    "name": "VMC",
+    "visible": true,
+    "transform": {
+     "position": [
+      0,
+      0,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    },
+    "kind": "tracking",
+    "config": {
+     "kind": "vmc",
+     "enabled": false,
+     "bindAddress": "127.0.0.1",
+     "port": 39539,
+     "senderAddress": null
+    },
+    "generation": 1
+   },
+   {
+    "id": "source_face",
+    "name": "iFacialMocap",
+    "visible": true,
+    "transform": {
+     "position": [
+      0,
+      0,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    },
+    "kind": "tracking",
+    "config": {
+     "kind": "ifacialmocap",
+     "enabled": false,
+     "bindAddress": "0.0.0.0",
+     "port": 49983,
+     "phoneAddress": null
+    },
+    "generation": 1,
+    "calibration": {
+     "bones": {
+      "head": {
+       "rotation": [
+        0,
+        0.1305262,
+        0,
+        0.9914449
+       ],
+       "space": "raw"
+      }
+     }
+    }
+   },
+   {
+    "id": "source_camera",
+    "name": "Webcam",
+    "visible": true,
+    "transform": {
+     "position": [
+      0,
+      0,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    },
+    "kind": "tracking",
+    "config": {
+     "kind": "mediapipe",
+     "enabled": false,
+     "deviceId": "",
+     "face": true,
+     "upperBody": true,
+     "hands": true,
+     "mirror": false
+    },
+    "generation": 1,
+    "calibration": {
+     "bones": {
+      "chest": {
+       "rotation": [
+        0.0871557,
+        0,
+        0,
+        0.9961947
+       ],
+       "space": "normalized"
+      },
+      "head": {
+       "rotation": [
+        0,
+        0.0436194,
+        0,
+        0.9990482
+       ],
+       "space": "normalized"
+      }
+     }
+    },
+    "mapping": {
+     "headIntensity": 1.5,
+     "headOffset": [
+      10,
+      15,
+      0
+     ],
+     "eyeIntensity": 0.5,
+     "blendShapeSensitivity": 1.2,
+     "linkedBlink": true,
+     "blendShapes": {
+      "eyeBlinkLeft": {
+       "inputMin": 0.2,
+       "inputMax": 0.8,
+       "outputMin": 0,
+       "outputMax": 1
+      },
+      "jawOpen": {
+       "inputMin": 0,
+       "inputMax": 1,
+       "outputMin": 0,
+       "outputMax": 0
+      }
+     }
+    }
+   },
+   {
+    "id": "camera_main",
+    "name": "Camera",
+    "visible": true,
+    "transform": {
+     "position": [
+      0,
+      0,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    },
+    "kind": "camera",
+    "lens": {
+     "fovDegrees": 35,
+     "near": 0.1,
+     "far": 100
+    }
+   }
+  ],
+  "outputs": [
+   {
+    "id": "output_main",
+    "cameraId": "camera_main",
+    "width": 1920,
+    "height": 1080,
+    "fps": 60
+   },
+   {
+    "id": "preview_main",
+    "cameraId": "camera_main",
+    "width": 1920,
+    "height": 1080,
+    "fps": 60
+   }
+  ]
+ },
+ "withoutFields": {
+  "schemaVersion": 1,
+  "sceneId": "scene_tracking_overrides",
+  "revision": 3,
+  "entities": [
+   {
+    "id": "avatar_a",
+    "name": "Character",
+    "visible": true,
+    "transform": {
+     "position": [
+      0,
+      0,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    },
+    "kind": "avatar",
+    "assetId": null,
+    "tracking": {
+     "bodySourceId": "source_vmc",
+     "faceSourceId": "source_face"
+    }
+   },
+   {
+    "id": "source_vmc",
+    "name": "VMC",
+    "visible": true,
+    "transform": {
+     "position": [
+      0,
+      0,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    },
+    "kind": "tracking",
+    "config": {
+     "kind": "vmc",
+     "enabled": false,
+     "bindAddress": "127.0.0.1",
+     "port": 39539,
+     "senderAddress": null
+    },
+    "generation": 1
+   },
+   {
+    "id": "source_face",
+    "name": "iFacialMocap",
+    "visible": true,
+    "transform": {
+     "position": [
+      0,
+      0,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    },
+    "kind": "tracking",
+    "config": {
+     "kind": "ifacialmocap",
+     "enabled": false,
+     "bindAddress": "0.0.0.0",
+     "port": 49983,
+     "phoneAddress": null
+    },
+    "generation": 1
+   },
+   {
+    "id": "source_camera",
+    "name": "Webcam",
+    "visible": true,
+    "transform": {
+     "position": [
+      0,
+      0,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    },
+    "kind": "tracking",
+    "config": {
+     "kind": "mediapipe",
+     "enabled": false,
+     "deviceId": "",
+     "face": true,
+     "upperBody": true,
+     "hands": true,
+     "mirror": false
+    },
+    "generation": 1
+   },
+   {
+    "id": "camera_main",
+    "name": "Camera",
+    "visible": true,
+    "transform": {
+     "position": [
+      0,
+      0,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    },
+    "kind": "camera",
+    "lens": {
+     "fovDegrees": 35,
+     "near": 0.1,
+     "far": 100
+    }
+   }
+  ],
+  "outputs": [
+   {
+    "id": "output_main",
+    "cameraId": "camera_main",
+    "width": 1920,
+    "height": 1080,
+    "fps": 60
+   },
+   {
+    "id": "preview_main",
+    "cameraId": "camera_main",
+    "width": 1920,
+    "height": 1080,
+    "fps": 60
+   }
+  ]
+ }
+}

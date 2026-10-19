@@ -6,6 +6,7 @@ import { createBlueprintStore } from './blueprint-store';
 import { NO_DEVICES, type DeviceEnv } from './blueprint-eval';
 import { createDeviceInput } from './devices';
 import { applyEffects, applyOperations } from './scene-ops';
+import { captureCalibration } from './tracking-calibration';
 import { isBoneOffsetEffect, isCharacterLayerEffect, isDebugEffect, isExpressionEffect, isOverrideEffect, isSceneEffect } from './blueprint';
 import { createDebugLog } from './debug-log';
 import { composeBoneOffsets, EMPTY_BONE_OFFSETS, writeBoneOffset, type BoneOffsets } from './bone-offsets';
@@ -59,6 +60,8 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
     const storeRecords = (list: readonly AssetRecord[]) => { records = new Map(list.flatMap(item => { const parsed = AssetRecordSchema.safeParse(item); return parsed.success ? [[parsed.data.id, parsed.data] as const] : []; })); };
     storeRecords(assets);
     let elapsed = 0;
+    // The tracking clock of the last advance. A capture compares sample age with it (R3).
+    let lastTrackingNowMs: number | null = null;
     let sequence = 0;
     function commit(next: SceneView): Reply<{
         revision: number;
@@ -208,6 +211,25 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
         const committed = applied.ok ? commit(applied.data) : applied;
         if (!committed.ok) for (const graphId of idle.graphIds) runtimeErrors.set(graphId, committed.error);
     };
+    // Each calibrateTracking becomes setTrackingCalibration with the current smoothed sample, read against the scene before the patch.
+    const resolveCalibrations = (operations: ScenePatch['operations']): Reply<ScenePatch['operations']> => {
+        const resolved: ScenePatch['operations'] = [];
+        for (const operation of operations) {
+            if (operation.kind !== 'calibrateTracking') { resolved.push(operation); continue; }
+            const id = operation.entityId, source = persistent.entities.find(entity => entity.id === id);
+            if (!source) return failure('NOT_FOUND', 'Entity not found', [id]);
+            if (source.kind !== 'tracking') return failure('INVALID_INPUT', 'Entity is not a tracking source', [id]);
+            if (operations.some(other => (other.kind === 'setTrackingConfig' || other.kind === 'removeEntity') && other.entityId === id)) return failure('INVALID_INPUT', 'Calibrate in a separate patch', [id]);
+            if (lastTrackingNowMs === null) return failure('INVALID_INPUT', 'Session has not started', [id]);
+            if (!source.config.enabled) return failure('INVALID_INPUT', 'Tracking source is stopped', [id]);
+            const sample = tracking.currentSample(id, lastTrackingNowMs);
+            if (!sample || sample.generation !== source.generation) return failure('INVALID_INPUT', 'Tracking source has no current sample', [id]);
+            const calibration = captureCalibration(sample);
+            if (!calibration) return failure('INVALID_INPUT', 'Tracking sample has no calibration bone', [id]);
+            resolved.push({ kind: 'setTrackingCalibration', entityId: id, calibration });
+        }
+        return { ok: true, data: resolved };
+    };
     const api: Session = {
         inspect: () => structuredClone(persistent),
         replaceScene(scene, expectedRevision) {
@@ -278,7 +300,9 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
                 return failure("NOT_FOUND", "Scene not found", [value.sceneId]);
             if (value.expectedRevision !== persistent.revision)
                 return failure("CONFLICT", "Scene revision changed");
-            const applied = applyOperations(persistent, value.operations, persistent.revision + 1);
+            const operations = resolveCalibrations(value.operations);
+            if (!operations.ok) return operations;
+            const applied = applyOperations(persistent, operations.data, persistent.revision + 1);
             if (!applied.ok) return applied;
             const committed = commit(applied.data);
             if (committed.ok) { overrides = dropOverrides(overrides, value.operations); tweens = dropTweens(tweens, value.operations); }
@@ -346,6 +370,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             lookAts = looked.states;
             elapsed = elapsedMs;
             sequence += 1;
+            lastTrackingNowMs = trackingNowMs ?? elapsedMs;
             const live=tracking.evaluate(shown,trackingNowMs??elapsedMs,elapsedMs);
             previousPoses = new Map(live.avatarPoses.map(pose => [pose.avatarId, structuredClone(pose)]));
             const faces = composeBlendShapes(composeExpressions(live.avatarPoses, expressions, persistent, record), blendShapes);

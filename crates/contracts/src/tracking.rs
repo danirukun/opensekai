@@ -35,7 +35,36 @@ pub enum TrackingConfig {
 pub enum AvatarIdle {
     Builtin { enabled: bool },
 }
-object!(AvatarTracking {body_source_id:Option<Id>,face_source_id:Option<Id>});
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AvatarTracking {
+    pub body_source_id: Option<Id>,
+    pub face_source_id: Option<Id>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fingers_source_id: Option<Id>,
+}
+pub const CALIBRATION_BONES: [&str; 6] = ["hips", "spine", "chest", "upperChest", "neck", "head"];
+object!(CalibrationNeutral {
+    rotation: Quat,
+    space: BoneSpace
+});
+object!(TrackingCalibration {
+    bones: BTreeMap<String, CalibrationNeutral>
+});
+object!(BlendShapeRange {
+    input_min: f64,
+    input_max: f64,
+    output_min: f64,
+    output_max: f64
+});
+object!(TrackingMapping {
+    head_intensity: f64,
+    head_offset: Vec3,
+    eye_intensity: f64,
+    blend_shape_sensitivity: f64,
+    linked_blink: bool,
+    blend_shapes: BTreeMap<String, BlendShapeRange>
+});
 strings!(BoneSpace { Raw=>"raw",Normalized=>"normalized" });
 strings!(TrackingState { Stopped=>"stopped",Waiting=>"waiting",Receiving=>"receiving",Stale=>"stale",Error=>"error" });
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -336,5 +365,54 @@ impl Validate for TrackingSmoothing {
             self.derivative_cutoff.is_finite() && (0.01..=120.).contains(&self.derivative_cutoff),
             "invalid smoothing derivative cutoff",
         )
+    }
+}
+impl Validate for TrackingCalibration {
+    fn validate(&self) -> Result<(), AppError> {
+        require(
+            (1..=6).contains(&self.bones.len()),
+            "invalid calibration bone count",
+        )?;
+        for (name, neutral) in &self.bones {
+            require(
+                CALIBRATION_BONES.contains(&name.as_str()),
+                "invalid calibration bone",
+            )?;
+            rotation(&neutral.rotation)?;
+        }
+        Ok(())
+    }
+}
+impl Validate for TrackingMapping {
+    fn validate(&self) -> Result<(), AppError> {
+        let within = |v: f64, min: f64, max: f64| v.is_finite() && (min..=max).contains(&v);
+        require(
+            within(self.head_intensity, 0., 2.) && within(self.eye_intensity, 0., 2.),
+            "invalid mapping intensity",
+        )?;
+        require(
+            self.head_offset.iter().all(|v| within(*v, -90., 90.)),
+            "invalid mapping head offset",
+        )?;
+        require(
+            within(self.blend_shape_sensitivity, 0., 3.),
+            "invalid mapping sensitivity",
+        )?;
+        require(self.blend_shapes.len() <= 52, "too many blend shape ranges")?;
+        for (name, r) in &self.blend_shapes {
+            require(
+                crate::ARKIT_NAMES.contains(&name.as_str()),
+                "invalid blend shape name",
+            )?;
+            require(
+                [r.input_min, r.input_max, r.output_min, r.output_max]
+                    .iter()
+                    .all(|v| within(*v, 0., 1.))
+                    && r.input_min < r.input_max
+                    && r.output_min <= r.output_max,
+                "invalid blend shape range",
+            )?;
+        }
+        Ok(())
     }
 }

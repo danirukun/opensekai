@@ -1,4 +1,4 @@
-import { SceneViewSchema, type ErrorCode, type Id, type Reply, type ScenePatch, type SceneView } from "@opensekai/contracts";
+import { SceneViewSchema, type AvatarTracking, type ErrorCode, type Id, type Reply, type ScenePatch, type SceneView } from "@opensekai/contracts";
 import type { SceneEffect } from "./blueprint";
 import { delta, followers, shifted } from "./camera-follow";
 
@@ -9,7 +9,7 @@ const sharedSources = (scene: SceneView): Map<string, Id[]> => {
  const users = new Map<Id, Id[]>();
  for (const entity of scene.entities) {
   if (entity.kind !== 'avatar' || !entity.tracking) continue;
-  const sources = new Set([entity.tracking.bodySourceId, entity.tracking.faceSourceId].filter((id): id is Id => id !== null));
+  const sources = new Set([entity.tracking.bodySourceId, entity.tracking.faceSourceId, entity.tracking.fingersSourceId ?? null].filter((id): id is Id => id !== null));
   for (const source of sources) users.set(source, [...(users.get(source) ?? []), entity.id]);
  }
  return new Map([...users].flatMap(([source, avatars]) =>
@@ -23,6 +23,12 @@ const newShare = (before: SceneView, after: SceneView): Id[] | null => {
  return added.length ? [...new Set(added)] : null;
 };
 
+// A missing finger slot and a null finger slot are the same. The scene keeps the missing form, as Rust writes it.
+const withoutNullFingers = (tracking: AvatarTracking): AvatarTracking => {
+ const { fingersSourceId, ...rest } = structuredClone(tracking);
+ return fingersSourceId ? { ...rest, fingersSourceId } : rest;
+};
+
 export function applyOperations(scene: SceneView, operations: ScenePatch["operations"], generation: number): Reply<SceneView> {
             const next = structuredClone(scene);
             // A camera that the patch places itself does not follow its target.
@@ -30,7 +36,7 @@ export function applyOperations(scene: SceneView, operations: ScenePatch["operat
             for (const operation of operations) {
                 if(operation.kind==='createEntity'){
                     if(next.entities.some(e=>e.id===operation.entity.id))return failure('INVALID_INPUT','Duplicate entity ID',[operation.entity.id]);
-                    const created=structuredClone(operation.entity);if(created.kind==='tracking')created.generation=generation;next.entities.push(created);continue;
+                    const created=structuredClone(operation.entity);if(created.kind==='tracking')created.generation=generation;if(created.kind==='avatar'&&created.tracking)created.tracking=withoutNullFingers(created.tracking);next.entities.push(created);continue;
                 }
                 const entity = next.entities.find(entity => entity.id === operation.entityId);
                 if (!entity)return failure("NOT_FOUND", "Entity not found", [operation.entityId]);
@@ -40,7 +46,7 @@ export function applyOperations(scene: SceneView, operations: ScenePatch["operat
                   if(next.outputs.some(output=>output.cameraId===entity.id))return failure('INVALID_INPUT','Choose another output camera before removal',[entity.id]);
                   next.entities=next.entities.filter(item=>item.id!==entity.id);
                   if(entity.kind==='avatar')for(const camera of next.entities)if(camera.kind==='camera'&&camera.navigation?.mode==='orbitCharacter'&&camera.navigation.targetId===entity.id)camera.navigation.targetId=null;
-                  if(entity.kind==='tracking')for(const avatar of next.entities){if(avatar.kind!=='avatar'||!avatar.tracking)continue;if(avatar.tracking.bodySourceId===entity.id)avatar.tracking.bodySourceId=null;if(avatar.tracking.faceSourceId===entity.id)avatar.tracking.faceSourceId=null;}
+                  if(entity.kind==='tracking')for(const avatar of next.entities){if(avatar.kind!=='avatar'||!avatar.tracking)continue;if(avatar.tracking.bodySourceId===entity.id)avatar.tracking.bodySourceId=null;if(avatar.tracking.faceSourceId===entity.id)avatar.tracking.faceSourceId=null;if(avatar.tracking.fingersSourceId===entity.id)delete avatar.tracking.fingersSourceId;}
                   break;
                  case 'setVisibility':entity.visible=operation.visible;break;
                  case 'setTransform':if(entity.kind==='tracking')return failure('INVALID_INPUT','Tracking assets have no scene transform',[entity.id]);{
@@ -51,7 +57,7 @@ export function applyOperations(scene: SceneView, operations: ScenePatch["operat
                  }
                  case 'setCameraLens':if(entity.kind!=='camera')return failure('INVALID_INPUT','Entity is not a camera',[entity.id]);entity.lens=structuredClone(operation.lens);break;
                  case 'setAvatarIdle':if(entity.kind!=='avatar')return failure('INVALID_INPUT','Entity is not an avatar',[entity.id]);entity.idleAnimation=structuredClone(operation.idleAnimation);break;
-                 case 'setAvatarTracking':if(entity.kind!=='avatar')return failure('INVALID_INPUT','Entity is not an avatar',[entity.id]);entity.tracking=structuredClone(operation.tracking);break;
+                 case 'setAvatarTracking':if(entity.kind!=='avatar')return failure('INVALID_INPUT','Entity is not an avatar',[entity.id]);entity.tracking=withoutNullFingers(operation.tracking);break;
                  case 'setAvatarModel':if(entity.kind!=='avatar')return failure('INVALID_INPUT','Entity is not an avatar',[entity.id]);entity.assetId=operation.assetId;break;
                  case 'setEnvironmentModel':if(entity.kind!=='environment')return failure('INVALID_INPUT','Entity is not an environment',[entity.id]);entity.assetId=operation.assetId;break;
                  case 'setEnvironmentReflections':if(entity.kind!=='environment')return failure('INVALID_INPUT','Entity is not an environment',[entity.id]);entity.reflectionsIntensity=operation.reflectionsIntensity;break;
@@ -69,7 +75,14 @@ export function applyOperations(scene: SceneView, operations: ScenePatch["operat
                  case 'setCameraAntiAliasing':if(entity.kind!=='camera')return failure('INVALID_INPUT','Entity is not a camera',[entity.id]);entity.antiAliasing=operation.antiAliasing;break;
                  case 'setCameraNavigation':if(entity.kind!=='camera')return failure('INVALID_INPUT','Entity is not a camera',[entity.id]);entity.navigation=structuredClone(operation.navigation);break;
                  case 'setTrackingSmoothing':if(entity.kind!=='tracking')return failure('INVALID_INPUT','Entity is not a tracking source',[entity.id]);entity.smoothing=structuredClone(operation.smoothing);break;
-                 case 'setTrackingConfig':if(entity.kind!=='tracking'||entity.config.kind!==operation.config.kind)return failure('INVALID_INPUT','Tracking source kind differs',[entity.id]);entity.config=structuredClone(operation.config);entity.generation=generation;break;
+                 case 'setTrackingConfig':if(entity.kind!=='tracking'||entity.config.kind!==operation.config.kind)return failure('INVALID_INPUT','Tracking source kind differs',[entity.id]);
+                  // A mirror change flips the sign of the captured rotations, so the calibration no longer applies (R5).
+                  if(entity.config.kind==='mediapipe'&&operation.config.kind==='mediapipe'&&entity.config.mirror!==operation.config.mirror)delete entity.calibration;
+                  entity.config=structuredClone(operation.config);entity.generation=generation;break;
+                 case 'setTrackingCalibration':if(entity.kind!=='tracking')return failure('INVALID_INPUT','Entity is not a tracking source',[entity.id]);if(operation.calibration)entity.calibration=structuredClone(operation.calibration);else delete entity.calibration;break;
+                 case 'setTrackingMapping':if(entity.kind!=='tracking')return failure('INVALID_INPUT','Entity is not a tracking source',[entity.id]);entity.mapping=structuredClone(operation.mapping);break;
+                 // The session resolves a capture into setTrackingCalibration before this step.
+                 case 'calibrateTracking':return failure('INVALID_INPUT','Calibration needs a live session',[entity.id]);
                 }
             }
             if(!SceneViewSchema.safeParse(next).success)return failure('INVALID_INPUT','Invalid scene references or budget');

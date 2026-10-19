@@ -1,14 +1,10 @@
-import {TrackingUpdateSchema,type TrackingUpdate,type TrackingSample,type TrackingStatus,type TrackingBone,type AvatarPose,type SceneView,type SceneEntity,DEFAULT_TRACKING_SMOOTHING,type Quat,type Reply} from '@opensekai/contracts';
+import {TrackingUpdateSchema,type TrackingUpdate,type TrackingSample,type TrackingStatus,type TrackingBone,type AvatarPose,type SceneView,type SceneEntity,DEFAULT_TRACKING_SMOOTHING,FINGER_BONES,type Quat,type Reply} from '@opensekai/contracts';
+import {applyCalibration} from './tracking-calibration';
+import {applyMapping,scaleRotation} from './tracking-mapping';
 import {evaluateAvatarIdle} from './idle';
 import {createTrackingSampleFilter} from './tracking-filter';
-const faceBones=new Set(['head','neck','leftEye','rightEye','jaw']);
+const faceBones=new Set(['head','neck','leftEye','rightEye','jaw']),fingerBones=new Set(FINGER_BONES);
 const copy=<T>(value:T):T=>structuredClone(value);
-function fadeQuaternion(q:Quat,weight:number):Quat {
- const sign=q[3]<0?-1:1,angle=Math.acos(Math.min(1,Math.max(-1,q[3]*sign)));
- if(angle<.000001)return [0,0,0,1];
- const factor=Math.sin(angle*weight)/Math.sin(angle);
- return [q[0]*sign*factor,q[1]*sign*factor,q[2]*sign*factor,Math.cos(angle*weight)];
-}
 function multiplyQuaternion(a:Quat,b:Quat):Quat {
  const [ax,ay,az,aw]=a,[bx,by,bz,bw]=b;
  const q:Quat=[ax*bw+aw*bx+ay*bz-az*by,ay*bw+aw*by+az*bx-ax*bz,az*bw+aw*bz+ax*by-ay*bx,aw*bw-ax*bx-ay*by-az*bz];
@@ -37,6 +33,8 @@ export function createTrackingComposer(){
   for(const status of parsed.data.statuses){const source=scene.entities.find(e=>e.kind==='tracking'&&e.id===status.sourceId);if(source?.kind!=='tracking'||source.generation!==status.generation)continue;statuses.set(status.sourceId,copy(status));if(status.state==='error'||status.state==='stopped')dropSample(status.sourceId);}
   return{ok:true,data:null};
  },
+ // The smoothed sample that `evaluate` uses, before the stale fade. Null when it is older than 500 ms at nowMs.
+ currentSample(sourceId:string,nowMs:number):TrackingSample|null{const sample=samples.get(sourceId);return sample&&nowMs-sample.receivedAtMs<=500?copy(sample):null;},
  evaluate(scene:SceneView,nowMs:number,animationElapsedMs=nowMs):{avatarPoses:AvatarPose[];trackingStatus:TrackingStatus[]}{
   if(!Number.isFinite(nowMs)||nowMs<0)throw new RangeError('Invalid tracking time');
   if(!Number.isFinite(animationElapsedMs)||animationElapsedMs<0)throw new RangeError('Invalid animation time');reconcile(scene);
@@ -44,8 +42,13 @@ export function createTrackingComposer(){
    const source=scene.entities.find(e=>e.kind==='tracking'&&e.id===id),sample=id?samples.get(id):undefined;
    if(source?.kind!=='tracking'||!source.config.enabled||!sample||sample.generation!==source.generation||sample.receivedAtMs>nowMs+100)return null;
    const age=Math.max(0,nowMs-sample.receivedAtMs),weight=age<=500?1:Math.max(0,1-(age-500)/250);
-   return weight>0?{sample,weight}:null;
+   if(weight<=0)return null;
+   // Calibration, then mapping, before mixing and the stale fade (R4, R10). One result for each source in this evaluation.
+   let mapped=resolved.get(source.id);
+   if(!mapped){mapped=applyMapping(applyCalibration(sample,source.calibration),source.mapping);resolved.set(source.id,mapped);}
+   return {sample:mapped,weight};
   }
+  const resolved=new Map<string,TrackingSample>();
   const avatarPoses:AvatarPose[]=[];
   for(const entity of scene.entities){if(entity.kind!=='avatar')continue;
    const baseBones=entity.idleAnimation?.enabled?evaluateAvatarIdle(animationElapsedMs):undefined;
@@ -58,8 +61,10 @@ export function createTrackingComposer(){
     const chest=face.sample.bones.chest;
     if(name==='head'&&faceSource?.kind==='tracking'&&faceSource.config.kind==='mediapipe'&&body?.sample.sourceId!==face.sample.sourceId&&bone.space==='normalized'&&chest?.space==='normalized')resolved.rotation=multiplyQuaternion(chest.rotation,bone.rotation);
     boneEntries.push([name,{...resolved,weight:face.weight}]);}
+   const fingers=input(entity.tracking?.fingersSourceId);
+   if(fingers)for(const[name,bone]of Object.entries(fingers.sample.bones)){if(!fingerBones.has(name))continue;const index=boneEntries.findIndex(([key])=>key===name);if(index>=0)boneEntries.splice(index,1);boneEntries.push([name,{...copy(bone),weight:fingers.weight}]);}
    const pose:AvatarPose={avatarId:entity.id,...(baseBones?{baseBones}:{}),bones:Object.fromEntries(boneEntries),expressions:Object.fromEntries(face?Object.entries(face.sample.expressions).map(([name,value])=>[name,value*face.weight]):[])};
-   if(body?.sample.root)pose.root={position:body.sample.root.position.map(value=>value*body.weight)as[number,number,number],rotation:fadeQuaternion(body.sample.root.rotation,body.weight)};
+   if(body?.sample.root)pose.root={position:body.sample.root.position.map(value=>value*body.weight)as[number,number,number],rotation:scaleRotation(body.sample.root.rotation,body.weight)};
    avatarPoses.push(pose);
   }
   const trackingStatus=scene.entities.filter(e=>e.kind==='tracking').map(source=>{

@@ -1,5 +1,5 @@
-import { ExpressionNameSchema,ExpressionSettingsSchema,TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,TrackingSmoothingSchema,EntityNameSchema,ShowSceneSchema,IdSchema,CameraAntiAliasingSchema,CameraNavigationSchema,LightSettingsSchema,HazeSettingsSchema,ReflectionsIntensitySchema } from '@opensekai/contracts';
-import type { ExpressionSettings, AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing, CameraAntiAliasing, CameraNavigation, CameraScreenshotResult, LightSettings, HazeSettings } from '@opensekai/contracts';
+import { ExpressionNameSchema,ExpressionSettingsSchema,TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,TrackingSmoothingSchema,TrackingMappingSchema,EntityNameSchema,ShowSceneSchema,IdSchema,CameraAntiAliasingSchema,CameraNavigationSchema,LightSettingsSchema,HazeSettingsSchema,ReflectionsIntensitySchema } from '@opensekai/contracts';
+import type { ExpressionSettings, AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing, TrackingMapping, CameraAntiAliasing, CameraNavigation, CameraScreenshotResult, LightSettings, HazeSettings } from '@opensekai/contracts';
 import {makeEntityCopy} from './asset-management';
 type CameraLens=Extract<SceneEntity,{kind:'camera'}>['lens'];
 export interface EditorView {
@@ -156,6 +156,18 @@ export function createEditorModel(api: AppApi) {
   setTrackingSmoothing(entityId:Id,smoothing:TrackingSmoothing,expectedRevision?:number,live=false):Promise<Reply<{revision:number}>> {
    const parsed=TrackingSmoothingSchema.safeParse(smoothing);if(!ofKind(entityId,'tracking')||!parsed.success)return invalid();
    return patch({kind:'setTrackingSmoothing',entityId,smoothing:parsed.data},expectedRevision,live);
+  },
+  calibrateTracking(entityId:Id,expectedRevision?:number):Promise<Reply<{revision:number}>> {
+   if(!ofKind(entityId,'tracking'))return invalid();
+   return patch({kind:'calibrateTracking',entityId},expectedRevision);
+  },
+  resetTrackingCalibration(entityId:Id,expectedRevision?:number):Promise<Reply<{revision:number}>> {
+   if(!ofKind(entityId,'tracking'))return invalid();
+   return patch({kind:'setTrackingCalibration',entityId,calibration:null},expectedRevision);
+  },
+  setTrackingMapping(entityId:Id,mapping:TrackingMapping,expectedRevision?:number):Promise<Reply<{revision:number}>> {
+   const parsed=TrackingMappingSchema.safeParse(mapping);if(!ofKind(entityId,'tracking')||!parsed.success)return invalid();
+   return patch({kind:'setTrackingMapping',entityId,mapping:parsed.data},expectedRevision);
   },
   setTrackingConfig(entityId:Id,config:TrackingConfig,expectedRevision?:number):Promise<Reply<{revision:number}>> {
    const parsed=TrackingConfigSchema.safeParse(config),entity=view.scene?.entities.find(e=>e.id===entityId);

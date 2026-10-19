@@ -1,18 +1,42 @@
-import {LensSchema,TrackingConfigSchema} from '@opensekai/contracts';
-import type {SceneEntity,TrackingConfig,AvatarIdle,AvatarTracking,TrackingStatus,TrackingSmoothing} from '@opensekai/contracts';
+import {ARKIT_NAMES,DEFAULT_TRACKING_MAPPING,LensSchema,TrackingConfigSchema,TrackingMappingSchema} from '@opensekai/contracts';
+import type {SceneEntity,TrackingConfig,AvatarIdle,AvatarTracking,TrackingStatus,TrackingSmoothing,TrackingMapping,Reply} from '@opensekai/contracts';
 export type CameraLens=Extract<SceneEntity,{kind:'camera'}>['lens'];
 export type AddKind='camera'|'character'|'environment'|'directionalLight'|'pointLight'|'spotLight'|'ambientLight'|'haze'|TrackingConfig['kind'];
 export type Commit<T>=(id:string,value:T,revision:number)=>Promise<unknown>;
-export interface LivePropertyCallbacks {onlens?:Commit<CameraLens>;onavatartracking?:Commit<AvatarTracking>;onavataridle?:Commit<AvatarIdle>;ontrackingsmoothing?:Commit<TrackingSmoothing>;ontrackingconfig?:Commit<TrackingConfig>;ontrackingtoggle?:(id:string,enabled:boolean,revision:number)=>Promise<unknown>;trackingStatus?:TrackingStatus[];localAddresses?:string[];devices?:{deviceId:string;label:string}[]}
+export interface LivePropertyCallbacks {onlens?:Commit<CameraLens>;onavatartracking?:Commit<AvatarTracking>;onavataridle?:Commit<AvatarIdle>;ontrackingsmoothing?:Commit<TrackingSmoothing>;ontrackingmapping?:Commit<TrackingMapping>;ontrackingcalibrate?:(id:string,revision:number)=>Promise<Reply<unknown>|undefined>;ontrackingcalibrationreset?:(id:string,revision:number)=>Promise<Reply<unknown>|undefined>;ontrackingconfig?:Commit<TrackingConfig>;ontrackingtoggle?:(id:string,enabled:boolean,revision:number)=>Promise<unknown>;trackingStatus?:TrackingStatus[];localAddresses?:string[];devices?:{deviceId:string;label:string}[]}
 export function parseLens(values:Record<keyof CameraLens,string>):CameraLens|null {const parsed=LensSchema.safeParse(Object.fromEntries(Object.entries(values).map(([key,value])=>[key,value.trim()===''?NaN:Number(value)])));return parsed.success?parsed.data:null;}
 export function reconcileDraft<T>(previousKey:string|null,source:{entityId:string;revision:number},values:T,base:T):{key:string;values:T}{const key=`${source.entityId}:${source.revision}`;return {key,values:key===previousKey?values:structuredClone(base)};}
 export type SourceOption={value:string;label:string;disabled:boolean};
-// A source that another avatar uses is disabled. The current value of the select stays enabled.
-export function sourceOptions(entities:readonly SceneEntity[],channel:'body'|'face',avatarId:string):SourceOption[] {
+export type SourceChannel='body'|'face'|'fingers';
+const slot={body:'bodySourceId',face:'faceSourceId',fingers:'fingersSourceId'} as const;
+// A source that another avatar uses in any slot is disabled. The current value of the select stays enabled.
+// Only the face slot lists iFacialMocap sources.
+export function sourceOptions(entities:readonly SceneEntity[],channel:SourceChannel,avatarId:string):SourceOption[] {
  const avatars=entities.flatMap(entity=>entity.kind==='avatar'?[entity]:[]);
- const own=avatars.find(avatar=>avatar.id===avatarId)?.tracking?.[channel==='body'?'bodySourceId':'faceSourceId']??null;
- const used=new Set(avatars.filter(avatar=>avatar.id!==avatarId).flatMap(avatar=>[avatar.tracking?.bodySourceId,avatar.tracking?.faceSourceId]));
+ const own=avatars.find(avatar=>avatar.id===avatarId)?.tracking?.[slot[channel]]??null;
+ const used=new Set(avatars.filter(avatar=>avatar.id!==avatarId).flatMap(avatar=>[avatar.tracking?.bodySourceId,avatar.tracking?.faceSourceId,avatar.tracking?.fingersSourceId]));
  return [{value:'',label:'None',disabled:false},...entities.filter(entity=>entity.kind==='tracking'&&(channel==='face'||entity.config.kind!=='ifacialmocap')).map(entity=>({value:entity.id,label:entity.name,disabled:entity.id!==own&&used.has(entity.id)}))];
+}
+// One select changes one slot; the other two keep their IDs. An empty finger slot is left out.
+export function withSource(tracking:AvatarTracking|undefined,channel:SourceChannel,value:string):AvatarTracking {
+ const next={bodySourceId:tracking?.bodySourceId??null,faceSourceId:tracking?.faceSourceId??null,fingersSourceId:tracking?.fingersSourceId??null,[slot[channel]]:value||null};
+ const {fingersSourceId,...rest}=next;return fingersSourceId?{...rest,fingersSourceId}:rest;
+}
+export type RangeDraft={inputMin:string;inputMax:string;outputMin:string;outputMax:string};
+export interface MappingDraft {headIntensity:string;headOffset:[string,string,string];eyeIntensity:string;blendShapeSensitivity:string;linkedBlink:boolean;blendShapes:Record<string,RangeDraft>}
+const DEFAULT_RANGE={inputMin:0,inputMax:1,outputMin:0,outputMax:1};
+// Each ARKit name has a row. A name with no range shows the default range.
+export function mappingDraft(mapping:TrackingMapping|undefined):MappingDraft {
+ const m=mapping??DEFAULT_TRACKING_MAPPING;
+ return {headIntensity:String(m.headIntensity),headOffset:m.headOffset.map(String) as [string,string,string],eyeIntensity:String(m.eyeIntensity),blendShapeSensitivity:String(m.blendShapeSensitivity),linkedBlink:m.linkedBlink,
+  blendShapes:Object.fromEntries(ARKIT_NAMES.map(name=>{const r=m.blendShapes[name]??DEFAULT_RANGE;return [name,{inputMin:String(r.inputMin),inputMax:String(r.inputMax),outputMin:String(r.outputMin),outputMax:String(r.outputMax)}];}))};
+}
+const num=(value:string)=>value.trim()===''?NaN:Number(value);
+// Only the named rows become ranges, so an untouched row commits nothing.
+export function parseMappingDraft(draft:MappingDraft,ranges:ReadonlySet<string>):TrackingMapping|null {
+ const blendShapes=Object.fromEntries([...ranges].map(name=>{const r=draft.blendShapes[name];return [name,r?{inputMin:num(r.inputMin),inputMax:num(r.inputMax),outputMin:num(r.outputMin),outputMax:num(r.outputMax)}:null];}));
+ const parsed=TrackingMappingSchema.safeParse({headIntensity:num(draft.headIntensity),headOffset:draft.headOffset.map(num),eyeIntensity:num(draft.eyeIntensity),blendShapeSensitivity:num(draft.blendShapeSensitivity),linkedBlink:draft.linkedBlink,blendShapes});
+ return parsed.success?parsed.data:null;
 }
 export function parseTrackingConfig(config:TrackingConfig,values:{bindAddress:string;port:string;address:string}):TrackingConfig|null {const candidate=config.kind==='mediapipe'?config:{...config,bindAddress:values.bindAddress.trim(),port:values.port.trim()===''?NaN:Number(values.port),[config.kind==='vmc'?'senderAddress':'phoneAddress']:values.address.trim()||null};const parsed=TrackingConfigSchema.safeParse(candidate);return parsed.success?parsed.data:null;}
 export function matchingStatus(statuses:TrackingStatus[],id:string,generation:number){return statuses.find(status=>status.sourceId===id&&status.generation===generation);}

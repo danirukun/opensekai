@@ -555,6 +555,8 @@ mod tests {
             outputs: vec![],
             entities: vec![SceneEntity::Tracking {
                 smoothing: None,
+                calibration: None,
+                mapping: None,
                 id: "source".into(),
                 name: "Face".into(),
                 visible: true,
@@ -684,6 +686,8 @@ mod status_tests {
             outputs: vec![],
             entities: vec![SceneEntity::Tracking {
                 smoothing: None,
+                calibration: None,
+                mapping: None,
                 id: "filtered".into(),
                 name: "Filtered".into(),
                 visible: true,

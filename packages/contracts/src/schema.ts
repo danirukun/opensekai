@@ -1,4 +1,4 @@
-import {TrackingConfigSchema,TrackingSmoothingSchema,AvatarIdleSchema,AvatarTrackingSchema,AvatarPoseSchema,TrackingStatusSchema,TrackingUpdateSchema} from './tracking';
+import {TrackingConfigSchema,TrackingSmoothingSchema,TrackingCalibrationSchema,TrackingMappingSchema,AvatarIdleSchema,AvatarTrackingSchema,AvatarPoseSchema,TrackingStatusSchema,TrackingUpdateSchema} from './tracking';
 import { BlueprintGraphSchema, BlueprintSetSchema } from './blueprint';
 import { BlueprintBatchSchema } from './blueprint-ops';
 import { BlueprintDebugParamsSchema, BlueprintDebugSchema } from './blueprint-debug';
@@ -165,7 +165,7 @@ export const SceneEntitySchema = z.discriminatedUnion("kind", [
         idleAnimation: AvatarIdleSchema.optional(),
         expressions: AvatarExpressionsSchema.optional()
     }),
-    EntityBaseSchema.extend({kind:z.literal('tracking'),config:TrackingConfigSchema,generation:u,smoothing:TrackingSmoothingSchema.optional()}),
+    EntityBaseSchema.extend({kind:z.literal('tracking'),config:TrackingConfigSchema,generation:u,smoothing:TrackingSmoothingSchema.optional(),calibration:TrackingCalibrationSchema.optional(),mapping:TrackingMappingSchema.optional()}),
     EntityBaseSchema.extend({
         kind: z.literal("environment"),
         assetId: IdSchema.nullable(),
@@ -209,7 +209,8 @@ export const SceneViewSchema = z.strictObject({
  if(s.entities.filter(e=>e.kind==='haze').length>LIMITS.hazes)return false;
  if(!s.entities.every(e=>{if(e.kind!=='camera'||e.navigation?.mode!=='orbitCharacter')return true;const target=e.navigation.targetId;return target===null||s.entities.some(a=>a.id===target&&a.kind==='avatar');}))return false;
  if(new Set(s.entities.map(e=>e.id)).size!==s.entities.length||new Set(s.outputs.map(o=>o.id)).size!==s.outputs.length||!s.outputs.every(o=>s.entities.some(e=>e.id===o.cameraId&&e.kind==='camera')))return false;
- return s.entities.every(e=>e.kind!=='avatar'||!e.tracking||[e.tracking.bodySourceId,e.tracking.faceSourceId].every((id,index)=>id===null||sources.some(source=>source.id===id&&(index===1||source.config.kind!=='ifacialmocap'))));
+ // Only the face slot (index 1) accepts an iFacialMocap source.
+ return s.entities.every(e=>e.kind!=='avatar'||!e.tracking||[e.tracking.bodySourceId,e.tracking.faceSourceId,e.tracking.fingersSourceId??null].every((id,index)=>id===null||sources.some(source=>source.id===id&&(index===1||source.config.kind!=='ifacialmocap'))));
 }, 'Duplicate ID, budget or invalid reference');
 export const ShowSceneSchema = SceneViewSchema.refine(scene =>
     ['output_main', 'preview_main'].every(id => scene.outputs.some(output => output.id === id)),
@@ -239,6 +240,9 @@ export const PatchOpSchema = z.discriminatedUnion("kind", [
     z.strictObject({kind:z.literal('setCameraAntiAliasing'),entityId:IdSchema,antiAliasing:CameraAntiAliasingSchema}),
     z.strictObject({kind:z.literal('setCameraNavigation'),entityId:IdSchema,navigation:CameraNavigationSchema}),
     z.strictObject({kind:z.literal('setTrackingConfig'),entityId:IdSchema,config:TrackingConfigSchema}),
+    z.strictObject({kind:z.literal('calibrateTracking'),entityId:IdSchema}),
+    z.strictObject({kind:z.literal('setTrackingCalibration'),entityId:IdSchema,calibration:TrackingCalibrationSchema.nullable()}),
+    z.strictObject({kind:z.literal('setTrackingMapping'),entityId:IdSchema,mapping:TrackingMappingSchema}),
     z.strictObject({
         kind: z.literal("setTransform"),
         entityId: IdSchema,

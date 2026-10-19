@@ -1,5 +1,6 @@
 use opensekai_contracts::{
-    parse_wire, validate_value, AppStatus, AvatarPose, SceneEntity, ScenePatch, TrackingStatus,
+    parse_wire, validate_value, AppStatus, AvatarPose, SceneEntity, ScenePatch, SceneView,
+    TrackingStatus,
 };
 use serde_json::json;
 fn source() -> serde_json::Value {
@@ -148,4 +149,108 @@ fn b5_optional_fields_match_typescript() {
     assert!(validate_value::<AvatarPose>(&pose).is_err());
     pose["boneOffsets"] = json!({"chest":[0,1,0,1]});
     assert!(validate_value::<AvatarPose>(&pose).is_err());
+}
+fn overrides_fixture() -> serde_json::Value {
+    serde_json::from_str(include_str!(
+        "../../../fixtures/protocol/tracking-overrides.json"
+    ))
+    .unwrap()
+}
+fn calibration_patch(calibration: serde_json::Value) -> serde_json::Value {
+    json!({"sceneId":"s","expectedRevision":1,"operations":[{"kind":"setTrackingCalibration","entityId":"s","calibration":calibration}]})
+}
+fn mapping() -> serde_json::Value {
+    overrides_fixture()["withFields"]["entities"][3]["mapping"].clone()
+}
+fn mapping_patch(mapping: serde_json::Value) -> serde_json::Value {
+    json!({"sceneId":"s","expectedRevision":1,"operations":[{"kind":"setTrackingMapping","entityId":"s","mapping":mapping}]})
+}
+// Rust writes 0 as 0.0, so numbers compare by value. Keys and nulls must match.
+fn numbers_as_f64(value: &serde_json::Value) -> serde_json::Value {
+    match value {
+        serde_json::Value::Number(n) => json!(n.as_f64().unwrap()),
+        serde_json::Value::Array(items) => items.iter().map(numbers_as_f64).collect(),
+        serde_json::Value::Object(map) => map
+            .iter()
+            .map(|(k, v)| (k.clone(), numbers_as_f64(v)))
+            .collect::<serde_json::Map<_, _>>()
+            .into(),
+        other => other.clone(),
+    }
+}
+#[test]
+fn b6_fixture_scenes_round_trip_without_added_nulls() {
+    let fixture = overrides_fixture();
+    for key in ["withFields", "withoutFields"] {
+        let scene = &fixture[key];
+        assert!(validate_value::<SceneView>(scene).is_ok(), "{key}");
+        let parsed: SceneView = serde_json::from_value(scene.clone()).unwrap();
+        assert_eq!(
+            numbers_as_f64(&serde_json::to_value(&parsed).unwrap()),
+            numbers_as_f64(scene),
+            "{key}"
+        );
+    }
+}
+#[test]
+fn b6_calibration_mapping_and_finger_slot_are_checked() {
+    let fixture = overrides_fixture();
+    let one = json!({"bones":{"head":{"rotation":[0,0,0,1],"space":"raw"}}});
+    assert!(validate_value::<ScenePatch>(&calibration_patch(one.clone())).is_ok());
+    assert!(validate_value::<ScenePatch>(&calibration_patch(json!(null))).is_ok());
+    assert!(validate_value::<ScenePatch>(&json!({"sceneId":"s","expectedRevision":1,"operations":[{"kind":"calibrateTracking","entityId":"s"}]})).is_ok());
+    let names = ["hips", "spine", "chest", "upperChest", "neck", "head"];
+    let all: serde_json::Map<_, _> = names
+        .iter()
+        .map(|n| {
+            (
+                n.to_string(),
+                json!({"rotation":[0,0,0,1],"space":"normalized"}),
+            )
+        })
+        .collect();
+    assert!(validate_value::<ScenePatch>(&calibration_patch(json!({ "bones": all }))).is_ok());
+    for bad in [
+        json!({"bones":{}}),
+        json!({"bones":{"leftEye":{"rotation":[0,0,0,1],"space":"raw"}}}),
+        json!({"bones":{"head":{"rotation":[0,0,0,2],"space":"raw"}}}),
+        json!({"bones":{"head":{"rotation":[0,0,0,1],"space":"world"}}}),
+    ] {
+        assert!(
+            validate_value::<ScenePatch>(&calibration_patch(bad.clone())).is_err(),
+            "{bad}"
+        );
+    }
+    let mut seven = all.clone();
+    seven.insert(
+        "leftEye".into(),
+        json!({"rotation":[0,0,0,1],"space":"normalized"}),
+    );
+    assert!(validate_value::<ScenePatch>(&calibration_patch(json!({ "bones": seven }))).is_err());
+    assert!(validate_value::<ScenePatch>(&mapping_patch(mapping())).is_ok());
+    let range = |a: f64, b: f64, c: f64, d: f64| json!({"jawOpen":{"inputMin":a,"inputMax":b,"outputMin":c,"outputMax":d}});
+    for (field, value) in [
+        ("headIntensity", json!(2.01)),
+        ("eyeIntensity", json!(-0.01)),
+        ("headOffset", json!([0, 91, 0])),
+        ("blendShapeSensitivity", json!(3.01)),
+        ("blendShapes", range(0.5, 0.5, 0., 1.)),
+        ("blendShapes", range(0., 1., 0.6, 0.5)),
+        (
+            "blendShapes",
+            json!({"tail":{"inputMin":0,"inputMax":1,"outputMin":0,"outputMax":1}}),
+        ),
+    ] {
+        let mut m = mapping();
+        m[field] = value;
+        assert!(
+            validate_value::<ScenePatch>(&mapping_patch(m)).is_err(),
+            "{field}"
+        );
+    }
+    let mut scene = fixture["withFields"].clone();
+    scene["entities"][0]["tracking"]["fingersSourceId"] = json!("source_face");
+    assert!(validate_value::<SceneView>(&scene).is_err());
+    scene["entities"][0]["tracking"]["fingersSourceId"] = json!("missing");
+    assert!(validate_value::<SceneView>(&scene).is_err());
 }
