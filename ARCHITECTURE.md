@@ -10,8 +10,9 @@ flowchart LR
   Editor["Editor window (Tauri WebView)\noperator client"] <-->|WebSocket| Host
   MCP["apps/mcp (stdio)\noperator client"] <-->|WebSocket| Host
   OBS["OBS Browser Source\napps/output = renderer client"] <-->|WebSocket + GET /assets| Host
-  Host["Rust host (apps/desktop/src-tauri)\nloopback axum service, router, auth,\nasset registry, tracking sockets, input"]
+  Host["Rust host (apps/desktop/src-tauri)\nloopback axum service, router, auth,\nasset registry, tracking sockets,\ninput (keys, gamepad, MIDI, pointer)"]
   Trackers["VMC / iFacialMocap senders"] -->|UDP| Host
+  Devices["Gamepads / MIDI ports / pointer"] -->|gilrs, CoreMIDI, CoreGraphics| Host
 ```
 
 - **Rust host** (`apps/desktop/src-tauri`). It owns sockets, files, the asset library, native dialogs, global input, and the loopback service on `127.0.0.1:0`. It does not own scene state.
@@ -23,14 +24,14 @@ flowchart LR
 
 | Path | Role |
 | --- | --- |
-| `packages/contracts` | zod schemas and types for scenes, shows, patches, assets, Blueprints, tracking, and the call API. The source of truth for the wire shape. |
-| `crates/contracts` | Rust mirror of the contracts. `fixtures/protocol/validation-vectors.json` keeps both sides equal. |
-| `packages/session` | Session worker: scene operations (`scene-ops.ts`), ECS, tracking filters, idle, bone offset layer (`bone-offsets.ts`), Blueprint runtime and evaluators. |
+| `packages/contracts` | zod schemas and types for scenes, shows, patches, assets, Blueprints, tracking, device input, and the call API. The source of truth for the wire shape. The Blueprint value model (`blueprint-values.ts`) holds the data types, the value limits, and the one connection rule `canConnect`. One definition per node type (`blueprint-nodes/`) gives its ports, settings, fields, and inline input defaults. Graphs carry optional `comments`; `duplicateGraph` derives new IDs deterministically (`blueprint-duplicate.ts`). |
+| `crates/contracts` | Rust mirror of the contracts. `fixtures/protocol/validation-vectors.json` keeps both sides equal. The host checks the structure of Blueprint node `inputs`, typed variables, comments, and each Blueprint op kind; it does not check port types. |
+| `packages/session` | Session worker: scene operations (`scene-ops.ts`), ECS, tracking filters, idle, bone offset layer (`bone-offsets.ts`), Blueprint runtime and evaluators, transitions (`tweens.ts`), blend shape and look-at layers (`blend-shapes.ts`, `look-at.ts`), device input state (`devices.ts`). |
 | `packages/renderer` | three.js `WebGPURenderer` (WebGL 2 fallback), VRM loading, load jobs, texture sharing and limits, editor viewport and gizmos, diagnostics. |
 | `packages/extensions` | Extension sandbox: manifest schema, one QuickJS WASM instance for each extension, worker protocol, and a main-thread client with a watchdog. No app process loads it yet. |
 | `packages/browser-client` | WebSocket client, frame stream, `readAsset` over `GET /assets/{id}`. Used by every TypeScript client. |
-| `apps/desktop/src` | Svelte 5 Scene window (`App.svelte`, `bootstrap.ts`) and Editor window (`EditorApp.svelte`, `editor/`, `components/`, `blueprints/`). Controls come from `@oshi-connect/ui`. |
-| `apps/desktop/src-tauri` | Tauri commands (`lib.rs`), service (`service/`), asset registry (`assets/`), show and Blueprint files, tracking, input. |
+| `apps/desktop/src` | Svelte 5 Scene window (`App.svelte`, `bootstrap.ts`) and Editor window (`EditorApp.svelte`, `editor/`, `components/`, `blueprints/`). Controls come from `@oshi-connect/ui`. Blueprint palette state (collapsed sections, favorites) is per user in the Editor window `localStorage` key `opensekai.blueprint.palette`. Comments are DOM boxes behind the wires in the Rete area. |
+| `apps/desktop/src-tauri` | Tauri commands (`lib.rs`), service (`service/`), asset registry (`assets/`), show and Blueprint files, tracking, input (`input/`: keyboard monitor, and `input/devices/` gamepad, MIDI, and pointer adapters). |
 | `apps/output` | The OBS Browser Source page, served by the host at `/renderer/`. |
 | `apps/mcp` | MCP stdio server. Each tool maps to one call in the same API as the editor (`tools.ts`). |
 | `crates/evaluation`, `tools/evaluation` | Capture and benchmark run records, and the Blueprint node audit check against the node catalog. |
@@ -48,6 +49,20 @@ Editor and MCP edits use the same route: a call (for example `scenePatch`) goes 
 2. **Clock.** The host sends the latest samples and statuses to the publisher in the credited `clock` envelope.
 3. **Compose.** The session applies each avatar's body and face sources (smoothing, hold, fade, idle) and makes one `AvatarPose` for each avatar. A `scenePatch` that makes two avatars use one source is rejected. Blueprint `character.offsetBoneRotation` writes to a bone offset layer that is empty at the start of each tick; the session adds it to the frame pose as `boneOffsets`. The layer is never committed or saved. `character.getBoneRotation` reads the pose of the previous tick.
 4. **Render.** The renderer applies each pose to its own VRM instance (`renderer/src/avatar-pose.ts`): normalized bones, raw bones, root, expressions, then `boneOffsets` in the parent frame of each bone.
+
+Blueprint transitions (`session/src/tweens.ts`) are runtime state on the session clock. A property tween writes its eased sample to the override layer at each advance, after the Blueprint step and before the idle commit. An override under a tween does not commit, so the revision changes once after the end. A scene patch or an immediate write stops the tween, and the transitions of a disabled, deleted, or changed graph stop. Tween failures stay as runtime errors of their graph until it changes. Blend shape weights (`blend-shapes.ts`) merge into `AvatarPose.expressions` by max after expressions. Look At (`look-at.ts`) adds a head rotation to the bone offset layer each tick. None of this is committed, saved, or advanced by a renderer.
+
+## Blueprint runtime path
+
+The session compiles each enabled graph and runs it in phases on each step: On Disable of departing versions, On Enable, due delays, debounces, and timers, then input events (keystrokes, devices, manual and external events, On Update). A run writes to a copy of its state, and the session keeps the copy only when the run and its scene commit succeed. Besides scene effects, a run can make requests: emit an event, enable or disable a graph, start or stop a timer, or debounce. Emitted events go to a per-step FIFO queue and reach the On Event nodes of the enabled graphs in the same tick (hop limit 8, 64 events per step). Control requests apply after the step as one `updateGraph` edit through the Blueprint store (client `opensekai-runtime`), so a toggle is saved with the show and syncs like an editor edit. The host key, held-key, and device sets cover the listened graphs: the enabled graphs, plus each graph that an Enable or Toggle node in a listened graph can enable. `blueprintRun` also takes `{event, payload?}` (checked in TypeScript and Rust) to send an event from the editor API or MCP. A Blueprint file import lists control nodes that target a graph outside the file as `blueprint` in its `Missing` report.
+
+## Blueprint debug path
+
+Log, Show Toast, and Emit Debug Event nodes make debug effects that the session gate applies with the run. Debug Value results travel in `GraphRun.debug`, not in the effects. The session records debug entries and values only after the step's scene commit succeeds, in a runtime ring (`session/src/debug-log.ts`): the last 1000 entries with session time, graph, and node, the latest Debug Value text per node, and per-node and per-graph rate limits with drop counts. The log is never saved or put in a frame. The editor and MCP (`blueprint_debug_log`) read it with `blueprintDebug { since }`, which the host relays like `blueprintInspect` and checks on both sides. Each reply has the log `epoch` and the full value set. The Editor window polls it each 500 ms and shows toasts only in its own window.
+
+## Device input path
+
+The session reports the device kinds that the listened graphs use (`devices`) in `blueprintEdit` and `blueprintInspect` replies, through the same path as `heldKeys`. The host `DeviceHub` (`input/devices.rs`) activates one `DeviceAdapter` per used kind: a gilrs gamepad thread, a midir MIDI thread with the CoreMIDI run loop, and a macOS pointer poll on each clock that also reads the CoreGraphics button-down counters. No adapter needs a new permission, consumes input, or injects input. Device events and state ride the clock as `input.devices`; a clock with tracking or device input may use 64 KiB (`clock_byte_limit` / `clockByteLimit`), and any other clock 2 KiB. The session keeps the MIDI control values and starts device-trigger runs after keystrokes and before On Update. A used kind without a working adapter shows as an app status warning (`device-gamepad`, `device-midi`, `device-pointer`).
 
 ## Asset path
 

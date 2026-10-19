@@ -1,28 +1,47 @@
 import type { OverrideWrite } from './overrides';
 import type { ExpressionEffect } from './expressions';
 import type { BoneOffsetEffect } from './bone-offsets';
-import { cloneState, EVALUATORS, NO_ENV, type BlueprintValue, type Evaluator, type RunEnv, type RunState } from './blueprint-eval';
-import { BlueprintGraphSchema, blueprintPorts, nodeDefinition, connectionType, type BlueprintConnection, type BlueprintGraph, type BlueprintNode, type Id, type Reply } from '@opensekai/contracts';
+import type { BlendShapeEffect } from './blend-shapes';
+import type { LookAtEffect } from './look-at';
+import { DEBUG_EFFECT_KINDS, type DebugEffect, type DebugValueSample } from './debug-log';
+import { BlueprintLimitError, checkBlueprintValue, clearNodeState, cloneState, EVALUATORS, NO_ENV, type BlueprintValue, type Evaluator, type NodeRequest, type RunEnv, type RunState } from './blueprint-eval';
+import { BlueprintGraphSchema, blueprintPorts, nodeDefinition, connectionType, ownPort, unconnectedInputValue, type BlueprintConnection, type BlueprintGraph, type BlueprintNode, type Id, type PortShape, type Reply } from '@opensekai/contracts';
 
 export type SceneEffect =
  | { kind: 'setVisibility'; entityId: Id; visible: boolean }
  | { kind: 'toggleVisibility'; entityId: Id }
  | { kind: 'selectCamera'; outputId: Id; cameraId: Id };
-export type BlueprintEffect = SceneEffect | OverrideWrite | ExpressionEffect | BoneOffsetEffect;
+export type CharacterLayerEffect = BlendShapeEffect | LookAtEffect;
+export type BlueprintEffect = SceneEffect | OverrideWrite | ExpressionEffect | BoneOffsetEffect | CharacterLayerEffect | DebugEffect;
 export const isOverrideEffect = (effect: BlueprintEffect): effect is OverrideWrite => effect.kind === 'setProperty' || effect.kind === 'moveEntity';
 export const isExpressionEffect = (effect: BlueprintEffect): effect is ExpressionEffect => effect.kind === 'setExpression' || effect.kind === 'toggleExpression';
 export const isBoneOffsetEffect = (effect: BlueprintEffect): effect is BoneOffsetEffect => effect.kind === 'offsetBone';
-export const isSceneEffect = (effect: BlueprintEffect): effect is SceneEffect => !isOverrideEffect(effect) && !isExpressionEffect(effect) && !isBoneOffsetEffect(effect);
-export interface CompiledBlueprint { graph: BlueprintGraph; nodes: Map<Id, BlueprintNode>; dataIn: Map<string, BlueprintConnection>; flowNext: Map<string, BlueprintConnection> }
+export const isCharacterLayerEffect = (effect: BlueprintEffect): effect is CharacterLayerEffect => effect.kind === 'setBlendShape' || effect.kind === 'lookAt';
+export const isDebugEffect = (effect: BlueprintEffect): effect is DebugEffect => DEBUG_EFFECT_KINDS.has(effect.kind);
+export const isSceneEffect = (effect: BlueprintEffect): effect is SceneEffect => !isOverrideEffect(effect) && !isExpressionEffect(effect) && !isBoneOffsetEffect(effect) && !isCharacterLayerEffect(effect) && !isDebugEffect(effect);
+export interface CompiledBlueprint { graph: BlueprintGraph; nodes: Map<Id, BlueprintNode>; ports: Map<Id, PortShape>; dataIn: Map<string, BlueprintConnection>; flowNext: Map<string, BlueprintConnection> }
 export interface PendingDelay { nodeId: Id; dueMs: number }
 export interface FlowBudget { visits: number; effects: number }
-export interface FlowResult { effects: BlueprintEffect[]; delays: PendingDelay[]; state: RunState }
+// `debug` holds the Debug Value samples of the run; they are not effects.
+export interface FlowResult { effects: BlueprintEffect[]; delays: PendingDelay[]; state: RunState; requests: NodeRequest[]; debug: DebugValueSample[] }
 
 const MAX_EVENT_VISITS = 512;
 const MAX_LOOP_ITERATIONS = 64;
 class LoopLimit extends Error {}
-type Frame = { kind: 'enter'; nodeId: Id; port: string } | { kind: 'loop'; nodeId: Id; index: number; last: number };
+type Frame = { kind: 'enter'; nodeId: Id; port: string } | { kind: 'loop'; nodeId: Id; index: number; last: number; clear: boolean };
 const evaluator = (node: BlueprintNode) => EVALUATORS[node.type] as Evaluator<BlueprintNode>;
+// Debug Value nodes that the run read, with the value that the run read. Each other Debug Value node (a watch) reads the
+// outputs that the run computed (the last value of each), and evaluates the rest on one copy of the state at the start of the
+// run, never on the state after the run, where Random has moved on. A watch that fails has no value.
+const debugValues = (compiled: CompiledBlueprint, initial: () => RunState, env: RunEnv, observed: ReadonlyMap<Id, BlueprintValue>, computed: ReadonlyMap<string, BlueprintValue>): DebugValueSample[] => {
+ let scratch: RunState | undefined;
+ return compiled.graph.nodes.flatMap(node => {
+  if (node.type !== 'debug.value') return [];
+  let value = observed.get(node.id);
+  if (value === undefined) try { value = readInput(compiled, scratch ??= initial(), node.id, 'value', env, undefined, computed); } catch { return []; }
+  return [{ nodeId: node.id, valueType: node.settings.valueType, value }];
+ });
+};
 export const fail = (message: string, ids: string[] = []): Reply<never> => ({ ok: false, error: { code: 'INVALID_INPUT', message, ids } });
 const key = (nodeId: string, port: string) => `${nodeId}\0${port}`;
 
@@ -45,9 +64,10 @@ export function compileBlueprint(input: unknown): Reply<CompiledBlueprint> {
  const graph = parsed.data;
  const variables = new Map(graph.variables.map(variable => [variable.id, variable.type]));
  for (const node of graph.nodes) {
-  const field = nodeDefinition(node.type).fields.find(item => item.kind === 'variable');
-  if (field?.kind === 'variable' && variables.get((node.settings as { variableId: string }).variableId) !== field.variableType)
-   return fail('Blueprint variable is missing', [node.id]);
+  const field = nodeDefinition(node.type).fields.find(item => item.kind === 'variable' || item.kind === 'typedVariable');
+  const settings = node.settings as Record<string, unknown>;
+  const expected = field?.kind === 'variable' ? field.variableType : field?.kind === 'typedVariable' ? settings[field.typeKey] : undefined;
+  if (field && variables.get(settings[field.key] as string) !== expected) return fail('Blueprint variable is missing', [node.id]);
  }
  const nodes = new Map(graph.nodes.map(node => [node.id, node]));
  const dataIn = new Map<string, BlueprintConnection>();
@@ -62,58 +82,78 @@ export function compileBlueprint(input: unknown): Reply<CompiledBlueprint> {
   if (type === 'flow') {
    if (flowNext.has(key(source.id, connection.sourcePort))) return fail('Blueprint flow output has multiple connections', [source.id]);
    flowNext.set(key(source.id, connection.sourcePort), connection);
-   if (source.type !== 'flow.delay') push(flowEdges, source.id, target.id);
+   // The exit of Delay and Debounce runs in a later run, so it is not an immediate cycle.
+   if (source.type !== 'flow.delay' && source.type !== 'flow.debounce') push(flowEdges, source.id, target.id);
   } else {
    if (dataIn.has(key(target.id, connection.targetPort))) return fail('Blueprint input has multiple connections', [target.id]);
    dataIn.set(key(target.id, connection.targetPort), connection);
    push(dataEdges, source.id, target.id);
   }
  }
- for (const node of graph.nodes)
-  for (const [port, type] of Object.entries(blueprintPorts(node).inputs))
-   if (type !== 'flow' && !dataIn.has(key(node.id, port))) return fail('Blueprint input is not connected', [node.id]);
  const ids = graph.nodes.map(node => node.id);
  const cycle = cycleIn(ids, dataEdges) ?? cycleIn(ids, flowEdges);
  if (cycle) return fail('Blueprint has an immediate cycle', [cycle]);
- return { ok: true, data: { graph, nodes, dataIn, flowNext } };
+ return { ok: true, data: { graph, nodes, ports: new Map(graph.nodes.map(node => [node.id, blueprintPorts(node)])), dataIn, flowNext } };
 }
 
-const readInput = (compiled: CompiledBlueprint, state: RunState, nodeId: Id, port: string, env: RunEnv): BlueprintValue => {
- const cache = new Map<string, BlueprintValue>();
+// A data input reads its wire, else the inline value on the node, else the default of its type.
+// `record` sees each data output that the read computes; `known` holds outputs that the read takes as computed.
+const readInput = (compiled: CompiledBlueprint, state: RunState, nodeId: Id, port: string, env: RunEnv, record?: (nodeId: Id, output: string, value: BlueprintValue) => void, known?: ReadonlyMap<string, BlueprintValue>): BlueprintValue => {
+ const cache = new Map<string, BlueprintValue>(known ?? []);
+ const input = (id: Id, name: string): BlueprintValue => {
+  const wire = compiled.dataIn.get(key(id, name));
+  return wire ? evaluate(wire.sourceNodeId, wire.sourcePort) : unconnectedInputValue(compiled.nodes.get(id)!, name, compiled.ports.get(id)!);
+ };
  const evaluate = (id: Id, out: string): BlueprintValue => {
   const cached = cache.get(key(id, out));
   if (cached !== undefined) return cached;
   const node = compiled.nodes.get(id)!;
   const data = evaluator(node).data;
-  if (!data) throw new Error('Blueprint has an invalid data source');
-  const result = data(node, out, name => { const wire = compiled.dataIn.get(key(id, name))!; return evaluate(wire.sourceNodeId, wire.sourcePort); }, state, env);
-  if (Array.isArray(result) ? !result.every(Number.isFinite) : typeof result === 'number' && !Number.isFinite(result)) throw new RangeError('Blueprint number is not finite');
+  const type = ownPort(compiled.ports.get(id)!, 'outputs', out);
+  if (!data || !type || type === 'flow') throw new Error('Blueprint has an invalid data source');
+  const result = data(node, out, name => input(id, name), state, env);
+  checkBlueprintValue(type, result);
+  record?.(id, out, result);
   cache.set(key(id, out), result);
   return result;
  };
- const wire = compiled.dataIn.get(key(nodeId, port))!;
- return evaluate(wire.sourceNodeId, wire.sourcePort);
+ return input(nodeId, port);
 };
 
-export function runFlow(compiled: CompiledBlueprint, start: { nodeId: Id; port: string }, state: RunState, budget: FlowBudget, nowMs: number, env: RunEnv = NO_ENV): Reply<FlowResult> {
+// `seed` writes into the state copy before the run (an On Event payload), so a failed run leaves the stored state as it was.
+export function runFlow(compiled: CompiledBlueprint, start: { nodeId: Id; port: string }, state: RunState, budget: FlowBudget, nowMs: number, env: RunEnv = NO_ENV, seed?: (state: RunState) => void): Reply<FlowResult> {
  const next = cloneState(state);
- const effects: BlueprintEffect[] = [], delays: PendingDelay[] = [], stack: Frame[] = [];
+ seed?.(next);
+ const effects: BlueprintEffect[] = [], delays: PendingDelay[] = [], stack: Frame[] = [], requests: NodeRequest[] = [];
+ const observed = new Map<Id, BlueprintValue>(), computed = new Map<string, BlueprintValue>();
+ const record = (id: Id, output: string, value: BlueprintValue) => {
+  computed.set(key(id, output), value);
+  if (compiled.nodes.get(id)!.type === 'debug.value') observed.set(id, value);
+ };
+ // Only a graph with a Debug Value node keeps the outputs of the run.
+ const watching = compiled.graph.nodes.some(node => node.type === 'debug.value');
+ const initial = () => { const copy = cloneState(state); seed?.(copy); return copy; };
  const follow = (nodeId: Id, ports: string[]) => {
   for (const port of [...ports].reverse()) { const wire = compiled.flowNext.get(key(nodeId, port)); if (wire) stack.push({ kind: 'enter', nodeId: wire.targetNodeId, port: wire.targetPort }); }
  };
  follow(start.nodeId, [start.port]);
+ const endLoop = (nodeId: Id, clear: boolean) => {
+  if (clear) { next.loops.delete(nodeId); clearNodeState(next, nodeId); }
+  follow(nodeId, ['completed']);
+ };
  let visits = 0;
  while (stack.length > 0) {
-  if (++visits > MAX_EVENT_VISITS || --budget.visits < 0) return fail('Blueprint run exceeded its flow limit', [start.nodeId]);
   const frame = stack.pop()!;
+  // A loop step is not a node visit; the iteration limit bounds it.
   if (frame.kind === 'loop') {
-   if (frame.index > frame.last) { follow(frame.nodeId, ['completed']); continue; }
+   if (frame.index > frame.last) { endLoop(frame.nodeId, frame.clear); continue; }
    next.loops.set(frame.nodeId, frame.index);
    // The next iteration waits under the body, so all flow after `body` runs first.
    stack.push({ ...frame, index: frame.index + 1 });
    follow(frame.nodeId, ['body']);
    continue;
   }
+  if (++visits > MAX_EVENT_VISITS || --budget.visits < 0) return fail('Blueprint run exceeded its flow limit', [start.nodeId]);
   const node = compiled.nodes.get(frame.nodeId)!;
   const flow = evaluator(node).flow;
   if (!flow) return fail('Blueprint flow reached a data node', [node.id]);
@@ -121,21 +161,23 @@ export function runFlow(compiled: CompiledBlueprint, start: { nodeId: Id; port: 
   try {
    flow(node, {
     port: frame.port, state: next, nowMs, env,
-    read: port => readInput(compiled, next, node.id, port, env),
+    read: port => readInput(compiled, next, node.id, port, env, watching ? record : undefined),
     follow: (...ports) => follow(node.id, ports),
     emit: effect => {
-     if (--budget.effects < 0) { failure ??= fail('Blueprint run exceeded its operation limit', [node.id]); return; }
+     // Debug effects stay outside the effect budget; the visit budget bounds them.
+     if (!isDebugEffect(effect) && --budget.effects < 0) { failure ??= fail('Blueprint run exceeded its operation limit', [node.id]); return; }
      effects.push(effect); follow(node.id, ['exit']);
     },
     delay: seconds => { delays.push({ nodeId: node.id, dueMs: nowMs + seconds * 1000 }); },
-    loop: (first, last) => {
-     if (last - first + 1 > MAX_LOOP_ITERATIONS) throw new LoopLimit();
-     if (last < first) follow(node.id, ['completed']);
-     else stack.push({ kind: 'loop', nodeId: node.id, index: first, last });
+    request: request => { requests.push({ ...request, nodeId: node.id }); },
+    loop: (first, last, options = {}) => {
+     if (last - first + 1 > (options.limit ?? MAX_LOOP_ITERATIONS)) throw new LoopLimit();
+     if (last < first) endLoop(node.id, options.clear === true);
+     else stack.push({ kind: 'loop', nodeId: node.id, index: first, last, clear: options.clear === true });
     },
    });
-  } catch (error) { return fail(error instanceof LoopLimit ? 'Blueprint loop exceeded its iteration limit' : 'Blueprint data could not be evaluated', [node.id]); }
+  } catch (error) { return fail(error instanceof LoopLimit ? 'Blueprint loop exceeded its iteration limit' : error instanceof BlueprintLimitError ? 'Blueprint value exceeds its limit' : 'Blueprint data could not be evaluated', [node.id]); }
   if (failure) return failure;
  }
- return { ok: true, data: { effects, delays, state: next } };
+ return { ok: true, data: { effects, delays, state: next, requests, debug: watching ? debugValues(compiled, initial, env, observed, computed) : [] } };
 }

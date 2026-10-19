@@ -172,6 +172,9 @@ impl DesktopState {
                 service
                     .ports()
                     .set_key_monitor(crate::input::monitor::platform_monitor());
+                service
+                    .ports()
+                    .set_device_hub(crate::input::devices::platform_hub());
                 *self.ports.lock().unwrap_or_else(|e| e.into_inner()) = Some(service.ports());
                 owned.service = Some(service);
                 owned.evaluation = evaluation;

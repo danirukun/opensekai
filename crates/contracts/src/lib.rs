@@ -22,6 +22,8 @@ macro_rules! object { ($name:ident { $($field:ident : $ty:ty),* $(,)? }) => {#[d
 macro_rules! strings { ($name:ident { $($variant:ident => $wire:literal),* $(,)? }) => {#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)] pub enum $name {$(#[serde(rename=$wire)] $variant),*}} }
 mod tracking;
 pub use tracking::*;
+mod devices;
+pub use devices::*;
 strings!(Backend { Webgpu=>"webgpu", Webgl2=>"webgl2" });
 strings!(Capability { Read=>"read", Edit=>"edit", Capture=>"capture", Benchmark=>"benchmark" });
 strings!(Role { Publisher=>"publisher", Operator=>"operator", Renderer=>"renderer" });
@@ -846,10 +848,47 @@ impl Validate for ScreenshotReplyData {
         validate_base64(&self.png_base64, MAX_SCREENSHOT_PNG_BYTES)
     }
 }
-object!(BlueprintRunParams {
-    graph_id: Id,
-    trigger_node_id: Id
-});
+/// Either `{ graphId, triggerNodeId }` (a Manual Trigger) or `{ event, payload? }` (a custom event).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BlueprintRunParams {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub graph_id: Option<Id>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trigger_node_id: Option<Id>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub event: Option<String>,
+    /// `null` stays `Some(Value::Null)`, so `validate` rejects it as the TypeScript schema does.
+    #[serde(
+        default,
+        deserialize_with = "present_value",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub payload: Option<Value>,
+}
+fn present_value<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<Value>, D::Error> {
+    Value::deserialize(deserializer).map(Some)
+}
+impl BlueprintRunParams {
+    pub fn validate(&self) -> Result<(), AppError> {
+        let trigger = self.graph_id.is_some() && self.trigger_node_id.is_some();
+        let event = self.event.as_deref().is_some_and(|name| {
+            let name = name.trim();
+            !name.is_empty() && name.encode_utf16().count() <= 64
+        });
+        require(
+            (trigger && self.event.is_none() && self.payload.is_none())
+                || (event && self.graph_id.is_none() && self.trigger_node_id.is_none()),
+            "invalid Blueprint run",
+        )?;
+        require(
+            self.payload.as_ref().is_none_or(inline_value_ok),
+            "invalid event payload",
+        )
+    }
+}
 object!(BlueprintEditParams { client_id: Id, batch_id: Id, ops: Vec<Value> });
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -858,12 +897,20 @@ pub struct BlueprintEditResult {
     pub keystrokes: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub held_keys: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub devices: Option<Vec<DeviceKind>>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BlueprintInspectParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub since_revision: Option<u64>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BlueprintDebugParams {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub since: Option<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -878,15 +925,20 @@ pub struct InputUpdate {
     pub events: Vec<InputEvent>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub held: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub devices: Option<DeviceUpdate>,
 }
 impl InputUpdate {
     pub fn validate(&self) -> Result<(), AppError> {
         require(
             self.events.len() <= 16
                 && self.held.len() <= 16
-                && !(self.events.is_empty() && self.held.is_empty()),
+                && !(self.events.is_empty() && self.held.is_empty() && self.devices.is_none()),
             "invalid input event count",
         )?;
+        if let Some(devices) = &self.devices {
+            devices.validate()?;
+        }
         for code in &self.held {
             require(
                 !code.is_empty() && code.chars().count() <= 32,
@@ -938,25 +990,82 @@ fn variable_name_ok(name: &Value) -> bool {
     name.as_str()
         .is_some_and(|n| !n.trim().is_empty() && n.chars().count() <= 64)
 }
+const BLUEPRINT_SCALAR_TYPES: [&str; 5] = ["number", "integer", "boolean", "string", "vector3"];
+const MAX_BLUEPRINT_STRING_CHARS: usize = 1024;
+const MAX_BLUEPRINT_LIST_ITEMS: usize = 256;
+const MAX_BLUEPRINT_INLINE_INPUTS: usize = 16;
+const MAX_SAFE_INTEGER: f64 = 9_007_199_254_740_991.0;
+fn finite_number(v: &Value) -> bool {
+    v.as_f64().is_some_and(f64::is_finite)
+}
+fn safe_integer(v: &Value) -> bool {
+    v.as_f64()
+        .is_some_and(|f| f.fract() == 0.0 && f.abs() <= MAX_SAFE_INTEGER)
+}
+fn blueprint_string_ok(v: &Value) -> bool {
+    v.as_str()
+        .is_some_and(|s| s.chars().count() <= MAX_BLUEPRINT_STRING_CHARS)
+}
+fn vector3_ok(v: &Value) -> bool {
+    v.as_array()
+        .is_some_and(|a| a.len() == 3 && a.iter().all(finite_number))
+}
+// A scalar type name, or a scalar type name with `[]` for a list.
+fn blueprint_data_type_ok(kind: &str) -> bool {
+    BLUEPRINT_SCALAR_TYPES.contains(&kind.strip_suffix("[]").unwrap_or(kind))
+}
+fn blueprint_scalar_ok(kind: &str, v: &Value) -> bool {
+    match kind {
+        "number" => finite_number(v),
+        "integer" => safe_integer(v),
+        "boolean" => v.is_boolean(),
+        "string" => blueprint_string_ok(v),
+        "vector3" => vector3_ok(v),
+        _ => false,
+    }
+}
+fn blueprint_value_ok(kind: &str, v: &Value) -> bool {
+    blueprint_data_type_ok(kind)
+        && match kind.strip_suffix("[]") {
+            Some(item) => v.as_array().is_some_and(|a| {
+                a.len() <= MAX_BLUEPRINT_LIST_ITEMS
+                    && a.iter().all(|x| blueprint_scalar_ok(item, x))
+            }),
+            None => blueprint_scalar_ok(kind, v),
+        }
+}
+// Any scalar shape; the session checks the value against the port type.
+fn inline_value_ok(v: &Value) -> bool {
+    finite_number(v) || v.is_boolean() || blueprint_string_ok(v) || vector3_ok(v)
+}
+fn inline_inputs_ok(v: &Value) -> bool {
+    v.as_object().is_some_and(|o| {
+        o.len() <= MAX_BLUEPRINT_INLINE_INPUTS
+            && o.iter().all(|(port, value)| {
+                !port.is_empty() && port.chars().count() <= 64 && inline_value_ok(value)
+            })
+    })
+}
 fn variable_ok(v: &Value) -> bool {
     keys_within(v, &["id", "name", "type", "default"])
         && id_ok(&v["id"])
         && variable_name_ok(&v["name"])
-        && match v["type"].as_str() {
-            Some("number") => v["default"].as_f64().is_some_and(f64::is_finite),
-            Some("boolean") => v["default"].is_boolean(),
-            _ => false,
-        }
+        && v["type"]
+            .as_str()
+            .is_some_and(|kind| blueprint_value_ok(kind, &v["default"]))
 }
 
 pub fn validate_blueprint_node(node: &Value) -> Result<(), AppError> {
     require(
-        keys_within(node, &["id", "version", "type", "settings", "position"])
-            && id_ok(&node["id"])
+        keys_within(
+            node,
+            &["id", "version", "type", "settings", "position", "inputs"],
+        ) && id_ok(&node["id"])
             && node["version"].as_u64() == Some(1)
             && position_ok(&node["position"])
             && node["type"].as_str().is_some_and(node_type_ok)
-            && node["settings"].as_object().is_some_and(|s| s.len() <= 16),
+            && node["settings"].as_object().is_some_and(|s| s.len() <= 16)
+            && node.get("inputs").is_none_or(inline_inputs_ok),
         "Invalid Blueprint node",
     )
 }
@@ -991,6 +1100,7 @@ pub fn validate_blueprint_graph(graph: &Value) -> Result<(), AppError> {
                 "nodes",
                 "connections",
                 "variables",
+                "comments",
             ],
         ),
         "Invalid Blueprint graph",
@@ -1045,6 +1155,7 @@ pub fn validate_blueprint_graph(graph: &Value) -> Result<(), AppError> {
             )?;
         }
     }
+    validate_blueprint_comments(graph)?;
     Ok(())
 }
 pub fn validate_blueprint_set(values: &[Value]) -> Result<(), AppError> {
@@ -1058,6 +1169,78 @@ pub fn validate_blueprint_set(values: &[Value]) -> Result<(), AppError> {
         )?;
     }
     Ok(())
+}
+fn comment_text_ok(text: &Value) -> bool {
+    text.as_str()
+        .is_some_and(|t| t.encode_utf16().count() <= 512)
+}
+fn comment_size_ok(size: &Value) -> bool {
+    keys_within(size, &["width", "height"])
+        && ["width", "height"].iter().all(|a| {
+            size[*a]
+                .as_f64()
+                .is_some_and(|v| v.is_finite() && (64.0..=8192.0).contains(&v))
+        })
+}
+fn comment_ok(c: &Value) -> bool {
+    keys_within(c, &["id", "text", "position", "size"])
+        && id_ok(&c["id"])
+        && comment_text_ok(&c["text"])
+        && position_ok(&c["position"])
+        && comment_size_ok(&c["size"])
+}
+// Comments are optional: a graph without the key is valid.
+fn validate_blueprint_comments(graph: &Value) -> Result<(), AppError> {
+    let Some(comments) = graph.get("comments") else {
+        return Ok(());
+    };
+    let comments = comments
+        .as_array()
+        .filter(|c| c.len() <= 32)
+        .ok_or_else(|| invalid("invalid Blueprint comments"))?;
+    let mut ids = std::collections::HashSet::new();
+    for c in comments {
+        require(comment_ok(c), "Invalid Blueprint comment")?;
+        require(
+            ids.insert(c["id"].as_str().unwrap_or_default()),
+            "Duplicate comment ID",
+        )?;
+    }
+    Ok(())
+}
+fn blueprint_authoring_op_ok(op: &Value) -> Option<bool> {
+    Some(match op["kind"].as_str()? {
+        "addComment" => {
+            keys_within(op, &["kind", "graphId", "comment"])
+                && id_ok(&op["graphId"])
+                && comment_ok(&op["comment"])
+        }
+        "updateComment" => {
+            keys_within(
+                op,
+                &["kind", "graphId", "commentId", "text", "position", "size"],
+            ) && id_ok(&op["graphId"])
+                && id_ok(&op["commentId"])
+                && op.get("text").is_none_or(comment_text_ok)
+                && op.get("position").is_none_or(position_ok)
+                && op.get("size").is_none_or(comment_size_ok)
+        }
+        "removeComment" => {
+            keys_within(op, &["kind", "graphId", "commentId"])
+                && id_ok(&op["graphId"])
+                && id_ok(&op["commentId"])
+        }
+        "duplicateGraph" => {
+            keys_within(op, &["kind", "graphId", "newGraphId", "name"])
+                && id_ok(&op["graphId"])
+                && id_ok(&op["newGraphId"])
+                && op.get("name").is_none_or(|n| {
+                    n.as_str()
+                        .is_some_and(|n| !n.trim().is_empty() && n.chars().count() <= 128)
+                })
+        }
+        _ => return None,
+    })
 }
 pub fn validate_blueprint_ops(ops: &[Value]) -> Result<(), AppError> {
     require(
@@ -1132,17 +1315,28 @@ pub fn validate_blueprint_ops(ops: &[Value]) -> Result<(), AppError> {
                     && op.get("name").is_none_or(variable_name_ok)
                     && op
                         .get("type")
-                        .is_none_or(|t| matches!(t.as_str(), Some("number" | "boolean")))
-                    && op
-                        .get("default")
-                        .is_none_or(|d| d.is_boolean() || d.as_f64().is_some_and(f64::is_finite))
+                        .is_none_or(|t| t.as_str().is_some_and(blueprint_data_type_ok))
+                    && op.get("default").is_none_or(|d| {
+                        inline_value_ok(d)
+                            || d.as_array()
+                                .is_some_and(|a| a.len() <= MAX_BLUEPRINT_LIST_ITEMS)
+                    })
             }
             Some("removeVariable") => {
                 keys_within(op, &["kind", "graphId", "variableId"])
                     && id_ok(&op["graphId"])
                     && id_ok(&op["variableId"])
             }
-            _ => false,
+            Some("setNodeInput") => {
+                keys_within(op, &["kind", "graphId", "nodeId", "port", "value"])
+                    && id_ok(&op["graphId"])
+                    && id_ok(&op["nodeId"])
+                    && port_ok(&op["port"])
+                    && op
+                        .get("value")
+                        .is_some_and(|v| v.is_null() || inline_value_ok(v))
+            }
+            _ => blueprint_authoring_op_ok(op).unwrap_or(false),
         };
         require(ok, "Invalid Blueprint operation")?;
     }
@@ -1165,6 +1359,95 @@ fn validate_blueprint_errors(data: &Value) -> Result<(), AppError> {
     }
     Ok(())
 }
+const MAX_DEBUG_PAGE: usize = 50;
+const MAX_DEBUG_VALUES: usize = 64;
+const MAX_DEBUG_TEXT_CHARS: usize = 256;
+fn debug_count_ok(v: &Value) -> bool {
+    v.as_u64().is_some_and(|n| n as f64 <= MAX_SAFE_INTEGER)
+}
+fn debug_seq_ok(v: &Value) -> bool {
+    debug_count_ok(v) && v.as_u64() != Some(0)
+}
+fn debug_text_ok(v: &Value) -> bool {
+    v.as_str()
+        .is_some_and(|s| s.chars().count() <= MAX_DEBUG_TEXT_CHARS)
+}
+fn debug_time_ok(v: &Value) -> bool {
+    v.as_f64().is_some_and(|t| t.is_finite() && t >= 0.0)
+}
+fn debug_entry_ok(e: &Value) -> bool {
+    let common = debug_seq_ok(&e["seq"])
+        && debug_time_ok(&e["atMs"])
+        && id_ok(&e["graphId"])
+        && id_ok(&e["nodeId"])
+        && e.get("dropped").is_none_or(debug_seq_ok);
+    let keys = |extra: &[&str]| {
+        let mut allowed = vec!["seq", "atMs", "graphId", "nodeId", "kind", "dropped"];
+        allowed.extend_from_slice(extra);
+        keys_within(e, &allowed)
+    };
+    common
+        && match e["kind"].as_str() {
+            Some("log") => {
+                keys(&["level", "message"])
+                    && matches!(
+                        e["level"].as_str(),
+                        Some("debug" | "info" | "warning" | "error")
+                    )
+                    && blueprint_string_ok(&e["message"])
+            }
+            Some("toast") => {
+                keys(&["variant", "header", "caption", "durationSeconds"])
+                    && matches!(
+                        e["variant"].as_str(),
+                        Some("success" | "info" | "warning" | "error")
+                    )
+                    && blueprint_string_ok(&e["header"])
+                    && blueprint_string_ok(&e["caption"])
+                    && e["durationSeconds"]
+                        .as_f64()
+                        .is_some_and(|d| (1.0..=30.0).contains(&d))
+            }
+            Some("event") => {
+                keys(&["name", "valueType", "text"])
+                    && blueprint_string_ok(&e["name"])
+                    && e.get("valueType")
+                        .is_none_or(|t| t.as_str().is_some_and(blueprint_data_type_ok))
+                    && e.get("text").is_none_or(debug_text_ok)
+            }
+            _ => false,
+        }
+}
+fn debug_value_ok(v: &Value) -> bool {
+    keys_within(
+        v,
+        &["graphId", "nodeId", "valueType", "text", "changedMs", "seq"],
+    ) && id_ok(&v["graphId"])
+        && id_ok(&v["nodeId"])
+        && v["valueType"].as_str().is_some_and(blueprint_data_type_ok)
+        && debug_text_ok(&v["text"])
+        && debug_time_ok(&v["changedMs"])
+        && debug_seq_ok(&v["seq"])
+}
+// The Blueprint debug log page of slice F: entries, Debug Value values, and counters.
+pub fn validate_blueprint_debug(data: &Value) -> Result<(), AppError> {
+    require(
+        keys_within(
+            data,
+            &["epoch", "latest", "next", "dropped", "entries", "values"],
+        ) && id_ok(&data["epoch"])
+            && debug_count_ok(&data["latest"])
+            && debug_count_ok(&data["next"])
+            && debug_count_ok(&data["dropped"])
+            && data["entries"].as_array().is_some_and(|entries| {
+                entries.len() <= MAX_DEBUG_PAGE && entries.iter().all(debug_entry_ok)
+            })
+            && data["values"].as_array().is_some_and(|values| {
+                values.len() <= MAX_DEBUG_VALUES && values.iter().all(debug_value_ok)
+            }),
+        "invalid Blueprint debug log",
+    )
+}
 fn validate_blueprint_inspect(data: &Value) -> Result<(), AppError> {
     require(
         data["revision"].as_u64().is_some(),
@@ -1182,6 +1465,9 @@ fn validate_blueprint_inspect(data: &Value) -> Result<(), AppError> {
             "invalid held keys",
         )?;
     }
+    if let Some(devices) = data.get("devices") {
+        validate_device_kinds(&Some(decode::<Vec<DeviceKind>>(devices)?))?;
+    }
     match data["kind"].as_str() {
         Some("snapshot") => {
             require(
@@ -1194,6 +1480,7 @@ fn validate_blueprint_inspect(data: &Value) -> Result<(), AppError> {
                         "errors",
                         "keystrokes",
                         "heldKeys",
+                        "devices",
                     ],
                 ),
                 "invalid Blueprint snapshot",
@@ -1215,6 +1502,7 @@ fn validate_blueprint_inspect(data: &Value) -> Result<(), AppError> {
                         "errors",
                         "keystrokes",
                         "heldKeys",
+                        "devices",
                     ],
                 ),
                 "invalid Blueprint delta",
@@ -1839,9 +2127,10 @@ pub fn validate_call(method: &str, params: &Value) -> Result<(), AppError> {
         "scenePatch" => decode::<ScenePatch>(params)?.validate(),
         "sceneReplace" => decode::<SceneReplaceParams>(params)?.validate(),
         "cameraSelect" => decode::<CameraSelectParams>(params).map(|_| ()),
-        "blueprintRun" => decode::<BlueprintRunParams>(params).map(|_| ()),
+        "blueprintRun" => decode::<BlueprintRunParams>(params)?.validate(),
         "blueprintEdit" => validate_blueprint_ops(&decode::<BlueprintEditParams>(params)?.ops),
         "blueprintInspect" => decode::<BlueprintInspectParams>(params).map(|_| ()),
+        "blueprintDebug" => decode::<BlueprintDebugParams>(params).map(|_| ()),
         "captureFrame" => decode::<CaptureParams>(params)?.validate(),
         "benchmarkStart" => decode::<BenchmarkParams>(params).map(|_| ()),
         "benchmarkStatus" | "benchmarkCancel" => decode::<RunParams>(params).map(|_| ()),
@@ -1902,6 +2191,7 @@ pub fn validate_result(method: &str, result: &Value) -> Result<(), AppError> {
             | "blueprintRun"
             | "blueprintEdit"
             | "blueprintInspect"
+            | "blueprintDebug"
             | "captureFrame"
             | "benchmarkStart"
             | "benchmarkStatus"
@@ -1938,9 +2228,11 @@ pub fn validate_result(method: &str, result: &Value) -> Result<(), AppError> {
                         .iter()
                         .all(|k| (1..=32).contains(&k.chars().count())),
                 "invalid held keys",
-            )
+            )?;
+            validate_device_kinds(&r.devices)
         }
         "blueprintInspect" => validate_blueprint_inspect(data),
+        "blueprintDebug" => validate_blueprint_debug(data),
         "captureFrame" => decode::<CaptureRecord>(data)?.validate(),
         "benchmarkStart" | "benchmarkStatus" | "benchmarkCancel" => {
             decode::<BenchmarkRun>(data)?.validate()
@@ -1950,6 +2242,16 @@ pub fn validate_result(method: &str, result: &Value) -> Result<(), AppError> {
         "expressionGet" | "expressionSet" => decode::<ExpressionState>(data)?.validate(),
         "cameraScreenshot" => decode::<CameraScreenshotResult>(data)?.validate(),
         _ => unreachable!(),
+    }
+}
+/// The byte limit of a clock message (mirrors `clockByteLimit` in TypeScript). A clock with
+/// tracking or with device input uses the large limit: tracking samples, and 32 device events
+/// with 4 pads, do not fit the plain limit. Any other clock uses the plain limit.
+pub fn clock_byte_limit(tracking: Option<&TrackingUpdate>, input: Option<&InputUpdate>) -> usize {
+    if tracking.is_some() || input.is_some_and(|i| i.devices.is_some()) {
+        MAX_TRACKING_CLOCK_BYTES
+    } else {
+        MAX_CLOCK_BYTES
     }
 }
 pub fn parse_wire(bytes: &[u8]) -> Result<WireMessage, AppError> {
@@ -1979,12 +2281,7 @@ pub fn parse_wire(bytes: &[u8]) -> Result<WireMessage, AppError> {
                 update.validate()?;
             }
             require(
-                bytes.len()
-                    <= if tracking.is_some() {
-                        MAX_TRACKING_CLOCK_BYTES
-                    } else {
-                        MAX_CLOCK_BYTES
-                    },
+                bytes.len() <= clock_byte_limit(tracking.as_ref(), input.as_ref()),
                 "oversized clock",
             )?;
             require(*elapsed_ms <= 9_007_199_254_740_991, "unsafe clock time")?;

@@ -33,8 +33,16 @@ it('makes, adds, scales, and breaks Vector3 values', () => {
  expect(result.ok && result.data.state.variables.get('v')).toBe(12);
 });
 
-it('rejects an unconnected vector3 input', () => {
- expect(compileBlueprint(graph([{ id: 'break', version: 1, type: 'vector3.break', settings: {}, position: at }], []))).toMatchObject({ ok: false, error: { message: 'Blueprint input is not connected' } });
+it('reads an unconnected vector3 input as its inline value, else zero', () => {
+ const g = (inputs?: object) => graph([
+  { id: 'go', version: 1, type: 'event.manual', settings: {}, position: at },
+  { id: 'break', version: 1, type: 'vector3.break', settings: {}, position: at, ...(inputs ? { inputs } : {}) },
+  { id: 'set', version: 1, type: 'variable.setNumber', settings: { variableId: 'v' }, position: at },
+ ], [wire('a', 'break', 'y', 'set', 'value'), wire('b', 'go', 'flow', 'set', 'flow')]);
+ const run = (doc: BlueprintGraph) => { const c = compileBlueprint(doc); if (!c.ok) throw new Error(c.error.message); return runFlow(c.data, { nodeId: 'go', port: 'flow' }, { ...emptyState(), variables: new Map([['v', 7]]) }, { visits: 64, effects: 8 }, 0); };
+ const read = (doc: BlueprintGraph) => { const r = run(doc); return r.ok ? r.data.state.variables.get('v') : r.error.message; };
+ expect(read(g())).toBe(0);
+ expect(read(g({ value: [1, 2.5, 3] }))).toBe(2.5);
 });
 
 // On Update → Set Visibility(reference, visible ← Is Key Held(KeyW)).

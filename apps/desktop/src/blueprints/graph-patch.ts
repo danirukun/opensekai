@@ -18,7 +18,7 @@ export function graphPatch(previous: BlueprintGraph | undefined, next: Blueprint
  for (const node of next?.nodes ?? []) {
   const old = oldNodes.get(node.id);
   if (!old) { patch.addNodes.push(node); continue; }
-  if (old.type !== node.type || !same(old.settings, node.settings)) patch.updateNodes.push(node);
+  if (old.type !== node.type || !same(old.settings, node.settings) || !same(old.inputs ?? {}, node.inputs ?? {})) patch.updateNodes.push(node);
   if (!same(old.position, node.position)) patch.moveNodes.push({ id: node.id, position: node.position });
  }
  for (const wire of next?.connections ?? []) if (!same(wire, oldWires.get(wire.id))) patch.addConnections.push(wire);

@@ -1,3 +1,4 @@
+pub mod devices;
 pub mod monitor;
 use opensekai_contracts::{InputEvent, InputUpdate};
 use std::collections::{BTreeSet, HashMap, VecDeque};
@@ -54,11 +55,12 @@ impl InputQueue {
                 .map(|accelerator| InputEvent::Keystroke { accelerator })
                 .collect(),
             held: vec![],
+            devices: None,
         })
     }
 }
 
-fn locked<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
+pub(crate) fn locked<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
     m.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 

@@ -190,9 +190,10 @@ pub fn platform_monitor() -> Arc<dyn KeyMonitor> {
 #[cfg(target_os = "macos")]
 mod macos {
     use super::{dom_code, mac_keycode, HeldKeys, KeyMonitor, Lifecycle, MonitorStatus};
+    use crate::input::locked;
     use std::collections::BTreeSet;
     use std::ffi::c_void;
-    use std::sync::{Arc, Mutex, MutexGuard};
+    use std::sync::{Arc, Mutex};
     use std::time::{Duration, Instant};
 
     type Ref = *mut c_void;
@@ -235,10 +236,6 @@ mod macos {
     const HID_STATE: i32 = 1; // kCGEventSourceStateHIDSystemState
     /// The tap thread checks the lifecycle at this interval.
     const SLICE_SECONDS: f64 = 0.25;
-
-    fn locked<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-        m.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
-    }
 
     /// A CoreFoundation pointer that the owning thread shares only to stop or re-enable the tap.
     #[derive(Clone, Copy)]
@@ -372,7 +369,7 @@ mod macos {
                     && !state.life.running()
                     && state
                         .last_check
-                        .map_or(true, |t| t.elapsed() >= Duration::from_secs(1));
+                        .is_none_or(|t| t.elapsed() >= Duration::from_secs(1));
                 if due {
                     state.last_check = Some(Instant::now());
                 }

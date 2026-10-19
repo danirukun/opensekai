@@ -11,7 +11,7 @@ it('groups matches by category in palette order and matches keywords', () => {
  expect(types(searchNodes('hotkey', refs))).toEqual(['event.keystroke']);
  expect(types(searchNodes('cooldown', refs))).toEqual(['flow.throttle']);
  expect(types(searchNodes('cooldown camera', refs))).toEqual([]);
- expect(types(searchNodes('RANDOM', refs))).toEqual(['math.random']);
+ expect(types(searchNodes('RANDOM', refs))).toEqual(['list.random', 'math.random', 'integer.random']);
 });
 
 it('hides nodes whose defaults are unavailable', () => {
@@ -28,6 +28,15 @@ it('filters to nodes with a compatible port and names that port', () => {
  const intoNumber = searchNodes('', refs, { side: 'outputs', type: 'number' }).flatMap(group => group.entries);
  expect(intoNumber.find(entry => entry.type === 'flow.forLoop')?.port).toBe('index');
  expect(intoNumber.some(entry => entry.type === 'event.manual')).toBe(false);
+});
+
+it('offers number inputs for a wire from an integer output, and not the other way round', () => {
+ const fromInteger = searchNodes('', refs, { side: 'inputs', type: 'integer' }).flatMap(group => group.entries);
+ expect(fromInteger.find(entry => entry.type === 'math.add')?.port).toBe('a');
+ expect(fromInteger.some(entry => entry.type === 'flow.branch')).toBe(false);
+ // A number output cannot feed an integer input, so a wire from an integer input finds no number-only output.
+ const intoInteger = searchNodes('', refs, { side: 'outputs', type: 'integer' }).flatMap(group => group.entries);
+ expect(intoInteger.some(entry => entry.type === 'value.number')).toBe(false);
 });
 
 it('puts the closest label match first', () => {

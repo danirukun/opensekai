@@ -33,3 +33,5 @@ Only esbuild is approved for dependency lifecycle builds. The UI snapshot has no
 Task 2 uses url 2.5.8 as a direct Rust contract dependency. This version was already present in Cargo.lock through native dependencies. Use its WHATWG parser for source URLs and normalized loopback descriptors.
 
 Task 6 uses tauri-plugin-global-shortcut 2.4.0 for native global keystrokes. It is the newest stable 2.x release (crates.io, checked on 2026-10-07). It depends on tauri 2 and works with the pinned tauri 2.12.1. The 3.0.0-alpha releases are pre-release and are not used.
+
+The Blueprint input devices slice (BP-06, 2026-10-18) uses gilrs 0.11.2 (Apache-2.0 or MIT, Rust 1.84) for gamepads and midir 0.11.1 (MIT; coremidi 0.9.2 on macOS, Rust 1.75) for MIDI input. Both are target dependencies for macOS and Windows only, so a Linux build needs no udev or ALSA headers. gilrs uses its default `wgi` feature (Windows.Gaming.Input). Both were the newest stable releases on crates.io on 2026-10-18.

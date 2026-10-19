@@ -1,4 +1,5 @@
-import type { EvaluatorTable } from './types';
+import { clearNodeState, getNodeState, setNodeState, type EvaluatorTable } from './types';
+import './requests';
 
 export const FLOW_EVALUATORS = {
  'flow.branch': { flow: (_node, c) => c.follow(c.read('condition') ? 'true' : 'false') },
@@ -33,4 +34,12 @@ export const FLOW_EVALUATORS = {
   const index = node.settings.cases.indexOf(Math.round(Number(c.read('value'))));
   c.follow(index < 0 ? 'default' : `case${index}`);
  } },
+ 'flow.doOnce': { flow: (node, c) => {
+  if (c.port === 'reset') { clearNodeState(c.state, node.id); return; }
+  if (getNodeState<boolean>(c.state, node.id)) return;
+  setNodeState(c.state, node.id, true); c.follow('exit');
+ } },
+ // The runtime replaces the pending delay of the node; the delay continues at `exit`.
+ 'flow.debounce': { flow: (node, c) => c.request({ kind: 'debounce', seconds: node.settings.seconds }) },
+ 'flow.select': { data: (_node, _output, read) => read(read('condition') ? 'ifTrue' : 'ifFalse') },
 } satisfies Partial<EvaluatorTable>;

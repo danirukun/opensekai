@@ -1,0 +1,36 @@
+{
+  "valid": {
+    "epoch": "3f0c6c1e-8a4e-4c55-9d43-2b1f1c0e7a10",
+    "latest": 5,
+    "next": 5,
+    "dropped": 12,
+    "entries": [
+      { "seq": 1, "atMs": 16, "graphId": "chat", "nodeId": "log", "kind": "log", "level": "warning", "message": "<b>plain</b> text" },
+      { "seq": 2, "atMs": 16, "graphId": "chat", "nodeId": "toast", "kind": "toast", "variant": "success", "header": "Ada", "caption": "Hello", "durationSeconds": 3 },
+      { "seq": 3, "atMs": 32.5, "graphId": "chat", "nodeId": "event", "kind": "event", "name": "aim", "valueType": "vector3", "text": "(1, 2, 3)" },
+      { "seq": 4, "atMs": 1032, "graphId": "chat", "nodeId": "log", "dropped": 12, "kind": "event", "name": "ping" }
+    ],
+    "values": [
+      { "graphId": "chat", "nodeId": "probe", "valueType": "string[]", "text": "[\"a\", \"\"]", "changedMs": 16, "seq": 5 }
+    ]
+  },
+  "invalid": [
+    { "name": "unknown-key", "change": ["extra", true] },
+    { "name": "negative-latest", "change": ["latest", -1] },
+    { "name": "empty-epoch", "change": ["epoch", ""] },
+    { "name": "null-epoch", "change": ["epoch", null] },
+    { "name": "unknown-level", "entry": 0, "change": ["level", "trace"] },
+    { "name": "unknown-variant", "entry": 1, "change": ["variant", "danger"] },
+    { "name": "short-toast", "entry": 1, "change": ["durationSeconds", 0.5] },
+    { "name": "zero-seq", "entry": 0, "change": ["seq", 0] },
+    { "name": "zero-dropped", "entry": 3, "change": ["dropped", 0] },
+    { "name": "unknown-entry-kind", "entry": 0, "change": ["kind", "trace"] },
+    { "name": "log-with-event-key", "entry": 0, "change": ["name", "x"] },
+    { "name": "unknown-value-type", "entry": 2, "change": ["valueType", "color"] },
+    { "name": "long-event-text", "entry": 2, "change": ["text", "LONG_TEXT"] },
+    { "name": "long-message", "entry": 0, "change": ["message", "LONG_STRING"] },
+    { "name": "value-without-text", "value": 0, "change": ["text", null] },
+    { "name": "too-many-entries", "fill": "entries" },
+    { "name": "too-many-values", "fill": "values" }
+  ]
+}

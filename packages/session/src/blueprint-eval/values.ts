@@ -1,7 +1,6 @@
 import { nextRandom } from '../blueprint-random';
-import type { EvaluatorTable, Read } from './types';
-
-const num = (read: Read, port: string) => Number(read(port));
+import { num } from './math';
+import type { EvaluatorTable } from './types';
 
 export const VALUE_EVALUATORS = {
  'value.number': { data: node => node.settings.value },

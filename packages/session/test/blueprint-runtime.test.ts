@@ -9,7 +9,7 @@ it('fires matching keystroke nodes of enabled graphs and reports active accelera
  const runtime = createBlueprintRuntime();
  expect(runtime.install(set()).ok).toBe(true);
  expect(runtime.keystrokes()).toEqual(fixture.expectedAccelerators);
- expect(runtime.step([{ kind: 'keystroke', accelerator: 'Control+Alt+KeyH' }], 0)).toEqual([{ graphId: 'toggle-performer', effects: [{ kind: 'toggleVisibility', entityId: 'performer' }], error: null }]);
+ expect(runtime.step([{ kind: 'keystroke', accelerator: 'Control+Alt+KeyH' }], 0)).toEqual([{ graphId: 'toggle-performer', effects: [{ kind: 'toggleVisibility', entityId: 'performer' }], error: null, nodeId: expect.any(String) }]);
  expect(runtime.step([{ kind: 'keystroke', accelerator: 'Shift+Super+KeyK' }], 0)).toEqual([]);
 });
 
@@ -18,7 +18,7 @@ it('runs due delays before new events and only once', () => {
  runtime.install(set());
  expect(runtime.step([J], 1000)[0]!.effects).toEqual([{ kind: 'setVisibility', entityId: 'marker', visible: true }]);
  expect(runtime.step([], 2999)).toEqual([]);
- expect(runtime.step([], 3000)).toEqual([{ graphId: 'flash-marker', effects: [{ kind: 'setVisibility', entityId: 'marker', visible: false }], error: null }]);
+ expect(runtime.step([], 3000)).toEqual([{ graphId: 'flash-marker', effects: [{ kind: 'setVisibility', entityId: 'marker', visible: false }], error: null, nodeId: expect.any(String) }]);
  expect(runtime.step([], 9000)).toEqual([]);
 });
 

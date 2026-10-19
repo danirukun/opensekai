@@ -11,6 +11,7 @@
  import { createEditorPoll } from './editor-poll';
  import { createBlueprintSync, type BlueprintSync } from './blueprints/blueprint-sync';
 import { createEditorMemory } from './blueprints/editor-memory';
+ import { createDebugFeed, planToasts, type DebugFeed } from './blueprints/debug-feed';
  import { compileBlueprint } from '@opensekai/session';
  import { listenUI, sendUI } from './editor/ui-bridge';
  import {collectWarnings} from './editor/warnings';
@@ -33,6 +34,10 @@ import { createEditorMemory } from './blueprints/editor-memory';
  let panel=$state<'assets'|'output'|'resources'|'blueprints'>('assets'),width=$state(224),maxWidth=$state(360),shell:HTMLDivElement;
  let api=$state.raw<AppApi|null>(null),sync=$state.raw<BlueprintSync|null>(null);
  const memory=createEditorMemory();
+ // Show Toast entries of the session debug log (slice F R12): at most 3 on screen, only in this window.
+ let debugFeed=$state.raw<DebugFeed|null>(null);const debugToasts=new Set<string>();
+ const offToasts=toasts.subscribe(list=>{const live=new Set(list.map(item=>item.id));for(const id of debugToasts)if(!live.has(id))debugToasts.delete(id);});
+ function showDebugToasts(entries:Parameters<typeof planToasts>[0]){for(const item of planToasts(entries,3-debugToasts.size))debugToasts.add(toasts.push({variant:item.variant,message:item.message},item.durationMs));}
  const expressionApi=$derived(api?{get:(avatarId:string)=>api!.expressionGet({avatarId}),set:(avatarId:string,name:string,active:boolean)=>api!.expressionSet({avatarId,name,active})}:null);
  let showName=$state('Untitled Show'),showBusy=$state(false),showError=$state<string|null>(null),savedMark=$state<ShowMark|null>(null);
  const currentMark=():ShowMark=>({name:showName,revision:view.scene?.revision??null,blueprintRevision:status?.blueprintRevision});
@@ -121,15 +126,15 @@ import { createEditorMemory } from './blueprints/editor-memory';
   let disposed=false,off=()=>{},offUI=()=>{},offClose=()=>{},offMenu=()=>{},connection:Awaited<ReturnType<typeof bootstrapEditor>>|undefined,poll:ReturnType<typeof createEditorPoll>|undefined;
   let pendingSelection:string|null|undefined;
   const resize=new ResizeObserver(()=>{maxWidth=Math.max(160,Math.min(420,shell.clientWidth-330));width=Math.min(width,maxWidth);});resize.observe(shell);
-  const timer=setInterval(()=>{void poll?.poll();},500);
+  const timer=setInterval(()=>{void poll?.poll();void debugFeed?.poll();},500);
   void getCurrentWindow().onCloseRequested(event=>{event.preventDefault();void closeEditor();}).then(stop=>{if(disposed)stop();else offClose=stop;});
   void getCurrentWindow().listen<unknown>('show-command',event=>runShowCommand(event.payload)).then(stop=>{if(disposed)stop();else offMenu=stop;});
   void listenUI(message=>{if(message.kind==='trackingDevices')devices=message.devices;else if(message.kind==='selection'){draft=null;pendingSelection=message.entityId;if(model){if(message.entityId)model.select(message.entityId);else model.clearSelection();}}else if(message.kind==='tool')tool=message.tool;else if(message.kind==='draft')draft=available?message.draft:null;else if(message.kind==='loadStatus')loads=message.entries;else if(message.kind==='refresh'){draft=null;void model?.load();}}).then(stop=>{if(disposed)stop();else offUI=stop;}).catch(()=>{if(!disposed)error='Scene connection unavailable';});
-  void bootstrapEditor().then(async value=>{if(disposed){value.stop();return;}connection=value;api=value.client.api;assets=value.assets;outputUrl=value.outputUrl;canEdit=value.canEdit;model=createEditorModel(value.client.api);sync=createBlueprintSync(value.client.api);liveTransform=createLiveTransform(model,code=>{transformError=code;},pending=>{livePending=pending;});liveField=createLiveEdit(model,()=>{},pending=>{fieldPending=pending;});
+  void bootstrapEditor().then(async value=>{if(disposed){value.stop();return;}connection=value;api=value.client.api;assets=value.assets;outputUrl=value.outputUrl;canEdit=value.canEdit;model=createEditorModel(value.client.api);sync=createBlueprintSync(value.client.api);debugFeed=createDebugFeed(value.client.api,showDebugToasts);liveTransform=createLiveTransform(model,code=>{transformError=code;},pending=>{livePending=pending;});liveField=createLiveEdit(model,()=>{},pending=>{fieldPending=pending;});
    off=model.subscribe(next=>{const previous=view;view=next;if(previous.scene?.revision!==next.scene?.revision){draft=null;if(previous.scene)notify({kind:'refresh'});}});
    poll=createEditorPoll(value.client.api,model,next=>{status=next;available=next.revision!==null;error=null;if(!available)draft=null;if(!savedMark&&next.revision!==null)savedMark={name:showName,revision:next.revision,blueprintRevision:next.blueprintRevision};},code=>{available=false;draft=null;error=code;},sync,()=>panel==='blueprints');await poll.poll();if(pendingSelection)model.select(pendingSelection);notify({kind:'ready'});
   }).catch(cause=>{if(!disposed)error=cause instanceof Error?cause.message:'Editor startup failed';});
-  return()=>{disposed=true;clearInterval(timer);resize.disconnect();liveTransform?.close();liveField?.close();poll?.close();off();offUI();offClose();offMenu();connection?.stop();};
+  return()=>{disposed=true;clearInterval(timer);offToasts();resize.disconnect();liveTransform?.close();liveField?.close();poll?.close();off();offUI();offClose();offMenu();connection?.stop();};
  });
 </script>
 <main class="editor-window">
@@ -147,7 +152,7 @@ import { createEditorMemory } from './blueprints/editor-memory';
     <ResizeHandle value={width} min={160} max={maxWidth} onchange={value=>{width=value;}}/>
     <div class="properties-column">{#if model}<Inspector {model} {view} onlivefield={request=>{liveField?.offer(request);}} onlivefieldend={()=>liveField?.end()} {assets} {loads} {importingId} {importError} onchoosemodel={chooseModel} onchoosescene={chooseScene} onpickscene={(id,assetId)=>{void model?.setEnvironmentModel(id,assetId,view.scene?.revision);}} onrenderenvironment={(id,value,revision)=>model?.setCameraRenderEnvironment(id,value,revision)??Promise.resolve(undefined)} {expressionApi} onexpressionsettings={(id,name,settings,revision)=>model?.setAvatarExpression(id,name,settings,revision)??Promise.resolve(undefined)} onnavigation={(id,navigation,revision)=>model?.setCameraNavigation(id,navigation,revision)??Promise.resolve(undefined)} onscreenshot={id=>model?.cameraScreenshot(id)??Promise.resolve(undefined)} onopenscreenshots={()=>invoke<void>('open_screenshots_folder')} {draft} {transformError} {livePending} onlivetransform={transformLive} oncanceltransform={()=>liveTransform?.cancel()} onfinishtransform={()=>liveTransform?.end()} disabled={!canEdit||!available||importing} {devices} trackingStatus={status?.trackingStatus??[]} localAddresses={status?.localAddresses??[]} onlens={async(id,lens,revision)=>{await model?.setCameraLens(id,lens,revision);}} onavataridle={async(id,idle,revision)=>{await model?.setAvatarIdle(id,idle,revision);}} onavatartracking={async(id,tracking,revision)=>{await model?.setAvatarTracking(id,tracking,revision);}} ontrackingsmoothing={async(id,smoothing,revision)=>{await model?.setTrackingSmoothing(id,smoothing,revision);}} ontrackingconfig={configureTracking} ontrackingtoggle={toggleTracking}/>{/if}</div>
    {:else if panel==='output'}<section class="output-panel"><h2>Output</h2>{#if model}<OutputControls {model} {view} {status} {outputUrl} disabled={!canEdit||!available||livePending||fieldPending}/>{/if}</section>
-   {:else if panel==='blueprints'}{#if sync}<BlueprintPanel {api} {sync} {memory} {status} {assets} scene={view.scene} selectedEntityId={view.selectedId} disabled={!canEdit||!available||view.pending} onrun={()=>{void model?.load();notify({kind:'refresh'});}}/>{/if}
+   {:else if panel==='blueprints'}{#if sync}<BlueprintPanel {api} {sync} debug={debugFeed} {memory} {status} {assets} scene={view.scene} selectedEntityId={view.selectedId} disabled={!canEdit||!available||view.pending} onrun={()=>{void model?.load();notify({kind:'refresh'});}}/>{/if}
    {:else}<AssetList {assets} {warnings}/>{/if}
   </div>
   <footer><span>{showError??importError?.message??trackingError??transformError??error??view.error??(view.scene?'Session connected':'Starting…')}</span><span>{canEdit ? (tool==='translate'?'Move':tool==='rotate'?'Rotate':'Scale'):'Read only'}</span></footer>

@@ -71,6 +71,19 @@ fn blueprint_inspect_run_and_results_validate() {
     assert!(validate_call("blueprintInspect", &json!({"extra":1})).is_err());
     assert!(validate_call("blueprintRun", &json!({"graphId":"g","triggerNodeId":"n"})).is_ok());
     assert!(validate_call("blueprintRun", &json!({"graph":{},"triggerNodeId":"n"})).is_err());
+    assert!(validate_call("blueprintRun", &json!({"graphId":"g"})).is_err());
+    assert!(validate_call("blueprintRun", &json!({"event":"show"})).is_ok());
+    assert!(validate_call("blueprintRun", &json!({"event":"show","payload":[1,2,3]})).is_ok());
+    assert!(validate_call("blueprintRun", &json!({"event":"show","payload":"hi"})).is_ok());
+    assert!(validate_call("blueprintRun", &json!({"event":" "})).is_err());
+    assert!(validate_call("blueprintRun", &json!({"event":"x".repeat(65)})).is_err());
+    assert!(validate_call("blueprintRun", &json!({"event":"show","payload":{"a":1}})).is_err());
+    assert!(validate_call("blueprintRun", &json!({"event":"show","payload":null})).is_err());
+    assert!(validate_call(
+        "blueprintRun",
+        &json!({"event":"show","graphId":"g","triggerNodeId":"n"})
+    )
+    .is_err());
     assert!(validate_result(
         "blueprintEdit",
         &json!({"ok":true,"data":{"revision":1,"keystrokes":["Control+Alt+KeyH"]}})
@@ -166,8 +179,11 @@ fn blueprint_edit_accepts_variable_operations() {
     assert!(ok(
         json!({"kind":"updateVariable","graphId":"g","variableId":"v"})
     ));
+    assert!(ok(
+        json!({"kind":"updateVariable","graphId":"g","variableId":"v","type":"string[]","default":["a"]})
+    ));
     assert!(!ok(
-        json!({"kind":"updateVariable","graphId":"g","variableId":"v","type":"string"})
+        json!({"kind":"updateVariable","graphId":"g","variableId":"v","type":"color"})
     ));
     assert!(!ok(
         json!({"kind":"updateVariable","graphId":"g","variableId":"v","name":" "})
@@ -176,4 +192,46 @@ fn blueprint_edit_accepts_variable_operations() {
         json!({"kind":"removeVariable","graphId":"g","variableId":"v"})
     ));
     assert!(!ok(json!({"kind":"removeVariable","graphId":"g"})));
+}
+
+#[test]
+fn blueprint_graph_accepts_each_data_type_and_inline_inputs() {
+    let v = variables();
+    assert!(validate_blueprint_graph(&v["typed"]).is_ok());
+    let node = |inputs: Value| json!({"id":"n","version":1,"type":"math.add","settings":{},"position":{"x":0,"y":0},"inputs":inputs});
+    assert!(validate_blueprint_node(&node(json!({"a":1.5,"b":true,"c":"x","d":[0,1,2]}))).is_ok());
+    assert!(validate_blueprint_node(&node(json!({}))).is_ok());
+    assert!(validate_blueprint_node(&node(json!([1]))).is_err());
+    assert!(validate_blueprint_node(&node(json!({"a":{"x":1}}))).is_err());
+    assert!(validate_blueprint_node(&node(json!({"a":[1,2]}))).is_err());
+    assert!(validate_blueprint_node(&node(json!({"a":"x".repeat(1025)}))).is_err());
+    let many: serde_json::Map<String, Value> =
+        (0..17).map(|i| (format!("p{i}"), json!(1))).collect();
+    assert!(validate_blueprint_node(&node(Value::Object(many))).is_err());
+}
+
+#[test]
+fn blueprint_edit_accepts_set_node_input() {
+    let ok = |op: Value| validate_call("blueprintEdit", &edit(json!([op]))).is_ok();
+    assert!(ok(
+        json!({"kind":"setNodeInput","graphId":"g","nodeId":"n","port":"a","value":2})
+    ));
+    assert!(ok(
+        json!({"kind":"setNodeInput","graphId":"g","nodeId":"n","port":"a","value":[0,1,0]})
+    ));
+    assert!(ok(
+        json!({"kind":"setNodeInput","graphId":"g","nodeId":"n","port":"a","value":null})
+    ));
+    assert!(!ok(
+        json!({"kind":"setNodeInput","graphId":"g","nodeId":"n","port":"a"})
+    ));
+    assert!(!ok(
+        json!({"kind":"setNodeInput","graphId":"g","nodeId":"n","port":"","value":1})
+    ));
+    assert!(!ok(
+        json!({"kind":"setNodeInput","graphId":"g","nodeId":"n","port":"a","value":[1]})
+    ));
+    assert!(!ok(
+        json!({"kind":"setNodeInput","graphId":"g","nodeId":"n","port":"a","value":1,"extra":true})
+    ));
 }

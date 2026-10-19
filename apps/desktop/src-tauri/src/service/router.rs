@@ -1,4 +1,5 @@
 use super::*;
+use crate::input::devices::DeviceStatus;
 use crate::input::monitor::MonitorStatus;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use std::{future::Future, pin::Pin};
@@ -18,6 +19,23 @@ fn monitor_warning(watching: bool, status: MonitorStatus) -> Option<AppError> {
         message: message.into(),
         ids: vec!["input-monitoring".into()],
     })
+}
+/// The status warning for a used device kind that cannot give input (R10).
+fn device_warning(kind: DeviceKind, status: DeviceStatus) -> AppError {
+    let (id, message) = match kind {
+        DeviceKind::Gamepad => ("device-gamepad", "Gamepad input is unavailable"),
+        DeviceKind::Midi => ("device-midi", "MIDI input is unavailable"),
+        DeviceKind::Pointer => ("device-pointer", "Pointer input is unavailable"),
+    };
+    AppError {
+        code: if status == DeviceStatus::Unsupported {
+            ErrorCode::Unsupported
+        } else {
+            ErrorCode::Unavailable
+        },
+        message: message.into(),
+        ids: vec![id.into()],
+    }
 }
 /// The computer addresses for the iFacialMocap Inspector (R7): the IPv4 addresses of up,
 /// non-loopback, non-link-local interfaces, at most 8, in numeric order.
@@ -195,6 +213,7 @@ impl Shared {
                 | "blueprintRun"
                 | "blueprintEdit"
                 | "blueprintInspect"
+                | "blueprintDebug"
                 | "expressionGet"
                 | "expressionSet"
         ) {
@@ -230,6 +249,7 @@ impl Shared {
                                 data.revision,
                                 data.keystrokes.into_iter().collect(),
                                 data.held_keys.into_iter().collect(),
+                                data.devices.unwrap_or_default().into_iter().collect(),
                             )
                         {
                             self.sync_keystrokes().await;
@@ -269,6 +289,7 @@ impl Shared {
             // Read before `inner`: relearn_keystrokes takes keystrokes_known before inner.
             let watching = !lock(&self.keystrokes_known).watched.is_empty();
             let monitor = lock(&self.monitor).clone().status();
+            let device_problems = lock(&self.devices).clone().problems();
             let inner = lock(&self.inner);
             let outputs = inner
                 .tickets
@@ -311,6 +332,12 @@ impl Shared {
                         watching && inner.publisher.is_some(),
                         monitor
                     ))
+                    .chain(
+                        device_problems
+                            .into_iter()
+                            .filter(|_| inner.publisher.is_some())
+                            .map(|(kind, status)| device_warning(kind, status))
+                    )
                     .collect(),
                 outputs,
                 tracking_status: inner
@@ -349,6 +376,7 @@ impl Shared {
                 | "blueprintRun"
                 | "blueprintEdit"
                 | "blueprintInspect"
+                | "blueprintDebug"
                 | "expressionGet"
                 | "expressionSet"
         ) {

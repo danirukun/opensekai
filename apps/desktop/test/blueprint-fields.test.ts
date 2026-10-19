@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { makeSmokeScene } from '@opensekai/contracts';
-import { fitPropertySettings, formatCases, keyLabel, keyOptions, newVariable, parseCases, propertyOptions } from '../src/blueprints/fields';
+import { fitPropertySettings, formatCases, formatList, keyLabel, keyOptions, newVariable, parseCases, parseList, parseScalar, propertyOptions, vectorParts } from '../src/blueprints/fields';
 
 it('parses a list of 1 to 8 unique integers', () => {
  expect(parseCases('0, 1, -2')).toEqual([0, 1, -2]);
@@ -34,4 +34,57 @@ it('lists the properties of the chosen entity and fixes a property that does not
  expect(propertyOptions(scene, 'performer').map(o => o.value)).not.toContain('fovDegrees');
  expect(fitPropertySettings({ entityId: 'performer', property: 'fovDegrees' }, scene)).toEqual({ entityId: 'performer', property: 'position' });
  expect(fitPropertySettings({ entityId: 'camera_wide', property: 'fovDegrees' }, scene)).toEqual({ entityId: 'camera_wide', property: 'fovDegrees' });
+});
+
+it('names and defaults a new variable of each data type', () => {
+ expect(newVariable([], 'string[]', 'l')).toEqual({ id: 'l', name: 'String List 1', type: 'string[]', default: [] });
+ expect(newVariable([], 'vector3', 'v')).toEqual({ id: 'v', name: 'Vector3 1', type: 'vector3', default: [0, 0, 0] });
+});
+
+it('parses inline and default text for each scalar type', () => {
+ expect(parseScalar('number', '1.5')).toBe(1.5);
+ expect(parseScalar('number', '')).toBeNull();
+ expect(parseScalar('integer', '-4')).toBe(-4);
+ expect(parseScalar('integer', '2.5')).toBeNull();
+ expect(parseScalar('integer', '9007199254740992')).toBeNull();
+ expect(parseScalar('string', ' a b ')).toBe(' a b ');
+ expect(parseScalar('string', 'x'.repeat(1025))).toBeNull();
+ expect(parseScalar('vector3', '1, -2, 0.5')).toEqual([1, -2, 0.5]);
+ expect(parseScalar('vector3', '1, 2')).toBeNull();
+ expect(parseScalar('vector3', '1, , 2')).toBeNull();
+ expect(vectorParts([1, 2, 3], 1, '9')).toEqual([1, 9, 3]);
+ expect(vectorParts([1, 2, 3], 1, 'x')).toBeNull();
+});
+
+it('reads a list default with one item on each line', () => {
+ expect(parseList('integer[]', '1\n\n 2 \n3')).toEqual([1, 2, 3]);
+ expect(parseList('integer[]', '1\n2.5')).toBeNull();
+ expect(parseList('boolean[]', 'true\nFalse')).toEqual([true, false]);
+ expect(parseList('boolean[]', 'yes')).toBeNull();
+ expect(parseList('string[]', '"a b"\n " c" ')).toEqual(['a b', ' c']);
+ expect(parseList('string[]', 'a\n1')).toEqual(['a', '1']);
+ expect(parseList('vector3[]', '0, 1, 0\n1,1,1')).toEqual([[0, 1, 0], [1, 1, 1]]);
+ expect(parseList('number[]', '')).toEqual([]);
+ expect(parseList('number[]', Array.from({ length: 257 }, () => '1').join('\n'))).toBeNull();
+ expect(formatList([[0, 1, 0], [1, 1, 1]])).toBe('0, 1, 0\n1, 1, 1');
+ expect(parseList('vector3[]', formatList([[0, 1.5, -2]]))).toEqual([[0, 1.5, -2]]);
+});
+
+it('keeps each string list item through format and parse, also an empty item and a line break', () => {
+ const items = ['', 'a\nb', ' padded ', '"quoted"', 'back\\slash', 'plain', 'say "hi"', '“curly”', "'single'", '"', 'it’s'];
+ expect(parseList('string[]', formatList(items))).toEqual(items);
+ expect(formatList(items).split('\n')).toHaveLength(items.length);
+});
+
+it('writes safe string items as plain text and JSON only where needed', () => {
+ expect(formatList(['Ann', 'say "hi"', 'a, b'])).toBe('Ann\nsay "hi"\na, b');
+ expect(formatList(['', ' x', 'a\nb', '"q"', '“q”'])).toBe('""\n" x"\n"a\\nb"\n"\\"q\\""\n"“q”"');
+});
+
+it('reads smart quotes from macOS as straight quotes', () => {
+ expect(parseList('string[]', '“Ann”\n‘Bo’\n“mixed"\n"x”')).toEqual(['Ann', 'Bo', 'mixed', 'x']);
+ expect(parseList('string[]', '“”\n“ a ”\n“a\\nb”')).toEqual(['', ' a ', 'a\nb']);
+ expect(parseList('string[]', '“say \\“hi\\””')).toEqual(['say "hi"']);
+ // A wrapped line that is not a JSON string stays literal text.
+ expect(parseList('string[]', '"a"b"\n“\\x”')).toEqual(['"a"b"', '“\\x”']);
 });
