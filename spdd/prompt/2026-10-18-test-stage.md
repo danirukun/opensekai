@@ -78,6 +78,17 @@ All positions are in glTF coordinates: metres, +Y up, and the avatar at the orig
   - file `test-stage.glb`, key `sha256/<hash>.glb`, format `glb`;
   - the R12 credits, with licence label `CC0-1.0`.
   - `fixtures/cloud/source-policy.md` records the source and the inputs.
+- **R16. Public copy.** The same bytes are public at `https://assets.oshi-connect.net/opensekai/test-stage/opensekai-test-stage-fbeb8623.glb`, in the R2 bucket `assets`.
+  - It is served as `model/gltf-binary` with `Content-Disposition: attachment` and an immutable cache.
+  - The file name includes the first 8 characters of the SHA-256, so a new revision gets a new URL.
+  - The README links to it and gives the SHA-256.
+  - The private fixture bucket stays private, because it also holds a file whose licence prohibits redistribution.
+- **R17. Example show.** `fixtures/shows/test-stage.osekai` is saved by the app. It has these entities:
+  - the environment at `scene_6eb170021aa3c791a7f1665b25076754f9d2c2262568f9fdd720b6c4f381d1ee`, which is the library ID that an editor import of the R16 file gives;
+  - the avatar Performer with no model;
+  - the sun (directional, 2.5, shadow), the Cove Spot (spot, 120, 45°, shadow), and the Fill (ambient, 0.4);
+  - the cameras Wide (output), Chart, Cove, and Corner, as in the evidence.
+  - The show-open test reads it.
 
 ## E — Entities
 
@@ -92,7 +103,8 @@ Author the stage in the owner's running Blender through the Lab MCP, and render 
 ## S — Structure
 
 - `scripts/test-stage/build_test_stage.py` (new), `scripts/build-test-stage.ts` (new), `package.json`.
-- `fixtures/cloud/manifest.json`, `fixtures/cloud/source-policy.md`.
+- `fixtures/cloud/manifest.json`, `fixtures/cloud/source-policy.md`, `fixtures/shows/test-stage.osekai`, `apps/desktop/src-tauri/src/show.rs` (the show-open test).
+- `README.md` (download link).
 - `docs/testing.md`, `ARCHITECTURE.md`, `docs/evaluation/test-stage.md` (new).
 
 ## O — Operations
@@ -121,5 +133,6 @@ Author the stage in the owner's running Blender through the Lab MCP, and render 
 
 - Do not change a live Blender scene other than `OpenSekai Test Stage`, and do not remove data blocks that the script did not tag.
 - Do not commit the GLB or the PolyHaven maps.
+- Do not make the private fixture bucket public.
 - Do not claim a chroma-key or depth-of-field result. Those features do not exist yet.
 - Record a measurement that was not taken as unknown.

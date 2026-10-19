@@ -51,7 +51,7 @@ The private files are in the R2 bucket `opensekai-fixtures`. Setup reads them on
 
 The avatar license prohibits redistribution. Do not commit a private fixture file, attach it to an issue, or upload it to another service. Screenshots of a render are permitted as pull request evidence. To add a fixture, upload it to the bucket under `sha256/<hash>.<extension>` and add an entry to `fixtures/cloud/manifest.json`.
 
-`pnpm build:test-stage` rebuilds the test stage with Blender 5.2 or later (`BLENDER` sets the binary) into `fixtures/local/cache/test-stage/test-stage.glb`, and validates it. The [test stage contract](../spdd/prompt/2026-10-18-test-stage.md) gives the layout. A rebuild is not byte-identical, so a changed stage is a new fixture revision: upload it and change its manifest entry.
+`pnpm build:test-stage` rebuilds the test stage with Blender 5.2 or later (`BLENDER` sets the binary) into `fixtures/local/cache/test-stage/test-stage.glb`, and validates it. The [test stage contract](../spdd/prompt/2026-10-18-test-stage.md) gives the layout. A rebuild is not byte-identical, so a changed stage is a new fixture revision: upload it and change its manifest entry. The public copy for users is at <https://assets.oshi-connect.net/opensekai/test-stage/opensekai-test-stage-fbeb8623.glb>. A new revision gets a new public file name, and the README link changes with it.
 
 Tools for fixture checks:
 

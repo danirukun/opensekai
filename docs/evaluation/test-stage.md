@@ -73,6 +73,21 @@ Green cove, sampled in a 24 × 24 px box in the `preview_v1` Cove screenshot (sR
 
 Red stays at 0 to 1, and B/G stays about 0.35 to 0.37. The green level changes from 119 to 216 across the cove, so a keyer must allow for falloff and shadows.
 
+## Public copy and example show
+
+Date: 2026-10-19. The app ran in normal mode (no fixture manifest), with `OPENSEKAI_EVALUATION=1`.
+
+- **Public copy.** `https://assets.oshi-connect.net/opensekai/test-stage/opensekai-test-stage-fbeb8623.glb` returns HTTP 200 with these headers:
+  - `content-type: model/gltf-binary`;
+  - `content-length: 15387580`;
+  - `content-disposition: attachment; filename=opensekai-test-stage.glb`;
+  - `cache-control: public, max-age=31536000, immutable`.
+  - A download has SHA-256 `fbeb8623…`, the same as the fixture.
+- **Import of the download.** An editor import of the downloaded file from a scratch path (Add › Environment › Source › Import file…) gave `scene_6eb170021aa3c791a7f1665b25076754f9d2c2262568f9fdd720b6c4f381d1ee`. That is the same ID as the import of `fixtures/local/test-stage.glb`, and no new library record was added.
+- **Save.** MCP `scene_patch` built the show: the environment, Performer with no model, the Sun, the Cove Spot, the Fill, and the Wide, Chart, Cove, and Corner cameras. The show name was set to "OpenSekai Test Stage". The editor Save button and the macOS save dialog wrote `fixtures/shows/test-stage.osekai` (9 entities).
+- **Open.** After a change (Corner removed), the editor Open button and the open dialog read the file again. `scene_inspect` gave all 9 entities back, and a Corner screenshot showed the stage, the lights, and the shadows.
+- **Test.** `cargo test -p opensekai-desktop --lib example_stage_show_opens` reads `stage-lights.osekai` and `test-stage.osekai`: 1 passed.
+
 ## Timing
 
 - **App:** `output_main` `cpuMs` was about 2 ms at 60 fps (`production_v1`). `gpuMs` is unknown, because the frame acknowledgment reports null.

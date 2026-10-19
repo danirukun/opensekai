@@ -13,6 +13,7 @@ Date: 2026-10-18. Scope: a project-made environment fixture for visual checks (E
 - Owner decisions, 2026-10-18:
   - Commit the build script and keep the GLB in the R2 fixture bucket.
   - The green screen is a cyclorama cove.
+- Owner request, 2026-10-19: put a public download link in the README, because the stage is shared as CC0, and save the test show for reuse.
 - [Environment import](../prompt/2026-10-13-environment-import.md) sets the GLB rules:
   - one self-contained GLB;
   - PNG, JPEG, or WebP images;
@@ -43,6 +44,9 @@ Date: 2026-10-18. Scope: a project-made environment fixture for visual checks (E
 4. **The green screen is lit**, with roughness 1 and specular 0. A real cove shows light falloff and shadows, and a keyer must handle them. Chroma green is sRGB (0, 177, 64).
 5. **No lights and no cameras in the file.** The importer removes file lights, and each test adds its own light and camera entities.
 6. **The PBR swatch is the PolyHaven skill input.** In authoring, the `polyhaven-texture-apply` skill gives the swatch. In the build, the maps are a pinned download checked by SHA-256, so the build does not depend on a skill.
+
+7. **The public copy is in the `assets` bucket** (`assets.oshi-connect.net`), not in the fixture bucket. The fixture bucket holds a private avatar, so it must not become public. A versioned file name keeps old links working when the stage changes.
+8. **The example show refers to the library ID of an import.** The importer stores the packed GLB under the SHA-256 of the packed bytes. An editor import of the public file from a second path gave the same ID, so a user who imports the download gets the ID that the show uses. In fixture mode, the stage has the ID `fixture_test_stage` instead, so there the show shows `Missing model` until the user chooses the stage.
 
 ## Effects
 
