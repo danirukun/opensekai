@@ -104,3 +104,16 @@ Write the pure modules first with unit tests: defaults and equality, section lis
 - Do not unmount a collapsed section while it holds a live edit or a draft.
 - Do not save the collapse state in the show.
 - Do not claim a macOS result. These stay for the owner: the look of the reset marks and the index in the macOS Editor window, the scroll follow with a trackpad, a reset that OBS shows (for example a light Intensity), and Windows.
+
+## Implementation notes
+
+Date: 2026-10-20, implementation run. These notes record how the code meets the requirements above where the requirements left a choice. Each one is reversible.
+
+- **Mark position (R5).** The mark is in the left gutter of the field, at the height of the label. It is positioned absolutely, so the label does not move when it shows. Each field component puts its field and mark in a `.resettable` wrapper. `SliderField.svelte` and `ColorField.svelte` do not change. Alternative: a reset snippet inside each field component, next to the label text. The kit `Input` and `Select` render their own label, and a button inside a `label` element changes the accessible name of the control.
+- **Transform rows (R8).** At its default, a row button is hidden with `visibility: hidden` and disabled. It keeps its space, so the X, Y, and Z boxes do not change width during a drag. The button title is `Reset <row label>` (for example `Reset Position`).
+- **Disabled marks (R7).** The marks are disabled while any edit is pending, also a live edit of another field. A live edit runs only while a slider or a color picker moves.
+- **Current section (R14).** A column that does not scroll marks its first section, not its last.
+- **Collapse state (R12).** `collapsed` is the literal list of collapsed sections. The start state is `["tracking:smoothing", "tracking:face", "tracking:diagnostics"]`.
+- **Structure.** `TrackingAdvanced.svelte` is replaced by `TrackingDiagnostics.svelte` (the diagnostics list only). `LightFields.svelte` takes a `part` prop (`light`, `affect`, or `shadow`) and the Inspector renders it in each light section.
+- **Blend shape row (R3, R7).** A row reset sends the scene mapping without that range. Before, the row Reset sent the draft text of the whole Face group.
+- **Check step 1 (O6).** A new Point Light shows the Position row button, because its add position is not zero (R1, R8). No field mark shows.

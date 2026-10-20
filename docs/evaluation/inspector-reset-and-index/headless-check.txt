@@ -1,0 +1,19 @@
+PASS a new Point Light shows no field reset mark; only the Position row (add position is not the reset target, R1/R8) ["Reset Position"]
+PASS a drag of Intensity shows the Intensity mark (R5) {"intensity":21.82,"marks":["Reset Position","Reset Intensity"]}
+PASS one click sends exactly one scenePatch, Intensity is 20, the revision increases by one, the mark goes away (R6) {"before":{"patches":6,"revision":6},"after":{"patches":7,"revision":7,"intensity":20}}
+PASS the reset patch is an ordinary setLight with the current expectedRevision (R6) {"sceneId":"scene_smoke","expectedRevision":6,"operations":[{"kind":"setLight","entityId":"788f49ce-ffa1-4513-98fd-70a07d6f035c","light":{"type":"point","color":"#ffffff","intensity":20,"range":10,"affectCharacters":true,"affectProps":true,"affectEnvironment":true,"shadow":{"enabled":false,"intensity":1,"soft":true,"bias":-0.0005,"normalBias":0.02}}}]}
+PASS an outside scenePatch of Range shows the Range mark after the revision arrives (R9) {"ok":true,"marks":["Reset Position","Reset Range (m)"]}
+PASS the Position button resets to zero and then hides (R8) {"position":[0,0,0],"marks":["Reset Range (m)"]}
+PASS the Position button shows again after a move (R8) {"position":[1.5,0,0],"marks":["Reset Position","Reset Range (m)"]}
+PASS the index lists Transform, Light, Affect, Shadow (R11, R13) {"index":{"entries":["Transform","Light","Affect","Shadow"],"current":"Light"},"width":1007}
+PASS scrolling moves aria-current: top, Light heading, end (R14) {"atTop":"Transform","atLight":"Light","atEnd":"Shadow"}
+PASS a click on Affect scrolls its heading to the top of the column, focuses it, and marks it current (R16) {"offset":1,"focused":true,"current":"Affect","scrollTop":866,"max":875}
+PASS a smooth jump to Shadow ends with Shadow focused and current; its heading is at the top or the column is at its end (R16) {"offset":197,"focused":true,"current":"Shadow","scrollTop":875,"max":875}
+PASS Enter collapses Affect; its fields stay mounted and the state is in opensekai.inspector.sections (R10, R12) {"expanded":"false","hidden":true,"mounted":3,"stored":"{\"version\":1,\"collapsed\":[\"tracking:smoothing\",\"tracking:face\",\"tracking:diagnostics\",\"light:affect\"]}"}
+PASS Affect is still collapsed after a reload (R12) "false"
+PASS Tab from the Range slider reaches the Range mark, then the next field (R5) {"afterRange":"Reset Range (m)","afterMark":"checkbox"}
+PASS a tracking source shows Receiver open and Smoothing, Face, Diagnostics collapsed, without Advanced (R11, R12) {"sections":[["receiver","true"],["smoothing","false"],["face","false"],["diagnostics","false"]],"advanced":0,"index":["Receiver","Smoothing","Face","Diagnostics"]}
+PASS a Beta reset sets only Beta to 0.5 (R6) {"smoothingBefore":{"enabled":true,"minCutoff":5,"beta":5.256,"derivativeCutoff":1},"smoothingAfter":{"enabled":true,"minCutoff":5,"beta":0.5,"derivativeCutoff":1}}
+PASS a properties column under 520 px shows no index (R13) {"width":487,"index":null}
+PASS a change of the selected entity scrolls the column to the top (R17) 0
+{"passed":18,"failed":0,"scenePatchCalls":12,"finalRevision":13,"userAgent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"}
