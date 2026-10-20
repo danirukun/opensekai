@@ -1,0 +1,15 @@
+initial {"lines":0,"surface":[41,72,1198,674],"svg":null,"pe":null,"active":false,"stored":null}
+items 2 [[" Center mark","false"],[" Thirds","false"]]
+after mouse thirds {"lines":4,"surface":[41,72,1198,674],"svg":[41,72,1198,674],"pe":"none","active":true,"stored":"{\"center\":false,\"thirds\":true}"}
+focused  Center mark
+after keyboard center {"lines":6,"surface":[41,72,1198,674],"svg":[41,72,1198,674],"pe":"none","active":true,"stored":"{\"center\":true,\"thirds\":true}"}
+focused  Thirds
+after keyboard thirds off {"lines":2,"surface":[41,72,1198,674],"svg":[41,72,1198,674],"pe":"none","active":true,"stored":"{\"center\":true,\"thirds\":false}"}
+menu after escape 0
+after resize {"lines":2,"surface":[24,219,852,479],"svg":[24,219,852,479],"pe":"none","active":true,"stored":"{\"center\":true,\"thirds\":false}"}
+after reload {"lines":2,"surface":[24,219,852,479],"svg":[24,219,852,479],"pe":"none","active":true,"stored":"{\"center\":true,\"thirds\":false}"}
+9x16 {"lines":6,"surface":[270,139,360,640],"svg":[270,139,360,640],"pe":"none","active":true,"stored":"{\"center\":true,\"thirds\":true}"} [[120.25,0,120.25,640],[0,213.25,360,213.25],[240.25,0,240.25,640],[0,426.75,360,426.75],[168.25,320.25,192.25,320.25],[180.25,308.25,180.25,332.25]]
+4x3 {"lines":6,"surface":[130,219,640,480],"svg":[130,219,640,480],"pe":"none","active":true,"stored":"{\"center\":true,\"thirds\":true}"} [[213.25,0,213.25,480],[0,160.25,640,160.25],[426.75,0,426.75,480],[0,320.25,640,320.25],[308.25,240.25,332.25,240.25],[320.25,228.25,320.25,252.25]]
+menu open 1
+menu after second click 0 expanded false
+hit at center CANVAS
