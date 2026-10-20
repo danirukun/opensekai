@@ -2,7 +2,7 @@
  import { onMount } from 'svelte';
  import { invoke } from '@tauri-apps/api/core';
  import { Button } from '@oshi-connect/ui';
- import { Move, RotateCw, Scaling, PanelsTopLeft, Activity } from '@lucide/svelte';
+ import { Move, RotateCw, Scaling, PanelsTopLeft, Activity, Grid3x3 } from '@lucide/svelte';
  import Stats from 'stats.js';
  import {createMediaPipeTracker} from './tracking/mediapipe';
  import { bootstrapDesktop } from './bootstrap';
@@ -15,15 +15,20 @@
  import {createLoadStatusSender} from './editor/load-status';
  import type {AssetLoadStatus} from '@opensekai/renderer';
  import ContextMenu, {type MenuAction} from './components/ContextMenu.svelte';
+ import GuideOverlay from './components/GuideOverlay.svelte';
+ import {GUIDE_STORAGE_KEY,NO_GUIDES,guidesOn,readGuides,toggleGuide,writeGuides,type Guide,type GuideSettings} from './editor/guides';
  let canvas:HTMLCanvasElement,stage:HTMLDivElement,monitorHost:HTMLDivElement;
  let previewSize=$state({width:0,height:0});
  let session:Awaited<ReturnType<typeof bootstrapDesktop>>|undefined;
  let model=$state.raw<EditorModel>();
  let view=$state<EditorView>({scene:null,selectedId:null,error:null,pending:false});
  let tool=$state<Tool>('translate'),canEdit=$state(false),available=$state(false),error=$state<string|null>(null),dragging=$state(false);
- let menu=$state<{x:number;y:number;actions:MenuAction[]}|null>(null);
+ let menu=$state<{x:number;y:number;actions:MenuAction[];guides?:true;anchor?:HTMLElement}|null>(null);
  let perfVisible=$state(false);
  function togglePerf(){perfVisible=!perfVisible;try{localStorage.setItem('opensekai.scene.perfMonitor',perfVisible?'true':'false');}catch{}}
+ let guides=$state<GuideSettings>(NO_GUIDES);
+ function toggle(guide:Guide){guides=toggleGuide(guides,guide);try{localStorage.setItem(GUIDE_STORAGE_KEY,writeGuides(guides));}catch{}}
+ function guideMenu(event:MouseEvent&{currentTarget:HTMLButtonElement}){if(menu?.guides){menu=null;return;}const box=event.currentTarget.getBoundingClientRect();menu={x:box.left,y:box.bottom+4,guides:true,anchor:event.currentTarget,actions:[{label:'Center mark',checked:guides.center,run:()=>toggle('center')},{label:'Thirds',checked:guides.thirds,run:()=>toggle('thirds')}]};}
  let loads=$state<AssetLoadStatus[]>([]);
  const names=$derived(Object.fromEntries((view.scene?.entities??[]).map(entity=>[entity.id,entity.name])));
  const selected=$derived(view.scene?.entities.find(e=>e.id===view.selectedId));
@@ -38,7 +43,7 @@
  onMount(()=>{
   let disposed=false,off=()=>{},offUI=()=>{};let poll:ReturnType<typeof createEditorPoll>|undefined;
   const stats=new Stats();stats.showPanel(0);stats.dom.style.position='static';monitorHost.appendChild(stats.dom);
-  try{perfVisible=localStorage.getItem('opensekai.scene.perfMonitor')==='true';}catch{}
+  try{perfVisible=localStorage.getItem('opensekai.scene.perfMonitor')==='true';guides=readGuides(localStorage.getItem(GUIDE_STORAGE_KEY));}catch{}
   let tracker:ReturnType<typeof createMediaPipeTracker>|undefined,offClock=()=>{};
   let devices:{deviceId:string;label:string}[]=[];
   const reconcileTracking=()=>{if(!session||session.tracking.now()===null)return;tracker?.reconcile(model?.read().scene?.entities.filter(entity=>entity.kind==='tracking')??[]);};
@@ -71,9 +76,9 @@
   <Button variant="ghost" class={tool==='translate'?'active-tool':''} title="Move (W)" disabled={!canEdit||!available} onclick={()=>setTool('translate')}><Move size={17}/><span class="sr-only">Move</span></Button>
   <Button variant="ghost" class={tool==='rotate'?'active-tool':''} title="Rotate (E)" disabled={!canEdit||!available} onclick={()=>setTool('rotate')}><RotateCw size={17}/><span class="sr-only">Rotate</span></Button>
   <Button variant="ghost" class={tool==='scale'?'active-tool':''} title="Scale (R)" disabled={!canEdit||!available} onclick={()=>setTool('scale')}><Scaling size={17}/><span class="sr-only">Scale</span></Button>
- </div><span class="selection-name">{selected?.name??''}</span><div class="spacer"></div><Button variant="ghost" class={perfVisible?'active-tool':''} title={perfVisible?'Hide performance monitor':'Show performance monitor'} onclick={togglePerf}><Activity size={17}/><span class="sr-only">{perfVisible?'Hide performance monitor':'Show performance monitor'}</span></Button><Button variant="secondary" onclick={showEditor}><PanelsTopLeft size={15}/>Editor</Button></header>
- <div bind:this={stage} class="viewport" oncontextmenu={context} role="presentation"><div class="preview-surface" style:width={`${previewSize.width}px`} style:height={`${previewSize.height}px`}><canvas bind:this={canvas} id="preview" tabindex="0" aria-label="Scene preview"></canvas><div class="camera-frame" aria-hidden="true"></div><LoadOverlay entries={loads} {names} ondismiss={id=>session?.dismissLoad(id)}/></div><div bind:this={monitorHost} class="perf-monitor" class:visible={perfVisible} aria-label="Scene preview performance"></div></div>
+ </div><span class="selection-name">{selected?.name??''}</span><div class="spacer"></div><Button variant="ghost" class={guidesOn(guides)?'active-tool':''} title="Guides" aria-haspopup="menu" aria-expanded={menu?.guides===true} onclick={guideMenu}><Grid3x3 size={17}/><span class="sr-only">Guides</span></Button><Button variant="ghost" class={perfVisible?'active-tool':''} title={perfVisible?'Hide performance monitor':'Show performance monitor'} onclick={togglePerf}><Activity size={17}/><span class="sr-only">{perfVisible?'Hide performance monitor':'Show performance monitor'}</span></Button><Button variant="secondary" onclick={showEditor}><PanelsTopLeft size={15}/>Editor</Button></header>
+ <div bind:this={stage} class="viewport" oncontextmenu={context} role="presentation"><div class="preview-surface" style:width={`${previewSize.width}px`} style:height={`${previewSize.height}px`}><canvas bind:this={canvas} id="preview" tabindex="0" aria-label="Scene preview"></canvas><GuideOverlay settings={guides}/><div class="camera-frame" aria-hidden="true"></div><LoadOverlay entries={loads} {names} ondismiss={id=>session?.dismissLoad(id)}/></div><div bind:this={monitorHost} class="perf-monitor" class:visible={perfVisible} aria-label="Scene preview performance"></div></div>
  <footer><span>{view.scene?'Session connected':'Starting…'}</span><span>{canEdit?'W Move · E Rotate · R Scale':'Read only'}</span></footer>
  {#if error||view.error}<p class="window-error" role="alert">{error??view.error}</p>{/if}
 </main>
-{#if menu}<ContextMenu {...menu} onclose={()=>{menu=null;}}/>{/if}
+{#if menu}<ContextMenu x={menu.x} y={menu.y} actions={menu.actions} anchor={menu.anchor} onclose={()=>{menu=null;}}/>{/if}
