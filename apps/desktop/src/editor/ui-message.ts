@@ -9,7 +9,7 @@ export function parseUIMessage(value: unknown): UIMessage | null {
   if (!value || typeof value !== 'object' || new TextEncoder().encode(JSON.stringify(value)).length > 4096) return null;
   const v = value as Record<string,unknown>;
   const keys = (expected:string[]) => Object.keys(v).length === expected.length && expected.every(key => key in v);
-  if(v.kind==='trackingDevices'&&keys(['kind','devices'])&&Array.isArray(v.devices)&&v.devices.length<=8){
+  if(v.kind==='trackingDevices'&&keys(['kind','devices'])&&Array.isArray(v.devices)&&v.devices.length<=16){
    if(v.devices.every(device=>device&&typeof device==='object'&&Object.keys(device).length===2&&typeof device.deviceId==='string'&&device.deviceId.length<=512&&typeof device.label==='string'&&device.label.length<=128))return {kind:'trackingDevices',devices:v.devices.map(device=>({deviceId:device.deviceId,label:device.label}))};
   }
   if(v.kind==='loadStatus'&&keys(['kind','entries'])&&Array.isArray(v.entries)&&v.entries.length<=8){

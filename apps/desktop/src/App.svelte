@@ -5,6 +5,7 @@
  import { Move, RotateCw, Scaling, PanelsTopLeft, Activity, Grid3x3 } from '@lucide/svelte';
  import Stats from 'stats.js';
  import {createMediaPipeTracker} from './tracking/mediapipe';
+ import {fitDevices} from './tracking/hidden-cameras';
  import { bootstrapDesktop } from './bootstrap';
  import { createEditorModel, type EditorModel, type EditorView } from './editor/model';
  import { createEditorPoll } from './editor-poll';
@@ -64,7 +65,7 @@
    onInspect(sceneId){return session!.client.api.sceneInspect({sceneId});},
    onCycleCamera(direction){const state=model?.read();const next=cycleCamera(state?.scene??null,direction);if(next&&!state?.pending)void model?.selectCamera(next).then(()=>notify({kind:'refresh'}));},
   },{begin(){if(!perfVisible)return false;stats.begin();return true;},end(){stats.end();}}).then(async value=>{if(disposed){await value.stop();return;}session=value;offLoads=value.onLoadStatus(entries=>{loads=entries;loadSender.offer(entries);});canEdit=value.canEdit;model=createEditorModel(value.client.api);
-   tracker=createMediaPipeTracker({now:()=>value.tracking.now()??0,onSample:sample=>value.tracking.submit({samples:[sample],statuses:[]}),onStatus:status=>value.tracking.submit({samples:[],statuses:[status]}),onDevices:choices=>{devices=choices.slice(0,8).map(device=>({deviceId:device.deviceId.slice(0,512),label:device.label.slice(0,128)}));notify({kind:'trackingDevices',devices});}});
+   tracker=createMediaPipeTracker({now:()=>value.tracking.now()??0,onSample:sample=>value.tracking.submit({samples:[sample],statuses:[]}),onStatus:status=>value.tracking.submit({samples:[],statuses:[status]}),onDevices:choices=>{devices=fitDevices(choices.map(device=>({deviceId:device.deviceId.slice(0,512),label:device.label.slice(0,128)})));notify({kind:'trackingDevices',devices});}});
    offClock=value.tracking.onClock(reconcileTracking);
    off=model.subscribe(next=>{view=next;sync();reconcileTracking();});poll=createEditorPoll(value.client.api,model,status=>{available=status.revision!==null;error=null;if(!available){session?.editor?.cancel();dragging=false;drafts.offer(null);}sync();},code=>{available=false;error=code;session?.editor?.cancel();dragging=false;drafts.offer(null);sync();});await poll.poll();sync();}).catch(cause=>{if(!disposed)error=cause instanceof Error?cause.message:'Session startup failed';});
   return()=>{disposed=true;clearInterval(timer);resize.disconnect();tracker?.shutdown();offClock();offLoads();loadSender.close();drafts.close();poll?.close();off();offUI();stats.dom.remove();void session?.stop().catch(()=>{});};
