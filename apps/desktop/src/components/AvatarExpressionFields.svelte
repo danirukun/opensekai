@@ -1,16 +1,19 @@
 <script lang="ts">
- import { Button, Select } from '@oshi-connect/ui';
+ import { Select } from '@oshi-connect/ui';
  import { ChevronRight } from '@lucide/svelte';
  import type { ExpressionSettings, ExpressionState, ExpressionView, Reply } from '@opensekai/contracts';
  import { editSettings, LAYER_OPTIONS } from '../editor/expressions';
  import { SLIDERS } from '../editor/slider';
  import SliderField from './SliderField.svelte';
+ import ResetMark from './ResetMark.svelte';
  export interface ExpressionApi {
   get(avatarId: string): Promise<Reply<ExpressionState>>;
   set(avatarId: string, name: string, active: boolean): Promise<Reply<ExpressionState>>;
  }
- let { avatarId, revision, api, disabled = false, onsettings, onsettingslive, onliveend }: {
+ let { avatarId, revision, api, disabled = false, stored = new Set(), onsettings, onsettingslive, onliveend }: {
   avatarId: string; revision: number; api: ExpressionApi; disabled?: boolean;
+  // The expression names that have a stored settings entry; each one shows a reset mark (B17 R3).
+  stored?: ReadonlySet<string>;
   onsettings: (avatarId: string, name: string, settings: ExpressionSettings | null, revision: number) => Promise<unknown>;
   onsettingslive?: (avatarId: string, name: string, settings: ExpressionSettings) => void; onliveend?: () => void;
  } = $props();
@@ -49,11 +52,11 @@
  }
 </script>
 {#if list.length}
-<section class="expressions" aria-labelledby="expressions-{avatarId}">
- <h4 id="expressions-{avatarId}">Expressions</h4>
+<div class="expressions">
  {#each list as view (view.name)}
   <div class="row">
    <label class="toggle"><input type="checkbox" role="switch" checked={view.active} {disabled} onchange={event => toggle(view, event.currentTarget)} /><span class="name">{view.name}</span></label>
+   {#if stored.has(view.name)}<ResetMark label={view.name} {disabled} onreset={() => void onsettings(avatarId, view.name, null, revision)} />{/if}
    <button type="button" class="disclose" aria-expanded={open === view.name} aria-label="{view.name} settings" onclick={() => { open = open === view.name ? null : view.name; }}><ChevronRight size={14} /></button>
   </div>
   {#if open === view.name}
@@ -65,16 +68,13 @@
       <label><input type="checkbox" checked={view.suppress[key]} onchange={event => commit(view, { suppress: { [key]: event.currentTarget.checked } })} />{label}</label>
      {/each}
     </div>
-    <Button type="button" variant="ghost" onclick={() => void onsettings(avatarId, view.name, null, revision)}>Reset</Button>
    </fieldset>
   {/if}
  {/each}
  {#if error}<p role="alert">{error}</p>{/if}
-</section>
+</div>
 {/if}
 <style>
- .expressions{padding:12px 0;border-bottom:1px solid #e1dee6}
- h4{font-size:12px;font-weight:600;margin:0 0 6px}
  .row{display:flex;align-items:center;gap:8px;min-height:26px}
  .toggle{display:flex;flex:1 1 auto;align-items:center;gap:6px;min-width:0;font-size:12px;color:#423c4b}
  .toggle input{flex:none;accent-color:#8571ac}

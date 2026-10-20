@@ -267,8 +267,8 @@ Sources: [Mod SDK](https://docs.warudo.app/docs/modding/mod-sdk), [SDK installat
 
 Source: the Warudo 0.15.1 UI audit. These are editor behaviors that the handbook does not list as features.
 
-- [ ] UX-01 — Inspector section index. Later. UI audit 0.15.1. [GitHub #179](https://github.com/danirukun/opensekai/issues/179)
-- [ ] UX-02 — Reset a property to its default. Later. UI audit 0.15.1. [GitHub #180](https://github.com/danirukun/opensekai/issues/180)
+- [ ] UX-01 — Inspector section index. Later. UI audit 0.15.1. Linux headless Chromium: sections with collapse saved per user, the index at 520 px and wider, scroll follow, and jump with focus pass ([check](evaluation/inspector-reset-and-index.md)). macOS look, trackpad scroll, and restart remain. [GitHub #179](https://github.com/danirukun/opensekai/issues/179)
+- [ ] UX-02 — Reset a property to its default. Later. UI audit 0.15.1. Linux headless Chromium: a light and a tracking smoothing field show a mark only when they differ from the add default, and one click sends one ordinary scene patch ([check](evaluation/inspector-reset-and-index.md)). Other kinds have unit tests only. macOS look, an OBS-visible reset, and expression rows remain. [GitHub #180](https://github.com/danirukun/opensekai/issues/180)
 - [ ] UX-03 — Gallery picker and package card. Later. UI audit 0.15.1. [GitHub #181](https://github.com/danirukun/opensekai/issues/181)
 - [ ] UX-04 — Onboarding assistant. Later. Approximate. UI audit 0.15.1. [GitHub #182](https://github.com/danirukun/opensekai/issues/182)
 - [ ] UX-05 — Interface language and dark mode. Later. UI audit 0.15.1. [GitHub #183](https://github.com/danirukun/opensekai/issues/183)
