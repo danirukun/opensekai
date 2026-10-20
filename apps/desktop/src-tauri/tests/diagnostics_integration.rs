@@ -201,9 +201,14 @@ async fn diagnostics_rate_provenance_disconnect_epoch_and_http_policy() {
     next["diagnostics"]["geometries"] = json!(5);
     send(&mut renderer, next.clone()).await;
     barrier(&mut renderer).await;
+    let response = snapshot(&service).await;
+    let status = response.status();
+    let text = response.text().await.unwrap();
+    assert_eq!(status, 200, "rate-limited snapshot body {text:?}");
+    let value: Value = serde_json::from_str(&text).unwrap();
     assert_eq!(
-        snapshot(&service).await.json::<Value>().await.unwrap()["renderer"]["sequence"],
-        1
+        value["renderer"]["sequence"], 1,
+        "rate-limited snapshot {value}"
     );
     tokio::time::sleep(Duration::from_millis(1000)).await;
     publish(&service, &mut publisher, &mut renderer, 3).await;
