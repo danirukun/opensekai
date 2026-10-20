@@ -59,22 +59,16 @@ fn diagnostics(session: &str, sequence: u64) -> Value {
 async fn renderer_diagnostics_snapshot_uses_real_ack_and_operator_http() {
     let (_dir, service) = service(true).await;
     let pd = service.publisher_descriptor();
-    let od = service.operator_descriptor();
     let mut publisher = auth(&pd).await;
     let mut renderer = auth(&service.renderer_descriptor("output_main").unwrap()).await;
     send(&mut publisher, frame(&pd.session_id, 1)).await;
     recv(&mut renderer).await;
     send(&mut renderer, applied(&pd.session_id, 1)).await;
     send(&mut renderer, diagnostics(&pd.session_id, 1)).await;
-    tokio::time::sleep(Duration::from_millis(20)).await;
-    let response = reqwest::Client::new()
-        .get(format!("{}/diagnostics/output_main", od.http_origin))
-        .bearer_auth(&od.token)
-        .send()
-        .await
-        .unwrap();
-    assert_eq!(response.status(), 200);
-    let value: Value = response.json().await.unwrap();
+    let value = wait_snapshot(&service, "geometries 3", |status, body| {
+        status == 200 && body["renderer"]["geometries"] == 3
+    })
+    .await;
     assert_eq!(value["renderer"]["geometries"], 3);
     service.shutdown().await.unwrap();
 }
@@ -98,6 +92,35 @@ async fn snapshot(service: &ServiceHandle) -> reqwest::Response {
         .await
         .unwrap()
 }
+// The host stores diagnostics in the renderer connection task, so poll the snapshot
+// instead of a fixed sleep. Keep the deadline under the 2 s clock credit: after it, the
+// host drops the silent test publisher.
+async fn wait_snapshot(
+    service: &ServiceHandle,
+    what: &str,
+    expected: impl Fn(u16, &Value) -> bool,
+) -> Value {
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(1);
+    loop {
+        let response = snapshot(service).await;
+        let status = response.status().as_u16();
+        let text = response.text().await.unwrap();
+        let body = serde_json::from_str(&text).unwrap_or(Value::Null);
+        if expected(status, &body) {
+            return body;
+        }
+        if tokio::time::Instant::now() >= deadline {
+            panic!("diagnostics snapshot not {what} after 1 s: status {status}, body {text:?}");
+        }
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+}
+// The host handles renderer messages in order, so its pong proves that each earlier
+// message on this socket was handled. A poll cannot prove that a value stays the same.
+async fn barrier(socket: &mut Socket) {
+    send(socket, json!({"kind":"ping","requestId":"barrier"})).await;
+    while recv(socket).await["kind"] != "pong" {}
+}
 #[tokio::test]
 async fn diagnostics_rate_provenance_disconnect_epoch_and_http_policy() {
     let (_dir, service) = service(true).await;
@@ -108,8 +131,10 @@ async fn diagnostics_rate_provenance_disconnect_epoch_and_http_policy() {
     let mut renderer = auth(&rd).await;
     publish(&service, &mut publisher, &mut renderer, 1).await;
     send(&mut renderer, diagnostics(&pd.session_id, 1)).await;
-    tokio::time::sleep(Duration::from_millis(20)).await;
-    let initial: Value = snapshot(&service).await.json().await.unwrap();
+    let initial = wait_snapshot(&service, "sequence 1", |status, body| {
+        status == 200 && body["renderer"]["sequence"] == 1
+    })
+    .await;
     assert!(initial["receivedAgeMs"].as_u64().unwrap() < 500);
     for (name, limit) in [
         ("stateFrames", 2),
@@ -175,7 +200,7 @@ async fn diagnostics_rate_provenance_disconnect_epoch_and_http_policy() {
     let mut next = diagnostics(&pd.session_id, 2);
     next["diagnostics"]["geometries"] = json!(5);
     send(&mut renderer, next.clone()).await;
-    tokio::time::sleep(Duration::from_millis(20)).await;
+    barrier(&mut renderer).await;
     assert_eq!(
         snapshot(&service).await.json::<Value>().await.unwrap()["renderer"]["sequence"],
         1
@@ -184,30 +209,26 @@ async fn diagnostics_rate_provenance_disconnect_epoch_and_http_policy() {
     publish(&service, &mut publisher, &mut renderer, 3).await;
     next["diagnostics"]["sequence"] = json!(3);
     send(&mut renderer, next).await;
-    tokio::time::sleep(Duration::from_millis(20)).await;
-    assert_eq!(
-        snapshot(&service).await.json::<Value>().await.unwrap()["renderer"]["geometries"],
-        5
-    );
+    wait_snapshot(&service, "geometries 5", |status, body| {
+        status == 200 && body["renderer"]["geometries"] == 5
+    })
+    .await;
     renderer.close(None).await.unwrap();
-    tokio::time::sleep(Duration::from_millis(20)).await;
-    assert_eq!(snapshot(&service).await.status(), 404);
+    wait_snapshot(&service, "removed after close", |status, _| status == 404).await;
     let mut renderer = auth(&rd).await;
     recv(&mut renderer).await;
     send(&mut renderer, applied(&pd.session_id, 3)).await;
     let mut new_epoch = diagnostics(&pd.session_id, 3);
     new_epoch["diagnostics"]["rendererEpoch"] = json!("epoch_2");
     send(&mut renderer, new_epoch).await;
-    tokio::time::sleep(Duration::from_millis(20)).await;
-    assert_eq!(
-        snapshot(&service).await.json::<Value>().await.unwrap()["renderer"]["rendererEpoch"],
-        "epoch_2"
-    );
+    wait_snapshot(&service, "epoch_2", |status, body| {
+        status == 200 && body["renderer"]["rendererEpoch"] == "epoch_2"
+    })
+    .await;
     let mut invalid = diagnostics(&pd.session_id, 4);
     invalid["diagnostics"]["rendererEpoch"] = json!("epoch_2");
     send(&mut renderer, invalid).await;
-    tokio::time::sleep(Duration::from_millis(20)).await;
-    assert_eq!(snapshot(&service).await.status(), 404);
+    wait_snapshot(&service, "removed after invalid", |status, _| status == 404).await;
     service.shutdown().await.unwrap();
 }
 #[tokio::test]

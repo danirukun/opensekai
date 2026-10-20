@@ -18,6 +18,7 @@ Add a unit test for new function behavior. Do not test static copy or wiring tha
 - **Fake only the boundary you do not own.** Fake the clock, the network peer, or the hardware source. Do not fake the module that the test is about.
 - **A bug fix needs a regression test.** The test must fail on the old code and pass on the new code. Record both results in the pull request.
 - **Do not wait with a fixed sleep for an effect in another task.** When a test waits for a socket close, a message, or a background task, poll for the expected state with a deadline. Fail with a message that names the state and the last value. A fixed sleep passes on a fast host and fails on a slow one (see #158). A fixed sleep is correct only when the test measures elapsed time itself, for example a timeout or a stale interval.
+- **Prove that an effect does not occur with a barrier, not a sleep.** A poll cannot show that a value stays the same. When the host handles messages on one socket in order, send a message that gets a reply (for example a wire `ping`) and wait for the reply. Then read the state once. See `barrier` in `diagnostics_integration.rs`.
 - **Keep tests deterministic.** Use fixed seeds, fixed fixtures, and injected time. A test that passes on a re-run after a failure is a defect, not a pass.
 - **Do not skip, disable, or weaken a test to get a pass.** If a test needs hardware or a platform that is not present, mark the skip with the reason and record it in the baseline below.
 
