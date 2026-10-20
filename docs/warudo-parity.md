@@ -111,7 +111,7 @@ Sources: [Motion capture overview](https://docs.warudo.app/docs/mocap/overview),
 - [ ] TRK-19 — Vicon Shogun integration. Later. [GitHub #36](https://github.com/danirukun/opensekai/issues/36)
 - [ ] TRK-20 — OptiTrack Motive integration. Later. [GitHub #37](https://github.com/danirukun/opensekai/issues/37)
 - [ ] TRK-21 — Chingmu Avatar integration. Later. [GitHub #38](https://github.com/danirukun/opensekai/issues/38)
-- [ ] TRK-22 — Exclude virtual webcams from the tracker camera list. Later. UI audit 0.15.1. [GitHub #166](https://github.com/danirukun/opensekai/issues/166)
+- [ ] TRK-22 — Exclude virtual webcams from the tracker camera list. Later. UI audit 0.15.1. Linux headless Chromium with stubbed device labels: the MediaPipe Camera select hides labels that match the editable, per-user pattern list (regex, case-insensitive; defaults VSeeFace, VTube Studio, VMC, Unity Video Capture, OpenSekai), keeps the selected device, and survives a reload; a backtracking pattern times out in a Worker and shows every device ([check](evaluation/hidden-tracker-cameras.md)). Real AVFoundation and DirectShow labels with an installed virtual webcam remain. Known gaps: "Default camera" can resolve to a virtual webcam; a computer with more devices than fit in one message can lose the last ones. [GitHub #166](https://github.com/danirukun/opensekai/issues/166)
 - [ ] TRK-23 — Guided motion capture setup for a character. Later. UI audit 0.15.1. [GitHub #167](https://github.com/danirukun/opensekai/issues/167)
 
 ## Environment, props, and lighting

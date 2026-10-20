@@ -1,6 +1,8 @@
 <script lang="ts">
  import {untrack} from 'svelte';
- import {Button,Input,Select} from '@oshi-connect/ui';
+ import {Button,Input,Select,Textarea} from '@oshi-connect/ui';
+ import {visibleCameras} from '../tracking/hidden-cameras';
+ import {hiddenCameras} from '../tracking/hidden-cameras-store.svelte';
  import type {Reply,TrackingConfig,TrackingStatus} from '@opensekai/contracts';
  import {parseTrackingConfig,reconcileDraft,matchingStatus,initialTrackingDraft,type Commit} from '../editor/live-fields';
  import ResetMark from './ResetMark.svelte';
@@ -10,7 +12,8 @@
  let draft=$state(untrack(base)),invalid=$state(false);let key:string|null=null;
  const status=$derived(matchingStatus(statuses,entityId,generation));
  const deviceId=$derived(draft.config.kind==='mediapipe'?draft.config.deviceId:'');
- const options=$derived([{value:'',label:'Default camera'},...devices.filter(device=>device.deviceId!=='').map(device=>({value:device.deviceId,label:device.label||'Camera'})),...(deviceId&&!devices.some(device=>device.deviceId===deviceId)?[{value:deviceId,label:'Unavailable camera'}]:[])]);
+ const options=$derived([{value:'',label:'Default camera'},...visibleCameras(devices.filter(device=>device.deviceId!==''),hiddenCameras.state.hidden,deviceId).map(device=>({value:device.deviceId,label:device.label||'Camera'})),...(deviceId&&!devices.some(device=>device.deviceId===deviceId)?[{value:deviceId,label:'Unavailable camera'}]:[])]);
+ $effect(()=>{if(config.kind==='mediapipe')hiddenCameras.setDevices(devices);});
  $effect(()=>{const next=reconcileDraft(key,{entityId,revision},untrack(()=>draft),base());if(next.key!==key){draft=next.values;invalid=false;}key=next.key;});
  // The VMC sender calibrates, so only phone and webcam sources show Calibrate (B6 R7).
  const calibrates=$derived(config.kind!=='vmc');
@@ -28,7 +31,8 @@
  {#snippet mark(id:string,label:string)}{#if marks.changed.has(id)}<ResetMark {label} disabled={marks.disabled} onreset={()=>reset(id)}/>{/if}{/snippet}
  {#if draft.config.kind==='mediapipe'}<Select label="Camera" bind:value={draft.config.deviceId} {options}/>{#each [['face','Face'],['upperBody','Upper body'],['hands','Hands'],['mirror','Mirror']] as const as [option,label]}<div class="resettable"><label class="option"><input type="checkbox" checked={draft.config[option]} onchange={event=>{if(draft.config.kind==='mediapipe')draft.config[option]=event.currentTarget.checked;}}/>{label}</label>{@render mark(option,label)}</div>{/each}
  {:else}{@const addressLabel=draft.config.kind==='vmc'?'Sender address':'Phone address'}<div class="resettable"><Input label="Bind address" bind:value={draft.bindAddress}/>{@render mark('bindAddress','Bind address')}</div><div class="resettable"><Input label="Port" bind:value={draft.port}/>{@render mark('port','Port')}</div><div class="resettable"><Input label={addressLabel} bind:value={draft.address}/>{@render mark('address',addressLabel)}</div>{/if}<Button type="submit" variant="ghost">Apply</Button></fieldset></form>
+ {#if config.kind==='mediapipe'}<div class="hidden-cameras"><Textarea label="Hidden cameras" rows={5} value={hiddenCameras.state.text} oninput={event=>hiddenCameras.setText(event.currentTarget.value)} state={hiddenCameras.state.alert?'error':'default'}/>{#if hiddenCameras.state.alert}<p role="alert">{hiddenCameras.state.alert}</p>{/if}<Button type="button" variant="ghost" onclick={hiddenCameras.restoreDefaults}>Restore defaults</Button></div>{/if}
  {#if config.kind==='ifacialmocap'&&localAddresses.length}<dl class="addresses"><dt>Computer address</dt><dd>{#each localAddresses as address}<span>{address}</span>{/each}</dd></dl>{/if}
  <div class="runtime"><Button disabled={disabled||!ontoggle} onclick={()=>{void ontoggle?.(entityId,!config.enabled,revision);}}>{config.enabled?'Stop':'Start'}</Button>{#if status}<span>{status.state}</span>{:else if !config.enabled}<span>stopped</span>{/if}{#if calibrates}<Button variant="secondary" disabled={disabled||!oncalibrate||status?.state!=='receiving'} onclick={()=>calibration(oncalibrate)}>Calibrate</Button>{#if calibrated}<Button variant="ghost" disabled={disabled||!onresetcalibration} onclick={()=>calibration(onresetcalibration)}>Reset</Button>{/if}{/if}</div>
  {#if invalid}<p role="alert">Use a valid address and port. Enable a tracking channel to start.</p>{/if}{#if status?.state==='error'&&status.error}<p role="alert">{status.error}</p>{/if}{#if calibrationError?.entityId===entityId}<p role="alert">{calibrationError.message}</p>{/if}
-<style>form{padding:0 0 16px}fieldset{display:grid;gap:10px;border:0;padding:0;margin:0;min-width:0}.option{display:flex;gap:8px;align-items:center;font-size:12px}.runtime{display:flex;gap:12px;align-items:center;font-size:12px;padding-bottom:20px}p[role=alert]{margin:0 0 16px;font-size:12px}.addresses{display:grid;grid-template-columns:max-content 1fr;gap:6px 16px;margin:0 0 16px;font-size:12px}.addresses dt{color:#85818f}.addresses dd{display:grid;gap:4px;margin:0;font-variant-numeric:tabular-nums;color:#4f4a59;user-select:text}</style>
+<style>form{padding:0 0 16px}.hidden-cameras{display:grid;gap:8px;justify-items:start;padding:0 0 16px}.hidden-cameras :global(textarea),.hidden-cameras>:global(*:first-child){width:100%}.hidden-cameras p[role=alert]{margin:0}fieldset{display:grid;gap:10px;border:0;padding:0;margin:0;min-width:0}.option{display:flex;gap:8px;align-items:center;font-size:12px}.runtime{display:flex;gap:12px;align-items:center;font-size:12px;padding-bottom:20px}p[role=alert]{margin:0 0 16px;font-size:12px}.addresses{display:grid;grid-template-columns:max-content 1fr;gap:6px 16px;margin:0 0 16px;font-size:12px}.addresses dt{color:#85818f}.addresses dd{display:grid;gap:4px;margin:0;font-variant-numeric:tabular-nums;color:#4f4a59;user-select:text}</style>

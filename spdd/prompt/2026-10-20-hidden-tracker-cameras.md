@@ -12,16 +12,17 @@ Analysis: [hidden tracker cameras](../analysis/2026-10-20-hidden-tracker-cameras
 6. A device with an empty label is never hidden.
 7. The device that the source draft selects (`draft.config.deviceId`) stays in the options with its label, also when a pattern matches it. "Default camera" and "Unavailable camera" do not change.
 8. A pattern is invalid when it does not compile, when it matches the empty string, when it has more than 128 characters, or when it is after the 32nd pattern. An invalid pattern does not apply. The other patterns still apply. The field shows one alert, "Line N is not used.", for the first invalid line. The field keeps the text that the operator typed; the store saves the valid patterns only.
-9. The Editor main thread never runs a user pattern. A Worker (`hidden-cameras-worker.ts`) gets the patterns and the labels and returns the hidden device IDs and the first invalid line. The Editor waits at most 100 ms. On a timeout it terminates the Worker, shows every device, does not save the text, and shows the alert "Patterns take too long." The next change starts a new Worker. At start, a saved list that times out also shows every device.
+9. The Editor main thread never runs a user pattern. A Worker (`hidden-cameras-worker.ts`) gets the patterns and the labels and returns the hidden device IDs and the first invalid line. The Worker posts `{ready: true}` when its module has loaded. The Editor waits at most 100 ms for each match, counted from the post of the request to a ready Worker; the Worker start does not count. If the Worker cannot start, every device shows. On a timeout it terminates the Worker, shows every device, does not save the text, and shows the alert "Patterns take too long." The next change starts a new Worker. At start, a saved list that times out also shows every device.
 10. The Scene window sends at most 16 devices in `trackingDevices` and stops before the message passes 4096 bytes. The Editor window accepts at most 16.
-11. When `localStorage` fails, the default list applies and edits apply only until the Editor window closes. Values read from storage are checked again with requirement 8.
+11. When `localStorage` fails, the default list applies and edits apply only until the Editor window closes. Values read from storage are checked again with requirement 8: a value that is not an array gives the default list; in an array, the entries that are not strings, are empty, or are longer than 128 characters are dropped, and the list is cut at 32. The Worker drops the entries that do not compile or that match the empty string, and the next save stores the result.
 12. Known gaps, not in this slice: "Default camera" can resolve to a virtual webcam; a computer with more devices than fit in requirement 10 can lose a device at the end of the list.
 
 ## E — Entities
 
 - `CameraDevice`: `{deviceId: string, label: string}` (exists, `tracking/mediapipe.ts`).
 - `PatternCheck`: `{patterns: string[], invalidLine: number | null}`. `patterns` holds the valid patterns in order. `invalidLine` is the 1-based line of the first invalid entry.
-- `MatchRequest`: `{patterns: string[], labels: string[]}`. `MatchReply`: `{hidden: boolean[], invalidLine: number | null}`.
+- `MatchRequest`: `{text: string, labels: string[]}`. `MatchReply`: `{hidden: boolean[], patterns: string[], invalidLine: number | null}`. The Worker gets the raw field text, so `invalidLine` is the line number in the field, empty lines included. `patterns` holds the valid patterns, so the Editor can save them without running them.
+- `WorkerPort`: `{postMessage, onmessage, terminate}`. A browser `Worker` and a Node worker thread (integration test) both fit it.
 - `DEFAULT_HIDDEN_CAMERAS`: the default list in requirement 4.
 
 ## A — Approach
@@ -34,11 +35,11 @@ Pure functions in `apps/desktop/src/tracking/hidden-cameras.ts`:
 - `loadHiddenCameras(storage)`, `saveHiddenCameras(storage, patterns)`: try/catch; a missing, unparsable, or wrong-shape value gives the default list.
 - `fitDevices(devices, limit, bytes)`: the first devices that fit in the count and the byte limit of requirement 10. Used by the Scene window.
 
-`hidden-cameras-store.svelte.ts` holds the raw text and the last `MatchReply` in `$state`, starts the Worker on each change of text or labels with the 100 ms deadline, and saves the valid patterns. `TrackingSourceFields.svelte` reads the store and derives the options from `visibleCameras(...)`.
+`createHiddenCameras({spawn, storage, deadline})` in `hidden-cameras.ts` holds the raw text, the hidden device IDs, and the alert as plain data with a `subscribe`, so the unit and integration tests run it without Svelte. A new request terminates a Worker that is still busy; a reply for an old request is ignored. `hidden-cameras-store.svelte.ts` makes one module instance and mirrors its state in `$state`. The controller starts the Worker on each change of text or labels with the 100 ms deadline and saves the valid patterns. `TrackingSourceFields.svelte` reads the store and derives the options from `visibleCameras(...)`.
 
 ## S — Structure
 
-- New: `apps/desktop/src/tracking/hidden-cameras.ts`, `hidden-cameras-worker.ts`, `hidden-cameras-store.svelte.ts`; `apps/desktop/test/hidden-cameras.test.ts`.
+- New: `apps/desktop/src/tracking/hidden-cameras.ts`, `hidden-cameras-worker.ts`, `hidden-cameras-store.svelte.ts`; `apps/desktop/test/hidden-cameras.test.ts`, `apps/desktop/test/hidden-cameras.integration.test.ts`.
 - Changed: `apps/desktop/src/components/TrackingSourceFields.svelte`, `apps/desktop/src/App.svelte`, `apps/desktop/src/editor/ui-message.ts`, and its existing test.
 - Changed: `ARCHITECTURE.md` (Editor window per-user state: add `opensekai.tracking.hiddenCameras` and the match Worker).
 - Changed: `docs/warudo-parity.md` TRK-22 with only the verified behavior and the known gaps.
