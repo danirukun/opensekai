@@ -18,6 +18,10 @@ Warudo 0.15.1 (UI audit, 2026-10-17, Windows 11) hides each camera whose name ma
 - Per-user editor choices already use `localStorage` with a try/catch (`blueprints/palette-prefs.ts`, the Blueprint drawer, the Scene performance monitor).
 - `@oshi-connect/ui` has `Textarea`, `Input`, `Select`, and `Button`.
 
+## Handbook recheck
+
+The [Warudo MediaPipe handbook page](https://docs.warudo.app/docs/mocap/mediapipe) was read again on 2026-10-20. It does not describe a hidden-camera setting, patterns, or a default list. The UI audit of Warudo 0.15.1 stays the only source. There is no difference to record against the contract.
+
 ## Findings
 
 1. The 8-device limit applies before any filter. On a computer with many virtual webcams, a real camera can be absent from the list. A filter in the Editor window cannot show a device that the Scene window did not send.

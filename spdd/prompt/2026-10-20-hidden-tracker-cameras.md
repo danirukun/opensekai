@@ -21,7 +21,8 @@ Analysis: [hidden tracker cameras](../analysis/2026-10-20-hidden-tracker-cameras
 
 - `CameraDevice`: `{deviceId: string, label: string}` (exists, `tracking/mediapipe.ts`).
 - `PatternCheck`: `{patterns: string[], invalidLine: number | null}`. `patterns` holds the valid patterns in order. `invalidLine` is the 1-based line of the first invalid entry.
-- `MatchRequest`: `{patterns: string[], labels: string[]}`. `MatchReply`: `{hidden: boolean[], invalidLine: number | null}`.
+- `MatchRequest`: `{text: string, labels: string[]}`. `MatchReply`: `{hidden: boolean[], patterns: string[], invalidLine: number | null}`. The Worker gets the raw field text, so `invalidLine` is the line number in the field, empty lines included. `patterns` holds the valid patterns, so the Editor can save them without running them.
+- `WorkerPort`: `{postMessage, onmessage, terminate}`. A browser `Worker` and a Node worker thread (integration test) both fit it.
 - `DEFAULT_HIDDEN_CAMERAS`: the default list in requirement 4.
 
 ## A — Approach
@@ -34,11 +35,11 @@ Pure functions in `apps/desktop/src/tracking/hidden-cameras.ts`:
 - `loadHiddenCameras(storage)`, `saveHiddenCameras(storage, patterns)`: try/catch; a missing, unparsable, or wrong-shape value gives the default list.
 - `fitDevices(devices, limit, bytes)`: the first devices that fit in the count and the byte limit of requirement 10. Used by the Scene window.
 
-`hidden-cameras-store.svelte.ts` holds the raw text and the last `MatchReply` in `$state`, starts the Worker on each change of text or labels with the 100 ms deadline, and saves the valid patterns. `TrackingSourceFields.svelte` reads the store and derives the options from `visibleCameras(...)`.
+`createHiddenCameras({spawn, storage, deadline})` in `hidden-cameras.ts` holds the raw text, the hidden device IDs, and the alert as plain data with a `subscribe`, so the unit and integration tests run it without Svelte. A new request terminates a Worker that is still busy; a reply for an old request is ignored. `hidden-cameras-store.svelte.ts` makes one module instance and mirrors its state in `$state`. The controller starts the Worker on each change of text or labels with the 100 ms deadline and saves the valid patterns. `TrackingSourceFields.svelte` reads the store and derives the options from `visibleCameras(...)`.
 
 ## S — Structure
 
-- New: `apps/desktop/src/tracking/hidden-cameras.ts`, `hidden-cameras-worker.ts`, `hidden-cameras-store.svelte.ts`; `apps/desktop/test/hidden-cameras.test.ts`.
+- New: `apps/desktop/src/tracking/hidden-cameras.ts`, `hidden-cameras-worker.ts`, `hidden-cameras-store.svelte.ts`; `apps/desktop/test/hidden-cameras.test.ts`, `apps/desktop/test/hidden-cameras.integration.test.ts`.
 - Changed: `apps/desktop/src/components/TrackingSourceFields.svelte`, `apps/desktop/src/App.svelte`, `apps/desktop/src/editor/ui-message.ts`, and its existing test.
 - Changed: `ARCHITECTURE.md` (Editor window per-user state: add `opensekai.tracking.hiddenCameras` and the match Worker).
 - Changed: `docs/warudo-parity.md` TRK-22 with only the verified behavior and the known gaps.
