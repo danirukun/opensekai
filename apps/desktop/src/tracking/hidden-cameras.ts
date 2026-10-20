@@ -31,11 +31,11 @@ export function matchRequest({text,labels}:MatchRequest):MatchReply{const {patte
 // The selected device stays visible, so a pattern never makes a saved camera look unavailable.
 export const visibleCameras=(devices:readonly CameraDevice[],hidden:readonly string[],selectedId:string):CameraDevice[]=>devices.filter(device=>device.deviceId===selectedId||!hidden.includes(device.deviceId));
 
-// Stored values get the shape and size checks here; the Worker checks compile and empty match again.
+// Stored values keep the entries that pass the size checks here; the Worker checks compile and empty match again.
 export function loadHiddenCameras(storage:Storage|null):string[]{
  try{
   const raw:unknown=JSON.parse(storage?.getItem(HIDDEN_CAMERAS_KEY)??'null');
-  if(Array.isArray(raw)&&raw.length<=MAX_PATTERNS&&raw.every(item=>typeof item==='string'&&item.trim()!==''&&item.length<=MAX_PATTERN))return raw;
+  if(Array.isArray(raw))return raw.filter((item):item is string=>typeof item==='string'&&item.trim()!==''&&item.length<=MAX_PATTERN).slice(0,MAX_PATTERNS);
  }catch{/* fall through to the defaults */}
  return [...DEFAULT_HIDDEN_CAMERAS];
 }
@@ -49,25 +49,42 @@ export function fitDevices(devices:readonly CameraDevice[],limit=16,bytes=4096):
 }
 
 // One shared state for every inspector. Each change of text or labels runs one Worker request with a deadline.
+// The Worker posts `{ready: true}` once its module loads; the deadline counts only the match, not the Worker start.
 export function createHiddenCameras({spawn,storage,deadline=MATCH_DEADLINE}:{spawn:()=>WorkerPort;storage:Storage|null;deadline?:number}){
+ interface Request {id:number;text:string;sent:CameraDevice[]}
  let state:HiddenCamerasState={text:loadHiddenCameras(storage).join('\n'),hidden:[],alert:null},devices:CameraDevice[]=[];
- let worker:WorkerPort|null=null,busy=false,timer:ReturnType<typeof setTimeout>|undefined,seq=0;
+ let worker:WorkerPort|null=null,ready=false,pending:Request|null=null,active:Request|null=null,timer:ReturnType<typeof setTimeout>|undefined,seq=0;
  const listeners=new Set<(state:HiddenCamerasState)=>void>();
  const set=(next:Partial<HiddenCamerasState>)=>{state={...state,...next};for(const fn of listeners)fn(state);};
- const stop=()=>{worker?.terminate();worker=null;busy=false;};
- function run(){
-  const id=++seq,sent=devices;clearTimeout(timer);
-  if(busy)stop();
-  worker??=spawn();busy=true;
-  const port=worker;
+ const stop=()=>{clearTimeout(timer);worker?.terminate();worker=null;ready=false;active=null;};
+ function send(){
+  if(!worker||!ready||active||!pending)return;
+  const request=pending;pending=null;active=request;
+  timer=setTimeout(()=>{if(active!==request)return;stop();set({hidden:[],alert:'Patterns take too long.'});},deadline);
+  worker.postMessage({text:request.text,labels:request.sent.map(device=>device.label)} satisfies MatchRequest);
+ }
+ function start(){
+  let port:WorkerPort;
+  try{port=spawn();}catch{set({hidden:[]});return;}
+  worker=port;
   port.onmessage=({data})=>{
-   if(id!==seq)return;clearTimeout(timer);busy=false;
-   const reply=data as MatchReply;
-   saveHiddenCameras(storage,reply.patterns);
-   set({hidden:sent.filter((_,index)=>reply.hidden[index]).map(device=>device.deviceId),alert:reply.invalidLine===null?null:`Line ${reply.invalidLine} is not used.`});
+   if(port!==worker)return;
+   if((data as {ready?:unknown}).ready===true){ready=true;send();return;}
+   clearTimeout(timer);const request=active;active=null;
+   if(request?.id===seq){
+    const reply=data as MatchReply;
+    saveHiddenCameras(storage,reply.patterns);
+    set({hidden:request.sent.filter((_,index)=>reply.hidden[index]).map(device=>device.deviceId),alert:reply.invalidLine===null?null:`Line ${reply.invalidLine} is not used.`});
+   }
+   send();
   };
-  timer=setTimeout(()=>{if(id!==seq)return;stop();set({hidden:[],alert:'Patterns take too long.'});},deadline);
-  port.postMessage({text:state.text,labels:sent.map(device=>device.label)} satisfies MatchRequest);
+ }
+ function run(){
+  pending={id:++seq,text:state.text,sent:devices};
+  // A match for older input that is still running is stale; a cold Worker keeps loading.
+  if(active)stop();
+  if(!worker)start();
+  send();
  }
  const setText=(text:string)=>{if(text===state.text)return;set({text});run();};
  return {
@@ -76,6 +93,6 @@ export function createHiddenCameras({spawn,storage,deadline=MATCH_DEADLINE}:{spa
   restoreDefaults:()=>setText(DEFAULT_HIDDEN_CAMERAS.join('\n')),
   setDevices(next:readonly CameraDevice[]){if(seq>0&&JSON.stringify(next)===JSON.stringify(devices))return;devices=[...next];run();},
   subscribe(fn:(state:HiddenCamerasState)=>void){listeners.add(fn);return ()=>{listeners.delete(fn);};},
-  dispose(){clearTimeout(timer);seq++;stop();},
+  dispose(){seq++;pending=null;stop();},
  };
 }

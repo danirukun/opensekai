@@ -28,7 +28,9 @@ describe('hidden camera patterns',()=>{
 
 describe('hidden camera storage',()=>{
  it('gives the defaults for a missing, unparsable, wrong-shape, or failing store',()=>{
-  for(const value of [null,'{',JSON.stringify({a:1}),JSON.stringify([1]),JSON.stringify(['x'.repeat(129)]),JSON.stringify(Array(33).fill('x'))])expect(loadHiddenCameras(memory(value))).toEqual(DEFAULT_HIDDEN_CAMERAS);
+  for(const value of [null,'{',JSON.stringify({a:1}),'"VMC"'])expect(loadHiddenCameras(memory(value))).toEqual(DEFAULT_HIDDEN_CAMERAS);
+  expect(loadHiddenCameras(memory(JSON.stringify([1,' ','x'.repeat(129),'VMC'])))).toEqual(['VMC']);
+  expect(loadHiddenCameras(memory(JSON.stringify(Array.from({length:33},(_,index)=>`cam${index}`))))).toHaveLength(32);
   expect(loadHiddenCameras(broken)).toEqual(DEFAULT_HIDDEN_CAMERAS);
   expect(loadHiddenCameras(null)).toEqual(DEFAULT_HIDDEN_CAMERAS);
   expect(()=>saveHiddenCameras(broken,['x'])).not.toThrow();
@@ -49,7 +51,8 @@ describe('fitDevices',()=>{
 });
 
 // An in-process port: replies on the next task, or never when `stall` is set.
-const fakeWorker=(stall=false)=>{const made:{terminated:boolean}[]=[];return {made,spawn:():WorkerPort=>{const record={terminated:false};made.push(record);const port:WorkerPort={onmessage:null,postMessage:message=>{if(!stall)setTimeout(()=>{if(!record.terminated)port.onmessage?.({data:matchRequest(message as never)});});},terminate:()=>{record.terminated=true;}};return port;}};};
+// It posts ready after `load` ms, like a module Worker.
+const fakeWorker=(stall=false,load=0)=>{const made:{terminated:boolean}[]=[];return {made,spawn:():WorkerPort=>{const record={terminated:false};made.push(record);const port:WorkerPort={onmessage:null,postMessage:message=>{if(!stall)setTimeout(()=>{if(!record.terminated)port.onmessage?.({data:matchRequest(message as never)});});},terminate:()=>{record.terminated=true;}};setTimeout(()=>{if(!record.terminated)port.onmessage?.({data:{ready:true}});},load);return port;}};};
 const settle=()=>new Promise(resolve=>setTimeout(resolve,5));
 
 describe('createHiddenCameras',()=>{
@@ -65,6 +68,15 @@ describe('createHiddenCameras',()=>{
   store.restoreDefaults();await settle();
   expect(store.state()).toMatchObject({hidden:['a'],alert:null,text:DEFAULT_HIDDEN_CAMERAS.join('\n')});
   expect(worker.made).toHaveLength(1);
+ });
+ it('does not count a slow Worker start against the deadline, and a failed start shows every device',async()=>{
+  const worker=fakeWorker(false,40),store=createHiddenCameras({spawn:worker.spawn,storage:memory(),deadline:10});
+  store.setDevices(devices);store.setText('VSeeFace\nobs');await new Promise(resolve=>setTimeout(resolve,60));
+  expect(store.state()).toMatchObject({hidden:['a','b'],alert:null});
+  expect(worker.made).toHaveLength(1);
+  const failing=createHiddenCameras({spawn:()=>{throw new Error('no worker');},storage:memory(),deadline:10});
+  expect(()=>failing.setDevices(devices)).not.toThrow();
+  expect(failing.state()).toMatchObject({hidden:[],alert:null});
  });
  it('shows every device and the alert after the deadline, keeps the saved list, and starts a new Worker on the next change',async()=>{
   const storage=memory(JSON.stringify(['VSeeFace'])),worker=fakeWorker(true),store=createHiddenCameras({spawn:worker.spawn,storage,deadline:10});

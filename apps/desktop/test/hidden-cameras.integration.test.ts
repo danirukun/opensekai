@@ -6,7 +6,7 @@ import {createHiddenCameras,type WorkerPort} from '../src/tracking/hidden-camera
 // Node strips the TypeScript types of `hidden-cameras.ts`, which has no runtime imports.
 const source=new URL('../src/tracking/hidden-cameras.ts',import.meta.url).href;
 const spawn=():WorkerPort=>{
- const thread=new Worker(`const {parentPort}=require('node:worker_threads');import(${JSON.stringify(source)}).then(m=>parentPort.on('message',d=>parentPort.postMessage(m.matchRequest(d))));`,{eval:true});
+ const thread=new Worker(`const {parentPort}=require('node:worker_threads');import(${JSON.stringify(source)}).then(m=>{parentPort.on('message',d=>parentPort.postMessage(m.matchRequest(d)));parentPort.postMessage({ready:true});});`,{eval:true});
  const port:WorkerPort={onmessage:null,postMessage:message=>thread.postMessage(message),terminate:()=>{void thread.terminate();}};
  thread.on('message',data=>port.onmessage?.({data}));
  return port;
@@ -17,7 +17,7 @@ const until=async(check:()=>boolean,limit=5000)=>{const end=Date.now()+limit;whi
 it('shows every device and the alert when a pattern backtracks past the deadline, and matches again after a change',async()=>{
  const data=new Map<string,string>([['opensekai.tracking.hiddenCameras',JSON.stringify(['FaceTime'])]]);
  const storage={getItem:(key:string)=>data.get(key)??null,setItem:(key:string,value:string)=>{data.set(key,value);}};
- const store=createHiddenCameras({spawn,storage,deadline:1000});
+ const store=createHiddenCameras({spawn,storage,deadline:200});
  try{
   store.setDevices(devices);
   await until(()=>store.state().hidden.length>0);
