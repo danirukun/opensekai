@@ -74,6 +74,8 @@
  // A new selection starts at the top of the column (R17).
  let shownId:string|undefined;
  $effect(()=>{const id=entity?.id;if(id===shownId)return;shownId=id;if(scroller)scroller.scrollTop=0;jumping=false;void tick().then(follow);});
+ // A section that a type change or an expressions load adds or removes moves the others without a scroll event.
+ $effect(()=>{void sections.length;void tick().then(follow);});
  function toggle(id:string){if(!entity)return;saveSections(toggleSection(sectionState,entity.kind,id));void tick().then(follow);}
  async function jump(index:number){
   const section=sections[index];

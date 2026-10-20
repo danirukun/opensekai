@@ -5,7 +5,7 @@
  import type {Transform,Vec3} from '@opensekai/contracts';
  import {sameValue} from '../editor/property-defaults';
  import {quaternionToEuler,scrubValue,initialTransformFields,copyTransform,transformFromFields,type TransformRow} from '../editor/interaction';
- let {entityId,transform,revision,disabled=false,committing=false,cancelKey=null,defaultScale=[1,1,1],oncommit,oncancel,onfinish}: {entityId:string;transform:Transform;defaultScale?:Vec3;baseTransform?:Transform;revision:number;disabled?:boolean;committing?:boolean;cancelKey?:string|null;oncommit:(transform:Transform,revision:number)=>void;oncancel?:()=>void;onfinish?:()=>void;ondraft?:(transform:Transform|null)=>void}=$props();
+ let {entityId,transform,baseTransform,revision,disabled=false,committing=false,cancelKey=null,defaultScale=[1,1,1],oncommit,oncancel,onfinish}: {entityId:string;transform:Transform;defaultScale?:Vec3;baseTransform?:Transform;revision:number;disabled?:boolean;committing?:boolean;cancelKey?:string|null;oncommit:(transform:Transform,revision:number)=>void;oncancel?:()=>void;onfinish?:()=>void;ondraft?:(transform:Transform|null)=>void}=$props();
  const rows:TransformRow[]=['position','rotation','scale'];
  let values=$state(untrack(()=>initialTransformFields(transform))),invalid=$state(false),focused=$state(false);
  let gesture=$state.raw<{id:number;x:number;row:TransformRow;axis:number;value:number;transform:Transform;moved:boolean}|null>(null);
@@ -27,7 +27,8 @@
  onDestroy(()=>onfinish?.());
  // A row shows its reset button only when it differs from zero, identity, or the default scale (B17 R8).
  const rowDefault=(row:TransformRow)=>row==='scale'?defaultScale:row==='rotation'?[0,0,0,1]:[0,0,0];
- const differs=(row:TransformRow)=>!sameValue([...transform[row]],rowDefault(row));
+ // The button follows the scene value, not the draft of a drag (R9).
+ const differs=(row:TransformRow)=>!sameValue([...(baseTransform??transform)[row]],rowDefault(row));
  const rowLabel=(row:TransformRow)=>row==='rotation'?'Rotation (°)':row[0]!.toUpperCase()+row.slice(1);
  function reset(row:TransformRow){values[row]=(row==='rotation'?[0,0,0]:rowDefault(row)).map(String);submit();}
 </script>
