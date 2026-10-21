@@ -18,6 +18,7 @@ pub const MAX_CAMERAS: usize = 8;
 pub const MAX_LIGHTS: usize = 8;
 pub const MAX_SHADOW_LIGHTS: usize = 2;
 pub const MAX_HAZES: usize = 1;
+pub const MAX_FPS_COUNTERS: usize = 1;
 macro_rules! object { ($name:ident { $($field:ident : $ty:ty),* $(,)? }) => {#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)] #[serde(rename_all="camelCase", deny_unknown_fields)] pub struct $name {$(pub $field: $ty),*}} }
 macro_rules! strings { ($name:ident { $($variant:ident => $wire:literal),* $(,)? }) => {#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)] pub enum $name {$(#[serde(rename=$wire)] $variant),*}} }
 mod tracking;
@@ -158,6 +159,13 @@ object!(HazeSettings {
     intensity: f64,
     drift: f64
 });
+strings!(FpsCounterCorner { TopLeft=>"topLeft", TopRight=>"topRight", BottomLeft=>"bottomLeft", BottomRight=>"bottomRight" });
+// Size is in pixels of a 1080-pixel output (B19 R1).
+object!(FpsCounterSettings {
+    corner: FpsCounterCorner,
+    size: u32,
+    color: String
+});
 fn light_color_ok(color: &str) -> bool {
     color.len() == 7
         && color.starts_with('#')
@@ -211,6 +219,12 @@ impl Validate for HazeSettings {
                 && within(self.drift, 0., 2.),
             "invalid haze",
         )
+    }
+}
+impl Validate for FpsCounterSettings {
+    fn validate(&self) -> Result<(), AppError> {
+        require(light_color_ok(&self.color), "invalid fps counter color")?;
+        require((8..=128).contains(&self.size), "invalid fps counter size")
     }
 }
 fn reflections_intensity_ok(n: f64) -> bool {
@@ -286,6 +300,14 @@ pub enum SceneEntity {
         transform: Transform,
         haze: HazeSettings,
     },
+    FpsCounter {
+        id: Id,
+        name: String,
+        visible: bool,
+        transform: Transform,
+        #[serde(rename = "fpsCounter")]
+        fps_counter: FpsCounterSettings,
+    },
     Camera {
         id: Id,
         name: String,
@@ -317,6 +339,7 @@ impl SceneEntity {
             | Self::Camera { id, .. }
             | Self::Light { id, .. }
             | Self::Haze { id, .. }
+            | Self::FpsCounter { id, .. }
             | Self::Tracking { id, .. } => id,
         }
     }
@@ -328,6 +351,7 @@ impl SceneEntity {
             | Self::Camera { transform, .. }
             | Self::Light { transform, .. }
             | Self::Haze { transform, .. }
+            | Self::FpsCounter { transform, .. }
             | Self::Tracking { transform, .. } => transform,
         }
     }
@@ -398,6 +422,12 @@ pub enum PatchOp {
         #[serde(rename = "entityId")]
         entity_id: Id,
         haze: HazeSettings,
+    },
+    SetFpsCounter {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+        #[serde(rename = "fpsCounter")]
+        fps_counter: FpsCounterSettings,
     },
     SetCameraRenderEnvironment {
         #[serde(rename = "entityId")]
@@ -1882,6 +1912,14 @@ impl Validate for SceneView {
                 <= MAX_HAZES,
             "too many hazes",
         )?;
+        require(
+            self.entities
+                .iter()
+                .filter(|e| matches!(e, SceneEntity::FpsCounter { .. }))
+                .count()
+                <= MAX_FPS_COUNTERS,
+            "too many fps counters",
+        )?;
         for e in &self.entities {
             if let SceneEntity::Camera {
                 navigation:
@@ -1974,6 +2012,7 @@ impl Validate for ScenePatch {
                 PatchOp::SetCameraNavigation { navigation, .. } => navigation.validate()?,
                 PatchOp::SetLight { light, .. } => light.validate()?,
                 PatchOp::SetHaze { haze, .. } => haze.validate()?,
+                PatchOp::SetFpsCounter { fps_counter, .. } => fps_counter.validate()?,
                 PatchOp::SetEnvironmentReflections {
                     reflections_intensity,
                     ..
@@ -2663,6 +2702,9 @@ impl Validate for SceneEntity {
         }
         if let Self::Haze { haze, .. } = self {
             haze.validate()?;
+        }
+        if let Self::FpsCounter { fps_counter, .. } = self {
+            fps_counter.validate()?;
         }
         if let Self::Environment {
             reflections_intensity: Some(n),

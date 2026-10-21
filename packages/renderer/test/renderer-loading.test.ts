@@ -156,3 +156,14 @@ it('skips GPU preparation for a load whose character was removed',async()=>{
  expect(a.value.dispose).toHaveBeenCalledOnce();
  r.dispose();
 });
+it('applies a scene with an FPS counter without a scene object for it (B19 R7)',async()=>{
+ const r=await make();
+ await r.applyFrame(frame(null,false));const before=rendered().children.length;
+ const f=frame(null,false);
+ f.scene.entities.push({id:'fps',name:'FPS Counter',visible:true,transform:{position:[0,0,0],rotation:[0,0,0,1],scale:[1,1,1]},kind:'fpsCounter',fpsCounter:{corner:'topRight',size:32,color:'#ffffff'}});
+ const applied=await r.applyFrame(f);
+ expect(applied.warnings).toEqual([]);
+ expect(rendered().children.length).toBe(before);
+ expect(ports.load).not.toHaveBeenCalled();
+ r.dispose();
+});

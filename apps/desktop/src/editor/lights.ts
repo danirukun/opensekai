@@ -1,4 +1,4 @@
-import {LIMITS,LightColorSchema,type HazeSettings,type LightSettings,type Quat,type SceneEntity,type SceneView,type Transform} from '@opensekai/contracts';
+import {LIMITS,LightColorSchema,type FpsCounterSettings,type HazeSettings,type LightSettings,type Quat,type SceneEntity,type SceneView,type Transform} from '@opensekai/contracts';
 // −Z along the normalized −[2, 4, 3], no roll: the direction of the built-in light (R10).
 export const BUILTIN_LIGHT_ROTATION:Quat=[-0.389047,0.264763,0.117794,0.874453];
 const shadow:LightSettings['shadow']={enabled:false,intensity:1,soft:true,bias:-0.0005,normalBias:0.02};
@@ -21,6 +21,10 @@ export function lightTransform(type:LightSettings['type']):Transform {
 export const HAZE:HazeSettings={density:1,smoke:1,intensity:2.5,drift:0.2};
 export const hazeTransform=():Transform=>({position:[0,4,0],rotation:[0,0,0,1],scale:[20,8,20]});
 export const hazeLimitReached=(entities:readonly SceneEntity[]):boolean=>entities.filter(entity=>entity.kind==='haze').length>=LIMITS.hazes;
+// The FPS Counter add defaults (B19 R4).
+export const FPS_COUNTER:FpsCounterSettings={corner:'topRight',size:32,color:'#ffffff'};
+export const fpsCounterLimitReached=(entities:readonly SceneEntity[]):boolean=>entities.filter(entity=>entity.kind==='fpsCounter').length>=LIMITS.fpsCounters;
+export const fpsCounterCornerOptions=[{value:'topLeft',label:'Top Left'},{value:'topRight',label:'Top Right'},{value:'bottomLeft',label:'Bottom Left'},{value:'bottomRight',label:'Bottom Right'}];
 export const lightLimitReached=(entities:readonly SceneEntity[]):boolean=>entities.filter(entity=>entity.kind==='light').length>=LIMITS.lights;
 export const lightTypeOptions=[{value:'directional',label:'Directional'},{value:'point',label:'Point'},{value:'spot',label:'Spot'},{value:'ambient',label:'Ambient'}];
 export const isLightType=(value:string):value is LightSettings['type']=>value in LIGHT_DEFAULTS;

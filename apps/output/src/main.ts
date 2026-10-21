@@ -1,5 +1,5 @@
 import { connectClient } from "@opensekai/browser-client";
-import { createRenderer, createDiagnosticsSampler } from "@opensekai/renderer";
+import { createRenderer, createDiagnosticsSampler, createFpsCounterOverlay } from "@opensekai/renderer";
 import type { AppError } from "@opensekai/contracts";
 import { qualityProfileFromQuery } from "@opensekai/contracts";
 import { loadRendererDescriptor } from "./descriptor";
@@ -20,10 +20,12 @@ async function start() {
         throw error;
     }
     const handle = renderer;
+    const fpsCounter = createFpsCounterOverlay({ host: document.querySelector<HTMLDivElement>("#overlay")!, canvas: document.querySelector<HTMLCanvasElement>("#output")! });
     const sample = createDiagnosticsSampler();
     const epoch = crypto.randomUUID();
     const diagnostics = new URLSearchParams(location.search).get("diagnostics") === "1";
     const offFrame = client.onFrame(frame => { void handle.applyFrame(frame).then(applied => {
+        fpsCounter.frameApplied(frame.scene);
         client.sendApplied(applied);
         if (diagnostics && sample(performance.now())) {
             const snapshot = handle.diagnostics?.(epoch);
@@ -41,6 +43,6 @@ async function start() {
         const e = error as Partial<AppError>;
         return { ok: false, error: { code: e.code ?? "UNAVAILABLE", message: e.message ?? "Capture failed", ids: e.ids ?? [] } };
     } });
-    addEventListener("pagehide", () => { offFrame(); offCapture(); handle.dispose(); client.close(); }, { once: true });
+    addEventListener("pagehide", () => { offFrame(); offCapture(); fpsCounter.dispose(); handle.dispose(); client.close(); }, { once: true });
 }
 void start().catch(() => console.error("Output initialization failed"));

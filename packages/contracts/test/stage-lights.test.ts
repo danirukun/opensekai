@@ -83,6 +83,9 @@ describe('Blueprint property targets (R14)', () => {
         expect(propertiesFor('haze').map(p => p.key)).toEqual(['position', 'rotation', 'scale', 'visible', 'hazeDensity']);
         expect(propertiesFor('light').map(p => p.key)).not.toContain('hazeDensity');
     });
+    it('gives an FPS counter the visible target only (B19 R12)', () => {
+        expect(propertiesFor('fpsCounter').map(p => p.key)).toEqual(['visible']);
+    });
     it('reads and writes haze density within 0 to 2', () => {
         const entity = haze('fog');
         expect(readProperty(entity, 'hazeDensity')).toBe(1);

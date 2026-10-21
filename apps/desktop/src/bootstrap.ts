@@ -3,7 +3,7 @@ import { listen } from '@tauri-apps/api/event';
 import SessionWorker from '@opensekai/session/worker?worker';
 import { connectClient } from '@opensekai/browser-client';
 import type { EditorOptions, EditorHandle, AssetLoadStatus } from '@opensekai/renderer';
-import { createRenderer } from '@opensekai/renderer';
+import { createFpsCounterOverlay, createRenderer } from '@opensekai/renderer';
 import { makeSmokeScene, AssetRecordSchema, ConnectionDescriptorSchema, TrackingUpdateSchema, QUALITY_PROFILES } from '@opensekai/contracts';
 import type { AppError, AssetRecord, BrowserClient, ConnectionDescriptor, RuntimeFrame,TrackingUpdate } from '@opensekai/contracts';
 import { makeOutputUrl } from './editor/output-url';
@@ -22,7 +22,7 @@ export interface NativeBootstrap {
  rendererMode: 'auto' | 'force-webgl2';
 }
 export interface PreviewFrameProbe { begin(): boolean; end(): void }
-export async function bootstrapDesktop(canvas: HTMLCanvasElement, editorOptions?: EditorOptions, previewProbe?: PreviewFrameProbe): Promise<{
+export async function bootstrapDesktop(canvas: HTMLCanvasElement, editorOptions?: EditorOptions, previewProbe?: PreviewFrameProbe, counterHost?: HTMLElement): Promise<{
  client: BrowserClient; outputUrl: string; assets: AssetRecord[]; canEdit:boolean; editor?:EditorHandle; tracking:{submit(update:TrackingUpdate):void;now():number|null;onClock(listener:()=>void):()=>void}; onLoadStatus(listener:(entries:AssetLoadStatus[])=>void):()=>void;dismissLoad(entityId:string):void; stop(): Promise<void>;
 }> {
  const info = await invoke<NativeBootstrap>('bootstrap_session');
@@ -83,11 +83,12 @@ export async function bootstrapDesktop(canvas: HTMLCanvasElement, editorOptions?
   const renderer = await createRenderer({ canvas, outputId: 'preview_main', mode: info.rendererMode,
    resources: preview, diagnostics: false, quality: QUALITY_PROFILES.preview_v1,
    editor: info.operator.capabilities.includes('edit') ? editorOptions : undefined });
+  const fpsCounter = counterHost ? createFpsCounterOverlay({ host: counterHost, canvas }) : null;
   const pump = createPreviewPump<RuntimeFrame>(async frame => {
    const measuring = previewProbe?.begin() ?? false;
    try {
     const applied = await renderer.applyFrame(frame);
-    if (!stopped) preview.sendApplied(applied);
+    if (!stopped) { fpsCounter?.frameApplied(frame.scene); preview.sendApplied(applied); }
    } finally {
     if (measuring) previewProbe?.end();
    }
@@ -104,7 +105,7 @@ export async function bootstrapDesktop(canvas: HTMLCanvasElement, editorOptions?
     return { ok: false, error: { code: e.code ?? 'UNAVAILABLE', message: e.code ? e.message ?? 'Screenshot failed' : 'Screenshot failed', ids: e.ids ?? [] } };
    }
   });
-  closePreview = () => { off(); offScreenshot(); pump.stop(); renderer.dispose(); };
+  closePreview = () => { off(); offScreenshot(); pump.stop(); fpsCounter?.dispose(); renderer.dispose(); };
   const outputUrl = makeOutputUrl(info.output,info.rendererMode);
   return { client, outputUrl, assets: info.assets, canEdit:info.operator.capabilities.includes('edit'), editor:renderer.editor, tracking, onLoadStatus:renderer.onLoadStatus, dismissLoad:renderer.dismissLoad, stop };
  } catch (error) {

@@ -1,6 +1,6 @@
 import {DEFAULT_TRACKING_MAPPING,DEFAULT_TRACKING_SMOOTHING,defaultTrackingConfig,type LightSettings,type SceneEntity} from '@opensekai/contracts';
 import {makeAuthoringEntity} from './authoring';
-import {AMBIENT_LIGHT,DIRECTIONAL_LIGHT,HAZE,POINT_LIGHT,SPOT_LIGHT,hazeTransform} from './lights';
+import {AMBIENT_LIGHT,DIRECTIONAL_LIGHT,FPS_COUNTER,HAZE,POINT_LIGHT,SPOT_LIGHT,hazeTransform} from './lights';
 // The reset defaults of the Inspector fields (B17 R1–R4). Each value comes from the add defaults, so a reset and an add cannot differ.
 export type EntityDefaults=Readonly<Record<string,unknown>>;
 const LIGHTS:Record<LightSettings['type'],LightSettings>={directional:DIRECTIONAL_LIGHT,point:POINT_LIGHT,spot:SPOT_LIGHT,ambient:AMBIENT_LIGHT};
@@ -21,6 +21,7 @@ export function valuesFor(entity:SceneEntity):Record<string,unknown> {
  if(entity.kind==='camera')return {...base,renderEnvironment:entity.renderEnvironment!==false,antiAliasing:entity.antiAliasing??'none',fovDegrees:entity.lens.fovDegrees,near:entity.lens.near,far:entity.lens.far,controlMode:entity.navigation?.mode??'none',sensitivity:entity.navigation&&entity.navigation.mode!=='none'?entity.navigation.sensitivity:undefined};
  if(entity.kind==='light')return {...base,...lightValues(entity.light)};
  if(entity.kind==='haze')return {...base,...entity.haze};
+ if(entity.kind==='fpsCounter')return {...base,...entity.fpsCounter};
  if(entity.kind==='environment')return {...base,reflectionsIntensity:entity.reflectionsIntensity??1};
  if(entity.kind==='avatar')return {...base,idleAnimation:entity.idleAnimation?.enabled??false};
  if(entity.kind==='tracking')return {...configValues(entity.config),...smoothingValues(entity.smoothing),...mappingValues(entity.mapping)};
@@ -31,6 +32,7 @@ export function defaultsFor(entity:SceneEntity):EntityDefaults {
  if(entity.kind==='camera'){const added=camera();return {...base,renderEnvironment:true,antiAliasing:'none',...added.lens,controlMode:added.navigation?.mode,sensitivity:added.navigation&&added.navigation.mode!=='none'?added.navigation.sensitivity:undefined};}
  if(entity.kind==='light')return {...base,...lightValues(LIGHTS[entity.light.type])};
  if(entity.kind==='haze')return {...base,...HAZE};
+ if(entity.kind==='fpsCounter')return {...base,...FPS_COUNTER};
  if(entity.kind==='environment')return {...base,reflectionsIntensity:1};
  if(entity.kind==='avatar'){const added=makeAuthoringEntity('character','avatar_default',[]);return {...base,idleAnimation:added.kind==='avatar'&&added.idleAnimation?.enabled};}
  if(entity.kind==='tracking')return {...configValues(defaultTrackingConfig(entity.config.kind)),...smoothingValues(),...mappingValues()};
@@ -45,6 +47,8 @@ export function resetFieldIds(entity:SceneEntity):string[] {
   return [...base,'color','intensity',...(placed?['range']:[]),...(type==='spot'?['angleDegrees','penumbra']:[]),...(placed?['volumetric']:[]),'affectCharacters','affectProps','affectEnvironment',...(type!=='ambient'?['shadow']:[]),...(type!=='ambient'&&shadow.enabled?['shadowIntensity','soft','bias','normalBias']:[])];
  }
  if(entity.kind==='haze')return [...base,'density','smoke','intensity','drift'];
+ // An FPS counter has no Transform section (B19 R5).
+ if(entity.kind==='fpsCounter')return ['visible','corner','size','color'];
  if(entity.kind==='environment')return [...base,'reflectionsIntensity'];
  if(entity.kind==='avatar')return [...base,'idleAnimation'];
  if(entity.kind==='tracking')return [...(entity.config.kind==='mediapipe'?['face','upperBody','hands','mirror']:['bindAddress','port','address']),'smoothing','minCutoff','beta','derivativeCutoff','headIntensity','headOffsetX','headOffsetY','headOffsetZ','eyeIntensity','blendShapeSensitivity','linkedBlink'];
