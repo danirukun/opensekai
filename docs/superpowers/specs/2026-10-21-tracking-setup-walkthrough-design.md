@@ -123,8 +123,12 @@ The setup uses the existing scene patch route for writes:
 - Connect: one `scenePatch` with `createEntity` (the source) and `setAvatarTracking` (the bindings). The source is selected in this order (my call):
   1. A source of the same kind that is already in this character's slot: reuse it. Send `setTrackingConfig` only when the config differs.
   2. A source of the same kind that no character uses: adopt it, bind it, and set the preset config.
-  3. A source of the same kind on the same endpoint that another character uses: the Connect step asks for the phone's address. The new source gets it as `senderAddress` (VMC) or `phoneAddress` (iFacialMocap), so the two sources share the endpoint. This supports two phones that drive two characters.
+  3. A source of the same kind on the same endpoint that another character uses. This supports two phones that drive two characters. The host shares an endpoint only when every source on it has a sender address, and a VMC source from the "show address" Connect step has none. So (decided during implementation):
+     - VMC: the source goes to the next port, from 39540 up, that no tracking source in the scene uses. The Connect step shows that port. No phone address is necessary.
+     - iFacialMocap: the Connect step asks for the phone's address. The new source gets it as `phoneAddress`, so the two sources share the endpoint. If the address is the same as the address of a source that is already on the endpoint, the step asks again.
   4. Otherwise: create a new source.
+
+  The endpoint check applies to the target endpoint in every case. A reused or adopted source that would move onto an endpoint that another character uses follows rule 3. A source that another character does not use, but that this character binds in a slot the preset does not fill, counts as used by this character. When two free sources are available, the guide prefers the one that is already on the preset endpoint.
 - Relax: `calibrateTracking` where the kind allows it (iFacialMocap). For VMC, the sender calibrates, as today.
 - End of Expressions: one `scenePatch` with a new `fitBlendShapeRanges` operation (see "Range fit"). The ranges are then live, so in "Try it" the real character shows the result. Done commits nothing more. Done only closes the guide.
 
@@ -201,9 +205,8 @@ When the guide runs again on the same source, it replaces the ranges of the chan
 
 If the performer closes the guide before Done:
 
-- If the fit was already sent, the guide sends `setTrackingMapping` with the mapping from before the run.
-- If the guide created a new source in this run, it sends `removeEntity` for that source. This also clears the bindings.
-- If the guide reused or adopted a source, the source stays. The guide restores the character's bindings from before the run.
+- If the guide created a new source in this run, it sends `removeEntity` for that source. It also restores the character's bindings from before the run, so a slot that the new source took from another source gets that source back. A binding to a source that is no longer in the scene becomes empty. The guide removes the created source also when the character is gone.
+- If the guide reused or adopted a source, the source stays. The guide restores the character's bindings and the source's mapping from before the run. The config and the smoothing stay as the guide set them.
 
 (My call.)
 

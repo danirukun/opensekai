@@ -32,16 +32,19 @@ R7. After the last step, the guide emits `fit` with the neutral. A `fitted` even
 
 ### Plans (Task 8)
 
-R8. `planConnect(scene, avatarId, preset, phoneAddress, eyeBones, newId)` returns `{ operations, sourceId, created, needsPhone }`. The source choice follows the design order:
+R8. `planConnect(scene, avatarId, preset, phoneAddress, eyeBones, newId)` returns `{ operations, sourceId, created, needsPhone, port }`. `port` is the port of the chosen source after the plan. The source choice follows the design order:
   1. A same-kind source in the own slot of the character is reused. It sends `setTrackingConfig` only when the config differs.
   2. A free same-kind source is adopted, bound, and set to the preset config.
-  3. When another character uses a same-kind source on the same port (same endpoint), the result is `needsPhone: true` with no operations, and the bindings of the other character stay. With a phone address, a new source gets it as `senderAddress` (VMC) or `phoneAddress` (iFacialMocap).
+  3. When another character uses the target endpoint (same port; the host lets different kinds on one port conflict), the bindings of the other character stay, and:
+     - VMC: the source uses the next port from 39540 up that no tracking source in the scene uses. `needsPhone` is `false`.
+     - iFacialMocap: without a phone address, the result is `needsPhone: true` with no operations. With a phone address, the source gets it as `phoneAddress`. A phone address that a source on that endpoint already has gives `needsPhone: true` with no operations.
   4. Otherwise a new source is created.
-R9. Each connect plan enables the config. It binds only the slots of the preset (iFacialMocap binds `faceSourceId` and keeps body and fingers). It writes `setTrackingSmoothing` with the preset values unless the source has `smoothing.enabled === true`. It writes `setTrackingMapping` with `useEyeBones: eyeBones ?? true` and keeps the existing mapping fields.
+  The endpoint check applies to the target endpoint in cases 1 and 2 too. A source that this character binds in a slot that the preset does not fill is not free. Among free sources, one already on the preset endpoint wins; then scene order.
+R9. Each connect plan enables the config. It binds only the slots of the preset (iFacialMocap binds `faceSourceId` and keeps body and fingers). It writes `setTrackingSmoothing` with the preset values when the source is new, or when the source has `smoothing.enabled === false`. An absent `smoothing` counts as on and stays (ruling R4). It writes `setTrackingMapping` with `useEyeBones: eyeBones` only when `eyeBones` is a boolean, and keeps the existing mapping fields. An unknown flag (a record from before `eyeBones`) changes nothing (ruling R8).
 R10. `planCancel(scene, snapshot, fitSent)` returns the operations for a close before Done:
-  - A source that the run created gives `removeEntity`.
-  - A reused or adopted source gives `setAvatarTracking` with the snapshot bindings, and `setTrackingMapping` with the snapshot mapping when `fitSent` is `true`. A snapshot mapping of `undefined` uses `DEFAULT_TRACKING_MAPPING`.
-  - A source that is no longer in the scene gets no operation. An avatar that is gone gives an empty plan.
+  - A source that the run created gives `removeEntity`, and `setAvatarTracking` with the snapshot bindings (ruling R11). The `removeEntity` is sent also when the avatar is gone.
+  - A reused or adopted source gives `setAvatarTracking` with the snapshot bindings, and always `setTrackingMapping` with the snapshot mapping, because the connect plan can change the mapping (ruling R3). `fitSent` does not change the result. A snapshot mapping of `undefined` uses `DEFAULT_TRACKING_MAPPING`.
+  - A binding to a source that is no longer in the scene becomes `null`. A reused source that is no longer in the scene gets no operation. An avatar that is gone gets no binding operation.
 
 ### Coach, panel, and entry (Task 9)
 
@@ -65,7 +68,7 @@ R16. `AvatarSourceFields.svelte` gets a "Set up tracking" `Button` from `@oshi-c
 - `GuideEvent = { kind: 'pick'; preset } | { kind: 'connected'; sourceId } | { kind: 'probe'; probe; nowMs } | { kind: 'next'; nowMs } | { kind: 'fitted' } | { kind: 'fitFailed'; message }`.
 - `GuideEffect = { kind: 'connect'; preset } | { kind: 'resetPeaks' } | { kind: 'calibrate' } | { kind: 'fit'; neutral }`.
 - `initialGuide(): GuideState`, `guideStep(state, event): { state; effects }`, `mainValue(probe, step): number`.
-- `ConnectPlan = { operations: PatchOp[]; sourceId: Id; created: boolean; needsPhone: boolean }`.
+- `ConnectPlan = { operations: PatchOp[]; sourceId: Id; created: boolean; needsPhone: boolean; port: number }`.
 - `planConnect(scene: SceneView, avatarId: Id, preset: TrackingPreset, phoneAddress: string | null, eyeBones: boolean | undefined, newId: Id): ConnectPlan`.
 - `GuideSnapshot = { avatarId: Id; tracking: AvatarTracking | undefined; sourceId: Id; created: boolean; mapping: TrackingMapping | undefined }`.
 - `planCancel(scene: SceneView, snapshot: GuideSnapshot, fitSent: boolean): PatchOp[]`.
