@@ -82,9 +82,9 @@ Write the reducer first, with unit tests, because it holds the rules that the an
 
 ## S — Structure
 
-- `apps/desktop/src/editor/tracking-guide.ts` (new), `tracking-guide-plan.ts` (new), `coach-face.ts` (new).
+- `apps/desktop/src/editor/tracking-guide.ts` (new), `tracking-guide-plan.ts` (new), `coach-face.ts` (new), `tracking-guide-view.ts` (new: the relax countdown, the coach ring progress, the lookAround wait for Next, and the Try it group levels after the source ranges). `editor/model.ts` gets `applyOperations`, which sends a group of operations in one `scenePatch`.
 - `apps/desktop/src/components/CoachFace.svelte`, `TrackingGuide.svelte`, `GuideMeter.svelte` (new), `AvatarSourceFields.svelte`, `Inspector.svelte`; `apps/desktop/src/EditorApp.svelte`.
-- Tests: `apps/desktop/test/tracking-guide.test.ts`, `tracking-guide-plan.test.ts`, `coach-face.test.ts`.
+- Tests: `apps/desktop/test/tracking-guide.test.ts`, `tracking-guide-plan.test.ts`, `coach-face.test.ts`, `tracking-guide-view.test.ts`.
 - Evidence: `docs/evaluation/tracking-setup-walkthrough/` (window screenshots), and the guide section of `docs/evaluation/tracking-setup-walkthrough.md`.
 
 ## O — Operations

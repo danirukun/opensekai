@@ -37,9 +37,9 @@ export type GuideEffect =
 
 type Out = { state: GuideState; effects: GuideEffect[] };
 
-const RELAX_MS = 3000;
-const RISE = 0.05;
-const SETTLE_MS = 1000;
+export const RELAX_MS = 3000;
+export const RISE = 0.05;
+export const SETTLE_MS = 1000;
 const UNCHANGED_MS = 4000;
 
 export const initialGuide = (): GuideState => ({
