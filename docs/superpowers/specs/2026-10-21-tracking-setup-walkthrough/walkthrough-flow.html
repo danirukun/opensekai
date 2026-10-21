@@ -1,0 +1,64 @@
+<style>
+  .flow { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; font:13px/1.35 -apple-system,system-ui,sans-serif; color:#222; }
+  .st { background:#fff; border:1px solid #e4e2ec; border-radius:10px; padding:12px; min-height:250px; display:flex; flex-direction:column; }
+  .n { color:#7b68d9; font-weight:700; font-size:12px; }
+  .st h4 { margin:4px 0 8px; font-size:15px; }
+  .muted { color:#777; font-size:12px; }
+  .big { font:600 18px ui-monospace,Menlo,monospace; background:#f6f5fa; border-radius:8px; padding:8px; text-align:center; margin:6px 0; }
+  .tile { border:2px solid #7b68d9; border-radius:8px; padding:8px; text-align:center; font-weight:600; margin-bottom:6px; }
+  .tile.o { border-color:#e4e2ec; color:#999; font-weight:400; }
+  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#7b68d9; margin-right:6px; animation:pulse 1.2s infinite; }
+  @keyframes pulse { 50% { opacity:.2 } }
+  .cd { font:700 44px system-ui; text-align:center; color:#7b68d9; margin:8px 0; }
+  .ex { display:flex; flex-wrap:wrap; gap:4px; margin-top:4px; }
+  .ex span { font-size:11px; padding:3px 6px; border-radius:6px; background:#f0eefa; }
+  .ex span.d { background:#7b68d9; color:#fff; }
+  .ex span.s { background:#f3f3f3; color:#aaa; text-decoration:line-through; }
+  .m { height:6px; border-radius:3px; background:#eee; margin:5px 0; position:relative; overflow:hidden; }
+  .m i { position:absolute; inset:0 auto 0 0; background:#7b68d9; }
+  .sp { flex:1; }
+  .btn { display:inline-block; padding:6px 12px; border-radius:8px; background:#7b68d9; color:#fff; font-weight:600; font-size:12px; text-align:center; }
+</style>
+
+<h2>The five steps</h2>
+<p class="subtitle">All of these live in the docked guide (B). The scene on the left shows your character the whole time.</p>
+
+<div class="flow">
+  <div class="st">
+    <div class="n">1</div><h4>Pick the app</h4>
+    <div class="tile">SelfReflect</div>
+    <div class="tile o">Other VMC app</div>
+    <div class="sp"></div>
+  </div>
+  <div class="st">
+    <div class="n">2</div><h4>Connect</h4>
+    <div class="muted">In SelfReflect, send VMC to</div>
+    <div class="big">192.168.1.24<br>39539</div>
+    <div class="muted"><span class="dot"></span>Waiting for data</div>
+    <div class="sp"></div>
+    <div class="muted">Moves on by itself when packets arrive.</div>
+  </div>
+  <div class="st">
+    <div class="n">3</div><h4>Relax</h4>
+    <div class="muted">Stand straight, face neutral.</div>
+    <div class="cd">2</div>
+    <div class="muted">Records your resting face and body height.</div>
+    <div class="sp"></div>
+  </div>
+  <div class="st">
+    <div class="n">4</div><h4>Expressions</h4>
+    <div class="ex">
+      <span class="d">Blink</span><span class="d">Mouth wide</span><span class="d">Brows up</span><span>Smile</span><span>Frown</span><span>Pucker</span><span>Look around</span><span class="s">Puff cheeks</span><span class="s">Tongue out</span>
+    </div>
+    <div class="sp"></div>
+    <div class="muted">Each step ends when your peak stops rising. Steps the app never sends get skipped.</div>
+  </div>
+  <div class="st">
+    <div class="n">5</div><h4>Try it</h4>
+    <div class="muted">Eyes</div><div class="m"><i style="width:70%"></i></div>
+    <div class="muted">Mouth</div><div class="m"><i style="width:45%"></i></div>
+    <div class="muted">Brows</div><div class="m"><i style="width:30%"></i></div>
+    <div class="sp"></div>
+    <div class="btn">Done</div>
+  </div>
+</div>
