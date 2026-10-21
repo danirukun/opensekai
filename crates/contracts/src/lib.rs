@@ -466,6 +466,11 @@ pub enum PatchOp {
         #[serde(rename = "entityId")]
         entity_id: Id,
     },
+    FitBlendShapeRanges {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+        neutral: BTreeMap<String, f64>,
+    },
     SetTrackingCalibration {
         #[serde(rename = "entityId")]
         entity_id: Id,
@@ -2027,6 +2032,12 @@ impl Validate for ScenePatch {
                     ..
                 } => calibration.validate()?,
                 PatchOp::SetTrackingMapping { mapping, .. } => mapping.validate()?,
+                PatchOp::FitBlendShapeRanges { neutral, .. } => require(
+                    neutral.iter().all(|(name, value)| {
+                        ARKIT_NAMES.contains(&name.as_str()) && (0. ..=1.).contains(value)
+                    }),
+                    "invalid blend shape neutral",
+                )?,
                 PatchOp::SetAvatarExpression { name, settings, .. } => {
                     require(expression_name_ok(name), "invalid expression name")?;
                     if let Some(settings) = settings {

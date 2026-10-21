@@ -6,7 +6,7 @@ import type { ShowDocument } from './show';
 import type { DeviceKind } from './devices';
 import type { ScalarValue } from './blueprint-values';
 import type { CameraAntiAliasing, QualityProfileId } from './quality';
-import type { AssetExpression, ExpressionSettings, ExpressionState } from './expressions';
+import type { ArkitName, AssetExpression, ExpressionSettings, ExpressionState } from './expressions';
 export type Id = string;
 export type Vec3 = [
     number,
@@ -123,7 +123,7 @@ type ExistingPatchOp = {
     entityId: Id;
     visible: boolean;
 };
-export type LivePatchOp = {kind:'setTrackingSmoothing';entityId:Id;smoothing:TrackingSmoothing}|{kind:'calibrateTracking';entityId:Id}|{kind:'setTrackingCalibration';entityId:Id;calibration:TrackingCalibration|null}|{kind:'setTrackingMapping';entityId:Id;mapping:TrackingMapping}| {kind:'setAvatarIdle';entityId:Id;idleAnimation:AvatarIdle}|{kind:'createEntity';entity:SceneEntity}|{kind:'setCameraLens';entityId:Id;lens:Extract<SceneEntity,{kind:'camera'}>['lens']}|{kind:'setAvatarTracking';entityId:Id;tracking:AvatarTracking}|{kind:'setTrackingConfig';entityId:Id;config:TrackingConfig}|{kind:'setAvatarModel';entityId:Id;assetId:Id|null}|{kind:'setEnvironmentModel';entityId:Id;assetId:Id|null}|{kind:'setEnvironmentReflections';entityId:Id;reflectionsIntensity:number}|{kind:'setLight';entityId:Id;light:LightSettings}|{kind:'setHaze';entityId:Id;haze:HazeSettings}|{kind:'setFpsCounter';entityId:Id;fpsCounter:FpsCounterSettings}|{kind:'setCameraRenderEnvironment';entityId:Id;renderEnvironment:boolean}|{kind:'setCameraAntiAliasing';entityId:Id;antiAliasing:CameraAntiAliasing}|{kind:'setCameraNavigation';entityId:Id;navigation:CameraNavigation}|{kind:'setAvatarExpression';entityId:Id;name:string;settings:ExpressionSettings|null};
+export type LivePatchOp = {kind:'setTrackingSmoothing';entityId:Id;smoothing:TrackingSmoothing}|{kind:'calibrateTracking';entityId:Id}|{kind:'fitBlendShapeRanges';entityId:Id;neutral:Partial<Record<ArkitName,number>>}|{kind:'setTrackingCalibration';entityId:Id;calibration:TrackingCalibration|null}|{kind:'setTrackingMapping';entityId:Id;mapping:TrackingMapping}| {kind:'setAvatarIdle';entityId:Id;idleAnimation:AvatarIdle}|{kind:'createEntity';entity:SceneEntity}|{kind:'setCameraLens';entityId:Id;lens:Extract<SceneEntity,{kind:'camera'}>['lens']}|{kind:'setAvatarTracking';entityId:Id;tracking:AvatarTracking}|{kind:'setTrackingConfig';entityId:Id;config:TrackingConfig}|{kind:'setAvatarModel';entityId:Id;assetId:Id|null}|{kind:'setEnvironmentModel';entityId:Id;assetId:Id|null}|{kind:'setEnvironmentReflections';entityId:Id;reflectionsIntensity:number}|{kind:'setLight';entityId:Id;light:LightSettings}|{kind:'setHaze';entityId:Id;haze:HazeSettings}|{kind:'setFpsCounter';entityId:Id;fpsCounter:FpsCounterSettings}|{kind:'setCameraRenderEnvironment';entityId:Id;renderEnvironment:boolean}|{kind:'setCameraAntiAliasing';entityId:Id;antiAliasing:CameraAntiAliasing}|{kind:'setCameraNavigation';entityId:Id;navigation:CameraNavigation}|{kind:'setAvatarExpression';entityId:Id;name:string;settings:ExpressionSettings|null};
 export type AssetManagementPatchOp = {kind:'renameEntity';entityId:Id;name:string}|{kind:'removeEntity';entityId:Id};
 export type PatchOp = ExistingPatchOp | LivePatchOp | AssetManagementPatchOp;
 export interface ScenePatch {

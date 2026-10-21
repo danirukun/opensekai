@@ -7,7 +7,7 @@ import { DeviceKindListSchema, DeviceUpdateSchema } from './devices';
 import { ScalarValueSchema } from './blueprint-values';
 import { z } from "zod";
 import { CameraAntiAliasingSchema, QualityProfileIdSchema } from './quality';
-import { AssetExpressionsSchema, AvatarExpressionsSchema, ExpressionNameSchema, ExpressionSettingsSchema, ExpressionStateSchema } from './expressions';
+import { AssetExpressionsSchema, AvatarExpressionsSchema, ExpressionNameSchema, ExpressionSettingsSchema, ExpressionStateSchema, ARKIT_NAMES } from './expressions';
 import type { AppApi, Capability, Reply, ValidatedCall } from "./types";
 export const LIMITS = {
     jsonBytes: 262144,
@@ -255,6 +255,7 @@ export const PatchOpSchema = z.discriminatedUnion("kind", [
     z.strictObject({kind:z.literal('setCameraNavigation'),entityId:IdSchema,navigation:CameraNavigationSchema}),
     z.strictObject({kind:z.literal('setTrackingConfig'),entityId:IdSchema,config:TrackingConfigSchema}),
     z.strictObject({kind:z.literal('calibrateTracking'),entityId:IdSchema}),
+    z.strictObject({kind:z.literal('fitBlendShapeRanges'),entityId:IdSchema,neutral:z.partialRecord(z.enum(ARKIT_NAMES),z.number().min(0).max(1))}),
     z.strictObject({kind:z.literal('setTrackingCalibration'),entityId:IdSchema,calibration:TrackingCalibrationSchema.nullable()}),
     z.strictObject({kind:z.literal('setTrackingMapping'),entityId:IdSchema,mapping:TrackingMappingSchema}),
     z.strictObject({

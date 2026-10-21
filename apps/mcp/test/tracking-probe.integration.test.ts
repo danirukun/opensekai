@@ -23,3 +23,25 @@ it('tracking_probe returns values for a source that the fixture feeds', async ()
   expect(missing.structuredContent).toMatchObject({ ok: false, error: { code: 'NOT_FOUND' } });
  } finally { await client.close(); }
 }, 15000);
+
+it('scene_patch fitBlendShapeRanges saves ranges from the run peaks, and fails after the peaks reset', async () => {
+ const transport = new StdioClientTransport({ command: process.execPath, args: ['--import', 'tsx', 'apps/mcp/test/session-fixture.ts'], env: { ...process.env, OPENSEKAI_FIXTURE_TRACKING: '1' } as Record<string, string>, stderr: 'pipe' });
+ const client = new Client({ name: 'opensekai-test', version: '0.1.0' });
+ await client.connect(transport);
+ type Inspect = { data: { sceneId: string; revision: number; entities: { id: string; mapping?: { blendShapes: Record<string, { inputMin: number; inputMax: number }> } }[] } };
+ const inspect = async () => (await client.callTool({ name: 'scene_inspect', arguments: { sceneId: 'scene_smoke' } })).structuredContent as Inspect;
+ const fit = async (neutral: Record<string, number>) => client.callTool({ name: 'scene_patch', arguments: { sceneId: 'scene_smoke', expectedRevision: (await inspect()).data.revision, operations: [{ kind: 'fitBlendShapeRanges', entityId: 'phone', neutral }] } });
+ try {
+  expect((await client.listTools()).tools.find(tool => tool.name === 'scene_patch')?.description).toContain('fitBlendShapeRanges');
+  const before = (await inspect()).data.revision;
+  expect((await fit({ eyeBlinkLeft: .2 })).structuredContent).toMatchObject({ ok: true, data: { revision: before + 1 } });
+  const ranges = (await inspect()).data.entities.find(entity => entity.id === 'phone')!.mapping!.blendShapes;
+  expect(Object.keys(ranges)).toEqual(['jawOpen']);
+  expect(ranges.jawOpen!.inputMin).toBeCloseTo(.02, 6);
+  expect(ranges.jawOpen!.inputMax).toBeCloseTo(.36, 6);
+  await client.callTool({ name: 'tracking_probe', arguments: { sourceId: 'phone', resetPeaks: true } });
+  const none = await fit({});
+  expect(none.isError).toBe(true);
+  expect(none.structuredContent).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', ids: ['phone'] } });
+ } finally { await client.close(); }
+}, 15000);

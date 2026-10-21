@@ -1,5 +1,5 @@
 import { ExpressionNameSchema,ExpressionSettingsSchema,TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,TrackingSmoothingSchema,TrackingMappingSchema,EntityNameSchema,ShowSceneSchema,IdSchema,CameraAntiAliasingSchema,CameraNavigationSchema,LightSettingsSchema,HazeSettingsSchema,FpsCounterSettingsSchema,ReflectionsIntensitySchema } from '@opensekai/contracts';
-import type { ExpressionSettings, AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing, TrackingMapping, CameraAntiAliasing, CameraNavigation, CameraScreenshotResult, LightSettings, HazeSettings, FpsCounterSettings } from '@opensekai/contracts';
+import type { ExpressionSettings, AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing, TrackingMapping, ArkitName, CameraAntiAliasing, CameraNavigation, CameraScreenshotResult, LightSettings, HazeSettings, FpsCounterSettings } from '@opensekai/contracts';
 import {makeEntityCopy} from './asset-management';
 type CameraLens=Extract<SceneEntity,{kind:'camera'}>['lens'];
 export interface EditorView {
@@ -164,6 +164,10 @@ export function createEditorModel(api: AppApi) {
   calibrateTracking(entityId:Id,expectedRevision?:number):Promise<Reply<{revision:number}>> {
    if(!ofKind(entityId,'tracking'))return invalid();
    return patch({kind:'calibrateTracking',entityId},expectedRevision);
+  },
+  fitBlendShapeRanges(entityId:Id,neutral:Partial<Record<ArkitName,number>>,expectedRevision?:number):Promise<Reply<{revision:number}>> {
+   if(!ofKind(entityId,'tracking'))return invalid();
+   return patch({kind:'fitBlendShapeRanges',entityId,neutral},expectedRevision);
   },
   resetTrackingCalibration(entityId:Id,expectedRevision?:number):Promise<Reply<{revision:number}>> {
    if(!ofKind(entityId,'tracking'))return invalid();
