@@ -62,11 +62,14 @@ R17. `AssetRecord` gets an optional `eyeBones: boolean`, in TypeScript and Rust 
 
 R18. `fixtures/tracking/selfreflect-replay.json` is a trim of the probe recording: about 60 packets with the T-pose frame, one `jawOpen` rise, and one run of repeated frames. The large `.gz` file is deleted before the commit. A Rust integration test sends each packet as OSC over a real UDP socket to a VMC endpoint on `127.0.0.1` with an ephemeral port, through the host tracking manager. It checks that `originalHips` is absent and `hips` is present, that the thumb names are remapped, that `jawOpen` is present and no `eyeLook*` channel is present, that `leftEye` and `rightEye` are present, and that the packet count matches. A parser defect that the test shows is recorded for S3.
 
+R18a. The replay showed a parser defect: every SelfReflect bundle has 102 OSC messages, and the VMC reader refused a bundle with more than 64. The reader now accepts up to 256 messages in one bundle (`MAX_OSC_MESSAGES`). The 8192-byte datagram limit, the depth limit of 4, and the 64-item limits for bones, expressions, and iFacialMocap channels do not change. This overrides the 64-message limit in the 2026-10-03 and 2026-10-18 tracking contracts. The largest replay packet is 6696 bytes (82% of the datagram limit). A sender that adds the `eyeLook*` channels to a full frame comes near that limit. S3 records this margin in its evidence.
+
 ### Behavior changes
 
-R19. These two changes alter an existing show. The TRK-04 parity line records them.
+R19. These changes alter an existing show. The TRK-04 parity line records them.
   - `useEyeBones` defaults to `true`, so the output drops `eyeLook*` when eye bones are present. A sender that sends both kinds no longer drives the `eyeLook*` morphs.
   - A source with no mapping now gets the eye rule applied (R2).
+  - A VMC bundle with 65 to 256 messages was refused and is now read (R18a). The TRK-01 parity line records this.
 
 ### Documents
 
