@@ -45,7 +45,7 @@ The handbook was read on 2026-10-21. The [performance tutorial](https://docs.war
 - **Only `output_main`.** The operation changes the OBS output only. `preview_main` stays 1920 × 1080 at 60 FPS and display rate. Alternative: one setting for both, as in Warudo, where the window is the output. The Scene preview is an editor view and already has its own profile.
 - **V-Sync.** No control (finding 6). The parity line names it as not applicable to a browser output.
 - **Pause Render and Render Next Frame.** Not in this slice (finding 7). A CAM-16 slice 2 contract takes them.
-- **OBS Browser Source size.** The OBS URL does not change. The operator sets the Browser Source size in OBS. If the sizes differ, the page scales the canvas to the source. The evidence file says this; the UI does not (constitution principle 1).
+- **OBS Browser Source size and drag-and-drop.** The owner asked on #231 (2026-10-21) for drag and drop into OBS. OBS 25 or later makes a Browser Source from a dropped URL and reads `layer-name`, `layer-width`, and `layer-height` from it ([OBS drag-and-drop](https://obsproject.com/tools/browser-drag-and-drop)). The Output panel gets a `Drag to OBS` link, and the OBS URL gets those parameters from the output size, so a dropped source has the correct size. A source already in OBS keeps its size, and the page scales the canvas to it. Alternative: a drag link without the `layer-*` parameters, so OBS uses the canvas size. Rejected because the source size would then differ from the output size.
 
 ## Risks
 
@@ -53,3 +53,4 @@ The handbook was read on 2026-10-21. The [performance tutorial](https://docs.war
 - The pacing gate can drop the frame of a revision change at 30 FPS. The newest frame always wins, so the next applied frame shows the change. A capture waits for the expected revision, as it does now.
 - OBS can render the page at a different rate from the limit. OBS timing is an owner check (`accept:local`).
 - A lower size or scale lowers the image quality in OBS. The visual result is an owner check.
+- The Tauri drag-drop handler (`dragDropEnabled`) and WKWebView can block a link drag out of the Editor window. The cloud cannot prove the drag into OBS. It is an owner check on macOS. Copy OBS URL stays as the fallback.
