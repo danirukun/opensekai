@@ -408,3 +408,81 @@ async fn endpoint_conflict_names_winner_and_retries_when_holder_leaves() {
     until(&manager, |u| sample(u, "second").is_some()).await;
     manager.shutdown().await;
 }
+
+// Encode one replay message from its type tag; the fixture uses only s, f and i arguments.
+fn osc_message(address: &str, tag: &str, args: &[Value]) -> Vec<u8> {
+    let mut b = vec![];
+    osc_string(&mut b, address);
+    osc_string(&mut b, tag);
+    for (kind, arg) in tag.trim_start_matches(',').chars().zip(args) {
+        match kind {
+            's' => osc_string(&mut b, arg.as_str().unwrap()),
+            'f' => b.extend((arg.as_f64().unwrap() as f32).to_be_bytes()),
+            'i' => b.extend((arg.as_i64().unwrap() as i32).to_be_bytes()),
+            other => panic!("unsupported OSC type tag {other}"),
+        }
+    }
+    b
+}
+
+// (f) A real SelfReflect capture reaches the VMC parser: bones, remapped thumbs, lowercase ARKit.
+#[ignore = "parser defect: a SelfReflect bundle has 102 messages and the parser caps at 64 (Task 10)"]
+#[tokio::test]
+async fn selfreflect_replay_decodes_bones_and_lowercase_arkit() {
+    let replay: Value = serde_json::from_str(
+        &std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../../fixtures/tracking/selfreflect-replay.json"
+        ))
+        .unwrap(),
+    )
+    .unwrap();
+    let packets = replay["packets"].as_array().unwrap();
+    let port = free_port();
+    let manager = TrackingManager::new(Instant::now());
+    let body = source(
+        "body",
+        1,
+        TrackingConfig::Vmc {
+            enabled: true,
+            bind_address: "127.0.0.1".into(),
+            port,
+            sender_address: None,
+        },
+    );
+    manager.reconcile(&scene(1, vec![body])).await;
+    let sender = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+    for packet in packets {
+        let messages: Vec<Vec<u8>> = packet["msgs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|m| {
+                osc_message(
+                    m[0].as_str().unwrap(),
+                    m[1].as_str().unwrap(),
+                    m[2].as_array().unwrap(),
+                )
+            })
+            .collect();
+        sender
+            .send_to(&bundle(&messages), ("127.0.0.1", port))
+            .await
+            .unwrap();
+        tokio::time::sleep(Duration::from_millis(2)).await;
+    }
+    let expected = packets.len() as u64;
+    let update = until(&manager, |u| status(u, "body").packets == expected).await;
+    assert_eq!(status(&update, "body").invalid_packets, 0);
+    let s = sample(&update, "body").expect("sample");
+    let has = |name: &str| s.bones.contains_key(name);
+    assert!(has("hips") && !has("originalHips"));
+    assert!(has("leftThumbMetacarpal") && has("leftThumbProximal") && has("leftThumbDistal"));
+    assert!(has("rightThumbMetacarpal") && has("rightThumbProximal") && has("rightThumbDistal"));
+    assert!(!has("leftThumbIntermediate") && !has("rightThumbIntermediate"));
+    assert!(has("leftEye") && has("rightEye"));
+    assert!(s.expressions.contains_key("jawOpen"));
+    assert!(s.expressions.contains_key("eyeBlinkLeft"));
+    assert!(!s.expressions.keys().any(|k| k.starts_with("eyeLook")));
+    manager.shutdown().await;
+}
