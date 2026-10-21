@@ -296,7 +296,8 @@ export const AssetRecordSchema = z.strictObject({
     importerVersion: z.literal(1),
     name: z.string().refine(name => name.trim().length > 0 && name.length <= 128, 'Invalid asset name'),
     credits: AssetCreditsSchema.optional(),
-    expressions: AssetExpressionsSchema
+    expressions: AssetExpressionsSchema,
+    eyeBones: z.boolean().optional()
 });
 // One page of `assetList`: the host answers it from the asset library, in ascending ID order.
 export const AssetSummarySchema = z.strictObject({

@@ -513,6 +513,8 @@ pub struct AssetRecord {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub credits: Option<AssetCredits>,
     pub expressions: Vec<AssetExpression>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub eye_bones: Option<bool>,
 }
 object!(AssetExpression {
     name: String,

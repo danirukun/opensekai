@@ -143,6 +143,7 @@ export interface AssetRecord {
     name: string;
     credits?: AssetCredits;
     expressions: AssetExpression[];
+    eyeBones?: boolean;
 }
 export interface AssetSummary { id: Id; kind: "avatar" | "scene" | "fixture"; name: string; credits?: AssetCredits; }
 export interface AssetList { assets: AssetSummary[]; next: Id | null; }
