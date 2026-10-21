@@ -36,9 +36,10 @@ The [Warudo MediaPipe handbook page](https://docs.warudo.app/docs/mocap/mediapip
 - A computer with more devices than fit in one 4096-byte message (at most 16) can lose the last devices.
 - The Scene window side (`fitDevices` in `App.svelte`) has a unit test only. No camera ran in the cloud.
 
-## Not verified (owner on macOS)
+## macOS (owner)
 
-- Real AVFoundation labels with one virtual webcam installed (for example the OBS Virtual Camera or VSeeFace).
-- The look of the field and the alerts in the macOS Editor window.
-- The saved list after an app restart in the Tauri WebView.
+On 2026-10-20 the owner ran the local acceptance steps of [#225](https://github.com/danirukun/opensekai/pull/225) on macOS with a virtual webcam installed. All steps passed. They covered: real AVFoundation labels hidden by the default list, a live edit, the saved list after an app restart, the selected camera kept, the slow-pattern alert, and the look of the field and the alerts.
+
+## Not verified
+
 - Windows (DirectShow labels) is not checked.
