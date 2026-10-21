@@ -42,6 +42,6 @@ it('scene_patch fitBlendShapeRanges saves ranges from the run peaks, and fails a
   await client.callTool({ name: 'tracking_probe', arguments: { sourceId: 'phone', resetPeaks: true } });
   const none = await fit({});
   expect(none.isError).toBe(true);
-  expect(none.structuredContent).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', ids: ['phone'] } });
+  expect(none.structuredContent).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', message: 'No blend shape rose above its neutral', ids: ['phone'] } });
  } finally { await client.close(); }
 }, 15000);

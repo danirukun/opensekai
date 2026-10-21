@@ -235,6 +235,7 @@ export const ShowDocumentSchema = z.strictObject({
     blueprints: BlueprintSetSchema
 });
 export const EntityNameSchema = z.string().trim().min(1).refine(name=>name.length<=128, 'Name is too long');
+export const FitNeutralSchema=z.partialRecord(z.enum(ARKIT_NAMES),z.number().min(0).max(1));
 export const PatchOpSchema = z.discriminatedUnion("kind", [
     z.strictObject({kind:z.literal('renameEntity'),entityId:IdSchema,name:EntityNameSchema}),
     z.strictObject({kind:z.literal('removeEntity'),entityId:IdSchema}),
@@ -255,7 +256,7 @@ export const PatchOpSchema = z.discriminatedUnion("kind", [
     z.strictObject({kind:z.literal('setCameraNavigation'),entityId:IdSchema,navigation:CameraNavigationSchema}),
     z.strictObject({kind:z.literal('setTrackingConfig'),entityId:IdSchema,config:TrackingConfigSchema}),
     z.strictObject({kind:z.literal('calibrateTracking'),entityId:IdSchema}),
-    z.strictObject({kind:z.literal('fitBlendShapeRanges'),entityId:IdSchema,neutral:z.partialRecord(z.enum(ARKIT_NAMES),z.number().min(0).max(1))}),
+    z.strictObject({kind:z.literal('fitBlendShapeRanges'),entityId:IdSchema,neutral:FitNeutralSchema}),
     z.strictObject({kind:z.literal('setTrackingCalibration'),entityId:IdSchema,calibration:TrackingCalibrationSchema.nullable()}),
     z.strictObject({kind:z.literal('setTrackingMapping'),entityId:IdSchema,mapping:TrackingMappingSchema}),
     z.strictObject({

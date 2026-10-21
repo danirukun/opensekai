@@ -11,7 +11,7 @@ export function fitRanges(neutral: Levels, peaks: Levels): Partial<Record<ArkitN
   const rest = neutral[name] ?? 0;
   if (peak - rest < RISE) continue;
   const inputMin = Math.min(rest + .02, peak - .05);
-  fitted[name] = { inputMin, inputMax: Math.min(1, Math.max(peak * .9, inputMin + .05)), outputMin: 0, outputMax: 1 };
+  fitted[name] = { inputMin, inputMax: Math.max(peak * .9, inputMin + .05), outputMin: 0, outputMax: 1 };
  }
  return fitted;
 }

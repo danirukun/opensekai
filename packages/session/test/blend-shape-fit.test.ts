@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BlendShapeRangeSchema, DEFAULT_TRACKING_MAPPING, defaultTrackingConfig, makeSmokeScene, type SceneEntity, type SceneView, type TrackingMapping } from '@opensekai/contracts';
 import { fitRanges, mergeFit } from '../src/blend-shape-fit';
 import { createSession } from '../src/session';
+import { applyOperations } from '../src/scene-ops';
 
 const expectValid = (range: ReturnType<typeof fitRanges>) => {
  for (const r of Object.values(range)) {
@@ -19,7 +20,11 @@ describe('fitRanges', () => {
   expectValid(fitted);
  });
  it('a channel below the rise gets no range', () => expect(fitRanges({ cheekPuff: 0 }, { cheekPuff: .04 })).toEqual({}));
- it('a channel at exactly the rise gets a range', () => expectValid({ ...fitRanges({}, { cheekPuff: .05 }) }));
+ it('a channel at exactly the rise gets a range', () => {
+  const fitted = fitRanges({}, { cheekPuff: .05 });
+  expect(fitted.cheekPuff).toBeDefined();
+  expectValid(fitted);
+ });
  it('a high resting value stays valid', () => {
   const fitted = fitRanges({ eyeSquintLeft: .3 }, { eyeSquintLeft: .36 });
   expectValid(fitted);
@@ -79,27 +84,38 @@ describe('session fitBlendShapeRanges', () => {
  it('no channel rose → INVALID_INPUT with the source id', () => {
   const session = live();
   const before = session.inspect();
-  expect(fit(session, [], { jawOpen: .5 })).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', ids: ['face'] } });
+  expect(fit(session, [], { jawOpen: .5 })).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', message: 'No blend shape rose above its neutral', ids: ['face'] } });
   expect(session.inspect()).toEqual(before);
  });
  it('fails without a current sample, on a missing source, and on a non-tracking entity', () => {
   const session = live();
   session.advance(32, 5000);
-  expect(fit(session)).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', ids: ['face'] } });
+  expect(fit(session)).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', message: 'Tracking source has no current sample', ids: ['face'] } });
   const scene = session.inspect();
   const op = (entityId: string) => session.applyPatch({ sceneId: scene.sceneId, expectedRevision: scene.revision, operations: [{ kind: 'fitBlendShapeRanges', entityId, neutral: {} }] });
   expect(op('nope')).toMatchObject({ ok: false, error: { code: 'NOT_FOUND' } });
-  expect(op('performer')).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', ids: ['performer'] } });
+  expect(op('performer')).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', message: 'Entity is not a tracking source', ids: ['performer'] } });
  });
  it('fails in a patch that also reconfigures or removes the source', () => {
   const session = live();
   const config = face(session).config;
-  expect(fit(session, [{ kind: 'setTrackingConfig', entityId: 'face', config }])).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', ids: ['face'] } });
-  expect(fit(session, [{ kind: 'removeEntity', entityId: 'face' }])).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', ids: ['face'] } });
+  expect(fit(session, [{ kind: 'setTrackingConfig', entityId: 'face', config }])).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', message: 'Fit in a separate patch', ids: ['face'] } });
+  expect(fit(session, [{ kind: 'removeEntity', entityId: 'face' }])).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', message: 'Fit in a separate patch', ids: ['face'] } });
  });
  it('rejects a neutral with an unknown name or a value above 1', () => {
   const session = live();
   expect(fit(session, [], { notAChannel: 0 })).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
   expect(fit(session, [], { jawOpen: 1.5 })).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+ });
+ it('keeps an earlier mapping edit of the same patch', () => {
+  const session = live();
+  const edited: TrackingMapping = { ...structuredClone(DEFAULT_TRACKING_MAPPING) as TrackingMapping, eyeIntensity: 1.7 };
+  expect(fit(session, [{ kind: 'setTrackingMapping', entityId: 'face', mapping: edited }]).ok).toBe(true);
+  expect(face(session).mapping).toMatchObject({ eyeIntensity: 1.7, blendShapes: { jawOpen: { outputMax: 1 } } });
+ });
+ it('offline apply fails with "Blend shape fit needs a live session"', () => {
+  const session = live();
+  const scene = session.inspect();
+  expect(applyOperations(scene, [{ kind: 'fitBlendShapeRanges', entityId: 'face', neutral: {} }], scene.revision + 1)).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', message: 'Blend shape fit needs a live session', ids: ['face'] } });
  });
 });

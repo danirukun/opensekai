@@ -1,4 +1,4 @@
-import { IdSchema, ParamSchemas, type TrackingMapping, AssetRecordSchema, type AssetRecord, type ExpressionState, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate, type AppError, type InputUpdate, type BlueprintInspect, type AvatarPose, type DeviceKind, type ScalarValue, type BlueprintDebug, type TrackingProbe, type TrackingProbeParams, type TrackingStatus, type ArkitName } from "@opensekai/contracts";
+import { IdSchema, ParamSchemas, AssetRecordSchema, type AssetRecord, type ExpressionState, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate, type AppError, type InputUpdate, type BlueprintInspect, type AvatarPose, type DeviceKind, type ScalarValue, type BlueprintDebug, type TrackingProbe, type TrackingProbeParams, type TrackingStatus, type ArkitName } from "@opensekai/contracts";
 import { createTransformAdapter } from "./ecs";
 import {createTrackingComposer} from "./tracking";
 import { createBlueprintRuntime, logicKey, type BlueprintEvent, type GraphRun, type StepEnv } from './blueprint-runtime';
@@ -242,8 +242,8 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
                 if (!live.ok) return live;
                 const fitted = fitRanges(operation.neutral, tracking.runPeaks(id));
                 if (Object.keys(fitted).length === 0) return failure('INVALID_INPUT', 'No blend shape rose above its neutral', [id]);
-                const base = [...resolved].reverse().find(other => other.kind === 'setTrackingMapping' && other.entityId === id);
-                const current = base?.kind === 'setTrackingMapping' ? base.mapping : (live.data.source as { mapping?: TrackingMapping }).mapping;
+                const base = [...resolved].reverse().find((other): other is Extract<typeof other, { kind: 'setTrackingMapping' }> => other.kind === 'setTrackingMapping' && other.entityId === id);
+                const current = base ? base.mapping : live.data.source.mapping;
                 resolved.push({ kind: 'setTrackingMapping', entityId: id, mapping: mergeFit(current, fitted) });
                 continue;
             }
