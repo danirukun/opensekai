@@ -128,7 +128,7 @@ The setup uses the existing scene patch route for writes:
      - iFacialMocap: the Connect step asks for the phone's address. The new source gets it as `phoneAddress`, so the two sources share the endpoint. If the address is the same as the address of a source that is already on the endpoint, the step asks again.
   4. Otherwise: create a new source.
 
-  The endpoint check applies to the target endpoint in every case. A reused or adopted source that would move onto an endpoint that another character uses follows rule 3. A source that another character does not use, but that this character binds in a slot the preset does not fill, counts as used by this character. When two free sources are available, the guide prefers the one that is already on the preset endpoint.
+  The endpoint check applies to the target endpoint in every case, and it uses the host's share rule: the chosen source can stay on a port only when every other enabled source on that port has the same kind and a sender address, and all the addresses are different. Otherwise rule 3 applies. A layout that already meets the rule does not change. A source that another character does not use, but that this character binds in a slot the preset does not fill, counts as used by this character. When two free sources are available, the guide prefers the one that is already on the preset endpoint.
 - Relax: `calibrateTracking` where the kind allows it (iFacialMocap). For VMC, the sender calibrates, as today.
 - End of Expressions: one `scenePatch` with a new `fitBlendShapeRanges` operation (see "Range fit"). The ranges are then live, so in "Try it" the real character shows the result. Done commits nothing more. Done only closes the guide.
 
