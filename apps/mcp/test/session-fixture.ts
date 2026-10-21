@@ -18,9 +18,10 @@ function trackingFixtureApi(scene: SceneView): AppApi {
  const transform = { position: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] };
  const config = { kind: 'ifacialmocap', enabled: true, bindAddress: '127.0.0.1', port: 49983, phoneAddress: null };
  const session = createSession(scene, 'fixture', [fixtureAvatar]);
- session.applyPatch({ sceneId: scene.sceneId, expectedRevision: scene.revision, operations: [{ kind: 'createEntity', entity: { id: 'phone', name: 'Phone', visible: true, transform, kind: 'tracking', generation: 0, config } }] } as never);
+ const patched = session.applyPatch({ sceneId: scene.sceneId, expectedRevision: scene.revision, operations: [{ kind: 'createEntity', entity: { id: 'phone', name: 'Phone', visible: true, transform, kind: 'tracking', generation: 0, config } }] } as never);
  const generation = (session.inspect().entities.find(entity => entity.id === 'phone') as { generation: number }).generation;
- session.ingestTracking({ samples: [{ sourceId: 'phone', generation, receivedAtMs: 1000, bones: {}, expressions: { jawOpen: .4, eyeBlink_L: .2 } }], statuses: [] });
+ const ingested = session.ingestTracking({ samples: [{ sourceId: 'phone', generation, receivedAtMs: 1000, bones: {}, expressions: { jawOpen: .4, eyeBlink_L: .2 } }], statuses: [] });
+ if (!patched.ok || !ingested.ok) throw new Error('Tracking fixture setup failed');
  session.advance(0, 1000);
  return { ...fixtureApi(), ...sessionApi(session) };
 }

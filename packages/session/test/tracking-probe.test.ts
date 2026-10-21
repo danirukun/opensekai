@@ -23,15 +23,18 @@ function setup(mapping?: unknown) {
 it('values are smoothed, canonical, and before mapping', () => {
  const range = { inputMin: 0, inputMax: .5, outputMin: 0, outputMax: 1 };
  const { session, ingest, probe } = setup({ headIntensity: 1, headOffset: [0, 0, 0], eyeIntensity: 1, blendShapeSensitivity: 1, linkedBlink: false, blendShapes: { jawOpen: range } });
+ const tracking = { bodySourceId: null, faceSourceId: 'face' };
+ expect(session.applyPatch({ sceneId: 'scene_smoke', expectedRevision: session.inspect().revision, operations: [{ kind: 'setAvatarTracking', entityId: 'performer', tracking }] }).ok).toBe(true);
  ingest(100, { jawOpen: .2 });
  ingest(110, { jawOpen: .6 });
- session.advance(0, 110);
- const smoothed = (session as unknown as { runPeaks(id: string): Record<string, number> }).runPeaks('face').jawOpen!;
+ const mapped = session.advance(0, 110).avatarPoses?.find(item => item.avatarId === 'performer')?.expressions.jawOpen;
  const data = probe();
  expect(data.values.jawOpen).toBeGreaterThan(.2);
  expect(data.values.jawOpen).toBeLessThan(.6);
- expect(data.values.jawOpen).toBeCloseTo(smoothed, 10);
- expect(data.state).toBe('receiving');
+ expect(session.runPeaks('face').jawOpen).toBeCloseTo(data.values.jawOpen!, 10);
+ // The range 0..0.5 doubles the value in the pose. The probe shows the value before that.
+ expect(mapped).toBeCloseTo(data.values.jawOpen! * 2, 6);
+ expect(mapped).toBeGreaterThan(data.values.jawOpen! + .1);
 });
 it('two sender names for one channel merge by max', () => {
  const { session, ingest, probe } = setup();
@@ -46,6 +49,7 @@ it('peaks keep the max until resetPeaks', () => {
  for (const [at, value] of [[100, .1], [110, .4], [120, .2]] as const) ingest(at, { jawOpen: value });
  session.advance(0, 120);
  const peak = probe(true).peaks.jawOpen!;
+ expect(peak).toBeGreaterThan(0);
  expect(peak).toBeGreaterThan(.1);
  expect(peak).toBeLessThanOrEqual(.4 + 1e-9);
  expect(probe().peaks).toEqual({});

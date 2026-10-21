@@ -24,6 +24,7 @@ export function createTrackingComposer(){
   if(!entry||entry.key!==key){entry={key,filter:createTrackingSampleFilter({minCutoff:s.minCutoff,beta:s.beta,derivativeCutoff:s.derivativeCutoff})};filters.set(source.id,entry);}
   return s.enabled?entry.filter.filter(sample):copy(sample);
  }
+ function currentSample(sourceId:string,nowMs:number):TrackingSample|null{const sample=samples.get(sourceId);return sample&&nowMs-sample.receivedAtMs<=500?copy(sample):null;}
  function dropSample(id:string){samples.delete(id);rawSamples.delete(id);filters.delete(id);peaks.delete(id);}
  // The smoothed expressions under their canonical ARKit names. Two sender names for one channel merge by max.
  function canonicalValues(sample:TrackingSample){const values:Partial<Record<ArkitName,number>>={};for(const[name,value]of Object.entries(sample.expressions)){const key=canonicalArkitName(name)as ArkitName|undefined;if(key)values[key]=Math.max(values[key]??0,Math.min(1,Math.max(0,value)));}return values;}
@@ -40,14 +41,14 @@ export function createTrackingComposer(){
   return{ok:true,data:null};
  },
  // The smoothed sample that `evaluate` uses, before the stale fade. Null when it is older than 500 ms at nowMs.
- currentSample(sourceId:string,nowMs:number):TrackingSample|null{const sample=samples.get(sourceId);return sample&&nowMs-sample.receivedAtMs<=500?copy(sample):null;},
+ currentSample,
  // The run peaks of a source since the last reset.
  runPeaks(sourceId:string):Partial<Record<ArkitName,number>>{return{...peaks.get(sourceId)?.values};},
  // The smoothed ARKit values before calibration and mapping, and the run peaks. Null when the composer holds nothing for the source.
  probe(sourceId:string,nowMs:number,resetPeaks:boolean):Omit<TrackingProbe,'state'>|null{
   const entry=peaks.get(sourceId),stored=samples.get(sourceId);
   if(!entry&&!stored)return null;
-  const sample=this.currentSample(sourceId,nowMs),values=sample?canonicalValues(sample):{};
+  const sample=currentSample(sourceId,nowMs),values=sample?canonicalValues(sample):{};
   const result={sourceId,generation:(sample??stored)?.generation??entry!.generation,values,peaks:{...entry?.values},presentChannels:sample?Object.keys(values)as ArkitName[]:[],eyeBones:!!sample&&!!sample.bones.leftEye&&!!sample.bones.rightEye};
   if(resetPeaks)peaks.delete(sourceId);
   return result;

@@ -10,7 +10,11 @@ fn probe() -> Value {
 #[test]
 fn params_need_a_source_id() {
     assert!(validate_call("trackingProbe", &json!({"sourceId":"face"})).is_ok());
-    assert!(validate_call("trackingProbe", &json!({"sourceId":"face","resetPeaks":true})).is_ok());
+    assert!(validate_call(
+        "trackingProbe",
+        &json!({"sourceId":"face","resetPeaks":true})
+    )
+    .is_ok());
     assert!(validate_call("trackingProbe", &json!({"sourceId":""})).is_err());
     assert!(validate_call("trackingProbe", &json!({})).is_err());
     assert!(validate_call("trackingProbe", &json!({"sourceId":"face","extra":1})).is_err());
