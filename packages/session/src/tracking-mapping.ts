@@ -32,5 +32,5 @@ export function applyMapping(sample: TrackingSample, mapping: TrackingMapping | 
   const blinks = Object.keys(expressions).filter(name => ['eyeBlinkLeft', 'eyeBlinkRight'].includes(canonicalArkitName(name) ?? ''));
   if (new Set(blinks.map(canonicalArkitName)).size === 2) { const value = Math.max(...blinks.map(name => expressions[name]!)); for (const name of blinks) expressions[name] = value; }
  }
- return applyEyeMovement({ ...sample, bones, expressions }, mapping.useEyeBones ?? true);
+ return applyEyeMovement({ ...sample, bones, expressions }, mapping.useEyeBones ?? true, mapping.eyeIntensity);
 }

@@ -12,6 +12,7 @@ const EYE_LOOK_NAMES = new Set((['left', 'right'] as const).flatMap(side => DIRE
 const isEyeLook = (name: string) => EYE_LOOK_NAMES.has(canonicalArkitName(name) ?? '');
 const SIDES = [['left', 'leftEye'], ['right', 'rightEye']] as const;
 
+// Eye bones are already scaled by eyeIntensity in applyMapping; this step scales only eyeLook values that it keeps or converts.
 // Yaw is positive toward the character's left (+Y rotation of a character that faces +Z). Pitch is positive upward, so it is a negative X rotation.
 export function eyeLookToRotation(values: EyeLook, side: Side): Quat {
  const sign = side === 'left' ? 1 : -1;
@@ -27,7 +28,7 @@ export function rotationToEyeLook(rotation: Quat, side: Side): EyeLook {
  return { out: Math.max(0, h), in: Math.max(0, -h), up: Math.max(0, v), down: Math.max(0, -v) };
 }
 
-export function applyEyeMovement(sample: TrackingSample, useEyeBones: boolean): TrackingSample {
+export function applyEyeMovement(sample: TrackingSample, useEyeBones: boolean, eyeIntensity = 1): TrackingSample {
  const hasBones = SIDES.some(([, bone]) => sample.bones[bone]);
  const lookEntries = Object.entries(sample.expressions).filter(([name]) => isEyeLook(name));
  if (!hasBones && lookEntries.length === 0) return sample;
@@ -36,7 +37,7 @@ export function applyEyeMovement(sample: TrackingSample, useEyeBones: boolean): 
  if (useEyeBones) {
   if (hasBones) return { ...sample, expressions: withoutLook };
   const value = (direction: typeof DIRECTIONS[number], side: Side) =>
-   Math.max(0, ...lookEntries.filter(([name]) => canonicalArkitName(name) === channel(direction, side)).map(([, v]) => v));
+   eyeIntensity * Math.max(0, ...lookEntries.filter(([name]) => canonicalArkitName(name) === channel(direction, side)).map(([, v]) => v));
   const bones = { ...otherBones };
   for (const [side, bone] of SIDES) {
    const values = { in: value('In', side), out: value('Out', side), up: value('Up', side), down: value('Down', side) };
@@ -44,7 +45,10 @@ export function applyEyeMovement(sample: TrackingSample, useEyeBones: boolean): 
   }
   return { ...sample, bones, expressions: withoutLook };
  }
- if (lookEntries.length > 0) return { ...sample, bones: otherBones, expressions: sample.expressions };
+ if (lookEntries.length > 0) {
+  const scaled = Object.fromEntries(Object.entries(sample.expressions).map(([name, v]) => [name, isEyeLook(name) ? clamp(v * eyeIntensity, 0, 1) : v]));
+  return { ...sample, bones: otherBones, expressions: scaled };
+ }
  const expressions = { ...sample.expressions };
  for (const [side, bone] of SIDES) {
   const eye = sample.bones[bone];

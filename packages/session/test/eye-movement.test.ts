@@ -74,3 +74,16 @@ it('a mapping without useEyeBones parses and reads as true', () => {
  expect(parsed.useEyeBones ?? true).toBe(true);
  expect(TrackingMappingSchema.parse({ ...DEFAULT_TRACKING_MAPPING, useEyeBones: false }).useEyeBones).toBe(false);
 });
+it('eyeIntensity scales eyeLook converted to bones, and zero stills the eyes', () => {
+ const input = sample({ expressions: { eyeLookOutLeft: 1 } });
+ expect(yawDegrees(applyEyeMovement(input, true, .5).bones.leftEye!.rotation)).toBeCloseTo(10, 3);
+ expect(yawDegrees(applyEyeMovement(input, true, 0).bones.leftEye!.rotation)).toBeCloseTo(0, 3);
+ expect(yawDegrees(applyMapping(input, { ...DEFAULT_TRACKING_MAPPING, eyeIntensity: .5 }).bones.leftEye!.rotation)).toBeCloseTo(10, 3);
+});
+it('eyeIntensity scales sent eyeLook in blend shape mode and clamps at 1', () => {
+ const input = sample({ expressions: { eyeLookOutLeft: .8, jawOpen: .6 } });
+ const half = applyEyeMovement(input, false, .5);
+ expect(half.expressions.eyeLookOutLeft).toBeCloseTo(.4, 6);
+ expect(half.expressions.jawOpen).toBe(.6);
+ expect(applyEyeMovement(input, false, 2).expressions.eyeLookOutLeft).toBe(1);
+});
