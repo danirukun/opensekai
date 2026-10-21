@@ -114,6 +114,50 @@ pub struct TrackingStatus {
 object!(TrackingUpdate {samples:Vec<TrackingSample>,statuses:Vec<TrackingStatus>});
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct TrackingProbeParams {
+    pub source_id: Id,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reset_peaks: Option<bool>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct TrackingProbe {
+    pub source_id: Id,
+    pub generation: u64,
+    pub state: TrackingState,
+    pub values: BTreeMap<String, f64>,
+    pub peaks: BTreeMap<String, f64>,
+    pub present_channels: Vec<String>,
+    pub eye_bones: bool,
+}
+impl Validate for TrackingProbe {
+    fn validate(&self) -> Result<(), AppError> {
+        require(
+            crate::id_text_ok(&self.source_id) && self.generation <= 9_007_199_254_740_991,
+            "invalid probe source",
+        )?;
+        for map in [&self.values, &self.peaks] {
+            for (name, value) in map {
+                require(
+                    crate::ARKIT_NAMES.contains(&name.as_str()) && within(*value, 0., 1.),
+                    "invalid probe value",
+                )?;
+            }
+        }
+        let unique: HashSet<&String> = self.present_channels.iter().collect();
+        require(
+            self.present_channels.len() <= crate::ARKIT_NAMES.len()
+                && unique.len() == self.present_channels.len()
+                && self
+                    .present_channels
+                    .iter()
+                    .all(|name| crate::ARKIT_NAMES.contains(&name.as_str())),
+            "invalid probe channels",
+        )
+    }
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct IdleBone {
     pub rotation: Quat,
     pub space: BoneSpace,

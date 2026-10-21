@@ -1,4 +1,4 @@
-import {TrackingConfigSchema,TrackingSmoothingSchema,TrackingCalibrationSchema,TrackingMappingSchema,AvatarIdleSchema,AvatarTrackingSchema,AvatarPoseSchema,TrackingStatusSchema,TrackingUpdateSchema} from './tracking';
+import {TrackingConfigSchema,TrackingSmoothingSchema,TrackingProbeParamsSchema,TrackingProbeSchema,TrackingCalibrationSchema,TrackingMappingSchema,AvatarIdleSchema,AvatarTrackingSchema,AvatarPoseSchema,TrackingStatusSchema,TrackingUpdateSchema} from './tracking';
 import { BlueprintGraphSchema, BlueprintSetSchema } from './blueprint';
 import { BlueprintBatchSchema } from './blueprint-ops';
 import { BlueprintDebugParamsSchema, BlueprintDebugSchema } from './blueprint-debug';
@@ -495,6 +495,7 @@ export const ParamSchemas = {
     blueprintEdit: BlueprintBatchSchema,
     blueprintInspect: z.strictObject({ sinceRevision: u.optional() }),
     blueprintDebug: BlueprintDebugParamsSchema,
+    trackingProbe: TrackingProbeParamsSchema,
     captureFrame: CaptureParamsSchema,
     benchmarkStart: BenchmarkParamsSchema,
     benchmarkStatus: z.strictObject({
@@ -525,6 +526,7 @@ export const ResultSchemas = {
     blueprintEdit: z.strictObject({ revision: u, keystrokes: KeystrokeListSchema, heldKeys: HeldCodeListSchema.optional(), devices: DeviceKindListSchema.optional() }),
     blueprintInspect: BlueprintInspectSchema,
     blueprintDebug: BlueprintDebugSchema,
+    trackingProbe: TrackingProbeSchema,
     captureFrame: CaptureRecordSchema,
     benchmarkStart: BenchmarkRunSchema,
     benchmarkStatus: BenchmarkRunSchema,
@@ -545,6 +547,7 @@ export const MethodSchema = z.enum([
     "blueprintEdit",
     "blueprintInspect",
     "blueprintDebug",
+    "trackingProbe",
     "captureFrame",
     "benchmarkStart",
     "benchmarkStatus",

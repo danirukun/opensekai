@@ -2199,6 +2199,10 @@ pub fn validate_call(method: &str, params: &Value) -> Result<(), AppError> {
         "blueprintEdit" => validate_blueprint_ops(&decode::<BlueprintEditParams>(params)?.ops),
         "blueprintInspect" => decode::<BlueprintInspectParams>(params).map(|_| ()),
         "blueprintDebug" => decode::<BlueprintDebugParams>(params).map(|_| ()),
+        "trackingProbe" => {
+            let p = decode::<TrackingProbeParams>(params)?;
+            require(id_text_ok(&p.source_id), "invalid source ID")
+        }
         "captureFrame" => decode::<CaptureParams>(params)?.validate(),
         "benchmarkStart" => decode::<BenchmarkParams>(params).map(|_| ()),
         "benchmarkStatus" | "benchmarkCancel" => decode::<RunParams>(params).map(|_| ()),
@@ -2260,6 +2264,7 @@ pub fn validate_result(method: &str, result: &Value) -> Result<(), AppError> {
             | "blueprintEdit"
             | "blueprintInspect"
             | "blueprintDebug"
+            | "trackingProbe"
             | "captureFrame"
             | "benchmarkStart"
             | "benchmarkStatus"
@@ -2301,6 +2306,7 @@ pub fn validate_result(method: &str, result: &Value) -> Result<(), AppError> {
         }
         "blueprintInspect" => validate_blueprint_inspect(data),
         "blueprintDebug" => validate_blueprint_debug(data),
+        "trackingProbe" => decode::<TrackingProbe>(data)?.validate(),
         "captureFrame" => decode::<CaptureRecord>(data)?.validate(),
         "benchmarkStart" | "benchmarkStatus" | "benchmarkCancel" => {
             decode::<BenchmarkRun>(data)?.validate()

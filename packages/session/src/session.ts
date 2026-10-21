@@ -1,4 +1,4 @@
-import { IdSchema, ParamSchemas, AssetRecordSchema, type AssetRecord, type ExpressionState, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate, type AppError, type InputUpdate, type BlueprintInspect, type AvatarPose, type DeviceKind, type ScalarValue, type BlueprintDebug } from "@opensekai/contracts";
+import { IdSchema, ParamSchemas, AssetRecordSchema, type AssetRecord, type ExpressionState, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate, type AppError, type InputUpdate, type BlueprintInspect, type AvatarPose, type DeviceKind, type ScalarValue, type BlueprintDebug, type TrackingProbe, type TrackingProbeParams, type TrackingStatus, type ArkitName } from "@opensekai/contracts";
 import { createTransformAdapter } from "./ecs";
 import {createTrackingComposer} from "./tracking";
 import { createBlueprintRuntime, logicKey, type BlueprintEvent, type GraphRun, type StepEnv } from './blueprint-runtime';
@@ -29,6 +29,10 @@ export interface Session {
         revision: number;
     }>;
     ingestTracking(update:TrackingUpdate):Reply<null>;
+    // The live ARKit values, run peaks, channels, and state of a tracking source (TRK-23).
+    probeTracking(params: TrackingProbeParams): Reply<TrackingProbe>;
+    // The run peaks of a source, for the blend shape fit.
+    runPeaks(sourceId: string): Partial<Record<ArkitName, number>>;
     advance(elapsedMs: number, trackingNowMs?:number, input?: InputUpdate): RuntimeFrame;
     editBlueprints(batch: unknown): Reply<{ revision: number; keystrokes: string[]; heldKeys?: string[]; devices?: DeviceKind[] }>;
     inspectBlueprints(sinceRevision?: number): BlueprintInspect;
@@ -62,6 +66,8 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
     let elapsed = 0;
     // The tracking clock of the last advance. A capture compares sample age with it (R3).
     let lastTrackingNowMs: number | null = null;
+    // The tracking status of the last advance. A probe reports its state.
+    let lastTrackingStatus: TrackingStatus[] = [];
     let sequence = 0;
     function commit(next: SceneView): Reply<{
         revision: number;
@@ -238,6 +244,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             if (!parsed.success || !Number.isSafeInteger(persistent.revision + 1)) return failure('INVALID_INPUT', 'Invalid show scene');
             persistent = structuredClone({ ...parsed.data, revision: persistent.revision + 1 });
             tracking = createTrackingComposer();
+            lastTrackingStatus = [];
             overrides = EMPTY_OVERRIDES;
             tweens = EMPTY_TWEENS;
             tweenErrors.clear();
@@ -328,6 +335,17 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             return commit(next);
         },
         ingestTracking:update=>tracking.ingest(update,persistent),
+        probeTracking({ sourceId, resetPeaks }) {
+            const source = persistent.entities.find(entity => entity.id === sourceId);
+            if (!source) return failure('NOT_FOUND', 'Entity not found', [sourceId]);
+            if (source.kind !== 'tracking') return failure('INVALID_INPUT', 'Entity is not a tracking source', [sourceId]);
+            const probe = tracking.probe(sourceId, lastTrackingNowMs ?? Infinity, resetPeaks === true);
+            const status = lastTrackingStatus.find(item => item.sourceId === sourceId && item.generation === source.generation);
+            const state = status?.state ?? (source.config.enabled ? 'waiting' : 'stopped');
+            const empty = { sourceId, generation: source.generation, values: {}, peaks: {}, presentChannels: [], eyeBones: false };
+            return { ok: true, data: { ...(probe && probe.generation === source.generation ? probe : empty), state } };
+        },
+        runPeaks: sourceId => tracking.runPeaks(sourceId),
         setAssetRecords: storeRecords,
         getExpressions(avatarId) {
             return expressionView(reconcileExpressions(expressions, persistent), persistent, record, avatarId);
@@ -372,6 +390,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             sequence += 1;
             lastTrackingNowMs = trackingNowMs ?? elapsedMs;
             const live=tracking.evaluate(shown,trackingNowMs??elapsedMs,elapsedMs);
+            lastTrackingStatus = live.trackingStatus;
             previousPoses = new Map(live.avatarPoses.map(pose => [pose.avatarId, structuredClone(pose)]));
             const faces = composeBlendShapes(composeExpressions(live.avatarPoses, expressions, persistent, record), blendShapes);
             const avatarPoses = composeBoneOffsets(faces, looked.offsets);

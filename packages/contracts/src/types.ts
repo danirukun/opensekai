@@ -1,4 +1,4 @@
-import type {AvatarIdle,AvatarTracking,TrackingConfig,TrackingSmoothing,TrackingCalibration,TrackingMapping,AvatarPose,TrackingStatus,TrackingUpdate} from './tracking';
+import type {AvatarIdle,AvatarTracking,TrackingConfig,TrackingSmoothing,TrackingCalibration,TrackingMapping,AvatarPose,TrackingStatus,TrackingUpdate,TrackingProbe,TrackingProbeParams} from './tracking';
 import type { BlueprintBatch } from './blueprint-ops';
 import type { BlueprintInspect, InputUpdate } from './schema';
 import type { BlueprintDebug } from './blueprint-debug';
@@ -268,6 +268,7 @@ export interface AppApi {
     blueprintEdit(params: BlueprintBatch): Promise<Reply<{ revision: number; keystrokes: string[]; heldKeys?: string[]; devices?: DeviceKind[] }>>;
     blueprintInspect(params: { sinceRevision?: number }): Promise<Reply<BlueprintInspect>>;
     blueprintDebug(params: { since?: number }): Promise<Reply<BlueprintDebug>>;
+    trackingProbe(params: TrackingProbeParams): Promise<Reply<TrackingProbe>>;
     captureFrame(params: CaptureParams): Promise<Reply<CaptureRecord>>;
     benchmarkStart(params: BenchmarkParams): Promise<Reply<BenchmarkRun>>;
     benchmarkStatus(params: {
