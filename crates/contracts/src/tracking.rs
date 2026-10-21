@@ -57,14 +57,18 @@ object!(BlendShapeRange {
     output_min: f64,
     output_max: f64
 });
-object!(TrackingMapping {
-    head_intensity: f64,
-    head_offset: Vec3,
-    eye_intensity: f64,
-    blend_shape_sensitivity: f64,
-    linked_blink: bool,
-    blend_shapes: BTreeMap<String, BlendShapeRange>
-});
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct TrackingMapping {
+    pub head_intensity: f64,
+    pub head_offset: Vec3,
+    pub eye_intensity: f64,
+    pub blend_shape_sensitivity: f64,
+    pub linked_blink: bool,
+    pub blend_shapes: BTreeMap<String, BlendShapeRange>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub use_eye_bones: Option<bool>,
+}
 strings!(BoneSpace { Raw=>"raw",Normalized=>"normalized" });
 strings!(TrackingState { Stopped=>"stopped",Waiting=>"waiting",Receiving=>"receiving",Stale=>"stale",Error=>"error" });
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -414,5 +418,26 @@ impl Validate for TrackingMapping {
             )?;
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::TrackingMapping;
+    use serde_json::json;
+
+    #[test]
+    fn use_eye_bones_round_trips_present_and_absent() {
+        let base = json!({"headIntensity":1.0,"headOffset":[0.0,0.0,0.0],"eyeIntensity":1.0,"blendShapeSensitivity":1.0,"linkedBlink":false,"blendShapes":{}});
+        let absent: TrackingMapping = serde_json::from_value(base.clone()).unwrap();
+        assert_eq!(absent.use_eye_bones, None);
+        assert_eq!(serde_json::to_value(&absent).unwrap(), base);
+        for flag in [true, false] {
+            let mut with = base.clone();
+            with["useEyeBones"] = json!(flag);
+            let parsed: TrackingMapping = serde_json::from_value(with.clone()).unwrap();
+            assert_eq!(parsed.use_eye_bones, Some(flag));
+            assert_eq!(serde_json::to_value(&parsed).unwrap(), with);
+        }
     }
 }

@@ -1,5 +1,6 @@
 import { canonicalArkitName, type Quat, type TrackingMapping, type TrackingSample } from '@opensekai/contracts';
 import { eulerToQuat, multiplyQuat } from './bone-offsets';
+import { applyEyeMovement } from './eye-movement';
 
 const clamp = (value: number) => Math.min(1, Math.max(0, value));
 
@@ -12,7 +13,7 @@ export function scaleRotation(q: Quat, factor: number): Quat {
 }
 
 export function applyMapping(sample: TrackingSample, mapping: TrackingMapping | undefined): TrackingSample {
- if (!mapping) return sample;
+ if (!mapping) return applyEyeMovement(sample, true);
  const bones = structuredClone(sample.bones);
  const { head } = bones;
  if (head) {
@@ -31,5 +32,5 @@ export function applyMapping(sample: TrackingSample, mapping: TrackingMapping | 
   const blinks = Object.keys(expressions).filter(name => ['eyeBlinkLeft', 'eyeBlinkRight'].includes(canonicalArkitName(name) ?? ''));
   if (new Set(blinks.map(canonicalArkitName)).size === 2) { const value = Math.max(...blinks.map(name => expressions[name]!)); for (const name of blinks) expressions[name] = value; }
  }
- return { ...sample, bones, expressions };
+ return applyEyeMovement({ ...sample, bones, expressions }, mapping.useEyeBones ?? true);
 }

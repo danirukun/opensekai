@@ -12,7 +12,7 @@ export const CALIBRATION_BONES=['hips','spine','chest','upperChest','neck','head
 export type CalibrationBone=typeof CALIBRATION_BONES[number];
 export interface TrackingCalibration {bones:Partial<Record<CalibrationBone,{rotation:Quat;space:'raw'|'normalized'}>>}
 export interface BlendShapeRange {inputMin:number;inputMax:number;outputMin:number;outputMax:number}
-export interface TrackingMapping {headIntensity:number;headOffset:Vec3;eyeIntensity:number;blendShapeSensitivity:number;linkedBlink:boolean;blendShapes:Partial<Record<typeof ARKIT_NAMES[number],BlendShapeRange>>}
+export interface TrackingMapping {headIntensity:number;headOffset:Vec3;eyeIntensity:number;blendShapeSensitivity:number;linkedBlink:boolean;blendShapes:Partial<Record<typeof ARKIT_NAMES[number],BlendShapeRange>>;useEyeBones?:boolean}
 export const DEFAULT_TRACKING_MAPPING:Readonly<TrackingMapping>=Object.freeze({headIntensity:1,headOffset:[0,0,0] as Vec3,eyeIntensity:1,blendShapeSensitivity:1,linkedBlink:false,blendShapes:{}});
 export const FINGER_BONES=HUMANOID_BONES.filter(name=>/^(left|right)(Thumb|Index|Middle|Ring|Little)/.test(name));
 export interface TrackingBone {rotation:Quat;space:'raw'|'normalized';position?:Vec3;weight?:number}
@@ -35,7 +35,7 @@ const calibrationBone=z.strictObject({rotation:quat,space:z.enum(['raw','normali
 export const TrackingCalibrationSchema=z.strictObject({bones:z.partialRecord(z.enum(CALIBRATION_BONES),calibrationBone).refine(v=>{const size=Object.keys(v).length;return size>=1&&size<=6;})});
 export const BlendShapeRangeSchema=z.strictObject({inputMin:n.min(0).max(1),inputMax:n.min(0).max(1),outputMin:n.min(0).max(1),outputMax:n.min(0).max(1)}).refine(r=>r.inputMin<r.inputMax&&r.outputMin<=r.outputMax);
 const degrees=n.min(-90).max(90);
-export const TrackingMappingSchema=z.strictObject({headIntensity:n.min(0).max(2),headOffset:z.tuple([degrees,degrees,degrees]),eyeIntensity:n.min(0).max(2),blendShapeSensitivity:n.min(0).max(3),linkedBlink:z.boolean(),blendShapes:z.partialRecord(z.enum(ARKIT_NAMES),BlendShapeRangeSchema)});
+export const TrackingMappingSchema=z.strictObject({headIntensity:n.min(0).max(2),headOffset:z.tuple([degrees,degrees,degrees]),eyeIntensity:n.min(0).max(2),blendShapeSensitivity:n.min(0).max(3),linkedBlink:z.boolean(),blendShapes:z.partialRecord(z.enum(ARKIT_NAMES),BlendShapeRangeSchema),useEyeBones:z.boolean().optional()});
 export const TrackingBoneSchema=z.strictObject({rotation:quat,space:z.enum(['raw','normalized']),position:vec.optional(),weight:n.min(0).max(1).optional()});
 const bones=z.record(z.string().refine(name=>HUMANOID_BONES.includes(name)),TrackingBoneSchema).refine(v=>Object.keys(v).length<=64);
 const expressions=z.record(z.string().min(1).max(128),n.min(0).max(1)).refine(v=>Object.keys(v).length<=64);

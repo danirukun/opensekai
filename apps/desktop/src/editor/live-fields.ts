@@ -23,19 +23,19 @@ export function withSource(tracking:AvatarTracking|undefined,channel:SourceChann
  const {fingersSourceId,...rest}=next;return fingersSourceId?{...rest,fingersSourceId}:rest;
 }
 export type RangeDraft={inputMin:string;inputMax:string;outputMin:string;outputMax:string};
-export interface MappingDraft {headIntensity:string;headOffset:[string,string,string];eyeIntensity:string;blendShapeSensitivity:string;linkedBlink:boolean;blendShapes:Record<string,RangeDraft>}
+export interface MappingDraft {headIntensity:string;headOffset:[string,string,string];eyeIntensity:string;blendShapeSensitivity:string;linkedBlink:boolean;useEyeBones:boolean;blendShapes:Record<string,RangeDraft>}
 const DEFAULT_RANGE={inputMin:0,inputMax:1,outputMin:0,outputMax:1};
 // Each ARKit name has a row. A name with no range shows the default range.
 export function mappingDraft(mapping:TrackingMapping|undefined):MappingDraft {
  const m=mapping??DEFAULT_TRACKING_MAPPING;
- return {headIntensity:String(m.headIntensity),headOffset:m.headOffset.map(String) as [string,string,string],eyeIntensity:String(m.eyeIntensity),blendShapeSensitivity:String(m.blendShapeSensitivity),linkedBlink:m.linkedBlink,
+ return {headIntensity:String(m.headIntensity),headOffset:m.headOffset.map(String) as [string,string,string],eyeIntensity:String(m.eyeIntensity),blendShapeSensitivity:String(m.blendShapeSensitivity),linkedBlink:m.linkedBlink,useEyeBones:m.useEyeBones??true,
   blendShapes:Object.fromEntries(ARKIT_NAMES.map(name=>{const r=m.blendShapes[name]??DEFAULT_RANGE;return [name,{inputMin:String(r.inputMin),inputMax:String(r.inputMax),outputMin:String(r.outputMin),outputMax:String(r.outputMax)}];}))};
 }
 const num=(value:string)=>value.trim()===''?NaN:Number(value);
 // Only the named rows become ranges, so an untouched row commits nothing.
 export function parseMappingDraft(draft:MappingDraft,ranges:ReadonlySet<string>):TrackingMapping|null {
  const blendShapes=Object.fromEntries([...ranges].map(name=>{const r=draft.blendShapes[name];return [name,r?{inputMin:num(r.inputMin),inputMax:num(r.inputMax),outputMin:num(r.outputMin),outputMax:num(r.outputMax)}:null];}));
- const parsed=TrackingMappingSchema.safeParse({headIntensity:num(draft.headIntensity),headOffset:draft.headOffset.map(num),eyeIntensity:num(draft.eyeIntensity),blendShapeSensitivity:num(draft.blendShapeSensitivity),linkedBlink:draft.linkedBlink,blendShapes});
+ const parsed=TrackingMappingSchema.safeParse({headIntensity:num(draft.headIntensity),headOffset:draft.headOffset.map(num),eyeIntensity:num(draft.eyeIntensity),blendShapeSensitivity:num(draft.blendShapeSensitivity),linkedBlink:draft.linkedBlink,blendShapes,...(draft.useEyeBones?{}:{useEyeBones:false})});
  return parsed.success?parsed.data:null;
 }
 export function parseTrackingConfig(config:TrackingConfig,values:{bindAddress:string;port:string;address:string}):TrackingConfig|null {const candidate=config.kind==='mediapipe'?config:{...config,bindAddress:values.bindAddress.trim(),port:values.port.trim()===''?NaN:Number(values.port),[config.kind==='vmc'?'senderAddress':'phoneAddress']:values.address.trim()||null};const parsed=TrackingConfigSchema.safeParse(candidate);return parsed.success?parsed.data:null;}

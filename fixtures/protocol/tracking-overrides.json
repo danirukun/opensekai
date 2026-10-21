@@ -189,7 +189,8 @@
        "outputMin": 0,
        "outputMax": 0
       }
-     }
+     },
+     "useEyeBones": false
     }
    },
    {
