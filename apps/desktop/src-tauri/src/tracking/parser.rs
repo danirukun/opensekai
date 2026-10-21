@@ -1,5 +1,6 @@
 use opensekai_contracts::*;
 use std::collections::BTreeMap;
+const MAX_OSC_MESSAGES: usize = 256;
 #[derive(Default, Clone)]
 pub struct Decoder {
     pub bones: BTreeMap<String, TrackingBone>,
@@ -117,7 +118,7 @@ fn messages(bytes: &[u8], depth: usize, out: &mut Vec<(String, Vec<Arg>)>) -> Re
         }
         return Ok(());
     }
-    if out.len() >= 64 {
+    if out.len() >= MAX_OSC_MESSAGES {
         return Err(invalid("Too many OSC messages"));
     }
     let mut i = 0;
@@ -363,6 +364,23 @@ mod tests {
         v.to_be_bytes()
     }
     #[test]
+    fn bundle_message_cap_is_inclusive() {
+        let bundle = |count: usize| {
+            let message = osc("/VMC/Ext/OK", ",i", &[&1i32.to_be_bytes()]);
+            let mut b = b"#bundle\0".to_vec();
+            b.extend([0; 8]);
+            for _ in 0..count {
+                b.extend((message.len() as u32).to_be_bytes());
+                b.extend(&message);
+            }
+            b
+        };
+        let mut d = Decoder::default();
+        assert!(d.vmc(&bundle(MAX_OSC_MESSAGES)).is_ok());
+        let error = d.vmc(&bundle(MAX_OSC_MESSAGES + 1)).unwrap_err();
+        assert!(format!("{error:?}").contains("Too many OSC messages"));
+    }
+    #[test]
     fn vmc_preserves_apply_and_converts_raw_bone() {
         let mut d = Decoder::default();
         let value = osc("/VMC/Ext/Blend/Val", ",sf", &[b"Joy\0", &float(0.5)]);
@@ -475,7 +493,7 @@ mod bundle_tests {
         assert!(d.vmc(&deep).is_err());
         let mut many = b"#bundle\0".to_vec();
         many.extend([0; 8]);
-        for _ in 0..65 {
+        for _ in 0..=MAX_OSC_MESSAGES {
             many.extend((pulse.len() as u32).to_be_bytes());
             many.extend(&pulse);
         }

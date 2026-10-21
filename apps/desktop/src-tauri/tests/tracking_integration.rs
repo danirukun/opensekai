@@ -426,7 +426,6 @@ fn osc_message(address: &str, tag: &str, args: &[Value]) -> Vec<u8> {
 }
 
 // (f) A real SelfReflect capture reaches the VMC parser: bones, remapped thumbs, lowercase ARKit.
-#[ignore = "parser defect: a SelfReflect bundle has 102 messages and the parser caps at 64 (Task 10)"]
 #[tokio::test]
 async fn selfreflect_replay_decodes_bones_and_lowercase_arkit() {
     let replay: Value = serde_json::from_str(
