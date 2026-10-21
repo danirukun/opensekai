@@ -148,3 +148,27 @@ it('mainValue is the maximum over the main channels', () => {
  expect(mainValue(probe({ eyeBlinkLeft: 0.2, eyeBlinkRight: 0.7 }), 'blink')).toBe(0.7);
  expect(mainValue(probe({}), 'blink')).toBe(0);
 });
+
+it('lookAround with eye bones stays open while other channels change for more than 4000 ms, then next skips it', () => {
+ const noLook = ALL.filter(n => !n.startsWith('eyeLook'));
+ let s = toLook();
+ s = run(s, [0, 1, 2, 3, 4, 5, 6].map(i => ev(probe({ jawOpen: i / 10 }, { presentChannels: noLook, eyeBones: true }), 5000 + i * 1000))).state;
+ expect(s.index).toBe(8);
+ expect(s.results.lookAround).toBeUndefined();
+ expect(guideStep(s, { kind: 'next', nowMs: 12000 }).state.results.lookAround).toBe('skipped');
+});
+
+it('fitted, fitFailed, and connected are ignored outside their step', () => {
+ const early = toExpressions().state;
+ expect(guideStep(early, { kind: 'fitted' }).state).toBe(early);
+ expect(guideStep(early, { kind: 'fitFailed', message: 'x' }).state).toBe(early);
+ expect(guideStep(early, { kind: 'connected', sourceId: 'other' }).state.sourceId).toBe('src');
+});
+
+it('a data gap does not cause a false notSent', () => {
+ const p = (other: number, t: number, state: TrackingProbe['state'] = 'receiving') => ev(probe({ eyeBlinkLeft: 0, jawOpen: other }, { state }), t);
+ let s = run(toExpressions().state, [p(0, 4100), p(0.1, 4200), p(0.2, 4300, 'stale')]).state;
+ s = guideStep(s, p(0.3, 9000)).state;
+ expect(s.index).toBe(0);
+ expect(guideStep(s, p(0.4, 9500)).state.index).toBe(0);
+});

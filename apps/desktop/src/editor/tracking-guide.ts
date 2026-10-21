@@ -79,6 +79,7 @@ function expressionProbe(state: GuideState, probe: TrackingProbe, nowMs: number)
  if (id === undefined) return { state, effects: [] };
  if (absent(probe, id)) return enter({ ...state, results: { ...state.results, [id]: 'notSent' } }, state.index + 1, probe, nowMs);
  const main = EXPRESSION_STEPS[id].main;
+ if (id === 'lookAround' && !main.some(name => probe.presentChannels.includes(name))) return { state: { ...state, previous: probe }, effects: [] };
  const prev = state.previous;
  const names = new Set<ArkitName>([...Object.keys(probe.values), ...Object.keys(prev?.values ?? {})] as ArkitName[]);
  const mainChanged = prev !== null && main.some(name => differs(probe.values[name], prev.values[name]));
@@ -90,8 +91,8 @@ function expressionProbe(state: GuideState, probe: TrackingProbe, nowMs: number)
   previous: probe,
   stepPeak: rose ? value : state.stepPeak,
   lastRiseMs: rose ? nowMs : state.lastRiseMs,
-  lastMainChangeMs: mainChanged ? nowMs : state.lastMainChangeMs,
-  lastOtherChangeMs: mainChanged ? null : otherChanged ? nowMs : state.lastOtherChangeMs
+  lastMainChangeMs: mainChanged || prev === null ? nowMs : state.lastMainChangeMs,
+  lastOtherChangeMs: mainChanged || prev === null ? null : otherChanged ? nowMs : state.lastOtherChangeMs
  };
  const finish = (result: StepResult): Out => enter({ ...tracked, results: { ...tracked.results, [id]: result } }, tracked.index + 1, probe, nowMs);
  const risen = tracked.stepPeak > mainNeutral(state.neutral, id) + RISE;
@@ -100,16 +101,18 @@ function expressionProbe(state: GuideState, probe: TrackingProbe, nowMs: number)
  return { state: tracked, effects: [] };
 }
 
+const awaitingFit = (state: GuideState): boolean => state.step === 'expressions' && state.preset !== null && state.index >= state.preset.steps.length;
+
 export function guideStep(state: GuideState, event: GuideEvent): Out {
  switch (event.kind) {
   case 'pick':
    return { state: { ...initialGuide(), step: 'connect', preset: event.preset }, effects: [{ kind: 'connect', preset: event.preset }] };
   case 'connected':
-   return { state: { ...state, sourceId: event.sourceId }, effects: [] };
+   return state.step === 'connect' ? { state: { ...state, sourceId: event.sourceId }, effects: [] } : { state, effects: [] };
   case 'fitted':
-   return { state: { ...state, step: 'review', fitError: null }, effects: [] };
+   return awaitingFit(state) ? { state: { ...state, step: 'review', fitError: null }, effects: [] } : { state, effects: [] };
   case 'fitFailed':
-   return { state: { ...state, step: 'review', fitError: event.message }, effects: [] };
+   return awaitingFit(state) ? { state: { ...state, step: 'review', fitError: event.message }, effects: [] } : { state, effects: [] };
   case 'next':
    if (state.step !== 'expressions') return { state, effects: [] };
    {
@@ -119,7 +122,9 @@ export function guideStep(state: GuideState, event: GuideEvent): Out {
    }
   case 'probe': {
    const { probe, nowMs } = event;
-   if (probe.sourceId !== state.sourceId || probe.state !== 'receiving') return { state, effects: [] };
+   if (probe.sourceId !== state.sourceId) return { state, effects: [] };
+   // A gap in data breaks the comparison: the next receiving probe restarts the unchanged clocks.
+   if (probe.state !== 'receiving') return { state: state.step === 'expressions' ? { ...state, previous: null } : state, effects: [] };
    if (state.step === 'connect') return { state: { ...state, step: 'relax', relaxStartMs: nowMs }, effects: [] };
    if (state.step === 'relax') {
     if (state.relaxStartMs === null || nowMs < state.relaxStartMs + RELAX_MS) return { state, effects: [] };
