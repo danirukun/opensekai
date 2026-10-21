@@ -21,3 +21,7 @@ it('puts the environment group before cameras',()=>{
  const stage=makeAuthoringEntity('environment','stage',[]);
  expect(groupEntities([camera('c'),stage]).map(group=>group.key)).toEqual(['environment','camera']);
 });
+it('puts an FPS counter in the Overlays group after the trackers (B19 R6)',()=>{
+ const counter=makeAuthoringEntity('fpsCounter','fps',[]);
+ expect(groupEntities([counter,tracking('vmc','v')]).map(group=>[group.key,group.label])).toEqual([['vmc','VMC Receivers'],['overlay','Overlays']]);
+});

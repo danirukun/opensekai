@@ -162,7 +162,8 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         if (lightsRebuilt) { pipelineFailed = false; hazeFailed = false; }
         environmentLight.room(roomLight(drawn));
         // Cameras, lights, and the haze have a scene object only in the editor viewport, as a pick target and helper (R14, B13 R13).
-        const wanted = new Set(frame.scene.entities.filter(x => x.kind !== "tracking" && (editor || (x.kind !== "camera" && x.kind !== "light" && x.kind !== "haze"))).map(x => x.id));
+        // An FPS counter is a DOM overlay and never has a scene object (B19 R7).
+        const wanted = new Set(frame.scene.entities.filter(x => x.kind !== "tracking" && x.kind !== "fpsCounter" && (editor || (x.kind !== "camera" && x.kind !== "light" && x.kind !== "haze"))).map(x => x.id));
         for (const [id, value] of objects) {
             if (!wanted.has(id)) {
                 releaseObject(value);
@@ -171,7 +172,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         }
         const needed = new Map<string, LoadRequest>();
         for (const entity of frame.scene.entities) {
-            if (entity.kind === "tracking") continue;
+            if (entity.kind === "tracking" || entity.kind === "fpsCounter") continue;
             if (entity.kind === "camera") {
                 if (editor) {
                     let value = objects.get(entity.id);
@@ -333,7 +334,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             const show = new Map<Object3D, boolean>();
             for (const [id, value] of objects) {
                 const source = frame.scene.entities.find(x => x.id === id);
-                show.set(value.root, !!source && source.kind !== "camera" && source.kind !== "light" && source.kind !== "haze" && source.visible && (source.kind !== "environment" || entity.renderEnvironment !== false));
+                show.set(value.root, !!source && source.kind !== "camera" && source.kind !== "light" && source.kind !== "haze" && source.kind !== "fpsCounter" && source.visible && (source.kind !== "environment" || entity.renderEnvironment !== false));
             }
             // The haze draws in the screenshot as in the output (B13 R10).
             const shotHaze = haze && !hazeFailed && frame.scene.entities.some(x => x.kind === "haze" && x.visible) ? haze : null;

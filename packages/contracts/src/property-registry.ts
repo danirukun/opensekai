@@ -13,11 +13,13 @@ const placed: readonly Kind[] = ['mesh', 'avatar', 'camera', 'environment'];
 const lit: readonly Kind[] = [...placed, 'light', 'haze'];
 // A haze box has a size, so it has a scale target (B13 R14).
 const sized: readonly Kind[] = [...placed, 'haze'];
+// An FPS counter has only a visible target (B19 R12).
+const shown: readonly Kind[] = [...lit, 'fpsCounter'];
 export const PROPERTY_REGISTRY: readonly AssetProperty[] = [
  { key: 'position', label: 'Position', kinds: lit, type: 'vector3', rule: { kind: 'finite' } },
  { key: 'rotation', label: 'Rotation', kinds: lit, type: 'vector3', rule: { kind: 'finite' } },
  { key: 'scale', label: 'Scale', kinds: sized, type: 'vector3', rule: { kind: 'positive' } },
- { key: 'visible', label: 'Visible', kinds: lit, type: 'boolean', rule: { kind: 'boolean' } },
+ { key: 'visible', label: 'Visible', kinds: shown, type: 'boolean', rule: { kind: 'boolean' } },
  { key: 'fovDegrees', label: 'Field of View', kinds: ['camera'], type: 'number', rule: { kind: 'range', min: 1, max: 179 } },
  { key: 'renderEnvironment', label: 'Render Environment', kinds: ['camera'], type: 'boolean', rule: { kind: 'boolean' } },
  { key: 'intensity', label: 'Intensity', kinds: ['light'], type: 'number', rule: { kind: 'range', min: 0, max: 1000 } },

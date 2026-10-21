@@ -1,0 +1,12 @@
+PASS Add › FPS Counter is in the menu and enabled (R4) 
+PASS the new entity has the add defaults (R4) {"id":"8807057d-d9e1-422c-822b-a093bcc0957a","name":"FPS Counter","visible":true,"transform":{"position":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"kind":"fpsCounter","fpsCounter":{"corner":"topRight","size":32,"color":"#ffffff"}}
+PASS the Hierarchy shows an Overlays group with the counter (R6) ["Assets\nSearch assets\nLights\nDirectional Light\nCameras\nCamera\nOverlays\nFPS Counter"]
+PASS the Inspector has the FPS Counter section and no Transform section (R5) ["FPS Counter"]
+PASS Corner › Bottom Left sends setFpsCounter (R5) {"corner":"bottomLeft","size":32,"color":"#ffffff"}
+PASS Size 48 sends setFpsCounter (R5) {"corner":"bottomLeft","size":48,"color":"#ffffff"}
+PASS Color #ff8800 sends setFpsCounter (R5) {"corner":"bottomLeft","size":48,"color":"#ff8800"}
+PASS Reset Size sets 32 and keeps the other values (R5) {"corner":"bottomLeft","size":32,"color":"#ff8800"}
+PASS Duplicate is disabled with "Scene asset limit reached" (R4) {"disabled":true,"title":"Scene asset limit reached"}
+PASS Add › FPS Counter is disabled at the limit (R4) {"disabled":true,"title":"Scene asset limit reached"}
+PASS no page error []
+11 pass, 0 fail

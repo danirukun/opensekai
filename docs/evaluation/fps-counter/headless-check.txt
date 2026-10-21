@@ -1,0 +1,27 @@
+# backend=auto
+PASS the counter shows "-- FPS" before one full window (R8) "-- FPS"
+PASS the element is aria-hidden, has no pointer events, uses tabular numbers, and a 540-pixel canvas gives a 16 px font (R9) {"aria":"true","pointer":"none","numeric":"tabular-nums","font":"16px","canvasChildren":0}
+PASS after 1000 ms the counter shows a whole number above 0 (R8) {"value":"65 FPS","acks":77}
+PASS top right with an 8 px margin at 540 pixels (R9) {"x":896.859375,"y":8,"width":55.140625,"height":16}
+PASS setFpsCounter moves it to the bottom left with a 16 px margin, a 32 px font, and the color (R9) {"moved":{"x":16,"y":492,"width":110.265625,"height":32},"color":"rgb(0, 255, 0)","size":"32px"}
+PASS the element goes away when the scene has no counter (R7) 
+UNKNOWN captureFrame comparison (R10): {"withCounter":"skipped","without":"skipped"}
+PASS a hidden counter shows no element (R7) 
+PASS a new visible counter starts a new window with "-- FPS" (R8) "-- FPS"
+PASS after a stall of more than 1000 ms without frames the counter shows "0 FPS" (R8) "0 FPS"
+PASS no page error []
+# backend=webgl2
+PASS the counter shows "-- FPS" before one full window (R8) "-- FPS"
+PASS the element is aria-hidden, has no pointer events, uses tabular numbers, and a 540-pixel canvas gives a 16 px font (R9) {"aria":"true","pointer":"none","numeric":"tabular-nums","font":"16px","canvasChildren":0}
+PASS after 1000 ms the counter shows a whole number above 0 (R8) {"value":"182 FPS","acks":254}
+steady value 3 s later 59 FPS
+PASS top right with an 8 px margin at 540 pixels (R9) {"x":896.859375,"y":8,"width":55.140625,"height":16}
+PASS setFpsCounter moves it to the bottom left with a 16 px margin, a 32 px font, and the color (R9) {"moved":{"x":16,"y":492,"width":110.265625,"height":32},"color":"rgb(0, 255, 0)","size":"32px"}
+PASS the element goes away when the scene has no counter (R7) 
+PASS a captureFrame with a visible counter equals one without a counter (R10) {"width":1920,"height":1080,"differentBytes":0}
+PASS a hidden counter shows no element (R7) 
+PASS a new visible counter starts a new window with "-- FPS" (R8) "-- FPS"
+PASS after a stall of more than 1000 ms without frames the counter shows "0 FPS" (R8) "0 FPS"
+PASS no page error []
+values {"auto":{"first":65,"steady":null},"webgl2":{"first":182,"steady":"59 FPS"}}
+21 pass, 0 fail

@@ -1,5 +1,5 @@
-import { ExpressionNameSchema,ExpressionSettingsSchema,TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,TrackingSmoothingSchema,TrackingMappingSchema,EntityNameSchema,ShowSceneSchema,IdSchema,CameraAntiAliasingSchema,CameraNavigationSchema,LightSettingsSchema,HazeSettingsSchema,ReflectionsIntensitySchema } from '@opensekai/contracts';
-import type { ExpressionSettings, AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing, TrackingMapping, CameraAntiAliasing, CameraNavigation, CameraScreenshotResult, LightSettings, HazeSettings } from '@opensekai/contracts';
+import { ExpressionNameSchema,ExpressionSettingsSchema,TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,TrackingSmoothingSchema,TrackingMappingSchema,EntityNameSchema,ShowSceneSchema,IdSchema,CameraAntiAliasingSchema,CameraNavigationSchema,LightSettingsSchema,HazeSettingsSchema,FpsCounterSettingsSchema,ReflectionsIntensitySchema } from '@opensekai/contracts';
+import type { ExpressionSettings, AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing, TrackingMapping, CameraAntiAliasing, CameraNavigation, CameraScreenshotResult, LightSettings, HazeSettings, FpsCounterSettings } from '@opensekai/contracts';
 import {makeEntityCopy} from './asset-management';
 type CameraLens=Extract<SceneEntity,{kind:'camera'}>['lens'];
 export interface EditorView {
@@ -130,6 +130,10 @@ export function createEditorModel(api: AppApi) {
   setHaze(entityId:Id,haze:HazeSettings,expectedRevision?:number,live=false):Promise<Reply<{revision:number}>> {
    const parsed=HazeSettingsSchema.safeParse(haze);if(!ofKind(entityId,'haze')||!parsed.success)return invalid();
    return patch({kind:'setHaze',entityId,haze:parsed.data},expectedRevision,live);
+  },
+  setFpsCounter(entityId:Id,fpsCounter:FpsCounterSettings,expectedRevision?:number,live=false):Promise<Reply<{revision:number}>> {
+   const parsed=FpsCounterSettingsSchema.safeParse(fpsCounter);if(!ofKind(entityId,'fpsCounter')||!parsed.success)return invalid();
+   return patch({kind:'setFpsCounter',entityId,fpsCounter:parsed.data},expectedRevision,live);
   },
   setCameraRenderEnvironment(entityId:Id,renderEnvironment:boolean,expectedRevision?:number):Promise<Reply<{revision:number}>> {
    if(!ofKind(entityId,'camera'))return invalid();
