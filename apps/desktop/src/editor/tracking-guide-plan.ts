@@ -46,19 +46,23 @@ export function planConnect(scene:SceneView,avatarId:Id,preset:TrackingPreset,ph
  const adopted=own?undefined:(free.find(s=>portOf(s.config)===presetPort)??free[0]);
  const existing=own??adopted;
 
- // The target endpoint: an enabled source on that port that another character binds blocks it.
- const taken=(port:number)=>sources(scene).filter(s=>s.id!==existing?.id&&s.config.enabled&&portOf(s.config)===port&&boundBy(s.id,others));
- const blockers=presetPort===null?[]:taken(presetPort);
+ // The host share rule: the chosen source may use a port only when every other enabled source on it
+ // (bound or not) has the same kind and an address, and all addresses are distinct.
+ const addressOf=(c:TrackingConfig)=>c.kind==='vmc'?c.senderAddress:c.kind==='ifacialmocap'?c.phoneAddress:null;
+ const ownAddress=addressOf(targetConfig(preset,presetPort,phoneAddress,existing?.config));
+ const fits=(port:number)=>{
+  const rest=sources(scene).filter(s=>s.id!==existing?.id&&s.config.enabled&&portOf(s.config)===port);
+  if(rest.length===0)return true;
+  const addresses=[...rest.map(s=>s.config.kind===kind?addressOf(s.config):null),ownAddress];
+  return addresses.every(x=>x!==null)&&new Set(addresses).size===addresses.length;
+ };
  let port=presetPort;
- if(blockers.length>0&&kind==='vmc'){
+ if(presetPort!==null&&!fits(presetPort)){
+  if(kind!=='vmc')return {operations:[],sourceId:newId,created:false,needsPhone:true,port:presetPort};
   // Any tracking source counts as using a port, enabled or not.
   const used=new Set(sources(scene).filter(s=>s.id!==existing?.id).map(s=>portOf(s.config)));
   port=FIRST_SHARED_VMC_PORT;
   while(used.has(port))port++;
- }
- if(blockers.length>0&&kind==='ifacialmocap'){
-  const clash=phoneAddress===null||blockers.some(s=>s.config.kind==='ifacialmocap'&&s.config.phoneAddress===phoneAddress);
-  if(clash)return {operations:[],sourceId:newId,created:false,needsPhone:true,port:presetPort??0};
  }
 
  const sourceId=existing?.id??newId;

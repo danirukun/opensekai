@@ -28,6 +28,7 @@ function apply(scene: SceneView, operations: PatchOp[]): SceneView {
  const next = (reply as { ok: true; data: SceneView }).data;
  const parsed = SceneViewSchema.safeParse(next);
  expect(parsed.success ? null : JSON.stringify(parsed.error.issues).slice(0, 500)).toBeNull();
+ expectRoutable(next);
  return next;
 }
 const find = <T extends SceneEntity['kind']>(scene: SceneView, id: string, kind: T) => scene.entities.find(e => e.id === id && e.kind === kind) as Extract<SceneEntity, { kind: T }>;
@@ -123,11 +124,41 @@ it('iFacialMocap: a phone address that a source on the endpoint already has asks
  expect(plan).toMatchObject({ operations: [], needsPhone: true });
 });
 
-it('a source this character binds in a slot the preset does not fill is not adopted', () => {
+it('a source this character binds in a slot the preset does not fill is not adopted, and a host-refused layout is not planned', () => {
  const bodyOnly = source('body', 'ifacialmocap', {}, ifacial.config);
  const scene = sceneOf(bodyOnly, avatar('a', { bodySourceId: 'body', faceSourceId: null }));
  const plan = planConnect(scene, 'a', ifacial, null, undefined, 'new');
- expect(plan).toMatchObject({ sourceId: 'new', created: true });
+ expect(plan).toMatchObject({ operations: [], needsPhone: true, created: false });
+ expectRoutable(scene);
+ const addressed = sceneOf(source('body', 'ifacialmocap', {}, { ...ifacial.config, phoneAddress: '192.168.1.5' } as TrackingConfig), avatar('a', { bodySourceId: 'body', faceSourceId: null }));
+ const ok = planConnect(addressed, 'a', ifacial, '192.168.1.6', undefined, 'new');
+ expect(ok).toMatchObject({ sourceId: 'new', created: true, port: 49983 });
+ // The fixture binds iFacialMocap in the body slot, which the scene schema refuses, so only the plan is checked.
+ expect(ok.operations[0]).toMatchObject({ kind: 'createEntity', entity: { config: { phoneAddress: '192.168.1.6' } } });
+});
+
+it('an own VMC source does not move onto a port that a free unaddressed source holds; it takes the next free port', () => {
+ const scene = sceneOf(source('own', 'vmc', {}, vmc39539({ port: 40000 })), source('free', 'vmc', {}, vmc39539()), avatar('a', { bodySourceId: 'own', faceSourceId: 'own' }));
+ const plan = planConnect(scene, 'a', selfReflect, null, undefined, 'new');
+ expect(plan).toMatchObject({ sourceId: 'own', port: 39540 });
+ apply(scene, plan.operations);
+});
+
+it('iFacialMocap: a port held by a VMC source or an unaddressed source needs a phone, never a refused layout', () => {
+ for (const holder of [source('h', 'vmc', {}, vmc39539({ port: 49983 })), source('h', 'ifacialmocap', {}, ifacial.config)]) {
+  const scene = sceneOf(holder, avatar('a', { bodySourceId: 'h', faceSourceId: null }), bothFree());
+  for (const phone of [null, '192.168.1.9']) expect(planConnect(scene, 'b', ifacial, phone, undefined, 'new')).toMatchObject({ operations: [], needsPhone: true });
+ }
+});
+
+it('an own VMC source that already shares 39539 with distinct sender addresses is kept there', () => {
+ const mine = source('mine', 'vmc', {}, vmc39539({ senderAddress: '192.168.1.2' }));
+ const theirs = source('theirs', 'vmc', {}, vmc39539({ senderAddress: '192.168.1.3' }));
+ const scene = sceneOf(mine, theirs, avatar('a', { bodySourceId: 'mine', faceSourceId: 'mine' }), avatar('b', { bodySourceId: 'theirs', faceSourceId: 'theirs' }));
+ const plan = planConnect(scene, 'a', selfReflect, null, undefined, 'new');
+ expect(plan).toMatchObject({ sourceId: 'mine', port: 39539 });
+ expect(plan.operations.map(o => o.kind)).toEqual(['setAvatarTracking']);
+ apply(scene, plan.operations);
 });
 
 it('a different-kind source in the slot stays in the scene; the new source takes the slot', () => {
