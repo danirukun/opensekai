@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { DEFAULT_TRACKING_MAPPING, TRACKING_PRESETS, type TrackingMapping, type TrackingProbe } from '@opensekai/contracts';
 import { initialGuide, type GuideState } from '../src/editor/tracking-guide';
-import { groupLevel, relaxSecondsLeft, stepProgress, waitsForNext } from '../src/editor/tracking-guide-view';
+import { groupLevel, rankAddresses, relaxSecondsLeft, stepProgress, waitsForNext } from '../src/editor/tracking-guide-view';
 
 const preset = TRACKING_PRESETS[0]!;
 const probe = (over: Partial<TrackingProbe> = {}): TrackingProbe => ({ sourceId: 'src', generation: 1, state: 'receiving', values: {}, peaks: {}, presentChannels: [], eyeBones: false, ...over });
@@ -40,4 +40,10 @@ it('maps a group level through the source ranges and sensitivity', () => {
  expect(groupLevel({ eyeBlinkLeft: 0.3, eyeBlinkRight: 0.6 }, ['eyeBlinkLeft', 'eyeBlinkRight'], mapping)).toBeCloseTo(0.6);
  expect(groupLevel({ eyeBlinkLeft: 0.6 }, ['eyeBlinkLeft'], { ...mapping, blendShapeSensitivity: 2 })).toBe(1);
  expect(groupLevel({}, ['browInnerUp'], undefined)).toBe(0);
+});
+
+it('ranks the LAN address of a home network first and network or VPN addresses last', () => {
+ expect(rankAddresses(['100.72.54.79', '192.168.1.196', '192.168.107.0', '192.168.139.3', '10.0.0.5'])).toEqual(['192.168.1.196', '192.168.139.3', '10.0.0.5', '100.72.54.79', '192.168.107.0']);
+ expect(rankAddresses(['172.20.1.2', '172.40.1.2'])).toEqual(['172.20.1.2', '172.40.1.2']);
+ expect(rankAddresses([])).toEqual([]);
 });

@@ -54,7 +54,7 @@ R13. `CoachFace.svelte` draws the face as plain SVG and uses `requestAnimationFr
 R14. `TrackingGuide.svelte` renders the guide state. It runs the effects through `model` and `api.trackingProbe`. It polls every 100 ms while it is open and stops when it closes. The LAN address comes from `appStatus.localAddresses`. A close button before Done runs `planCancel`. Done commits nothing more and closes the guide.
 R15. The screen copy is short:
   - Pick: three tiles with the preset labels.
-  - Connect: "Send VMC to" with the large address and port, or a phone address `Input` for iFacialMocap and for `needsPhone`. "Waiting for data" shows a `Spinner`.
+  - Connect: "Send VMC to" with the large address and port (the first address after `rankAddresses`: 192.168, then 10, then 172.16 to 172.31, then other addresses, then 100.64/10 and addresses that end in .0; the other addresses show small below), or a phone address `Input` for iFacialMocap and for `needsPhone`. "Waiting for data" shows a `Spinner`.
   - Relax: "Relax your face" with the countdown.
   - Expressions: one short imperative for each step, the meter with a peak tick, and Skip. The Look around step also shows the "Use bones for eye movement" checkbox. It sends `setTrackingMapping` at once.
   - Review: Eyes, Mouth, and Brows meters, and Done.
@@ -82,7 +82,7 @@ Write the reducer first, with unit tests, because it holds the rules that the an
 
 ## S — Structure
 
-- `apps/desktop/src/editor/tracking-guide.ts` (new), `tracking-guide-plan.ts` (new), `coach-face.ts` (new), `tracking-guide-view.ts` (new: the relax countdown, the coach ring progress, the lookAround wait for Next, and the Try it group levels after the source ranges). `editor/model.ts` gets `applyOperations`, which sends a group of operations in one `scenePatch`.
+- `apps/desktop/src/editor/tracking-guide.ts` (new), `tracking-guide-plan.ts` (new), `coach-face.ts` (new), `tracking-guide-view.ts` (new: the relax countdown, the coach ring progress, the lookAround wait for Next, the Try it group levels after the source ranges, and the address order). `editor/model.ts` gets `applyOperations`, which sends a group of operations in one `scenePatch`.
 - `apps/desktop/src/components/CoachFace.svelte`, `TrackingGuide.svelte`, `GuideMeter.svelte` (new), `AvatarSourceFields.svelte`, `Inspector.svelte`; `apps/desktop/src/EditorApp.svelte`.
 - Tests: `apps/desktop/test/tracking-guide.test.ts`, `tracking-guide-plan.test.ts`, `coach-face.test.ts`, `tracking-guide-view.test.ts`.
 - Evidence: `docs/evaluation/tracking-setup-walkthrough/` (window screenshots), and the guide section of `docs/evaluation/tracking-setup-walkthrough.md`.

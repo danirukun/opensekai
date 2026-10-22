@@ -6,7 +6,7 @@
  import type {EditorModel,EditorView} from '../editor/model';
  import {guideStep,initialGuide,mainValue,type GuideEffect,type GuideEvent,type GuideStep} from '../editor/tracking-guide';
  import {planCancel,planConnect,type GuideSnapshot} from '../editor/tracking-guide-plan';
- import {groupLevel,relaxSecondsLeft,stepProgress,waitsForNext} from '../editor/tracking-guide-view';
+ import {groupLevel,rankAddresses,relaxSecondsLeft,stepProgress,waitsForNext} from '../editor/tracking-guide-view';
  import CoachFace from './CoachFace.svelte';
  import GuideMeter from './GuideMeter.svelte';
  let {avatarId,model,view,api,assets=[],localAddresses=[],trackingStatus=[],disabled=false,onclose}:{avatarId:string;model:EditorModel;view:EditorView;api:AppApi;assets?:AssetRecord[];localAddresses?:string[];trackingStatus?:TrackingStatus[];disabled?:boolean;onclose:()=>void}=$props();
@@ -25,6 +25,7 @@
  const stepId=$derived(guide.step==='expressions'?guide.preset?.steps[guide.index]:undefined);
  const current=$derived(STEPS.indexOf(guide.step));
  const status=$derived(trackingStatus.find(item=>item.sourceId===guide.sourceId));
+ const addresses=$derived(rankAddresses(localAddresses));
 
  function dispatch(event:GuideEvent){
   const out=guideStep(guide,event);guide=out.state;
@@ -113,7 +114,8 @@
    </form>
   {:else if guide.preset?.config.kind==='vmc'}
    <p class="muted">Send VMC to</p>
-   <p class="address">{#each localAddresses.length?localAddresses:['—'] as address (address)}<span>{address}</span>{/each}<span>{port??''}</span></p>
+   <p class="address"><span>{addresses[0]??'—'}</span><span>{port??''}</span></p>
+   {#if addresses.length>1}<p class="others">{addresses.slice(1).join(' · ')}</p>{/if}
   {/if}
   {#if guide.sourceId}
    {#if probe?.state==='error'&&status?.error}<p role="alert">{status.error}</p>
@@ -155,6 +157,7 @@
  .phone{display:grid;gap:10px}
  .muted{margin:0;font-size:12px;color:#85818f}
  .address{display:grid;gap:2px;margin:0;padding:12px;border-radius:6px;background:#f6f5fa;font:600 22px/1.25 ui-monospace,Menlo,monospace;color:#35333d;text-align:center;font-variant-numeric:tabular-nums}
+ .others{margin:-8px 0 0;font:12px ui-monospace,Menlo,monospace;color:#85818f;text-align:center;overflow-wrap:anywhere}
  .waiting{display:flex;align-items:center;gap:8px;margin:0;font-size:12px;color:#85818f}
  .count{margin:0;font:700 44px/1 system-ui,sans-serif;color:#8571ac;text-align:center;font-variant-numeric:tabular-nums}
  .option{display:flex;gap:8px;align-items:center;font-size:12px}
