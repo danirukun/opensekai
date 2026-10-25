@@ -5,6 +5,7 @@ use std::net::IpAddr;
 pub enum SourceKind {
     Vmc,
     IFacialMocap,
+    OpenSeeFace,
 }
 
 /// One bound UDP socket. The bind address is the bind address of the first source.
@@ -15,7 +16,7 @@ pub struct Endpoint {
     pub port: u16,
 }
 
-/// An enabled source, in scene order. `address` is the VMC sender or the iFacialMocap phone.
+/// An enabled source, in scene order. `address` is the VMC or OpenSeeFace sender or the iFacialMocap phone.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RouteSource {
     pub id: String,
@@ -159,6 +160,31 @@ mod tests {
             ]
         );
         assert!(routes.conflicts.is_empty());
+    }
+    #[test]
+    fn two_openseeface_senders_share_one_endpoint_and_a_third_without_address_conflicts() {
+        let osf = |id, address| source(id, SourceKind::OpenSeeFace, "0.0.0.0", address);
+        let routes = endpoint_routes(
+            &[
+                osf("a", Some("192.168.1.20")),
+                osf("b", Some("192.168.1.21")),
+                osf("c", None),
+            ],
+            &[],
+        );
+        assert_eq!(ids(&routes), vec![vec!["a", "b"]]);
+        assert_eq!(routes.endpoints[0].0.kind, SourceKind::OpenSeeFace);
+        assert_eq!(routes.conflicts, vec![("c".into(), "Name a".into())]);
+        // A VMC source on the same port does not join an OpenSeeFace endpoint.
+        let mixed = endpoint_routes(
+            &[
+                osf("a", Some("192.168.1.20")),
+                source("v", SourceKind::Vmc, "0.0.0.0", Some("192.168.1.21")),
+            ],
+            &[],
+        );
+        assert_eq!(ids(&mixed), vec![vec!["a"]]);
+        assert_eq!(mixed.conflicts, vec![("v".into(), "Name a".into())]);
     }
     #[test]
     fn unspecified_and_loopback_on_one_port_overlap_and_bind_first_address() {

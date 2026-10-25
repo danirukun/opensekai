@@ -1,0 +1,15 @@
+PASS Add › OpenSeeFace Receiver is in the menu and enabled (R8) 
+PASS the new source has the tracker defaults, stopped (R1) {"id":"8e75d458-2b47-4850-8913-f7fd4cd62a0f","name":"OpenSeeFace Receiver","visible":true,"transform":{"position":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"kind":"tracking","config":{"kind":"openseeface","enabled":false,"bindAddress":"127.0.0.1","port":11573,"senderAddress":null},"generation":2}
+PASS the asset list has the group "OpenSeeFace Receivers" (R8) ["Assets\nSearch assets\nLights\nDirectional Light\nCameras\nCamera\nCharacters\nCharacter\nOpenSeeFace Receivers\nOpenSeeFace Receiver"]
+PASS the Inspector shows Bind address, Port, and Sender address with the defaults (R8) {"bind":"127.0.0.1","port":"11573","sender":""}
+PASS no phone address, no computer address list, no new helper text (R8) "Properties\nOpenSeeFace Receiver\nReceiver\nSmoothing\nFace\nDiagnostics\nReceiver\nBind address\nPort\nSender address\nApply\nStart\nstopped\nCalibrate\nSmoothing\nFace\nDiagnostics"
+PASS Apply commits the sender address (R8) {"kind":"openseeface","enabled":false,"bindAddress":"127.0.0.1","port":11573,"senderAddress":"192.168.1.20"}
+PASS Start enables the source and the state reads waiting (R3, R8) "Stop\nwaiting\nCalibrate"
+PASS Calibrate is disabled while the source waits (R7) 
+PASS after a valid record the state reads receiving (R3, R8) "Stop\nreceiving\nCalibrate"
+PASS Calibrate is enabled while the source receives (R7) 
+PASS Calibrate saves a head neutral in one revision (R7) {"revision":5,"calibration":{"bones":{"head":{"rotation":[0,0,0,1],"space":"normalized"}}}}
+PASS the Face source select lists the OpenSeeFace source; the Body source select does not (R2) {"face":["None","OpenSeeFace Receiver"],"body":["None"]}
+PASS choosing it as the face source commits (R2) {"bodySourceId":null,"faceSourceId":"8e75d458-2b47-4850-8913-f7fd4cd62a0f"}
+PASS no page error []
+14 pass, 0 fail

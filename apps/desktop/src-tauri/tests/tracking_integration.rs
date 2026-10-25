@@ -487,3 +487,93 @@ async fn selfreflect_replay_decodes_bones_and_lowercase_arkit() {
     assert!(!s.expressions.keys().any(|k| k.starts_with("eyeLook")));
     manager.shutdown().await;
 }
+
+// (B20 Operation 5) OpenSeeFace bytes over UDP reach the credited clock as a normalized head and
+// ARKit weights; a datagram of the wrong length counts as invalid. Reason: the socket, the route
+// by kind, and the clock are a real process boundary.
+#[tokio::test]
+async fn openseeface_record_reaches_credited_clock_and_bad_length_is_invalid() {
+    let dir = tempfile::tempdir().unwrap();
+    let manifest = dir.path().join("manifest.json");
+    std::fs::write(
+        &manifest,
+        r#"{"schemaVersion":1,"fixtureId":"smoke_v1","assets":[]}"#,
+    )
+    .unwrap();
+    let service = start_service(ServiceConfig {
+        output_root: dir.path().into(),
+        asset_manifest: manifest,
+        evidence_root: dir.path().into(),
+        evaluation_enabled: false,
+    })
+    .await
+    .unwrap();
+    let pd = service.publisher_descriptor();
+    let (mut publisher, _) = connect_async(&pd.ws_url).await.unwrap();
+    send(
+        &mut publisher,
+        json!({"kind":"auth","role":pd.role,"token":pd.token,"schemaVersion":1,"outputId":pd.output_id}),
+    )
+    .await;
+    assert_eq!(next(&mut publisher).await["kind"], "authReply");
+    next(&mut publisher).await;
+    let port = free_port();
+    let frame = |sequence: u64| json!({"kind":"frame","frame":{"schemaVersion":1,"sessionId":pd.session_id,"sequence":sequence,"tick":sequence,"elapsedMs":sequence,"scene":{"schemaVersion":1,"sceneId":"scene_main","revision":1,"outputs":[],"entities":[{"kind":"tracking","id":"face","name":"OpenSeeFace","visible":true,"transform":{"position":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"generation":1,"config":{"kind":"openseeface","enabled":true,"bindAddress":"127.0.0.1","port":port,"senderAddress":null}}]}}});
+    send(&mut publisher, frame(1)).await;
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    let sender = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+    let record = std::fs::read(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../fixtures/protocol/openseeface-one-face.bin"),
+    )
+    .unwrap();
+    assert_eq!(record.len(), 1785);
+    sender.send_to(&record, ("127.0.0.1", port)).await.unwrap();
+    let mut sequence = 2;
+    let mut clock_until = async |ok: &dyn Fn(&Value) -> bool| {
+        while sequence < 60 {
+            let clock = next(&mut publisher).await;
+            assert_eq!(clock["kind"], "clock");
+            // The next frame keeps the publisher live for the next wait.
+            send(&mut publisher, frame(sequence)).await;
+            sequence += 1;
+            if ok(&clock) {
+                return clock;
+            }
+        }
+        panic!("condition not reached on the clock");
+    };
+    let clock = clock_until(&|c: &Value| {
+        c["tracking"]["samples"]
+            .as_array()
+            .is_some_and(|s| !s.is_empty())
+    })
+    .await;
+    let sample = &clock["tracking"]["samples"][0];
+    assert_eq!(sample["sourceId"], "face");
+    assert_eq!(sample["bones"]["head"]["space"], "normalized");
+    let w = sample["bones"]["head"]["rotation"][3].as_f64().unwrap();
+    assert!((w.abs() - 1.).abs() < 1e-6, "{sample}");
+    assert!((sample["expressions"]["jawOpen"].as_f64().unwrap() - 0.5).abs() < 1e-6);
+    assert!(sample.get("root").is_none());
+    sender
+        .send_to(&[0u8; 1000], ("127.0.0.1", port))
+        .await
+        .unwrap();
+    let clock = clock_until(&|c: &Value| {
+        c["tracking"]["statuses"]
+            .as_array()
+            .and_then(|s| s.iter().find(|s| s["sourceId"] == "face"))
+            .is_some_and(|s| s["invalidPackets"] == 1)
+    })
+    .await;
+    let status = clock["tracking"]["statuses"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| s["sourceId"] == "face")
+        .unwrap();
+    assert_eq!(status["packets"], 2);
+    assert_eq!(status["state"], "receiving");
+    service.shutdown().await.unwrap();
+}

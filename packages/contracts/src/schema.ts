@@ -1,4 +1,4 @@
-import {TrackingConfigSchema,TrackingSmoothingSchema,TrackingProbeParamsSchema,TrackingProbeSchema,TrackingCalibrationSchema,TrackingMappingSchema,AvatarIdleSchema,AvatarTrackingSchema,AvatarPoseSchema,TrackingStatusSchema,TrackingUpdateSchema} from './tracking';
+import {TrackingConfigSchema,TrackingSmoothingSchema,TrackingProbeParamsSchema,TrackingProbeSchema,TrackingCalibrationSchema,TrackingMappingSchema,AvatarIdleSchema,AvatarTrackingSchema,AvatarPoseSchema,TrackingStatusSchema,TrackingUpdateSchema,FACE_ONLY_TRACKING_KINDS} from './tracking';
 import { BlueprintGraphSchema, BlueprintSetSchema } from './blueprint';
 import { BlueprintBatchSchema } from './blueprint-ops';
 import { BlueprintDebugParamsSchema, BlueprintDebugSchema } from './blueprint-debug';
@@ -233,7 +233,7 @@ export const SceneViewSchema = z.strictObject({
  if(!s.outputs.every(o=>o.id!=='preview_main'||isDefaultOutputFormat(o)))return false;
  if(new Set(s.entities.map(e=>e.id)).size!==s.entities.length||new Set(s.outputs.map(o=>o.id)).size!==s.outputs.length||!s.outputs.every(o=>s.entities.some(e=>e.id===o.cameraId&&e.kind==='camera')))return false;
  // Only the face slot (index 1) accepts an iFacialMocap source.
- return s.entities.every(e=>e.kind!=='avatar'||!e.tracking||[e.tracking.bodySourceId,e.tracking.faceSourceId,e.tracking.fingersSourceId??null].every((id,index)=>id===null||sources.some(source=>source.id===id&&(index===1||source.config.kind!=='ifacialmocap'))));
+ return s.entities.every(e=>e.kind!=='avatar'||!e.tracking||[e.tracking.bodySourceId,e.tracking.faceSourceId,e.tracking.fingersSourceId??null].every((id,index)=>id===null||sources.some(source=>source.id===id&&(index===1||!FACE_ONLY_TRACKING_KINDS.includes(source.config.kind)))));
 }, 'Duplicate ID, budget or invalid reference');
 export const ShowSceneSchema = SceneViewSchema.refine(scene =>
     ['output_main', 'preview_main'].every(id => scene.outputs.some(output => output.id === id)),

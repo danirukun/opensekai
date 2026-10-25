@@ -2049,11 +2049,11 @@ impl Validate for SceneView {
                     .flatten()
                 {
                     require(sources.contains(id.as_str()), "missing tracking source")?;
-                    // Only the face slot accepts an iFacialMocap source.
+                    // Only the face slot accepts an iFacialMocap or OpenSeeFace source.
                     if t.body_source_id.as_ref() == Some(id)
                         || t.fingers_source_id.as_ref() == Some(id)
                     {
-                        require(self.entities.iter().any(|e| matches!(e, SceneEntity::Tracking { id: source_id, config, .. } if source_id == id && !matches!(config, TrackingConfig::IFacialMocap { .. }))), "invalid body source")?;
+                        require(self.entities.iter().any(|e| matches!(e, SceneEntity::Tracking { id: source_id, config, .. } if source_id == id && !config.face_only())), "invalid body source")?;
                     }
                 }
             }

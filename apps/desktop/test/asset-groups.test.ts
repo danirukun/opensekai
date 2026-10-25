@@ -3,13 +3,14 @@ import type {SceneEntity} from '@opensekai/contracts';
 import {makeAuthoringEntity} from '../src/editor/authoring';
 import {groupEntities} from '../src/editor/asset-groups';
 const camera=(id:string)=>makeAuthoringEntity('camera',id,[]);
-const tracking=(kind:'vmc'|'ifacialmocap'|'mediapipe',id:string)=>makeAuthoringEntity(kind,id,[]);
+const tracking=(kind:'vmc'|'ifacialmocap'|'openseeface'|'mediapipe',id:string)=>makeAuthoringEntity(kind,id,[]);
 it('groups stable asset types and preserves scene order inside each group',()=>{
  const base=camera('base');
  const avatar={...base,id:'avatar',kind:'avatar',assetId:'avatar_asset'} as SceneEntity;
  const prop={...base,id:'prop',kind:'mesh',source:{kind:'box'}} as SceneEntity;
- const entities=[tracking('mediapipe','mp'),camera('second'),prop,tracking('vmc','v'),avatar,camera('first'),tracking('ifacialmocap','i')];
- expect(groupEntities(entities).map(group=>[group.key,group.entities.map(entity=>entity.id)])).toEqual([['camera',['second','first']],['avatar',['avatar']],['mesh',['prop']],['vmc',['v']],['ifacialmocap',['i']],['mediapipe',['mp']]]);
+ const entities=[tracking('mediapipe','mp'),camera('second'),prop,tracking('vmc','v'),avatar,camera('first'),tracking('ifacialmocap','i'),tracking('openseeface','o')];
+ expect(groupEntities(entities).map(group=>[group.key,group.entities.map(entity=>entity.id)])).toEqual([['camera',['second','first']],['avatar',['avatar']],['mesh',['prop']],['vmc',['v']],['ifacialmocap',['i']],['openseeface',['o']],['mediapipe',['mp']]]);
+ expect(groupEntities([tracking('openseeface','o')])[0]?.label).toBe('OpenSeeFace Receivers');
 });
 it('omits empty groups and retains hidden matches in case-insensitive search',()=>{
  const hidden={...camera('hidden'),name:'Side Camera',visible:false};
