@@ -1,0 +1,4 @@
+ ✓ |integration| packages/renderer/test/vmc-send-parity.integration.test.ts > VMC send pose and renderer pose > give the same raw bones for fixture_vrm0_arkit 203ms
+ ✓ |integration| packages/renderer/test/vmc-send-parity.integration.test.ts > VMC send pose and renderer pose > give the same raw bones for fixture_vrm_1 69ms
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
