@@ -1,0 +1,6 @@
+identity     packet->avatar max matrix error 4.11e-08
+yaw left 30  packet->avatar max matrix error 6.76e-08
+pitch up 20  packet->avatar max matrix error 1.49e-08
+roll left 15 packet->avatar max matrix error 3.22e-08
+mixed        packet->avatar max matrix error 1.76e-08
+PASS
