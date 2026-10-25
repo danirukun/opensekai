@@ -98,7 +98,7 @@ export function pruneInlineInputs<N extends BlueprintNode>(node: N, ports: PortS
  return (kept.length === 0 ? rest : { ...rest, inputs: Object.fromEntries(kept) }) as N;
 }
 
-const SAMPLE: DefaultRefs = { entityId: 'entity', cameraId: 'camera', outputId: 'output', avatarId: 'avatar', expression: 'happy', keystroke: { code: 'KeyH', control: true, alt: true, shift: false, meta: false }, variables: DATA_TYPES.map(type => ({ id: type, type })), graphId: 'graph' };
+const SAMPLE: DefaultRefs = { entityId: 'entity', cameraId: 'camera', outputId: 'output', trackingSourceId: 'source', avatarId: 'avatar', expression: 'happy', keystroke: { code: 'KeyH', control: true, alt: true, shift: false, meta: false }, variables: DATA_TYPES.map(type => ({ id: type, type })), graphId: 'graph' };
 // Ports are shown for the default settings; `portsDependOnSettings` marks nodes whose port list changes with them.
 export const blueprintNodeCatalog = () => NODE_DEFINITIONS.map(definition => ({
  type: definition.type, label: definition.label, category: definition.category, keywords: [...definition.keywords],

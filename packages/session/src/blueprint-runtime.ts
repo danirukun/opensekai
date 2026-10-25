@@ -1,11 +1,11 @@
 import { BlueprintSetSchema, defaultBlueprintValue, isBlueprintValue, keystrokeAccelerator, type AppError, type BlueprintGraph, type BlueprintNode, type BlueprintValue, type DeviceEvent, type DeviceKind, type Id, type Reply } from '@opensekai/contracts';
-import { deviceTrigger, emptyState, setNodeState, type NodeRequest, type RunEnv, type RunState } from './blueprint-eval';
+import { deviceTrigger, emptyState, isTrackingTrigger, setNodeState, trackingTrigger, type TrackingEdge, type NodeRequest, type RunEnv, type RunState } from './blueprint-eval';
 import { activeDevices } from './devices';
 import { fnv1a } from './blueprint-random';
 import type { DebugValueSample } from './debug-log';
 import { compileBlueprint, fail, runFlow, type BlueprintEffect, type CompiledBlueprint, type FlowBudget, type PendingDelay } from './blueprint';
 
-export type BlueprintEvent = { kind: 'manual'; graphId: Id; nodeId: Id } | { kind: 'keystroke'; accelerator: string } | { kind: 'device'; event: DeviceEvent } | { kind: 'update' }
+export type BlueprintEvent = { kind: 'manual'; graphId: Id; nodeId: Id } | { kind: 'keystroke'; accelerator: string } | { kind: 'device'; event: DeviceEvent } | { kind: 'tracking' } | { kind: 'update' }
  | { kind: 'custom'; name: string; payload: BlueprintValue | null };
 export type StepEnv = Omit<RunEnv, 'deltaSeconds'>;
 // `debug` (slice F): the Debug Value samples of an accepted run. `nodeId` is the node that started the run (set on each run that `step` returns). `external` marks a run that a `custom` step event
@@ -20,7 +20,7 @@ export interface ControlRequest { sourceGraphId: Id; graphId: Id; action: 'enabl
 type Delay = PendingDelay & { order: number };
 export interface Timer { name: string; dueMs: number; intervalMs: number; repeat: boolean; order: number }
 type OnEventNode = Extract<BlueprintNode, { type: 'event.custom' }>;
-interface Active { compiled: CompiledBlueprint; logic: string; state: RunState; delays: Delay[]; enable: boolean; lastUpdateMs?: number; timers: Timer[]; listeners: ReadonlyMap<string, readonly OnEventNode[]> }
+interface Active { compiled: CompiledBlueprint; logic: string; state: RunState; delays: Delay[]; enable: boolean; lastUpdateMs?: number; timers: Timer[]; trackingEdges: Map<Id, TrackingEdge>; listeners: ReadonlyMap<string, readonly OnEventNode[]> }
 const MAX_DELAYS = 32, TICK_VISITS = 1024, TICK_EFFECTS = 64;
 export const MAX_TIMERS = 16, MAX_EVENT_HOPS = 8, TICK_EVENTS = 64;
 // Executable content only: positions and names do not reset runtime state.
@@ -129,7 +129,7 @@ export function createBlueprintRuntime(): BlueprintRuntime {
    if (previous) kept.add(previous);
    // A new state on an enabled graph runs its On Enable nodes on the next step.
    const listeners = eventListeners(compiled.graph);
-   return previous ? { ...previous, compiled, listeners } : { compiled, logic, state: initialState(compiled.graph), delays: [], timers: [], enable: compiled.graph.enabled, listeners };
+   return previous ? { ...previous, compiled, listeners } : { compiled, logic, state: initialState(compiled.graph), delays: [], timers: [], trackingEdges: new Map(), enable: compiled.graph.enabled, listeners };
   });
   // A started, enabled version that is not kept departs. A show open (`fresh`) runs no On Disable.
   // Its delays, debounces, and timers end now, so they never fire and its On Disable starts from no pending schedule.
@@ -230,6 +230,16 @@ export function createBlueprintRuntime(): BlueprintRuntime {
      for (const entry of active)
       for (const node of entry.compiled.graph.enabled ? entry.compiled.graph.nodes : [])
        if (deviceTrigger(node, event.event)) fire(entry, { nodeId: node.id, port: 'flow' }, { ...instant, trigger: event.event });
+     continue;
+    }
+    if (event.kind === 'tracking') {
+     for (const entry of active)
+      for (const node of entry.compiled.graph.enabled ? entry.compiled.graph.nodes : []) {
+       if (!isTrackingTrigger(node)) continue;
+       const result = trackingTrigger(node, entry.trackingEdges.get(node.id), instant, nowMs);
+       entry.trackingEdges.set(node.id, result.edge);
+       if (result.port) fire(entry, { nodeId: node.id, port: result.port }, instant);
+      }
      continue;
     }
     if (event.kind === 'custom') {

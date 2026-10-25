@@ -1,6 +1,6 @@
 import { expect, it, vi } from 'vitest';
 import fixture from '../../../fixtures/protocol/blueprint-set.json';
-import { makeSmokeScene } from '@opensekai/contracts';
+import { defaultTrackingConfig, makeSmokeScene, SceneViewSchema } from '@opensekai/contracts';
 import { createSession } from '../src/session';
 
 type S = ReturnType<typeof createSession>;
@@ -313,4 +313,21 @@ it('counts a hotkey in a variable and cuts cameras through Switch On Number, and
  session.editBlueprints({ clientId: 't', batchId: 'edit', ops: [{ kind: 'setNodeSettings', graphId: 'cuts', nodeId: 'sw', settings: { cases: [1, 3] } }] });
  session.advance(64, 16, press('Control+Alt+KeyC'));
  expect(camera()).toBe('camera_close');
+});
+
+it('runs On Blend Shape Threshold from tracked jawOpen once per crossing, in the tick after the pose', () => {
+ const scene = makeSmokeScene();
+ const config = { ...defaultTrackingConfig('ifacialmocap'), enabled: true };
+ scene.entities.push({ id: 'face', kind: 'tracking', name: 'face', visible: true, transform: { position: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] }, config, generation: 1, smoothing: { enabled: false, minCutoff: 5, beta: 0.5, derivativeCutoff: 1 } } as never);
+ const performer = scene.entities.find(entity => entity.id === 'performer')!;
+ if (performer.kind !== 'avatar') throw new Error('Avatar');
+ performer.tracking = { bodySourceId: null, faceSourceId: 'face' };
+ const session = createSession(SceneViewSchema.parse(scene), 's');
+ const at = { x: 0, y: 0 };
+ load(session, [{ schemaVersion: 1, id: 'jaw', name: 'Jaw', enabled: true, variables: [],
+  nodes: [{ id: 'jaw', version: 1, type: 'tracking.onBlendShapeThreshold', settings: { entityId: 'performer', blendShape: 'jawOpen', threshold: 0.5, release: 0.4 }, position: at }, { id: 'hide', version: 1, type: 'scene.toggleVisibility', settings: { entityId: 'marker' }, position: at }],
+  connections: [{ id: 'c', sourceNodeId: 'jaw', sourcePort: 'rise', targetNodeId: 'hide', targetPort: 'flow' }] }]);
+ const send = (jaw: number, at: number) => session.ingestTracking({ samples: [{ sourceId: 'face', generation: 1, receivedAtMs: at, bones: {}, expressions: { jawOpen: jaw } }], statuses: [] });
+ const frames = [[0.1, 0], [0.7, 16], [0.7, 32], [0.7, 48], [0.2, 64], [0.2, 80]].map(([jaw, ms]) => { send(jaw!, ms!); session.advance(ms!, ms!); return visible(session, 'marker'); });
+ expect(frames).toEqual([true, true, false, false, false, false]);
 });

@@ -77,6 +77,7 @@
  const comment = $derived(!node && commentIds.length === 1 ? graph?.comments?.find(item => item.id === commentIds[0]) ?? null : null);
  const trigger = $derived(graph?.nodes.find(item => item.type === 'event.manual') ?? null);
  const targets = $derived(scene?.entities.filter(entity => entity.kind !== 'tracking') ?? []);
+ const trackingSources = $derived(scene?.entities.filter(entity => entity.kind === 'tracking') ?? []);
  const cameras = $derived(scene?.entities.filter(entity => entity.kind === 'camera') ?? []);
  const failure = $derived(errors.find(item => item.graphId === selectedId));
  const problem = $derived(runError ?? failure?.error.message ?? (issueText(issue) || (changedElsewhere ? 'Changed elsewhere' : null)) ?? (missing.length ? `Missing: ${missing.join(', ')}` : null));
@@ -87,7 +88,7 @@
   const first = record ? triggerableExpressions(record)[0] : undefined;
   return first ? [{ avatarId: entity.id, expression: first.name }] : [];
  })[0]);
- const refs = $derived<DefaultRefs>({ entityId: targets[0]?.id, avatarId: face?.avatarId, expression: face?.expression, cameraId: cameras[0]?.id, outputId, keystroke: defaultKeystroke(platform), variables: graph?.variables ?? [], graphId: graph?.id });
+ const refs = $derived<DefaultRefs>({ entityId: targets[0]?.id, avatarId: face?.avatarId, expression: face?.expression, cameraId: cameras[0]?.id, outputId, trackingSourceId: trackingSources[0]?.id, keystroke: defaultKeystroke(platform), variables: graph?.variables ?? [], graphId: graph?.id });
  const taken = $derived(new Set((status?.warnings ?? []).flatMap(warning => warning.ids)));
  const inputWarning = $derived(status?.warnings.find(warning => warning.ids.includes('input-monitoring')));
  const deviceWarnings = $derived((status?.warnings ?? []).filter(warning => warning.ids.some(id => id === 'device-gamepad' || id === 'device-midi' || id === 'device-pointer')));

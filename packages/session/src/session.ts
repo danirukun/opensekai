@@ -122,7 +122,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
         let offsets = boneOffsets;
         let shapes = blendShapes;
         let looks = lookAts;
-        const env: StepEnv = { held, devices: deviceEnv, scene: () => applyOverrides(working ?? persistent, layer), previousPose: avatarId => previousPoses.get(avatarId) ?? null, tickMs: nowMs };
+        const env: StepEnv = { held, devices: deviceEnv, scene: () => applyOverrides(working ?? persistent, layer), previousPose: avatarId => previousPoses.get(avatarId) ?? null, trackingStatus: sourceId => { const source = persistent.entities.find(entity => entity.id === sourceId); return source?.kind === 'tracking' ? lastTrackingStatus.find(item => item.sourceId === sourceId && item.generation === source.generation) ?? null : null; }, tickMs: nowMs };
         // `elapsed` is the time of the values that a transition starts from.
         const startMs = transitionStart(nowMs, elapsed);
         const runs = runtime.step(events, nowMs, run => {
@@ -384,7 +384,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             boneOffsets = EMPTY_BONE_OFFSETS;
             try {
                 const device = devices.ingest(input?.devices);
-                const events: BlueprintEvent[] = [...(input?.events?.map(event => ({ kind: 'keystroke' as const, accelerator: event.accelerator })) ?? []), ...device.events.map(event => ({ kind: 'device' as const, event })), { kind: 'update' }];
+                const events: BlueprintEvent[] = [...(input?.events?.map(event => ({ kind: 'keystroke' as const, accelerator: event.accelerator })) ?? []), ...device.events.map(event => ({ kind: 'device' as const, event })), { kind: 'tracking' }, { kind: 'update' }];
                 deviceEnv = device.env;
                 stepBlueprints(events, elapsedMs, new Set(input?.held ?? []));
             } catch (error) {

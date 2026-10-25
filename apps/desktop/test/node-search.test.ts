@@ -50,7 +50,7 @@ it('puts the closest label match first', () => {
  expect(first('switch cam')).toBe('camera.switch');
 });
 
-it('lists Get Tracking Blend Shape under Tracking', () => {
+it('lists the blend shape nodes under Tracking', () => {
  const groups = searchNodes('tracking blend', { ...refs, avatarId: 'a' });
- expect(groups.find(group => group.category === 'Tracking')?.entries.map(entry => entry.type)).toEqual(['tracking.getBlendShape']);
+ expect(groups.find(group => group.category === 'Tracking')?.entries.map(entry => entry.type)).toEqual(['tracking.getBlendShape', 'tracking.onBlendShapeThreshold']);
 });
