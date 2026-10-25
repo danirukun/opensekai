@@ -46,10 +46,11 @@ export function applyOperations(scene: SceneView, operations: ScenePatch["operat
                   if(next.outputs.some(output=>output.cameraId===entity.id))return failure('INVALID_INPUT','Choose another output camera before removal',[entity.id]);
                   next.entities=next.entities.filter(item=>item.id!==entity.id);
                   if(entity.kind==='avatar')for(const camera of next.entities)if(camera.kind==='camera'&&camera.navigation?.mode==='orbitCharacter'&&camera.navigation.targetId===entity.id)camera.navigation.targetId=null;
+                  if(entity.kind==='avatar')for(const sender of next.entities)if(sender.kind==='vmcSender'&&sender.vmcSender.avatarId===entity.id)sender.vmcSender.avatarId=null;
                   if(entity.kind==='tracking')for(const avatar of next.entities){if(avatar.kind!=='avatar'||!avatar.tracking)continue;if(avatar.tracking.bodySourceId===entity.id)avatar.tracking.bodySourceId=null;if(avatar.tracking.faceSourceId===entity.id)avatar.tracking.faceSourceId=null;if(avatar.tracking.fingersSourceId===entity.id)delete avatar.tracking.fingersSourceId;}
                   break;
                  case 'setVisibility':entity.visible=operation.visible;break;
-                 case 'setTransform':if(entity.kind==='tracking')return failure('INVALID_INPUT','Tracking assets have no scene transform',[entity.id]);{
+                 case 'setTransform':if(entity.kind==='tracking'||entity.kind==='vmcSender')return failure('INVALID_INPUT','Tracking assets have no scene transform',[entity.id]);{
                   const moved=delta(entity.transform.position,operation.transform.position);
                   entity.transform=structuredClone(operation.transform);
                   if(entity.kind==='avatar')for(const id of followers(next,entity.id))if(!placed.has(id)){const camera=next.entities.find(item=>item.id===id)!;camera.transform.position=shifted(camera.transform.position,moved);}
@@ -64,6 +65,7 @@ export function applyOperations(scene: SceneView, operations: ScenePatch["operat
                  case 'setLight':if(entity.kind!=='light')return failure('INVALID_INPUT','Entity is not a light',[entity.id]);entity.light=structuredClone(operation.light);break;
                  case 'setHaze':if(entity.kind!=='haze')return failure('INVALID_INPUT','Entity is not a haze',[entity.id]);entity.haze=structuredClone(operation.haze);break;
                  case 'setFpsCounter':if(entity.kind!=='fpsCounter')return failure('INVALID_INPUT','Entity is not an FPS counter',[entity.id]);entity.fpsCounter=structuredClone(operation.fpsCounter);break;
+                 case 'setVmcSender':if(entity.kind!=='vmcSender')return failure('INVALID_INPUT','Entity is not a VMC sender',[entity.id]);entity.vmcSender=structuredClone(operation.vmcSender);break;
                  case 'setAvatarExpression':{
                   if(entity.kind!=='avatar')return failure('INVALID_INPUT','Entity is not an avatar',[entity.id]);
                   // Entries, not property writes: a model can name an expression `__proto__`.

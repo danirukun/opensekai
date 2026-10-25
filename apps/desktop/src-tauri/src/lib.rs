@@ -8,6 +8,7 @@ pub mod screenshots;
 pub mod service;
 mod show;
 pub mod tracking;
+pub mod vmc_sender;
 use bootstrap::{DesktopState, NativeBootstrap, NativeEditorConnection};
 use opensekai_contracts::{AppError, ErrorCode};
 use std::{path::PathBuf, sync::Arc};

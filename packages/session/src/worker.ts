@@ -89,7 +89,10 @@ export function createWorkerHost(ports: WorkerPorts) {
                     last = elapsedMs;
                     if(tracking)session.ingestTracking(filterTracking(tracking,false));
                     if(syncedAt===undefined||elapsedMs-syncedAt>=100){ports.post?.({kind:'clockSync',elapsedMs});syncedAt=elapsedMs;}
-                    client.publishFrame(session.advance(elapsedMs - origin,elapsedMs,input));
+                    const frame=session.advance(elapsedMs - origin,elapsedMs,input);
+                    client.publishFrame(frame);
+                    const poses=session.vmcPoses(frame);
+                    if(poses)client.publishVmcPoses?.(poses);
                 });
                 const unsubscribe = remove, unsubscribeClock = removeClock;
                 cleanup = () => { unsubscribeClock(); unsubscribe(); client.close(); };

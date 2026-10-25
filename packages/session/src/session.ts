@@ -1,4 +1,4 @@
-import { IdSchema, ParamSchemas, AssetRecordSchema, type AssetRecord, type ExpressionState, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate, type AppError, type InputUpdate, type BlueprintInspect, type AvatarPose, type DeviceKind, type ScalarValue, type BlueprintDebug } from "@opensekai/contracts";
+import { IdSchema, ParamSchemas, type VmcPosesEnvelope, AssetRecordSchema, type AssetRecord, type ExpressionState, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate, type AppError, type InputUpdate, type BlueprintInspect, type AvatarPose, type DeviceKind, type ScalarValue, type BlueprintDebug } from "@opensekai/contracts";
 import { createTransformAdapter } from "./ecs";
 import {createTrackingComposer} from "./tracking";
 import { createBlueprintRuntime, logicKey, type BlueprintEvent, type GraphRun, type StepEnv } from './blueprint-runtime';
@@ -14,6 +14,7 @@ import { advanceExpressions, composeExpressions, dropExpressionFades, EMPTY_EXPR
 import { applyOverrides, dropOverrides, EMPTY_OVERRIDES, evaluatedEntity, takeIdle, type OverrideLayer } from './overrides';
 import { advanceTweens, dropGraphTweens, dropTweens, EMPTY_TWEENS, transitionStart, tweenOwners, tweening, writeTransitioned, type TweenLayer } from './tweens';
 import { advanceBlendShapes, blendShapeOwners, composeBlendShapes, dropGraphBlendShapes, EMPTY_BLEND_SHAPES, setBlendShape, type BlendShapeStates } from './blend-shapes';
+import { vmcPosesFor, withSendersStopped } from './vmc-send';
 import { dropGraphLookAts, EMPTY_LOOK_AT, lookAtOwners, sceneLookup, setLookAt, stepLookAt, type LookAtStates } from './look-at';
 export interface Session {
     inspect(): SceneView;
@@ -30,6 +31,8 @@ export interface Session {
     }>;
     ingestTracking(update:TrackingUpdate):Reply<null>;
     advance(elapsedMs: number, trackingNowMs?:number, input?: InputUpdate): RuntimeFrame;
+    // The poses of the enabled VMC senders for a frame of this session, or null when no sender qualifies (B21 R8).
+    vmcPoses(frame: RuntimeFrame): VmcPosesEnvelope | null;
     editBlueprints(batch: unknown): Reply<{ revision: number; keystrokes: string[]; heldKeys?: string[]; devices?: DeviceKind[] }>;
     inspectBlueprints(sinceRevision?: number): BlueprintInspect;
     debugBlueprints(since?: number): BlueprintDebug;
@@ -43,7 +46,7 @@ export interface Session {
 const failure = (code: ErrorCode, message: string, ids: Id[] = []): Reply<never> => ({ ok: false, error: { code, message, ids } });
 export function createSession(scene: SceneView, sessionId: Id, assets: readonly AssetRecord[] = []): Session {
     IdSchema.parse(sessionId);
-    let persistent: SceneView = structuredClone(SceneViewSchema.parse(scene));
+    let persistent: SceneView = withSendersStopped(structuredClone(SceneViewSchema.parse(scene)));
     const adapter = createTransformAdapter(persistent);
     let tracking=createTrackingComposer();
     let overrides: OverrideLayer = EMPTY_OVERRIDES;
@@ -236,7 +239,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             if (expectedRevision !== persistent.revision) return failure('CONFLICT', 'Scene revision changed');
             const parsed = ShowSceneSchema.safeParse(scene);
             if (!parsed.success || !Number.isSafeInteger(persistent.revision + 1)) return failure('INVALID_INPUT', 'Invalid show scene');
-            persistent = structuredClone({ ...parsed.data, revision: persistent.revision + 1 });
+            persistent = withSendersStopped(structuredClone({ ...parsed.data, revision: persistent.revision + 1 }));
             tracking = createTrackingComposer();
             overrides = EMPTY_OVERRIDES;
             tweens = EMPTY_TWEENS;
@@ -328,6 +331,10 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             return commit(next);
         },
         ingestTracking:update=>tracking.ingest(update,persistent),
+        vmcPoses(frame) {
+            const poses = vmcPosesFor(persistent, frame.avatarPoses ?? [], record);
+            return poses.length ? { kind: 'vmcPoses', sessionId, tick: frame.tick, poses } : null;
+        },
         setAssetRecords: storeRecords,
         getExpressions(avatarId) {
             return expressionView(reconcileExpressions(expressions, persistent), persistent, record, avatarId);

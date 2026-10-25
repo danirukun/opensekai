@@ -7,6 +7,8 @@ export function makeEntityCopy(entity:SceneEntity,id:string,entities:readonly Sc
  while(names.has(name))name=`${base} Copy ${index++}`;
  copy.id=id;copy.name=name;
  if(copy.kind==='tracking'){copy.config.enabled=false;copy.generation=0;}
+ // A copy of a sender does not send until the operator starts it (B21 R2).
+ if(copy.kind==='vmcSender')copy.vmcSender.enabled=false;
  if(copy.kind==='avatar'){copy.tracking={bodySourceId:null,faceSourceId:null};copy.transform=nextAvatarTransform(entities,entity.transform.scale);}
  return copy;
 }

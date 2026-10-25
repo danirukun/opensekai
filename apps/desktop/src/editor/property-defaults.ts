@@ -1,5 +1,6 @@
 import {DEFAULT_TRACKING_MAPPING,DEFAULT_TRACKING_SMOOTHING,defaultTrackingConfig,type LightSettings,type SceneEntity} from '@opensekai/contracts';
 import {makeAuthoringEntity} from './authoring';
+import {VMC_SENDER} from './vmc-sender';
 import {AMBIENT_LIGHT,DIRECTIONAL_LIGHT,FPS_COUNTER,HAZE,POINT_LIGHT,SPOT_LIGHT,hazeTransform} from './lights';
 // The reset defaults of the Inspector fields (B17 R1–R4). Each value comes from the add defaults, so a reset and an add cannot differ.
 export type EntityDefaults=Readonly<Record<string,unknown>>;
@@ -17,22 +18,24 @@ function configValues(config:Extract<SceneEntity,{kind:'tracking'}>['config']):R
 }
 // The current value of each field as the Inspector shows it: a missing optional field takes its fallback (R2).
 export function valuesFor(entity:SceneEntity):Record<string,unknown> {
- const base=entity.kind==='tracking'?{}:{visible:entity.visible,...entity.transform};
+ const base=entity.kind==='tracking'||entity.kind==='vmcSender'?{}:{visible:entity.visible,...entity.transform};
  if(entity.kind==='camera')return {...base,renderEnvironment:entity.renderEnvironment!==false,antiAliasing:entity.antiAliasing??'none',fovDegrees:entity.lens.fovDegrees,near:entity.lens.near,far:entity.lens.far,controlMode:entity.navigation?.mode??'none',sensitivity:entity.navigation&&entity.navigation.mode!=='none'?entity.navigation.sensitivity:undefined};
  if(entity.kind==='light')return {...base,...lightValues(entity.light)};
  if(entity.kind==='haze')return {...base,...entity.haze};
  if(entity.kind==='fpsCounter')return {...base,...entity.fpsCounter};
+ if(entity.kind==='vmcSender')return {address:entity.vmcSender.address,port:entity.vmcSender.port};
  if(entity.kind==='environment')return {...base,reflectionsIntensity:entity.reflectionsIntensity??1};
  if(entity.kind==='avatar')return {...base,idleAnimation:entity.idleAnimation?.enabled??false};
  if(entity.kind==='tracking')return {...configValues(entity.config),...smoothingValues(entity.smoothing),...mappingValues(entity.mapping)};
  return base;
 }
 export function defaultsFor(entity:SceneEntity):EntityDefaults {
- const base=entity.kind==='tracking'?{}:{visible:true,...transform(entity)};
+ const base=entity.kind==='tracking'||entity.kind==='vmcSender'?{}:{visible:true,...transform(entity)};
  if(entity.kind==='camera'){const added=camera();return {...base,renderEnvironment:true,antiAliasing:'none',...added.lens,controlMode:added.navigation?.mode,sensitivity:added.navigation&&added.navigation.mode!=='none'?added.navigation.sensitivity:undefined};}
  if(entity.kind==='light')return {...base,...lightValues(LIGHTS[entity.light.type])};
  if(entity.kind==='haze')return {...base,...HAZE};
  if(entity.kind==='fpsCounter')return {...base,...FPS_COUNTER};
+ if(entity.kind==='vmcSender')return {...VMC_SENDER};
  if(entity.kind==='environment')return {...base,reflectionsIntensity:1};
  if(entity.kind==='avatar'){const added=makeAuthoringEntity('character','avatar_default',[]);return {...base,idleAnimation:added.kind==='avatar'&&added.idleAnimation?.enabled};}
  if(entity.kind==='tracking')return {...configValues(defaultTrackingConfig(entity.config.kind)),...smoothingValues(),...mappingValues()};
@@ -49,6 +52,8 @@ export function resetFieldIds(entity:SceneEntity):string[] {
  if(entity.kind==='haze')return [...base,'density','smoke','intensity','drift'];
  // An FPS counter has no Transform section (B19 R5).
  if(entity.kind==='fpsCounter')return ['visible','corner','size','color'];
+ // A sender has no Transform or Visible field. Its character default depends on the scene, so it has no reset (B21 R5).
+ if(entity.kind==='vmcSender')return ['address','port'];
  if(entity.kind==='environment')return [...base,'reflectionsIntensity'];
  if(entity.kind==='avatar')return [...base,'idleAnimation'];
  if(entity.kind==='tracking')return [...(entity.config.kind==='mediapipe'?['face','upperBody','hands','mirror']:['bindAddress','port','address']),'smoothing','minCutoff','beta','derivativeCutoff','headIntensity','headOffsetX','headOffsetY','headOffsetZ','eyeIntensity','blendShapeSensitivity','linkedBlink'];
