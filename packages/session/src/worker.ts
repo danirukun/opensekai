@@ -73,6 +73,7 @@ export function createWorkerHost(ports: WorkerPorts) {
                 let origin: number | undefined;
                 let last: number | undefined;
                 let syncedAt:number|undefined;
+                let vmcFailed=false;
                 const filterTracking=(update:TrackingUpdate,local:boolean):TrackingUpdate=>{
                     const sources=session.inspect().entities.filter(e=>e.kind==='tracking');
                     const accepts=(value:{sourceId:string;generation:number})=>sources.some(source=>source.id===value.sourceId&&source.generation===value.generation&&(source.config.kind==='mediapipe')===local);
@@ -91,8 +92,8 @@ export function createWorkerHost(ports: WorkerPorts) {
                     if(syncedAt===undefined||elapsedMs-syncedAt>=100){ports.post?.({kind:'clockSync',elapsedMs});syncedAt=elapsedMs;}
                     const frame=session.advance(elapsedMs - origin,elapsedMs,input);
                     client.publishFrame(frame);
-                    const poses=session.vmcPoses(frame);
-                    if(poses)client.publishVmcPoses?.(poses);
+                    // A pose that fails its schema must not stop the frames of the next ticks.
+                    try{const poses=session.vmcPoses(frame);if(poses)client.publishVmcPoses?.(poses);vmcFailed=false;}catch(error){if(!vmcFailed)console.error('VMC pose send failed',error);vmcFailed=true;}
                 });
                 const unsubscribe = remove, unsubscribeClock = removeClock;
                 cleanup = () => { unsubscribeClock(); unsubscribe(); client.close(); };
