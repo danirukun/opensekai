@@ -42,8 +42,8 @@ it('maps a group level through the source ranges and sensitivity', () => {
  expect(groupLevel({}, ['browInnerUp'], undefined)).toBe(0);
 });
 
-it('ranks the LAN address of a home network first and network or VPN addresses last', () => {
- expect(rankAddresses(['100.72.54.79', '192.168.1.196', '192.168.107.0', '192.168.139.3', '10.0.0.5'])).toEqual(['192.168.1.196', '192.168.139.3', '10.0.0.5', '100.72.54.79', '192.168.107.0']);
+it('ranks the LAN address of a home network first and a VPN address last, without link-local or network addresses', () => {
+ expect(rankAddresses(['100.72.54.79', '192.168.1.196', '192.168.107.0', '169.254.12.7', '192.168.139.3', '10.0.0.5'])).toEqual(['192.168.1.196', '192.168.139.3', '10.0.0.5', '100.72.54.79']);
  expect(rankAddresses(['172.20.1.2', '172.40.1.2'])).toEqual(['172.20.1.2', '172.40.1.2']);
  expect(rankAddresses([])).toEqual([]);
 });

@@ -16,8 +16,8 @@
  const GROUPS=[['Eyes',EXPRESSION_STEPS.blink.main],['Mouth',EXPRESSION_STEPS.mouthWide.main],['Brows',EXPRESSION_STEPS.browsUp.main]] as const;
 
  let guide=$state.raw(initialGuide()),probe=$state.raw<TrackingProbe|null>(null),now=$state(performance.now());
- let askPhone=$state(false),phone=$state(''),phoneTaken=$state(false),port=$state<number|null>(null),connecting=$state(false),error=$state<string|null>(null),closing=$state(false);
- let snapshot:GuideSnapshot|null=null,fitSent=false,finished=false,resetNext=false,inFlight=false,timer:ReturnType<typeof setInterval>|undefined;
+ let askPhone=$state(false),phone=$state(''),phoneTaken=$state(false),port=$state<number|null>(null),connecting=$state(false),retry=$state(false),error=$state<string|null>(null),probeError=$state<string|null>(null),closing=$state(false);
+ let snapshot:GuideSnapshot|null=null,fitSent=false,finished=false,resetNext=false,inFlight=false,probeFailures=0,avatarGone=false,timer:ReturnType<typeof setInterval>|undefined;
  let effects:Promise<void>=Promise.resolve();
 
  const avatar=$derived(view.scene?.entities.find(e=>e.id===avatarId&&e.kind==='avatar'));
@@ -27,9 +27,11 @@
  const status=$derived(trackingStatus.find(item=>item.sourceId===guide.sourceId));
  const addresses=$derived(rankAddresses(localAddresses));
 
+ // Every guide write runs in this one chain, so a cancel can wait for the writes that are in flight.
+ const queue=(task:()=>Promise<void>)=>{effects=effects.then(task).catch(()=>{});};
  function dispatch(event:GuideEvent){
   const out=guideStep(guide,event);guide=out.state;
-  for(const effect of out.effects)effects=effects.then(()=>run(effect)).catch(()=>{});
+  for(const effect of out.effects)queue(()=>run(effect));
  }
  async function run(effect:GuideEffect){
   const sourceId=guide.sourceId;
@@ -48,13 +50,14 @@
   const eyeBones=assets.find(asset=>asset.id===target.assetId)?.eyeBones;
   const plan=planConnect(scene,avatarId,preset,phoneAddress,eyeBones,crypto.randomUUID());
   phoneTaken=plan.needsPhone&&phoneAddress!==null;
+  retry=false;
   if(plan.needsPhone){askPhone=true;return;}
   const held=scene.entities.find(e=>e.id===plan.sourceId);
   snapshot={avatarId,tracking:structuredClone(target.tracking),sourceId:plan.sourceId,created:plan.created,mapping:held?.kind==='tracking'?structuredClone(held.mapping):undefined};
   connecting=true;error=null;
   const reply=await model.applyOperations(plan.operations,scene.revision);
   connecting=false;
-  if(!reply.ok){error=reply.error.message;return;}
+  if(!reply.ok){snapshot=null;error=reply.error.message;retry=phoneAddress===null;return;}
   port=plan.port;
   dispatch({kind:'connected',sourceId:plan.sourceId});
  }
@@ -67,38 +70,57 @@
   api.trackingProbe(reset?{sourceId,resetPeaks:true}:{sourceId})
    .then(reply=>{
     if(closing||finished)return;
-    if(!reply.ok){if(reset)resetNext=true;return;}
+    if(!reply.ok){failed(reset,reply.error.code==='NOT_FOUND'?'Source removed':reply.error.message);return;}
+    probeFailures=0;probeError=null;
     probe=reply.data;
     dispatch({kind:'probe',probe:reply.data,nowMs:performance.now()});
    })
-   .catch(()=>{if(reset)resetNext=true;})
+   .catch(()=>{failed(reset,'Tracking unavailable');})
    .finally(()=>{inFlight=false;});
  }
+ function failed(reset:boolean,message:string){
+  if(reset)resetNext=true;
+  probeFailures+=1;
+  if(probeFailures>=3)probeError=message;
+ }
+ function start(){if(timer===undefined)timer=setInterval(poll,100);}
  function stop(){clearInterval(timer);timer=undefined;}
- // A close before Done puts back the bindings and the mapping from before the run.
- async function cancel(){
-  if(closing||finished)return;
+ // The model refuses a write while another editor write is pending.
+ async function idle(){for(let tries=0;tries<100&&model.read().pending;tries++)await new Promise(resolve=>setTimeout(resolve,50));}
+ // A close before Done puts back the bindings and the mapping from before the run. A failed cancel keeps the guide open.
+ async function cancel():Promise<boolean>{
+  if(closing||finished)return false;
   closing=true;stop();
-  await effects;
+  await effects;await idle();
   const scene=model.read().scene;
   const operations=snapshot&&scene?planCancel(scene,snapshot,fitSent):[];
-  if(operations.length>0){const reply=await model.applyOperations(operations);if(!reply.ok)error=reply.error.message;}
+  if(operations.length>0){
+   const reply=await model.applyOperations(operations);
+   if(!reply.ok){error=reply.error.message;closing=false;start();return false;}
+  }
+  return true;
  }
- async function close(){await cancel();onclose();}
+ async function close(){if(await cancel())onclose();}
  function done(){finished=true;stop();onclose();}
- async function setEyeBones(box:HTMLInputElement){
-  const scene=model.read().scene,target=scene?.entities.find(e=>e.id===guide.sourceId);
-  if(!scene||target?.kind!=='tracking')return;
-  const reply=await model.setTrackingMapping(target.id,{...(target.mapping??structuredClone(DEFAULT_TRACKING_MAPPING)),useEyeBones:box.checked},scene.revision);
-  if(!reply.ok)box.checked=target.mapping?.useEyeBones??true;
+ function setEyeBones(box:HTMLInputElement){
+  const checked=box.checked;
+  queue(async()=>{
+   const scene=model.read().scene,target=scene?.entities.find(e=>e.id===guide.sourceId);
+   if(!scene||target?.kind!=='tracking')return;
+   const reply=await model.setTrackingMapping(target.id,{...(target.mapping??structuredClone(DEFAULT_TRACKING_MAPPING)),useEyeBones:checked},scene.revision);
+   if(!reply.ok)box.checked=target.mapping?.useEyeBones??true;
+  });
  }
- onMount(()=>{timer=setInterval(poll,100);});
- onDestroy(()=>{stop();void cancel();});
+ // A deleted character ends the run; planCancel removes the source that the guide created.
+ $effect(()=>{if(view.scene&&!avatar&&!closing&&!finished&&!avatarGone){avatarGone=true;void close();}});
+ onMount(start);
+ // An unmount (app teardown, hot reload) only stops the probe. A rail panel switch keeps the guide mounted.
+ onDestroy(stop);
 </script>
 <section class="editor-panel tracking-guide" aria-labelledby="guide-heading">
  <header>
   <h2 id="guide-heading">{avatar?.name??'Character'}</h2>
-  <Button variant="ghost" size="sm" title="Close" disabled={closing} onclick={close}><X size={16}/><span class="sr-only">Close</span></Button>
+  <Button variant="ghost" size="sm" title="Close" disabled={closing||connecting} onclick={close}><X size={16}/><span class="sr-only">Close</span></Button>
  </header>
  <ol class="steps" aria-label="Steps">{#each STEPS as item,index (item)}<li class:on={index<=current} aria-current={index===current?'step':undefined}></li>{/each}</ol>
 
@@ -108,7 +130,7 @@
 
  {:else if guide.step==='connect'}
   {#if askPhone&&guide.sourceId===null}
-   <form class="phone" onsubmit={event=>{event.preventDefault();if(guide.preset)void connect(guide.preset,phone.trim());}}>
+   <form class="phone" onsubmit={event=>{event.preventDefault();const preset=guide.preset,address=phone.trim();if(preset)queue(()=>connect(preset,address));}}>
     <Input label="Phone address" bind:value={phone} state={phoneTaken?'error':'default'} helperText={phoneTaken?'Address in use':undefined} autocomplete="off" disabled={disabled||connecting}/>
     <Button type="submit" variant="primary" disabled={disabled||connecting||phone.trim()===''} loading={connecting}>Connect</Button>
    </form>
@@ -119,7 +141,10 @@
   {/if}
   {#if guide.sourceId}
    {#if probe?.state==='error'&&status?.error}<p role="alert">{status.error}</p>
-   {:else}<p class="waiting"><Spinner size="sm" variant="muted"/>Waiting for data</p>{/if}
+   {:else if !probeError}<p class="waiting"><Spinner size="sm" variant="muted"/>Waiting for data</p>{/if}
+  {:else if retry&&guide.preset}
+   {@const preset=guide.preset}
+   <div class="actions"><Button variant="primary" {disabled} loading={connecting} onclick={()=>{error=null;queue(()=>connect(preset,null));}}>Connect</Button></div>
   {/if}
 
  {:else if guide.step==='relax'}
@@ -142,6 +167,7 @@
   <div class="actions"><Button variant="primary" onclick={done}>Done</Button></div>
  {/if}
  {#if error}<p role="alert">{error}</p>{/if}
+ {#if probeError&&guide.step!=='pick'}<p role="alert">{probeError}</p>{/if}
 </section>
 <style>
  .tracking-guide{display:flex;flex-direction:column;gap:16px;padding:20px 24px;max-width:420px}

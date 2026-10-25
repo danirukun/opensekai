@@ -32,15 +32,16 @@ export function groupLevel(values: Partial<Record<ArkitName, number>>, names: re
  return Math.max(0, ...names.map(level));
 }
 
-// A phone on the home network most likely reaches a 192.168, 10, or 172.16–31 address. A VPN (100.64/10) or a
-// virtual bridge network address (x.x.x.0) comes last. The sort is stable, so the host order breaks ties.
+// A phone on the home network most likely reaches a 192.168, 10, or 172.16–31 address; a VPN (100.64/10) comes last.
+// A link-local (169.254) or a network address (x.x.x.0) cannot take the stream, so it is not shown. The sort is stable.
 function addressRank(address: string): number {
- const [a = 0, b = 0, , d = 0] = address.split('.').map(Number);
- if (d === 0) return 5;
+ const [a = 0, b = 0] = address.split('.').map(Number);
  if (a === 192 && b === 168) return 0;
  if (a === 10) return 1;
  if (a === 172 && b >= 16 && b <= 31) return 2;
  if (a === 100 && b >= 64 && b <= 127) return 4;
  return 3;
 }
-export const rankAddresses = (addresses: readonly string[]): string[] => [...addresses].sort((x, y) => addressRank(x) - addressRank(y));
+const reachable = (address: string): boolean => !address.startsWith('169.254.') && !address.endsWith('.0');
+export const rankAddresses = (addresses: readonly string[]): string[] =>
+ addresses.filter(reachable).sort((x, y) => addressRank(x) - addressRank(y));
