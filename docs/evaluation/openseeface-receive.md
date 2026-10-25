@@ -31,7 +31,7 @@ The [Warudo OpenSeeFace page](https://docs.warudo.app/docs/mocap/openseeface) wa
 
 ## Gaps
 
-- **Neutral offset.** The tracker solves the pose with the principal point at (width/2, height/2) on swapped (row, column) landmarks. On a 4:3 camera the solvePnP check reads 9.5° away from identity for a face that looks straight ahead. A real face also has its own neutral. **Calibrate** removes both. Without a calibration the head looks a little turned.
+- **Neutral offset.** The tracker solves the pose with the principal point at (width/2, height/2) on swapped (row, column) landmarks. On a 4:3 camera the solvePnP check reads 9.5° away from identity for a face that looks straight ahead. The offset comes from perspective, so it can also change with the position of the face in the image; Calibrate removes the offset at the calibrated position only. A real face also has its own neutral. Without a calibration the head looks a little turned. Identity at neutral (R6) is verified for a square image only.
 - **Left and right.** The eye values and the features are taken as the performer's right and left, as in `OpenSee.cs`. This is not checked with a real face.
 - Not checked (owner on macOS): a real OpenSeeFace tracker and webcam; the direction of the head for a turn, a nod, and a tilt; the blink and mouth sides; Calibrate with a real face; the look in the preview and in OBS with alpha; continued motion while the editor is minimized. These results are unknown.
 - Windows is not checked.
