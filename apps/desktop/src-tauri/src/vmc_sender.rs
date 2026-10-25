@@ -125,6 +125,8 @@ struct Sender {
     error: Option<String>,
     started: Instant,
     last_sent: Option<Instant>,
+    // The last pose with at least one datagram that the socket accepted: `sending` follows it, not `last_sent` (R14).
+    last_delivered: Option<Instant>,
     datagrams: u64,
     errors: u64,
 }
@@ -136,6 +138,7 @@ impl Sender {
             error,
             started: now,
             last_sent: None,
+            last_delivered: None,
             datagrams: 0,
             errors: 0,
             settings,
@@ -167,7 +170,7 @@ impl Sender {
         } else if self.error.is_some() {
             VmcSenderState::Error
         } else if self
-            .last_sent
+            .last_delivered
             .is_some_and(|t| now.saturating_duration_since(t) < ACTIVE_WINDOW)
         {
             VmcSenderState::Sending
@@ -285,13 +288,20 @@ impl VmcSenderManager {
                 continue;
             }
             let seconds = now.saturating_duration_since(sender.started).as_secs_f32();
+            let mut delivered = false;
             for datagram in encode_vmc_pose(pose, seconds) {
                 match socket.send_to(&datagram, target) {
-                    Ok(_) => sender.datagrams = (sender.datagrams + 1).min(MAX_COUNT),
+                    Ok(_) => {
+                        delivered = true;
+                        sender.datagrams = (sender.datagrams + 1).min(MAX_COUNT);
+                    }
                     Err(_) => sender.errors = (sender.errors + 1).min(MAX_COUNT),
                 }
             }
             sender.last_sent = Some(now);
+            if delivered {
+                sender.last_delivered = Some(now);
+            }
         }
     }
     /// The status of each sender in scene order (R14). Empty before the first scene.

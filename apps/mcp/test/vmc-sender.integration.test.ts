@@ -15,7 +15,7 @@ it('creates, starts, limits, and unlinks a VMC sender through scene_patch, and a
  const senderOf = async (id: string) => (await call('scene_inspect', { sceneId: 'scene_smoke' })).data.entities.find((e: { id: string }) => e.id === id);
  try {
   const tools = await client.listTools();
-  expect(tools.tools.find(tool => tool.name === 'scene_patch')?.description).toMatch(/vmcSender.*at most 4 VMC senders.*starts stopped.*setVmcSender/s);
+  expect(tools.tools.find(tool => tool.name === 'scene_patch')?.description).toMatch(/vmcSender.*at most 4 VMC senders.*enabled false.*setVmcSender/s);
   expect(tools.tools.find(tool => tool.name === 'app_status')?.description).toMatch(/vmcSenders/);
   expect(await patch(0, [1, 2, 3, 4].map(i => ({ kind: 'createEntity', entity: sender(`vmc_${i}`) })))).toMatchObject({ ok: true, data: { revision: 1 } });
   expect(await patch(1, [{ kind: 'createEntity', entity: sender('vmc_5') }])).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });

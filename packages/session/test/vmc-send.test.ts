@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { makeSmokeScene, type AssetRecord, type AvatarPose, type AvatarRig, type Quat, type SceneEntity, type Vec3 } from '@opensekai/contracts';
+import { makeSmokeScene, VmcPosesEnvelopeSchema, type AssetRecord, type AvatarPose, type AvatarRig, type Quat, type SceneEntity, type Vec3 } from '@opensekai/contracts';
 import { multiplyQuat, slerpQuat } from '../src/bone-offsets';
 import { vmcPosesFor, vmcSendPose } from '../src/vmc-send';
 import { createSession } from '../src/session';
@@ -70,6 +70,11 @@ it('folds the chest into the spine of a rig without a chest', () => {
  sameRotation(sent.bones.spine!.rotation, multiplyQuat(pitch(5), multiplyQuat(pitch(10), yaw(20))));
  const tracked = vmcSendPose(pose({ bones: { chest: { rotation: yaw(30), space: 'normalized' } } }), chestless);
  sameRotation(tracked.bones.spine!.rotation, yaw(30));
+});
+it('keeps blend names that are Object members as plain names (review finding)', () => {
+ const sent = vmcSendPose(pose({ expressions: JSON.parse('{"constructor":0.5,"toString":0.2,"__proto__":0.3,"Joy":1}') }), rig());
+ expect(Object.entries(sent.blends).sort()).toEqual([['Joy', 1], ['__proto__', 0.3], ['constructor', 0.5], ['toString', 0.2]]);
+ expect(VmcPosesEnvelopeSchema.safeParse({ kind: 'vmcPoses', sessionId: 's', tick: 1, poses: [{ senderId: 'out', ...sent }] }).success).toBe(true);
 });
 it('maps the VRM 1 presets to the VRM 0 clip names and keeps other names', () => {
  const sent = vmcSendPose(pose({ expressions: { happy: 0.5, Joy: 0.7, aa: 0.25, blinkLeft: 1, jawOpen: 0.3, 'bad\0name': 1, ['x'.repeat(129)]: 1 } }), rig());

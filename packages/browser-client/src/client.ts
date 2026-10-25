@@ -84,7 +84,8 @@ export function connectWithPorts(raw: ConnectionDescriptor, ports: ClientPorts =
         const send = (message: WireMessage) => {
             if (!authenticated && message.kind !== "auth")
                 return false;
-            const state = message.kind === "frame";
+            // A frame and the VMC poses of a tick are replaceable state: a full queue drops them, and does not close the connection.
+            const state = message.kind === "frame" || message.kind === "vmcPoses";
             try {
                 const text = JSON.stringify(message);
                 const bytes = new TextEncoder().encode(text).length;

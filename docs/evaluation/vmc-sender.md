@@ -37,7 +37,8 @@ Integration tests over real loopback UDP ([raw output](vmc-sender/host-integrati
 Parity with the production renderer ([raw output](vmc-sender/parity-check.txt)). `packages/renderer/test/vmc-send-parity.integration.test.ts` loads each fixture VRM with the production `GLTFLoader` and `VRMLoaderPlugin`, runs `VRMUtils.rotateVRM0` as the asset loader does, applies six poses with the production `createAvatarBinding`, and compares the local rotation and position of each raw bone of the rig with `vmcSendPose`. The cases: base only, base with normalized tracking, partial weights, raw tracking without and with base bones, and offsets on normalized and raw bones.
 
 - `fixture_vrm0_arkit` (VRM 0, so the sign cases apply): 6 cases × 54 bones, each rotation within 1e-4 rad and each position within 1e-6 m. Pass.
-- `fixture_vrm_1`: the rig has rest rotations (`identityRest` false), so the sender refuses it and only that rule is checked. The contract expects this case (R17).
+- `fixture_vrm_1`: the rig has rest rotations (`identityRest` false), so the sender refuses it. The test checks only that rule and compares no pose, so the VRM 1 path (no sign) is compared with the renderer by unit tests only. The contract expects this case (R17).
+- The test builds the rig from the loaded three-vrm nodes, not from the Rust reader. The Rust fixture test checks the reader output for the same files separately.
 - A chestless rig: no fixture has one. Unit tests cover it; the renderer comparison does not.
 
 This check runs in Node, not in a browser on the software adapter: the pose composition is scene-graph math and uses no GPU. It uses the same loader and binding code as the renderer.

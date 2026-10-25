@@ -52,11 +52,13 @@ const cases:Record<string,Omit<AvatarPose,'avatarId'>>={
 describe('VMC send pose and renderer pose',()=>{
  for(const id of ['fixture_vrm0_arkit','fixture_vrm_1']){
   const path=fixturePath(id);
-  it.skipIf(!path)(`give the same raw bones for ${id}`,async()=>{
+  // The fixture VRM 1 sample has rest rotations: the sender refuses it (R17), so no pose comparison runs for it.
+  const refused=id==='fixture_vrm_1';
+  it.skipIf(!path)(refused?`refuses ${id}, a rig with rest rotations`:`give the same raw bones for ${id}`,async()=>{
    const vrm=await loadVrm(path!);
    const rig=rigOf(vrm);
-   // The fixture VRM 1 sample has rest rotations: the sender refuses it, so only the rule check applies.
-   if(!rig.identityRest){expect(id).toBe('fixture_vrm_1');return;}
+   expect(rig.identityRest).toBe(!refused);
+   if(refused)return;
    const binding=createAvatarBinding(vrm);
    let checked=0;
    for(const [name,partial] of Object.entries(cases)){

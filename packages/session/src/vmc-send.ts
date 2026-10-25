@@ -67,15 +67,16 @@ export function vmcSendPose(pose: AvatarPose | undefined, rig: AvatarRig): Omit<
   const current = raw[target];
   if (driven && current) raw[target] = { ...current, rotation: multiplyQuat(offset, current.rotation) };
  }
- const blends: Record<string, number> = {};
+ // A Map, not an object: a performer can name a blend `constructor` or `__proto__`.
+ const blends = new Map<string, number>();
  for (const [name, weight] of Object.entries(pose?.expressions ?? {})) {
   const sent = Object.hasOwn(VRM0_CLIPS, name) ? VRM0_CLIPS[name]! : name;
-  if (vmcBlendNameOk(sent)) blends[sent] = Math.max(blends[sent] ?? 0, weight);
+  if (vmcBlendNameOk(sent)) blends.set(sent, Math.max(blends.get(sent) ?? 0, weight));
  }
  return {
   root: { position: pose?.root?.position ?? [0, 0, 0], rotation: normalize(pose?.root?.rotation ?? IDENTITY) },
   bones: Object.fromEntries(Object.entries(raw).map(([name, bone]) => [name, { position: bone.position, rotation: normalize(bone.rotation) }])),
-  blends,
+  blends: Object.fromEntries(blends),
  };
 }
 
