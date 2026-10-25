@@ -40,6 +40,18 @@ it('draws nothing for an environment without a model', async () => {
     expect(ports.load).not.toHaveBeenCalled();
     r.dispose();
 });
+it('draws nothing for a hidden environment', async () => {
+    ports.load.mockResolvedValue(room());
+    const r = await make();
+    await r.applyFrame(frame()); await settle();
+    const hidden = frame();
+    for (const e of hidden.scene.entities) if (e.kind === 'environment') e.visible = false;
+    await r.applyFrame(hidden);
+    expect(rendered().getObjectByName('room')?.visible).toBe(false);
+    await r.applyFrame(frame());
+    expect(rendered().getObjectByName('room')?.visible).toBe(true);
+    r.dispose();
+});
 it('hides the environment when the output camera turns Render Environment off', async () => {
     ports.load.mockResolvedValue(room());
     const r = await make();

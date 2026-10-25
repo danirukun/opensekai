@@ -89,8 +89,14 @@ async fn imported_scene_folder_is_packed_served_and_survives_restart() {
         evidence_root: dir.path().join("evidence"),
         evaluation_enabled: false,
     };
+    let source_files = || {
+        ["scene.gltf", "scene.bin", "textures/base color.png"]
+            .map(|name| std::fs::read(room.join(name)).unwrap())
+    };
+    let before = source_files();
     let service = start_service(config()).await.unwrap();
     let imported = service.import_scene(room.join("scene.gltf")).await.unwrap();
+    assert_eq!(source_files(), before);
     assert!(imported.record.id.starts_with("scene_"));
     assert_eq!(imported.record.name, "Test room");
     let descriptor = service.operator_descriptor();
@@ -100,6 +106,18 @@ async fn imported_scene_folder_is_packed_served_and_survives_restart() {
     assert!(!serde_json::to_string(&json).unwrap().contains("\"uri\""));
     assert_eq!(json["images"][0]["mimeType"], "image/png");
     assert!(json["images"][0]["bufferView"].is_u64());
+    // packages/renderer/test/scene-import.test.ts loads this file with inspectContainer and GLTFLoader.
+    let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../../fixtures/scene-import/packed-room.glb");
+    if std::env::var_os("OPENSEKAI_UPDATE_FIXTURES").is_some() {
+        std::fs::create_dir_all(fixture.parent().unwrap()).unwrap();
+        std::fs::write(&fixture, &served).unwrap();
+    }
+    assert_eq!(
+        std::fs::read(&fixture).expect("run with OPENSEKAI_UPDATE_FIXTURES=1 to write the fixture"),
+        served.as_ref(),
+        "the packed GLB changed; run with OPENSEKAI_UPDATE_FIXTURES=1 and check the renderer test"
+    );
     service.shutdown().await.unwrap();
     let restarted = start_service(config()).await.unwrap();
     assert!(restarted.asset_records().contains(&imported.record));

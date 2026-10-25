@@ -1,6 +1,7 @@
 import {AppErrorSchema,defaultTrackingConfig,type AssetRecord,type SceneEntity,type SceneView} from '@opensekai/contracts';
 import type {AddKind} from './live-fields';
-import {AMBIENT_LIGHT,DIRECTIONAL_LIGHT,FPS_COUNTER,HAZE,POINT_LIGHT,SPOT_LIGHT,hazeTransform,lightTransform} from './lights';
+import {AMBIENT_LIGHT,DIRECTIONAL_LIGHT,FPS_COUNTER,HAZE,POINT_LIGHT,SPOT_LIGHT,fpsCounterLimitReached,hazeLimitReached,hazeTransform,lightLimitReached,lightTransform} from './lights';
+import {cameraLimitReached} from './cameras';
 type Vec3=[number,number,number];
 const lastAvatar=(entities:readonly SceneEntity[])=>entities.filter(entity=>entity.kind==='avatar').at(-1);
 // A new character stands 1 m along world +X from the last avatar in scene order, or at the origin.
@@ -29,6 +30,16 @@ export function makeAuthoringEntity(kind:AddKind,id:string,entities:readonly Sce
  if(kind==='haze')return {...base,kind:'haze',transform:hazeTransform(),haze:{...HAZE}};
  if(kind==='fpsCounter')return {...base,kind:'fpsCounter',fpsCounter:{...FPS_COUNTER}};
  return {...base,kind:'tracking',generation:0,config:defaultTrackingConfig(kind)};
+}
+// The Add menu disables a kind when one more of it would break a scene limit.
+export function addLimitReached(kind:AddKind,entities:readonly SceneEntity[]):boolean {
+ if(kind==='character')return entities.filter(entity=>entity.kind==='avatar').length>=2;
+ if(kind==='camera')return cameraLimitReached(entities);
+ if(kind==='environment')return entities.some(entity=>entity.kind==='environment');
+ if(kind==='directionalLight'||kind==='pointLight'||kind==='spotLight'||kind==='ambientLight')return lightLimitReached(entities);
+ if(kind==='haze')return hazeLimitReached(entities);
+ if(kind==='fpsCounter')return fpsCounterLimitReached(entities);
+ return false;
 }
 export function modelLabel(assetId:string|null,assets:readonly AssetRecord[]):string {
  if(assetId===null)return 'Choose VRM…';

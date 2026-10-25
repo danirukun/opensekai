@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
 import { SceneEntitySchema, type AssetRecord } from '@opensekai/contracts';
-import { makeAuthoringEntity, makeEmptyScene } from '../src/editor/authoring';
+import { addLimitReached, importFailure, makeAuthoringEntity, makeEmptyScene } from '../src/editor/authoring';
+import { settleCheckbox } from '../src/editor/live-fields';
 import { IMPORT_SCENE, creditLine, sceneSourceOptions, sourceAction } from '../src/editor/environment';
 const record = (id: string, name: string): AssetRecord => ({ id, format: 'glb', sha256: 'a'.repeat(64), bytes: 1, sourceUrl: null, licenseLabel: '', importerVersion: 1, name, expressions: [] });
 it('creates an environment without a model', () => {
@@ -23,4 +24,21 @@ it('maps a Source value to an action', () => {
     expect(sourceAction(IMPORT_SCENE)).toEqual({ kind: 'import' });
     expect(sourceAction('')).toEqual({ kind: 'select', assetId: null });
     expect(sourceAction('scene_a')).toEqual({ kind: 'select', assetId: 'scene_a' });
+});
+it('disables Add › Environment while the scene has an environment', () => {
+    const scene = makeEmptyScene().entities;
+    expect(addLimitReached('environment', scene)).toBe(false);
+    expect(addLimitReached('environment', [...scene, makeAuthoringEntity('environment', 'stage', scene)])).toBe(true);
+});
+it('shows the scene import error, cut to 160 characters, or a safe fallback', () => {
+    expect(importFailure({ code: 'INVALID_INPUT', message: 'x'.repeat(200), ids: [] }, 'Could not import model')).toBe('x'.repeat(160));
+    expect(importFailure(new Error('private path'), 'Could not import model')).toBe('Could not import model');
+});
+it('shows the scene value again when the Render Environment change fails', () => {
+    const box = { checked: false };
+    settleCheckbox(box, { ok: false, error: { code: 'CONFLICT', message: 'stale', ids: [] } }, true);
+    expect(box.checked).toBe(true);
+    const kept = { checked: false };
+    settleCheckbox(kept, { ok: true, data: {} }, true);
+    expect(kept.checked).toBe(false);
 });

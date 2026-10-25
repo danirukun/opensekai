@@ -47,3 +47,5 @@ export function cameraOptions(entities:readonly SceneEntity[]){return entities.f
 
 export const antiAliasingOptions=[{value:'none',label:'None'},{value:'fxaa',label:'FXAA'}];
 export const qualityOptions=[{value:'production_v1',label:'Production'},{value:'performance_v1',label:'Performance'},{value:'preview_v1',label:'Preview'}];
+// A rejected change leaves the scene value as it was, so Svelte does not reset the box; put the scene value back.
+export function settleCheckbox(box:{checked:boolean},reply:Reply<unknown>|undefined,current:boolean|undefined):void {if(!reply?.ok&&current!==undefined)box.checked=current;}

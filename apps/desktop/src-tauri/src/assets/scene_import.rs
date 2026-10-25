@@ -1103,4 +1103,115 @@ mod tests {
         assert!(out.get("extensionsUsed").is_none());
         assert!(out.get("extensionsRequired").is_none());
     }
+    #[test]
+    fn rejects_a_file_that_is_not_a_scene() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("room.txt");
+        std::fs::write(&path, b"room").unwrap();
+        assert!(message(pack_scene(&path, Limits::DEFAULT)).contains(".glb, .gltf, or .zip"));
+    }
+    #[test]
+    fn rejects_a_zip_without_a_root_near_the_top() {
+        let json = serde_json::to_vec(&room("a.png")).unwrap();
+        for entries in [
+            vec![("readme.txt", b"room".to_vec())],
+            vec![
+                ("a/b/scene.gltf", json.clone()),
+                ("a/b/scene.bin", vec![1u8; 8]),
+            ],
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let zip = zip_file(dir.path(), &entries);
+            assert!(message(pack_scene(&zip, Limits::DEFAULT)).contains("exactly one"));
+        }
+    }
+    // A stored entry with a broken checksum fails when it is read, so a pass proves it was not read.
+    fn zip_with_a_broken_entry(json: &Value) -> (tempfile::TempDir, std::path::PathBuf) {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("room.zip");
+        let mut writer = zip::ZipWriter::new(std::fs::File::create(&path).unwrap());
+        let stored = zip::write::SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Stored);
+        let json = serde_json::to_vec(json).unwrap();
+        for (name, bytes) in [
+            ("scene.gltf", json.as_slice()),
+            ("scene.bin", &[1u8; 8][..]),
+            ("a.png", PNG),
+            (
+                "textures/broken.png",
+                b"\x89PNG\r\n\x1a\nBROKEN-ENTRY-BODY".as_slice(),
+            ),
+        ] {
+            writer.start_file(name, stored).unwrap();
+            writer.write_all(bytes).unwrap();
+        }
+        writer.finish().unwrap();
+        let mut bytes = std::fs::read(&path).unwrap();
+        let at = bytes
+            .windows(17)
+            .position(|w| w == b"BROKEN-ENTRY-BODY")
+            .unwrap();
+        bytes[at] = b'X';
+        std::fs::write(&path, bytes).unwrap();
+        (dir, path)
+    }
+    #[test]
+    fn reads_only_the_zip_entries_that_the_root_refers_to() {
+        let (_dir, path) = zip_with_a_broken_entry(&room("a.png"));
+        assert!(pack_scene(&path, Limits::DEFAULT).is_ok());
+        let mut uses_it = room("a.png");
+        uses_it["images"] = json!([{"uri": "a.png"}, {"uri": "textures/broken.png"}]);
+        let (_dir, path) = zip_with_a_broken_entry(&uses_it);
+        assert_eq!(
+            message(pack_scene(&path, Limits::DEFAULT)),
+            "File unavailable"
+        );
+    }
+    // File boundary: the downloaded fixture stages (fixtures/local), when setup prepared them.
+    #[test]
+    fn prepared_fixture_stages_pack_with_the_same_counts() {
+        let manifest =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../fixtures/local/manifest.json");
+        let Ok(text) = std::fs::read_to_string(&manifest) else {
+            eprintln!("skip: no {}", manifest.display());
+            return;
+        };
+        let manifest: Value = serde_json::from_str(&text).unwrap();
+        let stages: Vec<&str> = manifest["assets"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|asset| {
+                ["fixture_glb_stage", "fixture_test_stage"]
+                    .contains(&asset["record"]["id"].as_str().unwrap_or(""))
+            })
+            .filter_map(|asset| asset["path"].as_str())
+            .collect();
+        for path in stages {
+            let source = json_of(&std::fs::read(path).unwrap());
+            let packed = pack_scene(Path::new(path), Limits::DEFAULT).unwrap();
+            super::super::registry::validate_glb(&packed.glb).unwrap();
+            let json = json_of(&packed.glb);
+            assert!(!has_uri(&json), "{path}");
+            for key in [
+                "accessors",
+                "meshes",
+                "materials",
+                "nodes",
+                "textures",
+                "images",
+            ] {
+                assert_eq!(
+                    json[key].as_array().map(Vec::len),
+                    source[key].as_array().map(Vec::len),
+                    "{path} {key}"
+                );
+            }
+            eprintln!(
+                "{path}: {} bytes in, {} bytes packed",
+                std::fs::metadata(path).unwrap().len(),
+                packed.glb.len()
+            );
+        }
+    }
 }

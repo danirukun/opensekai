@@ -54,6 +54,8 @@ The avatar license prohibits redistribution. Do not commit a private fixture fil
 
 `pnpm build:test-stage` rebuilds the test stage with Blender 5.2 or later (`BLENDER` sets the binary) into `fixtures/local/cache/test-stage/test-stage.glb`, and validates it. The [test stage contract](../spdd/prompt/2026-10-18-test-stage.md) gives the layout. A rebuild is not byte-identical, so a changed stage is a new fixture revision: upload it and change its manifest entry. The public copy for users is at <https://assets.oshi-connect.net/opensekai/test-stage/opensekai-test-stage-fbeb8623.glb>. A new revision gets a new public file name, and the README link changes with it.
 
+`fixtures/scene-import/packed-room.glb` is a committed test file. `import_integration.rs` makes it from synthetic data through the scene import and the asset HTTP route, and the renderer test `scene-import.test.ts` loads it. When the packer output changes, the Rust test fails. Run it with `OPENSEKAI_UPDATE_FIXTURES=1` to write the file again, and then run the renderer test.
+
 Tools for fixture checks:
 
 - `pnpm exec tsx scripts/gltf-validate.ts <file>...` runs the Khronos glTF validator and prints the error and warning counts by code. Exit code 1 means that a file has validation errors. The fixtures above have 0 errors.
