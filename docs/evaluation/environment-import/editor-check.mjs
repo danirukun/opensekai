@@ -102,7 +102,7 @@ await source().selectOption('');await settle();
 check('Choose model… sends setEnvironmentModel with null (R22)',environment().assetId===null,environment().assetId);
 const patched=await api.scenePatch({sceneId:session.inspect().sceneId,expectedRevision:session.inspect().revision,operations:[{kind:'setEnvironmentModel',entityId:environment().id,assetId:'scene_gone'}]});
 check('the stand-in sets an unknown asset ID',patched.ok,patched);
-// Reload the window, so the Editor reads the show again as after Open (R26).
+// Reload the window, so the Editor reads the scene again. The session in this process stays the same; no show file is read.
 await page.reload();
 await page.getByText('Session connected').waitFor({timeout:15000});
 await selectRow('Environment');

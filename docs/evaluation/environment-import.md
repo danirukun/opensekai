@@ -80,10 +80,10 @@ Editor check: the `vite preview` build of `apps/desktop` in headless Chromium, w
 | R16–R18 | `environment.test.ts` (renderer), with the new `draws nothing for a hidden environment` | Unit, fake loader |
 | R19 | `does not pick environment roots` (editor viewport) | Unit |
 | R20–R21 | `disables Add › Environment while the scene has an environment`; editor check | Unit, headless |
-| R22 | `lists scene assets…`, `shows the scene import error, cut to 160 characters…`; editor check (select, cancel, import error, Choose model…, Missing model) | Unit, headless |
+| R22 | `lists scene assets…`, `shows the scene import error, cut to 160 characters…`; editor check (select, cancel, import error, Choose model…, Missing model for an unknown asset ID) | Unit, headless |
 | R23 | `writes the CC credit line…`; editor check (credits block, clipboard text) | Unit, headless |
 | R24 | `shows the scene value again when the Render Environment change fails`; editor check (off, rejected change, on) | Unit, headless |
 | R25 | `asset-list.integration.test.ts` (MCP) | Integration |
-| R26 | `round_trip_keeps_an_environment_with_an_unknown_model_and_the_camera_flag`; editor check after a reload | Unit, headless |
+| R26 | `round_trip_keeps_an_environment_with_an_unknown_model_and_the_camera_flag` (Save As and Open of the file). The editor check shows `Missing model` after a window reload; the session stays the same, so it does not read a show file | Unit, headless |
 
 Not proved in the cloud: the native dialog, a physical click, OBS output and alpha, the WebKit memory footprint, the WebGPU and WebGL 2 render of a packed environment on a real GPU, a release build, and Windows. The editor check has no renderer, so the load status row and the failed-load row under Source were not seen (unknown).

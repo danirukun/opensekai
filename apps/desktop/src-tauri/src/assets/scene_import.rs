@@ -1187,6 +1187,9 @@ mod tests {
             })
             .filter_map(|asset| asset["path"].as_str())
             .collect();
+        if stages.is_empty() {
+            eprintln!("skip: setup did not prepare a fixture stage");
+        }
         for path in stages {
             let source = json_of(&std::fs::read(path).unwrap());
             let packed = pack_scene(Path::new(path), Limits::DEFAULT).unwrap();

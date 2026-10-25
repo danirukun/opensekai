@@ -30,6 +30,18 @@ it('disables Add › Environment while the scene has an environment', () => {
     expect(addLimitReached('environment', scene)).toBe(false);
     expect(addLimitReached('environment', [...scene, makeAuthoringEntity('environment', 'stage', scene)])).toBe(true);
 });
+it('keeps the Add menu limits of the other kinds', () => {
+    const scene = makeEmptyScene().entities;
+    const withTwo = (kind: Parameters<typeof makeAuthoringEntity>[0]) => [...scene, makeAuthoringEntity(kind, 'a', scene), makeAuthoringEntity(kind, 'b', scene)];
+    expect(addLimitReached('character', scene)).toBe(false);
+    expect(addLimitReached('character', withTwo('character'))).toBe(true);
+    expect(addLimitReached('haze', [...scene, makeAuthoringEntity('haze', 'h', scene)])).toBe(true);
+    expect(addLimitReached('fpsCounter', [...scene, makeAuthoringEntity('fpsCounter', 'f', scene)])).toBe(true);
+    const lights = Array.from({ length: 8 }, (_, i) => makeAuthoringEntity('pointLight', `l${i}`, scene));
+    expect(addLimitReached('spotLight', scene)).toBe(false);
+    expect(addLimitReached('spotLight', [...scene.filter(e => e.kind !== 'light'), ...lights])).toBe(true);
+    expect(addLimitReached('vmc', withTwo('vmc'))).toBe(false);
+});
 it('shows the scene import error, cut to 160 characters, or a safe fallback', () => {
     expect(importFailure({ code: 'INVALID_INPUT', message: 'x'.repeat(200), ids: [] }, 'Could not import model')).toBe('x'.repeat(160));
     expect(importFailure(new Error('private path'), 'Could not import model')).toBe('Could not import model');
