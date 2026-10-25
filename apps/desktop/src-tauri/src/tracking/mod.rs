@@ -100,6 +100,18 @@ fn route_source(id: &str, name: &str, config: &TrackingConfig) -> Option<Result<
             port,
             phone_address,
         ),
+        TrackingConfig::OpenSeeFace {
+            enabled,
+            bind_address,
+            port,
+            sender_address,
+        } => (
+            SourceKind::OpenSeeFace,
+            enabled,
+            bind_address,
+            port,
+            sender_address,
+        ),
         TrackingConfig::Mediapipe { .. } => return None,
     };
     if !enabled {
@@ -314,7 +326,7 @@ impl TrackingManager {
                         let (routes_tx, routes_rx) = watch::channel(routes.clone());
                         let task = tokio::spawn(serve(
                             udp,
-                            endpoint.kind == SourceKind::IFacialMocap,
+                            endpoint.kind,
                             routes_rx,
                             self.clock,
                             self.inputs.clone(),
@@ -396,7 +408,7 @@ fn count(n: u64) -> u64 {
 /// the iFacialMocap handshake of each phone route from this socket (R6).
 async fn serve(
     socket: tokio::net::UdpSocket,
-    ifacial: bool,
+    kind: SourceKind,
     mut routes: watch::Receiver<Vec<Route>>,
     clock: Instant,
     inputs: Arc<Mutex<Inputs>>,
@@ -408,7 +420,7 @@ async fn serve(
     loop {
         let current = routes.borrow_and_update().clone();
         decoders.retain(|id, _| current.iter().any(|r| &r.id == id));
-        if ifacial {
+        if kind == SourceKind::IFacialMocap {
             phones.retain(|(id, generation), _| {
                 current
                     .iter()
@@ -509,10 +521,12 @@ async fn serve(
         let decoder = &mut decoder.1;
         let parsed = if size > 8192 {
             Err(invalid("Oversized datagram"))
-        } else if ifacial {
-            decoder.ifacial(&buffer[..size])
         } else {
-            decoder.vmc(&buffer[..size])
+            match kind {
+                SourceKind::Vmc => decoder.vmc(&buffer[..size]),
+                SourceKind::IFacialMocap => decoder.ifacial(&buffer[..size]),
+                SourceKind::OpenSeeFace => decoder.openseeface(&buffer[..size]),
+            }
         };
         let mut input = lock(&inputs);
         let Some(status) = input.status(&route.id, route.generation) else {
