@@ -315,7 +315,7 @@ it('counts a hotkey in a variable and cuts cameras through Switch On Number, and
  expect(camera()).toBe('camera_close');
 });
 
-it('runs On Blend Shape Threshold from tracked jawOpen once per crossing, in the tick after the pose', () => {
+it('runs device, tracking, then On Update triggers in one tick, and a threshold crossing once', () => {
  const scene = makeSmokeScene();
  const config = { ...defaultTrackingConfig('ifacialmocap'), enabled: true };
  scene.entities.push({ id: 'face', kind: 'tracking', name: 'face', visible: true, transform: { position: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] }, config, generation: 1, smoothing: { enabled: false, minCutoff: 5, beta: 0.5, derivativeCutoff: 1 } } as never);
@@ -324,10 +324,25 @@ it('runs On Blend Shape Threshold from tracked jawOpen once per crossing, in the
  performer.tracking = { bodySourceId: null, faceSourceId: 'face' };
  const session = createSession(SceneViewSchema.parse(scene), 's');
  const at = { x: 0, y: 0 };
- load(session, [{ schemaVersion: 1, id: 'jaw', name: 'Jaw', enabled: true, variables: [],
-  nodes: [{ id: 'jaw', version: 1, type: 'tracking.onBlendShapeThreshold', settings: { entityId: 'performer', blendShape: 'jawOpen', threshold: 0.5, release: 0.4 }, position: at }, { id: 'hide', version: 1, type: 'scene.toggleVisibility', settings: { entityId: 'marker' }, position: at }],
-  connections: [{ id: 'c', sourceNodeId: 'jaw', sourcePort: 'rise', targetNodeId: 'hide', targetPort: 'flow' }] }]);
- const send = (jaw: number, at: number) => session.ingestTracking({ samples: [{ sourceId: 'face', generation: 1, receivedAtMs: at, bones: {}, expressions: { jawOpen: jaw } }], statuses: [] });
- const frames = [[0.1, 0], [0.7, 16], [0.7, 32], [0.7, 48], [0.2, 64], [0.2, 80]].map(([jaw, ms]) => { send(jaw!, ms!); session.advance(ms!, ms!); return visible(session, 'marker'); });
- expect(frames).toEqual([true, true, false, false, false, false]);
+ const log = (id: string, message: string) => ({ id, version: 1, type: 'debug.log', settings: { level: 'info' }, inputs: { message }, position: at });
+ const wire = (id: string, from: string, port: string, to: string) => ({ id, sourceNodeId: from, sourcePort: port, targetNodeId: to, targetPort: 'flow' });
+ const node = (id: string, type: string, settings: object) => ({ id, version: 1, type, settings, position: at });
+ load(session, [{ schemaVersion: 1, id: 'order', name: 'Order', enabled: true, variables: [],
+  nodes: [node('jaw', 'tracking.onBlendShapeThreshold', { entityId: 'performer', blendShape: 'jawOpen', threshold: 0.5, release: 0.4 }), node('pad', 'gamepad.pressed', { pad: 0, button: 'south' }), node('up', 'event.update', {}), log('l-rise', 'rise'), log('l-device', 'device'), log('l-update', 'update')],
+  connections: [wire('c1', 'jaw', 'rise', 'l-rise'), wire('c2', 'pad', 'flow', 'l-device'), wire('c3', 'up', 'flow', 'l-update')] }]);
+ const send = (jaw: number, at: number) => session.ingestTracking({ samples: [{ sourceId: 'face', generation: 1, receivedAtMs: at, bones: {}, expressions: { jawOpen: jaw } } as never], statuses: [] });
+ const tick = (jaw: number, ms: number, devices?: object) => {
+  const since = session.debugBlueprints().latest;
+  send(jaw, ms);
+  session.advance(ms, ms, devices ? { devices } as never : undefined);
+  return session.debugBlueprints(since).entries.map(entry => (entry as { message: string }).message);
+ };
+ expect(tick(0.1, 0)).toEqual(['update']);
+ // The pose of this tick reaches the threshold in the next tick.
+ expect(tick(0.7, 16)).toEqual(['update']);
+ expect(tick(0.7, 32, { events: [{ kind: 'gamepadButton', pad: 1, button: 'south', pressed: true }] })).toEqual(['device', 'rise', 'update']);
+ expect(tick(0.7, 48)).toEqual(['update']);
+ expect(tick(0.2, 64)).toEqual(['update']);
+ expect(tick(0.7, 80)).toEqual(['update']);
+ expect(tick(0.7, 96)).toEqual(['rise', 'update']);
 });

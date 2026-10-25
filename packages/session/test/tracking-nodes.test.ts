@@ -112,3 +112,24 @@ it('parses defaults and rejects a release at or above the threshold', () => {
  expect([0.05, 0.1, 60, 61].map(after => lost.safeParse({ sourceId: 's', after }).success)).toEqual([false, true, true, false]);
  expect(NODE_DEFINITIONS.find(d => d.type === 'tracking.onLost')).toMatchObject({ label: 'On Tracking Lost', category: 'Tracking' });
 });
+
+it('lost fires again after a found and a second loss of 2 s or more', () => {
+ const lost = trigger('tracking.onLost', { sourceId: 'face', after: 2 });
+ let edge: TrackingEdge | undefined;
+ const tick = (state: TrackingStatus['state'], nowMs: number) => {
+  const result = trackingTrigger(lost, edge, env({ trackingStatus: () => status(state) }), nowMs);
+  edge = result.edge;
+  return result.port;
+ };
+ expect([tick('receiving', 0), tick('stale', 100), tick('stale', 2100), tick('receiving', 2200)]).toEqual([null, null, 'flow', null]);
+ expect([tick('stale', 3000), tick('stale', 4999), tick('stale', 5000), tick('stale', 9000)]).toEqual([null, null, 'flow', null]);
+});
+
+it('a reinstall with unchanged logic keeps its edges', () => {
+ const runtime = createBlueprintRuntime();
+ runtime.install([graph()]);
+ const step = (nowMs: number) => runtime.step([{ kind: 'tracking' }], nowMs, undefined, env({ previousPose: () => pose({ jawOpen: 0.6 }) })).map(run => run.nodeId);
+ expect(step(0)).toEqual(['jaw']);
+ runtime.install([graph()]);
+ expect(step(16)).toEqual([]);
+});

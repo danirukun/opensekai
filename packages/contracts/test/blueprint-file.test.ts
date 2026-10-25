@@ -195,3 +195,11 @@ it('does not take a tracking entity for an entity field, nor another entity for 
  expect(exportBlueprint(graph([toggle('hide', 'old-face')]), withSource('old-face', 'Face')).references).toEqual([{ id: 'old-face', kind: 'unknown', name: 'old-face' }]);
  expect(exportBlueprint(lostGraph('marker'), scene).references).toEqual([{ id: 'marker', kind: 'unknown', name: 'marker' }]);
 });
+
+it('treats two tracking sources with the same name as missing', () => {
+ const file = exportBlueprint(lostGraph('old-face'), withSource('old-face', 'Face'));
+ const twins = withSource('face-b', 'Face');
+ twins.entities.push(...withSource('face-c', 'Face').entities.slice(-1));
+ const imported = ok(importBlueprint(file, twins, ids()));
+ expect(imported.report).toMatchObject({ enabled: false, remapped: [], missing: [{ name: 'Face', kind: 'tracking', id: 'old-face', nodeIds: ['lost'] }] });
+});

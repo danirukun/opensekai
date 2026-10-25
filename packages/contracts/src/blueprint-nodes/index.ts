@@ -23,6 +23,7 @@ import { TYPED_VARIABLE_NODES } from './typed-variables';
 import { TIMER_NODES } from './timer';
 import { GRAPH_CONTROL_NODES } from './graph-control';
 import { TRACKING_NODES } from './tracking';
+export { TRACKING_LOST_AFTER_SECONDS } from './tracking';
 
 export { defineNode, IntegerCasesSchema, MAX_SWITCH_CASES, NODE_CATEGORIES, type PortType, type PortShape, type NodeCategory, type DefaultRefs, type BlueprintField, type NodeDefinition } from './define';
 export { KEYSTROKE_CODES, KeystrokeSettingsSchema, keystrokeAccelerator, keystrokeHasModifier, type KeystrokeSettings } from './events';
