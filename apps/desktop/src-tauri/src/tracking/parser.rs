@@ -188,6 +188,92 @@ fn euler(degrees: &[f64]) -> Quat {
         cx * cy * cz + sx * sy * sz,
     ]
 }
+/// One OpenSeeFace face record in bytes (B20 R4). See the analysis for the layout.
+pub const OSF_RECORD_BYTES: usize = 1785;
+pub const OSF_MAX_RECORDS: usize = 4;
+const OSF_FEATURES: usize = 14;
+#[derive(Debug, Clone, PartialEq)]
+pub struct OsfRecord {
+    pub id: i32,
+    pub success: bool,
+    /// Right, then left, as the tracker sends them.
+    pub eye_open: [f64; 2],
+    pub quaternion: Quat,
+    pub features: [f64; OSF_FEATURES],
+}
+fn osf_f32(record: &[u8], offset: usize) -> Result<f64, AppError> {
+    let bytes: [u8; 4] = record
+        .get(offset..offset + 4)
+        .and_then(|b| b.try_into().ok())
+        .ok_or_else(|| invalid("Truncated OpenSeeFace record"))?;
+    let n = f32::from_le_bytes(bytes) as f64;
+    if n.is_finite() {
+        Ok(n)
+    } else {
+        Err(invalid("Nonfinite OpenSeeFace value"))
+    }
+}
+fn osf_record(record: &[u8]) -> Result<OsfRecord, AppError> {
+    let id = record
+        .get(8..12)
+        .and_then(|b| b.try_into().ok())
+        .map(i32::from_le_bytes)
+        .ok_or_else(|| invalid("Truncated OpenSeeFace record"))?;
+    let success = record.get(28).is_some_and(|b| *b != 0);
+    let mut quaternion = [0.; 4];
+    for (i, q) in quaternion.iter_mut().enumerate() {
+        *q = osf_f32(record, 33 + i * 4)?;
+    }
+    let mut features = [0.; OSF_FEATURES];
+    for (i, f) in features.iter_mut().enumerate() {
+        *f = osf_f32(record, 1729 + i * 4)?;
+    }
+    Ok(OsfRecord {
+        id,
+        success,
+        eye_open: [osf_f32(record, 20)?, osf_f32(record, 24)?],
+        quaternion,
+        features,
+    })
+}
+/// Converts the tracker quaternion to the normalized head frame (B20 R6).
+/// The tracker quaternion is the transpose of the OpenCV solvePnP rotation, solved on (row, column)
+/// landmarks against a face model with +X at the performer's right, +Y up, and +Z out of the face.
+/// The normalized frame has +X at the avatar's left, +Y up, and +Z forward. The analysis records
+/// the derivation and the solvePnP cross-check.
+pub fn osf_head(q: Quat) -> Quat {
+    let [x, y, z, w] = q;
+    let s = std::f64::consts::FRAC_1_SQRT_2;
+    [s * (w + z), s * (w - z), s * (x + y), s * (x - y)]
+}
+/// Maps the eye values and the features to ARKit names (B20 analysis, "Feature to ARKit map").
+pub fn osf_expressions(record: &OsfRecord) -> BTreeMap<String, f64> {
+    let [right_open, left_open] = record.eye_open;
+    let f = &record.features;
+    let (brow_left, brow_right) = (f[3], f[6]);
+    let (corner_left, corner_right) = (f[8], f[10]);
+    let (open, wide) = (f[12], f[13]);
+    [
+        ("eyeBlinkLeft", 1. - left_open),
+        ("eyeBlinkRight", 1. - right_open),
+        ("jawOpen", open),
+        ("mouthSmileLeft", corner_left),
+        ("mouthFrownLeft", -corner_left),
+        ("mouthSmileRight", corner_right),
+        ("mouthFrownRight", -corner_right),
+        ("mouthStretchLeft", wide),
+        ("mouthStretchRight", wide),
+        ("mouthFunnel", -wide),
+        ("browOuterUpLeft", brow_left),
+        ("browDownLeft", -brow_left),
+        ("browOuterUpRight", brow_right),
+        ("browDownRight", -brow_right),
+        ("browInnerUp", (brow_left.max(0.) + brow_right.max(0.)) / 2.),
+    ]
+    .into_iter()
+    .map(|(name, value)| (name.to_string(), value.clamp(0., 1.)))
+    .collect()
+}
 impl Decoder {
     pub fn vmc(&mut self, bytes: &[u8]) -> Result<bool, AppError> {
         let mut list = vec![];
@@ -337,6 +423,48 @@ impl Decoder {
         if count == 0 {
             return Err(invalid("Empty IFacial packet"));
         }
+        *self = next;
+        Ok(true)
+    }
+    /// Decodes one OpenSeeFace datagram (B20 R4–R6). `Ok(false)` means a valid datagram with no
+    /// usable face, so the sample does not change.
+    pub fn openseeface(&mut self, bytes: &[u8]) -> Result<bool, AppError> {
+        let count = bytes.len() / OSF_RECORD_BYTES;
+        if bytes.is_empty()
+            || !bytes.len().is_multiple_of(OSF_RECORD_BYTES)
+            || count > OSF_MAX_RECORDS
+        {
+            return Err(invalid("Invalid OpenSeeFace length"));
+        }
+        let mut chosen: Option<OsfRecord> = None;
+        for chunk in bytes.chunks_exact(OSF_RECORD_BYTES) {
+            let record = osf_record(chunk)?;
+            if !record.success {
+                continue;
+            }
+            // An unsuccessful fit sends a zero quaternion, so only a usable record has this check.
+            let norm = record.quaternion.iter().map(|n| n * n).sum::<f64>().sqrt();
+            if !(0.5..=2.).contains(&norm) {
+                return Err(invalid("Invalid OpenSeeFace quaternion"));
+            }
+            if chosen.as_ref().is_none_or(|c| record.id < c.id) {
+                chosen = Some(record);
+            }
+        }
+        let Some(record) = chosen else {
+            return Ok(false);
+        };
+        let mut next = Self::default();
+        next.bones.insert(
+            "head".into(),
+            TrackingBone {
+                rotation: osf_head(normalized(record.quaternion)?),
+                space: BoneSpace::Normalized,
+                position: None,
+                weight: None,
+            },
+        );
+        next.expressions = osf_expressions(&record);
         *self = next;
         Ok(true)
     }
@@ -752,5 +880,318 @@ mod tolerance_tests {
         assert_eq!(d.bones.keys().collect::<Vec<_>>(), vec!["head", "leftEye"]);
         assert!(d.ifacial(b"jawOpen&50|hips#1,NaN,3|").is_err());
         assert!(d.ifacial(b"jawOpen&50|hips#1,x,3|").is_err());
+    }
+}
+#[cfg(test)]
+mod openseeface_tests {
+    use super::*;
+    /// A hand-built record with the B20 layout. Each other field is zero.
+    pub(crate) fn record(
+        id: i32,
+        success: bool,
+        quaternion: [f32; 4],
+        eyes: [f32; 2],
+        features: [f32; 14],
+    ) -> Vec<u8> {
+        let mut b = vec![0u8; OSF_RECORD_BYTES];
+        b[8..12].copy_from_slice(&id.to_le_bytes());
+        for (i, v) in [640f32, 480., eyes[0], eyes[1]].iter().enumerate() {
+            b[12 + i * 4..16 + i * 4].copy_from_slice(&v.to_le_bytes());
+        }
+        b[28] = u8::from(success);
+        for (i, v) in quaternion.iter().enumerate() {
+            b[33 + i * 4..37 + i * 4].copy_from_slice(&v.to_le_bytes());
+        }
+        for (i, v) in features.iter().enumerate() {
+            b[1729 + i * 4..1733 + i * 4].copy_from_slice(&v.to_le_bytes());
+        }
+        b
+    }
+    type M = [[f64; 3]; 3];
+    fn mul(a: M, b: M) -> M {
+        let mut m = [[0.; 3]; 3];
+        for (i, row) in m.iter_mut().enumerate() {
+            for (j, v) in row.iter_mut().enumerate() {
+                *v = (0..3).map(|k| a[i][k] * b[k][j]).sum();
+            }
+        }
+        m
+    }
+    fn axis(axis: usize, degrees: f64) -> M {
+        let (s, c) = degrees.to_radians().sin_cos();
+        match axis {
+            0 => [[1., 0., 0.], [0., c, -s], [0., s, c]],
+            1 => [[c, 0., s], [0., 1., 0.], [-s, 0., c]],
+            _ => [[c, -s, 0.], [s, c, 0.], [0., 0., 1.]],
+        }
+    }
+    /// A port of `matrix_to_quaternion` in OpenSeeFace `tracker.py`.
+    fn tracker_quaternion(m: M) -> [f32; 4] {
+        let (t, q) = if m[2][2] < 0. {
+            if m[0][0] > m[1][1] {
+                let t = 1. + m[0][0] - m[1][1] - m[2][2];
+                (
+                    t,
+                    [t, m[0][1] + m[1][0], m[2][0] + m[0][2], m[1][2] - m[2][1]],
+                )
+            } else {
+                let t = 1. - m[0][0] + m[1][1] - m[2][2];
+                (
+                    t,
+                    [m[0][1] + m[1][0], t, m[1][2] + m[2][1], m[2][0] - m[0][2]],
+                )
+            }
+        } else if m[0][0] < -m[1][1] {
+            let t = 1. - m[0][0] - m[1][1] + m[2][2];
+            (
+                t,
+                [m[2][0] + m[0][2], m[1][2] + m[2][1], t, m[0][1] - m[1][0]],
+            )
+        } else {
+            let t = 1. + m[0][0] + m[1][1] + m[2][2];
+            (
+                t,
+                [m[1][2] - m[2][1], m[2][0] - m[0][2], m[0][1] - m[1][0], t],
+            )
+        };
+        q.map(|v| (v * 0.5 / t.sqrt()) as f32)
+    }
+    /// The solvePnP rotation for a head pose in the normalized frame, by the matrix path:
+    /// the image row and column swap, the face model reflection, and the camera axes.
+    fn pose_quaternion(avatar: M) -> [f32; 4] {
+        let swap_reflect = [[0., -1., 0.], [-1., 0., 0.], [0., 0., -1.]];
+        let camera = [[1., 0., 0.], [0., -1., 0.], [0., 0., -1.]];
+        tracker_quaternion(mul(swap_reflect, mul(camera, mul(avatar, camera))))
+    }
+    /// The direction of the avatar face (+Z) after the head rotation.
+    fn forward(q: Quat) -> [f64; 3] {
+        let [x, y, z, w] = q;
+        [
+            2. * (x * z + y * w),
+            2. * (y * z - x * w),
+            1. - 2. * (x * x + y * y),
+        ]
+    }
+    fn up(q: Quat) -> [f64; 3] {
+        let [x, y, z, w] = q;
+        [
+            2. * (x * y - z * w),
+            1. - 2. * (x * x + z * z),
+            2. * (y * z + x * w),
+        ]
+    }
+    fn head(packet: &[u8]) -> Quat {
+        let mut d = Decoder::default();
+        assert!(d.openseeface(packet).unwrap());
+        d.bones["head"].rotation
+    }
+    const OPEN: [f32; 2] = [1., 1.];
+    #[test]
+    fn length_must_be_one_to_four_records() {
+        let one = record(0, true, pose_quaternion(axis(1, 0.)), OPEN, [0.; 14]);
+        for n in 1..=4 {
+            assert!(Decoder::default().openseeface(&one.repeat(n)).unwrap());
+        }
+        for len in [0, 1784, 1786, 8925] {
+            let bytes = vec![0u8; len];
+            assert!(Decoder::default().openseeface(&bytes).is_err(), "{len}");
+        }
+    }
+    #[test]
+    fn facing_the_camera_is_identity() {
+        let q = head(&record(
+            0,
+            true,
+            pose_quaternion(axis(1, 0.)),
+            OPEN,
+            [0.; 14],
+        ));
+        assert!((q[3].abs() - 1.).abs() < 1e-6, "{q:?}");
+    }
+    #[test]
+    fn axis_signs_follow_the_performer() {
+        // A turn to the performer's left moves the face toward +X (the avatar's left).
+        let yaw = forward(head(&record(
+            0,
+            true,
+            pose_quaternion(axis(1, 30.)),
+            OPEN,
+            [0.; 14],
+        )));
+        assert!(yaw[0] > 0.49 && yaw[0] < 0.51 && yaw[2] > 0.86, "{yaw:?}");
+        // A pitch up moves the face toward +Y.
+        let pitch = forward(head(&record(
+            0,
+            true,
+            pose_quaternion(axis(0, -20.)),
+            OPEN,
+            [0.; 14],
+        )));
+        assert!(
+            pitch[1] > 0.33 && pitch[1] < 0.35 && pitch[0].abs() < 1e-6,
+            "{pitch:?}"
+        );
+        // A tilt to the left moves the top of the head toward +X.
+        let roll = up(head(&record(
+            0,
+            true,
+            pose_quaternion(axis(2, -15.)),
+            OPEN,
+            [0.; 14],
+        )));
+        assert!(
+            roll[0] > 0.25 && roll[0] < 0.26 && roll[2].abs() < 1e-6,
+            "{roll:?}"
+        );
+    }
+    #[test]
+    fn closed_form_matches_the_matrix_path() {
+        let pose = mul(axis(1, 25.), mul(axis(0, -10.), axis(2, 12.)));
+        let q = head(&record(0, true, pose_quaternion(pose), OPEN, [0.; 14]));
+        let [x, y, z, w] = q;
+        let m = [
+            [
+                1. - 2. * (y * y + z * z),
+                2. * (x * y - z * w),
+                2. * (x * z + y * w),
+            ],
+            [
+                2. * (x * y + z * w),
+                1. - 2. * (x * x + z * z),
+                2. * (y * z - x * w),
+            ],
+            [
+                2. * (x * z - y * w),
+                2. * (y * z + x * w),
+                1. - 2. * (x * x + y * y),
+            ],
+        ];
+        for i in 0..3 {
+            for j in 0..3 {
+                assert!((m[i][j] - pose[i][j]).abs() < 1e-5, "{m:?} {pose:?}");
+            }
+        }
+    }
+    #[test]
+    fn unusable_record_keeps_the_sample() {
+        let mut d = Decoder::default();
+        let mut features = [0.; 14];
+        features[12] = 0.6;
+        assert!(d
+            .openseeface(&record(
+                0,
+                true,
+                pose_quaternion(axis(1, 0.)),
+                OPEN,
+                features
+            ))
+            .unwrap());
+        // A failed fit sends a zero quaternion; the datagram is valid and changes nothing.
+        assert!(!d
+            .openseeface(&record(0, false, [0.; 4], OPEN, [0.; 14]))
+            .unwrap());
+        assert!((d.expressions["jawOpen"] - 0.6).abs() < 1e-6);
+    }
+    #[test]
+    fn rejects_nonfinite_values_and_bad_quaternions() {
+        let q = pose_quaternion(axis(1, 0.));
+        let mut features = [0.; 14];
+        features[5] = f32::NAN;
+        assert!(Decoder::default()
+            .openseeface(&record(0, true, q, OPEN, features))
+            .is_err());
+        assert!(Decoder::default()
+            .openseeface(&record(0, false, q, [f32::INFINITY, 1.], [0.; 14]))
+            .is_err());
+        assert!(Decoder::default()
+            .openseeface(&record(0, true, [f32::NAN, 0., 0., 1.], OPEN, [0.; 14]))
+            .is_err());
+        for scale in [0.4f32, 2.1] {
+            let bad = q.map(|v| v * scale);
+            assert!(Decoder::default()
+                .openseeface(&record(0, true, bad, OPEN, [0.; 14]))
+                .is_err());
+        }
+        // A quaternion inside 0.5..2 is normalized.
+        let head = head(&record(0, true, q.map(|v| v * 1.5), OPEN, [0.; 14]));
+        assert!((head.iter().map(|v| v * v).sum::<f64>() - 1.).abs() < 1e-9);
+    }
+    #[test]
+    fn lowest_usable_face_id_wins() {
+        let q = pose_quaternion(axis(1, 0.));
+        let features = |open: f32| {
+            let mut f = [0.; 14];
+            f[12] = open;
+            f
+        };
+        let packet = [
+            record(5, true, q, OPEN, features(0.5)),
+            record(1, false, [0.; 4], OPEN, features(0.1)),
+            record(2, true, q, OPEN, features(0.2)),
+            record(9, true, q, OPEN, features(0.9)),
+        ]
+        .concat();
+        let mut d = Decoder::default();
+        assert!(d.openseeface(&packet).unwrap());
+        assert!((d.expressions["jawOpen"] - 0.2).abs() < 1e-6);
+    }
+    #[test]
+    fn features_map_to_clamped_arkit_names() {
+        let mut f = [0.; 14];
+        f[3] = 0.4; // EyebrowUpDownLeft
+        f[6] = -0.3; // EyebrowUpDownRight
+        f[8] = 0.7; // MouthCornerUpDownLeft
+        f[10] = -0.5; // MouthCornerUpDownRight
+        f[12] = 1.4; // MouthOpen
+        f[13] = -0.25; // MouthWide
+        f[2] = 0.9; // EyebrowSteepnessLeft is not mapped
+        let mut d = Decoder::default();
+        d.openseeface(&record(
+            0,
+            true,
+            pose_quaternion(axis(1, 0.)),
+            [0.8, 0.1],
+            f,
+        ))
+        .unwrap();
+        let e = &d.expressions;
+        let expected = [
+            ("eyeBlinkRight", 0.2),
+            ("eyeBlinkLeft", 0.9),
+            ("jawOpen", 1.),
+            ("mouthSmileLeft", 0.7),
+            ("mouthFrownLeft", 0.),
+            ("mouthSmileRight", 0.),
+            ("mouthFrownRight", 0.5),
+            ("mouthStretchLeft", 0.),
+            ("mouthStretchRight", 0.),
+            ("mouthFunnel", 0.25),
+            ("browOuterUpLeft", 0.4),
+            ("browDownLeft", 0.),
+            ("browOuterUpRight", 0.),
+            ("browDownRight", 0.3),
+            ("browInnerUp", 0.2),
+        ];
+        assert_eq!(e.len(), expected.len());
+        for (name, value) in expected {
+            assert!(ARKIT_NAMES.contains(&name), "{name}");
+            assert!((e[name] - value).abs() < 1e-6, "{name} {}", e[name]);
+        }
+        assert!(
+            !d.bones.contains_key("leftEye")
+                && !d.bones.contains_key("rightEye")
+                && d.root.is_none()
+        );
+    }
+    #[test]
+    fn checked_in_fixture_decodes() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../fixtures/protocol/openseeface-one-face.bin");
+        let bytes = std::fs::read(path).unwrap();
+        let mut d = Decoder::default();
+        assert!(d.openseeface(&bytes).unwrap());
+        let q = d.bones["head"].rotation;
+        assert!((q[3].abs() - 1.).abs() < 1e-6, "{q:?}");
+        assert!((d.expressions["jawOpen"] - 0.5).abs() < 1e-6);
     }
 }

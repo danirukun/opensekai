@@ -1,4 +1,4 @@
-import {ARKIT_NAMES,DEFAULT_TRACKING_MAPPING,LensSchema,TrackingConfigSchema,TrackingMappingSchema} from '@opensekai/contracts';
+import {ARKIT_NAMES,DEFAULT_TRACKING_MAPPING,FACE_ONLY_TRACKING_KINDS,LensSchema,TrackingConfigSchema,TrackingMappingSchema} from '@opensekai/contracts';
 import type {SceneEntity,TrackingConfig,AvatarIdle,AvatarTracking,TrackingStatus,TrackingSmoothing,TrackingMapping,Reply} from '@opensekai/contracts';
 export type CameraLens=Extract<SceneEntity,{kind:'camera'}>['lens'];
 export type AddKind='camera'|'character'|'environment'|'prop'|'directionalLight'|'pointLight'|'spotLight'|'ambientLight'|'haze'|'fpsCounter'|'vmcSender'|TrackingConfig['kind'];
@@ -10,12 +10,12 @@ export type SourceOption={value:string;label:string;disabled:boolean};
 export type SourceChannel='body'|'face'|'fingers';
 const slot={body:'bodySourceId',face:'faceSourceId',fingers:'fingersSourceId'} as const;
 // A source that another avatar uses in any slot is disabled. The current value of the select stays enabled.
-// Only the face slot lists iFacialMocap sources.
+// Only the face slot lists face-only sources (iFacialMocap, OpenSeeFace).
 export function sourceOptions(entities:readonly SceneEntity[],channel:SourceChannel,avatarId:string):SourceOption[] {
  const avatars=entities.flatMap(entity=>entity.kind==='avatar'?[entity]:[]);
  const own=avatars.find(avatar=>avatar.id===avatarId)?.tracking?.[slot[channel]]??null;
  const used=new Set(avatars.filter(avatar=>avatar.id!==avatarId).flatMap(avatar=>[avatar.tracking?.bodySourceId,avatar.tracking?.faceSourceId,avatar.tracking?.fingersSourceId]));
- return [{value:'',label:'None',disabled:false},...entities.filter(entity=>entity.kind==='tracking'&&(channel==='face'||entity.config.kind!=='ifacialmocap')).map(entity=>({value:entity.id,label:entity.name,disabled:entity.id!==own&&used.has(entity.id)}))];
+ return [{value:'',label:'None',disabled:false},...entities.filter(entity=>entity.kind==='tracking'&&(channel==='face'||!FACE_ONLY_TRACKING_KINDS.includes(entity.config.kind))).map(entity=>({value:entity.id,label:entity.name,disabled:entity.id!==own&&used.has(entity.id)}))];
 }
 // One select changes one slot; the other two keep their IDs. An empty finger slot is left out.
 export function withSource(tracking:AvatarTracking|undefined,channel:SourceChannel,value:string):AvatarTracking {
@@ -38,10 +38,12 @@ export function parseMappingDraft(draft:MappingDraft,ranges:ReadonlySet<string>)
  const parsed=TrackingMappingSchema.safeParse({headIntensity:num(draft.headIntensity),headOffset:draft.headOffset.map(num),eyeIntensity:num(draft.eyeIntensity),blendShapeSensitivity:num(draft.blendShapeSensitivity),linkedBlink:draft.linkedBlink,blendShapes,...(draft.useEyeBones?{}:{useEyeBones:false})});
  return parsed.success?parsed.data:null;
 }
-export function parseTrackingConfig(config:TrackingConfig,values:{bindAddress:string;port:string;address:string}):TrackingConfig|null {const candidate=config.kind==='mediapipe'?config:{...config,bindAddress:values.bindAddress.trim(),port:values.port.trim()===''?NaN:Number(values.port),[config.kind==='vmc'?'senderAddress':'phoneAddress']:values.address.trim()||null};const parsed=TrackingConfigSchema.safeParse(candidate);return parsed.success?parsed.data:null;}
+// The config field that the Inspector shows as the address of a UDP source.
+export const addressKey=(config:Exclude<TrackingConfig,{kind:'mediapipe'}>)=>config.kind==='ifacialmocap'?'phoneAddress':'senderAddress';
+export function parseTrackingConfig(config:TrackingConfig,values:{bindAddress:string;port:string;address:string}):TrackingConfig|null {const candidate=config.kind==='mediapipe'?config:{...config,bindAddress:values.bindAddress.trim(),port:values.port.trim()===''?NaN:Number(values.port),[addressKey(config)]:values.address.trim()||null};const parsed=TrackingConfigSchema.safeParse(candidate);return parsed.success?parsed.data:null;}
 export function matchingStatus(statuses:TrackingStatus[],id:string,generation:number){return statuses.find(status=>status.sourceId===id&&status.generation===generation);}
 
-export function initialTrackingDraft(config:TrackingConfig){return {config:{...config},bindAddress:config.kind==='mediapipe'?'':config.bindAddress,port:config.kind==='mediapipe'?'':String(config.port),address:config.kind==='vmc'?config.senderAddress??'':config.kind==='ifacialmocap'?config.phoneAddress??'':''};}
+export function initialTrackingDraft(config:TrackingConfig){return {config:{...config},bindAddress:config.kind==='mediapipe'?'':config.bindAddress,port:config.kind==='mediapipe'?'':String(config.port),address:config.kind==='ifacialmocap'?config.phoneAddress??'':config.kind==='mediapipe'?'':config.senderAddress??''};}
 
 export function cameraOptions(entities:readonly SceneEntity[]){return entities.filter(entity=>entity.kind==='camera').map(entity=>({value:entity.id,label:entity.name}));}
 

@@ -22,3 +22,18 @@ it('names the B6 operations and returns the capture error for a source with no s
   expect(scene.data.entities.find(entity => entity.id === 'phone')).toMatchObject({ mapping, calibration: { bones: { head: { space: 'raw' } } } });
  } finally { await client.close(); }
 }, 15000);
+
+// B20 R9: scene_patch takes an OpenSeeFace source through the shared contract schema, as a face source only.
+it('adds an OpenSeeFace source and assigns it only to the face slot', async () => {
+ const transport = new StdioClientTransport({ command: process.execPath, args: ['--import', 'tsx', 'apps/mcp/test/session-fixture.ts'], stderr: 'pipe' });
+ const client = new Client({ name: 'opensekai-test', version: '0.1.0' });
+ await client.connect(transport);
+ const transform = { position: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] };
+ const patch = (expectedRevision: number, operations: unknown[]) => client.callTool({ name: 'scene_patch', arguments: { sceneId: 'scene_smoke', expectedRevision, operations } });
+ try {
+  expect((await patch(0, [{ kind: 'createEntity', entity: { id: 'osf', name: 'OpenSeeFace Receiver', visible: true, transform, kind: 'tracking', generation: 0, config: { kind: 'openseeface', enabled: false, bindAddress: '127.0.0.1', port: 11573, senderAddress: null } } }])).structuredContent).toMatchObject({ ok: true, data: { revision: 1 } });
+  const body = await patch(1, [{ kind: 'setAvatarTracking', entityId: 'performer', tracking: { bodySourceId: 'osf', faceSourceId: null } }]);
+  expect(body.structuredContent).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+  expect((await patch(1, [{ kind: 'setAvatarTracking', entityId: 'performer', tracking: { bodySourceId: null, faceSourceId: 'osf' } }])).structuredContent).toMatchObject({ ok: true, data: { revision: 2 } });
+ } finally { await client.close(); }
+}, 15000);
