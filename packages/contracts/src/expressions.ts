@@ -10,6 +10,7 @@ export const ARKIT_NAMES = [
  'browDownLeft','browDownRight','browInnerUp','browOuterUpLeft','browOuterUpRight','cheekPuff','cheekSquintLeft',
  'cheekSquintRight','noseSneerLeft','noseSneerRight','tongueOut'
 ] as const;
+export type ArkitName = typeof ARKIT_NAMES[number];
 const canonicalNames = new Map<string, string>();
 for (const name of ARKIT_NAMES) {
  canonicalNames.set(name.toLowerCase(), name);

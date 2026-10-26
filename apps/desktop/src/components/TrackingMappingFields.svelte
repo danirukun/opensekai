@@ -30,6 +30,7 @@
  <div class="offset">{#each ['X','Y','Z'] as axis,index}<div class="resettable"><Input label={`Head offset ${axis} (°)`} bind:value={draft.headOffset[index]!} onchange={()=>commit()}/>{@render mark(`headOffset${axis}`,`Head offset ${axis} (°)`)}</div>{/each}</div>
  <div class="resettable"><Input label="Sensitivity" bind:value={draft.blendShapeSensitivity} onchange={()=>commit()}/>{@render mark('blendShapeSensitivity','Sensitivity')}</div>
  <div class="resettable"><label class="option"><input type="checkbox" bind:checked={draft.linkedBlink} onchange={()=>commit()}/>Linked blink</label>{@render mark('linkedBlink','Linked blink')}</div>
+ <label class="option"><input type="checkbox" bind:checked={draft.useEyeBones} onchange={()=>commit()}/>Use bones for eye movement</label>
  <details>
   <summary>Blend shapes</summary>
   <div class="rows" role="table" aria-label="Blend shapes">

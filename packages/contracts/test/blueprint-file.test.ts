@@ -171,3 +171,35 @@ it('retargets a Blueprint control node of the own graph, and lists a target outs
  const own = ok(importBlueprint(exportBlueprint(graph([manual, control('self', 'blueprint.toggle', 'g')]), scene), scene, ids()));
  expect(own.report).toMatchObject({ enabled: true, missing: [] });
 });
+
+const lostGraph = (sourceId: string) => graph([{ id: 'lost', version: 1, type: 'tracking.onLost', settings: { sourceId, after: 2 }, position: at }]);
+const withSource = (id: string, name: string): SceneView => ({ ...scene, entities: [...scene.entities, { id, kind: 'tracking', name, visible: true, transform: { position: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] }, config: { kind: 'vmc', enabled: true, bindAddress: '127.0.0.1', port: 39539, senderAddress: null }, generation: 1, smoothing: { enabled: false, minCutoff: 5, beta: 0.5, derivativeCutoff: 1 } }] } as SceneView);
+
+it('exports the tracking source of On Tracking Lost and remaps it by name', () => {
+ const file = exportBlueprint(lostGraph('old-face'), withSource('old-face', 'Face'));
+ expect(file.references).toEqual([{ id: 'old-face', kind: 'tracking', name: 'Face' }]);
+ const imported = ok(importBlueprint(serializeBlueprintFile(file), withSource('new-face', 'Face'), ids()));
+ expect(imported.graph.nodes[0]).toMatchObject({ settings: { sourceId: 'new-face', after: 2 } });
+ expect(imported.report.remapped).toEqual([{ name: 'Face', kind: 'tracking', from: 'old-face', to: 'new-face' }]);
+ expect(ok(importBlueprint(file, withSource('old-face', 'Face'), ids())).report.remapped).toEqual([]);
+});
+
+it('reports a missing tracking source and imports the graph disabled', () => {
+ const file = exportBlueprint(lostGraph('old-face'), withSource('old-face', 'Face'));
+ const imported = ok(importBlueprint(file, scene, ids()));
+ expect(imported.report).toMatchObject({ enabled: false, missing: [{ name: 'Face', kind: 'tracking', id: 'old-face', nodeIds: ['lost'] }] });
+ expect(imported.graph.nodes[0]).toMatchObject({ settings: { sourceId: 'old-face' } });
+});
+
+it('does not take a tracking entity for an entity field, nor another entity for a source field', () => {
+ expect(exportBlueprint(graph([toggle('hide', 'old-face')]), withSource('old-face', 'Face')).references).toEqual([{ id: 'old-face', kind: 'unknown', name: 'old-face' }]);
+ expect(exportBlueprint(lostGraph('marker'), scene).references).toEqual([{ id: 'marker', kind: 'unknown', name: 'marker' }]);
+});
+
+it('treats two tracking sources with the same name as missing', () => {
+ const file = exportBlueprint(lostGraph('old-face'), withSource('old-face', 'Face'));
+ const twins = withSource('face-b', 'Face');
+ twins.entities.push(...withSource('face-c', 'Face').entities.slice(-1));
+ const imported = ok(importBlueprint(file, twins, ids()));
+ expect(imported.report).toMatchObject({ enabled: false, remapped: [], missing: [{ name: 'Face', kind: 'tracking', id: 'old-face', nodeIds: ['lost'] }] });
+});

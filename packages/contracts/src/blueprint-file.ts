@@ -6,7 +6,7 @@ import type { ErrorCode, Id, Reply, SceneEntity, SceneView } from './types';
 
 export const BLUEPRINT_FILE_FORMAT = 'opensekai.blueprint';
 export const MAX_BLUEPRINT_FILE_BYTES = 1024 * 1024;
-const REFERENCE_KINDS = ['avatar', 'environment', 'mesh', 'light', 'haze', 'fpsCounter', 'camera', 'output', 'unknown'] as const;
+const REFERENCE_KINDS = ['avatar', 'environment', 'mesh', 'light', 'haze', 'fpsCounter', 'camera', 'output', 'tracking', 'unknown'] as const;
 export const BlueprintReferenceSchema = z.strictObject({ id: z.string().min(1).max(256), kind: z.enum(REFERENCE_KINDS), name: z.string().min(1).max(256) });
 export const BlueprintFileSchema = z.strictObject({
  format: z.literal(BLUEPRINT_FILE_FORMAT),
@@ -25,23 +25,23 @@ export interface BlueprintImportReport {
 }
 export interface BlueprintImport { graph: BlueprintGraph; report: BlueprintImportReport }
 
-type FieldKind = 'entity' | 'avatar' | 'camera' | 'output';
+type FieldKind = 'entity' | 'avatar' | 'camera' | 'output' | 'trackingSource';
 interface Use { nodeId: Id; key: string; kind: FieldKind; value: Id }
-const isFieldKind = (kind: string): kind is FieldKind => kind === 'entity' || kind === 'avatar' || kind === 'camera' || kind === 'output';
-// Each value of an entity, avatar, camera, or output field, in node order and then catalog field order.
+const isFieldKind = (kind: string): kind is FieldKind => kind === 'entity' || kind === 'avatar' || kind === 'camera' || kind === 'output' || kind === 'trackingSource';
+// Each value of an entity, avatar, camera, output, or tracking source field, in node order and then catalog field order.
 const uses = (graph: BlueprintGraph): Use[] => graph.nodes.flatMap(node => nodeDefinition(node.type).fields.flatMap(field => {
  const value = (node.settings as Record<string, unknown>)[field.key];
  return isFieldKind(field.kind) && typeof value === 'string' ? [{ nodeId: node.id, key: field.key, kind: field.kind, value }] : [];
 }));
-// A VMC sender, like a tracking source, is not a Blueprint reference kind (B21 R2).
+// A VMC sender is not a Blueprint reference kind (B21 R2). A tracking source is one only for a trackingSource field.
 const referable = (entity: SceneEntity): entity is Exclude<SceneEntity, { kind: 'tracking' | 'vmcSender' }> => entity.kind !== 'tracking' && entity.kind !== 'vmcSender';
-const accepts = (kind: Exclude<FieldKind, 'output'>, entity: SceneEntity) => kind === 'camera' || kind === 'avatar' ? entity.kind === kind : referable(entity);
+const accepts = (kind: Exclude<FieldKind, 'output'>, entity: SceneEntity) => kind === 'camera' || kind === 'avatar' ? entity.kind === kind : kind === 'trackingSource' ? entity.kind === 'tracking' : referable(entity);
 
 export function exportBlueprint(graph: BlueprintGraph, scene: SceneView): BlueprintFile {
  const references = new Map<Id, BlueprintReference>();
  for (const use of uses(graph)) {
   if (references.has(use.value)) continue;
-  const entity = use.kind === 'output' ? undefined : scene.entities.find((item): item is Exclude<SceneEntity, { kind: 'tracking' | 'vmcSender' }> => item.id === use.value && referable(item));
+  const entity = use.kind === 'output' ? undefined : scene.entities.find((item): item is Exclude<SceneEntity, { kind: 'vmcSender' }> => item.id === use.value && (use.kind === 'trackingSource' ? item.kind === 'tracking' : referable(item)));
   const output = use.kind === 'output' && scene.outputs.some(item => item.id === use.value);
   references.set(use.value, entity ? { id: use.value, kind: entity.kind, name: entity.name }
    : output ? { id: use.value, kind: 'output', name: use.value }

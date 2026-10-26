@@ -1,4 +1,4 @@
-import {TrackingConfigSchema,TrackingSmoothingSchema,TrackingCalibrationSchema,TrackingMappingSchema,AvatarIdleSchema,AvatarTrackingSchema,AvatarPoseSchema,TrackingStatusSchema,TrackingUpdateSchema} from './tracking';
+import {TrackingConfigSchema,TrackingSmoothingSchema,TrackingProbeParamsSchema,TrackingProbeSchema,TrackingCalibrationSchema,TrackingMappingSchema,AvatarIdleSchema,AvatarTrackingSchema,AvatarPoseSchema,TrackingStatusSchema,TrackingUpdateSchema} from './tracking';
 import { BlueprintGraphSchema, BlueprintSetSchema } from './blueprint';
 import { BlueprintBatchSchema } from './blueprint-ops';
 import { BlueprintDebugParamsSchema, BlueprintDebugSchema } from './blueprint-debug';
@@ -8,7 +8,7 @@ import { ScalarValueSchema } from './blueprint-values';
 import { z } from "zod";
 import { CameraAntiAliasingSchema, QualityProfileIdSchema } from './quality';
 import { AvatarRigSchema, VmcPosesEnvelopeSchema, VmcSenderSettingsSchema, VmcSenderStatusSchema } from './vmc-sender';
-import { AssetExpressionsSchema, AvatarExpressionsSchema, ExpressionNameSchema, ExpressionSettingsSchema, ExpressionStateSchema } from './expressions';
+import { AssetExpressionsSchema, AvatarExpressionsSchema, ExpressionNameSchema, ExpressionSettingsSchema, ExpressionStateSchema, ARKIT_NAMES } from './expressions';
 import type { AppApi, Capability, Reply, ValidatedCall } from "./types";
 export const LIMITS = {
     jsonBytes: 262144,
@@ -243,6 +243,7 @@ export const ShowDocumentSchema = z.strictObject({
     blueprints: BlueprintSetSchema
 });
 export const EntityNameSchema = z.string().trim().min(1).refine(name=>name.length<=128, 'Name is too long');
+export const FitNeutralSchema=z.partialRecord(z.enum(ARKIT_NAMES),z.number().min(0).max(1));
 export const PatchOpSchema = z.discriminatedUnion("kind", [
     z.strictObject({kind:z.literal('renameEntity'),entityId:IdSchema,name:EntityNameSchema}),
     z.strictObject({kind:z.literal('removeEntity'),entityId:IdSchema}),
@@ -264,6 +265,7 @@ export const PatchOpSchema = z.discriminatedUnion("kind", [
     z.strictObject({kind:z.literal('setCameraNavigation'),entityId:IdSchema,navigation:CameraNavigationSchema}),
     z.strictObject({kind:z.literal('setTrackingConfig'),entityId:IdSchema,config:TrackingConfigSchema}),
     z.strictObject({kind:z.literal('calibrateTracking'),entityId:IdSchema}),
+    z.strictObject({kind:z.literal('fitBlendShapeRanges'),entityId:IdSchema,neutral:FitNeutralSchema}),
     z.strictObject({kind:z.literal('setTrackingCalibration'),entityId:IdSchema,calibration:TrackingCalibrationSchema.nullable()}),
     z.strictObject({kind:z.literal('setTrackingMapping'),entityId:IdSchema,mapping:TrackingMappingSchema}),
     z.strictObject({
@@ -304,6 +306,7 @@ export const AssetRecordSchema = z.strictObject({
     name: z.string().refine(name => name.trim().length > 0 && name.length <= 128, 'Invalid asset name'),
     credits: AssetCreditsSchema.optional(),
     expressions: AssetExpressionsSchema,
+    eyeBones: z.boolean().optional(),
     rig: AvatarRigSchema.optional()
 });
 // One page of `assetList`: the host answers it from the asset library, in ascending ID order.
@@ -506,6 +509,7 @@ export const ParamSchemas = {
     blueprintEdit: BlueprintBatchSchema,
     blueprintInspect: z.strictObject({ sinceRevision: u.optional() }),
     blueprintDebug: BlueprintDebugParamsSchema,
+    trackingProbe: TrackingProbeParamsSchema,
     captureFrame: CaptureParamsSchema,
     benchmarkStart: BenchmarkParamsSchema,
     benchmarkStatus: z.strictObject({
@@ -536,6 +540,7 @@ export const ResultSchemas = {
     blueprintEdit: z.strictObject({ revision: u, keystrokes: KeystrokeListSchema, heldKeys: HeldCodeListSchema.optional(), devices: DeviceKindListSchema.optional() }),
     blueprintInspect: BlueprintInspectSchema,
     blueprintDebug: BlueprintDebugSchema,
+    trackingProbe: TrackingProbeSchema,
     captureFrame: CaptureRecordSchema,
     benchmarkStart: BenchmarkRunSchema,
     benchmarkStatus: BenchmarkRunSchema,
@@ -556,6 +561,7 @@ export const MethodSchema = z.enum([
     "blueprintEdit",
     "blueprintInspect",
     "blueprintDebug",
+    "trackingProbe",
     "captureFrame",
     "benchmarkStart",
     "benchmarkStatus",

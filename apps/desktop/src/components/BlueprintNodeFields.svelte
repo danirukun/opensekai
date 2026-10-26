@@ -52,6 +52,7 @@
   // A second entity field (the Look At target) does not offer the node's own character.
   field.kind === 'entity' ? (scene?.entities ?? []).filter(entity => entity.kind !== 'tracking' && (field.key === 'entityId' || entity.id !== settings.entityId)).map(entity => ({ value: entity.id, label: entity.name }))
   : field.kind === 'avatar' ? (scene?.entities ?? []).filter(entity => entity.kind === 'avatar').map(entity => ({ value: entity.id, label: entity.name }))
+  : field.kind === 'trackingSource' ? (scene?.entities ?? []).filter(entity => entity.kind === 'tracking').map(entity => ({ value: entity.id, label: entity.name }))
   : field.kind === 'expression' ? expressionChoices()
   : field.kind === 'blendshape' ? blendShapeChoices()
   : field.kind === 'easing' ? EASINGS.map(name => ({ value: name, label: name }))
@@ -83,7 +84,7 @@
  const counts = (max: number) => Array.from({ length: max + 1 }, (_, i) => ({ value: String(i), label: String(i) }));
  const options = (field: BlueprintField) => {
   const list = choices(field), value = settings[field.key];
-  return (field.kind === 'entity' || field.kind === 'camera' || field.kind === 'output' || field.kind === 'avatar' || field.kind === 'expression' || field.kind === 'blendshape' || field.kind === 'typedVariable' || field.kind === 'graph') && typeof value === 'string' && !list.some(item => item.value === value)
+  return (field.kind === 'entity' || field.kind === 'camera' || field.kind === 'output' || field.kind === 'avatar' || field.kind === 'trackingSource' || field.kind === 'expression' || field.kind === 'blendshape' || field.kind === 'typedVariable' || field.kind === 'graph') && typeof value === 'string' && !list.some(item => item.value === value)
    ? [{ value, label: 'Missing' }, ...list] : list;
  };
 </script>

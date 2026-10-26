@@ -1,4 +1,4 @@
-import { IdSchema, ParamSchemas, type VmcPosesEnvelope, AssetRecordSchema, type AssetRecord, type ExpressionState, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate, type AppError, type InputUpdate, type BlueprintInspect, type AvatarPose, type DeviceKind, type ScalarValue, type BlueprintDebug } from "@opensekai/contracts";
+import { IdSchema, ParamSchemas, type VmcPosesEnvelope, AssetRecordSchema, type AssetRecord, type ExpressionState, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate, type AppError, type InputUpdate, type BlueprintInspect, type AvatarPose, type DeviceKind, type ScalarValue, type BlueprintDebug, type TrackingProbe, type TrackingProbeParams, type TrackingStatus, type ArkitName } from "@opensekai/contracts";
 import { createTransformAdapter } from "./ecs";
 import {createTrackingComposer} from "./tracking";
 import { createBlueprintRuntime, logicKey, type BlueprintEvent, type GraphRun, type StepEnv } from './blueprint-runtime';
@@ -7,6 +7,7 @@ import { NO_DEVICES, type DeviceEnv } from './blueprint-eval';
 import { createDeviceInput } from './devices';
 import { applyEffects, applyOperations } from './scene-ops';
 import { captureCalibration } from './tracking-calibration';
+import { fitRanges, mergeFit } from './blend-shape-fit';
 import { isBoneOffsetEffect, isCharacterLayerEffect, isDebugEffect, isExpressionEffect, isOverrideEffect, isSceneEffect } from './blueprint';
 import { createDebugLog } from './debug-log';
 import { composeBoneOffsets, EMPTY_BONE_OFFSETS, writeBoneOffset, type BoneOffsets } from './bone-offsets';
@@ -30,6 +31,10 @@ export interface Session {
         revision: number;
     }>;
     ingestTracking(update:TrackingUpdate):Reply<null>;
+    // The live ARKit values, run peaks, channels, and state of a tracking source (TRK-23).
+    probeTracking(params: TrackingProbeParams): Reply<TrackingProbe>;
+    // The run peaks of a source, for the blend shape fit.
+    runPeaks(sourceId: string): Partial<Record<ArkitName, number>>;
     advance(elapsedMs: number, trackingNowMs?:number, input?: InputUpdate): RuntimeFrame;
     // The poses of the enabled VMC senders for a frame of this session, or null when no sender qualifies (B21 R8).
     vmcPoses(frame: RuntimeFrame): VmcPosesEnvelope | null;
@@ -65,6 +70,8 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
     let elapsed = 0;
     // The tracking clock of the last advance. A capture compares sample age with it (R3).
     let lastTrackingNowMs: number | null = null;
+    // The tracking status of the last advance. A probe reports its state.
+    let lastTrackingStatus: TrackingStatus[] = [];
     let sequence = 0;
     function commit(next: SceneView): Reply<{
         revision: number;
@@ -118,7 +125,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
         let offsets = boneOffsets;
         let shapes = blendShapes;
         let looks = lookAts;
-        const env: StepEnv = { held, devices: deviceEnv, scene: () => applyOverrides(working ?? persistent, layer), previousPose: avatarId => previousPoses.get(avatarId) ?? null, tickMs: nowMs };
+        const env: StepEnv = { held, devices: deviceEnv, scene: () => applyOverrides(working ?? persistent, layer), previousPose: avatarId => previousPoses.get(avatarId) ?? null, trackingStatus: sourceId => { const source = persistent.entities.find(entity => entity.id === sourceId); return source?.kind === 'tracking' ? lastTrackingStatus.find(item => item.sourceId === sourceId && item.generation === source.generation) ?? null : null; }, tickMs: nowMs };
         // `elapsed` is the time of the values that a transition starts from.
         const startMs = transitionStart(nowMs, elapsed);
         const runs = runtime.step(events, nowMs, run => {
@@ -214,20 +221,38 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
         const committed = applied.ok ? commit(applied.data) : applied;
         if (!committed.ok) for (const graphId of idle.graphIds) runtimeErrors.set(graphId, committed.error);
     };
+    // A live tracking source that a patch operation reads. It fails when the source is missing, not tracking, changed in the same patch, or has no current sample.
+    const liveSample = (id: string, operations: ScenePatch['operations'], context: string) => {
+        const source = persistent.entities.find(entity => entity.id === id);
+        if (!source) return failure('NOT_FOUND', 'Entity not found', [id]);
+        if (source.kind !== 'tracking') return failure('INVALID_INPUT', 'Entity is not a tracking source', [id]);
+        if (operations.some(other => (other.kind === 'setTrackingConfig' || other.kind === 'removeEntity') && other.entityId === id)) return failure('INVALID_INPUT', `${context} in a separate patch`, [id]);
+        if (lastTrackingNowMs === null) return failure('INVALID_INPUT', 'Session has not started', [id]);
+        if (!source.config.enabled) return failure('INVALID_INPUT', 'Tracking source is stopped', [id]);
+        const sample = tracking.currentSample(id, lastTrackingNowMs);
+        if (!sample || sample.generation !== source.generation) return failure('INVALID_INPUT', 'Tracking source has no current sample', [id]);
+        return { ok: true as const, data: { source, sample } };
+    };
     // Each calibrateTracking becomes setTrackingCalibration with the current smoothed sample, read against the scene before the patch.
+    // Each fitBlendShapeRanges becomes setTrackingMapping with the ranges that the run peaks give.
     const resolveCalibrations = (operations: ScenePatch['operations']): Reply<ScenePatch['operations']> => {
         const resolved: ScenePatch['operations'] = [];
         for (const operation of operations) {
-            if (operation.kind !== 'calibrateTracking') { resolved.push(operation); continue; }
-            const id = operation.entityId, source = persistent.entities.find(entity => entity.id === id);
-            if (!source) return failure('NOT_FOUND', 'Entity not found', [id]);
-            if (source.kind !== 'tracking') return failure('INVALID_INPUT', 'Entity is not a tracking source', [id]);
-            if (operations.some(other => (other.kind === 'setTrackingConfig' || other.kind === 'removeEntity') && other.entityId === id)) return failure('INVALID_INPUT', 'Calibrate in a separate patch', [id]);
-            if (lastTrackingNowMs === null) return failure('INVALID_INPUT', 'Session has not started', [id]);
-            if (!source.config.enabled) return failure('INVALID_INPUT', 'Tracking source is stopped', [id]);
-            const sample = tracking.currentSample(id, lastTrackingNowMs);
-            if (!sample || sample.generation !== source.generation) return failure('INVALID_INPUT', 'Tracking source has no current sample', [id]);
-            const calibration = captureCalibration(sample);
+            if (operation.kind !== 'calibrateTracking' && operation.kind !== 'fitBlendShapeRanges') { resolved.push(operation); continue; }
+            const id = operation.entityId;
+            if (operation.kind === 'fitBlendShapeRanges') {
+                const live = liveSample(id, operations, 'Fit');
+                if (!live.ok) return live;
+                const fitted = fitRanges(operation.neutral, tracking.runPeaks(id));
+                if (Object.keys(fitted).length === 0) return failure('INVALID_INPUT', 'No blend shape rose above its neutral', [id]);
+                const base = [...resolved].reverse().find((other): other is Extract<typeof other, { kind: 'setTrackingMapping' }> => other.kind === 'setTrackingMapping' && other.entityId === id);
+                const current = base ? base.mapping : live.data.source.mapping;
+                resolved.push({ kind: 'setTrackingMapping', entityId: id, mapping: mergeFit(current, fitted) });
+                continue;
+            }
+            const live = liveSample(id, operations, 'Calibrate');
+            if (!live.ok) return live;
+            const calibration = captureCalibration(live.data.sample);
             if (!calibration) return failure('INVALID_INPUT', 'Tracking sample has no calibration bone', [id]);
             resolved.push({ kind: 'setTrackingCalibration', entityId: id, calibration });
         }
@@ -241,6 +266,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             if (!parsed.success || !Number.isSafeInteger(persistent.revision + 1)) return failure('INVALID_INPUT', 'Invalid show scene');
             persistent = withSendersStopped(structuredClone({ ...parsed.data, revision: persistent.revision + 1 }));
             tracking = createTrackingComposer();
+            lastTrackingStatus = [];
             overrides = EMPTY_OVERRIDES;
             tweens = EMPTY_TWEENS;
             tweenErrors.clear();
@@ -331,6 +357,17 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             return commit(next);
         },
         ingestTracking:update=>tracking.ingest(update,persistent),
+        probeTracking({ sourceId, resetPeaks }) {
+            const source = persistent.entities.find(entity => entity.id === sourceId);
+            if (!source) return failure('NOT_FOUND', 'Entity not found', [sourceId]);
+            if (source.kind !== 'tracking') return failure('INVALID_INPUT', 'Entity is not a tracking source', [sourceId]);
+            const probe = tracking.probe(sourceId, lastTrackingNowMs ?? Infinity, resetPeaks === true);
+            const status = lastTrackingStatus.find(item => item.sourceId === sourceId && item.generation === source.generation);
+            const state = status?.state ?? (source.config.enabled ? 'waiting' : 'stopped');
+            const empty = { sourceId, generation: source.generation, values: {}, peaks: {}, presentChannels: [], eyeBones: false };
+            return { ok: true, data: { ...(probe && probe.generation === source.generation ? probe : empty), state } };
+        },
+        runPeaks: sourceId => tracking.runPeaks(sourceId),
         vmcPoses(frame) {
             const poses = vmcPosesFor(persistent, frame.avatarPoses ?? [], record);
             return poses.length ? { kind: 'vmcPoses', sessionId, tick: frame.tick, poses } : null;
@@ -354,7 +391,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             boneOffsets = EMPTY_BONE_OFFSETS;
             try {
                 const device = devices.ingest(input?.devices);
-                const events: BlueprintEvent[] = [...(input?.events?.map(event => ({ kind: 'keystroke' as const, accelerator: event.accelerator })) ?? []), ...device.events.map(event => ({ kind: 'device' as const, event })), { kind: 'update' }];
+                const events: BlueprintEvent[] = [...(input?.events?.map(event => ({ kind: 'keystroke' as const, accelerator: event.accelerator })) ?? []), ...device.events.map(event => ({ kind: 'device' as const, event })), { kind: 'tracking' }, { kind: 'update' }];
                 deviceEnv = device.env;
                 stepBlueprints(events, elapsedMs, new Set(input?.held ?? []));
             } catch (error) {
@@ -379,6 +416,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             sequence += 1;
             lastTrackingNowMs = trackingNowMs ?? elapsedMs;
             const live=tracking.evaluate(shown,trackingNowMs??elapsedMs,elapsedMs);
+            lastTrackingStatus = live.trackingStatus;
             previousPoses = new Map(live.avatarPoses.map(pose => [pose.avatarId, structuredClone(pose)]));
             const faces = composeBlendShapes(composeExpressions(live.avatarPoses, expressions, persistent, record), blendShapes);
             const avatarPoses = composeBoneOffsets(faces, looked.offsets);

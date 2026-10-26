@@ -267,6 +267,21 @@ pub(super) fn vrm_expressions(json: &Value, raw: &[u8]) -> Vec<AssetExpression> 
         .collect()
 }
 
+/// True when the humanoid lists both eye bones, in a VRM 1.0 or 0.x document.
+pub(super) fn vrm_has_eye_bones(json: &Value) -> bool {
+    let has = |name: &str| match json.pointer("/extensions/VRMC_vrm/humanoid/humanBones") {
+        Some(Value::Object(bones)) => bones.contains_key(name),
+        _ => json
+            .pointer("/extensions/VRM/humanoid/humanBones")
+            .and_then(Value::as_array)
+            .is_some_and(|bones| {
+                bones
+                    .iter()
+                    .any(|b| b.get("bone").and_then(Value::as_str) == Some(name))
+            }),
+    };
+    has("leftEye") && has("rightEye")
+}
 /// The humanoid bones of a VRM document as (name, node index), with the VRM 0 thumb names
 /// changed to the VRM 1 names, as the renderer and the tracking decoder name them.
 fn humanoid_nodes(json: &Value) -> Option<Vec<(String, usize)>> {
@@ -402,6 +417,29 @@ mod tests {
     }
     fn vrm0() -> Value {
         serde_json::from_str(include_str!("../../tests/fixtures/minimal-vrm0.json")).unwrap()
+    }
+    #[test]
+    fn eye_bones_need_both_eyes() {
+        let mut v1 = vrm1();
+        assert!(!vrm_has_eye_bones(&v1));
+        let bones = v1["extensions"]["VRMC_vrm"]["humanoid"]["humanBones"]
+            .as_object_mut()
+            .unwrap();
+        bones.insert("leftEye".into(), serde_json::json!({"node": 0}));
+        assert!(!vrm_has_eye_bones(&v1));
+        v1["extensions"]["VRMC_vrm"]["humanoid"]["humanBones"]
+            .as_object_mut()
+            .unwrap()
+            .insert("rightEye".into(), serde_json::json!({"node": 0}));
+        assert!(vrm_has_eye_bones(&v1));
+        let mut v0 = vrm0();
+        assert!(!vrm_has_eye_bones(&v0));
+        let list = v0["extensions"]["VRM"]["humanoid"]["humanBones"]
+            .as_array_mut()
+            .unwrap();
+        list.push(serde_json::json!({"bone": "leftEye", "node": 0}));
+        list.push(serde_json::json!({"bone": "rightEye", "node": 0}));
+        assert!(vrm_has_eye_bones(&v0));
     }
     #[test]
     fn humanoid_errors_name_the_failing_bones() {

@@ -9,6 +9,8 @@ pub enum TrackingConfig {
         port: u16,
         #[serde(rename = "senderAddress")]
         sender_address: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        positions: Option<VmcPositionRule>,
     },
     #[serde(rename = "ifacialmocap")]
     IFacialMocap {
@@ -29,6 +31,14 @@ pub enum TrackingConfig {
         hands: bool,
         mirror: bool,
     },
+}
+/// Which VMC bone positions the composer keeps. A missing rule means `All`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum VmcPositionRule {
+    All,
+    RotationsOnly,
+    HipsOnly,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
@@ -57,14 +67,18 @@ object!(BlendShapeRange {
     output_min: f64,
     output_max: f64
 });
-object!(TrackingMapping {
-    head_intensity: f64,
-    head_offset: Vec3,
-    eye_intensity: f64,
-    blend_shape_sensitivity: f64,
-    linked_blink: bool,
-    blend_shapes: BTreeMap<String, BlendShapeRange>
-});
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct TrackingMapping {
+    pub head_intensity: f64,
+    pub head_offset: Vec3,
+    pub eye_intensity: f64,
+    pub blend_shape_sensitivity: f64,
+    pub linked_blink: bool,
+    pub blend_shapes: BTreeMap<String, BlendShapeRange>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub use_eye_bones: Option<bool>,
+}
 strings!(BoneSpace { Raw=>"raw",Normalized=>"normalized" });
 strings!(TrackingState { Stopped=>"stopped",Waiting=>"waiting",Receiving=>"receiving",Stale=>"stale",Error=>"error" });
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -108,6 +122,50 @@ pub struct TrackingStatus {
     pub unmatched_packets: Option<u64>,
 }
 object!(TrackingUpdate {samples:Vec<TrackingSample>,statuses:Vec<TrackingStatus>});
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct TrackingProbeParams {
+    pub source_id: Id,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reset_peaks: Option<bool>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct TrackingProbe {
+    pub source_id: Id,
+    pub generation: u64,
+    pub state: TrackingState,
+    pub values: BTreeMap<String, f64>,
+    pub peaks: BTreeMap<String, f64>,
+    pub present_channels: Vec<String>,
+    pub eye_bones: bool,
+}
+impl Validate for TrackingProbe {
+    fn validate(&self) -> Result<(), AppError> {
+        require(
+            crate::id_text_ok(&self.source_id) && self.generation <= 9_007_199_254_740_991,
+            "invalid probe source",
+        )?;
+        for map in [&self.values, &self.peaks] {
+            for (name, value) in map {
+                require(
+                    crate::ARKIT_NAMES.contains(&name.as_str()) && within(*value, 0., 1.),
+                    "invalid probe value",
+                )?;
+            }
+        }
+        let unique: HashSet<&String> = self.present_channels.iter().collect();
+        require(
+            self.present_channels.len() <= crate::ARKIT_NAMES.len()
+                && unique.len() == self.present_channels.len()
+                && self
+                    .present_channels
+                    .iter()
+                    .all(|name| crate::ARKIT_NAMES.contains(&name.as_str())),
+            "invalid probe channels",
+        )
+    }
+}
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct IdleBone {
@@ -472,5 +530,44 @@ impl Validate for TrackingMapping {
             )?;
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{TrackingConfig, TrackingMapping};
+    use serde_json::json;
+
+    #[test]
+    fn vmc_positions_round_trip_present_and_absent() {
+        let base = json!({"kind":"vmc","enabled":true,"bindAddress":"0.0.0.0","port":39539,"senderAddress":null});
+        let absent: TrackingConfig = serde_json::from_value(base.clone()).unwrap();
+        assert_eq!(serde_json::to_value(&absent).unwrap(), base);
+        for rule in ["all", "rotationsOnly", "hipsOnly"] {
+            let mut with = base.clone();
+            with["positions"] = json!(rule);
+            let parsed: TrackingConfig = serde_json::from_value(with.clone()).unwrap();
+            assert_eq!(serde_json::to_value(&parsed).unwrap(), with);
+        }
+        let mut bad = base.clone();
+        bad["positions"] = json!("none");
+        assert!(serde_json::from_value::<TrackingConfig>(bad).is_err());
+        let ifm = json!({"kind":"ifacialmocap","enabled":true,"bindAddress":"0.0.0.0","port":49983,"phoneAddress":null,"positions":"all"});
+        assert!(serde_json::from_value::<TrackingConfig>(ifm).is_err());
+    }
+
+    #[test]
+    fn use_eye_bones_round_trips_present_and_absent() {
+        let base = json!({"headIntensity":1.0,"headOffset":[0.0,0.0,0.0],"eyeIntensity":1.0,"blendShapeSensitivity":1.0,"linkedBlink":false,"blendShapes":{}});
+        let absent: TrackingMapping = serde_json::from_value(base.clone()).unwrap();
+        assert_eq!(absent.use_eye_bones, None);
+        assert_eq!(serde_json::to_value(&absent).unwrap(), base);
+        for flag in [true, false] {
+            let mut with = base.clone();
+            with["useEyeBones"] = json!(flag);
+            let parsed: TrackingMapping = serde_json::from_value(with.clone()).unwrap();
+            assert_eq!(parsed.use_eye_bones, Some(flag));
+            assert_eq!(serde_json::to_value(&parsed).unwrap(), with);
+        }
     }
 }

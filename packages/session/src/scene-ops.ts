@@ -86,6 +86,7 @@ export function applyOperations(scene: SceneView, operations: ScenePatch["operat
                  case 'setTrackingMapping':if(entity.kind!=='tracking')return failure('INVALID_INPUT','Entity is not a tracking source',[entity.id]);entity.mapping=structuredClone(operation.mapping);break;
                  // The session resolves a capture into setTrackingCalibration before this step.
                  case 'calibrateTracking':return failure('INVALID_INPUT','Calibration needs a live session',[entity.id]);
+                 case 'fitBlendShapeRanges':return failure('INVALID_INPUT','Blend shape fit needs a live session',[entity.id]);
                 }
             }
             if(!SceneViewSchema.safeParse(next).success)return failure('INVALID_INPUT','Invalid scene references or budget');

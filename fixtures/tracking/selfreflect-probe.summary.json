@@ -1,0 +1,339 @@
+{
+ "port": 39539,
+ "packets": 979,
+ "seconds_receiving": 108.58,
+ "packets_per_s": 9.0,
+ "senders": {
+  "100.124.89.103": 979
+ },
+ "address_counts": {
+  "/VMC/Ext/OK": 979,
+  "/VMC/Ext/Root/Pos": 979,
+  "/VMC/Ext/Bone/Pos": 53845,
+  "/VMC/Ext/Blend/Val": 43076,
+  "/VMC/Ext/Blend/Apply": 979
+ },
+ "address_tags": {
+  "/VMC/Ext/OK": ",i",
+  "/VMC/Ext/Root/Pos": ",sfffffff",
+  "/VMC/Ext/Bone/Pos": ",sfffffff",
+  "/VMC/Ext/Blend/Val": ",sf",
+  "/VMC/Ext/Blend/Apply": ","
+ },
+ "first_args": {
+  "/VMC/Ext/OK": [
+   1
+  ],
+  "/VMC/Ext/Root/Pos": [
+   "root",
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   1.0
+  ],
+  "/VMC/Ext/Bone/Pos": [
+   "Hips",
+   0.0,
+   1.0,
+   0.0,
+   -0.0,
+   0.0,
+   0.0,
+   1.0
+  ],
+  "/VMC/Ext/Blend/Val": [
+   "eyeBlinkLeft",
+   0.0
+  ],
+  "/VMC/Ext/Blend/Apply": []
+ },
+ "names": {
+  "/VMC/Ext/Root/Pos": {
+   "root": 979
+  },
+  "/VMC/Ext/Bone/Pos": {
+   "Hips": 979,
+   "OriginalHips": 979,
+   "Spine": 979,
+   "Chest": 979,
+   "UpperChest": 979,
+   "Neck": 979,
+   "Head": 979,
+   "LeftShoulder": 979,
+   "LeftUpperArm": 979,
+   "LeftLowerArm": 979,
+   "LeftHand": 979,
+   "LeftThumbProximal": 979,
+   "LeftThumbIntermediate": 979,
+   "LeftThumbDistal": 979,
+   "LeftIndexProximal": 979,
+   "LeftIndexIntermediate": 979,
+   "LeftIndexDistal": 979,
+   "LeftMiddleProximal": 979,
+   "LeftMiddleIntermediate": 979,
+   "LeftMiddleDistal": 979,
+   "LeftRingProximal": 979,
+   "LeftRingIntermediate": 979,
+   "LeftRingDistal": 979,
+   "LeftLittleProximal": 979,
+   "LeftLittleIntermediate": 979,
+   "LeftLittleDistal": 979,
+   "RightShoulder": 979,
+   "RightUpperArm": 979,
+   "RightLowerArm": 979,
+   "RightHand": 979,
+   "RightThumbProximal": 979,
+   "RightThumbIntermediate": 979,
+   "RightThumbDistal": 979,
+   "RightIndexProximal": 979,
+   "RightIndexIntermediate": 979,
+   "RightIndexDistal": 979,
+   "RightMiddleProximal": 979,
+   "RightMiddleIntermediate": 979,
+   "RightMiddleDistal": 979,
+   "RightRingProximal": 979,
+   "RightRingIntermediate": 979,
+   "RightRingDistal": 979,
+   "RightLittleProximal": 979,
+   "RightLittleIntermediate": 979,
+   "RightLittleDistal": 979,
+   "LeftUpperLeg": 979,
+   "LeftLowerLeg": 979,
+   "LeftFoot": 979,
+   "LeftToes": 979,
+   "RightUpperLeg": 979,
+   "RightLowerLeg": 979,
+   "RightFoot": 979,
+   "RightToes": 979,
+   "LeftEye": 979,
+   "RightEye": 979
+  },
+  "/VMC/Ext/Blend/Val": {
+   "eyeBlinkLeft": 979,
+   "eyeBlinkRight": 979,
+   "eyeSquintLeft": 979,
+   "eyeSquintRight": 979,
+   "eyeWideLeft": 979,
+   "eyeWideRight": 979,
+   "browDownLeft": 979,
+   "browDownRight": 979,
+   "browInnerUp": 979,
+   "browOuterUpLeft": 979,
+   "browOuterUpRight": 979,
+   "jawForward": 979,
+   "jawLeft": 979,
+   "jawOpen": 979,
+   "jawRight": 979,
+   "mouthLeft": 979,
+   "mouthRight": 979,
+   "mouthFrownLeft": 979,
+   "mouthFrownRight": 979,
+   "mouthSmileLeft": 979,
+   "mouthSmileRight": 979,
+   "mouthDimpleLeft": 979,
+   "mouthDimpleRight": 979,
+   "mouthPressLeft": 979,
+   "mouthPressRight": 979,
+   "mouthRollUpper": 979,
+   "mouthRollLower": 979,
+   "mouthUpperUpLeft": 979,
+   "mouthUpperUpRight": 979,
+   "mouthLowerDownLeft": 979,
+   "mouthLowerDownRight": 979,
+   "mouthFunnel": 979,
+   "mouthPucker": 979,
+   "mouthShrugLower": 979,
+   "mouthShrugUpper": 979,
+   "cheekPuff": 979,
+   "cheekSquintLeft": 979,
+   "cheekSquintRight": 979,
+   "noseSneerLeft": 979,
+   "noseSneerRight": 979,
+   "mouthStretchLeft": 979,
+   "mouthStretchRight": 979,
+   "mouthClose": 979,
+   "tongueOut": 979
+  }
+ },
+ "blend_ranges": {
+  "eyeBlinkLeft": [
+   0.0,
+   0.9290000200271606
+  ],
+  "eyeBlinkRight": [
+   0.0,
+   0.8654999732971191
+  ],
+  "eyeSquintLeft": [
+   0.0,
+   0.32919999957084656
+  ],
+  "eyeSquintRight": [
+   0.0,
+   0.3517000079154968
+  ],
+  "eyeWideLeft": [
+   0.0,
+   0.4156000018119812
+  ],
+  "eyeWideRight": [
+   0.0,
+   0.4537999927997589
+  ],
+  "browDownLeft": [
+   0.0,
+   0.6168000102043152
+  ],
+  "browDownRight": [
+   0.0,
+   0.6284000277519226
+  ],
+  "browInnerUp": [
+   0.0,
+   0.3138999938964844
+  ],
+  "browOuterUpLeft": [
+   0.0,
+   0.4948999881744385
+  ],
+  "browOuterUpRight": [
+   0.0,
+   0.46399998664855957
+  ],
+  "jawForward": [
+   0.0,
+   0.014499999582767487
+  ],
+  "jawLeft": [
+   0.0,
+   0.19480000436306
+  ],
+  "jawOpen": [
+   0.0,
+   0.186599999666214
+  ],
+  "jawRight": [
+   0.0,
+   0.415800005197525
+  ],
+  "mouthLeft": [
+   0.0,
+   0.1670999974012375
+  ],
+  "mouthRight": [
+   0.0,
+   0.11659999936819077
+  ],
+  "mouthFrownLeft": [
+   0.0,
+   0.3269999921321869
+  ],
+  "mouthFrownRight": [
+   0.0,
+   0.16820000112056732
+  ],
+  "mouthSmileLeft": [
+   0.0,
+   0.2775000035762787
+  ],
+  "mouthSmileRight": [
+   0.0,
+   0.2280000001192093
+  ],
+  "mouthDimpleLeft": [
+   0.0,
+   0.04280000180006027
+  ],
+  "mouthDimpleRight": [
+   0.0,
+   0.04610000178217888
+  ],
+  "mouthPressLeft": [
+   0.0,
+   0.3343000113964081
+  ],
+  "mouthPressRight": [
+   0.0,
+   0.2152000069618225
+  ],
+  "mouthRollUpper": [
+   0.0,
+   0.10209999978542328
+  ],
+  "mouthRollLower": [
+   0.0,
+   0.07569999992847443
+  ],
+  "mouthUpperUpLeft": [
+   0.0,
+   0.09960000216960907
+  ],
+  "mouthUpperUpRight": [
+   0.0,
+   0.0681999996304512
+  ],
+  "mouthLowerDownLeft": [
+   0.0,
+   0.5322999954223633
+  ],
+  "mouthLowerDownRight": [
+   0.0,
+   0.4537000060081482
+  ],
+  "mouthFunnel": [
+   0.0,
+   0.1906999945640564
+  ],
+  "mouthPucker": [
+   0.0,
+   0.22390000522136688
+  ],
+  "mouthShrugLower": [
+   0.0,
+   0.1006999984383583
+  ],
+  "mouthShrugUpper": [
+   0.0,
+   0.6147000193595886
+  ],
+  "cheekPuff": [
+   0.0,
+   0.0
+  ],
+  "cheekSquintLeft": [
+   0.0,
+   0.4034000039100647
+  ],
+  "cheekSquintRight": [
+   0.0,
+   0.05209999904036522
+  ],
+  "noseSneerLeft": [
+   0.0,
+   0.08640000224113464
+  ],
+  "noseSneerRight": [
+   0.0,
+   0.1356000006198883
+  ],
+  "mouthStretchLeft": [
+   0.0,
+   0.3822999894618988
+  ],
+  "mouthStretchRight": [
+   0.0,
+   0.4878000020980835
+  ],
+  "mouthClose": [
+   0.0,
+   0.4187999963760376
+  ],
+  "tongueOut": [
+   0.0,
+   0.0
+  ]
+ }
+}

@@ -183,6 +183,7 @@ fn asset_list_pages_in_id_order_within_count_and_byte_limits() {
         name: "Room".into(),
         credits,
         expressions: vec![],
+        eye_bones: None,
         rig: None,
     };
     let mut records: Vec<_> = (0..70)

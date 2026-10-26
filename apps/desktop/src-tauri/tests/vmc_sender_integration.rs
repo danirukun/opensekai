@@ -69,6 +69,7 @@ fn receiver(port: u16) -> SceneEntity {
             bind_address: "127.0.0.1".into(),
             port,
             sender_address: None,
+            positions: None,
         },
     }
 }
@@ -103,6 +104,7 @@ fn record(id: &str, rig: Option<AvatarRig>) -> AssetRecord {
         name: "Avatar".into(),
         credits: None,
         expressions: vec![],
+        eye_bones: None,
         rig,
     }
 }

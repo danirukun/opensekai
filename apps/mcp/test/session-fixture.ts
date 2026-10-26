@@ -21,8 +21,21 @@ export const sessionFixtureApi = (scene: SceneView): AppApi => {
  } };
 };
 
+// With OPENSEKAI_FIXTURE_TRACKING=1 the scene has an enabled tracking source `phone` that has already received one sample (jawOpen .4, eyeBlink_L .2).
+function trackingFixtureApi(scene: SceneView): AppApi {
+ const transform = { position: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] };
+ const config = { kind: 'ifacialmocap', enabled: true, bindAddress: '127.0.0.1', port: 49983, phoneAddress: null };
+ const session = createSession(scene, 'fixture', [fixtureAvatar]);
+ const patched = session.applyPatch({ sceneId: scene.sceneId, expectedRevision: scene.revision, operations: [{ kind: 'createEntity', entity: { id: 'phone', name: 'Phone', visible: true, transform, kind: 'tracking', generation: 0, config } }] } as never);
+ const generation = (session.inspect().entities.find(entity => entity.id === 'phone') as { generation: number }).generation;
+ const ingested = session.ingestTracking({ samples: [{ sourceId: 'phone', generation, receivedAtMs: 1000, bones: {}, expressions: { jawOpen: .4, eyeBlink_L: .2 } }], statuses: [] });
+ if (!patched.ok || !ingested.ok) throw new Error('Tracking fixture setup failed');
+ session.advance(0, 1000);
+ return { ...fixtureApi(), ...sessionApi(session) };
+}
+
 if (process.argv[1]?.endsWith('session-fixture.ts')) {
- const server = createMcpServer(sessionFixtureApi(sceneFor(process.env.OPENSEKAI_FIXTURE_SCENE)), async () => { throw new Error('NOT_FOUND'); });
+ const server = createMcpServer((process.env.OPENSEKAI_FIXTURE_TRACKING ? trackingFixtureApi : sessionFixtureApi)(sceneFor(process.env.OPENSEKAI_FIXTURE_SCENE)), async () => { throw new Error('NOT_FOUND'); });
  process.stderr.write('session fixture ready\n');
  await server.connect(new StdioServerTransport());
 }

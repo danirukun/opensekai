@@ -254,3 +254,23 @@ fn b6_calibration_mapping_and_finger_slot_are_checked() {
     scene["entities"][0]["tracking"]["fingersSourceId"] = json!("missing");
     assert!(validate_value::<SceneView>(&scene).is_err());
 }
+
+#[test]
+fn trk23_fit_blend_shape_ranges_is_checked() {
+    let fit = |neutral: serde_json::Value| json!({"sceneId":"s","expectedRevision":1,"operations":[{"kind":"fitBlendShapeRanges","entityId":"s","neutral":neutral}]});
+    assert!(validate_value::<ScenePatch>(&fit(json!({}))).is_ok());
+    assert!(validate_value::<ScenePatch>(&fit(json!({"jawOpen":0,"eyeBlinkLeft":1}))).is_ok());
+    for bad in [
+        json!({"notAChannel":0}),
+        json!({"jawOpen":1.01}),
+        json!({"jawOpen":-0.01}),
+    ] {
+        assert!(
+            validate_value::<ScenePatch>(&fit(bad.clone())).is_err(),
+            "{bad}"
+        );
+    }
+    let mut extra = fit(json!({}));
+    extra["operations"][0]["extra"] = json!(1);
+    assert!(validate_value::<ScenePatch>(&extra).is_err());
+}

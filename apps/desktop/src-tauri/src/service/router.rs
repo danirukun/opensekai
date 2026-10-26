@@ -214,6 +214,7 @@ impl Shared {
                 | "blueprintEdit"
                 | "blueprintInspect"
                 | "blueprintDebug"
+                | "trackingProbe"
                 | "expressionGet"
                 | "expressionSet"
         ) {
@@ -378,6 +379,7 @@ impl Shared {
                 | "blueprintEdit"
                 | "blueprintInspect"
                 | "blueprintDebug"
+                | "trackingProbe"
                 | "expressionGet"
                 | "expressionSet"
         ) {

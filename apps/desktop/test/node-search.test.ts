@@ -49,3 +49,8 @@ it('puts the closest label match first', () => {
  expect(first('add num')).toBe('variable.addNumber');
  expect(first('switch cam')).toBe('camera.switch');
 });
+
+it('lists the blend shape nodes under Tracking', () => {
+ const groups = searchNodes('tracking blend', { ...refs, avatarId: 'a' });
+ expect(groups.find(group => group.category === 'Tracking')?.entries.map(entry => entry.type)).toEqual(['tracking.getBlendShape', 'tracking.onBlendShapeThreshold']);
+});

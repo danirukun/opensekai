@@ -1,0 +1,110 @@
+<style>
+  .ed { background:#f6f5fa; border:1px solid #ddd; border-radius:10px; overflow:hidden; font: 13px/1.35 -apple-system, system-ui, sans-serif; color:#222; }
+  .ed-top { height:34px; display:flex; align-items:center; padding:0 12px; border-bottom:1px solid #e4e2ec; background:#fff; font-weight:600; }
+  .ed-body { display:flex; height:420px; }
+  .rail { width:38px; background:#efedf6; border-right:1px solid #e4e2ec; }
+  .tree { width:150px; border-right:1px solid #e4e2ec; padding:10px; background:#fff; }
+  .tree .it { padding:5px 7px; border-radius:6px; margin:2px 0; }
+  .tree .sel { background:#e9e5f7; }
+  .insp { flex:1; padding:14px; background:#fff; position:relative; overflow:hidden; }
+  .dim::after { content:""; position:absolute; inset:0; background:rgba(30,25,50,.35); }
+  .scene { flex:1; background:#2f2d36; display:flex; align-items:center; justify-content:center; }
+  .avatar { width:120px; height:160px; border-radius:60px 60px 20px 20px; background:linear-gradient(#c9c2e8,#a59bd6); position:relative; }
+  .avatar .m { position:absolute; left:46px; top:70px; width:28px; height:6px; border-radius:6px; background:#5a4a8a; animation: mouth 2.4s ease-in-out infinite; }
+  .avatar .e { position:absolute; top:44px; width:14px; height:14px; border-radius:50%; background:#2b2350; }
+  .wiz { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:560px; background:#fff; border-radius:14px; box-shadow:0 20px 60px rgba(0,0,0,.3); z-index:2; padding:18px; }
+  .steps { display:flex; gap:6px; margin-bottom:14px; }
+  .steps span { flex:1; height:4px; border-radius:2px; background:#e4e2ec; }
+  .steps span.on { background:#7b68d9; }
+  h4.t { margin:0 0 4px; font-size:17px; }
+  .muted { color:#777; }
+  .row { display:flex; gap:16px; align-items:center; }
+  .coach { width:150px; height:150px; flex:none; }
+  .meter { height:10px; border-radius:5px; background:#eee; overflow:hidden; position:relative; }
+  .meter i { position:absolute; left:0; top:0; bottom:0; background:#7b68d9; animation: fill 2.4s ease-in-out infinite; }
+  .meter b { position:absolute; top:-3px; bottom:-3px; width:2px; background:#222; left:72%; }
+  .btn { display:inline-block; padding:7px 14px; border-radius:8px; background:#7b68d9; color:#fff; font-weight:600; }
+  .btn.g { background:#eee; color:#333; }
+  .dock { width:300px; border-left:1px solid #e4e2ec; background:#fff; padding:14px; }
+  @keyframes mouth { 0%,15%{height:6px; top:70px} 45%,70%{height:26px; top:62px; border-radius:14px} 100%{height:6px; top:70px} }
+  @keyframes fill { 0%,15%{width:5%} 45%,70%{width:80%} 100%{width:5%} }
+  .cm { animation: cmouth 2.4s ease-in-out infinite; transform-origin: 75px 108px; }
+  @keyframes cmouth { 0%,15%{transform:scaleY(.25)} 45%,70%{transform:scaleY(1.2)} 100%{transform:scaleY(.25)} }
+  .ring { animation: ring 2.4s linear infinite; }
+  @keyframes ring { from{stroke-dashoffset:440} to{stroke-dashoffset:0} }
+</style>
+
+<h2>Where should the walkthrough live?</h2>
+<p class="subtitle">Both show the "Open your mouth wide" step. The coach face on the left of each plays the move on a loop. The bar under it is your live jawOpen, and the tick is the peak it has seen so far.</p>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <g id="coach">
+      <circle cx="75" cy="75" r="70" fill="none" stroke="#ece9f7" stroke-width="6"/>
+      <circle class="ring" cx="75" cy="75" r="70" fill="none" stroke="#7b68d9" stroke-width="6" stroke-dasharray="440" stroke-linecap="round" transform="rotate(-90 75 75)"/>
+      <circle cx="75" cy="75" r="52" fill="#f3d9c8"/>
+      <circle cx="56" cy="66" r="6" fill="#2b2350"/><circle cx="94" cy="66" r="6" fill="#2b2350"/>
+      <path d="M48 52 q8 -6 16 0 M86 52 q8 -6 16 0" stroke="#5a4030" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <ellipse class="cm" cx="75" cy="100" rx="13" ry="11" fill="#7a2f3a"/>
+    </g>
+  </defs>
+</svg>
+
+<div class="options">
+  <div class="option" data-choice="modal" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Focused overlay over the Editor</h3>
+      <p>A large panel takes over the Editor. It has a progress bar, an animated coach, live meters, and a small live preview of your character. Nothing else competes for attention. When you finish, it closes back to the Character inspector.</p>
+      <div class="ed" style="margin-top:10px">
+        <div class="ed-top">OpenSekai Editor</div>
+        <div class="ed-body">
+          <div class="rail"></div>
+          <div class="tree"><div class="it">Camera</div><div class="it sel">Character</div></div>
+          <div class="insp dim">
+            <div class="wiz">
+              <div class="steps"><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span></span><span></span></div>
+              <div class="row">
+                <svg class="coach" viewBox="0 0 150 150"><use href="#coach"/></svg>
+                <div style="flex:1">
+                  <h4 class="t">Open your mouth wide</h4>
+                  <div class="muted" style="margin-bottom:12px">Hold it for a second.</div>
+                  <div class="muted" style="font-size:11px">jawOpen</div>
+                  <div class="meter"><i></i><b></b></div>
+                  <div style="display:flex;justify-content:space-between;margin-top:16px">
+                    <span class="btn g">Skip</span>
+                    <div class="scene" style="flex:none;width:110px;height:90px;border-radius:8px"><div class="avatar" style="transform:scale(.45)"><div class="e" style="left:30px"></div><div class="e" style="left:76px"></div><div class="m"></div></div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="dock" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Guide docked beside the live scene</h3>
+      <p>The guide replaces the inspector column. The full Scene view stays visible, so you watch your real character react at full size while the coach shows the move.</p>
+      <div class="ed" style="margin-top:10px">
+        <div class="ed-top">OpenSekai Editor</div>
+        <div class="ed-body">
+          <div class="rail"></div>
+          <div class="scene"><div class="avatar"><div class="e" style="left:30px"></div><div class="e" style="left:76px"></div><div class="m"></div></div></div>
+          <div class="dock">
+            <div class="steps"><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span></span><span></span></div>
+            <svg class="coach" viewBox="0 0 150 150" style="display:block;margin:0 auto 8px"><use href="#coach"/></svg>
+            <h4 class="t" style="text-align:center">Open your mouth wide</h4>
+            <div class="muted" style="text-align:center;margin-bottom:14px">Hold it for a second.</div>
+            <div class="muted" style="font-size:11px">jawOpen</div>
+            <div class="meter"><i></i><b></b></div>
+            <div style="display:flex;justify-content:space-between;margin-top:18px"><span class="btn g">Skip</span><span class="btn">Next</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

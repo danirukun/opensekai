@@ -415,6 +415,7 @@ pub fn prepare_scene(packed: PackedScene) -> Result<PreparedScene, AppError> {
         name: name.clone(),
         credits,
         expressions: vec![],
+        eye_bones: None,
         rig: None,
     };
     record.validate()?;
@@ -476,6 +477,7 @@ pub fn stage_avatar(library: &Path, path: &Path) -> Result<StagedAsset, AppError
         .map_err(|_| error(ErrorCode::Unavailable, ""))?;
     let (json, raw) = validate_import_file(copy.as_file_mut(), count)?;
     let expressions = super::vrm::vrm_expressions(&json, &raw);
+    let eye_bones = Some(super::vrm::vrm_has_eye_bones(&json));
     let rig = super::vrm::vrm_rig(&json);
     let sha256 = hex(&hash.finalize());
     let id = format!("avatar_{sha256}");
@@ -497,6 +499,7 @@ pub fn stage_avatar(library: &Path, path: &Path) -> Result<StagedAsset, AppError
         name: name.clone(),
         credits: None,
         expressions,
+        eye_bones,
         rig,
     };
     copy.as_file()

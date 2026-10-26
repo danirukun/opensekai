@@ -1,5 +1,5 @@
-import { ExpressionNameSchema,ExpressionSettingsSchema,TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,TrackingSmoothingSchema,TrackingMappingSchema,EntityNameSchema,ShowSceneSchema,IdSchema,CameraAntiAliasingSchema,CameraNavigationSchema,LightSettingsSchema,HazeSettingsSchema,FpsCounterSettingsSchema,VmcSenderSettingsSchema,ReflectionsIntensitySchema } from '@opensekai/contracts';
-import type { ExpressionSettings, AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing, TrackingMapping, CameraAntiAliasing, CameraNavigation, CameraScreenshotResult, LightSettings, HazeSettings, FpsCounterSettings, VmcSenderSettings } from '@opensekai/contracts';
+import { ExpressionNameSchema,ExpressionSettingsSchema,TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,FitNeutralSchema,TrackingSmoothingSchema,TrackingMappingSchema,EntityNameSchema,ShowSceneSchema,IdSchema,CameraAntiAliasingSchema,CameraNavigationSchema,LightSettingsSchema,HazeSettingsSchema,FpsCounterSettingsSchema,VmcSenderSettingsSchema,ReflectionsIntensitySchema,PatchOpSchema } from '@opensekai/contracts';
+import type { ExpressionSettings, AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing, TrackingMapping, ArkitName, CameraAntiAliasing, CameraNavigation, CameraScreenshotResult, LightSettings, HazeSettings, FpsCounterSettings, VmcSenderSettings } from '@opensekai/contracts';
 import {makeEntityCopy} from './asset-management';
 type CameraLens=Extract<SceneEntity,{kind:'camera'}>['lens'];
 export interface EditorView {
@@ -169,6 +169,10 @@ export function createEditorModel(api: AppApi) {
    if(!ofKind(entityId,'tracking'))return invalid();
    return patch({kind:'calibrateTracking',entityId},expectedRevision);
   },
+  fitBlendShapeRanges(entityId:Id,neutral:Partial<Record<ArkitName,number>>,expectedRevision?:number):Promise<Reply<{revision:number}>> {
+   const parsed=FitNeutralSchema.safeParse(neutral);if(!ofKind(entityId,'tracking')||!parsed.success)return invalid();
+   return patch({kind:'fitBlendShapeRanges',entityId,neutral:parsed.data},expectedRevision);
+  },
   resetTrackingCalibration(entityId:Id,expectedRevision?:number):Promise<Reply<{revision:number}>> {
    if(!ofKind(entityId,'tracking'))return invalid();
    return patch({kind:'setTrackingCalibration',entityId,calibration:null},expectedRevision);
@@ -176,6 +180,12 @@ export function createEditorModel(api: AppApi) {
   setTrackingMapping(entityId:Id,mapping:TrackingMapping,expectedRevision?:number):Promise<Reply<{revision:number}>> {
    const parsed=TrackingMappingSchema.safeParse(mapping);if(!ofKind(entityId,'tracking')||!parsed.success)return invalid();
    return patch({kind:'setTrackingMapping',entityId,mapping:parsed.data},expectedRevision);
+  },
+  // One scenePatch for a group of operations that must apply together (the tracking guide connect and cancel).
+  applyOperations(operations:PatchOp[],expectedRevision?:number):Promise<Reply<{revision:number}>> {
+   const parsed=PatchOpSchema.array().min(1).max(32).safeParse(operations);if(!parsed.success)return invalid();
+   if(expectedRevision!==undefined&&expectedRevision!==view.scene?.revision){publish({error:'CONFLICT'});return Promise.resolve(failure('CONFLICT'));}
+   return execute(()=>api.scenePatch({sceneId:view.scene!.sceneId,expectedRevision:expectedRevision??view.scene!.revision,operations:parsed.data}));
   },
   setTrackingConfig(entityId:Id,config:TrackingConfig,expectedRevision?:number):Promise<Reply<{revision:number}>> {
    const parsed=TrackingConfigSchema.safeParse(config),entity=view.scene?.entities.find(e=>e.id===entityId);
