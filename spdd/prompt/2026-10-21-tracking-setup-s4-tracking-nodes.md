@@ -4,6 +4,8 @@ Date: 2026-10-21. Scope: TRK-23 slice S4, with BP-05 and BP-06. Analysis: [guide
 
 This file is the contract only. S4 depends on S1 only through the contracts package: it uses the exported `ArkitName` type from Task 3. It uses no session code, no host code, and no editor code of S1, S2, or S3. It can run in a parallel worktree after Task 3 merges. It touches no file of Parts A to C, except the contracts index, `session.ts`, and `ARCHITECTURE.md`. The integrator orders those contract changes and merges them. Task 13 (acceptance) spans all slices.
 
+Status, 2026-10-26: implemented. Live check on macOS with SelfReflect: On Blend Shape Threshold toggled an expression, On Tracking Lost showed one toast on a sender stop and none in normal gaps, and On Tracking Found logged after the restart. The Tracking palette category and the node fields were not checked in the UI. See the [evaluation](../../docs/evaluation/tracking-setup-walkthrough.md) and BP-05 and BP-06 in the parity checklist.
+
 ## Subset
 
 - **BP-05 and BP-06 tracking subset:** a Tracking node category, one value node, and three event nodes.

@@ -4,6 +4,8 @@ Date: 2026-10-21. Scope: TRK-23 slice S3, with TRK-01. Analysis: [guided trackin
 
 This file is the contract only. S3 depends on S1. It can run in parallel with S2, but the gates need the guide of S2 to set up the character, so the run of Step 1 waits for S2 or uses MCP to write the same setup. Task 13 (acceptance) spans all slices.
 
+Status, 2026-10-26: gates done. Gate 1 failed and passes with the `rotationsOnly` position rule. Gate 2 passed, so the stale hold is not added. Gate 3 kept the default smoothing. See the [evaluation](../../docs/evaluation/tracking-setup-walkthrough.md) and TRK-23 and TRK-01 in the parity checklist.
+
 ## Subset
 
 - **TRK-23 gates:** three checks with a real SelfReflect stream, the evidence file, and the SelfReflect smoothing values.

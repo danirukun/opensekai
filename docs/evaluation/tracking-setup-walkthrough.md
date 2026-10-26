@@ -100,3 +100,52 @@ The runner changed the source smoothing with `setTrackingSmoothing`, the same pa
 The performer selected A: it had the least arm lag with no visible jitter at rest. At rest, the face channels move less than 0.005 for each 100 ms step with every label, so the probe shows no jitter difference that a viewer can see. The probe does not read bone rotations, so the bone jitter is unknown. The SelfReflect preset keeps the default smoothing, and its test does not change (S3 R5).
 
 Earlier, the performer had set the source to 5 / 1.601 / 0.57 by hand. The source was set back to A after the run.
+
+## Acceptance with SelfReflect (Task 13)
+
+Commit: c4c1f92 (ea2ea3c plus the S3 position rule). Backend: webgpu. Quality profile: preview_v1 (Scene window) and production_v1 (OBS browser source). Fixture: `smoke_v1` in fixture mode. Date: 2026-10-26. Platform: macOS, worktree dev build. Sender: SelfReflect on the performer's iPhone, live VMC. The character is Catboy (`performer`, source `69dfadee…` with `positions: 'rotationsOnly'`). A runner script read the Editor headings through accessibility, took window screenshots, and called MCP. A toast from a QA label graph told the performer each step.
+
+### Guide checks that were open
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| 1. The close button cancels after a rail panel switch | Pass. Run A went to Output and back during the guide, then closed with the close button. The scene entities after the close were equal to the entities before the run. | `19-close-after-panel-switch-output.png`, `20-close-after-panel-switch-closed.png` |
+| 2. In Try it the mouth opens (face channels only) | Unknown. In run B the guide was at Try it, but the character was out of the camera view (gate 1, before the fix). In run C the performer went past Try it before a screenshot. In the last session the runner did not see Try it: the guide runs closed before it. The mouth open in OBS (below) uses the same mapping, but it is not the Try it step. | `25-runB-try-it-character-gone.png` |
+| 3a. Save and reopen keep the tracking | Pass. The show was saved at revision 21 and opened again (revision 22). The scene entities, with the tracking source, the mapping, and the eye bones value, were equal. | `24-show-reopen-inspector.png` |
+| 3b. A restart of the sender brings tracking back with no steps | Pass. The performer closed SelfReflect and opened it again. The On Tracking Lost graph showed "Tracking lost" at session time 1198.1 s (about 20:48:43), and On Tracking Found logged "Tracking found" 3.1 s later. The source went back to `receiving`. The guide did not open and the scene did not change. The stop time comes from the performer's step and the lost time (the node waits 2 s). | MCP `blueprint_debug_log` entries 24 and 25 |
+| 4. Close after the fit restores the old mapping | Unknown. In the last session the guide closed twice before the fit. Each close restored a scene equal to the scene before the guide (revision 28 to 32, entities and outputs equal). This is close before the fit, which the S2 check already passed. | MCP `scene_inspect` before and after |
+
+### MCP
+
+The runner did the setup through MCP on the live stream: `tracking_probe` with `resetPeaks: true`, the performer made faces for 20 s, then a relax step, and then `scene_patch` with `fitBlendShapeRanges` (revision 9). The runner calculated `fitRanges` again from the probed neutral and peaks. The saved ranges were equal for all 40 fitted channels. Four channels had a rise less than 0.05 and had no new range: cheekPuff, tongueOut, mouthClose, and mouthRollLower. Result: pass.
+
+### OBS
+
+The runner added an isolated browser source for the OpenSekai output page in a QA scene and set it as the program scene. After the check it removed the QA scene and set the program scene back to "Scene". It did not start a stream or a recording. The output is transparent around the character.
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| Full mouth open | Pass. At rest the mouth is closed. With the performer's mouth fully open, the character's mouth opens fully. | `21-obs-mouth-open.png` (top row) |
+| No broken arms | Pass. The arms follow the performer with all four smoothing labels, with no broken joint and the feet on the floor. | `22-obs-arms-smoothing-a-to-d.png` |
+| Gaze with the eye bones option on | Pass. The pupils move left and right with the performer's eyes. | `23-obs-gaze-eye-bones-on-off.png` (top row) |
+| Gaze with the eye bones option off | The eyes stay at the center. SelfReflect sends eye bone rotations and no `eyeLook*` channel, so with the option off nothing moves the eyes. This is the expected result for this sender. | `23-obs-gaze-eye-bones-on-off.png` (bottom row) |
+| A character with only `eyeLook*` shapes | Unknown. No such character was available. | — |
+
+The bottom row of `21-obs-mouth-open.png` is not valid for gaze: the jaw threshold graph had turned on the happy expression, which closes the eyes. The gaze check was done again with happy off and the jaw graph off.
+
+App timing: preview_v1 CPU time about 4 ms for each frame. GPU time is unknown (the value is null). OBS timing was not measured, so it is unknown.
+
+### Blueprint
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| On Blend Shape Threshold on `jawOpen` toggles an expression | Pass. Graph `qa_jaw` (threshold 0.5): the rise output went to Toggle Expression (happy) and to a debug event. Each wide mouth gave one `jaw_rise` event (5 events in the face steps), and the happy expression changed in the output. | MCP `blueprint_debug_log` entries 3 to 8, `21-obs-mouth-open.png` |
+| On Tracking Lost shows a toast when the phone app stops | Pass. One "Tracking lost" warning toast, about 3 s before On Tracking Found. | Debug log entries 24 and 25 |
+| No toast during the normal SelfReflect gaps | Pass. In gate 2 the graph was on for 2 minutes and the debug log had no entry. In the later session the graph was on from about 20:38 to the stop at about 20:48:41 and gave only the one toast above. | Gate 2 debug log (empty), debug log entries 1 to 26 |
+| The palette shows a Tracking category, and the node fields render | Unknown. Not checked in the UI. MCP made the graphs. | — |
+
+### Concerns
+
+- The shared library has avatar records with a `rig` field. This branch skips those records with no message, so the library showed no avatar. This is a defect outside this slice. It was not fixed.
+- Next and Done are at the same position. A fast double click on Next can go past Try it.
+- The performer closed OpenSekai at about 20:27. It was not a crash.

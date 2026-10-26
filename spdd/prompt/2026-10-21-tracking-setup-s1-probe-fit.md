@@ -4,6 +4,8 @@ Date: 2026-10-21. Scope: TRK-23 slice S1, with TRK-01 and TRK-04. Analysis: [gui
 
 This file is the contract only. Implementation follows the plan tasks. The rules of the B5 and B6 contracts stay in force unless a requirement below changes them.
 
+Status, 2026-10-26: implemented. Live check on macOS with SelfReflect: the probe, the 256-message OSC bundle limit, and the fit (40 of 40 ranges equal to `fitRanges` through MCP) pass. The eye bones option works in OBS. See the [evaluation](../../docs/evaluation/tracking-setup-walkthrough.md) and TRK-01 and TRK-04 in the parity checklist.
+
 ## Dependency plan
 
 - S1 has no dependency inside this project. It comes first.

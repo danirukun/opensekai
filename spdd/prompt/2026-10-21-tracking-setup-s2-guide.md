@@ -4,6 +4,8 @@ Date: 2026-10-21. Scope: TRK-23 slice S2. Analysis: [guided tracking setup](../a
 
 This file is the contract only. S2 depends on S1 (Tasks 3, 4, and 5 give `trackingProbe`, `fitBlendShapeRanges`, and the presets). S3 can run in parallel with S2. Task 13 (acceptance) spans all slices.
 
+Status, 2026-10-26: implemented. Live check on macOS with SelfReflect: close after a panel switch, save and reopen, and a sender restart with no steps pass. The mouth in Try it and close after the fit are unknown. See the [evaluation](../../docs/evaluation/tracking-setup-walkthrough.md) and TRK-23 in the parity checklist.
+
 ## Subset
 
 - **TRK-23 guide:** the state machine, the connect and cancel plans, the coach, the docked panel, and the entry button.
