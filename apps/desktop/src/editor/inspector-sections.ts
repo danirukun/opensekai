@@ -11,6 +11,7 @@ export function sectionsFor(entity:SceneEntity,options:{expressions:boolean}):In
  if(entity.kind==='light')return [transform,section('light','Light'),section('affect','Affect'),...(entity.light.type!=='ambient'?[section('shadow','Shadow')]:[])];
  if(entity.kind==='haze')return [transform,section('haze','Haze')];
  if(entity.kind==='fpsCounter')return [section('fpsCounter','FPS Counter')];
+ if(entity.kind==='vmcSender')return [section('sender','Sender')];
  if(entity.kind==='environment')return [transform,section('environment','Environment')];
  if(entity.kind==='avatar')return [transform,section('model','Model'),...(options.expressions?[section('expressions','Expressions')]:[]),section('tracking','Tracking')];
  if(entity.kind==='tracking')return [section('receiver','Receiver'),section('smoothing','Smoothing'),section('face','Face'),section('diagnostics','Diagnostics')];

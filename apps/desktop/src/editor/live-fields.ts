@@ -1,7 +1,7 @@
 import {ARKIT_NAMES,DEFAULT_TRACKING_MAPPING,LensSchema,TrackingConfigSchema,TrackingMappingSchema} from '@opensekai/contracts';
 import type {SceneEntity,TrackingConfig,AvatarIdle,AvatarTracking,TrackingStatus,TrackingSmoothing,TrackingMapping,Reply} from '@opensekai/contracts';
 export type CameraLens=Extract<SceneEntity,{kind:'camera'}>['lens'];
-export type AddKind='camera'|'character'|'environment'|'directionalLight'|'pointLight'|'spotLight'|'ambientLight'|'haze'|'fpsCounter'|TrackingConfig['kind'];
+export type AddKind='camera'|'character'|'environment'|'directionalLight'|'pointLight'|'spotLight'|'ambientLight'|'haze'|'fpsCounter'|'vmcSender'|TrackingConfig['kind'];
 export type Commit<T>=(id:string,value:T,revision:number)=>Promise<unknown>;
 export interface LivePropertyCallbacks {onlens?:Commit<CameraLens>;onavatartracking?:Commit<AvatarTracking>;onavataridle?:Commit<AvatarIdle>;ontrackingsmoothing?:Commit<TrackingSmoothing>;ontrackingmapping?:Commit<TrackingMapping>;ontrackingcalibrate?:(id:string,revision:number)=>Promise<Reply<unknown>|undefined>;ontrackingcalibrationreset?:(id:string,revision:number)=>Promise<Reply<unknown>|undefined>;ontrackingconfig?:Commit<TrackingConfig>;ontrackingtoggle?:(id:string,enabled:boolean,revision:number)=>Promise<unknown>;trackingStatus?:TrackingStatus[];localAddresses?:string[];devices?:{deviceId:string;label:string}[]}
 export function parseLens(values:Record<keyof CameraLens,string>):CameraLens|null {const parsed=LensSchema.safeParse(Object.fromEntries(Object.entries(values).map(([key,value])=>[key,value.trim()===''?NaN:Number(value)])));return parsed.success?parsed.data:null;}

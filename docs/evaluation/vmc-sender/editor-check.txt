@@ -1,0 +1,20 @@
+PASS Add › VMC Sender is in the menu and enabled (R4) 
+PASS the new sender has the add defaults: stopped, 127.0.0.1, 39539, the first character (R4) {"id":"0c142ef3-0ee3-4325-82c5-f158f3ed5977","name":"VMC Sender","visible":true,"transform":{"position":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"kind":"vmcSender","vmcSender":{"enabled":false,"address":"127.0.0.1","port":39539,"avatarId":"performer"}}
+PASS the Hierarchy shows a VMC Senders group with the sender (R5) ["Assets\nSearch assets\nLights\nDirectional Light\nCameras\nCamera\nCharacters\nCharacter\nVMC Senders\nVMC Sender"]
+PASS the Inspector has the Sender section and no Transform section (R5) ["Sender"]
+PASS the Inspector shows IP Address, Port, and Character, and no Visible box (R5) ["IP Address","Port","Character"]
+PASS the runtime row shows Start and stopped (R5) "Start\nstopped"
+PASS IP Address and Port apply through setVmcSender (R5) {"enabled":false,"address":"192.168.1.40","port":40000,"avatarId":"performer"}
+PASS a multicast address shows the alert and changes nothing (R1) {"enabled":false,"address":"192.168.1.40","port":40000,"avatarId":"performer"}
+PASS Character › None sends avatarId null (R5) {"enabled":false,"address":"192.168.1.40","port":40000,"avatarId":null}
+PASS Start enables the sender and shows waiting (R5, R14) {"settings":{"enabled":true,"address":"192.168.1.40","port":40000,"avatarId":"performer"},"row":"Stop\nwaiting"}
+PASS the runtime row shows the host state sending (R14) "Stop\nsending"
+PASS Stop disables the sender (R5) {"enabled":false,"address":"192.168.1.40","port":40000,"avatarId":"performer"}
+PASS Reset Port sets 39539 and keeps the address (R5) {"enabled":false,"address":"192.168.1.40","port":39539,"avatarId":"performer"}
+PASS Duplicate makes a stopped copy of a running sender (R2) [["VMC Sender",true],["VMC Sender Copy",false]]
+PASS the scene holds four senders 4
+PASS Duplicate is disabled with "Scene asset limit reached" at four senders (R4) {"disabled":true,"title":"Scene asset limit reached"}
+PASS Add › VMC Sender is disabled at the limit (R4) {"disabled":true,"title":"Scene asset limit reached"}
+PASS Open of a show with a running sender shows it stopped (R2) {"ok":true,"row":"Start\nstopped"}
+PASS no page error []
+19 pass, 0 fail

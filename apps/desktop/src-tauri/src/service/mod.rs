@@ -77,6 +77,7 @@ struct Shared {
     asset_hook: Mutex<Option<AssetHook>>,
     clock: Instant,
     tracking: crate::tracking::TrackingManager,
+    vmc_senders: crate::vmc_sender::VmcSenderManager,
     inner: Mutex<Inner>,
     input: Mutex<crate::input::InputQueue>,
     keystrokes: Mutex<Arc<dyn crate::input::KeystrokeRegistrar>>,
@@ -558,6 +559,7 @@ pub async fn start_service(config: ServiceConfig) -> Result<ServiceHandle, AppEr
         asset_hook: Mutex::new(None),
         clock,
         tracking: crate::tracking::TrackingManager::new(clock),
+        vmc_senders: crate::vmc_sender::VmcSenderManager::new(),
         inner: Mutex::new(Inner::default()),
         input: Mutex::default(),
         keystrokes: Mutex::new(Arc::new(crate::input::NoKeystrokes)),
@@ -1275,6 +1277,20 @@ async fn connection_loop(mut socket: WebSocket, shared: &Arc<Shared>) {
                         }
                         }
                         shared.tracking.reconcile(&scene).await;
+                        if shared.vmc_senders.is_new_revision(&scene) {
+                            let records = lock(&shared.registry).records();
+                            shared.vmc_senders.reconcile(&scene, &records, || {
+                                router::computer_addresses().iter().filter_map(|a| a.parse().ok()).collect()
+                            });
+                        }
+                    },
+                    // The session sends the poses of the enabled VMC senders after each frame. The
+                    // host sends them over UDP and never relays them (B21 R9).
+                    WireMessage::VmcPoses { session_id, poses, .. } if role == Role::Publisher => {
+                        if session_id != shared.session {
+                            break;
+                        }
+                        shared.vmc_senders.submit(&poses);
                     },
                     WireMessage::Applied { frame } if role == Role::Renderer => {
                         let mut inner = lock(&shared.inner);
