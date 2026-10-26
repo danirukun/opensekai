@@ -91,6 +91,8 @@ node $SKILL/scripts/obs.mjs teardown --state <scratch>/qa-<pr>/obs.json
 
 After `setup`, wait until `app_status` shows `output_main` with `connected: true` and a `lastFrame` before you take a screenshot. The output is transparent where nothing is drawn, so an empty scene gives a PNG that looks blank white in an image viewer. Check alpha by compositing on a checker (`ffmpeg -f lavfi -i color=gray:s=1920x1080 -i obs.png -filter_complex overlay -frames:v 1 check.png`), not by eye on the raw PNG. `--program` switches the program scene to the QA scene so the OBS window shows it, which is useful for computer-use checks and the demo. Teardown restores the prior scene. Always run teardown, also after a failure. For the full alpha and timing smoke check, `pnpm evaluate:smoke --profile webgpu_smoke_v1` with `OPENSEKAI_CONNECTION_FILE`, `OPENSEKAI_RENDERER_CONNECTION_FILE`, and `OPENSEKAI_EVIDENCE_DIR` set does it end to end.
 
+**VMC peer** for VMC Receiver and VMC Sender items. `pnpm evaluate:vmc-feed --port <receiver port>` sends a blink and vowel cycle to the receiver, so the character face moves without a tracker. `pnpm evaluate:vmc-feed --listen --port <sender port>` prints what a sender sends, one JSON line each second. See "VMC test peer" in `docs/testing.md`. A VSeeFace receiver in a VMPal VM shows the result to a person.
+
 **Commands** for items that name a command (`pnpm check`, `cargo test …`). Keep the raw output with counts.
 
 Give each check exactly one verdict:
