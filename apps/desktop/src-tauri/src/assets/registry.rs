@@ -726,6 +726,35 @@ mod boundary_tests {
         assert_eq!(registry.records().len(), 1);
     }
     #[test]
+    fn storing_again_repairs_a_scene_file_of_the_wrong_length() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut registry = AssetRegistry::empty(dir.path()).unwrap();
+        let id = registry
+            .store_scene(packed(Some("Room"), glb()))
+            .unwrap()
+            .record
+            .id;
+        let file = registry.entries.get(&id).unwrap().path.clone();
+        std::fs::write(&file, &glb()[..8]).unwrap();
+        registry.store_scene(packed(Some("Room"), glb())).unwrap();
+        assert_eq!(std::fs::read(&file).unwrap(), glb());
+        assert_eq!(registry.records().len(), 1);
+    }
+    #[test]
+    fn scene_name_keeps_a_title_of_128_code_units() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut registry = AssetRegistry::empty(dir.path()).unwrap();
+        let title = "x".repeat(128);
+        assert_eq!(
+            registry
+                .store_scene(packed(Some(&title), glb()))
+                .unwrap()
+                .record
+                .name,
+            title
+        );
+    }
+    #[test]
     fn scene_name_falls_back_to_stem_then_scene() {
         let dir = tempfile::tempdir().unwrap();
         let mut registry = AssetRegistry::empty(dir.path()).unwrap();

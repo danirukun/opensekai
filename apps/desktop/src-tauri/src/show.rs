@@ -153,6 +153,24 @@ mod tests {
     }
 
     #[test]
+    fn round_trip_keeps_an_environment_with_an_unknown_model_and_the_camera_flag() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("room.osekai");
+        let mut document = show();
+        document["scene"]["entities"][3]["renderEnvironment"] = json!(false);
+        document["scene"]["entities"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({
+                "id": "stage", "name": "Environment", "visible": true, "kind": "environment",
+                "transform": {"position": [0, 0, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1]},
+                "assetId": "scene_gone"
+            }));
+        write_show(&path, &document).unwrap();
+        assert_eq!(read_show(&path).unwrap(), document);
+    }
+
+    #[test]
     fn example_stage_show_opens() {
         let dir = tempfile::tempdir().unwrap();
         for (name, text) in [

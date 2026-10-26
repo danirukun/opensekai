@@ -55,3 +55,35 @@ The footprint values are WebKit process samples, not whole-app or GPU totals. Ap
 - On macOS the dialog shows no file-type filter (the project-wide workaround for rfd), so the importer checks the extension instead. This is different from R6.
 - `setEnvironmentModel` through MCP was not exercised live, because no MCP reply lists asset records.
 - The failed-load overlay row for the missing model was not seen; the warning is in the frame warnings only.
+
+## Linux cloud gap check (B23)
+
+Checked 2026-10-25 in the Linux cloud container (Ubuntu, x86_64, no GPU, no OBS), on the branch `claude/b23-environment-import` from `main` at `86686e0`. Node 26.10.0, pnpm 12.8.1, rustc 1.93.1. Contract: [environment import gaps](../../spdd/prompt/2026-10-25-environment-import-gaps.md) (G1–G11). This check adds automated evidence for each requirement of the parent contract. It does not change product behavior, and it does not replace the macOS check above.
+
+Editor check: the `vite preview` build of `apps/desktop` in headless Chromium, with the stand-in host of the [B18 check](hidden-tracker-cameras.md) and a real `@opensekai/session`. No renderer runs. Script: [editor-check.mjs](environment-import/editor-check.mjs). Raw output: [editor-check.txt](environment-import/editor-check.txt). Result: 18 pass, 0 fail. Captures: [Source and credits](environment-import/editor-environment.png), [Missing model](environment-import/editor-missing-model.png), [Render Environment](environment-import/editor-camera-flag.png).
+
+| R | Evidence | Kind |
+| --- | --- | --- |
+| R1–R2 | `environment.test.ts` (contracts), `crates/contracts/tests/environment.rs`, validation vectors | Unit |
+| R3–R4 | `environment-patch.test.ts` (session) | Unit |
+| R5 | validation vectors; `stores_scene_with_credits_and_reloads_it` | Unit |
+| R6 | `rejects_a_file_that_is_not_a_scene`; `editor_commands_and_owner_commands_reject_other_window_labels`. No filter on macOS (R6 changed) | Unit |
+| R7 | `packs_sketchfab_zip_at_root_and_one_folder_down`, `rejects_a_zip_without_a_root_near_the_top`, `rejects_bad_zip_archives` | Unit |
+| R8 | `rejects_unsafe_or_missing_references`, `rejects_symlink_outside_the_folder`, `rejects_an_external_uri_outside_buffers_and_images_and_names_it` | Unit |
+| R9 | `rejects_bad_zip_archives`, `reads_only_the_zip_entries_that_the_root_refers_to` (a broken unreferenced entry does not stop the pack) | Unit |
+| R10–R11 | `rejects_core_texture_source_that_is_not_png_jpeg_or_webp`, `keeps_images_that_only_an_optional_extension_uses`, `rejects_unsupported_images_and_required_extensions` | Unit |
+| R12 | `packs_multi_file_gltf`; `prepared_fixture_stages_pack_with_the_same_counts`: `fixture_glb_stage` 4,075,316 bytes in, 4,075,308 packed; `fixture_test_stage` 15,387,580 in, 15,387,580 packed; counts the same, no `uri` | Unit, real files |
+| R13 | `rejects_output_over_budget` | Unit |
+| R14 | `same_scene_returns_the_existing_record`, `storing_again_repairs_a_missing_scene_file`, `storing_again_repairs_a_scene_file_of_the_wrong_length`, `scene_name_keeps_a_title_of_128_code_units`, `bounds_credits` | Unit |
+| R15 | `shutdown_does_not_wait_for_a_running_scene_import`; `imported_scene_folder_is_packed_served_and_survives_restart` (the source files have the same bytes after the import) | Unit, integration |
+| Issue item 2 | `imported_scene_folder_is_packed_served_and_survives_restart` compares the bytes from `GET /assets/{id}` with `fixtures/scene-import/packed-room.glb`; `scene-import.test.ts` (renderer) loads that file with `inspectContainer` and `GLTFLoader` | Integration (HTTP, file) |
+| R16–R18 | `environment.test.ts` (renderer), with the new `draws nothing for a hidden environment` | Unit, fake loader |
+| R19 | `does not pick environment roots` (editor viewport) | Unit |
+| R20–R21 | `disables Add › Environment while the scene has an environment`; editor check | Unit, headless |
+| R22 | `lists scene assets…`, `shows the scene import error, cut to 160 characters…`; editor check (select, cancel, import error, Choose model…, Missing model for an unknown asset ID) | Unit, headless |
+| R23 | `writes the CC credit line…`; editor check (credits block, clipboard text) | Unit, headless |
+| R24 | `shows the scene value again when the Render Environment change fails`; editor check (off, rejected change, on) | Unit, headless |
+| R25 | `asset-list.integration.test.ts` (MCP) | Integration |
+| R26 | `round_trip_keeps_an_environment_with_an_unknown_model_and_the_camera_flag` (Save As and Open of the file). The editor check shows `Missing model` after a window reload; the session stays the same, so it does not read a show file | Unit, headless |
+
+Not proved in the cloud: the native dialog, a physical click, OBS output and alpha, the WebKit memory footprint, the WebGPU and WebGL 2 render of a packed environment on a real GPU, a release build, and Windows. The editor check has no renderer, so the load status row and the failed-load row under Source were not seen (unknown).

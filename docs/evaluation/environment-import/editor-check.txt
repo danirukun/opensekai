@@ -1,0 +1,19 @@
+PASS Add › Environment is in the menu and enabled (R20) 
+PASS the new entity is an environment without a model (R20) {"id":"a9f9db5c-e585-4799-b040-77d62280bd6b","name":"Environment","visible":true,"transform":{"position":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"kind":"environment","assetId":null}
+PASS Add › Environment is disabled while the scene has one (R20) {"disabled":true,"title":"Scene asset limit reached"}
+PASS the Environment group is before Cameras (R21) "Assets\nSearch assets\nEnvironment\nEnvironment\nLights\nDirectional Light\nCameras\nCamera"
+PASS Source lists Choose model…, the scene asset, and Import file… (R22) ["Choose model…","Test room","Import file…"]
+PASS a record option sends setEnvironmentModel (R22) "scene_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+PASS the credits show title, author, and license (R23) "Title\nTest room\nAuthor\nCG Lads\nLicense\nCC-BY-4.0"
+PASS Copy credit writes the credit line (R23) "This work is based on \"Test room\" (https://sketchfab.com/3d-models/room) by CG Lads licensed under CC-BY-4.0"
+PASS a cancelled import keeps the current value (R22) {"scene":"scene_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","select":"scene_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+PASS an import failure shows the AppError message under the select (R22) "Required extension is not supported: KHR_draco_mesh_compression"
+PASS Choose model… sends setEnvironmentModel with null (R22) null
+PASS the stand-in sets an unknown asset ID {"ok":true,"data":{"revision":4}}
+PASS an unknown asset ID shows Missing model (R22, R26) {"options":["Choose model…","Test room","Missing model","Import file…"],"value":"scene_gone"}
+PASS the camera Inspector has Render Environment, on by default (R24) 
+PASS Render Environment off sends setCameraRenderEnvironment (R24) false
+PASS a failed change shows the scene value again (R24) {"scene":false,"box":false}
+PASS Render Environment on sends setCameraRenderEnvironment (R24) true
+PASS no page error []
+18 pass, 0 fail
