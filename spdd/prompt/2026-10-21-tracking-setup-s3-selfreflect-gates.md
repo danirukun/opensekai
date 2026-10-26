@@ -14,7 +14,7 @@ Status, 2026-10-26: gates done. Gate 1 failed and passes with the `rotationsOnly
 
 ## Controller rulings
 
-- **R22, gate 1 failed.** The selected rule is `rotationsOnly` (reason and numbers in the evidence file). The guide connect plan (`apps/desktop/src/editor/tracking-guide-plan.ts`, an S2 file) writes the preset `positions` for a new or a disabled source. An enabled source that the guide uses again keeps its own value, as for smoothing. This adds that file and its test to the S3 structure for this fix only.
+- **R22, gate 1 failed.** The selected rule is `rotationsOnly` (reason and numbers in the evidence file). The guide connect plan (`apps/desktop/src/editor/tracking-guide-plan.ts`, an S2 file) writes the preset `positions` for a new or a disabled source. An enabled source that the guide uses again keeps its `positions` value only when the source sets it explicitly. When the field is absent, the preset rule applies (final review, I1; ruling R25). This differs from smoothing, because an absent `positions` means `'all'`, which moves the character out of view with SelfReflect. This adds that file and its test to the S3 structure for this fix only.
 - **R21, fixture mode.** The gates ran in fixture mode. Nothing was written to the shared asset library.
 
 ## R — Requirements

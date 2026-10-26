@@ -197,16 +197,18 @@ it('smoothing: absent counts as on and is kept; off is replaced with the preset 
  expect(planConnect(on, 'a', selfReflect, null, undefined, 'n').operations.some(o => o.kind === 'setTrackingSmoothing')).toBe(false);
 });
 
-it('positions: a new or disabled source gets the preset rule; an enabled reused source keeps its own', () => {
+it('positions: a new, disabled, or rule-less source gets the preset rule; an explicit rule on an enabled source is kept', () => {
  const created = apply(sceneOf(avatar('a', { bodySourceId: null, faceSourceId: null })), planConnect(sceneOf(avatar('a', { bodySourceId: null, faceSourceId: null })), 'a', selfReflect, null, undefined, 'new').operations);
  expect(find(created, 'new', 'tracking').config).toMatchObject({ kind: 'vmc', positions: 'rotationsOnly' });
  const { positions: _drop, ...noRule } = vmc39539() as Extract<TrackingConfig, { kind: 'vmc' }>;
- for (const held of [noRule, { ...noRule, positions: 'all' as const }]) {
-  const scene = sceneOf(source('s1', 'vmc', {}, held), avatar('a', { bodySourceId: 's1', faceSourceId: 's1' }));
-  const plan = planConnect(scene, 'a', selfReflect, null, undefined, 'n');
-  expect(plan.operations.some(o => o.kind === 'setTrackingConfig')).toBe(false);
-  expect(find(apply(scene, plan.operations), 's1', 'tracking').config).toEqual(held);
- }
+ const explicit = { ...noRule, positions: 'all' as const };
+ const kept = sceneOf(source('s1', 'vmc', {}, explicit), avatar('a', { bodySourceId: 's1', faceSourceId: 's1' }));
+ const keptPlan = planConnect(kept, 'a', selfReflect, null, undefined, 'n');
+ expect(keptPlan.operations.some(o => o.kind === 'setTrackingConfig')).toBe(false);
+ expect(find(apply(kept, keptPlan.operations), 's1', 'tracking').config).toEqual(explicit);
+ const absent = sceneOf(source('s1', 'vmc', {}, noRule), avatar('a', { bodySourceId: 's1', faceSourceId: 's1' }));
+ const absentPlan = planConnect(absent, 'a', selfReflect, null, undefined, 'n');
+ expect(find(apply(absent, absentPlan.operations), 's1', 'tracking').config).toMatchObject({ enabled: true, positions: 'rotationsOnly' });
  const disabled = sceneOf(source('s1', 'vmc', {}, { ...noRule, enabled: false, positions: 'all' }), avatar('a', { bodySourceId: 's1', faceSourceId: 's1' }));
  const plan = planConnect(disabled, 'a', selfReflect, null, undefined, 'n');
  expect(find(apply(disabled, plan.operations), 's1', 'tracking').config).toMatchObject({ enabled: true, positions: 'rotationsOnly' });

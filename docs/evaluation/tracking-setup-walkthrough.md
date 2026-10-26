@@ -78,7 +78,7 @@ The replay fixture shows why the positions break the pose:
 - `LeftHand` and `RightHand` are on a centimeter scale: ±67.7, 143.5, −6 in the T-pose frame, and 20 to 36, −59 to 18, −36 to −73 later.
 - Every other bone position is (0, 0, 0), and the root position is always 0.
 
-The selected rule is `rotationsOnly`. `hipsOnly` would keep a hips height on a different scale from the character, and the Relax step has no hips neutral to remove it. The SelfReflect preset sets the rule (S3 R2). The guide connect plan writes the preset rule for a new or a disabled source, and an enabled source that the guide uses again keeps its own rule, as for smoothing (ruling R22). Run C created source `69dfadee…` with `positions: 'rotationsOnly'` from the preset.
+The selected rule is `rotationsOnly`. `hipsOnly` would keep a hips height on a different scale from the character, and the Relax step has no hips neutral to remove it. The SelfReflect preset sets the rule (S3 R2). The guide connect plan writes the preset rule for a new or a disabled source, and an enabled source that the guide uses again keeps its rule only when the source sets one explicitly. A source with no rule takes the preset rule (rulings R22 and R25). Run C created source `69dfadee…` with `positions: 'rotationsOnly'` from the preset.
 
 ### Gate 2, stalls: pass
 

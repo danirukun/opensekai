@@ -23,12 +23,12 @@ function newSource(kind:Source['config']['kind'],id:Id,scene:SceneView,config:Tr
 }
 
 // A new address wins, then the one the source already holds.
-// An enabled source keeps its own position rule; a new or disabled source takes the preset rule (as for smoothing).
+// An enabled source keeps a position rule only when it sets one. A new or disabled source, or one with no rule, takes the preset rule.
 function targetConfig(preset:TrackingPreset,port:number|null,phoneAddress:string|null,existing:TrackingConfig|undefined):TrackingConfig {
  const base=preset.config;
  const held=existing&&existing.kind===base.kind?existing:undefined;
  if(base.kind==='vmc'){
-  const {positions:presetRule,...rest}=base,rule=held?.kind==='vmc'&&held.enabled?held.positions:presetRule;
+  const {positions:presetRule,...rest}=base,rule=held?.kind==='vmc'&&held.enabled&&held.positions!==undefined?held.positions:presetRule;
   return {...rest,port:port??base.port,senderAddress:phoneAddress??(held?.kind==='vmc'?held.senderAddress:null),...(rule?{positions:rule}:{})};
  }
  if(base.kind==='ifacialmocap')return {...base,port:port??base.port,phoneAddress:phoneAddress??(held?.kind==='ifacialmocap'?held.phoneAddress:null)};
