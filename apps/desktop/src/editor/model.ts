@@ -1,5 +1,5 @@
-import { ExpressionNameSchema,ExpressionSettingsSchema,TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,FitNeutralSchema,TrackingSmoothingSchema,TrackingMappingSchema,EntityNameSchema,ShowSceneSchema,IdSchema,CameraAntiAliasingSchema,CameraNavigationSchema,LightSettingsSchema,HazeSettingsSchema,FpsCounterSettingsSchema,ReflectionsIntensitySchema,PatchOpSchema } from '@opensekai/contracts';
-import type { ExpressionSettings, AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing, TrackingMapping, ArkitName, CameraAntiAliasing, CameraNavigation, CameraScreenshotResult, LightSettings, HazeSettings, FpsCounterSettings } from '@opensekai/contracts';
+import { ExpressionNameSchema,ExpressionSettingsSchema,TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,FitNeutralSchema,TrackingSmoothingSchema,TrackingMappingSchema,EntityNameSchema,ShowSceneSchema,IdSchema,CameraAntiAliasingSchema,CameraNavigationSchema,LightSettingsSchema,HazeSettingsSchema,FpsCounterSettingsSchema,VmcSenderSettingsSchema,ReflectionsIntensitySchema,PatchOpSchema } from '@opensekai/contracts';
+import type { ExpressionSettings, AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing, TrackingMapping, ArkitName, CameraAntiAliasing, CameraNavigation, CameraScreenshotResult, LightSettings, HazeSettings, FpsCounterSettings, VmcSenderSettings } from '@opensekai/contracts';
 import {makeEntityCopy} from './asset-management';
 type CameraLens=Extract<SceneEntity,{kind:'camera'}>['lens'];
 export interface EditorView {
@@ -134,6 +134,10 @@ export function createEditorModel(api: AppApi) {
   setFpsCounter(entityId:Id,fpsCounter:FpsCounterSettings,expectedRevision?:number,live=false):Promise<Reply<{revision:number}>> {
    const parsed=FpsCounterSettingsSchema.safeParse(fpsCounter);if(!ofKind(entityId,'fpsCounter')||!parsed.success)return invalid();
    return patch({kind:'setFpsCounter',entityId,fpsCounter:parsed.data},expectedRevision,live);
+  },
+  setVmcSender(entityId:Id,vmcSender:VmcSenderSettings,expectedRevision?:number):Promise<Reply<{revision:number}>> {
+   const parsed=VmcSenderSettingsSchema.safeParse(vmcSender);if(!ofKind(entityId,'vmcSender')||!parsed.success)return invalid();
+   return patch({kind:'setVmcSender',entityId,vmcSender:parsed.data},expectedRevision);
   },
   setCameraRenderEnvironment(entityId:Id,renderEnvironment:boolean,expectedRevision?:number):Promise<Reply<{revision:number}>> {
    if(!ofKind(entityId,'camera'))return invalid();

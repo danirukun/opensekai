@@ -1,4 +1,4 @@
-import { ConnectionDescriptorSchema, CaptureBytesSchema, RuntimeFrameSchema, FrameAppliedSchema, RendererDiagnosticsSchema, ResultSchemas, LIMITS, validateCall, requiredCapability, replySchema, parseWire } from "@opensekai/contracts";
+import { ConnectionDescriptorSchema, CaptureBytesSchema, RuntimeFrameSchema, VmcPosesEnvelopeSchema, FrameAppliedSchema, RendererDiagnosticsSchema, ResultSchemas, LIMITS, validateCall, requiredCapability, replySchema, parseWire } from "@opensekai/contracts";
 import type { AppApi, AppError, BrowserClient, CameraScreenshotParams, CaptureBytes, CaptureParams, ConnectionDescriptor, ScreenshotBytes, FrameApplied, PublisherClient, Reply, RuntimeFrame, ValidatedCall, WireMessage, TrackingUpdate, InputUpdate } from "@opensekai/contracts";
 import { reconnectDelay } from "./reconnect";
 type Socket = Pick<WebSocket, "send" | "close" | "addEventListener" | "removeEventListener" | "bufferedAmount">;
@@ -84,7 +84,8 @@ export function connectWithPorts(raw: ConnectionDescriptor, ports: ClientPorts =
         const send = (message: WireMessage) => {
             if (!authenticated && message.kind !== "auth")
                 return false;
-            const state = message.kind === "frame";
+            // A frame and the VMC poses of a tick are replaceable state: a full queue drops them, and does not close the connection.
+            const state = message.kind === "frame" || message.kind === "vmcPoses";
             try {
                 const text = JSON.stringify(message);
                 const bytes = new TextEncoder().encode(text).length;
@@ -272,6 +273,12 @@ export function connectWithPorts(raw: ConnectionDescriptor, ports: ClientPorts =
                     kind: "frame",
                     frame: parsed
                 });
+            },
+            publishVmcPoses(envelope) {
+                const parsed = VmcPosesEnvelopeSchema.parse(envelope);
+                if (parsed.sessionId !== descriptor.sessionId)
+                    throw new Error("VMC pose session mismatch");
+                send(parsed);
             },
             close
         };

@@ -100,8 +100,12 @@ impl AssetRegistry {
                         list.iter()
                             .any(|entry| entry["name"].as_str().is_some_and(is_tracked_expression))
                     });
-                let backfilled = value.is_object()
+                // Records from before B21 have no rig: the VMC sender needs its rest data.
+                let rigless = value.get("format").and_then(Value::as_str) == Some("vrm")
+                    && value.get("rig").is_none();
+                let named = value.is_object()
                     && (value.get("name").is_none() || value.get("expressions").is_none() || stale);
+                let mut backfilled = named || (value.is_object() && rigless);
                 if backfilled {
                     // Older records have no name or expression list: read them from the stored file.
                     let vrm = stored.is_file().then(|| stored_vrm(&stored)).flatten();
@@ -119,6 +123,21 @@ impl AssetRegistry {
                             .unwrap_or_default();
                         value["expressions"] =
                             serde_json::to_value(expressions).unwrap_or_default();
+                    }
+                    if rigless {
+                        match vrm.as_ref().and_then(|(json, _)| super::vrm::vrm_rig(json)) {
+                            Some(rig) => {
+                                value["rig"] = serde_json::to_value(rig).unwrap_or_default()
+                            }
+                            None => {
+                                eprintln!(
+                                    "OpenSekai cannot read the rig of asset {}",
+                                    value["id"].as_str().unwrap_or("")
+                                );
+                                // Do not write the record again only for a rig that cannot be read.
+                                backfilled = named;
+                            }
+                        }
                     }
                 }
                 let Ok(record) = serde_json::from_value::<AssetRecord>(value) else {
@@ -245,6 +264,7 @@ impl AssetRegistry {
                 // Older manifests have no expression list: read it from a VRM fixture file.
                 if !record.contains_key("expressions") {
                     let expressions = path
+                        .clone()
                         .filter(|_| record.get("format").and_then(Value::as_str) == Some("vrm"))
                         .and_then(|path| stored_vrm(&path))
                         .map(|(json, raw)| super::vrm::vrm_expressions(&json, &raw))
@@ -253,6 +273,18 @@ impl AssetRegistry {
                         "expressions".into(),
                         serde_json::to_value(expressions).unwrap_or_default(),
                     );
+                }
+                // Fixture avatars get the rig from the same reader as an import (B21 R6).
+                if !record.contains_key("rig")
+                    && record.get("format").and_then(Value::as_str) == Some("vrm")
+                {
+                    if let Some(rig) = path
+                        .as_ref()
+                        .and_then(|path| stored_vrm(path))
+                        .and_then(|(json, _)| super::vrm::vrm_rig(&json))
+                    {
+                        record.insert("rig".into(), serde_json::to_value(rig).unwrap_or_default());
+                    }
                 }
             }
         }
@@ -384,6 +416,7 @@ pub fn prepare_scene(packed: PackedScene) -> Result<PreparedScene, AppError> {
         credits,
         expressions: vec![],
         eye_bones: None,
+        rig: None,
     };
     record.validate()?;
     Ok(PreparedScene {
@@ -445,6 +478,7 @@ pub fn stage_avatar(library: &Path, path: &Path) -> Result<StagedAsset, AppError
     let (json, raw) = validate_import_file(copy.as_file_mut(), count)?;
     let expressions = super::vrm::vrm_expressions(&json, &raw);
     let eye_bones = Some(super::vrm::vrm_has_eye_bones(&json));
+    let rig = super::vrm::vrm_rig(&json);
     let sha256 = hex(&hash.finalize());
     let id = format!("avatar_{sha256}");
     let name = meta_name(&json)
@@ -466,6 +500,7 @@ pub fn stage_avatar(library: &Path, path: &Path) -> Result<StagedAsset, AppError
         credits: None,
         expressions,
         eye_bones,
+        rig,
     };
     copy.as_file()
         .sync_all()
@@ -606,6 +641,16 @@ mod tests {
             assert_eq!(bytes.len() as u64, record.bytes, "{}", record.id);
             if matches!(record.format, AssetFormat::Vrm) {
                 assert!(!record.expressions.is_empty(), "{}", record.id);
+                // The VMC sender reads the rest data of each fixture avatar (B21 R6).
+                let rig = record.rig.as_ref().expect("fixture rig");
+                assert!(rig.rest_positions.contains_key("hips"), "{}", record.id);
+                eprintln!(
+                    "{}: VRM {:?}, {} rest positions, identityRest {}",
+                    record.id,
+                    rig.meta_version,
+                    rig.rest_positions.len(),
+                    rig.identity_rest
+                );
             }
         }
     }
@@ -830,6 +875,38 @@ mod import_tests {
             r#""VRMC_vrm": {"expressions":{"preset":{"happy":{},"aa":{}},"custom":{"Wink":{}}},"#,
             1,
         )
+    }
+    #[test]
+    fn import_and_library_load_fill_the_rig() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("rig.vrm");
+        std::fs::write(
+            &path,
+            vrm(include_str!("../../tests/fixtures/minimal-vrm0.json")),
+        )
+        .unwrap();
+        let managed = dir.path().join("managed");
+        let mut r = AssetRegistry::empty(&managed).unwrap();
+        let imported = r.import_avatar(&path).unwrap().record;
+        let rig = imported.rig.clone().unwrap();
+        assert_eq!(rig.meta_version, opensekai_contracts::RigMetaVersion::V0);
+        assert_eq!(rig.rest_positions["hips"], [0., 1., 0.]);
+        assert!(rig.identity_rest);
+        // A record from before B21 gets the rig from its stored file, and the library writes it again.
+        let json_path = r.library().join(format!("{}.json", imported.id));
+        let mut old: Value = serde_json::from_slice(&std::fs::read(&json_path).unwrap()).unwrap();
+        old.as_object_mut().unwrap().remove("rig");
+        std::fs::write(&json_path, old.to_string()).unwrap();
+        let reopened = AssetRegistry::empty(&managed).unwrap();
+        assert_eq!(reopened.records()[0].rig, Some(rig));
+        let written: Value = serde_json::from_slice(&std::fs::read(&json_path).unwrap()).unwrap();
+        assert_eq!(written["rig"]["metaVersion"], "0");
+        // A stored file that does not parse leaves the record without a rig.
+        std::fs::write(&json_path, old.to_string()).unwrap();
+        std::fs::write(r.library().join(format!("{}.vrm", imported.id)), b"broken").unwrap();
+        let broken = AssetRegistry::empty(&managed).unwrap();
+        assert_eq!(broken.records().len(), 1);
+        assert!(broken.records()[0].rig.is_none());
     }
     #[test]
     fn import_and_library_load_record_expression_names() {

@@ -33,14 +33,15 @@ const uses = (graph: BlueprintGraph): Use[] => graph.nodes.flatMap(node => nodeD
  const value = (node.settings as Record<string, unknown>)[field.key];
  return isFieldKind(field.kind) && typeof value === 'string' ? [{ nodeId: node.id, key: field.key, kind: field.kind, value }] : [];
 }));
-const referable = (entity: SceneEntity): entity is Exclude<SceneEntity, { kind: 'tracking' }> => entity.kind !== 'tracking';
+// A VMC sender is not a Blueprint reference kind (B21 R2). A tracking source is one only for a trackingSource field.
+const referable = (entity: SceneEntity): entity is Exclude<SceneEntity, { kind: 'tracking' | 'vmcSender' }> => entity.kind !== 'tracking' && entity.kind !== 'vmcSender';
 const accepts = (kind: Exclude<FieldKind, 'output'>, entity: SceneEntity) => kind === 'camera' || kind === 'avatar' ? entity.kind === kind : kind === 'trackingSource' ? entity.kind === 'tracking' : referable(entity);
 
 export function exportBlueprint(graph: BlueprintGraph, scene: SceneView): BlueprintFile {
  const references = new Map<Id, BlueprintReference>();
  for (const use of uses(graph)) {
   if (references.has(use.value)) continue;
-  const entity = use.kind === 'output' ? undefined : scene.entities.find(item => item.id === use.value && (use.kind === 'trackingSource' ? item.kind === 'tracking' : referable(item)));
+  const entity = use.kind === 'output' ? undefined : scene.entities.find((item): item is Exclude<SceneEntity, { kind: 'vmcSender' }> => item.id === use.value && (use.kind === 'trackingSource' ? item.kind === 'tracking' : referable(item)));
   const output = use.kind === 'output' && scene.outputs.some(item => item.id === use.value);
   references.set(use.value, entity ? { id: use.value, kind: entity.kind, name: entity.name }
    : output ? { id: use.value, kind: 'output', name: use.value }

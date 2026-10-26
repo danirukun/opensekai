@@ -8,9 +8,17 @@ This document tells you which test to write and how to make it reliable. It adds
 | --- | --- | --- | --- |
 | Unit | Pure logic: packet decoding, coordinate conversion, scheduling, state transitions, filters, schema validation | `packages/*/test`, `apps/*/test`, `tools/*/test` (`*.test.ts`); Rust `#[cfg(test)]` modules | `pnpm test:unit`, `cargo test` |
 | Integration | A real process, network, file, or protocol boundary. State the boundary in the test name or a comment. | `*.integration.test.ts`, `scripts/*.test.ts`, `apps/desktop/src-tauri/tests/` | `pnpm test:integration`, `cargo test --workspace` |
-| End-to-end | A critical user path through the running app, the browser, or OBS | `tools/evaluation`, evidence in `docs/evaluation/` | `pnpm evaluate:smoke`, `pnpm evaluate:blueprints` |
+| End-to-end | A critical user path through the running app, the browser, or OBS | `tools/evaluation`, evidence in `docs/evaluation/` | `pnpm evaluate:smoke`, `pnpm evaluate:blueprints`, `pnpm evaluate:vmc-feed` |
 
 Add a unit test for new function behavior. Do not test static copy or wiring that a running check already shows. Prefer one integration test at the real boundary to many unit tests of the wiring around it.
+
+### VMC test peer
+
+Use `pnpm evaluate:vmc-feed` for a VMC receiver or sender check when no tracker or VMC application is present.
+
+- `pnpm evaluate:vmc-feed --port <port>` sends VMC bundles to `127.0.0.1:<port>` at 60 Hz. Each bundle has `/VMC/Ext/OK`, `/VMC/Ext/T`, the blend values `Blink` and `A` `I` `U` `E` `O`, and `/VMC/Ext/Blend/Apply`. The eyes close one time in 2 s. One vowel opens at a time, 0.8 s each. Point it at the VMC Receiver port to give a character face motion that a downstream receiver (for example VSeeFace) can show.
+- `pnpm evaluate:vmc-feed --listen --port <port>` receives VMC packets and writes one JSON line each second: the packet count, the count for each OSC address, and the last value of each blend shape. Use it as the receiver for a VMC Sender check.
+- `--host`, `--rate`, and `--seconds` change the address, the send rate, and the run time. Without `--seconds`, it runs until Ctrl+C.
 
 ## Rules
 
