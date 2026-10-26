@@ -146,7 +146,7 @@ App timing: preview_v1 CPU time about 4 ms for each frame. GPU time is unknown (
 
 ### Parser limit and test results
 
-- The OSC bundle limit rose from 64 to 256 messages (`MAX_OSC_MESSAGES`, f403f78). A full SelfReflect bundle has 55 humanoid bones, 52 ARKit values, and the root, OK, and apply messages. The largest replay packet is 6696 of 8192 bytes. The headroom is 1496 bytes, and a sender with `eyeLook*` channels adds more. The datagram limit of 8192 bytes still bounds the work. A parser unit test runs at the new limit.
+- The OSC bundle limit rose from 64 to 256 messages (`MAX_OSC_MESSAGES`, f403f78). A SelfReflect bundle has up to 55 humanoid bones, up to 52 ARKit values (the replay has 44), and the root, OK, and apply messages. The largest replay packet is 6696 of 8192 bytes. The headroom is 1496 bytes. The datagram limit of 8192 bytes still bounds the work. A parser unit test runs at the new limit.
 - Suite results at 26fe78e: unit 1443 pass. Integration 58 pass, 2 skipped. `pnpm check` 0 errors. `cargo test` 332 pass, 0 fail, 1 ignored. `clippy` 0 warnings.
 
 ### Concerns
