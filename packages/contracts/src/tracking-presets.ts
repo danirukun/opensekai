@@ -1,5 +1,5 @@
 import type {ArkitName} from './expressions';
-import {DEFAULT_TRACKING_SMOOTHING,type TrackingConfig,type TrackingSmoothing} from './tracking';
+import {DEFAULT_TRACKING_SMOOTHING,type TrackingConfig,type TrackingSmoothing,type VmcPositionRule} from './tracking';
 
 export type TrackingPresetId='selfreflect'|'ifacialmocap'|'vmc';
 export type ExpressionStepId='blink'|'mouthWide'|'browsUp'|'smile'|'frown'|'pucker'|'puffCheeks'|'tongueOut'|'lookAround';
@@ -7,10 +7,11 @@ export type TrackingSlot='body'|'face'|'fingers';
 export interface TrackingPreset {id:TrackingPresetId;label:string;config:TrackingConfig;slots:readonly TrackingSlot[];connect:'showAddress'|'askPhone';smoothing:TrackingSmoothing;steps:readonly ExpressionStepId[]}
 
 const STEPS:readonly ExpressionStepId[]=['blink','mouthWide','browsUp','smile','frown','pucker','puffCheeks','tongueOut','lookAround'];
-const vmc=(id:'selfreflect'|'vmc',label:string):TrackingPreset=>({id,label,config:{kind:'vmc',enabled:true,bindAddress:'0.0.0.0',port:39539,senderAddress:null},slots:['body','face','fingers'],connect:'showAddress',smoothing:{...DEFAULT_TRACKING_SMOOTHING},steps:STEPS});
+const vmc=(id:'selfreflect'|'vmc',label:string,rule?:VmcPositionRule):TrackingPreset=>({id,label,config:{kind:'vmc',enabled:true,bindAddress:'0.0.0.0',port:39539,senderAddress:null,...(rule?{positions:rule}:{})},slots:['body','face','fingers'],connect:'showAddress',smoothing:{...DEFAULT_TRACKING_SMOOTHING},steps:STEPS});
 
 export const TRACKING_PRESETS:readonly TrackingPreset[]=[
- vmc('selfreflect','SelfReflect'),
+ // Gate 1 (TRK-23 S3): SelfReflect bone positions are on mixed scales (hands in cm, hips below the floor, zero for the other bones).
+ vmc('selfreflect','SelfReflect','rotationsOnly'),
  {id:'ifacialmocap',label:'iFacialMocap',config:{kind:'ifacialmocap',enabled:true,bindAddress:'0.0.0.0',port:49983,phoneAddress:null},slots:['face'],connect:'askPhone',smoothing:{...DEFAULT_TRACKING_SMOOTHING},steps:STEPS},
  vmc('vmc','Other VMC app')
 ];

@@ -10,6 +10,11 @@ This file is the contract only. S3 depends on S1. It can run in parallel with S2
 - A fix is in the subset only when its gate fails. The position rule, the stale hold, and new smoothing values are candidates with a selection gate. They are not decided behavior.
 - Not in it: the guide (S2), the Blueprint nodes (S4), and any body calibration.
 
+## Controller rulings
+
+- **R22, gate 1 failed.** The selected rule is `rotationsOnly` (reason and numbers in the evidence file). The guide connect plan (`apps/desktop/src/editor/tracking-guide-plan.ts`, an S2 file) writes the preset `positions` for a new or a disabled source. An enabled source that the guide uses again keeps its own value, as for smoothing. This adds that file and its test to the S3 structure for this fix only.
+- **R21, fixture mode.** The gates ran in fixture mode. Nothing was written to the shared asset library.
+
 ## R — Requirements
 
 R1. **Gate 1, positions.** Load the character, run a real SelfReflect stream, and look at the arms and the hips height. The renderer applies bone positions. SelfReflect sends hand positions on a centimeter scale and a hips position below the floor. Record what you see and a screenshot. The gate fails when the arms are broken or the character is sunk.

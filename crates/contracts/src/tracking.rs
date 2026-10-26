@@ -9,6 +9,8 @@ pub enum TrackingConfig {
         port: u16,
         #[serde(rename = "senderAddress")]
         sender_address: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        positions: Option<VmcPositionRule>,
     },
     #[serde(rename = "ifacialmocap")]
     IFacialMocap {
@@ -29,6 +31,14 @@ pub enum TrackingConfig {
         hands: bool,
         mirror: bool,
     },
+}
+/// Which VMC bone positions the composer keeps. A missing rule means `All`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum VmcPositionRule {
+    All,
+    RotationsOnly,
+    HipsOnly,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
@@ -467,8 +477,26 @@ impl Validate for TrackingMapping {
 
 #[cfg(test)]
 mod tests {
-    use super::TrackingMapping;
+    use super::{TrackingConfig, TrackingMapping};
     use serde_json::json;
+
+    #[test]
+    fn vmc_positions_round_trip_present_and_absent() {
+        let base = json!({"kind":"vmc","enabled":true,"bindAddress":"0.0.0.0","port":39539,"senderAddress":null});
+        let absent: TrackingConfig = serde_json::from_value(base.clone()).unwrap();
+        assert_eq!(serde_json::to_value(&absent).unwrap(), base);
+        for rule in ["all", "rotationsOnly", "hipsOnly"] {
+            let mut with = base.clone();
+            with["positions"] = json!(rule);
+            let parsed: TrackingConfig = serde_json::from_value(with.clone()).unwrap();
+            assert_eq!(serde_json::to_value(&parsed).unwrap(), with);
+        }
+        let mut bad = base.clone();
+        bad["positions"] = json!("none");
+        assert!(serde_json::from_value::<TrackingConfig>(bad).is_err());
+        let ifm = json!({"kind":"ifacialmocap","enabled":true,"bindAddress":"0.0.0.0","port":49983,"phoneAddress":null,"positions":"all"});
+        assert!(serde_json::from_value::<TrackingConfig>(ifm).is_err());
+    }
 
     #[test]
     fn use_eye_bones_round_trips_present_and_absent() {

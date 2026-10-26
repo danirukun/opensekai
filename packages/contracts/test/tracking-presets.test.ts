@@ -20,6 +20,18 @@ describe('tracking presets',()=>{
    expect(preset.smoothing).toEqual(DEFAULT_TRACKING_SMOOTHING);
   }
  });
+ it('SelfReflect drops the VMC bone positions; the other presets keep the default',()=>{
+  const config=(id:string)=>TRACKING_PRESETS.find(p=>p.id===id)!.config;
+  expect(config('selfreflect')).toMatchObject({kind:'vmc',positions:'rotationsOnly'});
+  expect('positions' in config('vmc')).toBe(false);
+  expect('positions' in config('ifacialmocap')).toBe(false);
+ });
+ it('accepts only the three position rules on a VMC config',()=>{
+  const vmc={kind:'vmc',enabled:true,bindAddress:'0.0.0.0',port:39539,senderAddress:null};
+  for(const positions of ['all','rotationsOnly','hipsOnly'])expect(TrackingConfigSchema.safeParse({...vmc,positions}).success).toBe(true);
+  expect(TrackingConfigSchema.safeParse({...vmc,positions:'none'}).success).toBe(false);
+  expect(TrackingConfigSchema.safeParse({kind:'ifacialmocap',enabled:true,bindAddress:'0.0.0.0',port:49983,phoneAddress:null,positions:'all'}).success).toBe(false);
+ });
  it('fills the face slot only for iFacialMocap and asks for the phone',()=>{
   const phone=TRACKING_PRESETS.find(p=>p.id==='ifacialmocap')!;
   expect(phone.slots).toEqual(['face']);

@@ -1,4 +1,4 @@
-import {TrackingUpdateSchema,canonicalArkitName,type ArkitName,type TrackingProbe,type TrackingUpdate,type TrackingSample,type TrackingStatus,type TrackingBone,type AvatarPose,type SceneView,type SceneEntity,DEFAULT_TRACKING_SMOOTHING,FINGER_BONES,type Quat,type Reply} from '@opensekai/contracts';
+import {TrackingUpdateSchema,canonicalArkitName,type ArkitName,type TrackingProbe,type TrackingUpdate,type TrackingSample,type VmcPositionRule,type TrackingStatus,type TrackingBone,type AvatarPose,type SceneView,type SceneEntity,DEFAULT_TRACKING_SMOOTHING,FINGER_BONES,type Quat,type Reply} from '@opensekai/contracts';
 import {applyCalibration} from './tracking-calibration';
 import {applyMapping,scaleRotation} from './tracking-mapping';
 import {evaluateAvatarIdle} from './idle';
@@ -9,6 +9,12 @@ function multiplyQuaternion(a:Quat,b:Quat):Quat {
  const [ax,ay,az,aw]=a,[bx,by,bz,bw]=b;
  const q:Quat=[ax*bw+aw*bx+ay*bz-az*by,ay*bw+aw*by+az*bx-ax*bz,az*bw+aw*bz+ax*by-ay*bx,aw*bw-ax*bx-ay*by-az*bz];
  const length=Math.hypot(...q);return q.map(value=>value/length)as Quat;
+}
+// Keeps the bone positions that the rule allows. Rotations, expressions, and the root rotation stay.
+export function applyPositionRule(sample:TrackingSample,rule:VmcPositionRule):TrackingSample {
+ if(rule==='all')return sample;
+ const bones=Object.fromEntries(Object.entries(sample.bones).map(([name,bone])=>{const {position,...rest}=bone;return [name,rule==='hipsOnly'&&name==='hips'&&position?{...rest,position:[...position]as typeof position}:rest];}));
+ return {...sample,bones,...(sample.root?{root:{position:[0,0,0],rotation:[...sample.root.rotation]as Quat}}:{})};
 }
 export function createTrackingComposer(){
  const samples=new Map<string,TrackingSample>(),statuses=new Map<string,TrackingStatus>();
@@ -63,7 +69,7 @@ export function createTrackingComposer(){
    if(weight<=0)return null;
    // Calibration, then mapping, before mixing and the stale fade (R4, R10). One result for each source in this evaluation.
    let mapped=resolved.get(source.id);
-   if(!mapped){mapped=applyMapping(applyCalibration(sample,source.calibration),source.mapping);resolved.set(source.id,mapped);}
+   if(!mapped){mapped=applyMapping(applyCalibration(applyPositionRule(sample,source.config.kind==='vmc'?source.config.positions??'all':'all'),source.calibration),source.mapping);resolved.set(source.id,mapped);}
    return {sample:mapped,weight};
   }
   const resolved=new Map<string,TrackingSample>();

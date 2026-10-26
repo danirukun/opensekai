@@ -197,6 +197,21 @@ it('smoothing: absent counts as on and is kept; off is replaced with the preset 
  expect(planConnect(on, 'a', selfReflect, null, undefined, 'n').operations.some(o => o.kind === 'setTrackingSmoothing')).toBe(false);
 });
 
+it('positions: a new or disabled source gets the preset rule; an enabled reused source keeps its own', () => {
+ const created = apply(sceneOf(avatar('a', { bodySourceId: null, faceSourceId: null })), planConnect(sceneOf(avatar('a', { bodySourceId: null, faceSourceId: null })), 'a', selfReflect, null, undefined, 'new').operations);
+ expect(find(created, 'new', 'tracking').config).toMatchObject({ kind: 'vmc', positions: 'rotationsOnly' });
+ const { positions: _drop, ...noRule } = vmc39539() as Extract<TrackingConfig, { kind: 'vmc' }>;
+ for (const held of [noRule, { ...noRule, positions: 'all' as const }]) {
+  const scene = sceneOf(source('s1', 'vmc', {}, held), avatar('a', { bodySourceId: 's1', faceSourceId: 's1' }));
+  const plan = planConnect(scene, 'a', selfReflect, null, undefined, 'n');
+  expect(plan.operations.some(o => o.kind === 'setTrackingConfig')).toBe(false);
+  expect(find(apply(scene, plan.operations), 's1', 'tracking').config).toEqual(held);
+ }
+ const disabled = sceneOf(source('s1', 'vmc', {}, { ...noRule, enabled: false, positions: 'all' }), avatar('a', { bodySourceId: 's1', faceSourceId: 's1' }));
+ const plan = planConnect(disabled, 'a', selfReflect, null, undefined, 'n');
+ expect(find(apply(disabled, plan.operations), 's1', 'tracking').config).toMatchObject({ enabled: true, positions: 'rotationsOnly' });
+});
+
 it('mapping: writes useEyeBones from a known flag, keeps other fields, never writes for unknown', () => {
  const mapping = { ...DEFAULT_TRACKING_MAPPING, headIntensity: 1.5, blendShapes: { jawOpen: { inputMin: 0.1, inputMax: 0.8, outputMin: 0, outputMax: 1 } } };
  const scene = sceneOf(source('s1', 'vmc', { mapping }, vmc39539()), avatar('a', { bodySourceId: 's1', faceSourceId: 's1' }));

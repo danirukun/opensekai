@@ -85,6 +85,7 @@ fn route_source(id: &str, name: &str, config: &TrackingConfig) -> Option<Result<
             bind_address,
             port,
             sender_address,
+            ..
         } => (SourceKind::Vmc, enabled, bind_address, port, sender_address),
         TrackingConfig::IFacialMocap {
             enabled,
@@ -702,6 +703,7 @@ mod status_tests {
                     bind_address: "127.0.0.1".into(),
                     port,
                     sender_address: Some("127.0.0.2".into()),
+                    positions: None,
                 },
             }],
         };

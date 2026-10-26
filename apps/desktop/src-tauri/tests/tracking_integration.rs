@@ -352,6 +352,7 @@ async fn failed_bind_retries_on_next_revision() {
             bind_address: "127.0.0.1".into(),
             port,
             sender_address: None,
+            positions: None,
         },
     );
     manager.reconcile(&scene(1, vec![body.clone()])).await;
@@ -447,6 +448,7 @@ async fn selfreflect_replay_decodes_bones_and_lowercase_arkit() {
             bind_address: "127.0.0.1".into(),
             port,
             sender_address: None,
+            positions: None,
         },
     );
     manager.reconcile(&scene(1, vec![body])).await;
