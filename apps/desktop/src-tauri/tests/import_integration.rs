@@ -67,7 +67,11 @@ async fn imported_scene_folder_is_packed_served_and_survives_restart() {
         let mut encoder = png::Encoder::new(&mut png_bytes, 1, 1);
         encoder.set_color(png::ColorType::Rgba);
         encoder.set_depth(png::BitDepth::Eight);
-        encoder.write_header().unwrap().write_image_data(&[200, 120, 80, 255]).unwrap();
+        encoder
+            .write_header()
+            .unwrap()
+            .write_image_data(&[200, 120, 80, 255])
+            .unwrap();
     }
     std::fs::write(room.join("textures/base color.png"), &png_bytes).unwrap();
     std::fs::write(room.join("scene.bin"), [0u8; 12]).unwrap();
@@ -101,7 +105,15 @@ async fn imported_scene_folder_is_packed_served_and_survives_restart() {
     assert_eq!(imported.record.name, "Test room");
     let descriptor = service.operator_descriptor();
     let url = format!("{}/assets/{}", descriptor.http_origin, imported.record.id);
-    let served = reqwest::Client::new().get(&url).bearer_auth(descriptor.token).send().await.unwrap().bytes().await.unwrap();
+    let served = reqwest::Client::new()
+        .get(&url)
+        .bearer_auth(descriptor.token)
+        .send()
+        .await
+        .unwrap()
+        .bytes()
+        .await
+        .unwrap();
     let json = glb_json(&served);
     assert!(!serde_json::to_string(&json).unwrap().contains("\"uri\""));
     assert_eq!(json["images"][0]["mimeType"], "image/png");

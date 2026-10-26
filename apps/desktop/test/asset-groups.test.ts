@@ -25,3 +25,7 @@ it('puts an FPS counter in the Overlays group after the trackers (B19 R6)',()=>{
  const counter=makeAuthoringEntity('fpsCounter','fps',[]);
  expect(groupEntities([counter,tracking('vmc','v')]).map(group=>[group.key,group.label])).toEqual([['vmc','VMC Receivers'],['overlay','Overlays']]);
 });
+it('puts VMC senders in their own group after the VMC receivers (B21 R5)',()=>{
+ const sender=makeAuthoringEntity('vmcSender','out',[]);
+ expect(groupEntities([sender,tracking('ifacialmocap','i'),tracking('vmc','v')]).map(group=>[group.key,group.label])).toEqual([['vmc','VMC Receivers'],['vmcSender','VMC Senders'],['ifacialmocap','iFacialMocap Receivers']]);
+});

@@ -25,6 +25,8 @@ mod tracking;
 pub use tracking::*;
 mod devices;
 pub use devices::*;
+mod vmc_sender;
+pub use vmc_sender::*;
 strings!(Backend { Webgpu=>"webgpu", Webgl2=>"webgl2" });
 strings!(Capability { Read=>"read", Edit=>"edit", Capture=>"capture", Benchmark=>"benchmark" });
 strings!(Role { Publisher=>"publisher", Operator=>"operator", Renderer=>"renderer" });
@@ -308,6 +310,14 @@ pub enum SceneEntity {
         #[serde(rename = "fpsCounter")]
         fps_counter: FpsCounterSettings,
     },
+    VmcSender {
+        id: Id,
+        name: String,
+        visible: bool,
+        transform: Transform,
+        #[serde(rename = "vmcSender")]
+        vmc_sender: VmcSenderSettings,
+    },
     Camera {
         id: Id,
         name: String,
@@ -340,6 +350,7 @@ impl SceneEntity {
             | Self::Light { id, .. }
             | Self::Haze { id, .. }
             | Self::FpsCounter { id, .. }
+            | Self::VmcSender { id, .. }
             | Self::Tracking { id, .. } => id,
         }
     }
@@ -352,6 +363,7 @@ impl SceneEntity {
             | Self::Light { transform, .. }
             | Self::Haze { transform, .. }
             | Self::FpsCounter { transform, .. }
+            | Self::VmcSender { transform, .. }
             | Self::Tracking { transform, .. } => transform,
         }
     }
@@ -428,6 +440,12 @@ pub enum PatchOp {
         entity_id: Id,
         #[serde(rename = "fpsCounter")]
         fps_counter: FpsCounterSettings,
+    },
+    SetVmcSender {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+        #[serde(rename = "vmcSender")]
+        vmc_sender: VmcSenderSettings,
     },
     SetCameraRenderEnvironment {
         #[serde(rename = "entityId")]
@@ -508,6 +526,8 @@ pub struct AssetRecord {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub credits: Option<AssetCredits>,
     pub expressions: Vec<AssetExpression>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rig: Option<AvatarRig>,
 }
 object!(AssetExpression {
     name: String,
@@ -745,6 +765,8 @@ pub struct AppStatus {
     pub blueprint_revision: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub local_addresses: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub vmc_senders: Option<Vec<VmcSenderStatus>>,
 }
 object!(CaptureParams {
     output_id: Id,
@@ -1774,6 +1796,13 @@ pub enum WireMessage {
         request_id: Id,
         result: Value,
     },
+    /// The poses of the enabled VMC senders for one tick, from the publisher only (B21 R8).
+    VmcPoses {
+        #[serde(rename = "sessionId")]
+        session_id: Id,
+        tick: u64,
+        poses: Vec<VmcSendPose>,
+    },
     Ping {
         #[serde(rename = "requestId")]
         request_id: Id,
@@ -1920,6 +1949,25 @@ impl Validate for SceneView {
                 <= MAX_FPS_COUNTERS,
             "too many fps counters",
         )?;
+        let senders: Vec<_> = self
+            .entities
+            .iter()
+            .filter_map(|e| match e {
+                SceneEntity::VmcSender { vmc_sender, .. } => Some(vmc_sender),
+                _ => None,
+            })
+            .collect();
+        require(senders.len() <= MAX_VMC_SENDERS, "too many VMC senders")?;
+        for sender in senders {
+            if let Some(avatar) = &sender.avatar_id {
+                require(
+                    self.entities
+                        .iter()
+                        .any(|e| matches!(e, SceneEntity::Avatar { id, .. } if id == avatar)),
+                    "missing VMC sender character",
+                )?;
+            }
+        }
         for e in &self.entities {
             if let SceneEntity::Camera {
                 navigation:
@@ -2013,6 +2061,7 @@ impl Validate for ScenePatch {
                 PatchOp::SetLight { light, .. } => light.validate()?,
                 PatchOp::SetHaze { haze, .. } => haze.validate()?,
                 PatchOp::SetFpsCounter { fps_counter, .. } => fps_counter.validate()?,
+                PatchOp::SetVmcSender { vmc_sender, .. } => vmc_sender.validate()?,
                 PatchOp::SetEnvironmentReflections {
                     reflections_intensity,
                     ..
@@ -2140,6 +2189,9 @@ impl Validate for AppStatus {
         if let Some(statuses) = &self.tracking_status {
             validate_statuses(statuses)?;
         }
+        if let Some(statuses) = &self.vmc_senders {
+            validate_vmc_statuses(statuses)?;
+        }
         if let Some(addresses) = &self.local_addresses {
             require(
                 addresses.len() <= 8
@@ -2182,6 +2234,9 @@ impl Validate for AssetRecord {
         )?;
         credits_ok(&self.credits)?;
         expressions_ok(&self.expressions)?;
+        if let Some(rig) = &self.rig {
+            rig.validate()?;
+        }
         hash(&self.sha256)
     }
 }
@@ -2398,6 +2453,10 @@ pub fn parse_wire(bytes: &[u8]) -> Result<WireMessage, AppError> {
             if let Some(data) = reply_data(result)? {
                 decode::<ScreenshotReplyData>(data)?.validate()?;
             }
+        }
+        WireMessage::VmcPoses { tick, poses, .. } => {
+            require(*tick <= 9_007_199_254_740_991, "unsafe VMC tick")?;
+            validate_vmc_poses(poses)?;
         }
         _ => {}
     }
@@ -2705,6 +2764,9 @@ impl Validate for SceneEntity {
         }
         if let Self::FpsCounter { fps_counter, .. } = self {
             fps_counter.validate()?;
+        }
+        if let Self::VmcSender { vmc_sender, .. } = self {
+            vmc_sender.validate()?;
         }
         if let Self::Environment {
             reflections_intensity: Some(n),

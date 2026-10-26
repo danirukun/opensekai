@@ -1,6 +1,7 @@
-//! VRM document checks that read the glTF JSON: humanoid rig diagnostics and expression names.
+//! VRM document checks that read the glTF JSON: humanoid rig diagnostics, expression names, and the rest data of the rig.
 use opensekai_contracts::{
-    is_tracked_expression, AppError, AssetExpression, ErrorCode, MAX_EXPRESSIONS,
+    is_tracked_expression, AppError, AssetExpression, AvatarRig, ErrorCode, RigMetaVersion,
+    MAX_EXPRESSIONS,
 };
 use serde::de::{Deserializer, IgnoredAny, MapAccess, Visitor};
 use serde::Deserialize;
@@ -266,6 +267,133 @@ pub(super) fn vrm_expressions(json: &Value, raw: &[u8]) -> Vec<AssetExpression> 
         .collect()
 }
 
+/// The humanoid bones of a VRM document as (name, node index), with the VRM 0 thumb names
+/// changed to the VRM 1 names, as the renderer and the tracking decoder name them.
+fn humanoid_nodes(json: &Value) -> Option<Vec<(String, usize)>> {
+    let thumb = |name: &str| -> String {
+        match name {
+            "leftThumbProximal" => "leftThumbMetacarpal",
+            "rightThumbProximal" => "rightThumbMetacarpal",
+            "leftThumbIntermediate" => "leftThumbProximal",
+            "rightThumbIntermediate" => "rightThumbProximal",
+            other => other,
+        }
+        .into()
+    };
+    let node = |v: &Value| v.get("node").and_then(Value::as_u64).map(|n| n as usize);
+    if let Some(bones) = json
+        .pointer("/extensions/VRMC_vrm/humanoid/humanBones")
+        .and_then(Value::as_object)
+    {
+        return bones
+            .iter()
+            .map(|(name, v)| Some((name.clone(), node(v)?)))
+            .collect();
+    }
+    json.pointer("/extensions/VRM/humanoid/humanBones")
+        .and_then(Value::as_array)?
+        .iter()
+        .map(|v| Some((thumb(v.get("bone")?.as_str()?), node(v)?)))
+        .collect()
+}
+const IDENTITY_EPSILON: f64 = 1e-5;
+fn numbers<const N: usize>(value: Option<&Value>) -> Option<[f64; N]> {
+    let list = value?.as_array()?;
+    if list.len() != N {
+        return None;
+    }
+    let mut out = [0.; N];
+    for (slot, v) in out.iter_mut().zip(list) {
+        *slot = v.as_f64().filter(|n| n.is_finite())?;
+    }
+    Some(out)
+}
+/// The local translation of a glTF node and whether its rotation is the identity, and with
+/// `unit_scale` also its scale. A `matrix` node reads its translation column and its 3x3 part:
+/// without a rotation each column is on its own axis.
+fn node_rest(node: &Value, unit_scale: bool) -> Option<([f64; 3], bool)> {
+    if let Some(m) = node.get("matrix") {
+        let m = numbers::<16>(Some(m))?;
+        let identity = (0..3).all(|c| {
+            (0..3).all(|r| {
+                let v = m[c * 4 + r];
+                if c != r {
+                    v.abs() <= IDENTITY_EPSILON
+                } else if unit_scale {
+                    (v - 1.).abs() <= IDENTITY_EPSILON
+                } else {
+                    v > 0.
+                }
+            })
+        });
+        return Some(([m[12], m[13], m[14]], identity));
+    }
+    let translation = match node.get("translation") {
+        Some(t) => numbers::<3>(Some(t))?,
+        None => [0.; 3],
+    };
+    let rotation = match node.get("rotation") {
+        Some(r) => numbers::<4>(Some(r))?,
+        None => [0., 0., 0., 1.],
+    };
+    let scale = match node.get("scale") {
+        Some(s) => numbers::<3>(Some(s))?,
+        None => [1.; 3],
+    };
+    let identity = rotation[..3].iter().all(|n| n.abs() <= IDENTITY_EPSILON)
+        && (!unit_scale || scale.iter().all(|n| (n - 1.).abs() <= IDENTITY_EPSILON));
+    Some((translation, identity))
+}
+/// The rest data that the VRM sender needs (B21 R6): the VRM version, the local translation of
+/// each humanoid bone node, and `identityRest`. `identityRest` is true only when each humanoid
+/// bone node has an identity rest rotation and each ancestor node of `hips` has an identity
+/// rotation and a scale of 1. None when the document has no readable humanoid.
+pub(super) fn vrm_rig(json: &Value) -> Option<AvatarRig> {
+    let nodes = json.get("nodes")?.as_array()?;
+    let bones = humanoid_nodes(json)?;
+    let mut parents = vec![None; nodes.len()];
+    for (index, node) in nodes.iter().enumerate() {
+        for child in node
+            .get("children")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+        {
+            let child = child.as_u64()? as usize;
+            *parents.get_mut(child)? = Some(index);
+        }
+    }
+    let mut rest_positions = std::collections::BTreeMap::new();
+    let mut identity_rest = true;
+    for (name, index) in &bones {
+        if !opensekai_contracts::humanoid_bone(name) {
+            return None;
+        }
+        let (translation, identity) = node_rest(nodes.get(*index)?, false)?;
+        identity_rest &= identity;
+        rest_positions.insert(name.clone(), translation);
+    }
+    let hips = bones.iter().find(|(name, _)| name == "hips")?.1;
+    let mut seen = HashSet::new();
+    let mut parent = parents[hips];
+    while let Some(index) = parent {
+        if !seen.insert(index) {
+            return None;
+        }
+        identity_rest &= node_rest(&nodes[index], true)?.1;
+        parent = parents[index];
+    }
+    Some(AvatarRig {
+        meta_version: if json.pointer("/extensions/VRMC_vrm").is_some() {
+            RigMetaVersion::V1
+        } else {
+            RigMetaVersion::V0
+        },
+        rest_positions,
+        identity_rest,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -332,6 +460,88 @@ mod tests {
         let error = validate_humanoid(&duplicate, true).unwrap_err();
         assert!(error.message.starts_with("Duplicate VRM humanoid bones: "));
         assert_eq!(error.ids.len(), 1);
+    }
+    #[test]
+    fn rig_reads_version_rest_translations_and_vrm0_thumbs() {
+        let rig = vrm_rig(&vrm1()).unwrap();
+        assert_eq!(rig.meta_version, RigMetaVersion::V1);
+        assert!(rig.identity_rest);
+        assert_eq!(rig.rest_positions.len(), 16);
+        assert_eq!(rig.rest_positions["hips"], [0., 1., 0.]);
+        assert_eq!(rig.rest_positions["leftFoot"], [0., -0.4, 0.1]);
+        let rig = vrm_rig(&vrm0()).unwrap();
+        assert_eq!(rig.meta_version, RigMetaVersion::V0);
+        // VRM 0 names its first thumb bone Proximal; the rig uses the VRM 1 names.
+        let names = vrm0()["extensions"]["VRM"]["humanoid"]["humanBones"].clone();
+        let thumb = |bone: &str| {
+            names
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|b| b["bone"] == bone)
+                .map(|b| b["node"].as_u64().unwrap() as usize)
+        };
+        let nodes = vrm0()["nodes"].clone();
+        let translation = |node: usize| -> [f64; 3] {
+            serde_json::from_value(nodes[node]["translation"].clone()).unwrap_or([0.; 3])
+        };
+        if let Some(node) = thumb("leftThumbIntermediate") {
+            assert_eq!(rig.rest_positions["leftThumbProximal"], translation(node));
+            assert!(!rig.rest_positions.contains_key("leftThumbIntermediate"));
+        }
+        if let Some(node) = thumb("leftThumbProximal") {
+            assert_eq!(rig.rest_positions["leftThumbMetacarpal"], translation(node));
+        }
+        assert!(thumb("leftThumbIntermediate").is_some() || thumb("leftThumbProximal").is_some());
+    }
+    #[test]
+    fn rig_without_chest_and_rotated_rest_poses() {
+        let mut chestless = vrm1();
+        chestless["extensions"]["VRMC_vrm"]["humanoid"]["humanBones"]
+            .as_object_mut()
+            .unwrap()
+            .remove("chest");
+        let rig = vrm_rig(&chestless).unwrap();
+        assert!(!rig.rest_positions.contains_key("chest"));
+        assert!(rig.identity_rest);
+        // A humanoid bone with a rest rotation breaks the Warudo rule.
+        let mut rotated = vrm1();
+        rotated["nodes"][3]["rotation"] = serde_json::json!([0., 0.6, 0., 0.8]);
+        assert!(!vrm_rig(&rotated).unwrap().identity_rest);
+        // A scaled humanoid bone keeps an identity rotation.
+        let mut scaled = vrm1();
+        scaled["nodes"][3]["scale"] = serde_json::json!([2., 2., 2.]);
+        assert!(vrm_rig(&scaled).unwrap().identity_rest);
+        // A rotated or scaled parent of the hips moves the hips: not supported.
+        for (key, value) in [
+            ("rotation", serde_json::json!([0., 1., 0., 0.])),
+            ("scale", serde_json::json!([0.01, 0.01, 0.01])),
+        ] {
+            let mut parented = vrm1();
+            let nodes = parented["nodes"].as_array_mut().unwrap();
+            nodes.push(serde_json::json!({"name":"Armature","children":[0]}));
+            let last = nodes.len() - 1;
+            nodes[last][key] = value;
+            assert!(!vrm_rig(&parented).unwrap().identity_rest, "{key}");
+        }
+        let mut translated = vrm1();
+        let nodes = translated["nodes"].as_array_mut().unwrap();
+        nodes.push(serde_json::json!({"name":"Armature","translation":[0,0.5,0],"children":[0]}));
+        assert!(vrm_rig(&translated).unwrap().identity_rest);
+        // A matrix node gives its translation column.
+        let mut matrix = vrm1();
+        matrix["nodes"][3]
+            .as_object_mut()
+            .unwrap()
+            .remove("translation");
+        matrix["nodes"][3]["matrix"] =
+            serde_json::json!([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.1, 0.2, 0.3, 1]);
+        let rig = vrm_rig(&matrix).unwrap();
+        assert_eq!(rig.rest_positions["head"], [0.1, 0.2, 0.3]);
+        assert!(rig.identity_rest);
+        matrix["nodes"][3]["matrix"] =
+            serde_json::json!([0, 1, 0, 0, -1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+        assert!(!vrm_rig(&matrix).unwrap().identity_rest);
     }
     #[test]
     fn long_bone_lists_are_shortened_in_the_message() {

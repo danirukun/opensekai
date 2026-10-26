@@ -17,6 +17,7 @@
     "mcp": "tsx apps/mcp/src/cli.ts",
     "evaluate:smoke": "tsx tools/evaluation/src/run-smoke.ts",
     "evaluate:blueprints": "tsx tools/evaluation/src/run-blueprints.ts",
+    "evaluate:vmc-feed": "tsx tools/evaluation/src/vmc-feed.ts",
     "build:test-stage": "tsx scripts/build-test-stage.ts"
   },
   "devDependencies": {

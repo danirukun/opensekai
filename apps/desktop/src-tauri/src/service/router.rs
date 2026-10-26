@@ -61,7 +61,7 @@ fn local_addresses(interfaces: impl IntoIterator<Item = (std::net::IpAddr, bool)
 }
 /// Reads the interfaces with `if-addrs`; "up" is its operational status (`IFF_RUNNING` on
 /// macOS and Linux, `OperStatus` on Windows).
-fn computer_addresses() -> Vec<String> {
+pub(crate) fn computer_addresses() -> Vec<String> {
     if_addrs::get_if_addrs()
         .map(|list| local_addresses(list.iter().map(|i| (i.ip(), i.is_oper_up()))))
         .unwrap_or_default()
@@ -346,6 +346,7 @@ impl Shared {
                     .and_then(|f| f.tracking_status.clone()),
                 blueprint_revision: inner.latest.as_ref().and_then(|f| f.blueprint_revision),
                 local_addresses: Some(computer_addresses()),
+                vmc_senders: Some(self.vmc_senders.statuses()).filter(|list| !list.is_empty()),
             }));
         }
         if call.method == "cameraScreenshot" {

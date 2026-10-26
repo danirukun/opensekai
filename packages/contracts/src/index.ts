@@ -19,3 +19,4 @@ export * from './blueprint-comments';
 export * from './blueprint-duplicate';
 export * from './devices';
 export * from './blueprint-debug';
+export * from './vmc-sender';

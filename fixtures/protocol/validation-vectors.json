@@ -12326,5 +12326,3778 @@
       "triggerNodeId": "n"
     },
     "method": "blueprintRun"
+  },
+  {
+    "name": "vmc-sender",
+    "target": "scene",
+    "valid": true,
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "box"
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1"
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "vmc_sender_1",
+          "name": "VMC Sender",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "vmcSender",
+          "vmcSender": {
+            "enabled": false,
+            "address": "127.0.0.1",
+            "port": 39539,
+            "avatarId": "performer"
+          }
+        },
+        {
+          "id": "vmc_sender_2",
+          "name": "VMC Sender",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "vmcSender",
+          "vmcSender": {
+            "enabled": true,
+            "address": "192.168.1.40",
+            "port": 40000,
+            "avatarId": null
+          }
+        },
+        {
+          "id": "vmc_sender_3",
+          "name": "VMC Sender",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "vmcSender",
+          "vmcSender": {
+            "enabled": false,
+            "address": "::1",
+            "port": 39539,
+            "avatarId": "performer"
+          }
+        },
+        {
+          "id": "vmc_sender_4",
+          "name": "VMC Sender",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "vmcSender",
+          "vmcSender": {
+            "enabled": false,
+            "address": "fe80::1",
+            "port": 65535,
+            "avatarId": "performer"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "vmc-sender-fifth",
+    "target": "scene",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "box"
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1"
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "vmc_sender_1",
+          "name": "VMC Sender",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "vmcSender",
+          "vmcSender": {
+            "enabled": false,
+            "address": "127.0.0.1",
+            "port": 39539,
+            "avatarId": "performer"
+          }
+        },
+        {
+          "id": "vmc_sender_2",
+          "name": "VMC Sender",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "vmcSender",
+          "vmcSender": {
+            "enabled": false,
+            "address": "127.0.0.1",
+            "port": 39539,
+            "avatarId": "performer"
+          }
+        },
+        {
+          "id": "vmc_sender_3",
+          "name": "VMC Sender",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "vmcSender",
+          "vmcSender": {
+            "enabled": false,
+            "address": "127.0.0.1",
+            "port": 39539,
+            "avatarId": "performer"
+          }
+        },
+        {
+          "id": "vmc_sender_4",
+          "name": "VMC Sender",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "vmcSender",
+          "vmcSender": {
+            "enabled": false,
+            "address": "127.0.0.1",
+            "port": 39539,
+            "avatarId": "performer"
+          }
+        },
+        {
+          "id": "vmc_sender_5",
+          "name": "VMC Sender",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "vmcSender",
+          "vmcSender": {
+            "enabled": false,
+            "address": "127.0.0.1",
+            "port": 39539,
+            "avatarId": "performer"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "vmc-sender-port-0",
+    "target": "scene",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "box"
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1"
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "vmc_sender_1",
+          "name": "VMC Sender",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "vmcSender",
+          "vmcSender": {
+            "enabled": false,
+            "address": "127.0.0.1",
+            "port": 0,
+            "avatarId": "performer"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "vmc-sender-port-65536",
+    "target": "scene",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "box"
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1"
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "vmc_sender_1",
+          "name": "VMC Sender",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "vmcSender",
+          "vmcSender": {
+            "enabled": false,
+            "address": "127.0.0.1",
+            "port": 65536,
+            "avatarId": "performer"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "vmc-sender-port-fraction",
+    "target": "scene",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "box"
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1"
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "vmc_sender_1",
+          "name": "VMC Sender",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "vmcSender",
+          "vmcSender": {
+            "enabled": false,
+            "address": "127.0.0.1",
+            "port": 39539.5,
+            "avatarId": "performer"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "vmc-sender-bad-address",
+    "target": "scene",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "box"
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1"
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "vmc_sender_1",
+          "name": "VMC Sender",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "vmcSender",
+          "vmcSender": {
+            "enabled": false,
+            "address": "localhost",
+            "port": 39539,
+            "avatarId": "performer"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "vmc-sender-unspecified-ipv4",
+    "target": "scene",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "box"
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1"
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "vmc_sender_1",
+          "name": "VMC Sender",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "vmcSender",
+          "vmcSender": {
+            "enabled": false,
+            "address": "0.0.0.0",
+            "port": 39539,
+            "avatarId": "performer"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "vmc-sender-unspecified-ipv6",
+    "target": "scene",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "box"
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1"
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "vmc_sender_1",
+          "name": "VMC Sender",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "vmcSender",
+          "vmcSender": {
+            "enabled": false,
+            "address": "::",
+            "port": 39539,
+            "avatarId": "performer"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "vmc-sender-multicast-ipv4",
+    "target": "scene",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "box"
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1"
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "vmc_sender_1",
+          "name": "VMC Sender",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "vmcSender",
+          "vmcSender": {
+            "enabled": false,
+            "address": "239.0.0.1",
+            "port": 39539,
+            "avatarId": "performer"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "vmc-sender-multicast-ipv6",
+    "target": "scene",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "box"
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1"
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "vmc_sender_1",
+          "name": "VMC Sender",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "vmcSender",
+          "vmcSender": {
+            "enabled": false,
+            "address": "ff02::1",
+            "port": 39539,
+            "avatarId": "performer"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "vmc-sender-broadcast",
+    "target": "scene",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "box"
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1"
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "vmc_sender_1",
+          "name": "VMC Sender",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "vmcSender",
+          "vmcSender": {
+            "enabled": false,
+            "address": "255.255.255.255",
+            "port": 39539,
+            "avatarId": "performer"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "vmc-sender-mapped-multicast",
+    "target": "scene",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "box"
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1"
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "vmc_sender_1",
+          "name": "VMC Sender",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "vmcSender",
+          "vmcSender": {
+            "enabled": false,
+            "address": "::ffff:224.0.0.1",
+            "port": 39539,
+            "avatarId": "performer"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "vmc-sender-missing-avatar",
+    "target": "scene",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "box"
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1"
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "vmc_sender_1",
+          "name": "VMC Sender",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "vmcSender",
+          "vmcSender": {
+            "enabled": false,
+            "address": "127.0.0.1",
+            "port": 39539,
+            "avatarId": "nobody"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "vmc-sender-extra-field",
+    "target": "scene",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "box"
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1"
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "vmc_sender_1",
+          "name": "VMC Sender",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "vmcSender",
+          "vmcSender": {
+            "enabled": false,
+            "address": "127.0.0.1",
+            "port": 39539,
+            "avatarId": "performer",
+            "sendToVirtualMotionCapture": true
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "vmc-sender-patch",
+    "target": "wireText",
+    "valid": true,
+    "payload": "{\"kind\": \"call\", \"requestId\": \"vmc\", \"method\": \"scenePatch\", \"params\": {\"sceneId\": \"scene_smoke\", \"expectedRevision\": 0, \"operations\": [{\"kind\": \"setVmcSender\", \"entityId\": \"vmc_sender_1\", \"vmcSender\": {\"enabled\": true, \"address\": \"10.0.0.2\", \"port\": 39539, \"avatarId\": null}}]}}"
+  },
+  {
+    "name": "vmc-sender-patch-wrong-shape",
+    "target": "call",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "method": "scenePatch",
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setVmcSender",
+          "entityId": "vmc_sender_1",
+          "vmcSender": {
+            "enabled": true,
+            "address": "10.0.0.2",
+            "port": "39539",
+            "avatarId": null
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "vmc-sender-patch-missing-field",
+    "target": "call",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "method": "scenePatch",
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setVmcSender",
+          "entityId": "vmc_sender_1",
+          "vmcSender": {
+            "enabled": true,
+            "address": "10.0.0.2",
+            "port": 39539
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "vmc-poses",
+    "target": "wireText",
+    "valid": true,
+    "payload": "{\"kind\": \"vmcPoses\", \"sessionId\": \"session\", \"tick\": 12, \"poses\": [{\"senderId\": \"vmc_sender_1\", \"root\": {\"position\": [0, 0, 0], \"rotation\": [0, 0, 0, 1]}, \"bones\": {\"hips\": {\"position\": [0, 1, 0], \"rotation\": [0, 0, 0, 1]}, \"leftThumbMetacarpal\": {\"position\": [0.01, 0, 0], \"rotation\": [0, 0, 0, 1]}}, \"blends\": {\"Joy\": 0.5, \"A\": 1}}]}"
+  },
+  {
+    "name": "vmc-poses-five",
+    "target": "wire",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "kind": "vmcPoses",
+      "sessionId": "session",
+      "tick": 12,
+      "poses": [
+        {
+          "senderId": "s0",
+          "root": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ]
+          },
+          "bones": {
+            "hips": {
+              "position": [
+                0,
+                1,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ]
+            },
+            "leftThumbMetacarpal": {
+              "position": [
+                0.01,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ]
+            }
+          },
+          "blends": {
+            "Joy": 0.5,
+            "A": 1
+          }
+        },
+        {
+          "senderId": "s1",
+          "root": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ]
+          },
+          "bones": {
+            "hips": {
+              "position": [
+                0,
+                1,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ]
+            },
+            "leftThumbMetacarpal": {
+              "position": [
+                0.01,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ]
+            }
+          },
+          "blends": {
+            "Joy": 0.5,
+            "A": 1
+          }
+        },
+        {
+          "senderId": "s2",
+          "root": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ]
+          },
+          "bones": {
+            "hips": {
+              "position": [
+                0,
+                1,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ]
+            },
+            "leftThumbMetacarpal": {
+              "position": [
+                0.01,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ]
+            }
+          },
+          "blends": {
+            "Joy": 0.5,
+            "A": 1
+          }
+        },
+        {
+          "senderId": "s3",
+          "root": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ]
+          },
+          "bones": {
+            "hips": {
+              "position": [
+                0,
+                1,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ]
+            },
+            "leftThumbMetacarpal": {
+              "position": [
+                0.01,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ]
+            }
+          },
+          "blends": {
+            "Joy": 0.5,
+            "A": 1
+          }
+        },
+        {
+          "senderId": "s4",
+          "root": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ]
+          },
+          "bones": {
+            "hips": {
+              "position": [
+                0,
+                1,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ]
+            },
+            "leftThumbMetacarpal": {
+              "position": [
+                0.01,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ]
+            }
+          },
+          "blends": {
+            "Joy": 0.5,
+            "A": 1
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "vmc-poses-duplicate",
+    "target": "wire",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "kind": "vmcPoses",
+      "sessionId": "session",
+      "tick": 12,
+      "poses": [
+        {
+          "senderId": "vmc_sender_1",
+          "root": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ]
+          },
+          "bones": {
+            "hips": {
+              "position": [
+                0,
+                1,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ]
+            },
+            "leftThumbMetacarpal": {
+              "position": [
+                0.01,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ]
+            }
+          },
+          "blends": {
+            "Joy": 0.5,
+            "A": 1
+          }
+        },
+        {
+          "senderId": "vmc_sender_1",
+          "root": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ]
+          },
+          "bones": {
+            "hips": {
+              "position": [
+                0,
+                1,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ]
+            },
+            "leftThumbMetacarpal": {
+              "position": [
+                0.01,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ]
+            }
+          },
+          "blends": {
+            "Joy": 0.5,
+            "A": 1
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "vmc-poses-empty",
+    "target": "wire",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "kind": "vmcPoses",
+      "sessionId": "session",
+      "tick": 12,
+      "poses": []
+    }
+  },
+  {
+    "name": "vmc-poses-unknown-bone",
+    "target": "wire",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "kind": "vmcPoses",
+      "sessionId": "session",
+      "tick": 12,
+      "poses": [
+        {
+          "senderId": "vmc_sender_1",
+          "root": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ]
+          },
+          "bones": {
+            "hips": {
+              "position": [
+                0,
+                1,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ]
+            },
+            "leftThumbMetacarpal": {
+              "position": [
+                0.01,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ]
+            },
+            "tail": {
+              "position": [
+                0,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ]
+            }
+          },
+          "blends": {
+            "Joy": 0.5,
+            "A": 1
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "vmc-poses-bad-rotation",
+    "target": "wire",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "kind": "vmcPoses",
+      "sessionId": "session",
+      "tick": 12,
+      "poses": [
+        {
+          "senderId": "vmc_sender_1",
+          "root": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ]
+          },
+          "bones": {
+            "hips": {
+              "position": [
+                0,
+                1,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                2
+              ]
+            },
+            "leftThumbMetacarpal": {
+              "position": [
+                0.01,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ]
+            }
+          },
+          "blends": {
+            "Joy": 0.5,
+            "A": 1
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "vmc-poses-blend-range",
+    "target": "wire",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "kind": "vmcPoses",
+      "sessionId": "session",
+      "tick": 12,
+      "poses": [
+        {
+          "senderId": "vmc_sender_1",
+          "root": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ]
+          },
+          "bones": {
+            "hips": {
+              "position": [
+                0,
+                1,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ]
+            },
+            "leftThumbMetacarpal": {
+              "position": [
+                0.01,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ]
+            }
+          },
+          "blends": {
+            "Joy": 1.5,
+            "A": 1
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "vmc-poses-blend-nul",
+    "target": "wire",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "kind": "vmcPoses",
+      "sessionId": "session",
+      "tick": 12,
+      "poses": [
+        {
+          "senderId": "vmc_sender_1",
+          "root": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ]
+          },
+          "bones": {
+            "hips": {
+              "position": [
+                0,
+                1,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ]
+            },
+            "leftThumbMetacarpal": {
+              "position": [
+                0.01,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ]
+            }
+          },
+          "blends": {
+            "Joy": 0.5,
+            "A": 1,
+            "a\u0000b": 0.5
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "vmc-poses-extra-field",
+    "target": "wire",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "kind": "vmcPoses",
+      "sessionId": "session",
+      "tick": 12,
+      "poses": [
+        {
+          "senderId": "vmc_sender_1",
+          "root": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ]
+          },
+          "bones": {
+            "hips": {
+              "position": [
+                0,
+                1,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ]
+            },
+            "leftThumbMetacarpal": {
+              "position": [
+                0.01,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ]
+            }
+          },
+          "blends": {
+            "Joy": 0.5,
+            "A": 1
+          }
+        }
+      ],
+      "scene": {}
+    }
+  },
+  {
+    "name": "asset-rig-version",
+    "target": "asset",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "id": "fixture_glb_1",
+      "format": "vrm",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bytes": 1,
+      "sourceUrl": null,
+      "licenseLabel": "CC0",
+      "importerVersion": 1,
+      "name": "Fixture",
+      "rig": {
+        "metaVersion": "2",
+        "restPositions": {
+          "hips": [
+            0,
+            1,
+            0
+          ]
+        },
+        "identityRest": true
+      }
+    }
+  },
+  {
+    "name": "asset-rig-bone",
+    "target": "asset",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "id": "fixture_glb_1",
+      "format": "vrm",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bytes": 1,
+      "sourceUrl": null,
+      "licenseLabel": "CC0",
+      "importerVersion": 1,
+      "name": "Fixture",
+      "rig": {
+        "metaVersion": "1",
+        "restPositions": {
+          "tail": [
+            0,
+            1,
+            0
+          ]
+        },
+        "identityRest": true
+      }
+    }
   }
 ]

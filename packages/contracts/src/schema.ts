@@ -7,6 +7,7 @@ import { DeviceKindListSchema, DeviceUpdateSchema } from './devices';
 import { ScalarValueSchema } from './blueprint-values';
 import { z } from "zod";
 import { CameraAntiAliasingSchema, QualityProfileIdSchema } from './quality';
+import { AvatarRigSchema, VmcPosesEnvelopeSchema, VmcSenderSettingsSchema, VmcSenderStatusSchema } from './vmc-sender';
 import { AssetExpressionsSchema, AvatarExpressionsSchema, ExpressionNameSchema, ExpressionSettingsSchema, ExpressionStateSchema } from './expressions';
 import type { AppApi, Capability, Reply, ValidatedCall } from "./types";
 export const LIMITS = {
@@ -26,7 +27,8 @@ export const LIMITS = {
     lights: 8,
     shadowLights: 2,
     hazes: 1,
-    fpsCounters: 1
+    fpsCounters: 1,
+    vmcSenders: 4
 } as const;
 export const IdSchema = z.string().min(1).max(256);
 const n = z.number().finite(), u = n.int().nonnegative().max(Number.MAX_SAFE_INTEGER);
@@ -192,6 +194,10 @@ export const SceneEntitySchema = z.discriminatedUnion("kind", [
         fpsCounter: FpsCounterSettingsSchema
     }),
     EntityBaseSchema.extend({
+        kind: z.literal("vmcSender"),
+        vmcSender: VmcSenderSettingsSchema
+    }),
+    EntityBaseSchema.extend({
         kind: z.literal("camera"),
         lens: LensSchema,
         renderEnvironment: z.boolean().optional(),
@@ -220,6 +226,8 @@ export const SceneViewSchema = z.strictObject({
  if(lights.length>LIMITS.lights||lights.filter(e=>e.light.shadow.enabled).length>LIMITS.shadowLights)return false;
  if(s.entities.filter(e=>e.kind==='haze').length>LIMITS.hazes)return false;
  if(s.entities.filter(e=>e.kind==='fpsCounter').length>LIMITS.fpsCounters)return false;
+ const senders=s.entities.filter(e=>e.kind==='vmcSender');
+ if(senders.length>LIMITS.vmcSenders||!senders.every(e=>e.vmcSender.avatarId===null||s.entities.some(a=>a.id===e.vmcSender.avatarId&&a.kind==='avatar')))return false;
  if(!s.entities.every(e=>{if(e.kind!=='camera'||e.navigation?.mode!=='orbitCharacter')return true;const target=e.navigation.targetId;return target===null||s.entities.some(a=>a.id===target&&a.kind==='avatar');}))return false;
  if(new Set(s.entities.map(e=>e.id)).size!==s.entities.length||new Set(s.outputs.map(o=>o.id)).size!==s.outputs.length||!s.outputs.every(o=>s.entities.some(e=>e.id===o.cameraId&&e.kind==='camera')))return false;
  // Only the face slot (index 1) accepts an iFacialMocap source.
@@ -249,6 +257,7 @@ export const PatchOpSchema = z.discriminatedUnion("kind", [
     z.strictObject({kind:z.literal('setLight'),entityId:IdSchema,light:LightSettingsSchema}),
     z.strictObject({kind:z.literal('setHaze'),entityId:IdSchema,haze:HazeSettingsSchema}),
     z.strictObject({kind:z.literal('setFpsCounter'),entityId:IdSchema,fpsCounter:FpsCounterSettingsSchema}),
+    z.strictObject({kind:z.literal('setVmcSender'),entityId:IdSchema,vmcSender:VmcSenderSettingsSchema}),
     z.strictObject({kind:z.literal('setAvatarExpression'),entityId:IdSchema,name:ExpressionNameSchema,settings:ExpressionSettingsSchema.nullable()}),
     z.strictObject({kind:z.literal('setCameraRenderEnvironment'),entityId:IdSchema,renderEnvironment:z.boolean()}),
     z.strictObject({kind:z.literal('setCameraAntiAliasing'),entityId:IdSchema,antiAliasing:CameraAntiAliasingSchema}),
@@ -294,7 +303,8 @@ export const AssetRecordSchema = z.strictObject({
     importerVersion: z.literal(1),
     name: z.string().refine(name => name.trim().length > 0 && name.length <= 128, 'Invalid asset name'),
     credits: AssetCreditsSchema.optional(),
-    expressions: AssetExpressionsSchema
+    expressions: AssetExpressionsSchema,
+    rig: AvatarRigSchema.optional()
 });
 // One page of `assetList`: the host answers it from the asset library, in ascending ID order.
 export const AssetSummarySchema = z.strictObject({
@@ -363,6 +373,7 @@ export const AppStatusSchema = z.strictObject({
     blueprintRevision: u.optional(),
     localAddresses: z.array(z.ipv4()).max(8).optional(),
     trackingStatus:z.array(TrackingStatusSchema).max(4).refine(values=>new Set(values.map(value=>value.sourceId)).size===values.length).optional(),
+    vmcSenders: z.array(VmcSenderStatusSchema).max(LIMITS.vmcSenders).refine(values=>new Set(values.map(value=>value.entityId)).size===values.length).optional(),
     schemaVersion: z.literal(1),
     sessionId: IdSchema,
     ready: z.boolean(),
@@ -684,6 +695,7 @@ export const WireMessageSchema = z.union([
     CaptureReplySchema,
     ScreenshotRequestSchema,
     ScreenshotReplySchema,
+    VmcPosesEnvelopeSchema,
     PingPongSchema
 ]);
 export type WireMessage = z.infer<typeof WireMessageSchema>;
@@ -748,7 +760,8 @@ export const publicJsonSchemas = Object.fromEntries(Object.entries({
     CameraScreenshotResult: CameraScreenshotResultSchema,
     ScreenshotRequest: ScreenshotRequestSchema,
     ScreenshotReply: ScreenshotReplySchema,
-    PingPong: PingPongSchema
+    PingPong: PingPongSchema,
+    VmcPosesEnvelope: VmcPosesEnvelopeSchema
 }).map(([key, schema]) => [
     key,
     z.toJSONSchema(schema, {
