@@ -49,6 +49,8 @@
   if(!scene||target?.kind!=='avatar'){error='Character not found';return;}
   const eyeBones=assets.find(asset=>asset.id===target.assetId)?.eyeBones;
   const plan=planConnect(scene,avatarId,preset,phoneAddress,eyeBones,crypto.randomUUID());
+  // A connect that ran before keeps its snapshot, so a queued second connect cannot replace it.
+  if(snapshot)return;
   phoneTaken=plan.needsPhone&&phoneAddress!==null;
   retry=false;
   if(plan.needsPhone){askPhone=true;return;}
@@ -164,7 +166,7 @@
   <h3>Try it</h3>
   <div class="groups">{#each GROUPS as [label,names] (label)}<div><span class="muted">{label}</span><GuideMeter {label} value={groupLevel(probe?.values??{},names,source?.mapping)}/></div>{/each}</div>
   {#if guide.fitError}<p role="alert">{guide.fitError}</p>{/if}
-  <div class="actions"><Button variant="primary" onclick={done}>Done</Button></div>
+  <div class="actions start"><Button variant="primary" onclick={done}>Done</Button></div>
  {/if}
  {#if error}<p role="alert">{error}</p>{/if}
  {#if probeError&&guide.step!=='pick'}<p role="alert">{probeError}</p>{/if}
@@ -189,6 +191,7 @@
  .option{display:flex;gap:8px;align-items:center;font-size:12px}
  .option input{accent-color:#8571ac}
  .actions{display:flex;justify-content:flex-end}
+ .actions.start{justify-content:flex-start}
  .groups{display:grid;gap:12px}
  .groups div{display:grid;gap:6px}
  p[role=alert]{margin:0;font-size:12px}
