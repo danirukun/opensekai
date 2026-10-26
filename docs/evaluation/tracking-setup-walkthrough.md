@@ -61,9 +61,9 @@ Rule R15 replaces the earlier unmount result: an unmount of the guide stops the 
 
 ## SelfReflect gates (S3)
 
-Commit: ea2ea3c, plus the position rule in the S3 commit. Backend: webgpu. Quality profile: preview_v1 (Scene window) and production_v1 (OBS page). Date: 2026-10-26. Platform: macOS, worktree dev build (`pnpm dev:desktop`) in fixture mode (`OPENSEKAI_FIXTURE_MANIFEST`, fixture `smoke_v1`). Sender: SelfReflect on the performer's iPhone, live VMC over the home network to port 39539. The replay fixture `fixtures/tracking/selfreflect-replay.json` (66a7a0a) gave the numbers for gate 1 only. It did not give a gate result (R7).
+Commit: ea2ea3c, plus the position rule in the S3 commit. Backend: webgpu. Quality profile: preview_v1 (Scene window) and production_v1 (OBS page). Date: 2026-10-26. Platform: macOS, worktree dev build (`pnpm dev:desktop`) in fixture mode (`OPENSEKAI_FIXTURE_MANIFEST`, fixture `smoke_v1` at 4d6b551, the last commit that changed `fixtures/smoke`). Sender: SelfReflect on the performer's iPhone, live VMC over the home network to port 39539. The replay fixture `fixtures/tracking/selfreflect-replay.json` (66a7a0a) gave the numbers for gate 1 only. It did not give a gate result (R7).
 
-The shared asset library holds avatar records with a `rig` field. This branch skips those records when it loads the library, so it showed no library avatar (see the concerns below). Runs A and B therefore used `fixture_vrm_1` (VRM1 Constraint Twist Sample, no ARKit shapes). From run C on, the character is Catboy (`avatar_7b7c…`, VRM0 with perfect-sync ARKit shapes and eye bones), which the performer imported again at the Mac. The `reference` box gave HTTP 400 in the first fixture-mode session. The cause was the QA setup: the manifest file was in a different folder from the fixture files, and the registry serves files only below the manifest folder. A self-contained folder fixed it at the next start. It is not a product defect.
+The shared asset library holds avatar records with a `rig` field. This branch skips those records when it loads the library, so it showed no library avatar (see the concerns below). Run A therefore used `fixture_vrm_1` (VRM1 Constraint Twist Sample, no ARKit shapes). The gate 1 failure was seen with `fixture_vrm_1` and with Catboy (ledger, ruling R22). In run B the character is out of the camera view in images 16 and 25, so these images do not show which avatar it was. Image 17 (source off) shows Catboy. From run C on, the character is Catboy (`avatar_7b7c…`, VRM0 with perfect-sync ARKit shapes and eye bones), which the performer imported again at the Mac. The `reference` box showed "Resource unavailable: 404" in the first fixture-mode session (images 16 and 17). The cause was the QA setup: the manifest file was in a different folder from the fixture files, and the registry serves files only below the manifest folder. A self-contained folder fixed it at the next start. It is not a product defect.
 
 ### Gate 1, positions: fail, then pass with the fix
 
@@ -144,8 +144,13 @@ App timing: preview_v1 CPU time about 4 ms for each frame. GPU time is unknown (
 | No toast during the normal SelfReflect gaps | Pass. In gate 2 the graph was on for 2 minutes and the debug log had no entry. In the later session the graph was on from about 20:38 to the stop at about 20:48:41 and gave only the one toast above. | Gate 2 debug log (empty), debug log entries 1 to 26 |
 | The palette shows a Tracking category, and the node fields render | Unknown. Not checked in the UI. MCP made the graphs. | — |
 
+### Parser limit and test results
+
+- The OSC bundle limit rose from 64 to 256 messages (`MAX_OSC_MESSAGES`, f403f78). A full SelfReflect bundle has 55 humanoid bones, 52 ARKit values, and the root, OK, and apply messages. The largest replay packet is 6696 of 8192 bytes. The headroom is 1496 bytes, and a sender with `eyeLook*` channels adds more. The datagram limit of 8192 bytes still bounds the work. A parser unit test runs at the new limit.
+- Suite results at 26fe78e: unit 1443 pass. Integration 58 pass, 2 skipped. `pnpm check` 0 errors. `cargo test` 332 pass, 0 fail, 1 ignored. `clippy` 0 warnings.
+
 ### Concerns
 
 - The shared library has avatar records with a `rig` field. This branch skips those records with no message, so the library showed no avatar. This is a defect outside this slice. It was not fixed.
-- Next and Done are at the same position. A fast double click on Next can go past Try it.
+- Next and Done were at the same position, so a fast double click on Next could go past Try it. Done is now at the left of the panel and Next is at the right. This change is not checked in the running app.
 - The performer closed OpenSekai at about 20:27. It was not a crash.
