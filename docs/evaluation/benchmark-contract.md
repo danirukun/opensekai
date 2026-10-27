@@ -13,7 +13,7 @@ The agreed target is a representative 3D concert hall at 1920 × 1080 and 60 FPS
 | Mid-range discrete Windows GPU, 16 GB system memory | Proposed Windows target | Exact GPU and host required before testing |
 | Mobile | Future feasibility | No performance promise |
 
-Suggest the M1 tier initially, then publish a measured minimum. Lower-quality and 30 FPS modes can extend reach. They do not pass the 1080p60 concert target.
+Suggest the M1 tier initially, then publish a measured minimum. Lower-quality and 30 FPS modes can extend reach. They do not pass the 1080p60 concert target. `benchmarkStart` fails with `INVALID_INPUT` and `output_main` (`Benchmark needs the default output format`) when the latest published scene has an `output_main` that is not 1920 × 1080, 60 FPS, and render scale 1 (B22), because such a run is not comparable.
 
 Record the exact OS, CPU/GPU, memory, power mode, display layout, app commit, dependency versions, renderer backend, browser/webview, OBS version, and encoder. Test a release build outside debugger overhead. Keep debug results labeled.
 

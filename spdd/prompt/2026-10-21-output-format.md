@@ -2,6 +2,8 @@
 
 Analysis: [output format](../analysis/2026-10-21-output-format.md). Issue: [#173](https://github.com/danirukun/opensekai/issues/173) (CAM-16, slice 1). Queue bundle B22.
 
+Status: implemented on `claude/b22-output-pacing-impl`. Evidence: [output format check](../../docs/evaluation/output-format.md).
+
 ## R — Requirements
 
 1. `OutputSpec` becomes `{id, cameraId, width, height, fps, renderScale?}`. `width × height` is one of `960 × 540`, `1280 × 720`, `1600 × 900`, or `1920 × 1080`. `fps` is `30` or `60`. `renderScale` is `0.5`, `0.75`, or `1`; a missing value means 1. A show without `renderScale` loads without change, and the field is omitted when it is missing. `renderScale: null` is rejected on both sides (the Rust field rejects `null`, as zod `.optional()` does). `schemaVersion` stays 1.
@@ -25,7 +27,7 @@ Analysis: [output format](../analysis/2026-10-21-output-format.md). Issue: [#173
 - `OutputSize`: one of the four `{width, height}` presets. Exported as the frozen list `OUTPUT_SIZES` from `packages/contracts/src/quality.ts`, with `OUTPUT_FRAME_LIMITS = [30, 60]` and `OUTPUT_RENDER_SCALES = [0.5, 0.75, 1]`.
 - `OutputSpec`: `{id, cameraId, width, height, fps: 30 | 60, renderScale?: 0.5 | 0.75 | 1}`. Rust `OutputSpec { render_scale: Option<f64> }` with `skip_serializing_if`.
 - `PatchOp` gains `{kind: 'setOutputFormat', outputId, width, height, fps, renderScale}`. Rust `PatchOp::SetOutputFormat`.
-- `FramePacer` (OBS page, plain data and closures; the fake clock tests also model the 2-frame cap of the host): `createFramePacer({apply, now, setTimeout, clearTimeout})` returns `{offer(frame), dispose()}`. `apply(frame)` returns a promise. The due rule is the pure function `isDue(lastStart: number | null, now: number, fps: 30 | 60): boolean`.
+- `FramePacer` (OBS page, plain data and closures; the fake clock tests also model the 2-frame cap of the host): `createFramePacer({apply, fpsOf, now, setTimeout, clearTimeout})` (`fpsOf` reads the `fps` of the page output from a frame) returns `{offer(frame), dispose()}`. `apply(frame)` returns a promise. The due rule is the pure function `isDue(lastStart: number | null, now: number, fps: 30 | 60): boolean`.
 
 ## A — Approach
 
@@ -33,13 +35,13 @@ Analysis: [output format](../analysis/2026-10-21-output-format.md). Issue: [#173
 - Session: one `setOutputFormat` case in `scene-ops.ts` before the entity lookup, with the output checks of requirement 3. When `renderScale` is 1, the operation stores the value 1; it does not remove the field.
 - Renderer: change the buffer size line in `renderer.ts` only.
 - OBS page: `main.ts` sends each host frame to the pacer. The pacer calls the current apply path (`applyFrame`, then the FPS counter, then `sendApplied`, then diagnostics).
-- Host: a new read-only method in `service/mod.rs` returns the `OutputSpec` of an output from the latest published scene (`inner.latest`), because `current_output` returns only a `FrameApplied`. `evaluation.rs` calls it at `benchmarkStart`. The host does not parse the scene again. The frame delivery and the acknowledgment rules do not change. At 30 FPS an acknowledgment comes each 34 ms at most, inside the 500 ms age check of `current_output`.
+- Host: a new read-only method in `service/mod.rs` returns the `OutputSpec` of an output from the latest published scene (`inner.latest`), because `current_output` returns only a `FrameApplied`. `evaluation.rs` calls it at `benchmarkStart`, after the replay and busy checks and before the fixture check. The host does not parse the scene again. The frame delivery and the acknowledgment rules do not change. At 30 FPS an acknowledgment comes each 34 ms at most, inside the 500 ms age check of `current_output`.
 - Editor: `model.ts` gets `setOutputFormat`. `OutputControls.svelte` adds the three selects. The option lists come from the contract constants.
 - MCP: one sentence in the `scene_patch` description.
 
 ## S — Structure
 
-- New: `apps/output/src/frame-pacer.ts`, `apps/output/test/frame-pacer.test.ts`, `packages/session/test/output-format-patch.test.ts`, `crates/contracts/tests/output_format.rs`, `apps/mcp/test/output-format.integration.test.ts`, `apps/desktop/test/output-format.test.ts`, `docs/evaluation/output-format.md` and its check scripts.
+- New: `apps/output/src/frame-pacer.ts`, `apps/desktop/src/editor/output-format.ts` (the option lists and the one-field change), `apps/output/test/frame-pacer.test.ts`, `packages/session/test/output-format-patch.test.ts`, `crates/contracts/tests/output_format.rs`, `apps/mcp/test/output-format.integration.test.ts`, `apps/desktop/test/output-format.test.ts`, `docs/evaluation/output-format.md` and its check scripts.
 - Changed: `packages/contracts/src/schema.ts`, `quality.ts`, `types.ts`, `index.ts`, and their tests; `crates/contracts/src/lib.rs`; `fixtures/protocol/validation-vectors.json`; `packages/session/src/scene-ops.ts`; `packages/renderer/src/renderer.ts`; `apps/output/src/main.ts`; `apps/desktop/src-tauri/src/service/mod.rs` (the output spec read only) and `evaluation.rs` and their tests; `apps/desktop/src-tauri/src/show.rs` test (round trip of a show with the new values); `apps/desktop/src/editor/model.ts`, `editor/output-url.ts`, and the output URL test; `apps/desktop/src/components/OutputControls.svelte`; `apps/mcp/src/server.ts`.
 - Changed: `ARCHITECTURE.md` (Output path: the output size, the render scale, and the OBS page frame limit; the simulation stays at 60 Hz).
 - Changed: `docs/warudo-parity.md` CAM-16 with only the verified behavior. CAM-16 stays unchecked.

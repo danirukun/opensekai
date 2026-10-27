@@ -160,7 +160,7 @@ Source: [Camera](https://docs.warudo.app/docs/assets/camera).
 - [ ] CAM-13 — Per-camera layers, chroma key, and projection. Later. UI audit 0.15.1. [GitHub #170](https://github.com/danirukun/opensekai/issues/170)
 - [ ] CAM-14 — Virtual webcam output. Later. Different API. UI audit 0.15.1. [GitHub #171](https://github.com/danirukun/opensekai/issues/171)
 - [ ] CAM-15 — Stylized camera effects. Later. UI audit 0.15.1. [GitHub #172](https://github.com/danirukun/opensekai/issues/172)
-- [ ] CAM-16 — Output window size, render scale, and frame pacing. Later. UI audit 0.15.1. [GitHub #173](https://github.com/danirukun/opensekai/issues/173)
+- [ ] CAM-16 — Output window size, render scale, and frame pacing. Later. UI audit 0.15.1. Partial (slice 1): `output_main` has a size of 1920 × 1080, 1600 × 900, 1280 × 720, or 960 × 540, a render scale of 0.5, 0.75, or 1, and a frame limit of 30 or 60, set from the Output panel or `setOutputFormat` in `scene_patch`; the OBS URL carries the OBS layer size and the panel has a Drag to OBS link. Linux headless Chromium, WebGL 2 (llvmpipe): 1280 × 720 at 0.75 draws a 960 × 540 buffer with alpha 0 off geometry, and the OBS page acknowledges 30.2 frames/s at the 30 limit and 60.2 at 60 on a 60 Hz host clock; the Editor controls, the drag data, and a rejected change pass ([check](evaluation/output-format.md)). The OBS rate and image, the drag into OBS on macOS, Pause Render and Render Next Frame (slice 2), free and larger sizes, and Windows remain. V-Sync does not apply to a browser output. [GitHub #173](https://github.com/danirukun/opensekai/issues/173)
 
 ## Media and screens
 
