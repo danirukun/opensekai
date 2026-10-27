@@ -30,7 +30,7 @@ An operator wants a Blueprint to react to the chat of their YouTube livestream. 
 
 1. Only option (a), the InnerTube endpoint, meets "paste a link, never sign in, no key". Options (b) and (c) need a Google Cloud API key from each user, because the default quota (10,000 units each day) cannot serve a shared key.
 2. Option (a) is not a public API. The JSON shape and the bootstrap page change a few times each year. A parser in one Rust module with recorded fixtures keeps each fix small.
-3. The ToS risk is a product decision. The issue recommends (a) as the default with help text, and asks the owner to confirm. The contract follows the recommendation, and the owner confirms or rejects it when they merge or change this contract.
+3. The ToS risk is a product decision. The issue recommends (a) as the default with help text, and asks the owner to confirm. The owner decided in the contract review (PR #238): use the InnerTube endpoint without a notice in the app.
 4. The host must own the network client. The WebView must not hold network state, and guest code must not get an HTTP client. The host already sends input to the session through the clock, so chat events can use the same path and the same Blueprint step as devices.
 5. The link is a user setting, not show data (issue). The host has no settings store, so this slice adds a small one: one JSON file in the app local data folder.
 6. A chat event has strings: a message (YouTube allows 200 characters), a name, a channel ID, and image URLs. With the schema limits and multi-byte UTF-8, one event can be over 6 KiB, and tracking shares the 64 KiB clock. `clock_message` trims only tracking samples, and an oversized clock is rejected after the input queue is drained. Thus the host must drain events by a byte budget.
@@ -48,10 +48,10 @@ An operator wants a Blueprint to react to the chat of their YouTube livestream. 
 
 The owner reviews these in the contract pull request before code exists.
 
-- **Default option and ToS.** Option (a) is the default, as the issue recommends. The Settings section has one short line that says this reads the public chat page and is not an official API, and the docs say the same with the ToS link. **The owner confirms this when they merge.** Alternative: wait, or ship (b) with a user key as the default.
+- **Default option and ToS.** Option (a) is the default, as the issue recommends. Owner decision in PR #238: the app uses it without a help line or a ToS notice. Alternative: wait, or ship (b) with a user key as the default.
 - **Fallback (b).** Not in this slice. It is a known gap with a follow-up. Alternative: an Advanced "Use my YouTube API key" field now.
 - **Replay of a finished stream.** Not in scope, as the issue proposes.
-- **Settings place.** A new **Settings** rail panel in the Editor window with one **YouTube** section: the Stream link field, the status line, and the help line. The value commits on Enter or blur; an empty field disconnects. The help line is the ToS text that the issue asks for, and is an exception to constitution principle 1 for the owner to confirm. Alternative: a Settings window, or an Integrations panel in Output.
+- **Settings place.** A new **Settings** rail panel in the Editor window with one **YouTube** section: the Stream link field and the status line. The value commits on Enter or blur; an empty field disconnects. Alternative: a Settings window, or an Integrations panel in Output.
 - **Settings store.** The host keeps `<app local data>/settings/integrations.json` (`{youtube: {link}}`) with an atomic write. A new host-answered call `integrationsSet {youtube: {link: string | null}}` (Edit capability) sets it. `appStatus` returns `youtube: {link, state, error, videoId}`. MCP uses the same call through one new tool. Alternative: editor `localStorage` (rejected: the host owns the client), or the show (rejected by the issue).
 - **Link parsing.** Rust only. The host accepts `https`, `http`, or no scheme, the hosts `youtube.com`, `www.youtube.com`, `m.youtube.com`, and `youtu.be`, and an 11-character video ID (`[A-Za-z0-9_-]`). Channel forms are `/handle`, `/channel/UC…`, and `/c/name`. Any other text gets `INVALID_INPUT` with a reason, and the old link stays. Alternative: a TypeScript mirror in the editor.
 - **Backlog.** On the first connection to a link, the host marks the chat items of the bootstrap page as seen and does not send them. After a reconnect, it sends the unseen items of the bootstrap page that are newer than the newest server timestamp it saw, minus 5 s (finding 13). Alternative: send the backlog, or drop each bootstrap item.
@@ -73,7 +73,7 @@ The owner reviews these in the contract pull request before code exists.
 ## Risks
 
 - YouTube can change the endpoint, the page, or the JSON at any time. The status shows `Error: <reason>` and the parser has fixtures, but a fix needs a release.
-- The ToS risk (finding 3). This contract does not decide it for the owner.
+- The ToS risk (finding 3). The owner accepted it in PR #238.
 - Bot detection can block a request (HTTP 429 or a captcha page). The host uses the backoff and never polls faster than the server asks.
 - Recorded fixtures hold names and channel IDs of real people. The implementation replaces them with synthetic values before commit.
 - The live 30-minute gate in the cloud uses public streams that the owner does not own. The rate is the same as one open chat popout.

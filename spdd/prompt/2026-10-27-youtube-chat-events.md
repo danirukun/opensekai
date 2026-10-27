@@ -40,7 +40,7 @@ Analysis: [YouTube chat events](../analysis/2026-10-27-youtube-chat-events.md). 
     | `youtube.status` | On YouTube Stream Status Changed | `status` (string: `waiting`, `live`, `ended`, `error`) |
 
     The port labels follow the existing label rule of the editor. The node audit gets one row for each type, with the Warudo node name where Warudo has one.
-16. **Settings panel.** The Editor rail gets a **Settings** button (the kit `Button`, a lucide icon) after Resources. The panel has the heading `Settings`, one section `Integrations`, and in it the group `YouTube` with the kit `Input` labelled `Stream link`, one status line, and one help line: `Reads the public chat page. Not an official YouTube API.` The issue asks for this ToS help text; it is the one exception to constitution principle 1 in this slice, and the owner decides it in the contract review. The status line text is `Not connected`, `Waiting for stream`, `Live`, `Chat ended`, or `Error: <reason>`, from `appStatus.youtube`, which the editor poll already reads. The input commits on Enter and on blur when its value differs from the stored link. An `INVALID_INPUT` reply shows `Error: <message>` as the status line until the next commit. No other control, pill, badge, or card.
+16. **Settings panel.** The Editor rail gets a **Settings** button (the kit `Button`, a lucide icon) after Resources. The panel has the heading `Settings`, one section `Integrations`, and in it the group `YouTube` with the kit `Input` labelled `Stream link` and one status line. No help text (owner decision in the B25 contract review: the app uses the InnerTube endpoint without a notice). The status line text is `Not connected`, `Waiting for stream`, `Live`, `Chat ended`, or `Error: <reason>`, from `appStatus.youtube`, which the editor poll already reads. The input commits on Enter and on blur when its value differs from the stored link. An `INVALID_INPUT` reply shows `Error: <message>` as the status line until the next commit. No other control, pill, badge, or card.
 17. **MCP.** One new tool `youtube_link_set {link: string | null}` maps to `integrationsSet`. `app_status` returns `youtube`. The `blueprint_*` tools list the new node types through the catalog, without code changes.
 18. **Shutdown.** The client task stops when the link changes or clears, and on app exit, with no request after the stop. A stop during a wait does not wait for the timer, and a stop during a request cancels the request (the task selects on a stop signal).
 19. **Known gaps, not in this slice:** option (b) (Data API key) as a fallback, replay of a finished stream, a node for each gift redemption, a recent-event list in the editor, Twitch, Bilibili, and other platforms, redeems (BP-07 parent), the macOS latency check (an owner check), and Windows.
@@ -66,7 +66,7 @@ Analysis: [YouTube chat events](../analysis/2026-10-27-youtube-chat-events.md). 
 - Contracts nodes: a new `packages/contracts/src/blueprint-nodes/youtube.ts` with the seven definitions, added to the catalog index.
 - Editor: `EditorApp.svelte` adds the rail button and the panel; a new `components/SettingsPanel.svelte` holds the YouTube section and calls `integrationsSet` through the editor API.
 - MCP: `apps/mcp/src/tools.ts` adds `youtube_link_set` to `toolMethods`; `server.ts` adds its description; `descriptor.test.ts` lists it.
-- Docs: a short "YouTube chat" part in the user docs place that the repo uses for integrations (or `docs/mcp-client-setup.md` for the tool) with the ToS note and link.
+- Docs: `docs/mcp-client-setup.md` lists the `youtube_link_set` tool. No ToS notice in the app or the user docs (owner decision).
 
 ## S — Structure
 
@@ -93,7 +93,7 @@ Analysis: [YouTube chat events](../analysis/2026-10-27-youtube-chat-events.md). 
 
 ## N — Norms
 
-Functional TypeScript and plain data; match `devices.ts` and the device node files. Rust matches `tracking/` and `vmc_sender.rs`: pure functions for parsing and timing, one task with a clear stop. Controls come from `@oshi-connect/ui`. UI copy is the rail title, the heading, the section name, the field label, the status texts, and the one help line (constitution principle 1). No pill, badge, or card (principle 2). Prose follows ASD-STE100. Unit tests for the pure functions; one integration test at the HTTP boundary; no end-to-end test is needed beyond the owner check.
+Functional TypeScript and plain data; match `devices.ts` and the device node files. Rust matches `tracking/` and `vmc_sender.rs`: pure functions for parsing and timing, one task with a clear stop. Controls come from `@oshi-connect/ui`. UI copy is the rail title, the heading, the section name, the field label, and the status texts (constitution principle 1). No pill, badge, or card (principle 2). Prose follows ASD-STE100. Unit tests for the pure functions; one integration test at the HTTP boundary; no end-to-end test is needed beyond the owner check.
 
 ## S — Safeguards
 
