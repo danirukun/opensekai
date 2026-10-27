@@ -6,7 +6,7 @@ import { KEYSTROKE_CODES } from './blueprint-nodes';
 import { DeviceKindListSchema, DeviceUpdateSchema } from './devices';
 import { ScalarValueSchema } from './blueprint-values';
 import { z } from "zod";
-import { CameraAntiAliasingSchema, QualityProfileIdSchema } from './quality';
+import { CameraAntiAliasingSchema, QualityProfileIdSchema, OUTPUT_FRAME_LIMITS, OUTPUT_RENDER_SCALES, isOutputSize, isDefaultOutputFormat } from './quality';
 import { AvatarRigSchema, VmcPosesEnvelopeSchema, VmcSenderSettingsSchema, VmcSenderStatusSchema } from './vmc-sender';
 import { AssetExpressionsSchema, AvatarExpressionsSchema, ExpressionNameSchema, ExpressionSettingsSchema, ExpressionStateSchema, ARKIT_NAMES } from './expressions';
 import type { AppApi, Capability, Reply, ValidatedCall } from "./types";
@@ -208,10 +208,11 @@ export const SceneEntitySchema = z.discriminatedUnion("kind", [
 export const OutputSpecSchema = z.strictObject({
     id: IdSchema,
     cameraId: IdSchema,
-    width: z.literal(1920),
-    height: z.literal(1080),
-    fps: z.literal(60)
-});
+    width: u.positive(),
+    height: u.positive(),
+    fps: z.union(OUTPUT_FRAME_LIMITS.map(fps => z.literal(fps))),
+    renderScale: z.union(OUTPUT_RENDER_SCALES.map(scale => z.literal(scale))).optional()
+}).refine(isOutputSize, 'Invalid output size');
 export const SceneViewSchema = z.strictObject({
     schemaVersion: z.literal(1),
     sceneId: IdSchema,
@@ -229,6 +230,7 @@ export const SceneViewSchema = z.strictObject({
  const senders=s.entities.filter(e=>e.kind==='vmcSender');
  if(senders.length>LIMITS.vmcSenders||!senders.every(e=>e.vmcSender.avatarId===null||s.entities.some(a=>a.id===e.vmcSender.avatarId&&a.kind==='avatar')))return false;
  if(!s.entities.every(e=>{if(e.kind!=='camera'||e.navigation?.mode!=='orbitCharacter')return true;const target=e.navigation.targetId;return target===null||s.entities.some(a=>a.id===target&&a.kind==='avatar');}))return false;
+ if(!s.outputs.every(o=>o.id!=='preview_main'||isDefaultOutputFormat(o)))return false;
  if(new Set(s.entities.map(e=>e.id)).size!==s.entities.length||new Set(s.outputs.map(o=>o.id)).size!==s.outputs.length||!s.outputs.every(o=>s.entities.some(e=>e.id===o.cameraId&&e.kind==='camera')))return false;
  // Only the face slot (index 1) accepts an iFacialMocap source.
  return s.entities.every(e=>e.kind!=='avatar'||!e.tracking||[e.tracking.bodySourceId,e.tracking.faceSourceId,e.tracking.fingersSourceId??null].every((id,index)=>id===null||sources.some(source=>source.id===id&&(index===1||source.config.kind!=='ifacialmocap'))));
@@ -258,6 +260,7 @@ export const PatchOpSchema = z.discriminatedUnion("kind", [
     z.strictObject({kind:z.literal('setLight'),entityId:IdSchema,light:LightSettingsSchema}),
     z.strictObject({kind:z.literal('setHaze'),entityId:IdSchema,haze:HazeSettingsSchema}),
     z.strictObject({kind:z.literal('setFpsCounter'),entityId:IdSchema,fpsCounter:FpsCounterSettingsSchema}),
+    z.strictObject({kind:z.literal('setOutputFormat'),outputId:IdSchema,width:u.positive(),height:u.positive(),fps:OutputSpecSchema.shape.fps,renderScale:z.union(OUTPUT_RENDER_SCALES.map(scale => z.literal(scale)))}).refine(isOutputSize, 'Invalid output size'),
     z.strictObject({kind:z.literal('setVmcSender'),entityId:IdSchema,vmcSender:VmcSenderSettingsSchema}),
     z.strictObject({kind:z.literal('setAvatarExpression'),entityId:IdSchema,name:ExpressionNameSchema,settings:ExpressionSettingsSchema.nullable()}),
     z.strictObject({kind:z.literal('setCameraRenderEnvironment'),entityId:IdSchema,renderEnvironment:z.boolean()}),

@@ -1,0 +1,10 @@
+# backend=webgl2
+PASS the default output draws a 1920 x 1080 buffer (R5, R8) {"width":1920,"height":1080,"cssWidth":960,"cssHeight":540}
+PASS at 60 FPS the page acknowledges each frame that the host sends (R6) {"ticksPerS":60,"sentPerS":60,"cappedPerS":0,"acksPerS":60.2}
+PASS 1280 x 720 at render scale 0.75 draws a 960 x 540 buffer and keeps the CSS size (R5) {"width":960,"height":540,"cssWidth":960,"cssHeight":540}
+PASS at 30 FPS the page acknowledges about 30 frames each second on a 60 Hz host clock (R6) {"ticksPerS":60,"sentPerS":55.4,"cappedPerS":4.6,"acksPerS":30.2}
+PASS the capture is the 960 x 540 buffer and the transparent clear keeps alpha 0 far from geometry (R5, R8) {"width":960,"height":540,"alpha":0}
+PASS after a change back to 60 FPS the page acknowledges each frame again (R6) {"ticksPerS":60,"sentPerS":60,"cappedPerS":0,"acksPerS":60.2}
+PASS no page error []
+values {"webgl2":{"at60":{"ticksPerS":60,"sentPerS":60,"cappedPerS":0,"acksPerS":60.2},"at30":{"ticksPerS":60,"sentPerS":55.4,"cappedPerS":4.6,"acksPerS":30.2},"back":{"ticksPerS":60,"sentPerS":60,"cappedPerS":0,"acksPerS":60.2}}}
+7 pass, 0 fail

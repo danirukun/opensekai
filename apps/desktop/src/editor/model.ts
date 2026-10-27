@@ -135,6 +135,10 @@ export function createEditorModel(api: AppApi) {
    const parsed=FpsCounterSettingsSchema.safeParse(fpsCounter);if(!ofKind(entityId,'fpsCounter')||!parsed.success)return invalid();
    return patch({kind:'setFpsCounter',entityId,fpsCounter:parsed.data},expectedRevision,live);
   },
+  setOutputFormat(format:Omit<Extract<PatchOp,{kind:'setOutputFormat'}>,'kind'|'outputId'>,expectedRevision?:number):Promise<Reply<{revision:number}>> {
+   const parsed=PatchOpSchema.safeParse({kind:'setOutputFormat',outputId:'output_main',...format});if(!parsed.success)return invalid();
+   return patch(parsed.data as PatchOp,expectedRevision);
+  },
   setVmcSender(entityId:Id,vmcSender:VmcSenderSettings,expectedRevision?:number):Promise<Reply<{revision:number}>> {
    const parsed=VmcSenderSettingsSchema.safeParse(vmcSender);if(!ofKind(entityId,'vmcSender')||!parsed.success)return invalid();
    return patch({kind:'setVmcSender',entityId,vmcSender:parsed.data},expectedRevision);

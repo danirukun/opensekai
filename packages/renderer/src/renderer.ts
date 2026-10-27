@@ -2,7 +2,7 @@ import { assertEditorScope, createEditorViewport, createHazeHelper, createLightH
 import type { EditorOptions, EditorHandle } from './editor-viewport';
 import { Scene, Mesh, BoxGeometry, MeshStandardNodeMaterial, PerspectiveCamera, Object3D } from "three/webgpu";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
-import type { RuntimeFrame, FrameApplied, RendererDiagnostics, CaptureBytes, Id, ResourceHost, AppError, SceneEntity, QualityProfile, ScreenshotBytes } from "@opensekai/contracts";
+import type { RuntimeFrame, FrameApplied, RendererDiagnostics, CaptureBytes, Id, ResourceHost, AppError, SceneEntity, QualityProfile, ScreenshotBytes, OutputSpec } from "@opensekai/contracts";
 import { LIMITS, RuntimeFrameSchema } from "@opensekai/contracts";
 import { selectFrame, failure, createRenderQueue } from "./apply-frame";
 import { createAssetCache, createAssetLoader, disposeObject } from "./assets";
@@ -39,6 +39,11 @@ export interface RendererOptions {
     diagnostics: boolean;
     quality: QualityProfile;
 }
+// The output render scale multiplies the quality profile scale; the canvas CSS size does not change (B22 R5).
+export const drawingBufferSize = (output: Pick<OutputSpec, "width" | "height" | "renderScale">, quality: Pick<QualityProfile, "resolutionScale">) => {
+    const scale = (output.renderScale ?? 1) * quality.resolutionScale;
+    return { width: Math.round(output.width * scale), height: Math.round(output.height * scale) };
+};
 export async function createRenderer(options: RendererOptions): Promise<RendererHandle> {
     if (options.editor) assertEditorScope(options.outputId, options.diagnostics);
     const { quality } = options;
@@ -152,7 +157,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             throw failure("NOT_FOUND", "Output camera not found", [output.cameraId]);
         const showEnvironment = cameraEntity.renderEnvironment !== false;
         const place = (root: Object3D, entity: SceneEntity) => { applyTransform(root, entity); if (entity.kind === "environment" && !showEnvironment) root.visible = false; };
-        const width = output.width * quality.resolutionScale, height = output.height * quality.resolutionScale;
+        const { width, height } = drawingBufferSize(output, quality);
         if (options.canvas.width !== width || options.canvas.height !== height)
             renderer.setSize(width, height, false);
         const warnings: AppError[] = [];

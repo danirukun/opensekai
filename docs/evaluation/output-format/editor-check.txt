@@ -1,0 +1,11 @@
+PASS the Output panel shows Resolution, Render scale, and Frame limit with the scene values (R11) {"Resolution":"1920x1080","Render scale":"1","Frame limit":"60"}
+PASS Resolution lists the four presets (R11) ["1920 × 1080","1600 × 900","1280 × 720","960 × 540"]
+PASS Resolution › 1280 × 720 sends one setOutputFormat and keeps the other values (R3, R11) {"output":{"id":"output_main","cameraId":"camera_main","width":1280,"height":720,"fps":60,"renderScale":1},"revision":1}
+PASS Render scale › 75% and Frame limit › 30 FPS change output_main only (R2, R11) {"main":{"id":"output_main","cameraId":"camera_main","width":1280,"height":720,"fps":30,"renderScale":0.75},"preview":{"id":"preview_main","cameraId":"camera_main","width":1920,"height":1080,"fps":60}}
+PASS the Drag to OBS link has the OBS URL with the layer parameters of the output size (R12, R13) "http://127.0.0.1:4173/renderer/?layer-name=OpenSekai&layer-width=1280&layer-height=720#<descriptor>"
+PASS a dragstart on the link sets text/uri-list and text/plain to that URL (R12) {"same":true}
+PASS a click on the link does not navigate the Editor window (R12) "http://127.0.0.1:4173/?view=editor"
+PASS a rejected change shows the scene value again (R11) {"Resolution":"1280x720","Render scale":"0.75","Frame limit":"30"}
+PASS a reload of the Editor window reads the values from the scene (R11) {"Resolution":"1280x720","Render scale":"0.75","Frame limit":"30"}
+PASS no page error []
+10 pass, 0 fail

@@ -363,6 +363,18 @@ impl NativeEvaluation {
             {
                 return Err(error(ErrorCode::Busy, "Benchmark is active"));
             }
+            // A benchmark run compares only at the default output format (B22 R10).
+            if self
+                .ports
+                .output_spec("output_main")
+                .is_some_and(|output| !output.is_default_format())
+            {
+                return Err(AppError {
+                    code: ErrorCode::InvalidInput,
+                    message: "Benchmark needs the default output format".into(),
+                    ids: vec!["output_main".into()],
+                });
+            }
             self.ports.validate_smoke_fixture().await?;
             let evaluation = self.clone();
             return tokio::task::spawn_blocking(move || {

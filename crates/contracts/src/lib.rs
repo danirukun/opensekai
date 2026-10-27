@@ -368,13 +368,50 @@ impl SceneEntity {
         }
     }
 }
-object!(OutputSpec {
-    id: Id,
-    camera_id: Id,
-    width: u32,
-    height: u32,
-    fps: u32
-});
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct OutputSpec {
+    pub id: Id,
+    pub camera_id: Id,
+    pub width: u32,
+    pub height: u32,
+    pub fps: u32,
+    /// A missing value means 1. `null` is rejected, as the TypeScript schema does (B22 R1).
+    #[serde(
+        default,
+        deserialize_with = "present_f64",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub render_scale: Option<f64>,
+}
+fn present_f64<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Option<f64>, D::Error> {
+    f64::deserialize(deserializer).map(Some)
+}
+/// The `output_main` formats of B22 R1. Each size is 16:9 and at most 1920 x 1080.
+pub const OUTPUT_SIZES: [(u32, u32); 4] = [(1920, 1080), (1600, 900), (1280, 720), (960, 540)];
+pub const OUTPUT_FRAME_LIMITS: [u32; 2] = [30, 60];
+pub const OUTPUT_RENDER_SCALES: [f64; 3] = [0.5, 0.75, 1.0];
+fn output_format_ok(width: u32, height: u32, fps: u32, render_scale: f64) -> bool {
+    OUTPUT_SIZES.contains(&(width, height))
+        && OUTPUT_FRAME_LIMITS.contains(&fps)
+        && OUTPUT_RENDER_SCALES.contains(&render_scale)
+}
+impl OutputSpec {
+    pub fn is_default_format(&self) -> bool {
+        self.width == 1920
+            && self.height == 1080
+            && self.fps == 60
+            && self.render_scale.unwrap_or(1.0) == 1.0
+    }
+    fn format_ok(&self) -> bool {
+        output_format_ok(
+            self.width,
+            self.height,
+            self.fps,
+            self.render_scale.unwrap_or(1.0),
+        )
+    }
+}
 object!(SceneView {schema_version:u32,scene_id:Id,revision:u64,entities:Vec<SceneEntity>,outputs:Vec<OutputSpec>});
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
@@ -440,6 +477,15 @@ pub enum PatchOp {
         entity_id: Id,
         #[serde(rename = "fpsCounter")]
         fps_counter: FpsCounterSettings,
+    },
+    SetOutputFormat {
+        #[serde(rename = "outputId")]
+        output_id: Id,
+        width: u32,
+        height: u32,
+        fps: u32,
+        #[serde(rename = "renderScale")]
+        render_scale: f64,
     },
     SetVmcSender {
         #[serde(rename = "entityId")]
@@ -2020,7 +2066,7 @@ impl Validate for SceneView {
                 "missing output camera",
             )?;
             require(
-                o.width == 1920 && o.height == 1080 && o.fps == 60,
+                o.format_ok() && (o.id != "preview_main" || o.is_default_format()),
                 "invalid output spec",
             )?;
         }
@@ -2069,6 +2115,16 @@ impl Validate for ScenePatch {
                 PatchOp::SetHaze { haze, .. } => haze.validate()?,
                 PatchOp::SetFpsCounter { fps_counter, .. } => fps_counter.validate()?,
                 PatchOp::SetVmcSender { vmc_sender, .. } => vmc_sender.validate()?,
+                PatchOp::SetOutputFormat {
+                    width,
+                    height,
+                    fps,
+                    render_scale,
+                    ..
+                } => require(
+                    output_format_ok(*width, *height, *fps, *render_scale),
+                    "invalid output format",
+                )?,
                 PatchOp::SetEnvironmentReflections {
                     reflections_intensity,
                     ..
@@ -2731,10 +2787,7 @@ impl Validate for AppError {
 impl Validate for OutputSpec {
     fn validate(&self) -> Result<(), AppError> {
         scalar_checks(&serde_json::to_value(self).map_err(|e| invalid(e.to_string()))?)?;
-        require(
-            self.width == 1920 && self.height == 1080 && self.fps == 60,
-            "invalid output spec",
-        )
+        require(self.format_ok(), "invalid output spec")
     }
 }
 impl Validate for EntityBase {
