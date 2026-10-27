@@ -171,6 +171,36 @@ mod tests {
     }
 
     #[test]
+    fn round_trip_keeps_the_output_format_and_rejects_a_preview_change() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("small.osekai");
+        let mut document = show();
+        let outputs = document["scene"]["outputs"].as_array_mut().unwrap();
+        let main = outputs
+            .iter_mut()
+            .find(|o| o["id"] == "output_main")
+            .unwrap();
+        main["width"] = json!(1280);
+        main["height"] = json!(720);
+        main["fps"] = json!(30);
+        main["renderScale"] = json!(0.75);
+        write_show(&path, &document).unwrap();
+        assert_eq!(read_show(&path).unwrap(), document);
+        let mut preview = show();
+        let outputs = preview["scene"]["outputs"].as_array_mut().unwrap();
+        let preview_main = outputs
+            .iter_mut()
+            .find(|o| o["id"] == "preview_main")
+            .unwrap();
+        preview_main["width"] = json!(1280);
+        preview_main["height"] = json!(720);
+        assert!(validate_show(&preview).is_err());
+        let mut null_scale = show();
+        null_scale["scene"]["outputs"][0]["renderScale"] = Value::Null;
+        assert!(validate_show(&null_scale).is_err());
+    }
+
+    #[test]
     fn example_stage_show_opens() {
         let dir = tempfile::tempdir().unwrap();
         for (name, text) in [

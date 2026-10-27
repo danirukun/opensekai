@@ -38,6 +38,14 @@ export function applyOperations(scene: SceneView, operations: ScenePatch["operat
                     if(next.entities.some(e=>e.id===operation.entity.id))return failure('INVALID_INPUT','Duplicate entity ID',[operation.entity.id]);
                     const created=structuredClone(operation.entity);if(created.kind==='tracking')created.generation=generation;if(created.kind==='avatar'&&created.tracking)created.tracking=withoutNullFingers(created.tracking);next.entities.push(created);continue;
                 }
+                // An output format change has no entity ID; only the OBS output takes one (B22 R3).
+                if(operation.kind==='setOutputFormat'){
+                    const output=next.outputs.find(item=>item.id===operation.outputId);
+                    if(!output)return failure('NOT_FOUND','Output not found',[operation.outputId]);
+                    if(output.id!=='output_main')return failure('INVALID_INPUT','Only the OBS output has a format',[output.id]);
+                    Object.assign(output,{width:operation.width,height:operation.height,fps:operation.fps,renderScale:operation.renderScale});
+                    continue;
+                }
                 const entity = next.entities.find(entity => entity.id === operation.entityId);
                 if (!entity)return failure("NOT_FOUND", "Entity not found", [operation.entityId]);
                 switch(operation.kind){

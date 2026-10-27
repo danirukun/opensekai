@@ -749,6 +749,17 @@ impl ServicePorts {
             })
             .unwrap_or_default()
     }
+    /// The output spec from the latest published scene. `current_output` returns only the acknowledgment.
+    pub fn output_spec(&self, output: &str) -> Option<OutputSpec> {
+        lock(&self.shared.inner)
+            .latest
+            .as_ref()?
+            .scene
+            .outputs
+            .iter()
+            .find(|o| o.id == output)
+            .cloned()
+    }
     pub fn current_output(&self, output: &str) -> Result<(FrameApplied, u64), AppError> {
         let inner = lock(&self.shared.inner);
         if *self.shared.stop.borrow() {

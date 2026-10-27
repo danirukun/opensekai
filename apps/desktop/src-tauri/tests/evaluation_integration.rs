@@ -422,6 +422,52 @@ async fn benchmark_refuses_unregistered_smoke_fixture_and_read_only_evaluation()
     service.shutdown().await.unwrap();
 }
 #[tokio::test]
+async fn benchmark_refuses_a_non_default_output_format() {
+    let (dir, service) = service(true).await;
+    let evaluation = install(&dir, &service);
+    let session = service.publisher_descriptor().session_id;
+    let mut publisher = auth(&service.publisher_descriptor()).await;
+    let mut renderer = auth(&service.renderer_descriptor("output_main").unwrap()).await;
+    let mut operator = auth(&service.operator_descriptor()).await;
+    // The default format passes the format check and reaches the fixture check.
+    fresh(&service, &mut publisher, &mut renderer, 1).await;
+    assert!(service
+        .ports()
+        .output_spec("output_main")
+        .unwrap()
+        .is_default_format());
+    assert_eq!(
+        rpc(&mut operator, "benchmarkStart", run_params("default")).await["error"]["code"],
+        "CONFLICT"
+    );
+    let mut changed = frame(&session, 2);
+    changed["frame"]["scene"]["outputs"][0]
+        .as_object_mut()
+        .unwrap()
+        .extend([
+            ("width".into(), json!(1280)),
+            ("height".into(), json!(720)),
+            ("fps".into(), json!(30)),
+            ("renderScale".into(), json!(0.75)),
+        ]);
+    send(&mut publisher, changed).await;
+    recv(&mut renderer).await;
+    let spec = service.ports().output_spec("output_main").unwrap();
+    assert_eq!(
+        (spec.width, spec.height, spec.fps, spec.render_scale),
+        (1280, 720, 30, Some(0.75))
+    );
+    let refused = rpc(&mut operator, "benchmarkStart", run_params("changed")).await;
+    assert_eq!(refused["error"]["code"], "INVALID_INPUT", "{refused}");
+    assert_eq!(refused["error"]["ids"], json!(["output_main"]));
+    assert_eq!(
+        refused["error"]["message"],
+        "Benchmark needs the default output format"
+    );
+    evaluation.shutdown();
+    service.shutdown().await.unwrap();
+}
+#[tokio::test]
 #[ignore = "Requires explicit local pinned smoke fixtures"]
 async fn pinned_fixture_benchmark_cancel_replay_stale_timer_summary_and_history() {
     let local = std::path::PathBuf::from(
