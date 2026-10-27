@@ -139,8 +139,10 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             if (sceneEffects.length) { const next = applyEffects(scene, sceneEffects); if (!next.ok) return next.error; scene = next.data; }
             let nextLayers: PropertyLayers = { overrides: layer, tweens: moving, pending: ends };
             const logic = ownerKey(run.graphId);
+            // Only a wired On Transition End records an end, so an old graph never meets the end limits.
+            const wired = new Set(store.active(run.graphId)?.connections.flatMap(wire => wire.sourcePort === 'transitionEnd' ? [wire.sourceNodeId] : []));
             for (const effect of run.effects.filter(isOverrideEffect)) {
-                const end = effect.kind === 'setProperty' && effect.nodeId !== undefined && logic !== null ? { graphId: run.graphId, nodeId: effect.nodeId, logic } : undefined;
+                const end = effect.kind === 'setProperty' && effect.nodeId !== undefined && logic !== null && wired.has(effect.nodeId) ? { graphId: run.graphId, nodeId: effect.nodeId, logic } : undefined;
                 const written = writeTransitioned(nextLayers, scene, effect, run.graphId, nowMs, startMs, end);
                 if (!written.ok) return written.error;
                 nextLayers = written.data;

@@ -11,6 +11,7 @@ Status: implemented on the Linux cloud (bundle B24 implementation). The owner ch
    - When the write starts a tween, the end belongs to that tween.
    - When the same target comes again during a running tween (the B13 H join rule), the end joins that tween. A tween keeps at most 8 ends, each `{graphId, nodeId}` once. A ninth distinct end fails the run with `Transition limit reached` and no state change.
    - When the write is immediate (no transition, 0 s, or a boolean property), or the value is already at the target, the end is pending for the next step.
+   - A node whose `transitionEnd` has no wire records no end, so it never counts against the limits. A graph saved before this slice keeps its behavior.
 3. A tween runs its ends only when it reaches its end on the session clock (`sampleTween` gives `done`). A tween that stops for any other reason (a scene patch that touches the property, an immediate write, a new tween to another target, a write failure, or a disabled, deleted, or changed graph) runs no end. A tween that a run fails to start records no end.
 4. The ends of a tween that ends at session step N, and the pending immediate ends of step N, run on step N + 1 in Phase 3 of the runtime, after the due delays, debounces, and timers, in the order of their record. Each end is one run of its graph from `{nodeId, port: 'transitionEnd'}`, with the normal flow budget and the normal commit rule. An end whose graph is not enabled, whose graph logic changed after the record, or whose node is gone does not run. An unwired `transitionEnd` runs nothing.
 5. The session keeps at most 64 pending ends. A write that would add more fails its run with `Transition limit reached` and no state change. Pending ends and tween ends are runtime state: they are never saved, put in a frame, or advanced by a renderer. A show open, `sceneReplace`, and the drop of a graph clear the ends of the affected graphs. A graph that has a pending end or a tween end counts as a transition owner (`transitionOwners`), so a disable, a deletion, or a logic change of that graph drops its ends, also when it owns no tween.
@@ -32,7 +33,7 @@ Status: implemented on the Linux cloud (bundle B24 implementation). The owner ch
 ## E — Entities
 
 - `property.set` ports: `inputs {flow, value}`, `outputs {exit, transitionEnd}`.
-- `TransitionEnd`: `{graphId: Id, nodeId: Id}`.
+- `TransitionEnd`: `{graphId: Id, nodeId: Id, logic: string}`. `logic` is the logic key of the graph at the write (Approach, Runtime).
 - `PropertyTween` gains `ends: readonly TransitionEnd[]` (at most 8).
 - The `setProperty` effect of Set Asset Property gains `nodeId: Id`. Other writers (Move Entity, Set Visibility) do not carry it and record no end.
 - `advanceTweens` returns `{layers, failures, ended: TransitionEnd[]}`.

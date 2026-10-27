@@ -164,3 +164,12 @@ it('runs an end recorded during a clock step on the next clock step at the earli
  for (let ms = 20; ms <= 80; ms += 20) s.advance(ms);
  expect(lines(s)).toEqual([[20, 'b'], [40, 'a'], [60, 'b'], [80, 'a']]);
 });
+
+it('records no end for an unwired On Transition End, so an old graph is not limited', () => {
+ const nine = Array.from({ length: 9 }, (_, i) => fov(`n${i}`, 60, 1));
+ const chain = nine.map((item, i) => wire(`w${i}`, i === 0 ? 'go' : `n${i - 1}`, i === 0 ? 'flow' : 'exit', item.id, 'flow'));
+ const s = start(graph('g', nine, chain));
+ expect(run(s).ok).toBe(true);
+ const many = start(graph('g', [fov('set', 60)], [wire('a', 'go', 'flow', 'set', 'flow')]));
+ for (let i = 0; i < 70; i++) expect(run(many).ok).toBe(true);
+});
