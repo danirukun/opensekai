@@ -9,7 +9,8 @@
  import type { MenuTarget, ReteBlueprintEditor } from '../blueprints/rete-editor';
  import { deleteOps, disconnectOps } from '../blueprints/selection-ops';
  import { freeSpot } from '../blueprints/placement';
- import { templatesEnabled, upperBodyRotation } from '../blueprints/templates';
+ import { availableTemplates, templatesEnabled } from '../blueprints/templates';
+ import { currentPropertyValue } from '../blueprints/current-value';
  import { shortcutFor } from '../blueprints/keys';
  import { copyNodes, duplicateAnchor, pasteOps, type BlueprintClipboard } from '../blueprints/clipboard';
  import { formatLayout, formatOps } from '../blueprints/layout';
@@ -188,7 +189,7 @@
   if (!target) return;
   try {
    const { mountReteBlueprint } = await import('../blueprints/rete-editor');
-   const mounted = await mountReteBlueprint(canvas, target, { onSelect: picked => { nodeId = picked; }, onOps: ops => { act(ops); }, onContextMenu: openMenu, onWireDrop: openDrop, onCommentSelect: ids => { commentIds = ids; }, onCommentOpen: id => { void openComment(id); } }, { views: { node: BlueprintNodeView, socket: BlueprintSocketView, connection: BlueprintConnectionView } });
+   const mounted = await mountReteBlueprint(canvas, target, { onSelect: picked => { nodeId = picked; }, onOps: ops => { act(ops); }, onContextMenu: openMenu, onWireDrop: openDrop, onCommentSelect: ids => { commentIds = ids; }, onCommentOpen: id => { void openComment(id); }, currentValue: (node, wired) => currentPropertyValue(node, wired, scene) }, { views: { node: BlueprintNodeView, socket: BlueprintSocketView, connection: BlueprintConnectionView } });
    if (mine !== generation) { mounted.destroy(); return; }
    editor = mounted;
    mounted.setEditable(!disabled);
@@ -249,9 +250,10 @@
   choose(imported.data.graph.id);
   missing = imported.data.report.missing.map(item => item.name);
  }
- function addTemplate() {
-  if (!scene || disabled || !templatesEnabled(scene, graphs.length)) return;
-  const imported = upperBodyRotation(scene, selectedEntityId, () => crypto.randomUUID());
+ function addTemplate(id: string) {
+  const template = availableTemplates(scene).find(item => item.value === id);
+  if (!scene || disabled || !template || !templatesEnabled(scene, graphs.length)) return;
+  const imported = template.build(scene, selectedEntityId, () => crypto.randomUUID());
   if (!imported.ok) { runError = imported.error.message; return; }
   const result = edit([{ kind: 'createGraph', graph: imported.data.graph }]);
   if (!result.ok) { runError = result.error.message; return; }
@@ -372,7 +374,7 @@
  {#if inputWarning}<div class="blueprint-warning" role="alert">{inputWarning.message}{#if inputWarning.code === 'FORBIDDEN'}<Button variant="secondary" onclick={openInputSettings}>Open Settings</Button>{/if}</div>{/if}
  {#each deviceWarnings as warning (warning.ids[0])}<div class="blueprint-warning" role="alert">{warning.message}</div>{/each}
  <div class="blueprint-workspace">
-  <BlueprintList {graphs} {selectedId} {disabled} creatable={targets.length > 0} onselect={choose} onops={edit} oncreate={create} onimport={importFile} templatable={templatesEnabled(scene, graphs.length)} ontemplate={addTemplate} onexport={exportFile} onduplicate={duplicate} />
+  <BlueprintList {graphs} {selectedId} {disabled} creatable={targets.length > 0} onselect={choose} onops={edit} oncreate={create} onimport={importFile} templatable={templatesEnabled(scene, graphs.length)} templates={availableTemplates(scene).map(({ value, label }) => ({ value, label }))} ontemplate={addTemplate} onexport={exportFile} onduplicate={duplicate} />
   <nav class="blueprint-tools" aria-label="Blueprint tools">
    <button type="button" class:active={drawer === 'nodes'} aria-pressed={drawer === 'nodes'} title="Nodes" aria-label="Nodes" onclick={() => toggleDrawer('nodes')}><Search size={16} /></button>
    <button type="button" class:active={drawer === 'variables'} aria-pressed={drawer === 'variables'} title="Variables" aria-label="Variables" onclick={() => toggleDrawer('variables')}><Variable size={16} /></button>

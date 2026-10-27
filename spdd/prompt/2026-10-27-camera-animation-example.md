@@ -2,7 +2,7 @@
 
 Analysis: [camera animation example](../analysis/2026-10-27-camera-animation-example.md). Issue: [#89](https://github.com/danirukun/opensekai/issues/89) (BP-09, slice 1). Queue bundle B24.
 
-Status: contract only. The next intake run implements it after the owner merges this contract.
+Status: implemented on the Linux cloud (bundle B24 implementation). The owner checks on macOS and in OBS remain (`accept:local`). Evidence: [camera animation example check](../../docs/evaluation/camera-animation-example.md).
 
 ## R — Requirements
 
@@ -20,10 +20,11 @@ Status: contract only. The next intake run implements it after the owner merges 
 7. In the Editor window, a Set Asset Property node has a `Use current value` button. It sends one `setNodeInput` for the `value` input with the value of the target property of the target entity in the scene that the editor holds (the committed scene, `readProperty`), through the same path and undo stack as an inline edit. The button is disabled when `value` has a wire, when the target entity is missing, or when the editor has no scene. It is the OpenSekai form of Warudo Align Target With Main Camera and Align Target With Asset. While a Blueprint moves the property, the committed value is the value before the move (R5b); the operator sets poses while no loop runs.
 8. The Templates menu gets `Camera Sway`. The camera is the selected camera, else the camera of `output_main`. Its current position `P`, rotation `R`, and field of view `F` give the graph (all transitions 3 s, easing `InOutSine`):
    - On Enable → Set Position to `P + rotate(R, [0.5, 0, 0])` → `exit` → Set Field of View to `max(1, F − 5)`;
-   - that Field of View node `transitionEnd` → Set Position to `P` → `exit` → Set Field of View to `F`;
-   - that Field of View node `transitionEnd` → the first Set Position node.
+   - that Position node `transitionEnd` → Set Position to `P` → `exit` → Set Field of View to `F`;
+   - that Position node `transitionEnd` → the first Set Position node.
+   The ends are on the Position nodes, not on the Field of View nodes. A viewport drag patches only the camera transform, so it stops the Position tween and its end (R10). An end on a Field of View node would keep the loop running after a drag. (Changed in the implementation; the first contract put the ends on the Field of View nodes.)
    The graph name is `Camera Sway`. It imports enabled, through `importBlueprint`, as Upper Body Rotation does, so the camera starts to move. The camera is the one `camera` reference of the template file, so an export and import remap it by name.
-9. The Templates menu is enabled when the scene has fewer than 8 graphs. Each item is enabled when its own reference exists: Upper Body Rotation needs an avatar, and Camera Sway needs a camera. The menu items stay in one `Dropdown` from `@oshi-connect/ui`.
+9. The Templates menu is enabled when the scene has fewer than 8 graphs and at least one template is available. Each item is available when its own reference exists: Upper Body Rotation needs an avatar, and Camera Sway needs a camera. The `Dropdown` from `@oshi-connect/ui` has no disabled item, so the menu lists only the available items. The menu items stay in one `Dropdown`.
 10. A viewport drag of the moving camera stops the loop, because the drag patch stops the tween and no end runs (R3). An operator restarts it with a disable and enable of the graph. This is the Warudo behavior.
 11. MCP needs no new tool. `blueprint_edit` can wire `transitionEnd`, and `blueprint_inspect` shows the runtime errors. The `blueprint_edit` description names `transitionEnd` in one sentence.
 12. Known gaps, not in this slice: Camera Orbit Character (orbit parameter interpolation; Approximate with a line move), Switch Main Camera with a fade, Blueprint functions (BP-01), an end output on Set Expression, Toggle Expression, Set BlendShape, and Look At, the karaoke example (needs audio playback, CHR-04 animation clips and profiles, and a prop on a hand bone), and the dance example (needs B25 streaming triggers, CHR-04 one-shot overlay animations, audio, and particles).

@@ -33,7 +33,7 @@ it('reads only the input that Select chooses, for the selected type', () => {
   [node('in', 'event.manual'), node('sel', 'flow.select', { type: 'vector3' }, { condition, ifTrue: [1, 2, 3] }), node('bad', 'property.get', { entityId: 'missing', property: 'position' }), node('set', 'property.set', { entityId: 'e', property: 'position' })],
   [wire('1', 'in', 'flow', 'set', 'flow'), wire('2', 'bad', 'value', 'sel', 'ifFalse'), wire('3', 'sel', 'value', 'set', 'value')]);
  const run = runFlow(g(true), { nodeId: 'in', port: 'flow' }, emptyState(), big(), 0);
- expect(run.ok && run.data.effects).toEqual([{ kind: 'setProperty', entityId: 'e', property: 'position', value: [1, 2, 3] }]);
+ expect(run.ok && run.data.effects).toEqual([{ kind: 'setProperty', entityId: 'e', property: 'position', value: [1, 2, 3], nodeId: 'set' }]);
  expect(runFlow(g(false), { nodeId: 'in', port: 'flow' }, emptyState(), big(), 0).ok).toBe(false);
 });
 

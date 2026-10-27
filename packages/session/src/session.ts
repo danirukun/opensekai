@@ -13,7 +13,7 @@ import { createDebugLog } from './debug-log';
 import { composeBoneOffsets, EMPTY_BONE_OFFSETS, writeBoneOffset, type BoneOffsets } from './bone-offsets';
 import { advanceExpressions, composeExpressions, dropExpressionFades, EMPTY_EXPRESSIONS, expressionOwners, expressionView, reconcileExpressions, setExpression, type ExpressionStates } from './expressions';
 import { applyOverrides, dropOverrides, EMPTY_OVERRIDES, evaluatedEntity, takeIdle, type OverrideLayer } from './overrides';
-import { advanceTweens, dropGraphTweens, dropTweens, EMPTY_TWEENS, transitionStart, tweenOwners, tweening, writeTransitioned, type TweenLayer } from './tweens';
+import { advanceTweens, dropGraphTweens, dropTweens, EMPTY_TWEENS, transitionStart, tweenOwners, tweening, writeTransitioned, type PropertyLayers, type TransitionEnd, type TweenLayer } from './tweens';
 import { advanceBlendShapes, blendShapeOwners, composeBlendShapes, dropGraphBlendShapes, EMPTY_BLEND_SHAPES, setBlendShape, type BlendShapeStates } from './blend-shapes';
 import { vmcPosesFor, withSendersStopped } from './vmc-send';
 import { dropGraphLookAts, EMPTY_LOOK_AT, lookAtOwners, sceneLookup, setLookAt, stepLookAt, type LookAtStates } from './look-at';
@@ -60,6 +60,8 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
     let tweens: TweenLayer = EMPTY_TWEENS;
     let blendShapes: BlendShapeStates = EMPTY_BLEND_SHAPES;
     let lookAts: LookAtStates = EMPTY_LOOK_AT;
+    // Transition ends that run on the next clock step: the ends of writes without a tween, and of tweens that reached their end.
+    let pendingEnds: readonly TransitionEnd[] = [];
     // Never committed or saved: rebuilt by the Blueprint step of each tick.
     let boneOffsets: BoneOffsets = EMPTY_BONE_OFFSETS;
     let previousPoses = new Map<Id, AvatarPose>();
@@ -93,11 +95,12 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
     const errorsForInspect = () => new Map([...tweenErrors, ...runtimeErrors]);
     // The logic of an enabled graph, or null when it is disabled or gone.
     const ownerKey = (graphId: Id) => { const graph = store.active(graphId); return graph?.enabled ? logicKey(graph) : null; };
-    const transitionOwners = () => new Set([...tweenOwners(tweens), ...expressionOwners(expressions), ...blendShapeOwners(blendShapes), ...lookAtOwners(lookAts), ...tweenErrors.keys()]);
+    const transitionOwners = () => new Set([...tweenOwners(tweens), ...pendingEnds.map(end => end.graphId), ...expressionOwners(expressions), ...blendShapeOwners(blendShapes), ...lookAtOwners(lookAts), ...tweenErrors.keys()]);
     // A graph that is disabled, deleted, or changed stops its transitions, blend shapes, and look-at.
     const dropGraphs = (graphIds: ReadonlySet<Id>) => {
         if (graphIds.size === 0) return;
         tweens = dropGraphTweens(tweens, graphIds);
+        pendingEnds = pendingEnds.filter(end => !graphIds.has(end.graphId));
         expressions = dropExpressionFades(expressions, graphIds);
         blendShapes = dropGraphBlendShapes(blendShapes, graphIds);
         lookAts = dropGraphLookAts(lookAts, graphIds);
@@ -117,10 +120,11 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
     const devices = createDeviceInput();
     // The device state of the last clock; a manual run reads it too.
     let deviceEnv: DeviceEnv = NO_DEVICES;
-    const stepBlueprints = (events: BlueprintEvent[], nowMs: number, held: ReadonlySet<string>): { runs: GraphRun[]; committed: Reply<{ revision: number }> } => {
+    const stepBlueprints = (events: BlueprintEvent[], nowMs: number, held: ReadonlySet<string>, transitionEnds: readonly TransitionEnd[] = []): { runs: GraphRun[]; committed: Reply<{ revision: number }> } => {
         let working: SceneView | null = null;
         let layer = overrides;
         let moving = tweens;
+        let ends = pendingEnds;
         let faces = reconcileExpressions(expressions, persistent);
         let offsets = boneOffsets;
         let shapes = blendShapes;
@@ -133,9 +137,11 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             const sceneEffects = run.effects.filter(isSceneEffect);
             let scene = working ?? persistent;
             if (sceneEffects.length) { const next = applyEffects(scene, sceneEffects); if (!next.ok) return next.error; scene = next.data; }
-            let nextLayers = { overrides: layer, tweens: moving };
+            let nextLayers: PropertyLayers = { overrides: layer, tweens: moving, pending: ends };
+            const logic = ownerKey(run.graphId);
             for (const effect of run.effects.filter(isOverrideEffect)) {
-                const written = writeTransitioned(nextLayers, scene, effect, run.graphId, nowMs, startMs);
+                const end = effect.kind === 'setProperty' && effect.nodeId !== undefined && logic !== null ? { graphId: run.graphId, nodeId: effect.nodeId, logic } : undefined;
+                const written = writeTransitioned(nextLayers, scene, effect, run.graphId, nowMs, startMs, end);
                 if (!written.ok) return written.error;
                 nextLayers = written.data;
             }
@@ -169,14 +175,16 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             layer = nextLayers.overrides;
             if (nextLayers.tweens !== moving) tweenErrors.delete(run.graphId);
             moving = nextLayers.tweens;
+            ends = nextLayers.pending ?? [];
             faces = nextFaces;
             offsets = nextOffsets;
             shapes = nextShapes;
             looks = nextLooks;
             return null;
-        }, env);
+        }, env, transitionEnds);
         overrides = layer;
         tweens = moving;
+        pendingEnds = ends;
         expressions = faces;
         boneOffsets = offsets;
         blendShapes = shapes;
@@ -210,6 +218,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
     const stepTweens = (nowMs: number) => {
         const stepped = advanceTweens({ overrides, tweens }, persistent, nowMs);
         ({ overrides, tweens } = stepped.layers);
+        pendingEnds = [...pendingEnds, ...stepped.ended];
         for (const failure of stepped.failures) if (ownerKey(failure.graphId) !== null) tweenErrors.set(failure.graphId, failure.error);
     };
     // Overrides with no write for 250 ms go to the persistent scene in one commit. An override under a tween waits for its end.
@@ -269,6 +278,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             lastTrackingStatus = [];
             overrides = EMPTY_OVERRIDES;
             tweens = EMPTY_TWEENS;
+            pendingEnds = [];
             tweenErrors.clear();
             expressions = EMPTY_EXPRESSIONS;
             boneOffsets = EMPTY_BONE_OFFSETS;
@@ -393,7 +403,10 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
                 const device = devices.ingest(input?.devices);
                 const events: BlueprintEvent[] = [...(input?.events?.map(event => ({ kind: 'keystroke' as const, accelerator: event.accelerator })) ?? []), ...device.events.map(event => ({ kind: 'device' as const, event })), { kind: 'tracking' }, { kind: 'update' }];
                 deviceEnv = device.env;
-                stepBlueprints(events, elapsedMs, new Set(input?.held ?? []));
+                // Only the clock step runs transition ends: the ones recorded before this step, as a snapshot.
+                const ends = pendingEnds;
+                pendingEnds = [];
+                stepBlueprints(events, elapsedMs, new Set(input?.held ?? []), ends);
             } catch (error) {
                 // An unexpected Blueprint failure must not abort the frame.
                 logOnce(error);
