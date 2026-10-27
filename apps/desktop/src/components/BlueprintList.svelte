@@ -4,11 +4,10 @@
  import type { BlueprintGraph, BlueprintOp } from '@opensekai/contracts';
  import { MAX_GRAPHS } from '../blueprints/templates';
 
- let { graphs, selectedId, disabled, creatable, templatable, onselect, onops, oncreate, onimport, ontemplate, onexport, onduplicate }: {
-  graphs: BlueprintGraph[]; selectedId: string | null; disabled: boolean; creatable: boolean; templatable: boolean;
+ let { graphs, selectedId, disabled, creatable, templatable, templates, onselect, onops, oncreate, onimport, ontemplate, onexport, onduplicate }: {
+  graphs: BlueprintGraph[]; selectedId: string | null; disabled: boolean; creatable: boolean; templatable: boolean; templates: { value: string; label: string }[];
   onselect: (id: string) => void; onops: (ops: BlueprintOp[]) => void; oncreate: () => void; onimport: () => void; ontemplate: (id: string) => void; onexport: (id: string) => void; onduplicate: (id: string) => void;
  } = $props();
- const templates = [{ value: 'upper-body-rotation', label: 'Upper Body Rotation' }];
  let template = $state('');
  const pick = (id: string) => { template = ''; ontemplate(id); };
  let renaming = $state<string | null>(null), draft = $state('');

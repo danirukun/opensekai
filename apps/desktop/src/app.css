@@ -59,6 +59,7 @@
 .bp-socket[data-kind=string]{--bp-socket:#c4687a}
 .bp-socket[data-list]:before{border-radius:2px}
 .bp-inline{display:inline-flex;align-items:center;gap:2px;margin-left:2px}.bp-inline>div{display:contents}
+.bp-node-action{display:flex;padding:0 6px 6px}.bp-node-action button{height:22px;padding:0 6px;font-size:11px}
 .bp-inline input:not([type=checkbox]){width:46px;height:18px;padding:0 4px;border:1px solid #dedbe5;border-radius:3px;background:#faf9fc;color:#35333d;font-size:11px;box-shadow:none;-webkit-user-select:text;user-select:text}
 .bp-inline[data-type=string] input{width:84px}.bp-inline[data-type=vector3] input{width:38px}
 .bp-inline input:focus-visible{outline:1px solid #8e75b8;outline-offset:0;--tw-ring-shadow:0 0 #0000;--tw-ring-offset-shadow:0 0 #0000}

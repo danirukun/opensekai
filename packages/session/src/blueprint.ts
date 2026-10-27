@@ -82,8 +82,8 @@ export function compileBlueprint(input: unknown): Reply<CompiledBlueprint> {
   if (type === 'flow') {
    if (flowNext.has(key(source.id, connection.sourcePort))) return fail('Blueprint flow output has multiple connections', [source.id]);
    flowNext.set(key(source.id, connection.sourcePort), connection);
-   // The exit of Delay and Debounce runs in a later run, so it is not an immediate cycle.
-   if (source.type !== 'flow.delay' && source.type !== 'flow.debounce') push(flowEdges, source.id, target.id);
+   // The exit of Delay and Debounce and the On Transition End of Set Asset Property run in a later run, so they are not an immediate cycle.
+   if (source.type !== 'flow.delay' && source.type !== 'flow.debounce' && !(source.type === 'property.set' && connection.sourcePort === 'transitionEnd')) push(flowEdges, source.id, target.id);
   } else {
    if (dataIn.has(key(target.id, connection.targetPort))) return fail('Blueprint input has multiple connections', [target.id]);
    dataIn.set(key(target.id, connection.targetPort), connection);

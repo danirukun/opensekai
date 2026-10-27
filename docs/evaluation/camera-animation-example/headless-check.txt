@@ -1,0 +1,11 @@
+PASS the Templates menu offers Camera Sway only, in a scene without a character (R9) ["Camera Sway"]
+PASS Camera Sway imports enabled on the main camera (R8) {"enabled":true}
+PASS the graph has the loop: each Position node On Transition End starts the other (R8) ["enable.flow","slide.exit","slide.transitionEnd","back.exit","back.transitionEnd"]
+PASS the canvas shows the On Transition End output on the Set Asset Property nodes (R1) ["","","","","On Transition End","","","","On Transition End","","","","On Transition End","","","","On Transition End",""]
+PASS the camera position moves in the evaluated scene after the import {"start":[0,1.2,3],"moved":[0.3062767908751774,1.2,3]}
+PASS the persistent scene does not change while the loop runs (R5b) 0
+PASS each Set Asset Property node with an unwired value shows Use current value (R7) 4
+PASS the button sends one setNodeInput with the committed Field of View (R7) [{"kind":"setNodeInput","graphId":"d8f1c365-fad1-48f6-97ae-261baea5a0e4","nodeId":"zoom","port":"value","value":40}]
+PASS the inline value shows the committed value {"previous":35,"now":"40"}
+PASS one undo step restores the previous inline value {"kind":"setNodeInput","graphId":"d8f1c365-fad1-48f6-97ae-261baea5a0e4","nodeId":"zoom","port":"value","value":35}
+10/10 passed

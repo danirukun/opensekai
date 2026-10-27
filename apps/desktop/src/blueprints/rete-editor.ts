@@ -34,11 +34,14 @@ class GraphNode extends ClassicPreset.Node {
  // The latest Debug Value text and the session time it changed (slice F R14).
  debug: DebugText | null = null;
  setInput: InlineEdit;
- constructor(data: BlueprintNode, setInput: InlineEdit) {
+ // The value that Use current value writes to `value`, or null when the button is disabled.
+ current: () => ScalarValue | null;
+ constructor(data: BlueprintNode, setInput: InlineEdit, current: (node: GraphNode) => ScalarValue | null) {
   super(BLUEPRINT_LABELS[data.type]);
   this.id = data.id;
   this.data = data;
   this.setInput = setInput;
+  this.current = () => current(this);
   this.syncPorts();
  }
  // Flow inputs take many wires and flow outputs one; data inputs take one wire and data outputs many.
@@ -84,6 +87,8 @@ export interface ReteBlueprintHandlers {
  onWireDrop?(from: { nodeId: string; port: string; side: 'input' | 'output' }, client: { x: number; y: number }): void;
  onCommentSelect?(ids: string[]): void;
  onCommentOpen?(id: string): void;
+ // The committed scene value for Use current value on a Set Asset Property node.
+ currentValue?(node: BlueprintNode, wired: boolean): ScalarValue | null;
 }
 
 export async function mountReteBlueprint(container: HTMLElement, initial: BlueprintGraph, handlers: ReteBlueprintHandlers, options: { render?: boolean; inspect?: (area: AreaPlugin<Schemes, AreaExtra>) => void; views?: BlueprintViews } = {}): Promise<ReteBlueprintEditor> {
@@ -192,7 +197,7 @@ export async function mountReteBlueprint(container: HTMLElement, initial: Bluepr
   if (count === 0 || (count === 1 && change === 1)) void area.update('node', nodeId);
  };
  const addNode = (data: BlueprintNode) => ownNode(data.id, async () => {
-  const node = new GraphNode(data, setInput(data.id));
+  const node = new GraphNode(data, setInput(data.id), item => handlers.currentValue?.(item.data, item.wired.has('value')) ?? null);
   node.editable = editable;
   node.debug = debugValues.get(data.id) ?? null;
   await editor.addNode(node);

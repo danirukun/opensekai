@@ -1,0 +1,147 @@
+{
+  "format": "opensekai.blueprint",
+  "formatVersion": 1,
+  "graph": {
+    "schemaVersion": 1,
+    "id": "camera-sway",
+    "name": "Camera Sway",
+    "enabled": true,
+    "nodes": [
+      {
+        "id": "enable",
+        "version": 1,
+        "type": "event.enable",
+        "settings": {},
+        "position": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      {
+        "id": "slide",
+        "version": 1,
+        "type": "property.set",
+        "settings": {
+          "entityId": "camera",
+          "property": "position",
+          "transitionSeconds": 3,
+          "easing": "InOutSine"
+        },
+        "position": {
+          "x": 240,
+          "y": 0
+        },
+        "inputs": {
+          "value": [
+            0.5,
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "id": "zoom",
+        "version": 1,
+        "type": "property.set",
+        "settings": {
+          "entityId": "camera",
+          "property": "fovDegrees",
+          "transitionSeconds": 3,
+          "easing": "InOutSine"
+        },
+        "position": {
+          "x": 620,
+          "y": 0
+        },
+        "inputs": {
+          "value": 40
+        }
+      },
+      {
+        "id": "back",
+        "version": 1,
+        "type": "property.set",
+        "settings": {
+          "entityId": "camera",
+          "property": "position",
+          "transitionSeconds": 3,
+          "easing": "InOutSine"
+        },
+        "position": {
+          "x": 240,
+          "y": 220
+        },
+        "inputs": {
+          "value": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "id": "unzoom",
+        "version": 1,
+        "type": "property.set",
+        "settings": {
+          "entityId": "camera",
+          "property": "fovDegrees",
+          "transitionSeconds": 3,
+          "easing": "InOutSine"
+        },
+        "position": {
+          "x": 620,
+          "y": 220
+        },
+        "inputs": {
+          "value": 45
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "enable-slide",
+        "sourceNodeId": "enable",
+        "sourcePort": "flow",
+        "targetNodeId": "slide",
+        "targetPort": "flow"
+      },
+      {
+        "id": "slide-zoom",
+        "sourceNodeId": "slide",
+        "sourcePort": "exit",
+        "targetNodeId": "zoom",
+        "targetPort": "flow"
+      },
+      {
+        "id": "slide-back",
+        "sourceNodeId": "slide",
+        "sourcePort": "transitionEnd",
+        "targetNodeId": "back",
+        "targetPort": "flow"
+      },
+      {
+        "id": "back-unzoom",
+        "sourceNodeId": "back",
+        "sourcePort": "exit",
+        "targetNodeId": "unzoom",
+        "targetPort": "flow"
+      },
+      {
+        "id": "back-slide",
+        "sourceNodeId": "back",
+        "sourcePort": "transitionEnd",
+        "targetNodeId": "slide",
+        "targetPort": "flow"
+      }
+    ],
+    "variables": []
+  },
+  "references": [
+    {
+      "id": "camera",
+      "kind": "camera",
+      "name": "Camera"
+    }
+  ]
+}
