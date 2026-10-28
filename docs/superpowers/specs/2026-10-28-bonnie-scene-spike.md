@@ -1,6 +1,6 @@
 # Bonnie scene spike inventory and mapping
 
-Date: 2026-10-28. Issue: [#240](https://github.com/danirukun/opensekai/issues/240). Status. The inventory and the mapping are done. The rebuild is blocked by the questions in [Blockers](#blockers).
+Date: 2026-10-28. Issue: [#240](https://github.com/danirukun/opensekai/issues/240). Status. The inventory and the mapping are done. The maintainer answered the blockers on 2026-10-28. See [Decisions](#decisions).
 
 The input is one Warudo sceneshare file from the maintainer (`Ben 3D Test.sceneshare`, 277,114,964 bytes, SHA-256 `8620791d475992ac1b056a475bdc24b35e236cfc61dfa4420645d9233d0c56a6`). The file and its extracted models, textures, and scene stay local. This document records structure, counts, and settings only. The earlier [Workshop research](2026-10-17-warudo-workshop-research.md) describes the `.warudo` (uMod) archive. This document adds the sceneshare container and the scene JSON.
 
@@ -145,7 +145,19 @@ The scene requires 3 Workshop items. They are a MegaFX props plugin, a particle 
 
 ## Blockers
 
+The spike recorded these questions before the rebuild.
+
+
 1. **Character source.** OpenSekai loads a VRM. The sceneshare has only the Unity build of the character, with NiloToon materials. Is a VRM export of this character (VRM 0 or 1, with MToon) available? If not, should the spike use the QA avatar in its place? A conversion of the Unity character to VRM recreates the rig, the expressions, and the materials, and the result is not the author's appearance. Recommended default. Use a VRM export when one exists. Otherwise put the QA avatar at the character's position, and mark the character comparison as not done.
 2. **Material policy.** Every material uses NiloToon or URP Lit. The NiloToon work is parked for license reasons. May the spike map NiloToon Environment and URP Lit materials to glTF PBR (base color, base map, emission) and label the result as an approximation? Or must those materials wait for MAT-04? Recommended default. Map to PBR, mark each mapped material as approximate in the evidence, and do not claim NiloToon appearance.
 3. **Warudo reference.** NiloToon materials render only in Warudo Pro. The test VM has free Warudo 0.15.1 without the NiloToon plugin or the post-processing volume type. Where do the Warudo reference captures come from? There are three options. The maintainer captures the 6 cameras on a Warudo Pro machine. The VM gets a Warudo Pro license. Or the spike uses free Warudo captures that show the fallback materials. Recommended default. The maintainer captures from Warudo Pro, at 1920 × 1080.
 4. **Conversion tool in the repository.** The converter needs UnityPy (Python). The repository has TypeScript tools and one Blender Python script. Should the spike commit the converter under `scripts/`, or keep it local? Recommended default. Keep it local until ENV-12 passes its selection gate, and record its steps in this document.
+
+## Decisions
+
+The maintainer answered blockers 1 to 3 on 2026-10-28. Blocker 4 uses its recommended default.
+
+1. **Character.** The QA avatar (a VRM 0 ARKit model) stands at the character's position. The comparison does not include the character's appearance.
+2. **Materials.** NiloToon Environment, NiloToon Character, and URP Lit materials map to glTF PBR with base color, base map, and emission. The evidence labels each mapped material as approximate. OpenSekai does not claim NiloToon appearance.
+3. **Warudo reference.** The reference captures come from free Warudo 0.15.1 in the test VM. These captures show the fallback materials of free Warudo, without bloom and depth of field. They are not the author's appearance.
+4. **Converter.** The UnityPy converter stays local. This document records its steps.
