@@ -129,7 +129,7 @@ it('puts the map on instance clones only and releases it once', async () => {
     const source = new MeshStandardMaterial();
     const cached = new Group(); cached.add(new Mesh(new BoxGeometry(), source));
     const instance = cached.clone();
-    const release = light.apply(instance, true);
+    const release = light.apply(instance);
     const lit = (instance.children[0] as Mesh).material as MeshStandardMaterial;
     expect(lit.envMap).toBe(texture);
     expect(lit).not.toBe(source);
@@ -142,7 +142,7 @@ it('puts the map on instance clones only and releases it once', async () => {
     disposeObject(cached);
     expect(textureDispose).not.toHaveBeenCalled();
     expect(dispose).not.toHaveBeenCalled();
-    light.apply(new Group(), true);
+    light.apply(new Group());
     expect(make).toHaveBeenCalledTimes(1);
     light.dispose(); light.dispose();
     expect(dispose).toHaveBeenCalledTimes(1);
@@ -153,13 +153,13 @@ it('puts the room map on standard copies only and leaves unlit materials alone',
     const light = createEnvironmentLight(() => ({ texture, dispose() {} }));
     const unlit = new MeshBasicMaterial();
     const root = new Group(); root.add(new Mesh(new BoxGeometry(), unlit));
-    light.apply(root, true);
+    light.apply(root);
     const after = (root.children[0] as Mesh).material as MeshBasicMaterial;
     expect(after).toBe(unlit);
     expect(after.envMap).toBeNull();
     const lit = new MeshStandardMaterial();
     const other = new Group(); other.add(new Mesh(new BoxGeometry(), lit));
-    light.apply(other, true);
+    light.apply(other);
     const copy = (other.children[0] as Mesh).material as MeshStandardMaterial;
     expect(copy).not.toBe(lit);
     expect(copy.envMap).toBe(texture);
@@ -171,7 +171,7 @@ it('copies each distinct material once per instance', async () => {
     const root = new Group();
     root.add(new Mesh(new BoxGeometry(), shared), new Mesh(new BoxGeometry(), shared));
     const clone = vi.spyOn(shared, 'clone');
-    const release = light.apply(root, true);
+    const release = light.apply(root);
     const [a, b] = root.children.map(c => (c as Mesh).material as MeshStandardMaterial);
     expect(clone).toHaveBeenCalledTimes(1);
     expect(a).toBe(b);
@@ -180,7 +180,7 @@ it('copies each distinct material once per instance', async () => {
     release.dispose();
     expect(copyDispose).toHaveBeenCalledTimes(1);
 });
-it('copies each lit material for a prop instance without the room map (R6)', async () => {
+it('copies each lit material for an instance and puts the room map on standard copies only (R6, prop import R4)', async () => {
     const { createEnvironmentLight } = await vi.importActual<typeof import('../src/environment-light')>('../src/environment-light');
     const make = vi.fn(() => ({ texture: new Texture(), dispose() {} }));
     const light = createEnvironmentLight(make);
@@ -188,11 +188,11 @@ it('copies each lit material for a prop instance without the room map (R6)', asy
     const unlit = new MeshBasicMaterial();
     const root = new Group();
     for (const material of [...lit, unlit]) root.add(new Mesh(new BoxGeometry(), material));
-    const copies = light.apply(root, false);
+    const copies = light.apply(root);
     const after = root.children.map(c => (c as Mesh).material as MeshStandardMaterial);
-    lit.forEach((material, i) => { expect(after[i]).not.toBe(material); expect(after[i]!.envMap ?? null).toBeNull(); });
+    lit.forEach((material, i) => { expect(after[i]).not.toBe(material); expect(after[i]!.envMap ?? null).toBe(i === 0 ? make.mock.results[0]!.value.texture : null); });
     expect(after[4]).toBe(unlit);
-    expect(make).not.toHaveBeenCalled();
+    expect(make).toHaveBeenCalledTimes(1);
     const disposed = after.slice(0, 4).map(material => vi.spyOn(material, 'dispose'));
     copies.dispose();
     for (const spy of disposed) expect(spy).toHaveBeenCalledTimes(1);
@@ -202,7 +202,7 @@ it('sets the reflections intensity on environment copies (R15)', async () => {
     const light = createEnvironmentLight(() => ({ texture: new Texture(), dispose() {} }));
     const source = new MeshStandardMaterial();
     const root = new Group(); root.add(new Mesh(new BoxGeometry(), source));
-    const copies = light.apply(root, true);
+    const copies = light.apply(root);
     const copy = (root.children[0] as Mesh).material as MeshStandardMaterial;
     copies.reflections(0.25);
     expect(copy.envMapIntensity).toBe(0.25);
@@ -213,7 +213,7 @@ it('scales the room reflections and the room fill of environment copies by the r
     const texture = new Texture();
     const light = createEnvironmentLight(() => ({ texture, dispose() {} }));
     const root = new Group(); root.add(new Mesh(new BoxGeometry(), new MeshStandardMaterial({ roughness: 0.3 })), new Mesh(new BoxGeometry(), new MeshPhysicalMaterial({ clearcoat: 1 })));
-    light.apply(root, true);
+    light.apply(root);
     type Share = { bNode: { value: number | { toArray(): number[] } } };
     const shares = root.children.map(child => {
         const copy = (child as Mesh).material as MeshStandardNodeMaterial;
