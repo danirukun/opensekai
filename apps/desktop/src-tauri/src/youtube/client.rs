@@ -234,6 +234,8 @@ pub struct YouTubeHub {
     config: YouTubeConfig,
     settings: PathBuf,
     state: Mutex<HubState>,
+    /// Serializes `set_link`, so the stored file and the running client name the same link.
+    setting: tokio::sync::Mutex<()>,
     probe: GateProbe,
 }
 
@@ -269,6 +271,7 @@ impl YouTubeHub {
             config,
             settings,
             state: Mutex::default(),
+            setting: tokio::sync::Mutex::new(()),
             probe: GateProbe::default(),
         })
     }
@@ -318,6 +321,7 @@ impl YouTubeHub {
         self: &Arc<Self>,
         link: Option<String>,
     ) -> Result<YouTubeStatus, AppError> {
+        let _setting = self.setting.lock().await;
         let link = link.map(|l| l.trim().to_string()).filter(|l| !l.is_empty());
         let target = link
             .as_deref()
@@ -418,7 +422,7 @@ impl YouTubeHub {
         };
         !stopped && !*stop.borrow()
     }
-    fn client(&self) -> reqwest::Client {
+    fn client(&self) -> Option<reqwest::Client> {
         let jar = reqwest::cookie::Jar::default();
         if let Ok(url) = "https://www.youtube.com".parse() {
             jar.add_cookie_str("SOCS=CAI; Domain=.youtube.com; Path=/", &url);
@@ -428,7 +432,8 @@ impl YouTubeHub {
             .and_then(|u| u.host_str().map(str::to_string));
         let policy = reqwest::redirect::Policy::custom(move |attempt| {
             let host = attempt.url().host_str().unwrap_or_default().to_string();
-            let youtube = host == "youtube.com" || host.ends_with(".youtube.com");
+            let youtube = attempt.url().scheme() == "https"
+                && (host == "youtube.com" || host.ends_with(".youtube.com"));
             if attempt.previous().len() > MAX_REDIRECTS {
                 attempt.error("too many redirects")
             } else if youtube || allowed.as_deref() == Some(host.as_str()) {
@@ -443,7 +448,7 @@ impl YouTubeHub {
             .timeout(REQUEST_TIMEOUT)
             .redirect(policy)
             .build()
-            .unwrap_or_default()
+            .ok()
     }
     /// Sends the request and reads at most `limit` bytes of a 200 reply.
     async fn fetch(request: reqwest::RequestBuilder, limit: usize) -> Result<Vec<u8>, Fetch> {
@@ -485,7 +490,11 @@ impl YouTubeHub {
         target: StreamTarget,
         mut stop: watch::Receiver<bool>,
     ) {
-        let client = self.client();
+        // Without the restricted client, the task makes no request.
+        let Some(client) = self.client() else {
+            self.set(generation, YouTubeState::Error, Some("Network".into()));
+            return;
+        };
         let base = self.config.base_url.trim_end_matches('/').to_string();
         let mut memory = LinkMemory::default();
         let mut attempt = 0u32;
@@ -674,16 +683,15 @@ impl YouTubeHub {
                 };
                 let received = Instant::now();
                 *lock(&self.probe.polls) += 1;
-                *attempt = 0;
                 let admitted = memory.admit(reply.actions.items.clone());
-                if !self.deliver(generation, Some(&reply.actions), admitted)
-                    || !self.set(generation, YouTubeState::Live, None)
-                {
+                if !self.deliver(generation, Some(&reply.actions), admitted) {
                     return Watch::Stopped;
                 }
                 if reply.actions.ended {
                     return Watch::Ended;
                 }
+                // Only a reply that continues the chat is a successful poll: it resets the
+                // backoff and sets `live` (R13). A reply without a continuation backs off.
                 let Some((next, timeout_ms)) = reply.next else {
                     if !self
                         .retry(generation, "Chat page changed", attempt, stop)
@@ -693,6 +701,10 @@ impl YouTubeHub {
                     }
                     continue 'bootstrap;
                 };
+                *attempt = 0;
+                if !self.set(generation, YouTubeState::Live, None) {
+                    return Watch::Stopped;
+                }
                 continuation = next;
                 if !self
                     .sleep(Duration::from_millis(poll_wait(timeout_ms)), stop)

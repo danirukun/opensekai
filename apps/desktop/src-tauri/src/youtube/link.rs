@@ -56,12 +56,8 @@ fn video(id: &str) -> Result<StreamTarget, LinkError> {
 
 /// A channel path with an optional `/live`, `/featured`, or `/` suffix. No query, fragment,
 /// or other character is allowed.
-fn channel(path: &str) -> Result<StreamTarget, LinkError> {
-    let base = ["/live", "/featured", "/"]
-        .iter()
-        .find_map(|suffix| path.strip_suffix(suffix))
-        .unwrap_or(path);
-    let ok = if let Some(handle) = base.strip_prefix("/@") {
+fn channel_base_ok(base: &str) -> bool {
+    if let Some(handle) = base.strip_prefix("/@") {
         name_ok(handle, 3, 30)
     } else if let Some(id) = base.strip_prefix("/channel/UC") {
         id.len() == 22 && id.chars().all(id_char)
@@ -69,12 +65,21 @@ fn channel(path: &str) -> Result<StreamTarget, LinkError> {
         name_ok(name, 1, 100)
     } else {
         false
-    };
-    if ok {
-        Ok(StreamTarget::Channel(base.into()))
-    } else {
-        Err(LinkError::NotChannelOrVideo)
     }
+}
+fn channel(path: &str) -> Result<StreamTarget, LinkError> {
+    // The whole path first, so a channel named `live` (`/c/live`) stays a name.
+    let trimmed = path.strip_suffix('/').unwrap_or(path);
+    [trimmed]
+        .into_iter()
+        .chain(
+            ["/live", "/featured"]
+                .iter()
+                .filter_map(|s| trimmed.strip_suffix(s)),
+        )
+        .find(|base| channel_base_ok(base))
+        .map(|base| StreamTarget::Channel(base.into()))
+        .ok_or(LinkError::NotChannelOrVideo)
 }
 
 pub fn parse_stream_link(text: &str) -> Result<StreamTarget, LinkError> {
@@ -94,7 +99,8 @@ pub fn parse_stream_link(text: &str) -> Result<StreamTarget, LinkError> {
     let host = host.to_ascii_lowercase();
     if host == "youtu.be" {
         let (path, _) = split_query(tail);
-        return video(path.strip_prefix('/').unwrap_or_default());
+        let id = path.strip_prefix('/').unwrap_or_default();
+        return video(id.strip_suffix('/').unwrap_or(id));
     }
     if !matches!(
         host.as_str(),
@@ -175,6 +181,22 @@ mod tests {
         assert_eq!(
             parse_stream_link("https://www.youtube.com/c/name"),
             channel("/c/name")
+        );
+        assert_eq!(
+            parse_stream_link("https://www.youtube.com/c/live"),
+            channel("/c/live")
+        );
+        assert_eq!(
+            parse_stream_link("https://www.youtube.com/c/live/live"),
+            channel("/c/live")
+        );
+        assert_eq!(
+            parse_stream_link("https://www.youtube.com/@abc/live/"),
+            channel("/@abc")
+        );
+        assert_eq!(
+            parse_stream_link("https://youtu.be/dQw4w9WgXcQ/"),
+            Ok(StreamTarget::Video("dQw4w9WgXcQ".into()))
         );
         assert_eq!(
             channel_live_url("https://www.youtube.com", "/@abc"),

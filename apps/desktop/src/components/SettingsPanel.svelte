@@ -14,7 +14,7 @@
   try{
    const reply=await api.integrationsSet({youtube:{link:draft.trim()||null}});
    if(reply.ok)onchange?.(reply.data);else rejected=reply.error.message;
-  }finally{busy=false;}
+  }catch{rejected='Network';}finally{busy=false;}
  }
 </script>
 <section class="settings-panel">

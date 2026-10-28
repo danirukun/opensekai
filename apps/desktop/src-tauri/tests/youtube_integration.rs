@@ -418,11 +418,19 @@ async fn a_channel_link_reads_chat_reconnects_without_duplicates_and_ends() {
     assert_eq!(again["items"], 3);
     assert_eq!(again["error"], Value::Null);
 
-    // A reply without a continuation and without an end signal.
-    lock(&mock.polls).push_back(reply(vec![], false));
+    // Replies without a continuation and without an end signal. They are not successful
+    // polls: the backoff grows (at least 0.5 + 1 + 2 + 4 s, divided by 20) and the state stays
+    // error until a reply continues the chat.
+    lock(&mock.polls).extend((0..4).map(|_| reply(vec![], false)));
     let changed = o.wait_state("error").await;
+    let since = tokio::time::Instant::now();
     assert_eq!(changed["error"], "Chat page changed");
     o.wait_state("live").await;
+    assert!(
+        since.elapsed() >= Duration::from_millis(300),
+        "{:?}",
+        since.elapsed()
+    );
 
     // The chat ends. The channel page still names the ended video, so it does not resolve again.
     lock(&mock.polls).push_back(reply(
@@ -435,6 +443,7 @@ async fn a_channel_link_reads_chat_reconnects_without_duplicates_and_ends() {
     tokio::time::sleep(Duration::from_millis(3500)).await;
     assert_eq!(o.status().await["state"], "waiting");
     assert_eq!(mock.chat_gets.load(Ordering::SeqCst), gets);
+    // The four replies without a continuation give one error, not four.
     let seen = statuses(&lock(&publisher.events));
     assert_eq!(
         seen,

@@ -152,8 +152,10 @@ fn continuation_of(entry: &Value) -> Option<(String, Option<u64>)> {
     })
 }
 
-/// The "Live chat" (all messages) option of the view selector, never "Top chat"; else the
-/// first page continuation.
+/// The "Live chat" (all messages) option of the view selector, never "Top chat". A two-item
+/// selector without that title (a page in another language) takes the second item, which is
+/// "Live chat" on the English page. Any other selector gives `None` (`Changed`). A page
+/// without a selector takes its first continuation.
 fn first_continuation(renderer: &Value) -> Option<String> {
     let items = renderer
         .pointer(
@@ -170,9 +172,7 @@ fn first_continuation(renderer: &Value) -> Option<String> {
             .iter()
             .find(|item| title(item) == "Live chat")
             .or_else(|| (items.len() == 2 && title(&items[0]) != "Live chat").then(|| &items[1]));
-        if let Some(item) = live {
-            return continuation_of(item.get("continuation")?).map(|(token, _)| token);
-        }
+        return continuation_of(live?.get("continuation")?).map(|(token, _)| token);
     }
     renderer
         .get("continuations")?
@@ -734,6 +734,31 @@ mod tests {
         assert_eq!(message.chars().count(), 1024);
         assert_eq!(username.len(), 256);
         assert_eq!(cut("😀😀", 3), "😀");
+    }
+
+    #[test]
+    fn a_selector_without_live_chat_is_a_changed_page() {
+        let renderer = |items: serde_json::Value| json!({"header": {"liveChatHeaderRenderer": {"viewSelector": {"sortFilterSubMenuRenderer": {"subMenuItems": items}}}}, "continuations": [{"reloadContinuationData": {"continuation": "top"}}]});
+        let item = |title: &str, token: &str| json!({"title": title, "continuation": {"reloadContinuationData": {"continuation": token}}});
+        assert_eq!(
+            first_continuation(&renderer(json!([
+                item("A", "a"),
+                item("B", "b"),
+                item("C", "c")
+            ]))),
+            None
+        );
+        assert_eq!(
+            first_continuation(&renderer(json!([item("A", "a"), item("B", "b")]))).as_deref(),
+            Some("b")
+        );
+        assert_eq!(
+            first_continuation(
+                &json!({"continuations": [{"reloadContinuationData": {"continuation": "only"}}]})
+            )
+            .as_deref(),
+            Some("only")
+        );
     }
 
     #[test]
