@@ -119,6 +119,10 @@ export function createEditorModel(api: AppApi) {
    const parsed=IdSchema.nullable().safeParse(assetId);if(!ofKind(entityId,'environment')||!parsed.success)return invalid();
    return patch({kind:'setEnvironmentModel',entityId,assetId:parsed.data},expectedRevision);
   },
+  setMeshModel(entityId:Id,assetId:Id|null,expectedRevision?:number):Promise<Reply<{revision:number}>> {
+   const parsed=IdSchema.nullable().safeParse(assetId);if(!ofKind(entityId,'mesh')||!parsed.success)return invalid();
+   return patch({kind:'setMeshModel',entityId,assetId:parsed.data},expectedRevision);
+  },
   setEnvironmentReflections(entityId:Id,reflectionsIntensity:number,expectedRevision?:number,live=false):Promise<Reply<{revision:number}>> {
    const parsed=ReflectionsIntensitySchema.safeParse(reflectionsIntensity);if(!ofKind(entityId,'environment')||!parsed.success)return invalid();
    return patch({kind:'setEnvironmentReflections',entityId,reflectionsIntensity:parsed.data},expectedRevision,live);
