@@ -2,7 +2,7 @@
  import { onMount } from 'svelte';
  import { invoke } from '@tauri-apps/api/core';
  import { Button } from '@oshi-connect/ui';
- import { Move, RotateCw, Scaling, PanelsTopLeft, Activity, Grid3x3 } from '@lucide/svelte';
+ import { Move, RotateCw, Scaling, PanelsTopLeft, Activity, Grid3x3, Eye, EyeOff } from '@lucide/svelte';
  import Stats from 'stats.js';
  import {createMediaPipeTracker} from './tracking/mediapipe';
  import {fitDevices} from './tracking/hidden-cameras';
@@ -27,6 +27,8 @@
  let menu=$state<{x:number;y:number;actions:MenuAction[];guides?:true;anchor?:HTMLElement}|null>(null);
  let perfVisible=$state(false);
  function togglePerf(){perfVisible=!perfVisible;try{localStorage.setItem('opensekai.scene.perfMonitor',perfVisible?'true':'false');}catch{}}
+ let previewOn=$state(true);
+ function togglePreview(){previewOn=!previewOn;session?.setPreviewEnabled(previewOn);}
  let guides=$state<GuideSettings>(NO_GUIDES);
  function toggle(guide:Guide){guides=toggleGuide(guides,guide);try{localStorage.setItem(GUIDE_STORAGE_KEY,writeGuides(guides));}catch{}}
  function guideMenu(event:MouseEvent&{currentTarget:HTMLButtonElement}){if(menu?.guides){menu=null;return;}const box=event.currentTarget.getBoundingClientRect();menu={x:box.left,y:box.bottom+4,guides:true,anchor:event.currentTarget,actions:[{label:'Center mark',checked:guides.center,run:()=>toggle('center')},{label:'Thirds',checked:guides.thirds,run:()=>toggle('thirds')}]};}
@@ -40,7 +42,7 @@
  function key(event:KeyboardEvent){if(event.defaultPrevented)return;if(event.target instanceof HTMLElement && (event.target.closest('input,textarea,select,[contenteditable="true"]')))return;if(event.ctrlKey||event.metaKey||event.altKey)return;
   const next=({w:'translate',e:'rotate',r:'scale'} as Record<string,Tool>)[event.key.toLowerCase()];if(next&&canEdit&&available){event.preventDefault();setTool(next);}else if(event.key==='Escape'){if(dragging){session?.editor?.cancel();dragging=false;}else if(!menu){showEditor();}}
  }
- function context(event:MouseEvent){event.preventDefault();const actions:MenuAction[]=[{label:'Open editor',run:showEditor}];if(selected&&selected.kind!=='tracking')for(const [label,value] of [['Move','translate'],['Rotate','rotate'],['Scale','scale']] as const)actions.push({label,disabled:!canEdit||!available||view.pending,run:()=>setTool(value)});menu={x:event.clientX,y:event.clientY,actions};}
+ function context(event:MouseEvent){event.preventDefault();if(!previewOn)return;const actions:MenuAction[]=[{label:'Open editor',run:showEditor}];if(selected&&selected.kind!=='tracking')for(const [label,value] of [['Move','translate'],['Rotate','rotate'],['Scale','scale']] as const)actions.push({label,disabled:!canEdit||!available||view.pending,run:()=>setTool(value)});menu={x:event.clientX,y:event.clientY,actions};}
  onMount(()=>{
   let disposed=false,off=()=>{},offUI=()=>{};let poll:ReturnType<typeof createEditorPoll>|undefined;
   const stats=new Stats();stats.showPanel(0);stats.dom.style.position='static';monitorHost.appendChild(stats.dom);
@@ -64,7 +66,7 @@
    onNavigateEnd(){void model?.load();notify({kind:'refresh'});},
    onInspect(sceneId){return session!.client.api.sceneInspect({sceneId});},
    onCycleCamera(direction){const state=model?.read();const next=cycleCamera(state?.scene??null,direction);if(next&&!state?.pending)void model?.selectCamera(next).then(()=>notify({kind:'refresh'}));},
-  },{begin(){if(!perfVisible)return false;stats.begin();return true;},end(){stats.end();}},counterHost).then(async value=>{if(disposed){await value.stop();return;}session=value;offLoads=value.onLoadStatus(entries=>{loads=entries;loadSender.offer(entries);});canEdit=value.canEdit;model=createEditorModel(value.client.api);
+  },{begin(){if(!perfVisible)return false;stats.begin();return true;},end(){stats.end();}},counterHost).then(async value=>{if(disposed){await value.stop();return;}session=value;value.setPreviewEnabled(previewOn);offLoads=value.onLoadStatus(entries=>{loads=entries;loadSender.offer(entries);});canEdit=value.canEdit;model=createEditorModel(value.client.api);
    tracker=createMediaPipeTracker({now:()=>value.tracking.now()??0,onSample:sample=>value.tracking.submit({samples:[sample],statuses:[]}),onStatus:status=>value.tracking.submit({samples:[],statuses:[status]}),onDevices:choices=>{devices=fitDevices(choices.map(device=>({deviceId:device.deviceId.slice(0,512),label:device.label.slice(0,128)})));notify({kind:'trackingDevices',devices});}});
    offClock=value.tracking.onClock(reconcileTracking);
    off=model.subscribe(next=>{view=next;sync();reconcileTracking();});poll=createEditorPoll(value.client.api,model,status=>{available=status.revision!==null;error=null;if(!available){session?.editor?.cancel();dragging=false;drafts.offer(null);}sync();},code=>{available=false;error=code;session?.editor?.cancel();dragging=false;drafts.offer(null);sync();});await poll.poll();sync();}).catch(cause=>{if(!disposed)error=cause instanceof Error?cause.message:'Session startup failed';});
@@ -77,8 +79,8 @@
   <Button variant="ghost" class={tool==='translate'?'active-tool':''} title="Move (W)" disabled={!canEdit||!available} onclick={()=>setTool('translate')}><Move size={17}/><span class="sr-only">Move</span></Button>
   <Button variant="ghost" class={tool==='rotate'?'active-tool':''} title="Rotate (E)" disabled={!canEdit||!available} onclick={()=>setTool('rotate')}><RotateCw size={17}/><span class="sr-only">Rotate</span></Button>
   <Button variant="ghost" class={tool==='scale'?'active-tool':''} title="Scale (R)" disabled={!canEdit||!available} onclick={()=>setTool('scale')}><Scaling size={17}/><span class="sr-only">Scale</span></Button>
- </div><span class="selection-name">{selected?.name??''}</span><div class="spacer"></div><Button variant="ghost" class={guidesOn(guides)?'active-tool':''} title="Guides" aria-haspopup="menu" aria-expanded={menu?.guides===true} onclick={guideMenu}><Grid3x3 size={17}/><span class="sr-only">Guides</span></Button><Button variant="ghost" class={perfVisible?'active-tool':''} title={perfVisible?'Hide performance monitor':'Show performance monitor'} onclick={togglePerf}><Activity size={17}/><span class="sr-only">{perfVisible?'Hide performance monitor':'Show performance monitor'}</span></Button><Button variant="secondary" onclick={showEditor}><PanelsTopLeft size={15}/>Editor</Button></header>
- <div bind:this={stage} class="viewport" oncontextmenu={context} role="presentation"><div class="preview-surface" style:width={`${previewSize.width}px`} style:height={`${previewSize.height}px`}><canvas bind:this={canvas} id="preview" tabindex="0" aria-label="Scene preview"></canvas><GuideOverlay settings={guides}/><div bind:this={counterHost} class="fps-counter-host"></div><div class="camera-frame" aria-hidden="true"></div><LoadOverlay entries={loads} {names} ondismiss={id=>session?.dismissLoad(id)}/></div><div bind:this={monitorHost} class="perf-monitor" class:visible={perfVisible} aria-label="Scene preview performance"></div></div>
+ </div><span class="selection-name">{selected?.name??''}</span><div class="spacer"></div><Button variant="ghost" class={guidesOn(guides)?'active-tool':''} title="Guides" aria-haspopup="menu" aria-expanded={menu?.guides===true} onclick={guideMenu}><Grid3x3 size={17}/><span class="sr-only">Guides</span></Button><Button variant="ghost" class={perfVisible?'active-tool':''} title={perfVisible?'Hide performance monitor':'Show performance monitor'} onclick={togglePerf}><Activity size={17}/><span class="sr-only">{perfVisible?'Hide performance monitor':'Show performance monitor'}</span></Button><Button variant="ghost" class={previewOn?'active-tool':''} title={previewOn?'Turn off preview':'Turn on preview'} onclick={togglePreview}>{#if previewOn}<Eye size={17}/>{:else}<EyeOff size={17}/>{/if}<span class="sr-only">{previewOn?'Turn off preview':'Turn on preview'}</span></Button><Button variant="secondary" onclick={showEditor}><PanelsTopLeft size={15}/>Editor</Button></header>
+ <div bind:this={stage} class="viewport" oncontextmenu={context} role="presentation"><div class="preview-surface" class:paused={!previewOn} inert={!previewOn} style:width={`${previewSize.width}px`} style:height={`${previewSize.height}px`}><canvas bind:this={canvas} id="preview" tabindex="0" aria-label="Scene preview"></canvas><GuideOverlay settings={guides}/><div bind:this={counterHost} class="fps-counter-host"></div><div class="camera-frame" aria-hidden="true"></div><LoadOverlay entries={loads} {names} ondismiss={id=>session?.dismissLoad(id)}/></div><div bind:this={monitorHost} class="perf-monitor" class:visible={perfVisible} aria-label="Scene preview performance"></div></div>
  <footer><span>{view.scene?'Session connected':'Starting…'}</span><span>{canEdit?'W Move · E Rotate · R Scale':'Read only'}</span></footer>
  {#if error||view.error}<p class="window-error" role="alert">{error??view.error}</p>{/if}
 </main>

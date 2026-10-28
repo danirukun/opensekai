@@ -57,6 +57,7 @@ Source: [Assets overview](https://docs.warudo.app/docs/assets/overview).
 - [ ] SCN-02 — Groups, hierarchy, references, and property inspection. First. [GitHub #2](https://github.com/danirukun/opensekai/issues/2)
 - [ ] SCN-03 — Asset export/import and copy between shows. Later. [GitHub #3](https://github.com/danirukun/opensekai/issues/3)
   - UI audit 0.15.1: Asset menu has export to clipboard or file, import from clipboard or file, and SceneShare whole-scene import and export in Settings.
+  - Bonnie spike 2026-10-28: the sceneshare container and scene JSON are documented in [the spike findings](superpowers/specs/2026-10-28-bonnie-scene-spike.md). OpenSekai has no sceneshare import. [GitHub #240](https://github.com/danirukun/opensekai/issues/240)
 - [ ] SCN-04 — Merge imported settings into a selected entity. Later. [GitHub #4](https://github.com/danirukun/opensekai/issues/4)
   - UI audit 0.15.1: Asset menu has Import into selected asset from clipboard or file.
 - [ ] SCN-05 — Save/load shows and preserve missing references. Partial: native Save As/Open of a bounded scene plus one Blueprint, Save to the open file, unsaved-change prompts on editor close and Command+Q, live macOS round trip, and retained unavailable avatar ID. Recent shows, recovery, release/Windows acceptance, and broader show workflow remain. [Check](evaluation/scene-show-management.md). [GitHub #5](https://github.com/danirukun/opensekai/issues/5)

@@ -23,7 +23,7 @@ export interface NativeBootstrap {
 }
 export interface PreviewFrameProbe { begin(): boolean; end(): void }
 export async function bootstrapDesktop(canvas: HTMLCanvasElement, editorOptions?: EditorOptions, previewProbe?: PreviewFrameProbe, counterHost?: HTMLElement): Promise<{
- client: BrowserClient; outputUrl: string; assets: AssetRecord[]; canEdit:boolean; editor?:EditorHandle; tracking:{submit(update:TrackingUpdate):void;now():number|null;onClock(listener:()=>void):()=>void}; onLoadStatus(listener:(entries:AssetLoadStatus[])=>void):()=>void;dismissLoad(entityId:string):void; stop(): Promise<void>;
+ client: BrowserClient; outputUrl: string; assets: AssetRecord[]; canEdit:boolean; editor?:EditorHandle; tracking:{submit(update:TrackingUpdate):void;now():number|null;onClock(listener:()=>void):()=>void}; onLoadStatus(listener:(entries:AssetLoadStatus[])=>void):()=>void;dismissLoad(entityId:string):void; setPreviewEnabled(enabled:boolean):void; stop(): Promise<void>;
 }> {
  const info = await invoke<NativeBootstrap>('bootstrap_session');
  let worker: Worker | undefined;
@@ -99,15 +99,17 @@ export async function bootstrapDesktop(canvas: HTMLCanvasElement, editorOptions?
   const off = preview.onFrame(frame => pump.offer(frame));
   // The host relays cameraScreenshot to this preview_main renderer; the PNG goes back over the WebSocket, not Tauri IPC.
   const offScreenshot = preview.onScreenshot(async params => {
+   const release = pump.wake();
    try { return { ok: true, data: await renderer.screenshot(params.cameraId, params.expectedRevision) }; }
    catch (error) {
     const e = error as Partial<AppError>;
     return { ok: false, error: { code: e.code ?? 'UNAVAILABLE', message: e.code ? e.message ?? 'Screenshot failed' : 'Screenshot failed', ids: e.ids ?? [] } };
    }
+   finally { release(); }
   });
   closePreview = () => { off(); offScreenshot(); pump.stop(); fpsCounter?.dispose(); renderer.dispose(); };
   const outputUrl = makeOutputUrl(info.output,info.rendererMode);
-  return { client, outputUrl, assets: info.assets, canEdit:info.operator.capabilities.includes('edit'), editor:renderer.editor, tracking, onLoadStatus:renderer.onLoadStatus, dismissLoad:renderer.dismissLoad, stop };
+  return { client, outputUrl, assets: info.assets, canEdit:info.operator.capabilities.includes('edit'), editor:renderer.editor, tracking, onLoadStatus:renderer.onLoadStatus, dismissLoad:renderer.dismissLoad, setPreviewEnabled:pump.setEnabled, stop };
  } catch (error) {
   await stop().catch(() => {});
   throw error;
