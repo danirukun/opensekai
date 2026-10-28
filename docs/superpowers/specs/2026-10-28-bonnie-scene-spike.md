@@ -112,7 +112,7 @@ The scene requires 3 Workshop items. They are a MegaFX props plugin, a particle 
 | --- | --- | --- | --- |
 | Environment meshes and transforms | One GLB environment for each scene | ENV-01 Partial | Possible after a conversion to GLB. No product import path exists (ENV-12 is a candidate). |
 | Stage props (airship, walls, ceiling, mascot) | Props from the scene model library, each a mesh entity with a model and its own transform | ENV-03 Partial | Mapped. Each prop is a GLB record. The mascot is one record. |
-| Gear and propeller animation | No animation on environment or prop meshes | ENV-01, ENV-03 | Gap. Imported scene assets have no animation clips. |
+| Gear and propeller animation | No animation on environment or prop meshes | ENV-01, ENV-03, [#246](https://github.com/danirukun/opensekai/issues/246) | Gap. Imported scene assets have no animation clips. |
 | NiloToon Environment and URP Lit materials | glTF PBR on environment materials, MToon on VRM | MAT-01, MAT-04 | Blocked by question 2 |
 | Character | VRM 0 or 1 with MToon | CHR-01, MAT-01 | Blocked by question 1 |
 | Spring bones and rotation constraints | Not simulated | CHR-08 | Gap |
@@ -124,10 +124,10 @@ The scene requires 3 Workshop items. They are a MegaFX props plugin, a particle 
 | NiloToon volumes (anime post-process, rim light, shadow control) | None | MAT-05 Later | Gap. Parked with the NiloToon work. |
 | Cameras (6), lens, orbit on a character | 8 cameras, Free Look and Orbit Character, field of view | CAM-01, CAM-02 Partial | Direct mapping of transforms and field of view. The orbit offset and camera noise need a check. |
 | Camera noise | None | CAM-12 Later | Gap |
-| Spout screens that show other cameras | None | MED-06 Later, CAM-09 Later | Gap. A same-app camera-to-screen texture is a different API. |
+| Spout screens that show other cameras | None | MED-06 Later, CAM-09 Later, [#248](https://github.com/danirukun/opensekai/issues/248) | Gap. A same-app camera-to-screen texture is a different API. |
 | Browser chat screens | None | MED-03 Later | Gap |
 | Mirror plane | None | [#221](https://github.com/danirukun/opensekai/issues/221) | Gap |
-| Shadow catcher planes | None | ENV-07 | Gap. OpenSekai has no shadow-only material. The generator reports them as not bound. |
+| Shadow catcher planes | None | ENV-07, [#247](https://github.com/danirukun/opensekai/issues/247) | Gap. OpenSekai has no shadow-only material. The generator reports them as not bound. |
 | DMX fixture groups and the Art-Net receiver | Spot lights with volumetric beams in a haze box. No DMX input. | ENV-08 Partial, EXT-12 Later | Approximate the fixture positions with static spot lights. DMX input is a gap. |
 | Particle prop | None | ENV-10 Later | Gap |
 | VMC receiver on the hidden character | VMC receive | TRK-01 Partial | Not visible in the reference. Out of scope for the visual benchmark. |
@@ -182,6 +182,11 @@ The stream frames show the stage at floor level. They do not show the airship. T
 
 - Capture FULL_BODY_FOLLOW, MCU_FOLLOW_LEFT, and MCU_FOLLOW_RIGHT in Warudo. An automated capture of all cameras in one script was not permitted in this session. The maintainer can switch the main camera in the Warudo editor (the camera icon in the asset list) and take a screenshot.
 - Decide if the PR can carry renders of the third-party models. The constraint forbids commits of the assets. The issue asks for screenshots in the PR. This document does not include them.
+
+### Follow-up issues
+
+- Gaps that no parity issue covered: [#246](https://github.com/danirukun/opensekai/issues/246) (animation clips on scene models), [#247](https://github.com/danirukun/opensekai/issues/247) (shadow catcher), [#248](https://github.com/danirukun/opensekai/issues/248) (a screen that shows another camera). The other gaps have a parity issue, as the mapping table shows.
+- Faults seen during the rebuild: [#244](https://github.com/danirukun/opensekai/issues/244) (the Editor keeps the old scene ID after `scene_replace`), [#245](https://github.com/danirukun/opensekai/issues/245) (`blueprint_run` at once after `createGraph` does nothing).
 
 ## Blockers
 
