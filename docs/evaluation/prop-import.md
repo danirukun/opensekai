@@ -28,7 +28,7 @@ At commit `2d1f67c`: `pnpm check` passed. `pnpm test:unit`: 1565 tests in 195 fi
 | 12. Missing model (R11) | PASS. A prop with an unknown `scene_…` ID shows `Missing model` and `Resource unavailable: 404`, the same as the environment | [missing](prop-import/missing.png) |
 | 13. Blueprint Set Asset Property on a prop (R12) | PASS. A Manual Trigger with Set Asset Property (Position) moved the prop to y 18.3. `scene_inspect` showed the new position, and the frame changed in the prop region only | — |
 | 14. OBS output | PASS. The OBS browser source showed the character, the mascots, and the airship deck. 15.5% of the pixels have alpha 0 (the sky), and the props are opaque | — |
-| 15. Save As and Open (R11) | NOT RUN. The save panel step was not done. See Limits | — |
+| 15. Save As and Open (R11) | PASS. The maintainer saved the Bonnie scene with Save Show As… (13 entities, 4 props) and opened the file with Open Show…. MCP `scene_inspect` after Open was equal to the file for each entity and for the outputs. The Camera view showed the airship deck, the character, and the mascot. The FIXED_WIDE view showed the stage | — |
 
 ## Measurements
 
@@ -43,7 +43,7 @@ App timing and OBS timing are separate. One frame sample is not a benchmark.
 
 ## Limits
 
-- Save As and Open were not run. The show file holds props through the same schema as before. The contract tests parse a prop with a null model and with a model, but no running-build save and reopen was done.
+- The maintainer did the Save As and Open panel steps by hand, because the agent could not send input to the native panels. The saved file had props with a model only. A file with a prop that has no model, or with an unknown model ID, was not opened live. The contract tests parse both.
 - An older build does not open a show with a prop that has no model (`assetId: null`). A show whose props all have a model opens in an older build.
 - Input was synthetic. No physical click, no Windows run, and no release build.
 - The Warudo transform puts the airship deck around the character. The placement of the airship in the Bonnie scene is a spike task, not an ENV-03 result.
