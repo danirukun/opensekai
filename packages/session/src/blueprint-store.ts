@@ -5,10 +5,11 @@ import type { DeviceKind } from '@opensekai/contracts';
 
 const heldKeysField = (keys: string[]) => (keys.length ? { heldKeys: keys } : {});
 const devicesField = (kinds: DeviceKind[]) => (kinds.length ? { devices: kinds } : {});
+const youtubeField = (used: boolean) => (used ? { youtube: true as const } : {});
 const JOURNAL = 64, DELTA = 32, MAX_ACCELERATORS = 64, MAX_HELD_KEYS = 16, DELTA_BYTES = 160 * 1024;
 const encoder = new TextEncoder();
 export interface BlueprintStore {
- edit(batch: unknown): Reply<{ revision: number; keystrokes: string[]; heldKeys?: string[]; devices?: DeviceKind[] }>;
+ edit(batch: unknown): Reply<{ revision: number; keystrokes: string[]; heldKeys?: string[]; devices?: DeviceKind[]; youtube?: true }>;
  inspect(sinceRevision?: number, runtimeErrors?: ReadonlyMap<Id, AppError>): BlueprintInspect;
  revision(): number;
  active(graphId: Id): BlueprintGraph | undefined;
@@ -62,7 +63,7 @@ export function createBlueprintStore(runtime: BlueprintRuntime): BlueprintStore 
    keys.clear(); for (const [id, key] of nextKeys) keys.set(id, key);
    revision += 1;
    journal = [...journal, { ...batch.data, revision }].slice(-JOURNAL);
-   return { ok: true, data: { revision, keystrokes: runtime.keystrokes(), ...heldKeysField(runtime.heldKeys()), ...devicesField(runtime.devices()) } };
+   return { ok: true, data: { revision, keystrokes: runtime.keystrokes(), ...heldKeysField(runtime.heldKeys()), ...devicesField(runtime.devices()), ...youtubeField(runtime.youtube()) } };
   },
   inspect(since, runtimeErrors = new Map()) {
    const errors = [
@@ -73,7 +74,7 @@ export function createBlueprintStore(runtime: BlueprintRuntime): BlueprintStore 
    const range = since === undefined ? [] : journal.filter(entry => entry.revision > since);
    const delta = since !== undefined && since <= revision && since >= oldest - 1 && range.length <= DELTA
     && !range.some(entry => entry.ops.some(op => op.kind === 'replaceAll' || op.kind === 'createGraph'));
-   const keystrokes = runtime.keystrokes(), held = { ...heldKeysField(runtime.heldKeys()), ...devicesField(runtime.devices()) };
+   const keystrokes = runtime.keystrokes(), held = { ...heldKeysField(runtime.heldKeys()), ...devicesField(runtime.devices()), ...youtubeField(runtime.youtube()) };
    const reply: BlueprintInspect = delta
     ? { kind: 'delta', revision, batches: structuredClone(range), errors, keystrokes, ...held }
     : { kind: 'snapshot', revision, blueprints: structuredClone(documents), errors, keystrokes, ...held };

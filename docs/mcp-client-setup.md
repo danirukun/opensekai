@@ -12,7 +12,7 @@ The descriptor must use schema version 1, an operator role, a null output ID, an
 
 The CLI authenticates the app connection before it starts MCP stdio. Startup failures produce one generic stderr message and exit with status 1. Stdout contains only MCP protocol messages. EOF, SIGINT, and SIGTERM close both connections. Calls during app disconnection return UNAVAILABLE; they do not return cached state. The shared app client reconnects with bounded delays.
 
-Tools are `app_status`, `scene_inspect`, `scene_patch`, `scene_replace`, `camera_select`, `blueprint_edit`, `blueprint_inspect`, `blueprint_run`, `capture_frame`, `benchmark_start`, `benchmark_status`, `benchmark_cancel`, and `evidence_read`. Inputs use the shared strict command schemas. Domain failures include the structured error code and mark the tool result as an error.
+Tools are `app_status`, `scene_inspect`, `scene_patch`, `scene_replace`, `camera_select`, `blueprint_edit`, `blueprint_inspect`, `blueprint_run`, `capture_frame`, `benchmark_start`, `benchmark_status`, `benchmark_cancel`, and `evidence_read`. `youtube_link_set {link}` sets the YouTube stream link that the YouTube Blueprint nodes read (`integrationsSet`); `null` disconnects. The app keeps the link in the user settings, not in the show, and `app_status` returns its `youtube` status. Inputs use the shared strict command schemas. Domain failures include the structured error code and mark the tool result as an error.
 
 Read `opensekai://status` for current status. Read `opensekai://blueprints` for the current Blueprint documents. The resource `opensekai://blueprint-nodes` lists each node type with its ports and the JSON Schema of its settings.
 

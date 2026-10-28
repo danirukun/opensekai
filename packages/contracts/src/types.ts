@@ -8,6 +8,7 @@ import type { ScalarValue } from './blueprint-values';
 import type { CameraAntiAliasing, OutputFrameLimit, OutputRenderScale, QualityProfileId } from './quality';
 import type { AvatarRig, VmcPosesEnvelope, VmcSenderSettings, VmcSenderStatus } from './vmc-sender';
 import type { ArkitName, AssetExpression, ExpressionSettings, ExpressionState } from './expressions';
+import type { IntegrationsSetParams, YouTubeStatus } from './youtube';
 export type Id = string;
 export type Vec3 = [
     number,
@@ -198,6 +199,7 @@ export interface AppStatus {
     localAddresses?: string[];
     trackingStatus?: TrackingStatus[];
     vmcSenders?: VmcSenderStatus[];
+    youtube?: YouTubeStatus;
     schemaVersion: 1;
     sessionId: Id;
     ready: boolean;
@@ -274,7 +276,7 @@ export interface AppApi {
         revision: number;
     }>>;
     blueprintRun(params: { graphId: Id; triggerNodeId: Id } | { event: string; payload?: ScalarValue }): Promise<Reply<{ revision: number }>>;
-    blueprintEdit(params: BlueprintBatch): Promise<Reply<{ revision: number; keystrokes: string[]; heldKeys?: string[]; devices?: DeviceKind[] }>>;
+    blueprintEdit(params: BlueprintBatch): Promise<Reply<{ revision: number; keystrokes: string[]; heldKeys?: string[]; devices?: DeviceKind[]; youtube?: true }>>;
     blueprintInspect(params: { sinceRevision?: number }): Promise<Reply<BlueprintInspect>>;
     blueprintDebug(params: { since?: number }): Promise<Reply<BlueprintDebug>>;
     trackingProbe(params: TrackingProbeParams): Promise<Reply<TrackingProbe>>;
@@ -293,6 +295,8 @@ export interface AppApi {
     expressionGet(params: { avatarId: Id }): Promise<Reply<ExpressionState>>;
     expressionSet(params: { avatarId: Id; name: string; active: boolean }): Promise<Reply<ExpressionState>>;
     cameraScreenshot(params: CameraScreenshotParams): Promise<Reply<CameraScreenshotResult>>;
+    // Host-answered: stores the YouTube link in the user settings and restarts the chat client.
+    integrationsSet(params: IntegrationsSetParams): Promise<Reply<YouTubeStatus>>;
 }
 export interface CaptureBytes {
     frame: FrameApplied;

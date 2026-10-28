@@ -4,6 +4,7 @@ import { BlueprintBatchSchema } from './blueprint-ops';
 import { BlueprintDebugParamsSchema, BlueprintDebugSchema } from './blueprint-debug';
 import { KEYSTROKE_CODES } from './blueprint-nodes';
 import { DeviceKindListSchema, DeviceUpdateSchema } from './devices';
+import { IntegrationsSetParamsSchema, YouTubeInputSchema, YouTubeStatusSchema } from './youtube';
 import { ScalarValueSchema } from './blueprint-values';
 import { z } from "zod";
 import { CameraAntiAliasingSchema, QualityProfileIdSchema, OUTPUT_FRAME_LIMITS, OUTPUT_RENDER_SCALES, isOutputSize, isDefaultOutputFormat } from './quality';
@@ -380,6 +381,7 @@ export const AppStatusSchema = z.strictObject({
     localAddresses: z.array(z.ipv4()).max(8).optional(),
     trackingStatus:z.array(TrackingStatusSchema).max(4).refine(values=>new Set(values.map(value=>value.sourceId)).size===values.length).optional(),
     vmcSenders: z.array(VmcSenderStatusSchema).max(LIMITS.vmcSenders).refine(values=>new Set(values.map(value=>value.entityId)).size===values.length).optional(),
+    youtube: YouTubeStatusSchema.optional(),
     schemaVersion: z.literal(1),
     sessionId: IdSchema,
     ready: z.boolean(),
@@ -484,12 +486,13 @@ export const InputUpdateSchema = z.strictObject({
     events: z.array(z.strictObject({ kind: z.literal('keystroke'), accelerator: z.string().min(1).max(64) })).min(1).max(16).optional(),
     held: HeldCodeListSchema.optional(),
     devices: DeviceUpdateSchema.optional(),
-}).refine(update => update.events !== undefined || update.held !== undefined || update.devices !== undefined, 'Input update is empty');
+    youtube: YouTubeInputSchema.optional(),
+}).refine(update => update.events !== undefined || update.held !== undefined || update.devices !== undefined || update.youtube !== undefined, 'Input update is empty');
 export const BlueprintStatusSchema = z.strictObject({ graphId: IdSchema, kind: z.enum(['compile', 'runtime']), error: AppErrorSchema });
 const KeystrokeListSchema = z.array(z.string().min(1).max(64)).max(64);
 export const BlueprintInspectSchema = z.discriminatedUnion('kind', [
-    z.strictObject({ kind: z.literal('snapshot'), revision: u, blueprints: BlueprintSetSchema, errors: z.array(BlueprintStatusSchema).max(16), keystrokes: KeystrokeListSchema.optional(), heldKeys: HeldCodeListSchema.optional(), devices: DeviceKindListSchema.optional() }),
-    z.strictObject({ kind: z.literal('delta'), revision: u, batches: z.array(BlueprintBatchSchema.extend({ revision: u })).max(32).refine(batches => batches.every(b => b.ops.every(op => op.kind !== 'replaceAll' && op.kind !== 'createGraph')), 'A delta cannot carry replaceAll or createGraph'), errors: z.array(BlueprintStatusSchema).max(16), keystrokes: KeystrokeListSchema.optional(), heldKeys: HeldCodeListSchema.optional(), devices: DeviceKindListSchema.optional() }),
+    z.strictObject({ kind: z.literal('snapshot'), revision: u, blueprints: BlueprintSetSchema, errors: z.array(BlueprintStatusSchema).max(16), keystrokes: KeystrokeListSchema.optional(), heldKeys: HeldCodeListSchema.optional(), devices: DeviceKindListSchema.optional(), youtube: z.literal(true).optional() }),
+    z.strictObject({ kind: z.literal('delta'), revision: u, batches: z.array(BlueprintBatchSchema.extend({ revision: u })).max(32).refine(batches => batches.every(b => b.ops.every(op => op.kind !== 'replaceAll' && op.kind !== 'createGraph')), 'A delta cannot carry replaceAll or createGraph'), errors: z.array(BlueprintStatusSchema).max(16), keystrokes: KeystrokeListSchema.optional(), heldKeys: HeldCodeListSchema.optional(), devices: DeviceKindListSchema.optional(), youtube: z.literal(true).optional() }),
 ]);
 export type InputUpdate = z.infer<typeof InputUpdateSchema>;
 export type BlueprintStatus = z.infer<typeof BlueprintStatusSchema>;
@@ -527,7 +530,8 @@ export const ParamSchemas = {
     assetList: z.strictObject({ after: IdSchema.optional() }),
     expressionGet: z.strictObject({ avatarId: IdSchema }),
     expressionSet: z.strictObject({ avatarId: IdSchema, name: ExpressionNameSchema, active: z.boolean() }),
-    cameraScreenshot: CameraScreenshotParamsSchema
+    cameraScreenshot: CameraScreenshotParamsSchema,
+    integrationsSet: IntegrationsSetParamsSchema
 };
 export const ResultSchemas = {
     appStatus: AppStatusSchema,
@@ -540,7 +544,7 @@ export const ResultSchemas = {
         revision: u
     }),
     blueprintRun: z.strictObject({ revision: u }),
-    blueprintEdit: z.strictObject({ revision: u, keystrokes: KeystrokeListSchema, heldKeys: HeldCodeListSchema.optional(), devices: DeviceKindListSchema.optional() }),
+    blueprintEdit: z.strictObject({ revision: u, keystrokes: KeystrokeListSchema, heldKeys: HeldCodeListSchema.optional(), devices: DeviceKindListSchema.optional(), youtube: z.literal(true).optional() }),
     blueprintInspect: BlueprintInspectSchema,
     blueprintDebug: BlueprintDebugSchema,
     trackingProbe: TrackingProbeSchema,
@@ -552,7 +556,8 @@ export const ResultSchemas = {
     assetList: AssetListSchema,
     expressionGet: ExpressionStateSchema,
     expressionSet: ExpressionStateSchema,
-    cameraScreenshot: CameraScreenshotResultSchema
+    cameraScreenshot: CameraScreenshotResultSchema,
+    integrationsSet: YouTubeStatusSchema
 };
 export const MethodSchema = z.enum([
     "appStatus",
@@ -573,7 +578,8 @@ export const MethodSchema = z.enum([
     "assetList",
     "expressionGet",
     "expressionSet",
-    "cameraScreenshot"
+    "cameraScreenshot",
+    "integrationsSet"
 ]);
 export function validateCall(method: unknown, params: unknown): Reply<ValidatedCall> {
     const m = MethodSchema.safeParse(method);
@@ -598,7 +604,7 @@ export function validateCall(method: unknown, params: unknown): Reply<ValidatedC
     };
 }
 export function requiredCapability(method: keyof AppApi): Capability {
-    if (method === "scenePatch" || method === "sceneReplace" || method === "cameraSelect" || method === "blueprintRun" || method === "blueprintEdit" || method === "expressionSet" || method === "cameraScreenshot")
+    if (method === "scenePatch" || method === "sceneReplace" || method === "cameraSelect" || method === "blueprintRun" || method === "blueprintEdit" || method === "expressionSet" || method === "cameraScreenshot" || method === "integrationsSet")
         return "edit";
     if (method === "captureFrame")
         return "capture";
@@ -708,11 +714,11 @@ export const WireMessageSchema = z.union([
     PingPongSchema
 ]);
 export type WireMessage = z.infer<typeof WireMessageSchema>;
-// The byte limit of a clock message (mirrors `clock_byte_limit` in Rust). A clock with tracking or with device input
-// uses the large limit: tracking samples, and 32 device events with 4 pads, do not fit the plain limit.
+// The byte limit of a clock message (mirrors `clock_byte_limit` in Rust). A clock with tracking, device input, or YouTube events
+// uses the large limit: tracking samples, 32 device events with 4 pads, and 8 chat events do not fit the plain limit.
 export const clockByteLimit = (clock: { tracking?: unknown; input?: unknown }): number => {
-    const devices = typeof clock.input === 'object' && clock.input !== null && 'devices' in clock.input && clock.input.devices !== undefined;
-    return clock.tracking !== undefined || devices ? LIMITS.trackingClockBytes : LIMITS.clockBytes;
+    const has = (key: string) => typeof clock.input === 'object' && clock.input !== null && key in clock.input && (clock.input as Record<string, unknown>)[key] !== undefined;
+    return clock.tracking !== undefined || has('devices') || has('youtube') ? LIMITS.trackingClockBytes : LIMITS.clockBytes;
 };
 export function parseWire(text: string): WireMessage {
     const value: unknown = JSON.parse(text);

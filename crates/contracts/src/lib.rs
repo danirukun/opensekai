@@ -27,6 +27,8 @@ mod devices;
 pub use devices::*;
 mod vmc_sender;
 pub use vmc_sender::*;
+mod youtube;
+pub use youtube::*;
 strings!(Backend { Webgpu=>"webgpu", Webgl2=>"webgl2" });
 strings!(Capability { Read=>"read", Edit=>"edit", Capture=>"capture", Benchmark=>"benchmark" });
 strings!(Role { Publisher=>"publisher", Operator=>"operator", Renderer=>"renderer" });
@@ -820,6 +822,8 @@ pub struct AppStatus {
     pub local_addresses: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub vmc_senders: Option<Vec<VmcSenderStatus>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub youtube: Option<YouTubeStatus>,
 }
 object!(CaptureParams {
     output_id: Id,
@@ -1022,6 +1026,9 @@ pub struct BlueprintEditResult {
     pub held_keys: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub devices: Option<Vec<DeviceKind>>,
+    /// Present (and true) when a listened graph has a YouTube node.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub youtube: Option<bool>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -1050,17 +1057,25 @@ pub struct InputUpdate {
     pub held: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub devices: Option<DeviceUpdate>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub youtube: Option<YouTubeInput>,
 }
 impl InputUpdate {
     pub fn validate(&self) -> Result<(), AppError> {
         require(
             self.events.len() <= 16
                 && self.held.len() <= 16
-                && !(self.events.is_empty() && self.held.is_empty() && self.devices.is_none()),
+                && !(self.events.is_empty()
+                    && self.held.is_empty()
+                    && self.devices.is_none()
+                    && self.youtube.is_none()),
             "invalid input event count",
         )?;
         if let Some(devices) = &self.devices {
             devices.validate()?;
+        }
+        if let Some(youtube) = &self.youtube {
+            youtube.validate()?;
         }
         for code in &self.held {
             require(
@@ -1591,6 +1606,9 @@ fn validate_blueprint_inspect(data: &Value) -> Result<(), AppError> {
     if let Some(devices) = data.get("devices") {
         validate_device_kinds(&Some(decode::<Vec<DeviceKind>>(devices)?))?;
     }
+    if let Some(youtube) = data.get("youtube") {
+        require(youtube.as_bool() == Some(true), "invalid YouTube flag")?;
+    }
     match data["kind"].as_str() {
         Some("snapshot") => {
             require(
@@ -1604,6 +1622,7 @@ fn validate_blueprint_inspect(data: &Value) -> Result<(), AppError> {
                         "keystrokes",
                         "heldKeys",
                         "devices",
+                        "youtube",
                     ],
                 ),
                 "invalid Blueprint snapshot",
@@ -1626,6 +1645,7 @@ fn validate_blueprint_inspect(data: &Value) -> Result<(), AppError> {
                         "keystrokes",
                         "heldKeys",
                         "devices",
+                        "youtube",
                     ],
                 ),
                 "invalid Blueprint delta",
@@ -2261,6 +2281,9 @@ impl Validate for AppStatus {
         if let Some(statuses) = &self.vmc_senders {
             validate_vmc_statuses(statuses)?;
         }
+        if let Some(youtube) = &self.youtube {
+            youtube.validate()?;
+        }
         if let Some(addresses) = &self.local_addresses {
             require(
                 addresses.len() <= 8
@@ -2333,6 +2356,7 @@ pub fn validate_call(method: &str, params: &Value) -> Result<(), AppError> {
         "evidenceRead" => decode::<EvidenceReadParams>(params).map(|_| ()),
         "assetList" => decode::<AssetListParams>(params)?.validate(),
         "cameraScreenshot" => decode::<CameraScreenshotParams>(params)?.validate(),
+        "integrationsSet" => decode::<IntegrationsSetParams>(params)?.validate(),
         "expressionGet" => {
             let p = decode::<ExpressionGetParams>(params)?;
             require(id_text_ok(&p.avatar_id), "invalid avatar ID")
@@ -2398,6 +2422,7 @@ pub fn validate_result(method: &str, result: &Value) -> Result<(), AppError> {
             | "expressionGet"
             | "expressionSet"
             | "cameraScreenshot"
+            | "integrationsSet"
     );
     require(known, "unknown method")?;
     let Some(data) = reply_data(result)? else {
@@ -2426,6 +2451,7 @@ pub fn validate_result(method: &str, result: &Value) -> Result<(), AppError> {
                         .all(|k| (1..=32).contains(&k.chars().count())),
                 "invalid held keys",
             )?;
+            require(r.youtube.is_none_or(|y| y), "invalid YouTube flag")?;
             validate_device_kinds(&r.devices)
         }
         "blueprintInspect" => validate_blueprint_inspect(data),
@@ -2439,14 +2465,16 @@ pub fn validate_result(method: &str, result: &Value) -> Result<(), AppError> {
         "assetList" => decode::<AssetList>(data)?.validate(),
         "expressionGet" | "expressionSet" => decode::<ExpressionState>(data)?.validate(),
         "cameraScreenshot" => decode::<CameraScreenshotResult>(data)?.validate(),
+        "integrationsSet" => decode::<YouTubeStatus>(data)?.validate(),
         _ => unreachable!(),
     }
 }
 /// The byte limit of a clock message (mirrors `clockByteLimit` in TypeScript). A clock with
-/// tracking or with device input uses the large limit: tracking samples, and 32 device events
-/// with 4 pads, do not fit the plain limit. Any other clock uses the plain limit.
+/// tracking, device input, or YouTube events uses the large limit: tracking samples, 32 device
+/// events with 4 pads, and 8 chat events do not fit the plain limit. Any other clock uses the
+/// plain limit.
 pub fn clock_byte_limit(tracking: Option<&TrackingUpdate>, input: Option<&InputUpdate>) -> usize {
-    if tracking.is_some() || input.is_some_and(|i| i.devices.is_some()) {
+    if tracking.is_some() || input.is_some_and(|i| i.devices.is_some() || i.youtube.is_some()) {
         MAX_TRACKING_CLOCK_BYTES
     } else {
         MAX_CLOCK_BYTES
