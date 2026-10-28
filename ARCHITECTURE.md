@@ -19,7 +19,7 @@ flowchart LR
 - **Rust host** (`apps/desktop/src-tauri`). It owns sockets, files, the asset library, native dialogs, global input, and the loopback service on `127.0.0.1:0`. It does not own scene state.
 - **Session worker** (`packages/session`, started in the Scene window). It is the one authority for scene state, the simulation tick, tracking application, idle animation, character expressions, and Blueprints. It connects to the host as the `publisher`.
 - **Clients** connect with a connection descriptor and a role: `publisher`, `operator` (editor and MCP), or `renderer` (preview and OBS). The host relays operator calls to the publisher and sends evaluated frames to renderers.
-- **Renderers** (`packages/renderer`) draw evaluated frames. They own GPU resources only. The Scene window preview, the editor viewport, and the OBS output use the same `createRenderer`.
+- **Renderers** (`packages/renderer`) draw evaluated frames. They own GPU resources only. The Scene window preview, the editor viewport, and the OBS output use the same `createRenderer`. In the Scene window, one `requestAnimationFrame` pump (`apps/desktop/src/preview-pump.ts`) applies the newest preview frame, one at a time. The Scene toolbar **Preview** toggle pauses the pump; the renderer and its connection stay open. A `cameraScreenshot` request wakes the pump until the screenshot completes.
 
 ## Workspace map
 
