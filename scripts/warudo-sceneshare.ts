@@ -67,12 +67,14 @@ async function withFile<T>(file:string,run:(read:Read,size:number)=>Promise<T>){
   return await run(async(offset,length)=>{const b=new Uint8Array(length);const {bytesRead}=await handle.read(b,0,length,offset);if(bytesRead!==length)throw new Error('Unexpected end of file');return b;},size);
  }finally{await handle.close();}
 }
+const sceneEntry=(entries:Entry[])=>{const scene=entries.find(e=>e.tag==='SCENE_JSON');if(!scene)throw new Error('No SCENE_JSON entry');return scene;};
+export const readScene=(file:string)=>withFile(file,async(read,size)=>{const scene=sceneEntry(await readEntries(read,size));return JSON.parse(decoder.decode(await read(scene.offset,scene.length)));});
 async function main([command,file,out]:string[]){
  if(!file||!['list','inventory','unpack'].includes(command??'')||(command==='unpack'&&!out))throw new Error('Usage: warudo-sceneshare list|inventory <file.sceneshare> | unpack <file.sceneshare> <folder>');
  await withFile(file,async(read,size)=>{
   const entries=await readEntries(read,size);
   if(command==='list'){for(const e of entries)console.log(`${e.tag}\t${e.length}\t${e.path}`);return;}
-  if(command==='inventory'){const scene=entries.find(e=>e.tag==='SCENE_JSON');if(!scene)throw new Error('No SCENE_JSON entry');
+  if(command==='inventory'){const scene=sceneEntry(entries);
    console.log(JSON.stringify(inventory(JSON.parse(decoder.decode(await read(scene.offset,scene.length)))),null,1));return;}
   for(const e of entries){const dest=safeJoin(out!,e.path);await mkdir(dirname(dest),{recursive:true});await writeFile(dest,await read(e.offset,e.length));console.log(dest);}
  });
