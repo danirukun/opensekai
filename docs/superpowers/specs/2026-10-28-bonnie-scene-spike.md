@@ -1,6 +1,6 @@
 # Bonnie scene spike inventory and mapping
 
-Date: 2026-10-28. Issue: [#240](https://github.com/danirukun/opensekai/issues/240). Status. The inventory and the mapping are done. The maintainer answered the blockers on 2026-10-28. See [Decisions](#decisions).
+Date: 2026-10-28. Issue: [#240](https://github.com/danirukun/opensekai/issues/240). Status. The inventory, the mapping, and a first rebuild are done. The maintainer answered the blockers on 2026-10-28. See [Decisions](#decisions) and [Rebuild result](#rebuild-result).
 
 The input is one Warudo sceneshare file from the maintainer (`Ben 3D Test.sceneshare`, 277,114,964 bytes, SHA-256 `8620791d475992ac1b056a475bdc24b35e236cfc61dfa4420645d9233d0c56a6`). The file and its extracted models, textures, and scene stay local. This document records structure, counts, and settings only. The earlier [Workshop research](2026-10-17-warudo-workshop-research.md) describes the `.warudo` (uMod) archive. This document adds the sceneshare container and the scene JSON.
 
@@ -111,7 +111,7 @@ The scene requires 3 Workshop items. They are a MegaFX props plugin, a particle 
 | Element | OpenSekai today | Parity | Result for this scene |
 | --- | --- | --- | --- |
 | Environment meshes and transforms | One GLB environment for each scene | ENV-01 Partial | Possible after a conversion to GLB. No product import path exists (ENV-12 is a candidate). |
-| Stage props (airship, walls, ceiling, mascot) | Mesh entities from a GLB asset | ENV-03 First subset | Possible after a conversion to GLB |
+| Stage props (airship, walls, ceiling, mascot) | Props from the scene model library, each a mesh entity with a model and its own transform | ENV-03 Partial | Mapped. Each prop is a GLB record. The mascot is one record. |
 | Gear and propeller animation | No animation on environment or prop meshes | ENV-01, ENV-03 | Gap. Imported scene assets have no animation clips. |
 | NiloToon Environment and URP Lit materials | glTF PBR on environment materials, MToon on VRM | MAT-01, MAT-04 | Blocked by question 2 |
 | Character | VRM 0 or 1 with MToon | CHR-01, MAT-01 | Blocked by question 1 |
@@ -127,7 +127,7 @@ The scene requires 3 Workshop items. They are a MegaFX props plugin, a particle 
 | Spout screens that show other cameras | None | MED-06 Later, CAM-09 Later | Gap. A same-app camera-to-screen texture is a different API. |
 | Browser chat screens | None | MED-03 Later | Gap |
 | Mirror plane | None | [#221](https://github.com/danirukun/opensekai/issues/221) | Gap |
-| Shadow catcher planes | None | ENV-07 | Gap. OpenSekai has no shadow-only material. |
+| Shadow catcher planes | None | ENV-07 | Gap. OpenSekai has no shadow-only material. The generator reports them as not bound. |
 | DMX fixture groups and the Art-Net receiver | Spot lights with volumetric beams in a haze box. No DMX input. | ENV-08 Partial, EXT-12 Later | Approximate the fixture positions with static spot lights. DMX input is a gap. |
 | Particle prop | None | ENV-10 Later | Gap |
 | VMC receiver on the hidden character | VMC receive | TRK-01 Partial | Not visible in the reference. Out of scope for the visual benchmark. |
@@ -142,6 +142,46 @@ The scene requires 3 Workshop items. They are a MegaFX props plugin, a particle 
 4. Capture the same cameras in Warudo.
 5. Put the image pairs in `docs/evaluation/` and attach them to the PR.
 6. File one issue for each gap that no parity issue covers.
+
+## Rebuild result
+
+Checked on 2026-10-28 on macOS with the ENV-03 branch (`feat/env-03-props`, [#242](https://github.com/danirukun/opensekai/pull/242)) and the free Warudo 0.15.1 in the test VM.
+
+### Show generator
+
+`scripts/warudo-show.ts` writes an `.osekai` show from the sceneshare and a bindings file. The bindings file maps each Warudo `Source` URI to an OpenSekai library ID. It stays local, because the IDs come from the local library.
+
+```sh
+pnpm exec tsx scripts/warudo-show.ts <file.sceneshare> <bindings.json> <out.osekai>
+```
+
+The generator makes 13 entities from the Bonnie scene: the environment, the character, 6 cameras, the directional light, and 4 props (walls, ceiling, mascot, airship). It reports 18 assets that it does not map, each with a reason. The two shadow catchers and the mirror plane have no bound model.
+
+### Captures
+
+The agent loaded the show into the running app with MCP `scene_replace` and captured each camera with MCP `camera_screenshot`. It captured Warudo through the VM screen and the camera Take Screenshot trigger. The captures stay local, because they show third-party models.
+
+| Camera | OpenSekai | Free Warudo | Result |
+| --- | --- | --- | --- |
+| CU_FOLLOW | The character face, the mast and the rail on the left, sky on the right | The character in magenta, the mast and the rail on the left, a rail at the lower right, sky | The framing agrees. Free Warudo shows NiloToon materials as magenta, so the character side cannot be compared. |
+| FIXED_WIDE | The stage at floor level: the banner, the steps, the chat panel, the gears, the right panel | Almost all magenta (the NiloToon stage). The right panel shows the CU_FOLLOW camera | The camera agrees. The right panel in Warudo is a Spout screen. OpenSekai has no screens, so it shows the stage texture. |
+| Camera | The deck from above, the character and the mascot | The deck from above, in magenta | Not compared. The Warudo camera moved after the sceneshare export (live position (-1.12, 21.30, 6.16), file position (-0.22, 19.79, 3.35)). |
+| FULL_BODY_FOLLOW, MCU_FOLLOW_LEFT, MCU_FOLLOW_RIGHT | Captured | Not captured | Open. See below. |
+
+### Airship placement
+
+The airship is correct at the Warudo transform. The character (y 17.12) stands on the deck inside the rails, and the mascot (y 17.62) stands on the deck next to it. The airship GLB has no root offset (the converter report shows an identity prefab root).
+
+FULL_BODY_FOLLOW in OpenSekai looks through the hull at the character. The Warudo capture for this camera was not made. An Orbit Character camera in Warudo also stores `OrbitRotation` and `OrbitOffset`. The generator uses the stored transform only. It is not known if Warudo frames this camera from the transform or from the orbit values.
+
+### Stream reference
+
+The stream frames show the stage at floor level. They do not show the airship. The stream camera positions are not in the sceneshare, so the stream frames are a reference for the look of the stage only, not for the camera angles.
+
+### Open items
+
+- Capture FULL_BODY_FOLLOW, MCU_FOLLOW_LEFT, and MCU_FOLLOW_RIGHT in Warudo. An automated capture of all cameras in one script was not permitted in this session. The maintainer can switch the main camera in the Warudo editor (the camera icon in the asset list) and take a screenshot.
+- Decide if the PR can carry renders of the third-party models. The constraint forbids commits of the assets. The issue asks for screenshots in the PR. This document does not include them.
 
 ## Blockers
 

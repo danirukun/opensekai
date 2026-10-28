@@ -45,10 +45,10 @@ it('maps lens, navigation, and light settings, and reports each asset it leaves 
  expect(entity('sun')).toMatchObject({light:{type:'directional',color:'#fff7ea',shadow:{enabled:true,soft:true}}});
  expect((entity('sun').light as {intensity:number}).intensity).toBeCloseTo(Math.PI,6);
  expect(entity('playback')).toMatchObject({kind:'avatar',assetId:'avatar_catboy'});
+ expect(entity('airship')).toMatchObject({kind:'mesh',source:{kind:'asset',assetId:'airship_glb'},transform:{position:[4.5,13,0],scale:[1.5,1.5,1.5]}});
  expect(skipped).toEqual([
   {name:'mocap',type:'Character',reason:'scale 0 hides it in Warudo'},
-  {name:'airship',type:'Prop',reason:'prop import is planned (ENV-03, #41)'},
-  {name:'mirror',type:'Prop',reason:'prop import is planned (ENV-03, #41)'},
+  {name:'mirror',type:'Prop',reason:'no OpenSekai asset is bound to prop://workshop/1/Props/mirror.warudo'},
   {name:'screen',type:'Screen',reason:'no OpenSekai mapping for this type'},
  ]);
 });

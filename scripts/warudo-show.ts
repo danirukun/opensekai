@@ -36,14 +36,13 @@ type Mapped={entity?:Record<string,unknown>;reason?:string};
 type Context={bindings:Bindings;characters:Set<string>};
 const bound=(a:SceneAsset,c:Context):Mapped&{assetId?:string}=>{const source=port<string|undefined>(a,'Source');const assetId=source&&c.bindings[source];return assetId?{assetId}:{reason:`no OpenSekai asset is bound to ${source??'an empty source'}`};};
 const sensitivity=(a:SceneAsset)=>Math.min(10,Math.max(0.1,port<number>(a,'ControlSensitivity')??1));
-// Warudo types that OpenSekai plans but does not support yet, with the tracking issue.
-const planned:Record<string,string>={Prop:'prop import is planned (ENV-03, #41)'};
 // One entry per Warudo asset type that has an OpenSekai counterpart. A type without an entry is reported as skipped.
 const mappers:Record<string,(a:SceneAsset,c:Context)=>Mapped>={
  Character:(a,c)=>{const b=bound(a,c);return b.assetId?{entity:{kind:'avatar',assetId:b.assetId,...transformOf(a)}}:b;},
  Environment:(a,c)=>{const b=bound(a,c);if(!b.assetId)return b;
   const reflections=port<boolean>(a,'EnvironmentReflectionsIntensityOverride')?{reflectionsIntensity:Math.min(2,port<number>(a,'EnvironmentReflectionsIntensity'))}:{};
   return {entity:{kind:'environment',assetId:b.assetId,...reflections,...transformOf(a)}};},
+ Prop:(a,c)=>{const b=bound(a,c);return b.assetId?{entity:{kind:'mesh',source:{kind:'asset',assetId:b.assetId},...transformOf(a)}}:b;},
  Camera:(a,c)=>{const mode=label(a,'ControlMode'),target=port<{id?:string}|null>(a,'FocusCharacter')?.id;
   const navigation=mode==='Free Look'?{mode:'freeLook',sensitivity:sensitivity(a)}:mode==='Orbit Character'?{mode:'orbitCharacter',sensitivity:sensitivity(a),targetId:target&&c.characters.has(target)?target:null,pivotOffset:[0,0,0]}:{mode:'none'};
   return {entity:{kind:'camera',lens:{fovDegrees:port<number>(a,'FieldOfView'),near:port<number>(a,'NearClipPlane'),far:port<number>(a,'FarClipPlane')},navigation,...transformOf(a,true)}};},
@@ -60,7 +59,7 @@ export function toShow(scene:WarudoScene,bindings:Bindings){
  const skipped:Skipped[]=[],entities:Record<string,unknown>[]=[];
  for(const a of scene.assets){
   const type=typeOf(a),map=mappers[type];
-  const result:Mapped=!map?{reason:planned[type]??'no OpenSekai mapping for this type'}:hiddenByScale(a)?{reason:'scale 0 hides it in Warudo'}:map(a,{bindings,characters});
+  const result:Mapped=!map?{reason:'no OpenSekai mapping for this type'}:hiddenByScale(a)?{reason:'scale 0 hides it in Warudo'}:map(a,{bindings,characters});
   if(!result.entity){skipped.push({name:a.name,type,reason:result.reason!});continue;}
   const {kind,position,rotation,scale,...rest}=result.entity;
   entities.push({id:a.id,name:a.name,visible:a.active&&port<boolean|undefined>(a,'Enabled')!==false,transform:{position,rotation,scale},kind,...rest});
