@@ -3,6 +3,7 @@ import { deviceTrigger, emptyState, isTrackingTrigger, setNodeState, trackingTri
 import { activeDevices } from './devices';
 import { fnv1a } from './blueprint-random';
 import type { DebugValueSample } from './debug-log';
+import type { TransitionEnd } from './tweens';
 import { compileBlueprint, fail, runFlow, type BlueprintEffect, type CompiledBlueprint, type FlowBudget, type PendingDelay } from './blueprint';
 
 export type BlueprintEvent = { kind: 'manual'; graphId: Id; nodeId: Id } | { kind: 'keystroke'; accelerator: string } | { kind: 'device'; event: DeviceEvent } | { kind: 'tracking' } | { kind: 'update' }
@@ -13,7 +14,7 @@ export type StepEnv = Omit<RunEnv, 'deltaSeconds'>;
 export interface GraphRun { graphId: Id; effects: BlueprintEffect[]; error: AppError | null; nodeId?: Id; external?: true; debug?: DebugValueSample[] }
 // Called once per run, right after the run, before the next one. A returned error keeps the run's Flip Flop state and new delays uncommitted.
 export type RunGate = (run: GraphRun) => AppError | null;
-export interface BlueprintRuntime { install(graphs: unknown, fresh?: boolean): Reply<BlueprintGraph[]>; installCompiled(graphs: readonly CompiledBlueprint[], fresh?: boolean): void; keystrokes(): string[]; heldKeys(): string[]; devices(): DeviceKind[]; step(events: BlueprintEvent[], nowMs: number, gate?: RunGate, env?: StepEnv): GraphRun[]; takeControlRequests(): ControlRequest[] }
+export interface BlueprintRuntime { install(graphs: unknown, fresh?: boolean): Reply<BlueprintGraph[]>; installCompiled(graphs: readonly CompiledBlueprint[], fresh?: boolean): void; keystrokes(): string[]; heldKeys(): string[]; devices(): DeviceKind[]; step(events: BlueprintEvent[], nowMs: number, gate?: RunGate, env?: StepEnv, transitionEnds?: readonly TransitionEnd[]): GraphRun[]; takeControlRequests(): ControlRequest[] }
 // A Blueprint control request of a committed run, in run order. The session applies them after the step.
 export interface ControlRequest { sourceGraphId: Id; graphId: Id; action: 'enable' | 'disable' | 'toggle' }
 
@@ -155,7 +156,7 @@ export function createBlueprintRuntime(): BlueprintRuntime {
   heldKeys: () => activeHeldKeys(listenedGraphs(active.map(entry => entry.compiled.graph))),
   devices: () => activeDevices(listenedGraphs(active.map(entry => entry.compiled.graph))),
   takeControlRequests: () => { const taken = controls; controls = []; return taken; },
-  step(events, nowMs, gate = () => null, base: StepEnv = { held: new Set<string>(), scene: () => null }) {
+  step(events, nowMs, gate = () => null, base: StepEnv = { held: new Set<string>(), scene: () => null }, transitionEnds = []) {
    // Requests of an earlier step that threw before the session took them are stale.
    controls = [];
    const budget: FlowBudget = { visits: TICK_VISITS, effects: TICK_EFFECTS };
@@ -213,6 +214,12 @@ export function createBlueprintRuntime(): BlueprintRuntime {
     entry.timers = entry.timers.flatMap(item => (item !== timer ? [item] : next ? [next] : []));
     for (const node of entry.compiled.graph.nodes)
      if (node.type === 'timer.on' && node.settings.name === timer.name) fire(entry, { nodeId: node.id, port: 'flow' }, instant);
+   }
+   // Then the transition ends of the previous clock step, in record order. A disabled or changed graph, a removed node, or an unwired output runs nothing.
+   for (const end of transitionEnds) {
+    const entry = active.find(item => item.compiled.graph.id === end.graphId);
+    if (!entry?.compiled.graph.enabled || entry.logic !== end.logic || !entry.compiled.flowNext.has(`${end.nodeId}\0transitionEnd`)) continue;
+    fire(entry, { nodeId: end.nodeId, port: 'transitionEnd' }, instant);
    }
    for (const event of events) {
     if (event.kind === 'update') {

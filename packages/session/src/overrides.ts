@@ -5,7 +5,8 @@ import type { Transition } from './tweens';
 export interface OverrideEntry { value: PropertyValue; lastWriteMs: number; graphIds: readonly Id[] }
 export type OverrideLayer = ReadonlyMap<Id, ReadonlyMap<PropertyKey, OverrideEntry>>;
 export type OverrideWrite =
- | { kind: 'setProperty'; entityId: Id; property: PropertyKey; value: PropertyValue; transition?: Transition }
+ // `nodeId` is the Set Asset Property node of the write; its On Transition End runs after the write.
+ | { kind: 'setProperty'; entityId: Id; property: PropertyKey; value: PropertyValue; transition?: Transition; nodeId?: Id }
  | { kind: 'moveEntity'; entityId: Id; space: 'world' | 'local'; delta: Vec3 };
 type Operation = ScenePatch['operations'][number];
 export const MAX_OVERRIDES = 256, COMMIT_IDLE_MS = 250;

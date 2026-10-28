@@ -1,12 +1,12 @@
 <script lang="ts">
  // Legacy props on purpose: Rete updates a node by passing the same mutated object, and only `$:` re-reads it.
  import { Ref } from 'rete-svelte-plugin/5';
- import { Input } from '@oshi-connect/ui';
+ import { Button, Input } from '@oshi-connect/ui';
  import { inlineInputType, nodeDefinition, unconnectedInputValue, type BlueprintNode, type ScalarType, type ScalarValue, type Vec3 } from '@opensekai/contracts';
  import { parseScalar, vectorParts } from '../blueprints/fields';
 
  type Port = { socket: unknown; label?: string; index?: number };
- export let data: { id: string; label: string; selected?: boolean; data?: BlueprintNode; wired?: ReadonlyMap<string, number>; editable?: boolean; debug?: { text: string; time: string } | null; setInput?: (port: string, value: ScalarValue | null) => void; inputs: Record<string, Port | undefined>; outputs: Record<string, Port | undefined> };
+ export let data: { id: string; label: string; selected?: boolean; data?: BlueprintNode; wired?: ReadonlyMap<string, number>; editable?: boolean; debug?: { text: string; time: string } | null; setInput?: (port: string, value: ScalarValue | null) => void; current?: () => ScalarValue | null; inputs: Record<string, Port | undefined>; outputs: Record<string, Port | undefined> };
  export let emit: (props: unknown) => void;
 
  const sorted = (ports: Record<string, Port | undefined>) =>
@@ -14,6 +14,7 @@
  // Flow ports read from their chevron, so only data ports and branch names keep a label.
  const label = (name: string) => {
   if (name === 'flow' || name === 'exit') return '';
+  if (name === 'transitionEnd') return 'On Transition End';
   // A Switch On Number case port shows the value it matches.
   const match = /^case(\d+)$/.exec(name);
   if (match && data.data?.type === 'flow.switch') return `= ${data.data.settings.cases[Number(match[1])]}`;
@@ -38,6 +39,8 @@
  };
  // The node is dragged and selected on pointer down; an editor keeps the pointer for itself.
  const keep = (event: Event) => event.stopPropagation();
+ // A button needs its own native listener: the node captures the pointer on pointer down, before a delegated handler runs.
+ const own = (element: HTMLElement) => { element.addEventListener('pointerdown', keep); element.addEventListener('dblclick', keep); };
 
  $: inputs = sorted(data.inputs);
  $: outputs = sorted(data.outputs);
@@ -80,5 +83,8 @@
    {/each}
   </div>
  </div>
+ {#if data.data?.type === 'property.set' && editors.value}
+  <div class="bp-node-action" use:own><Button variant="ghost" size="sm" disabled={!editable || data.current?.() == null} onclick={() => { const value = data.current?.(); if (editable && value != null) data.setInput?.('value', value); }}>Use current value</Button></div>
+ {/if}
  {#if debug}<div class="bp-node-debug"><span>{debug.text}</span><time>{debug.time}</time></div>{/if}
 </div>

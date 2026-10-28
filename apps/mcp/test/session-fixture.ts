@@ -12,8 +12,10 @@ export function sceneFor(name: string | undefined): SceneView {
 // The smoke avatar model, with two triggerable expressions and one that tracking drives.
 export const fixtureAvatar: AssetRecord = { id: 'fixture_vrm_1', format: 'vrm', sha256: 'a'.repeat(64), bytes: 1, sourceUrl: null, licenseLabel: 'fixture', importerVersion: 1, name: 'Fixture', expressions: [{ name: 'happy', preset: true }, { name: 'aa', preset: true }, { name: 'Wink', preset: false }] };
 // The host reports a status for each VMC sender; this fixture host reports each sender of the session scene as stopped or waiting.
+// With OPENSEKAI_FIXTURE_CLOCK=1 the session advances on a 20 ms wall clock, as the app tick does.
 export const sessionFixtureApi = (scene: SceneView): AppApi => {
  const session = createSession(scene, 'fixture', [fixtureAvatar]), base = fixtureApi();
+ if (process.env.OPENSEKAI_FIXTURE_CLOCK) { const started = performance.now(); setInterval(() => session.advance(performance.now() - started), 20).unref(); }
  return { ...base, ...sessionApi(session), appStatus: async params => {
   const status = await base.appStatus(params);
   const vmcSenders = session.inspect().entities.flatMap(e => e.kind === 'vmcSender' ? [{ entityId: e.id, state: e.vmcSender.enabled ? 'waiting' as const : 'stopped' as const, datagrams: 0, errors: 0, error: null }] : []);
