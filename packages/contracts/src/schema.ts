@@ -164,7 +164,7 @@ export const SceneEntitySchema = z.discriminatedUnion("kind", [
             }),
             z.strictObject({
                 kind: z.literal("asset"),
-                assetId: IdSchema
+                assetId: IdSchema.nullable()
             })
         ])
     }),
@@ -256,6 +256,7 @@ export const PatchOpSchema = z.discriminatedUnion("kind", [
     z.strictObject({kind:z.literal('setAvatarTracking'),entityId:IdSchema,tracking:AvatarTrackingSchema}),
     z.strictObject({kind:z.literal('setAvatarModel'),entityId:IdSchema,assetId:IdSchema.nullable()}),
     z.strictObject({kind:z.literal('setEnvironmentModel'),entityId:IdSchema,assetId:IdSchema.nullable()}),
+    z.strictObject({kind:z.literal('setMeshModel'),entityId:IdSchema,assetId:IdSchema.nullable()}),
     z.strictObject({kind:z.literal('setEnvironmentReflections'),entityId:IdSchema,reflectionsIntensity:ReflectionsIntensitySchema}),
     z.strictObject({kind:z.literal('setLight'),entityId:IdSchema,light:LightSettingsSchema}),
     z.strictObject({kind:z.literal('setHaze'),entityId:IdSchema,haze:HazeSettingsSchema}),

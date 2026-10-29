@@ -48,33 +48,33 @@ const roomMaterial = (material: Material, share: Share): Material => {
     return made;
 };
 export interface InstanceMaterials {
-    /** Sets `envMapIntensity` on the environment copies (R15). A prop instance ignores it. */
+    /** Sets `envMapIntensity` on the copies of this instance (R15). */
     reflections(intensity: number): void;
     /** Disposes the copies only. Textures stay with the asset cache and the map stays with the light. */
     dispose(): void;
 }
 export interface EnvironmentLight {
-    apply(root: Object3D, environment: boolean): InstanceMaterials;
-    /** Sets the share of the room map on all environment copies: its diffuse fill and its reflections (B13 R4a). */
+    apply(root: Object3D): InstanceMaterials;
+    /** Sets the share of the room map on all environment and prop copies: its diffuse fill and its reflections (B13 R4a). */
     room(light: RoomLight): void;
     dispose(): void;
 }
 // A prop or environment instance gets its own copy of each lit material, because the cached asset shares materials with other
-// instances and each instance gets the node set of its own light group (R6). Only environment copies of standard or physical
-// materials get the PMREM room map; unlit materials keep their look; scene.environment stays null so avatar materials keep their look.
+// instances and each instance gets the node set of its own light group (R6). Copies of standard or physical materials get the
+// PMREM room map (prop import R4); unlit materials keep their look; scene.environment stays null so avatar materials keep their look.
 export function createEnvironmentLight(makeMap: () => EnvironmentMap): EnvironmentLight {
     let map: EnvironmentMap | null = null;
     const share: Share = { fill: uniform(1), reflections: uniform(new Color(1, 1, 1)) };
     return {
-        apply(root, environment) {
-            const texture = environment ? (map ??= makeMap()).texture : null;
+        apply(root) {
+            const texture = (map ??= makeMap()).texture;
             const copies = new Map<Material, Material>();
             const reflective: (Material & { envMapIntensity: number })[] = [];
             const copy = (material: Material) => {
                 if (!isLitMaterial(material)) return material;
                 let made = copies.get(material);
                 if (!made) {
-                    if (texture && (material as { isMeshStandardMaterial?: boolean }).isMeshStandardMaterial === true) {
+                    if ((material as { isMeshStandardMaterial?: boolean }).isMeshStandardMaterial === true) {
                         made = roomMaterial(material, share);
                         (made as Material & { envMap: Texture | null }).envMap = texture;
                         reflective.push(made as Material & { envMapIntensity: number });

@@ -6,10 +6,12 @@ export function createPreviewPump<T>(apply: (frame: T) => Promise<void>, fail: (
  let latest: T | undefined;
  let active = false;
  let stopped = false;
+ let enabled = true;
+ let holds = 0;
  const tick = () => {
   if (stopped) return;
   handle = scheduler.request(tick);
-  if (active || latest === undefined) return;
+  if (active || latest === undefined || !(enabled || holds > 0)) return;
   const frame = latest;
   latest = undefined;
   active = true;
@@ -20,6 +22,13 @@ export function createPreviewPump<T>(apply: (frame: T) => Promise<void>, fail: (
  let handle = scheduler.request(tick);
  return {
   offer(frame: T) { if (!stopped) latest = frame; },
+  setEnabled(next: boolean) { enabled = next; },
+  /** Applies frames while disabled until the returned release is called. */
+  wake(): () => void {
+   holds += 1;
+   let held = true;
+   return () => { if (held) { held = false; holds -= 1; } };
+  },
   stop() { stopped = true; latest = undefined; scheduler.cancel(handle); }
  };
 }

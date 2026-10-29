@@ -17,13 +17,14 @@ export function nextAvatarTransform(entities:readonly SceneEntity[],scale:Vec3=[
 }
 const transform=()=>({position:[0,0,0] as [number,number,number],rotation:[0,0,0,1] as [number,number,number,number],scale:[1,1,1] as [number,number,number]});
 export function makeAuthoringEntity(kind:AddKind,id:string,entities:readonly SceneEntity[]):SceneEntity {
- const label=({camera:'Camera',character:'Character',environment:'Environment',directionalLight:'Directional Light',pointLight:'Point Light',spotLight:'Spot Light',ambientLight:'Ambient Light',haze:'Haze',fpsCounter:'FPS Counter',vmcSender:'VMC Sender',vmc:'VMC Receiver',ifacialmocap:'iFacialMocap Receiver',openseeface:'OpenSeeFace Receiver',mediapipe:'MediaPipe Tracker'} as const)[kind];
+ const label=({camera:'Camera',character:'Character',environment:'Environment',prop:'Prop',directionalLight:'Directional Light',pointLight:'Point Light',spotLight:'Spot Light',ambientLight:'Ambient Light',haze:'Haze',fpsCounter:'FPS Counter',vmcSender:'VMC Sender',vmc:'VMC Receiver',ifacialmocap:'iFacialMocap Receiver',openseeface:'OpenSeeFace Receiver',mediapipe:'MediaPipe Tracker'} as const)[kind];
  const taken=new Set(entities.map(entity=>entity.name));
  let n=2;while(taken.has(`${label} ${n}`))n++;
  const base={id,name:taken.has(label)?`${label} ${n}`:label,visible:true,transform:transform()};
  if(kind==='camera')return {...base,kind,transform:{...base.transform,position:[0,1.2,3]},lens:{fovDegrees:40,near:.01,far:100},navigation:{mode:'freeLook',sensitivity:1}};
  if(kind==='character')return {...base,kind:'avatar',transform:nextAvatarTransform(entities),assetId:null,tracking:{bodySourceId:null,faceSourceId:null},idleAnimation:{kind:'builtin',enabled:true}};
  if(kind==='environment')return {...base,kind,assetId:null};
+ if(kind==='prop')return {...base,kind:'mesh',source:{kind:'asset',assetId:null}};
  if(kind==='directionalLight')return {...base,kind:'light',transform:lightTransform('directional'),light:structuredClone(DIRECTIONAL_LIGHT)};
  if(kind==='pointLight')return {...base,kind:'light',transform:lightTransform('point'),light:structuredClone(POINT_LIGHT)};
  if(kind==='spotLight')return {...base,kind:'light',transform:lightTransform('spot'),light:structuredClone(SPOT_LIGHT)};
@@ -35,6 +36,7 @@ export function makeAuthoringEntity(kind:AddKind,id:string,entities:readonly Sce
 }
 // The Add menu disables a kind when one more of it would break a scene limit.
 export function addLimitReached(kind:AddKind,entities:readonly SceneEntity[]):boolean {
+ if(entities.length>=64)return true;
  if(kind==='character')return entities.filter(entity=>entity.kind==='avatar').length>=2;
  if(kind==='camera')return cameraLimitReached(entities);
  if(kind==='environment')return entities.some(entity=>entity.kind==='environment');

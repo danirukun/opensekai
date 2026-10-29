@@ -90,7 +90,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         const asset = await assets.get(request.assetId);
         if (cancelled() || disposed) throw failure("CANCELLED", "Asset load cancelled");
         const root = clone(asset.scene);
-        const materials = environmentLight.apply(root, request.kind === "environment");
+        const materials = environmentLight.apply(root);
         const release = () => { disposeInstance(root); materials.dispose(); };
         sceneLights.assign(root, request.kind === "environment" ? "environment" : "props");
         const lit = sceneLights.generation();
@@ -175,6 +175,8 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
                 objects.delete(id);
             }
         }
+        // The Reflections Intensity of the environment applies to the props too, as in Warudo (prop import R4).
+        const reflections = frame.scene.entities.find((x): x is Extract<SceneEntity, { kind: "environment" }> => x.kind === "environment")?.reflectionsIntensity ?? 1;
         const needed = new Map<string, LoadRequest>();
         for (const entity of frame.scene.entities) {
             if (entity.kind === "tracking" || entity.kind === "fpsCounter" || entity.kind === "vmcSender") continue;
@@ -220,7 +222,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             }
             const assetId = entity.kind === "avatar" || entity.kind === "environment" ? entity.assetId : entity.source.kind === "asset" ? entity.source.assetId : null;
             let value = objects.get(entity.id);
-            if ((entity.kind === "avatar" || entity.kind === "environment") && assetId === null) {
+            if (assetId === null && (entity.kind !== "mesh" || entity.source.kind === "asset")) {
                 if (value) { releaseObject(value); objects.delete(entity.id); }
                 continue;
             }
@@ -240,7 +242,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             for (const warning of value.warnings ?? [])
                 if (!warnings.some(x => x.message === warning.message && x.ids[0] === warning.ids[0])) warnings.push(warning);
             value.avatar?.apply(frame.avatarPoses?.find(pose => pose.avatarId === entity.id));
-            if (entity.kind === "environment") value.materials?.reflections(entity.reflectionsIntensity ?? 1);
+            value.materials?.reflections(reflections);
             if (!editor?.frozen(entity.id)) place(value.root, entity);
         }
         jobs.reconcile(needed, frame.scene.revision);
@@ -254,7 +256,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             scene.add(installed.root);
             objects.set(entityId, installed);
             installed.avatar?.apply(frame.avatarPoses?.find(pose => pose.avatarId === entityId));
-            if (entity.kind === "environment") installed.materials?.reflections(entity.reflectionsIntensity ?? 1);
+            installed.materials?.reflections(reflections);
             if (!editor?.frozen(entityId)) place(installed.root, entity);
             warnings.push(...ready.warnings);
         }
