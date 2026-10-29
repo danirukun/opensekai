@@ -69,6 +69,7 @@ export function applyOperations(scene: SceneView, operations: ScenePatch["operat
                  case 'setAvatarTracking':if(entity.kind!=='avatar')return failure('INVALID_INPUT','Entity is not an avatar',[entity.id]);entity.tracking=withoutNullFingers(operation.tracking);break;
                  case 'setAvatarModel':if(entity.kind!=='avatar')return failure('INVALID_INPUT','Entity is not an avatar',[entity.id]);entity.assetId=operation.assetId;break;
                  case 'setEnvironmentModel':if(entity.kind!=='environment')return failure('INVALID_INPUT','Entity is not an environment',[entity.id]);entity.assetId=operation.assetId;break;
+                 case 'setMeshModel':if(entity.kind!=='mesh')return failure('INVALID_INPUT','Entity is not a prop',[entity.id]);entity.source={kind:'asset',assetId:operation.assetId};break;
                  case 'setEnvironmentReflections':if(entity.kind!=='environment')return failure('INVALID_INPUT','Entity is not an environment',[entity.id]);entity.reflectionsIntensity=operation.reflectionsIntensity;break;
                  case 'setLight':if(entity.kind!=='light')return failure('INVALID_INPUT','Entity is not a light',[entity.id]);entity.light=structuredClone(operation.light);break;
                  case 'setHaze':if(entity.kind!=='haze')return failure('INVALID_INPUT','Entity is not a haze',[entity.id]);entity.haze=structuredClone(operation.haze);break;

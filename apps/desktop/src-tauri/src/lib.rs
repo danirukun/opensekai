@@ -102,10 +102,10 @@ async fn import_scene(
     require_window_label(window.label(), "editor")?;
     let app = window.app_handle().clone();
     let path = tauri::async_runtime::spawn_blocking(move || {
-        let dialog = app.dialog().file().set_title("Import environment");
+        let dialog = app.dialog().file().set_title("Import model");
         // macOS can disable custom extensions through rfd's deprecated file-type filter.
         #[cfg(not(target_os = "macos"))]
-        let dialog = dialog.add_filter("Environment", &["glb", "gltf", "zip"]);
+        let dialog = dialog.add_filter("Model", &["glb", "gltf", "zip"]);
         dialog.blocking_pick_file()
     })
     .await
