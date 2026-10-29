@@ -82,7 +82,7 @@ pub enum MeshSource {
     Box,
     Asset {
         #[serde(rename = "assetId")]
-        asset_id: Id,
+        asset_id: Option<Id>,
     },
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -453,6 +453,12 @@ pub enum PatchOp {
         asset_id: Option<Id>,
     },
     SetEnvironmentModel {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+        #[serde(rename = "assetId")]
+        asset_id: Option<Id>,
+    },
+    SetMeshModel {
         #[serde(rename = "entityId")]
         entity_id: Id,
         #[serde(rename = "assetId")]

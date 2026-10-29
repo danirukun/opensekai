@@ -2,6 +2,7 @@ import { expect, it, vi } from 'vitest';
 import { makeSmokeScene, type AppApi, type Reply,defaultTrackingConfig,type SceneEntity } from '@opensekai/contracts';
 import { createSession } from '@opensekai/session';
 import { createEditorModel } from '../src/editor/model';
+import { makeAuthoringEntity } from '../src/editor/authoring';
 function fixture() {
  const session = createSession(makeSmokeScene(), 'test_session');
  const unsupported = async (): Promise<Reply<never>> => ({ ok: false, error: { code: 'UNSUPPORTED', message: 'Unsupported', ids: [] } });
@@ -249,4 +250,12 @@ it('sets a camera anti-aliasing mode through a patch and rejects other kinds and
  expect(await model.setCameraAntiAliasing('performer', 'fxaa')).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
  expect(await model.setCameraAntiAliasing('camera_wide', 'taa' as never)).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
  expect(api.scenePatch).toHaveBeenCalledTimes(calls);
+});
+it('adds two props, gives both one model, and rejects setMeshModel on another kind (prop import R2, R6, R9)', async () => {
+ const { model, session } = fixture();
+ await model.load();
+ for (const id of ['walls', 'walls_2']) expect((await model.createEntity(makeAuthoringEntity('prop', id, model.read().scene!.entities), model.read().scene!.revision)).ok).toBe(true);
+ for (const id of ['walls', 'walls_2']) expect((await model.setMeshModel(id, 'scene_a', model.read().scene!.revision)).ok).toBe(true);
+ expect(session.inspect().entities.filter(e => e.kind === 'mesh' && e.source.kind === 'asset' && e.source.assetId === 'scene_a').map(e => [e.id, e.name])).toEqual([['walls', 'Prop'], ['walls_2', 'Prop 2']]);
+ expect((await model.setMeshModel('performer', 'scene_a')).ok).toBe(false);
 });
