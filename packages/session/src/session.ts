@@ -38,7 +38,7 @@ export interface Session {
     advance(elapsedMs: number, trackingNowMs?:number, input?: InputUpdate): RuntimeFrame;
     // The poses of the enabled VMC senders for a frame of this session, or null when no sender qualifies (B21 R8).
     vmcPoses(frame: RuntimeFrame): VmcPosesEnvelope | null;
-    editBlueprints(batch: unknown): Reply<{ revision: number; keystrokes: string[]; heldKeys?: string[]; devices?: DeviceKind[] }>;
+    editBlueprints(batch: unknown): Reply<{ revision: number; keystrokes: string[]; heldKeys?: string[]; devices?: DeviceKind[]; youtube?: true }>;
     inspectBlueprints(sinceRevision?: number): BlueprintInspect;
     debugBlueprints(since?: number): BlueprintDebug;
     runBlueprint(graphId: Id, triggerNodeId: Id): Reply<{revision: number}>;
@@ -403,7 +403,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             boneOffsets = EMPTY_BONE_OFFSETS;
             try {
                 const device = devices.ingest(input?.devices);
-                const events: BlueprintEvent[] = [...(input?.events?.map(event => ({ kind: 'keystroke' as const, accelerator: event.accelerator })) ?? []), ...device.events.map(event => ({ kind: 'device' as const, event })), { kind: 'tracking' }, { kind: 'update' }];
+                const events: BlueprintEvent[] = [...(input?.events?.map(event => ({ kind: 'keystroke' as const, accelerator: event.accelerator })) ?? []), ...device.events.map(event => ({ kind: 'device' as const, event })), ...(input?.youtube?.events.map(event => ({ kind: 'youtube' as const, event })) ?? []), { kind: 'tracking' }, { kind: 'update' }];
                 deviceEnv = device.env;
                 // Only the clock step runs transition ends: the ones recorded before this step, as a snapshot.
                 const ends = pendingEnds;

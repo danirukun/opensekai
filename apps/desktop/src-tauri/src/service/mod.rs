@@ -41,6 +41,8 @@ struct KnownKeystrokes {
     watched: BTreeSet<String>,
     /// Device kinds that device nodes of enabled graphs read.
     devices: BTreeSet<DeviceKind>,
+    /// A YouTube node is in a listened graph.
+    youtube: bool,
 }
 /// A capture field is armed: the OS must pass every key to the editor, so nothing is registered.
 struct KeystrokeCapture {
@@ -83,6 +85,7 @@ struct Shared {
     keystrokes: Mutex<Arc<dyn crate::input::KeystrokeRegistrar>>,
     monitor: Mutex<Arc<dyn crate::input::monitor::KeyMonitor>>,
     devices: Mutex<Arc<crate::input::devices::DeviceHub>>,
+    youtube: Arc<crate::youtube::YouTubeHub>,
     keystrokes_known: Mutex<KnownKeystrokes>,
     keystroke_capture: Mutex<KeystrokeCapture>,
     capture_timeout: Mutex<Duration>,
@@ -206,13 +209,18 @@ fn clock_message(
     }
 }
 impl Shared {
-    /// Queued keystrokes, the watched keys that are down, and device input, for the next clock.
+    /// Queued keystrokes, the watched keys that are down, device input, and YouTube events, for
+    /// the next clock.
     fn clock_input(&self) -> Option<InputUpdate> {
         let mut update = lock(&self.input).drain().unwrap_or_default();
         update.held = lock(&self.monitor).clone().held();
         update.devices = lock(&self.devices).clone().collect();
-        (!update.events.is_empty() || !update.held.is_empty() || update.devices.is_some())
-            .then_some(update)
+        update.youtube = self.youtube.take_clock_events();
+        (!update.events.is_empty()
+            || !update.held.is_empty()
+            || update.devices.is_some()
+            || update.youtube.is_some())
+        .then_some(update)
     }
     fn now_ms(&self) -> u64 {
         self.clock.elapsed().as_millis().min(u64::MAX as u128) as u64
@@ -255,9 +263,12 @@ impl Shared {
         reported: BTreeSet<String>,
         watched: BTreeSet<String>,
         devices: BTreeSet<DeviceKind>,
+        youtube: bool,
     ) -> bool {
         let mut known = lock(&self.keystrokes_known);
-        Self::learn_locked(&mut known, publisher, revision, reported, watched, devices)
+        Self::learn_locked(
+            &mut known, publisher, revision, reported, watched, devices, youtube,
+        )
     }
     fn learn_locked(
         known: &mut KnownKeystrokes,
@@ -266,6 +277,7 @@ impl Shared {
         reported: BTreeSet<String>,
         watched: BTreeSet<String>,
         devices: BTreeSet<DeviceKind>,
+        youtube: bool,
     ) -> bool {
         let newer = known
             .origin
@@ -277,6 +289,7 @@ impl Shared {
             known.set = reported;
             known.watched = watched;
             known.devices = devices;
+            known.youtube = youtube;
         }
         newer
     }
@@ -293,14 +306,15 @@ impl Shared {
         let work = async {
             let _gate = self.keystroke_gate.lock().await;
             // The monitor is passive, so a keystroke capture does not affect it.
-            let (watched, devices) = if lock(&self.inner).publisher.is_some() {
+            let (watched, devices, youtube) = if lock(&self.inner).publisher.is_some() {
                 let known = lock(&self.keystrokes_known);
-                (known.watched.clone(), known.devices.clone())
+                (known.watched.clone(), known.devices.clone(), known.youtube)
             } else {
-                (BTreeSet::new(), BTreeSet::new())
+                (BTreeSet::new(), BTreeSet::new(), false)
             };
             lock(&self.monitor).clone().set_watched(&watched);
             lock(&self.devices).clone().set_watched(&devices);
+            self.youtube.set_listening(youtube);
             let capturing = lock(&self.keystroke_capture)
                 .until
                 .is_some_and(|until| until > Instant::now());
@@ -362,11 +376,13 @@ impl Shared {
                         .transpose()
                         .ok()?
                         .unwrap_or_default();
+                    let youtube = data.get("youtube").and_then(Value::as_bool) == Some(true);
                     Some((
                         revision,
                         serde_json::from_value::<Vec<String>>(list).ok()?,
                         held,
                         devices,
+                        youtube,
                     ))
                 }),
             None => None,
@@ -377,7 +393,7 @@ impl Shared {
                 && lock(&self.inner).publisher.as_ref().map(|p| &p.id) == asked.as_ref();
             match (reported, asked) {
                 // An edit reply that is newer than the answer wins by revision.
-                (Some((revision, list, held, devices)), Some(asked)) if same_publisher => {
+                (Some((revision, list, held, devices, youtube)), Some(asked)) if same_publisher => {
                     Self::learn_locked(
                         &mut known,
                         &asked,
@@ -385,6 +401,7 @@ impl Shared {
                         list.into_iter().collect(),
                         held.into_iter().collect(),
                         devices.into_iter().collect(),
+                        youtube,
                     )
                 }
                 // A publisher that is gone will be asked again when the next one connects.
@@ -398,6 +415,7 @@ impl Shared {
                     known.set.clear();
                     known.watched.clear();
                     known.devices.clear();
+                    known.youtube = false;
                     true
                 }
                 _ => false,
@@ -510,6 +528,14 @@ impl Shared {
     }
 }
 pub async fn start_service(config: ServiceConfig) -> Result<ServiceHandle, AppError> {
+    start_service_with(config, crate::youtube::YouTubeConfig::default()).await
+}
+/// Starts the service with the YouTube client options. The app uses the defaults; the YouTube
+/// integration test points the client at a local mock.
+pub async fn start_service_with(
+    config: ServiceConfig,
+    youtube: crate::youtube::YouTubeConfig,
+) -> Result<ServiceHandle, AppError> {
     let mut registry = if config.asset_manifest.as_os_str().is_empty() {
         AssetRegistry::empty(
             &config
@@ -548,6 +574,17 @@ pub async fn start_service(config: ServiceConfig) -> Result<ServiceHandle, AppEr
             .parent()
             .unwrap_or(&config.evidence_root),
     );
+    // The settings folder is `<app local data>/settings`, beside the evidence folder.
+    let youtube = crate::youtube::YouTubeHub::new(
+        youtube,
+        crate::youtube::settings::settings_path(
+            config
+                .evidence_root
+                .parent()
+                .unwrap_or(&config.evidence_root),
+        ),
+    );
+    youtube.start_stored();
     let shared = Arc::new(Shared {
         origin: format!("http://{address}"),
         session: Uuid::new_v4().to_string(),
@@ -565,6 +602,7 @@ pub async fn start_service(config: ServiceConfig) -> Result<ServiceHandle, AppEr
         keystrokes: Mutex::new(Arc::new(crate::input::NoKeystrokes)),
         monitor: Mutex::new(Arc::new(crate::input::monitor::NoKeyMonitor)),
         devices: Mutex::new(Arc::new(crate::input::devices::DeviceHub::empty())),
+        youtube,
         keystrokes_known: Mutex::default(),
         keystroke_capture: Mutex::new(KeystrokeCapture {
             generation: 0,
@@ -956,6 +994,7 @@ impl ServiceHandle {
             }
         }
         self.shared.tracking.shutdown().await;
+        self.shared.youtube.shutdown().await;
         let _ = self.shared.stop.send(true);
         self.server
             .take()
@@ -1473,6 +1512,7 @@ async fn write_connection(
 impl Drop for ServiceHandle {
     fn drop(&mut self) {
         let _ = self.shared.stop.send(true);
+        self.shared.youtube.stop();
         let mut inner = lock(&self.shared.inner);
         inner.handler = None;
         inner.evidence = None;

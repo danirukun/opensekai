@@ -9,6 +9,7 @@ pub mod service;
 mod show;
 pub mod tracking;
 pub mod vmc_sender;
+pub mod youtube;
 use bootstrap::{DesktopState, NativeBootstrap, NativeEditorConnection};
 use opensekai_contracts::{AppError, ErrorCode};
 use std::{path::PathBuf, sync::Arc};

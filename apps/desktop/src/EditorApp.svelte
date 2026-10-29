@@ -3,7 +3,7 @@
  import { invoke } from '@tauri-apps/api/core';
  import { getCurrentWindow } from '@tauri-apps/api/window';
  import { Button, ToastRegion, toasts } from '@oshi-connect/ui';
- import { Box, Radio, PackageOpen, Workflow, FolderOpen, Save } from '@lucide/svelte';
+ import { Box, Radio, PackageOpen, Workflow, FolderOpen, Save, Settings } from '@lucide/svelte';
  import { bootstrapEditor } from './bootstrap';
  import { createEditorModel, type EditorModel, type EditorView } from './editor/model';
  import {createLiveTransform} from './editor/live-transform';
@@ -30,9 +30,10 @@ import { createEditorMemory } from './blueprints/editor-memory';
  import ResizeHandle from './components/ResizeHandle.svelte';
  import BlueprintPanel from './components/BlueprintPanel.svelte';
  import TrackingGuide from './components/TrackingGuide.svelte';
+ import SettingsPanel from './components/SettingsPanel.svelte';
  let model=$state.raw<EditorModel>(),view=$state<EditorView>({scene:null,selectedId:null,error:null,pending:false});
  let status=$state<AppStatus|null>(null),assets=$state<AssetRecord[]>([]),outputUrl=$state(''),canEdit=$state(false),available=$state(false),error=$state<string|null>(null);
- let panel=$state<'assets'|'output'|'resources'|'blueprints'>('assets'),width=$state(224),maxWidth=$state(360),shell:HTMLDivElement;
+ let panel=$state<'assets'|'output'|'resources'|'blueprints'|'settings'>('assets'),width=$state(224),maxWidth=$state(360),shell:HTMLDivElement;
  let api=$state.raw<AppApi|null>(null),sync=$state.raw<BlueprintSync|null>(null);
  const memory=createEditorMemory();
  // Show Toast entries of the session debug log (slice F R12): at most 3 on screen, only in this window.
@@ -152,6 +153,7 @@ import { createEditorMemory } from './blueprints/editor-memory';
   <Button variant="ghost" class={panel==='blueprints'?'active-panel':''} title="Blueprints" onclick={()=>{panel='blueprints';}}><Workflow size={20}/><span class="sr-only">Blueprints</span></Button>
   <div class="spacer"></div>
   <Button variant="ghost" class={panel==='resources'?'active-panel':''} title="Resources" onclick={()=>{panel='resources';}}><PackageOpen size={20}/><span class="sr-only">Resources</span></Button>
+  <Button variant="ghost" class={panel==='settings'?'active-panel':''} title="Settings" onclick={()=>{panel='settings';}}><Settings size={20}/><span class="sr-only">Settings</span></Button>
  </nav>
  <div class="editor-content">
   <div class="show-toolbar"><input aria-label="Show name" maxlength="128" bind:value={showName} disabled={!canEdit||showBusy}/><div class="spacer"></div><Button variant="ghost" title="Open show" disabled={!canEdit||!available||showBusy||view.pending||guideFor!==null} onclick={openShow}><FolderOpen size={16}/></Button><Button variant="ghost" title="Save show (⇧ Save As)" disabled={!canEdit||!available||showBusy||view.pending} onclick={(event:MouseEvent)=>{void saveShow(event.shiftKey);}}><Save size={16}/></Button></div>
@@ -164,6 +166,7 @@ import { createEditorMemory } from './blueprints/editor-memory';
    {#if panel==='assets'}{#if model&&!(api&&guideFor)}<div class="properties-column"><Inspector onguide={id=>{guideFor=id;}} {model} {view} onlivefield={request=>{liveField?.offer(request);}} onlivefieldend={()=>liveField?.end()} {assets} {loads} {importingId} {importError} onchoosemodel={chooseModel} onchoosescene={chooseScene} onpickscene={(id,assetId)=>{void setSceneModel(id,assetId);}} onrenderenvironment={(id,value,revision)=>model?.setCameraRenderEnvironment(id,value,revision)??Promise.resolve(undefined)} {expressionApi} onexpressionsettings={(id,name,settings,revision)=>model?.setAvatarExpression(id,name,settings,revision)??Promise.resolve(undefined)} onnavigation={(id,navigation,revision)=>model?.setCameraNavigation(id,navigation,revision)??Promise.resolve(undefined)} onscreenshot={id=>model?.cameraScreenshot(id)??Promise.resolve(undefined)} onopenscreenshots={()=>invoke<void>('open_screenshots_folder')} {draft} {transformError} {livePending} onlivetransform={transformLive} oncanceltransform={()=>liveTransform?.cancel()} onfinishtransform={()=>liveTransform?.end()} disabled={!canEdit||!available||importing} {devices} trackingStatus={status?.trackingStatus??[]} localAddresses={status?.localAddresses??[]} vmcSenders={status?.vmcSenders??[]} onlens={async(id,lens,revision)=>{await model?.setCameraLens(id,lens,revision);}} onavataridle={async(id,idle,revision)=>{await model?.setAvatarIdle(id,idle,revision);}} onavatartracking={async(id,tracking,revision)=>{await model?.setAvatarTracking(id,tracking,revision);}} ontrackingsmoothing={async(id,smoothing,revision)=>{await model?.setTrackingSmoothing(id,smoothing,revision);}} ontrackingmapping={async(id,mapping,revision)=>{await model?.setTrackingMapping(id,mapping,revision);}} ontrackingcalibrate={(id,revision)=>model?.calibrateTracking(id,revision)??Promise.resolve(undefined)} ontrackingcalibrationreset={(id,revision)=>model?.resetTrackingCalibration(id,revision)??Promise.resolve(undefined)} ontrackingconfig={configureTracking} ontrackingtoggle={toggleTracking}/></div>{/if}
    {:else if panel==='output'}<section class="output-panel"><h2>Output</h2>{#if model}<OutputControls {model} {view} {status} {outputUrl} disabled={!canEdit||!available||livePending||fieldPending}/>{/if}</section>
    {:else if panel==='blueprints'}{#if sync}<BlueprintPanel {api} {sync} debug={debugFeed} {memory} {status} {assets} scene={view.scene} selectedEntityId={view.selectedId} disabled={!canEdit||!available||view.pending} onrun={()=>{void model?.load();notify({kind:'refresh'});}}/>{/if}
+   {:else if panel==='settings'}<SettingsPanel {api} youtube={status?.youtube} disabled={!canEdit} onchange={youtube=>{if(status)status={...status,youtube};}}/>
    {:else}<AssetList {assets} {warnings}/>{/if}
   </div>
   <footer><span>{showError??importError?.message??trackingError??transformError??error??view.error??(view.scene?'Session connected':'Starting…')}</span><span>{canEdit ? (tool==='translate'?'Move':tool==='rotate'?'Rotate':'Scale'):'Read only'}</span></footer>

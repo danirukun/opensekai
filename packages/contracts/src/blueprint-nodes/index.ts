@@ -23,13 +23,15 @@ import { TYPED_VARIABLE_NODES } from './typed-variables';
 import { TIMER_NODES } from './timer';
 import { GRAPH_CONTROL_NODES } from './graph-control';
 import { TRACKING_NODES } from './tracking';
+import { YOUTUBE_NODES } from './youtube';
 export { TRACKING_LOST_AFTER_SECONDS } from './tracking';
+export { YOUTUBE_NODE_KINDS, YOUTUBE_NODE_OUTPUTS, isYouTubeNodeType, type YouTubeNodeType } from './youtube';
 
 export { defineNode, IntegerCasesSchema, MAX_SWITCH_CASES, NODE_CATEGORIES, type PortType, type PortShape, type NodeCategory, type DefaultRefs, type BlueprintField, type NodeDefinition } from './define';
 export { KEYSTROKE_CODES, KeystrokeSettingsSchema, keystrokeAccelerator, keystrokeHasModifier, type KeystrokeSettings } from './events';
 
 // Palette order inside a category follows this list.
-export const NODE_DEFINITIONS = [...EVENT_NODES, ...INPUT_NODES, ...FLOW_NODES, ...VALUE_NODES, ...MATH_NODES, ...VECTOR3_NODES, ...LOGIC_NODES, ...VARIABLE_NODES, ...SCENE_NODES, ...PROPERTY_NODES, ...CHARACTER_NODES, ...TRACKING_NODES, ...DEVICE_NODES, ...INTEGER_NODES, ...LITERAL_NODES, ...TEXT_NODES, ...LIST_NODES, ...SWITCH_NODES, ...TYPED_VARIABLE_NODES, ...TIMER_NODES, ...GRAPH_CONTROL_NODES, ...DEBUG_NODES] as const;
+export const NODE_DEFINITIONS = [...EVENT_NODES, ...INPUT_NODES, ...FLOW_NODES, ...VALUE_NODES, ...MATH_NODES, ...VECTOR3_NODES, ...LOGIC_NODES, ...VARIABLE_NODES, ...SCENE_NODES, ...PROPERTY_NODES, ...CHARACTER_NODES, ...TRACKING_NODES, ...DEVICE_NODES, ...YOUTUBE_NODES, ...INTEGER_NODES, ...LITERAL_NODES, ...TEXT_NODES, ...LIST_NODES, ...SWITCH_NODES, ...TYPED_VARIABLE_NODES, ...TIMER_NODES, ...GRAPH_CONTROL_NODES, ...DEBUG_NODES] as const;
 type Definition = (typeof NODE_DEFINITIONS)[number];
 export type BlueprintKind = Definition['type'];
 export const BlueprintPositionSchema = z.strictObject({ x: finite, y: finite });
