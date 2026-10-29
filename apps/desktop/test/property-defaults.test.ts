@@ -4,7 +4,7 @@ import {makeAuthoringEntity} from '../src/editor/authoring';
 import type {AddKind} from '../src/editor/live-fields';
 import {changedFields,defaultsFor,resetFieldIds,sameValue,valuesFor} from '../src/editor/property-defaults';
 
-const KINDS:AddKind[]=['camera','character','environment','directionalLight','pointLight','spotLight','ambientLight','haze','vmc','ifacialmocap','mediapipe'];
+const KINDS:AddKind[]=['camera','character','environment','directionalLight','pointLight','spotLight','ambientLight','haze','vmc','ifacialmocap','openseeface','mediapipe'];
 const add=(kind:AddKind)=>makeAuthoringEntity(kind,`id_${kind}`,[]);
 const atOrigin=(entity:SceneEntity):SceneEntity=>entity.kind==='tracking'?entity:{...entity,transform:{position:[0,0,0],rotation:[0,0,0,1],scale:entity.kind==='haze'?[20,8,20]:[1,1,1]}};
 
@@ -38,6 +38,7 @@ it('lists the reset fields of each kind and light type, and none of R4 (R3, R4)'
  const tracking=['smoothing','minCutoff','beta','derivativeCutoff','headIntensity','headOffsetX','headOffsetY','headOffsetZ','eyeIntensity','blendShapeSensitivity','linkedBlink'];
  expect(ids('vmc')).toEqual(['bindAddress','port','address',...tracking]);
  expect(ids('ifacialmocap')).toEqual(['bindAddress','port','address',...tracking]);
+ expect(ids('openseeface')).toEqual(['bindAddress','port','address',...tracking]);
  expect(ids('mediapipe')).toEqual(['face','upperBody','hands','mirror',...tracking]);
  const all=new Set(KINDS.flatMap(kind=>ids(kind)));
  for(const excluded of ['name','type','assetId','bodySourceId','faceSourceId','fingersSourceId','targetId','deviceId','calibration'])expect(all.has(excluded)).toBe(false);

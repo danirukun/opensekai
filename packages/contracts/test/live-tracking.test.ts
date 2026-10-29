@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {AvatarPoseSchema,SceneEntitySchema,ScenePatchSchema,SceneViewSchema,TrackingSampleSchema,RuntimeFrameSchema,makeSmokeScene,ClockEnvelopeSchema,AppStatusSchema,TrackingBoneSchema,TrackingStatusSchema} from '../src/index';
+import {defaultTrackingConfig,AvatarPoseSchema,SceneEntitySchema,ScenePatchSchema,SceneViewSchema,TrackingSampleSchema,RuntimeFrameSchema,makeSmokeScene,ClockEnvelopeSchema,AppStatusSchema,TrackingBoneSchema,TrackingStatusSchema} from '../src/index';
 const base={id:'source',name:'VMC Receiver',visible:true,transform:{position:[0,0,0],rotation:[0,0,0,1],scale:[1,1,1]}};
 const receiver={...base,kind:'tracking',generation:1,config:{kind:'vmc',enabled:false,bindAddress:'127.0.0.1',port:39539,senderAddress:null}};
 describe('live authoring and tracking boundary',()=>{
@@ -15,6 +15,14 @@ describe('live authoring and tracking boundary',()=>{
   (avatar as any).tracking={bodySourceId:'missing',faceSourceId:null};expect(SceneViewSchema.safeParse(scene).success).toBe(false);
   (avatar as any).tracking={bodySourceId:'source',faceSourceId:'source'};expect(SceneViewSchema.safeParse(scene).success).toBe(true);
   (scene.entities.at(-1) as any).config={kind:'ifacialmocap',enabled:false,bindAddress:'0.0.0.0',port:49983,phoneAddress:null};expect(SceneViewSchema.safeParse(scene).success).toBe(false);
+  (scene.entities.at(-1) as any).config=defaultTrackingConfig('openseeface');expect(SceneViewSchema.safeParse(scene).success).toBe(false);
+  (avatar as any).tracking={bodySourceId:null,faceSourceId:'source'};expect(SceneViewSchema.safeParse(scene).success).toBe(true);
+  (avatar as any).tracking={bodySourceId:null,faceSourceId:null,fingersSourceId:'source'};expect(SceneViewSchema.safeParse(scene).success).toBe(false);
+ });
+ it('gives an OpenSeeFace source the tracker defaults (B20 R1)',()=>{
+  expect(defaultTrackingConfig('openseeface')).toEqual({kind:'openseeface',enabled:false,bindAddress:'127.0.0.1',port:11573,senderAddress:null});
+  expect(SceneEntitySchema.safeParse({...receiver,config:{...defaultTrackingConfig('openseeface'),senderAddress:'192.168.1.20'}}).success).toBe(true);
+  expect(SceneEntitySchema.safeParse({...receiver,config:{...defaultTrackingConfig('openseeface'),phoneAddress:null}}).success).toBe(false);
  });
  it('bounds finite tagged poses and keeps legacy no-pose frame/clock valid',()=>{
   const sample={sourceId:'source',generation:1,receivedAtMs:100,bones:{head:{rotation:[0,0,0,1],space:'raw'}},expressions:{A:.5}};
