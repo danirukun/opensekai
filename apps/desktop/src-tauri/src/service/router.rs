@@ -251,6 +251,7 @@ impl Shared {
                                 data.keystrokes.into_iter().collect(),
                                 data.held_keys.into_iter().collect(),
                                 data.devices.unwrap_or_default().into_iter().collect(),
+                                data.youtube == Some(true),
                             )
                         {
                             self.sync_keystrokes().await;
@@ -278,7 +279,7 @@ impl Shared {
         }
         let required = match call.method.as_str() {
             "scenePatch" | "sceneReplace" | "cameraSelect" | "blueprintRun" | "blueprintEdit"
-            | "expressionSet" | "cameraScreenshot" => Capability::Edit,
+            | "expressionSet" | "cameraScreenshot" | "integrationsSet" => Capability::Edit,
             "captureFrame" => Capability::Capture,
             "benchmarkStart" | "benchmarkCancel" => Capability::Benchmark,
             _ => Capability::Read,
@@ -348,6 +349,7 @@ impl Shared {
                 blueprint_revision: inner.latest.as_ref().and_then(|f| f.blueprint_revision),
                 local_addresses: Some(computer_addresses()),
                 vmc_senders: Some(self.vmc_senders.statuses()).filter(|list| !list.is_empty()),
+                youtube: Some(self.youtube.status()),
             }));
         }
         if call.method == "cameraScreenshot" {
@@ -359,6 +361,20 @@ impl Shared {
                 Err(_) => Reply::failure(invalid("Invalid screenshot call")),
             };
             return match validate_result("cameraScreenshot", &json!(reply)) {
+                Ok(()) => reply,
+                Err(error) => Reply::failure(error),
+            };
+        }
+        if call.method == "integrationsSet" {
+            // The host owns the user settings and the chat client, so it answers itself (R3).
+            let reply = match serde_json::from_value::<IntegrationsSetParams>(call.params) {
+                Ok(params) => match self.youtube.set_link(params.youtube.link).await {
+                    Ok(status) => Reply::success(json!(status)),
+                    Err(error) => Reply::failure(error),
+                },
+                Err(_) => Reply::failure(invalid("Invalid integrations call")),
+            };
+            return match validate_result("integrationsSet", &json!(reply)) {
                 Ok(()) => reply,
                 Err(error) => Reply::failure(error),
             };

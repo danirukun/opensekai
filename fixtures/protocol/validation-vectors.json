@@ -19163,5 +19163,135 @@
         }
       ]
     }
+  },
+  {
+    "name": "clock-youtube-chat",
+    "target": "wireText",
+    "valid": true,
+    "payload": "{\"kind\":\"clock\",\"sessionId\":\"clock-test\",\"elapsedMs\":1,\"input\":{\"youtube\":{\"events\":[{\"kind\":\"chat\",\"id\":\"item_1\",\"username\":\"Viewer\",\"userChannelId\":\"UC0000000000000000000001\",\"message\":\"hello :wave:\",\"avatarUrl\":\"https://yt3.example.com/a.png\",\"isMember\":true,\"isModerator\":false,\"isOwner\":false,\"isVerified\":false}]}}}"
+  },
+  {
+    "name": "clock-youtube-superChat",
+    "target": "wireText",
+    "valid": true,
+    "payload": "{\"kind\":\"clock\",\"sessionId\":\"clock-test\",\"elapsedMs\":1,\"input\":{\"youtube\":{\"events\":[{\"kind\":\"superChat\",\"id\":\"item_1\",\"username\":\"Viewer\",\"userChannelId\":\"UC0000000000000000000001\",\"message\":\"\",\"avatarUrl\":\"https://yt3.example.com/a.png\",\"amount\":\"¥500\",\"amountMicros\":500000000,\"currency\":\"JPY\",\"tierColor\":\"#1DE9B6\"}]}}}"
+  },
+  {
+    "name": "clock-youtube-superSticker",
+    "target": "wireText",
+    "valid": true,
+    "payload": "{\"kind\":\"clock\",\"sessionId\":\"clock-test\",\"elapsedMs\":1,\"input\":{\"youtube\":{\"events\":[{\"kind\":\"superSticker\",\"id\":\"item_1\",\"username\":\"Viewer\",\"userChannelId\":\"UC0000000000000000000001\",\"stickerName\":\"Wave\",\"stickerImageUrl\":\"https://lh3.example.com/s.png\",\"amount\":\"$2.00\",\"currency\":\"USD\"}]}}}"
+  },
+  {
+    "name": "clock-youtube-newMember",
+    "target": "wireText",
+    "valid": true,
+    "payload": "{\"kind\":\"clock\",\"sessionId\":\"clock-test\",\"elapsedMs\":1,\"input\":{\"youtube\":{\"events\":[{\"kind\":\"newMember\",\"id\":\"item_1\",\"username\":\"Viewer\",\"userChannelId\":\"UC0000000000000000000001\",\"avatarUrl\":\"https://yt3.example.com/a.png\",\"levelName\":\"Member\"}]}}}"
+  },
+  {
+    "name": "clock-youtube-memberMilestone",
+    "target": "wireText",
+    "valid": true,
+    "payload": "{\"kind\":\"clock\",\"sessionId\":\"clock-test\",\"elapsedMs\":1,\"input\":{\"youtube\":{\"events\":[{\"kind\":\"memberMilestone\",\"id\":\"item_1\",\"username\":\"Viewer\",\"userChannelId\":\"UC0000000000000000000001\",\"months\":6,\"message\":\"six months\"}]}}}"
+  },
+  {
+    "name": "clock-youtube-giftMemberships",
+    "target": "wireText",
+    "valid": true,
+    "payload": "{\"kind\":\"clock\",\"sessionId\":\"clock-test\",\"elapsedMs\":1,\"input\":{\"youtube\":{\"events\":[{\"kind\":\"giftMemberships\",\"id\":\"item_1\",\"username\":\"Viewer\",\"userChannelId\":\"UC0000000000000000000001\",\"count\":5}]}}}"
+  },
+  {
+    "name": "clock-youtube-status",
+    "target": "wireText",
+    "valid": true,
+    "payload": "{\"kind\":\"clock\",\"sessionId\":\"clock-test\",\"elapsedMs\":1,\"input\":{\"youtube\":{\"events\":[{\"kind\":\"status\",\"status\":\"live\"}]}}}"
+  },
+  {
+    "name": "clock-youtube-over-plain-limit",
+    "target": "wireText",
+    "valid": true,
+    "payload": "{\"kind\":\"clock\",\"sessionId\":\"clock-test\",\"elapsedMs\":1,\"input\":{\"youtube\":{\"events\":[{\"kind\":\"chat\",\"id\":\"item_0\",\"username\":\"Viewer\",\"userChannelId\":\"UC0000000000000000000001\",\"message\":\"mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm\",\"avatarUrl\":\"https://yt3.example.com/a.png\",\"isMember\":true,\"isModerator\":false,\"isOwner\":false,\"isVerified\":false},{\"kind\":\"chat\",\"id\":\"item_1\",\"username\":\"Viewer\",\"userChannelId\":\"UC0000000000000000000001\",\"message\":\"mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm\",\"avatarUrl\":\"https://yt3.example.com/a.png\",\"isMember\":true,\"isModerator\":false,\"isOwner\":false,\"isVerified\":false},{\"kind\":\"chat\",\"id\":\"item_2\",\"username\":\"Viewer\",\"userChannelId\":\"UC0000000000000000000001\",\"message\":\"mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm\",\"avatarUrl\":\"https://yt3.example.com/a.png\",\"isMember\":true,\"isModerator\":false,\"isOwner\":false,\"isVerified\":false},{\"kind\":\"chat\",\"id\":\"item_3\",\"username\":\"Viewer\",\"userChannelId\":\"UC0000000000000000000001\",\"message\":\"mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm\",\"avatarUrl\":\"https://yt3.example.com/a.png\",\"isMember\":true,\"isModerator\":false,\"isOwner\":false,\"isVerified\":false},{\"kind\":\"chat\",\"id\":\"item_4\",\"username\":\"Viewer\",\"userChannelId\":\"UC0000000000000000000001\",\"message\":\"mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm\",\"avatarUrl\":\"https://yt3.example.com/a.png\",\"isMember\":true,\"isModerator\":false,\"isOwner\":false,\"isVerified\":false},{\"kind\":\"chat\",\"id\":\"item_5\",\"username\":\"Viewer\",\"userChannelId\":\"UC0000000000000000000001\",\"message\":\"mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm\",\"avatarUrl\":\"https://yt3.example.com/a.png\",\"isMember\":true,\"isModerator\":false,\"isOwner\":false,\"isVerified\":false},{\"kind\":\"chat\",\"id\":\"item_6\",\"username\":\"Viewer\",\"userChannelId\":\"UC0000000000000000000001\",\"message\":\"mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm\",\"avatarUrl\":\"https://yt3.example.com/a.png\",\"isMember\":true,\"isModerator\":false,\"isOwner\":false,\"isVerified\":false},{\"kind\":\"chat\",\"id\":\"item_7\",\"username\":\"Viewer\",\"userChannelId\":\"UC0000000000000000000001\",\"message\":\"mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm\",\"avatarUrl\":\"https://yt3.example.com/a.png\",\"isMember\":true,\"isModerator\":false,\"isOwner\":false,\"isVerified\":false}]}}}"
+  },
+  {
+    "name": "clock-youtube-message-too-long",
+    "target": "wireText",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": "{\"kind\":\"clock\",\"sessionId\":\"clock-test\",\"elapsedMs\":1,\"input\":{\"youtube\":{\"events\":[{\"kind\":\"chat\",\"id\":\"item_1\",\"username\":\"Viewer\",\"userChannelId\":\"UC0000000000000000000001\",\"message\":\"mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm\",\"avatarUrl\":\"https://yt3.example.com/a.png\",\"isMember\":true,\"isModerator\":false,\"isOwner\":false,\"isVerified\":false}]}}}"
+  },
+  {
+    "name": "clock-youtube-nine-events",
+    "target": "wireText",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": "{\"kind\":\"clock\",\"sessionId\":\"clock-test\",\"elapsedMs\":1,\"input\":{\"youtube\":{\"events\":[{\"kind\":\"chat\",\"id\":\"item_0\",\"username\":\"Viewer\",\"userChannelId\":\"UC0000000000000000000001\",\"message\":\"hello :wave:\",\"avatarUrl\":\"https://yt3.example.com/a.png\",\"isMember\":true,\"isModerator\":false,\"isOwner\":false,\"isVerified\":false},{\"kind\":\"chat\",\"id\":\"item_1\",\"username\":\"Viewer\",\"userChannelId\":\"UC0000000000000000000001\",\"message\":\"hello :wave:\",\"avatarUrl\":\"https://yt3.example.com/a.png\",\"isMember\":true,\"isModerator\":false,\"isOwner\":false,\"isVerified\":false},{\"kind\":\"chat\",\"id\":\"item_2\",\"username\":\"Viewer\",\"userChannelId\":\"UC0000000000000000000001\",\"message\":\"hello :wave:\",\"avatarUrl\":\"https://yt3.example.com/a.png\",\"isMember\":true,\"isModerator\":false,\"isOwner\":false,\"isVerified\":false},{\"kind\":\"chat\",\"id\":\"item_3\",\"username\":\"Viewer\",\"userChannelId\":\"UC0000000000000000000001\",\"message\":\"hello :wave:\",\"avatarUrl\":\"https://yt3.example.com/a.png\",\"isMember\":true,\"isModerator\":false,\"isOwner\":false,\"isVerified\":false},{\"kind\":\"chat\",\"id\":\"item_4\",\"username\":\"Viewer\",\"userChannelId\":\"UC0000000000000000000001\",\"message\":\"hello :wave:\",\"avatarUrl\":\"https://yt3.example.com/a.png\",\"isMember\":true,\"isModerator\":false,\"isOwner\":false,\"isVerified\":false},{\"kind\":\"chat\",\"id\":\"item_5\",\"username\":\"Viewer\",\"userChannelId\":\"UC0000000000000000000001\",\"message\":\"hello :wave:\",\"avatarUrl\":\"https://yt3.example.com/a.png\",\"isMember\":true,\"isModerator\":false,\"isOwner\":false,\"isVerified\":false},{\"kind\":\"chat\",\"id\":\"item_6\",\"username\":\"Viewer\",\"userChannelId\":\"UC0000000000000000000001\",\"message\":\"hello :wave:\",\"avatarUrl\":\"https://yt3.example.com/a.png\",\"isMember\":true,\"isModerator\":false,\"isOwner\":false,\"isVerified\":false},{\"kind\":\"chat\",\"id\":\"item_7\",\"username\":\"Viewer\",\"userChannelId\":\"UC0000000000000000000001\",\"message\":\"hello :wave:\",\"avatarUrl\":\"https://yt3.example.com/a.png\",\"isMember\":true,\"isModerator\":false,\"isOwner\":false,\"isVerified\":false},{\"kind\":\"chat\",\"id\":\"item_8\",\"username\":\"Viewer\",\"userChannelId\":\"UC0000000000000000000001\",\"message\":\"hello :wave:\",\"avatarUrl\":\"https://yt3.example.com/a.png\",\"isMember\":true,\"isModerator\":false,\"isOwner\":false,\"isVerified\":false}]}}}"
+  },
+  {
+    "name": "clock-youtube-bad-status",
+    "target": "wireText",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": "{\"kind\":\"clock\",\"sessionId\":\"clock-test\",\"elapsedMs\":1,\"input\":{\"youtube\":{\"events\":[{\"kind\":\"status\",\"status\":\"offline\"}]}}}"
+  },
+  {
+    "name": "clock-youtube-empty",
+    "target": "wireText",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": "{\"kind\":\"clock\",\"sessionId\":\"clock-test\",\"elapsedMs\":1,\"input\":{\"youtube\":{\"events\":[]}}}"
+  },
+  {
+    "name": "clock-youtube-unknown-field",
+    "target": "wireText",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": "{\"kind\":\"clock\",\"sessionId\":\"clock-test\",\"elapsedMs\":1,\"input\":{\"youtube\":{\"events\":[{\"kind\":\"giftMemberships\",\"id\":\"item_1\",\"username\":\"Viewer\",\"userChannelId\":\"UC0000000000000000000001\",\"count\":5,\"extra\":1}]}}}"
+  },
+  {
+    "name": "integrations-set-link",
+    "target": "wireText",
+    "valid": true,
+    "payload": "{\"kind\":\"call\",\"requestId\":\"r\",\"method\":\"integrationsSet\",\"params\":{\"youtube\":{\"link\":\"https://www.youtube.com/@channel\"}}}"
+  },
+  {
+    "name": "integrations-set-null",
+    "target": "wireText",
+    "valid": true,
+    "payload": "{\"kind\":\"call\",\"requestId\":\"r\",\"method\":\"integrationsSet\",\"params\":{\"youtube\":{\"link\":null}}}"
+  },
+  {
+    "name": "integrations-set-link-too-long",
+    "target": "call",
+    "method": "integrationsSet",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "youtube": {
+        "link": "https://youtu.be/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    }
+  },
+  {
+    "name": "integrations-set-missing-link",
+    "target": "call",
+    "method": "integrationsSet",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "youtube": {}
+    }
+  },
+  {
+    "name": "integrations-set-extra-field",
+    "target": "call",
+    "method": "integrationsSet",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "youtube": {
+        "link": null
+      },
+      "twitch": {}
+    }
   }
 ]

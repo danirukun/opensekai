@@ -7,7 +7,7 @@ it('initializes and calls a real stdio process, then closes it',async()=>{
  const client=new Client({name:'opensekai-test',version:'0.1.0'});
  try {
   await client.connect(transport);
-  expect((await client.listTools()).tools.map(t=>t.name)).toEqual(['app_status','scene_inspect','scene_patch','scene_replace','camera_select','camera_screenshot','blueprint_run','blueprint_edit','blueprint_inspect','blueprint_export','blueprint_import','blueprint_debug_log','tracking_probe','capture_frame','benchmark_start','benchmark_status','benchmark_cancel','evidence_read','asset_list','expression_get','expression_set']);
+  expect((await client.listTools()).tools.map(t=>t.name)).toEqual(['app_status','scene_inspect','scene_patch','scene_replace','camera_select','camera_screenshot','blueprint_run','blueprint_edit','blueprint_inspect','blueprint_export','blueprint_import','blueprint_debug_log','tracking_probe','capture_frame','benchmark_start','benchmark_status','benchmark_cancel','evidence_read','asset_list','expression_get','expression_set','youtube_link_set']);
   expect((await client.callTool({name:'blueprint_run',arguments:{graph:{schemaVersion:1,id:'draft',name:'Draft',nodes:[{id:'start',version:1,type:'event.manual',settings:{},position:{x:0,y:0}}],connections:[]},triggerNodeId:'start'}})).isError).toBe(true);
   expect((await client.callTool({name:'app_status',arguments:{}})).isError).toBe(false);
   expect((await client.callTool({name:'camera_screenshot',arguments:{cameraId:'camera_main',expectedRevision:0}})).structuredContent).toMatchObject({ok:true,data:{fileName:'20261017-090507-042-camera_main.png'}});

@@ -1,0 +1,387 @@
+{
+ "responseContext": {
+  "serviceTrackingParams": []
+ },
+ "continuationContents": {
+  "liveChatContinuation": {
+   "continuations": [
+    {
+     "timedContinuationData": {
+      "continuation": "next-token",
+      "timeoutMs": 4321
+     }
+    }
+   ],
+   "actions": [
+    {
+     "addChatItemAction": {
+      "item": {
+       "liveChatTextMessageRenderer": {
+        "id": "chat_1",
+        "timestampUsec": "1761552000000000",
+        "message": {
+         "runs": [
+          {
+           "text": "hello "
+          },
+          {
+           "emoji": {
+            "emojiId": "😀",
+            "shortcuts": [
+             ":grinning_face:"
+            ],
+            "isCustomEmoji": false
+           }
+          },
+          {
+           "emoji": {
+            "emojiId": "UCxyz/abc",
+            "shortcuts": [
+             ":wave-blob:"
+            ],
+            "isCustomEmoji": true,
+            "image": {
+             "thumbnails": [
+              {
+               "url": "https://yt3.example.com/emoji-32.png",
+               "width": 32,
+               "height": 32
+              },
+              {
+               "url": "https://yt3.example.com/emoji-64.png",
+               "width": 64,
+               "height": 64
+              }
+             ]
+            }
+           }
+          }
+         ]
+        },
+        "authorName": {
+         "simpleText": "Viewer One"
+        },
+        "authorExternalChannelId": "UC0000000000000000000001",
+        "authorPhoto": {
+         "thumbnails": [
+          {
+           "url": "//yt3.example.com/viewer-one-32.png"
+          },
+          {
+           "url": "//yt3.example.com/viewer-one-64.png"
+          }
+         ]
+        },
+        "authorBadges": [
+         {
+          "liveChatAuthorBadgeRenderer": {
+           "icon": {
+            "iconType": "MODERATOR"
+           },
+           "tooltip": "Moderator"
+          }
+         },
+         {
+          "liveChatAuthorBadgeRenderer": {
+           "icon": {
+            "iconType": "VERIFIED"
+           },
+           "tooltip": "Verified"
+          }
+         },
+         {
+          "liveChatAuthorBadgeRenderer": {
+           "customThumbnail": {
+            "thumbnails": [
+             {
+              "url": "https://yt3.example.com/badge-32.png",
+              "width": 32,
+              "height": 32
+             },
+             {
+              "url": "https://yt3.example.com/badge-64.png",
+              "width": 64,
+              "height": 64
+             }
+            ]
+           },
+           "tooltip": "Member (1 year)"
+          }
+         }
+        ]
+       }
+      },
+      "clientId": "client"
+     }
+    },
+    {
+     "addChatItemAction": {
+      "item": {
+       "liveChatPaidMessageRenderer": {
+        "id": "superchat_1",
+        "timestampUsec": "1761552001000000",
+        "message": {
+         "runs": [
+          {
+           "text": "thanks"
+          }
+         ]
+        },
+        "purchaseAmountText": {
+         "simpleText": "¥1,000"
+        },
+        "bodyBackgroundColor": 4280150454,
+        "headerBackgroundColor": 4278239141,
+        "authorName": {
+         "simpleText": "Viewer Two"
+        },
+        "authorExternalChannelId": "UC0000000000000000000002",
+        "authorPhoto": {
+         "thumbnails": [
+          {
+           "url": "https://yt3.example.com/viewer-two-32.png"
+          },
+          {
+           "url": "https://yt3.example.com/viewer-two.png"
+          }
+         ]
+        }
+       }
+      },
+      "clientId": "client"
+     }
+    },
+    {
+     "addChatItemAction": {
+      "item": {
+       "liveChatPaidStickerRenderer": {
+        "id": "sticker_1",
+        "timestampUsec": "1761552002000000",
+        "purchaseAmountText": {
+         "simpleText": "CA$2.00"
+        },
+        "sticker": {
+         "thumbnails": [
+          {
+           "url": "//lh3.example.com/sticker-88.png"
+          },
+          {
+           "url": "//lh3.example.com/sticker-176.png"
+          }
+         ],
+         "accessibility": {
+          "accessibilityData": {
+           "label": "Waving hand"
+          }
+         }
+        },
+        "authorName": {
+         "simpleText": "Viewer Three"
+        },
+        "authorExternalChannelId": "UC0000000000000000000003",
+        "authorPhoto": {
+         "thumbnails": [
+          {
+           "url": "https://yt3.example.com/viewer-three-32.png"
+          },
+          {
+           "url": "https://yt3.example.com/viewer-three.png"
+          }
+         ]
+        }
+       }
+      },
+      "clientId": "client"
+     }
+    },
+    {
+     "addChatItemAction": {
+      "item": {
+       "liveChatMembershipItemRenderer": {
+        "id": "member_1",
+        "timestampUsec": "1761552003000000",
+        "headerSubtext": {
+         "runs": [
+          {
+           "text": "Welcome to "
+          },
+          {
+           "text": "Fan Club"
+          },
+          {
+           "text": "!"
+          }
+         ]
+        },
+        "authorName": {
+         "simpleText": "Viewer Four"
+        },
+        "authorExternalChannelId": "UC0000000000000000000004",
+        "authorPhoto": {
+         "thumbnails": [
+          {
+           "url": "https://yt3.example.com/viewer-four-32.png"
+          },
+          {
+           "url": "https://yt3.example.com/viewer-four.png"
+          }
+         ]
+        }
+       }
+      },
+      "clientId": "client"
+     }
+    },
+    {
+     "addChatItemAction": {
+      "item": {
+       "liveChatMembershipItemRenderer": {
+        "id": "milestone_1",
+        "timestampUsec": "1761552004000000",
+        "headerPrimaryText": {
+         "runs": [
+          {
+           "text": "Member for "
+          },
+          {
+           "text": "6"
+          },
+          {
+           "text": " months"
+          }
+         ]
+        },
+        "headerSubtext": {
+         "simpleText": "Fan Club"
+        },
+        "message": {
+         "runs": [
+          {
+           "text": "half a year"
+          }
+         ]
+        },
+        "authorName": {
+         "simpleText": "Viewer Five"
+        },
+        "authorExternalChannelId": "UC0000000000000000000005",
+        "authorPhoto": {
+         "thumbnails": [
+          {
+           "url": "https://yt3.example.com/viewer-five-32.png"
+          },
+          {
+           "url": "https://yt3.example.com/viewer-five.png"
+          }
+         ]
+        }
+       }
+      },
+      "clientId": "client"
+     }
+    },
+    {
+     "addChatItemAction": {
+      "item": {
+       "liveChatSponsorshipsGiftPurchaseAnnouncementRenderer": {
+        "id": "gift_1",
+        "timestampUsec": "1761552005000000",
+        "authorExternalChannelId": "UC0000000000000000000006",
+        "header": {
+         "liveChatSponsorshipsHeaderRenderer": {
+          "authorName": {
+           "simpleText": "Viewer Six"
+          },
+          "authorPhoto": {
+           "thumbnails": [
+            {
+             "url": "https://yt3.example.com/viewer-six-32.png",
+             "width": 32,
+             "height": 32
+            },
+            {
+             "url": "https://yt3.example.com/viewer-six-64.png",
+             "width": 64,
+             "height": 64
+            }
+           ]
+          },
+          "primaryText": {
+           "runs": [
+            {
+             "text": "Gifted "
+            },
+            {
+             "text": "5"
+            },
+            {
+             "text": " Fixture Channel memberships"
+            }
+           ]
+          }
+         }
+        }
+       }
+      },
+      "clientId": "client"
+     }
+    },
+    {
+     "addChatItemAction": {
+      "item": {
+       "liveChatSponsorshipsGiftRedemptionAnnouncementRenderer": {
+        "id": "redeem_1",
+        "timestampUsec": "1761552006000000",
+        "authorExternalChannelId": "UC0000000000000000000007",
+        "authorName": {
+         "simpleText": "Viewer Seven"
+        },
+        "message": {
+         "runs": [
+          {
+           "text": "received a gift membership by "
+          },
+          {
+           "text": "Viewer Six"
+          }
+         ]
+        }
+       }
+      },
+      "clientId": "client"
+     }
+    },
+    {
+     "addChatItemAction": {
+      "item": {
+       "liveChatViewerEngagementMessageRenderer": {
+        "id": "engagement_1",
+        "timestampUsec": "1761552007000000",
+        "message": {
+         "runs": [
+          {
+           "text": "Welcome to live chat!"
+          }
+         ]
+        }
+       }
+      },
+      "clientId": "client"
+     }
+    },
+    {
+     "markChatItemAsDeletedAction": {
+      "targetItemId": "chat_0",
+      "deletedStateMessage": {
+       "runs": [
+        {
+         "text": "[message deleted]"
+        }
+       ]
+      }
+     }
+    }
+   ]
+  }
+ }
+}

@@ -1,12 +1,12 @@
-import { BlueprintSetSchema, defaultBlueprintValue, isBlueprintValue, keystrokeAccelerator, type AppError, type BlueprintGraph, type BlueprintNode, type BlueprintValue, type DeviceEvent, type DeviceKind, type Id, type Reply } from '@opensekai/contracts';
-import { deviceTrigger, emptyState, isTrackingTrigger, setNodeState, trackingTrigger, type TrackingEdge, type NodeRequest, type RunEnv, type RunState } from './blueprint-eval';
+import { BlueprintSetSchema, defaultBlueprintValue, isBlueprintValue, isYouTubeNodeType, keystrokeAccelerator, type AppError, type BlueprintGraph, type BlueprintNode, type BlueprintValue, type DeviceEvent, type DeviceKind, type Id, type Reply, type YouTubeEvent } from '@opensekai/contracts';
+import { deviceTrigger, youtubeTrigger, emptyState, isTrackingTrigger, setNodeState, trackingTrigger, type TrackingEdge, type NodeRequest, type RunEnv, type RunState } from './blueprint-eval';
 import { activeDevices } from './devices';
 import { fnv1a } from './blueprint-random';
 import type { DebugValueSample } from './debug-log';
 import type { TransitionEnd } from './tweens';
 import { compileBlueprint, fail, runFlow, type BlueprintEffect, type CompiledBlueprint, type FlowBudget, type PendingDelay } from './blueprint';
 
-export type BlueprintEvent = { kind: 'manual'; graphId: Id; nodeId: Id } | { kind: 'keystroke'; accelerator: string } | { kind: 'device'; event: DeviceEvent } | { kind: 'tracking' } | { kind: 'update' }
+export type BlueprintEvent = { kind: 'manual'; graphId: Id; nodeId: Id } | { kind: 'keystroke'; accelerator: string } | { kind: 'device'; event: DeviceEvent } | { kind: 'youtube'; event: YouTubeEvent } | { kind: 'tracking' } | { kind: 'update' }
  | { kind: 'custom'; name: string; payload: BlueprintValue | null };
 export type StepEnv = Omit<RunEnv, 'deltaSeconds'>;
 // `debug` (slice F): the Debug Value samples of an accepted run. `nodeId` is the node that started the run (set on each run that `step` returns). `external` marks a run that a `custom` step event
@@ -14,7 +14,7 @@ export type StepEnv = Omit<RunEnv, 'deltaSeconds'>;
 export interface GraphRun { graphId: Id; effects: BlueprintEffect[]; error: AppError | null; nodeId?: Id; external?: true; debug?: DebugValueSample[] }
 // Called once per run, right after the run, before the next one. A returned error keeps the run's Flip Flop state and new delays uncommitted.
 export type RunGate = (run: GraphRun) => AppError | null;
-export interface BlueprintRuntime { install(graphs: unknown, fresh?: boolean): Reply<BlueprintGraph[]>; installCompiled(graphs: readonly CompiledBlueprint[], fresh?: boolean): void; keystrokes(): string[]; heldKeys(): string[]; devices(): DeviceKind[]; step(events: BlueprintEvent[], nowMs: number, gate?: RunGate, env?: StepEnv, transitionEnds?: readonly TransitionEnd[]): GraphRun[]; takeControlRequests(): ControlRequest[] }
+export interface BlueprintRuntime { install(graphs: unknown, fresh?: boolean): Reply<BlueprintGraph[]>; installCompiled(graphs: readonly CompiledBlueprint[], fresh?: boolean): void; keystrokes(): string[]; heldKeys(): string[]; devices(): DeviceKind[]; youtube(): boolean; step(events: BlueprintEvent[], nowMs: number, gate?: RunGate, env?: StepEnv, transitionEnds?: readonly TransitionEnd[]): GraphRun[]; takeControlRequests(): ControlRequest[] }
 // A Blueprint control request of a committed run, in run order. The session applies them after the step.
 export interface ControlRequest { sourceGraphId: Id; graphId: Id; action: 'enable' | 'disable' | 'toggle' }
 
@@ -31,6 +31,8 @@ export const initialState = (graph: BlueprintGraph): RunState =>
 
 export const activeAccelerators = (graphs: readonly BlueprintGraph[]): string[] => [...new Set(graphs.filter(graph => graph.enabled)
  .flatMap(graph => graph.nodes.flatMap(node => node.type === 'event.keystroke' ? [keystrokeAccelerator(node.settings)] : [])))].sort();
+// Whether a listened graph has a YouTube node; the host sends YouTube events only then.
+export const usesYouTube = (graphs: readonly BlueprintGraph[]): boolean => graphs.some(graph => graph.enabled && graph.nodes.some(node => isYouTubeNodeType(node.type)));
 export const activeHeldKeys = (graphs: readonly BlueprintGraph[]): string[] => [...new Set(graphs.filter(graph => graph.enabled).flatMap(graph => graph.nodes.flatMap(node =>
  node.type === 'input.keyHeld' ? [node.settings.code] : node.type === 'input.keyAxis' ? [node.settings.negative, node.settings.positive] : [])))].sort();
 
@@ -155,6 +157,7 @@ export function createBlueprintRuntime(): BlueprintRuntime {
   keystrokes: () => activeAccelerators(listenedGraphs(active.map(entry => entry.compiled.graph))),
   heldKeys: () => activeHeldKeys(listenedGraphs(active.map(entry => entry.compiled.graph))),
   devices: () => activeDevices(listenedGraphs(active.map(entry => entry.compiled.graph))),
+  youtube: () => usesYouTube(listenedGraphs(active.map(entry => entry.compiled.graph))),
   takeControlRequests: () => { const taken = controls; controls = []; return taken; },
   step(events, nowMs, gate = () => null, base: StepEnv = { held: new Set<string>(), scene: () => null }, transitionEnds = []) {
    // Requests of an earlier step that threw before the session took them are stale.
@@ -237,6 +240,12 @@ export function createBlueprintRuntime(): BlueprintRuntime {
      for (const entry of active)
       for (const node of entry.compiled.graph.enabled ? entry.compiled.graph.nodes : [])
        if (deviceTrigger(node, event.event)) fire(entry, { nodeId: node.id, port: 'flow' }, { ...instant, trigger: event.event });
+     continue;
+    }
+    if (event.kind === 'youtube') {
+     for (const entry of active)
+      for (const node of entry.compiled.graph.enabled ? entry.compiled.graph.nodes : [])
+       if (youtubeTrigger(node, event.event)) fire(entry, { nodeId: node.id, port: 'flow' }, { ...instant, youtube: event.event });
      continue;
     }
     if (event.kind === 'tracking') {

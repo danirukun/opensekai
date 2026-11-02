@@ -56,6 +56,7 @@ impl InputQueue {
                 .collect(),
             held: vec![],
             devices: None,
+            youtube: None,
         })
     }
 }

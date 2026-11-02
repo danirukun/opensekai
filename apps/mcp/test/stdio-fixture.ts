@@ -2,12 +2,16 @@ import { createHash } from 'node:crypto';
 import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
 import { makeSmokeScene, type AppApi, type Reply } from '@opensekai/contracts';
 import { createMcpServer } from '../src/server';
+// The fixture host answers integrationsSet with a waiting status for any link; only the Rust host parses links.
 export function fixtureApi(): AppApi {
  const scene = makeSmokeScene();
+ let link: string | null = null;
+ const youtube = () => ({link,state:link === null ? 'notConnected' as const : 'waiting' as const,error:null,videoId:null,items:0,skipped:0,redemptions:0,dropped:0});
  const ok = <T>(data:T):Reply<T> => ({ok:true,data});
  const denied = async ():Promise<Reply<never>> => ({ok:false,error:{code:'FORBIDDEN',message:'Capability denied',ids:[]}});
  return {
-  appStatus:async () => ok({schemaVersion:1,sessionId:'fixture',ready:true,revision:scene.revision,capabilities:['read','edit'],warnings:[],outputs:[]}),
+  appStatus:async () => ok({schemaVersion:1,sessionId:'fixture',ready:true,revision:scene.revision,capabilities:['read','edit'],warnings:[],outputs:[],youtube:youtube()}),
+  integrationsSet:async p => { link = p.youtube.link?.trim() || null; return ok(youtube()); },
   sceneInspect:async () => ok(structuredClone(scene)),
   scenePatch:async p => p.expectedRevision !== scene.revision ? {ok:false,error:{code:'CONFLICT',message:'Stale revision',ids:[]}} : ok({revision:++scene.revision}),
   sceneReplace:denied,

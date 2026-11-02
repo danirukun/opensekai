@@ -339,6 +339,7 @@ mod tests {
             ],
             held: vec!["ArrowRight".into(); 16],
             devices: Some(devices),
+            youtube: None,
         };
         let clock = json!({"kind": "clock", "sessionId": "s".repeat(256), "elapsedMs": 9_007_199_254_740_991u64, "input": input});
         let bytes = clock.to_string().into_bytes();
