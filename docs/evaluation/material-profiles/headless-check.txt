@@ -1,41 +1,49 @@
 # fixture_vrm_1 auto {"fixture":"fixture_vrm_1","backend":"webgpu","profiles":{"mtoon":13},"materialWarnings":[],"pipelineFailures":0,"otherWarnings":["UNSUPPORTED VRMC_springBone simulation is disabled in renderer","UNSUPPORTED VRMC_node_constraint simulation is disabled in renderer"],"pageErrors":[],"png":"unknown: the page screenshot is one flat color"}
 PASS fixture_vrm_1 auto: loads [{"code":"UNSUPPORTED","message":"VRMC_springBone simulation is disabled in renderer","ids":["fixture_vrm_1"]},{"code":"UNSUPPORTED","message":"VRMC_node_constraint simulation is disabled in renderer","ids":["fixture_vrm_1"]}]
-PASS fixture_vrm_1 auto: no pipeline compile failure 
+PASS fixture_vrm_1 auto: backend webgpu "webgpu"
+PASS fixture_vrm_1 auto: no pipeline compile failure in any applied frame 
 PASS fixture_vrm_1 auto: profile counts {"mtoon":13} {"mtoon":13}
 PASS fixture_vrm_1 auto: no UNSUPPORTED material warning []
-# fixture_vrm_1 webgl2 {"fixture":"fixture_vrm_1","backend":"webgl2","profiles":{"mtoon":13},"materialWarnings":[],"pipelineFailures":0,"otherWarnings":["UNSUPPORTED VRMC_springBone simulation is disabled in renderer","UNSUPPORTED VRMC_node_constraint simulation is disabled in renderer"],"pageErrors":[],"png":{"file":"docs/evaluation/material-profiles/fixture_vrm_1-webgl2.png","transparentFraction":0.958}}
+# fixture_vrm_1 webgl2 {"fixture":"fixture_vrm_1","backend":"webgl2","profiles":{"mtoon":13},"materialWarnings":[],"pipelineFailures":0,"otherWarnings":["UNSUPPORTED VRMC_springBone simulation is disabled in renderer","UNSUPPORTED VRMC_node_constraint simulation is disabled in renderer"],"pageErrors":[],"png":"unknown: page.screenshot: Timeout 20000ms exceeded."}
 PASS fixture_vrm_1 webgl2: loads [{"code":"UNSUPPORTED","message":"VRMC_springBone simulation is disabled in renderer","ids":["fixture_vrm_1"]},{"code":"UNSUPPORTED","message":"VRMC_node_constraint simulation is disabled in renderer","ids":["fixture_vrm_1"]}]
-PASS fixture_vrm_1 webgl2: no pipeline compile failure 
+PASS fixture_vrm_1 webgl2: backend webgl2 "webgl2"
+PASS fixture_vrm_1 webgl2: no pipeline compile failure in any applied frame 
 PASS fixture_vrm_1 webgl2: profile counts {"mtoon":13} {"mtoon":13}
 PASS fixture_vrm_1 webgl2: no UNSUPPORTED material warning []
 # fixture_vrm0_arkit auto {"fixture":"fixture_vrm0_arkit","backend":"webgpu","profiles":{"mtoon":16},"materialWarnings":[],"pipelineFailures":0,"otherWarnings":[],"pageErrors":[],"png":"unknown: the page screenshot is one flat color"}
 PASS fixture_vrm0_arkit auto: loads []
-PASS fixture_vrm0_arkit auto: no pipeline compile failure 
+PASS fixture_vrm0_arkit auto: backend webgpu "webgpu"
+PASS fixture_vrm0_arkit auto: no pipeline compile failure in any applied frame 
 PASS fixture_vrm0_arkit auto: profile counts {"mtoon":16} {"mtoon":16}
 PASS fixture_vrm0_arkit auto: no UNSUPPORTED material warning []
 # fixture_vrm0_arkit webgl2 {"fixture":"fixture_vrm0_arkit","backend":"webgl2","profiles":{"mtoon":16},"materialWarnings":[],"pipelineFailures":0,"otherWarnings":[],"pageErrors":[],"png":{"file":"docs/evaluation/material-profiles/fixture_vrm0_arkit-webgl2.png","transparentFraction":0.941}}
 PASS fixture_vrm0_arkit webgl2: loads []
-PASS fixture_vrm0_arkit webgl2: no pipeline compile failure 
+PASS fixture_vrm0_arkit webgl2: backend webgl2 "webgl2"
+PASS fixture_vrm0_arkit webgl2: no pipeline compile failure in any applied frame 
 PASS fixture_vrm0_arkit webgl2: profile counts {"mtoon":16} {"mtoon":16}
 PASS fixture_vrm0_arkit webgl2: no UNSUPPORTED material warning []
 # fixture_glb_stage auto {"fixture":"fixture_glb_stage","backend":"webgpu","profiles":{"pbr":25},"materialWarnings":[],"pipelineFailures":0,"otherWarnings":[],"pageErrors":[],"png":"unknown: the page screenshot is one flat color"}
 PASS fixture_glb_stage auto: loads []
-PASS fixture_glb_stage auto: no pipeline compile failure 
+PASS fixture_glb_stage auto: backend webgpu "webgpu"
+PASS fixture_glb_stage auto: no pipeline compile failure in any applied frame 
 PASS fixture_glb_stage auto: profile counts {"pbr":25} {"pbr":25}
 PASS fixture_glb_stage auto: no UNSUPPORTED material warning []
 # fixture_glb_stage webgl2 {"fixture":"fixture_glb_stage","backend":"webgl2","profiles":{"pbr":25},"materialWarnings":[],"pipelineFailures":0,"otherWarnings":[],"pageErrors":[],"png":{"file":"docs/evaluation/material-profiles/fixture_glb_stage-webgl2.png","transparentFraction":0}}
 PASS fixture_glb_stage webgl2: loads []
-PASS fixture_glb_stage webgl2: no pipeline compile failure 
+PASS fixture_glb_stage webgl2: backend webgl2 "webgl2"
+PASS fixture_glb_stage webgl2: no pipeline compile failure in any applied frame 
 PASS fixture_glb_stage webgl2: profile counts {"pbr":25} {"pbr":25}
 PASS fixture_glb_stage webgl2: no UNSUPPORTED material warning []
 # fixture_test_stage auto {"fixture":"fixture_test_stage","backend":"webgpu","profiles":{"pbr":11,"unlit":1},"materialWarnings":[],"pipelineFailures":0,"otherWarnings":[],"pageErrors":[],"png":"unknown: the page screenshot is one flat color"}
 PASS fixture_test_stage auto: loads []
-PASS fixture_test_stage auto: no pipeline compile failure 
+PASS fixture_test_stage auto: backend webgpu "webgpu"
+PASS fixture_test_stage auto: no pipeline compile failure in any applied frame 
 PASS fixture_test_stage auto: profile counts {"pbr":11,"unlit":1} {"pbr":11,"unlit":1}
 PASS fixture_test_stage auto: no UNSUPPORTED material warning []
 # fixture_test_stage webgl2 {"fixture":"fixture_test_stage","backend":"webgl2","profiles":{"pbr":11,"unlit":1},"materialWarnings":[],"pipelineFailures":0,"otherWarnings":[],"pageErrors":[],"png":{"file":"docs/evaluation/material-profiles/fixture_test_stage-webgl2.png","transparentFraction":0.12}}
 PASS fixture_test_stage webgl2: loads []
-PASS fixture_test_stage webgl2: no pipeline compile failure 
+PASS fixture_test_stage webgl2: backend webgl2 "webgl2"
+PASS fixture_test_stage webgl2: no pipeline compile failure in any applied frame 
 PASS fixture_test_stage webgl2: profile counts {"pbr":11,"unlit":1} {"pbr":11,"unlit":1}
 PASS fixture_test_stage webgl2: no UNSUPPORTED material warning []
-32 pass, 0 fail, 0 fixtures skipped
+40 pass, 0 fail, 0 fixtures skipped

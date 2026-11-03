@@ -498,6 +498,8 @@ pub fn stage_avatar(library: &Path, path: &Path) -> Result<StagedAsset, AppError
         .flush()
         .map_err(|_| error(ErrorCode::Unavailable, ""))?;
     let (json, raw) = validate_import_file(copy.as_file_mut(), count)?;
+    // Only a new import: a record that is already stored is not checked again.
+    super::check_required(&json, super::VRM_REQUIRED)?;
     let expressions = super::vrm::vrm_expressions(&json, &raw);
     let eye_bones = Some(super::vrm::vrm_has_eye_bones(&json));
     let rig = super::vrm::vrm_rig(&json);
@@ -1146,6 +1148,17 @@ mod import_tests {
         assert!(r.import_avatar(&path).is_ok());
     }
     #[test]
+    fn stored_avatar_is_not_checked_for_required_extensions_again() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("stored.vrm");
+        std::fs::write(
+            &path,
+            vrm(&with_required(r#""KHR_draco_mesh_compression""#)),
+        )
+        .unwrap();
+        assert!(stored_vrm(&path).is_some());
+    }
+    #[test]
     fn imports_vrm0_thumb_metadata() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("thumb.vrm");
@@ -1344,7 +1357,6 @@ fn validate_import_file(file: &mut std::fs::File, len: u64) -> Result<(Value, Ve
     {
         return Err(invalid("Unsupported VRM version"));
     }
-    super::check_required(&json, super::VRM_REQUIRED)?;
     super::vrm::validate_humanoid(&json, vrm0.is_some())?;
     Ok((json, raw))
 }

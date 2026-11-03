@@ -78,7 +78,9 @@ export function materialReport(json: unknown): MaterialReport {
 export function materialWarning(report: MaterialReport): string | null {
     const flagged = report.materials.filter(entry => entry.unsupported.length > 0);
     if (flagged.length === 0 && report.asset.length === 0) return null;
-    const parts = flagged.slice(0, 16).map(entry => `${entry.name} (${entry.unsupported.join(', ')})`);
+    // At most 16 entries of at most 8 features each, so the message has a fixed upper size.
+    const features = (list: string[]) => list.slice(0, 8).join(', ') + (list.length > 8 ? `, and ${list.length - 8} more` : '');
+    const parts = flagged.slice(0, 16).map(entry => `${entry.name} (${features(entry.unsupported)})`);
     if (flagged.length > 16) parts.push(`and ${flagged.length - 16} more`);
     if (report.asset.length > 0) parts.push(`asset (${report.asset.join(', ')})`);
     return 'Unsupported material features: ' + parts.join('; ');

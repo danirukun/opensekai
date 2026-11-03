@@ -41,6 +41,10 @@ describe('uvWrapPolicy', () => {
         expect(uvWrapPolicy(material({map: texture(MirroredRepeatWrapping, 0.5)})).scroll).toBe(false);
         expect(uvWrapPolicy(material({map: texture(RepeatWrapping), rimMultiplyTexture: texture(RepeatWrapping, 0.3)})).scroll).toBe(false);
     });
+    it('does not wrap the scroll with a rotated texture transform', () => {
+        const rotated = texture(RepeatWrapping); rotated.rotation = 0.5;
+        expect(uvWrapPolicy(material({map: rotated}))).toEqual({scroll: false, rotation: true});
+    });
     it('ignores the matcap texture', () => {
         expect(uvWrapPolicy(material({map: texture(RepeatWrapping), matcapTexture: texture(ClampToEdgeWrapping)})).scroll).toBe(true);
     });

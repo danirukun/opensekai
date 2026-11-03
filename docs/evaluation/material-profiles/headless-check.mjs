@@ -60,7 +60,7 @@ async function run(fixture, backend) {
         ? {id: 'subject', name: 'subject', visible: true, transform, kind: 'avatar', assetId: fixture.id}
         : {id: 'subject', name: 'subject', visible: true, transform, kind: 'environment', assetId: fixture.id});
     const session = createSession(scene, SESSION);
-    let socket = null, sequence = 0, sending = true, last = null, used = null;
+    let socket = null, sequence = 0, sending = true, last = null, used = null, pipelineFrames = 0;
     // Headless SwiftShader WebGPU stops drawing after about 390 frames (see the FPS counter check), so WebGPU gets 4 frames a second.
     const timer = setInterval(() => { if (socket && sending) { sequence++; socket.send(JSON.stringify({kind: 'frame', frame: {schemaVersion: 1, sessionId: SESSION, sequence, tick: sequence, elapsedMs: sequence * 16, scene: session.inspect()}})); } }, backend === 'webgl2' ? 16 : 250);
     const context = await browser.newContext({viewport: {width: W, height: H}, deviceScaleFactor: 1});
@@ -68,7 +68,8 @@ async function run(fixture, backend) {
         ws.onMessage(text => {
             const message = JSON.parse(String(text));
             if (message.kind === 'auth') { ws.send(JSON.stringify({kind: 'authReply', sessionId: SESSION, schemaVersion: 1, capabilities: ['read']})); socket = ws; return; }
-            if (message.kind === 'applied') { last = message.frame; used = message.frame.backend; }
+            if (message.kind === 'applied') { // Each applied frame counts for the pipeline check, not only the last one.
+                last = message.frame; used = message.frame.backend; if (message.frame.warnings.some(w => w.message === 'Pipeline compile failed')) pipelineFrames++; }
         });
     });
     const page = await context.newPage();
@@ -106,11 +107,12 @@ async function run(fixture, backend) {
         if (same) { await rm(file); png = 'unknown: the page screenshot is one flat color'; }
         else png = {file, transparentFraction: Number((clear / (image.width * image.height)).toFixed(3))};
     } catch (error) { png = 'unknown: ' + String(error.message).split('\n')[0]; }
-    const entry = {fixture: fixture.id, backend: used ?? backend, profiles, materialWarnings: material.map(w => w.message), pipelineFailures: pipeline.length, otherWarnings: warnings.filter(w => !material.includes(w) && !pipeline.includes(w)).map(w => `${w.code} ${w.message}`), pageErrors: errors, png};
+    const entry = {fixture: fixture.id, backend: used ?? backend, profiles, materialWarnings: material.map(w => w.message), pipelineFailures: pipelineFrames, otherWarnings: warnings.filter(w => !material.includes(w) && !pipeline.includes(w)).map(w => `${w.code} ${w.message}`), pageErrors: errors, png};
     record.push(entry);
     log(`# ${label}`, JSON.stringify(entry));
     check(`${label}: loads`, !failedLoad, warnings.filter(w => w.ids.includes(fixture.id)));
-    check(`${label}: no pipeline compile failure`, pipeline.length === 0);
+    check(`${label}: backend ${backend === 'webgl2' ? 'webgl2' : 'webgpu'}`, used === (backend === 'webgl2' ? 'webgl2' : 'webgpu'), used);
+    check(`${label}: no pipeline compile failure in any applied frame`, pipelineFrames === 0);
     check(`${label}: profile counts ${JSON.stringify(fixture.expect)}`, JSON.stringify(profiles) === JSON.stringify(fixture.expect), profiles);
     check(`${label}: no UNSUPPORTED material warning`, material.length === 0, material);
     clearInterval(timer);

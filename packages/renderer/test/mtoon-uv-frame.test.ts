@@ -21,6 +21,7 @@ function avatar() {
     const outline = surface.clone();
     outline.isOutline = true;
     const still = new MToonNodeMaterial();
+    still.uvAnimationScrollXOffset = 0.1; still.uvAnimationScrollYOffset = 0.2; still.uvAnimationRotationPhase = 0.3;
     const vrm = new VRM({scene, humanoid: new VRMHumanoid(bones), materials: [surface, outline, still], meta: {metaVersion: '1', name: 'generated', authors: ['tests'], licenseUrl: 'https://example.com'}});
     return {vrm, surface, outline, still};
 }
@@ -49,6 +50,6 @@ it('sets the UV animation of each MToon material from the frame time', async () 
     await r.applyFrame(frame(2000));
     expect(values(a.surface)).toEqual([0.5, 1, 2]);
     expect(values(a.outline)).toEqual(values(a.surface));
-    expect(values(a.still)).toEqual([0, 0, 0]);
+    expect(values(a.still)).toEqual([0.1, 0.2, 0.3]);
     r.dispose();
 });

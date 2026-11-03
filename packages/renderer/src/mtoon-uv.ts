@@ -24,7 +24,8 @@ export function uvWrapPolicy(material: UvAnimated & Partial<Record<typeof ANIMAT
     if (material.uvAnimationMaskTexture) return {scroll: false, rotation: false};
     const scroll = ANIMATED_UV_TEXTURES.every(key => {
         const texture = material[key];
-        return !texture || (keepsPeriod(texture.wrapS, texture.repeat.x) && keepsPeriod(texture.wrapT, texture.repeat.y));
+        // A rotated texture transform turns the scroll axes, so a scroll of 2 is not a whole period.
+        return !texture || (texture.rotation === 0 && keepsPeriod(texture.wrapS, texture.repeat.x) && keepsPeriod(texture.wrapT, texture.repeat.y));
     });
     return {scroll, rotation: true};
 }

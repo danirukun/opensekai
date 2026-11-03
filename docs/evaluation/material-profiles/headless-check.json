@@ -27,10 +27,7 @@
    "UNSUPPORTED VRMC_node_constraint simulation is disabled in renderer"
   ],
   "pageErrors": [],
-  "png": {
-   "file": "docs/evaluation/material-profiles/fixture_vrm_1-webgl2.png",
-   "transparentFraction": 0.958
-  }
+  "png": "unknown: page.screenshot: Timeout 20000ms exceeded."
  },
  {
   "fixture": "fixture_vrm0_arkit",

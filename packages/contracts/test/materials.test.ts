@@ -62,4 +62,9 @@ describe('materialWarning', () => {
         expect(text).toContain('M15 (KHR_x, KHR_y); and 4 more; asset (KHR_materials_variants)');
         expect(text).not.toContain('M16');
     });
+    it('lists at most 8 features of one material', () => {
+        const unsupported = Array.from({length: 10}, (_, i) => `KHR_${i}`);
+        expect(materialWarning({materials: [{index: 0, name: 'A', profile: 'pbr', unsupported}], asset: []}))
+            .toBe('Unsupported material features: A (KHR_0, KHR_1, KHR_2, KHR_3, KHR_4, KHR_5, KHR_6, KHR_7, and 2 more)');
+    });
 });

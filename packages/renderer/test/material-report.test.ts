@@ -24,6 +24,11 @@ it('reads the VRM 0.x shader from the stored bytes, not from the parsed JSON', a
     expect(asset.warnings).toContainEqual({code: 'UNSUPPORTED', message: 'Unsupported material features: Skin (shader:Standard)', ids: ['asset_m']});
     asset.dispose();
 });
+it('lists an extension of a VRM 0.x MToon material that v0compat drops from the parsed JSON', async () => {
+    const asset = await load({extensionsUsed: ['VRM', 'KHR_materials_clearcoat'], materials: [material('Hair', {KHR_materials_clearcoat: {}})], extensions: {VRM: {specVersion: '0.0', materialProperties: [{name: 'Hair', shader: 'VRM/MToon'}]}}});
+    expect(asset.warnings).toContainEqual({code: 'UNSUPPORTED', message: 'Unsupported material features: Hair (KHR_materials_clearcoat)', ids: ['asset_m']});
+    asset.dispose();
+});
 it('loads a model with an unsupported material and names it in one warning', async () => {
     const asset = await load({materials: [material('Glass', {KHR_materials_pbrSpecularGlossiness: {}}), material('Wood', {KHR_materials_specular: {}})]});
     expect(asset.scene).toBeDefined();
