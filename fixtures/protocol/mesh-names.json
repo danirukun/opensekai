@@ -1,0 +1,2305 @@
+{
+ "description": "Mesh name vectors (B26 R1). Rust `vrm_meshes` and TypeScript `meshEntries` both read this file.",
+ "cases": [
+  {
+   "name": "plain names in node order; a node without a mesh is skipped",
+   "nodes": [
+    {
+     "name": "Body",
+     "mesh": 0
+    },
+    {
+     "name": "Armature"
+    },
+    {
+     "name": "Face",
+     "mesh": 1
+    },
+    {
+     "name": "Hair",
+     "mesh": 2
+    }
+   ],
+   "expected": [
+    {
+     "node": 0,
+     "name": "Body"
+    },
+    {
+     "node": 2,
+     "name": "Face"
+    },
+    {
+     "node": 3,
+     "name": "Hair"
+    }
+   ]
+  },
+  {
+   "name": "an empty name, a missing name, and a white-space name",
+   "nodes": [
+    {
+     "name": "",
+     "mesh": 0
+    },
+    {
+     "mesh": 1
+    },
+    {
+     "name": " \t\n\u00a0\u3000\ufeff",
+     "mesh": 2
+    }
+   ],
+   "expected": [
+    {
+     "node": 0,
+     "name": "Mesh 0"
+    },
+    {
+     "node": 1,
+     "name": "Mesh 1"
+    },
+    {
+     "node": 2,
+     "name": "Mesh 2"
+    }
+   ]
+  },
+  {
+   "name": "the trim removes U+FEFF and keeps U+0085, as String.prototype.trim",
+   "nodes": [
+    {
+     "name": "\ufeffHat\ufeff",
+     "mesh": 0
+    },
+    {
+     "name": "\u0085Cap",
+     "mesh": 1
+    }
+   ],
+   "expected": [
+    {
+     "node": 0,
+     "name": "Hat"
+    },
+    {
+     "node": 1,
+     "name": "\u0085Cap"
+    }
+   ]
+  },
+  {
+   "name": "a trimmed name",
+   "nodes": [
+    {
+     "name": "  Jacket  ",
+     "mesh": 0
+    }
+   ],
+   "expected": [
+    {
+     "node": 0,
+     "name": "Jacket"
+    }
+   ]
+  },
+  {
+   "name": "repeated names get a number in node order",
+   "nodes": [
+    {
+     "name": "Hair",
+     "mesh": 0
+    },
+    {
+     "name": "Hair",
+     "mesh": 1
+    },
+    {
+     "name": "Hair (2)",
+     "mesh": 2
+    },
+    {
+     "name": " Hair",
+     "mesh": 3
+    }
+   ],
+   "expected": [
+    {
+     "node": 0,
+     "name": "Hair"
+    },
+    {
+     "node": 1,
+     "name": "Hair (2)"
+    },
+    {
+     "node": 2,
+     "name": "Hair (2) (2)"
+    },
+    {
+     "node": 3,
+     "name": "Hair (3)"
+    }
+   ]
+  },
+  {
+   "name": "a generated name that a later node also has",
+   "nodes": [
+    {
+     "name": "",
+     "mesh": 0
+    },
+    {
+     "name": "Mesh 0",
+     "mesh": 1
+    }
+   ],
+   "expected": [
+    {
+     "node": 0,
+     "name": "Mesh 0"
+    },
+    {
+     "node": 1,
+     "name": "Mesh 0 (2)"
+    }
+   ]
+  },
+  {
+   "name": "a 129-unit name is cut; a repeat cuts the base before the suffix",
+   "nodes": [
+    {
+     "name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxy",
+     "mesh": 0
+    },
+    {
+     "name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+     "mesh": 1
+    }
+   ],
+   "expected": [
+    {
+     "node": 0,
+     "name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+     "node": 1,
+     "name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (2)"
+    }
+   ]
+  },
+  {
+   "name": "an emoji at the cut is not cut in two",
+   "nodes": [
+    {
+     "name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\ud83d\ude00",
+     "mesh": 0
+    },
+    {
+     "name": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\ud83d\ude00c",
+     "mesh": 1
+    },
+    {
+     "name": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\ud83d\ude00c",
+     "mesh": 2
+    }
+   ],
+   "expected": [
+    {
+     "node": 0,
+     "name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+     "node": 1,
+     "name": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\ud83d\ude00c"
+    },
+    {
+     "node": 2,
+     "name": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb (2)"
+    }
+   ]
+  },
+  {
+   "name": "a name that is not a string is empty",
+   "nodes": [
+    {
+     "name": 7,
+     "mesh": 0
+    }
+   ],
+   "expected": [
+    {
+     "node": 0,
+     "name": "Mesh 0"
+    }
+   ]
+  },
+  {
+   "name": "257 mesh nodes keep the first 256",
+   "nodes": [
+    {
+     "name": "Root"
+    },
+    {
+     "name": "Part0",
+     "mesh": 0
+    },
+    {
+     "name": "Part1",
+     "mesh": 1
+    },
+    {
+     "name": "Part2",
+     "mesh": 2
+    },
+    {
+     "name": "Part3",
+     "mesh": 3
+    },
+    {
+     "name": "Part4",
+     "mesh": 4
+    },
+    {
+     "name": "Part5",
+     "mesh": 5
+    },
+    {
+     "name": "Part6",
+     "mesh": 6
+    },
+    {
+     "name": "Part7",
+     "mesh": 7
+    },
+    {
+     "name": "Part8",
+     "mesh": 8
+    },
+    {
+     "name": "Part9",
+     "mesh": 9
+    },
+    {
+     "name": "Part10",
+     "mesh": 10
+    },
+    {
+     "name": "Part11",
+     "mesh": 11
+    },
+    {
+     "name": "Part12",
+     "mesh": 12
+    },
+    {
+     "name": "Part13",
+     "mesh": 13
+    },
+    {
+     "name": "Part14",
+     "mesh": 14
+    },
+    {
+     "name": "Part15",
+     "mesh": 15
+    },
+    {
+     "name": "Part16",
+     "mesh": 16
+    },
+    {
+     "name": "Part17",
+     "mesh": 17
+    },
+    {
+     "name": "Part18",
+     "mesh": 18
+    },
+    {
+     "name": "Part19",
+     "mesh": 19
+    },
+    {
+     "name": "Part20",
+     "mesh": 20
+    },
+    {
+     "name": "Part21",
+     "mesh": 21
+    },
+    {
+     "name": "Part22",
+     "mesh": 22
+    },
+    {
+     "name": "Part23",
+     "mesh": 23
+    },
+    {
+     "name": "Part24",
+     "mesh": 24
+    },
+    {
+     "name": "Part25",
+     "mesh": 25
+    },
+    {
+     "name": "Part26",
+     "mesh": 26
+    },
+    {
+     "name": "Part27",
+     "mesh": 27
+    },
+    {
+     "name": "Part28",
+     "mesh": 28
+    },
+    {
+     "name": "Part29",
+     "mesh": 29
+    },
+    {
+     "name": "Part30",
+     "mesh": 30
+    },
+    {
+     "name": "Part31",
+     "mesh": 31
+    },
+    {
+     "name": "Part32",
+     "mesh": 32
+    },
+    {
+     "name": "Part33",
+     "mesh": 33
+    },
+    {
+     "name": "Part34",
+     "mesh": 34
+    },
+    {
+     "name": "Part35",
+     "mesh": 35
+    },
+    {
+     "name": "Part36",
+     "mesh": 36
+    },
+    {
+     "name": "Part37",
+     "mesh": 37
+    },
+    {
+     "name": "Part38",
+     "mesh": 38
+    },
+    {
+     "name": "Part39",
+     "mesh": 39
+    },
+    {
+     "name": "Part40",
+     "mesh": 40
+    },
+    {
+     "name": "Part41",
+     "mesh": 41
+    },
+    {
+     "name": "Part42",
+     "mesh": 42
+    },
+    {
+     "name": "Part43",
+     "mesh": 43
+    },
+    {
+     "name": "Part44",
+     "mesh": 44
+    },
+    {
+     "name": "Part45",
+     "mesh": 45
+    },
+    {
+     "name": "Part46",
+     "mesh": 46
+    },
+    {
+     "name": "Part47",
+     "mesh": 47
+    },
+    {
+     "name": "Part48",
+     "mesh": 48
+    },
+    {
+     "name": "Part49",
+     "mesh": 49
+    },
+    {
+     "name": "Part50",
+     "mesh": 50
+    },
+    {
+     "name": "Part51",
+     "mesh": 51
+    },
+    {
+     "name": "Part52",
+     "mesh": 52
+    },
+    {
+     "name": "Part53",
+     "mesh": 53
+    },
+    {
+     "name": "Part54",
+     "mesh": 54
+    },
+    {
+     "name": "Part55",
+     "mesh": 55
+    },
+    {
+     "name": "Part56",
+     "mesh": 56
+    },
+    {
+     "name": "Part57",
+     "mesh": 57
+    },
+    {
+     "name": "Part58",
+     "mesh": 58
+    },
+    {
+     "name": "Part59",
+     "mesh": 59
+    },
+    {
+     "name": "Part60",
+     "mesh": 60
+    },
+    {
+     "name": "Part61",
+     "mesh": 61
+    },
+    {
+     "name": "Part62",
+     "mesh": 62
+    },
+    {
+     "name": "Part63",
+     "mesh": 63
+    },
+    {
+     "name": "Part64",
+     "mesh": 64
+    },
+    {
+     "name": "Part65",
+     "mesh": 65
+    },
+    {
+     "name": "Part66",
+     "mesh": 66
+    },
+    {
+     "name": "Part67",
+     "mesh": 67
+    },
+    {
+     "name": "Part68",
+     "mesh": 68
+    },
+    {
+     "name": "Part69",
+     "mesh": 69
+    },
+    {
+     "name": "Part70",
+     "mesh": 70
+    },
+    {
+     "name": "Part71",
+     "mesh": 71
+    },
+    {
+     "name": "Part72",
+     "mesh": 72
+    },
+    {
+     "name": "Part73",
+     "mesh": 73
+    },
+    {
+     "name": "Part74",
+     "mesh": 74
+    },
+    {
+     "name": "Part75",
+     "mesh": 75
+    },
+    {
+     "name": "Part76",
+     "mesh": 76
+    },
+    {
+     "name": "Part77",
+     "mesh": 77
+    },
+    {
+     "name": "Part78",
+     "mesh": 78
+    },
+    {
+     "name": "Part79",
+     "mesh": 79
+    },
+    {
+     "name": "Part80",
+     "mesh": 80
+    },
+    {
+     "name": "Part81",
+     "mesh": 81
+    },
+    {
+     "name": "Part82",
+     "mesh": 82
+    },
+    {
+     "name": "Part83",
+     "mesh": 83
+    },
+    {
+     "name": "Part84",
+     "mesh": 84
+    },
+    {
+     "name": "Part85",
+     "mesh": 85
+    },
+    {
+     "name": "Part86",
+     "mesh": 86
+    },
+    {
+     "name": "Part87",
+     "mesh": 87
+    },
+    {
+     "name": "Part88",
+     "mesh": 88
+    },
+    {
+     "name": "Part89",
+     "mesh": 89
+    },
+    {
+     "name": "Part90",
+     "mesh": 90
+    },
+    {
+     "name": "Part91",
+     "mesh": 91
+    },
+    {
+     "name": "Part92",
+     "mesh": 92
+    },
+    {
+     "name": "Part93",
+     "mesh": 93
+    },
+    {
+     "name": "Part94",
+     "mesh": 94
+    },
+    {
+     "name": "Part95",
+     "mesh": 95
+    },
+    {
+     "name": "Part96",
+     "mesh": 96
+    },
+    {
+     "name": "Part97",
+     "mesh": 97
+    },
+    {
+     "name": "Part98",
+     "mesh": 98
+    },
+    {
+     "name": "Part99",
+     "mesh": 99
+    },
+    {
+     "name": "Part100",
+     "mesh": 100
+    },
+    {
+     "name": "Part101",
+     "mesh": 101
+    },
+    {
+     "name": "Part102",
+     "mesh": 102
+    },
+    {
+     "name": "Part103",
+     "mesh": 103
+    },
+    {
+     "name": "Part104",
+     "mesh": 104
+    },
+    {
+     "name": "Part105",
+     "mesh": 105
+    },
+    {
+     "name": "Part106",
+     "mesh": 106
+    },
+    {
+     "name": "Part107",
+     "mesh": 107
+    },
+    {
+     "name": "Part108",
+     "mesh": 108
+    },
+    {
+     "name": "Part109",
+     "mesh": 109
+    },
+    {
+     "name": "Part110",
+     "mesh": 110
+    },
+    {
+     "name": "Part111",
+     "mesh": 111
+    },
+    {
+     "name": "Part112",
+     "mesh": 112
+    },
+    {
+     "name": "Part113",
+     "mesh": 113
+    },
+    {
+     "name": "Part114",
+     "mesh": 114
+    },
+    {
+     "name": "Part115",
+     "mesh": 115
+    },
+    {
+     "name": "Part116",
+     "mesh": 116
+    },
+    {
+     "name": "Part117",
+     "mesh": 117
+    },
+    {
+     "name": "Part118",
+     "mesh": 118
+    },
+    {
+     "name": "Part119",
+     "mesh": 119
+    },
+    {
+     "name": "Part120",
+     "mesh": 120
+    },
+    {
+     "name": "Part121",
+     "mesh": 121
+    },
+    {
+     "name": "Part122",
+     "mesh": 122
+    },
+    {
+     "name": "Part123",
+     "mesh": 123
+    },
+    {
+     "name": "Part124",
+     "mesh": 124
+    },
+    {
+     "name": "Part125",
+     "mesh": 125
+    },
+    {
+     "name": "Part126",
+     "mesh": 126
+    },
+    {
+     "name": "Part127",
+     "mesh": 127
+    },
+    {
+     "name": "Part128",
+     "mesh": 128
+    },
+    {
+     "name": "Part129",
+     "mesh": 129
+    },
+    {
+     "name": "Part130",
+     "mesh": 130
+    },
+    {
+     "name": "Part131",
+     "mesh": 131
+    },
+    {
+     "name": "Part132",
+     "mesh": 132
+    },
+    {
+     "name": "Part133",
+     "mesh": 133
+    },
+    {
+     "name": "Part134",
+     "mesh": 134
+    },
+    {
+     "name": "Part135",
+     "mesh": 135
+    },
+    {
+     "name": "Part136",
+     "mesh": 136
+    },
+    {
+     "name": "Part137",
+     "mesh": 137
+    },
+    {
+     "name": "Part138",
+     "mesh": 138
+    },
+    {
+     "name": "Part139",
+     "mesh": 139
+    },
+    {
+     "name": "Part140",
+     "mesh": 140
+    },
+    {
+     "name": "Part141",
+     "mesh": 141
+    },
+    {
+     "name": "Part142",
+     "mesh": 142
+    },
+    {
+     "name": "Part143",
+     "mesh": 143
+    },
+    {
+     "name": "Part144",
+     "mesh": 144
+    },
+    {
+     "name": "Part145",
+     "mesh": 145
+    },
+    {
+     "name": "Part146",
+     "mesh": 146
+    },
+    {
+     "name": "Part147",
+     "mesh": 147
+    },
+    {
+     "name": "Part148",
+     "mesh": 148
+    },
+    {
+     "name": "Part149",
+     "mesh": 149
+    },
+    {
+     "name": "Part150",
+     "mesh": 150
+    },
+    {
+     "name": "Part151",
+     "mesh": 151
+    },
+    {
+     "name": "Part152",
+     "mesh": 152
+    },
+    {
+     "name": "Part153",
+     "mesh": 153
+    },
+    {
+     "name": "Part154",
+     "mesh": 154
+    },
+    {
+     "name": "Part155",
+     "mesh": 155
+    },
+    {
+     "name": "Part156",
+     "mesh": 156
+    },
+    {
+     "name": "Part157",
+     "mesh": 157
+    },
+    {
+     "name": "Part158",
+     "mesh": 158
+    },
+    {
+     "name": "Part159",
+     "mesh": 159
+    },
+    {
+     "name": "Part160",
+     "mesh": 160
+    },
+    {
+     "name": "Part161",
+     "mesh": 161
+    },
+    {
+     "name": "Part162",
+     "mesh": 162
+    },
+    {
+     "name": "Part163",
+     "mesh": 163
+    },
+    {
+     "name": "Part164",
+     "mesh": 164
+    },
+    {
+     "name": "Part165",
+     "mesh": 165
+    },
+    {
+     "name": "Part166",
+     "mesh": 166
+    },
+    {
+     "name": "Part167",
+     "mesh": 167
+    },
+    {
+     "name": "Part168",
+     "mesh": 168
+    },
+    {
+     "name": "Part169",
+     "mesh": 169
+    },
+    {
+     "name": "Part170",
+     "mesh": 170
+    },
+    {
+     "name": "Part171",
+     "mesh": 171
+    },
+    {
+     "name": "Part172",
+     "mesh": 172
+    },
+    {
+     "name": "Part173",
+     "mesh": 173
+    },
+    {
+     "name": "Part174",
+     "mesh": 174
+    },
+    {
+     "name": "Part175",
+     "mesh": 175
+    },
+    {
+     "name": "Part176",
+     "mesh": 176
+    },
+    {
+     "name": "Part177",
+     "mesh": 177
+    },
+    {
+     "name": "Part178",
+     "mesh": 178
+    },
+    {
+     "name": "Part179",
+     "mesh": 179
+    },
+    {
+     "name": "Part180",
+     "mesh": 180
+    },
+    {
+     "name": "Part181",
+     "mesh": 181
+    },
+    {
+     "name": "Part182",
+     "mesh": 182
+    },
+    {
+     "name": "Part183",
+     "mesh": 183
+    },
+    {
+     "name": "Part184",
+     "mesh": 184
+    },
+    {
+     "name": "Part185",
+     "mesh": 185
+    },
+    {
+     "name": "Part186",
+     "mesh": 186
+    },
+    {
+     "name": "Part187",
+     "mesh": 187
+    },
+    {
+     "name": "Part188",
+     "mesh": 188
+    },
+    {
+     "name": "Part189",
+     "mesh": 189
+    },
+    {
+     "name": "Part190",
+     "mesh": 190
+    },
+    {
+     "name": "Part191",
+     "mesh": 191
+    },
+    {
+     "name": "Part192",
+     "mesh": 192
+    },
+    {
+     "name": "Part193",
+     "mesh": 193
+    },
+    {
+     "name": "Part194",
+     "mesh": 194
+    },
+    {
+     "name": "Part195",
+     "mesh": 195
+    },
+    {
+     "name": "Part196",
+     "mesh": 196
+    },
+    {
+     "name": "Part197",
+     "mesh": 197
+    },
+    {
+     "name": "Part198",
+     "mesh": 198
+    },
+    {
+     "name": "Part199",
+     "mesh": 199
+    },
+    {
+     "name": "Part200",
+     "mesh": 200
+    },
+    {
+     "name": "Part201",
+     "mesh": 201
+    },
+    {
+     "name": "Part202",
+     "mesh": 202
+    },
+    {
+     "name": "Part203",
+     "mesh": 203
+    },
+    {
+     "name": "Part204",
+     "mesh": 204
+    },
+    {
+     "name": "Part205",
+     "mesh": 205
+    },
+    {
+     "name": "Part206",
+     "mesh": 206
+    },
+    {
+     "name": "Part207",
+     "mesh": 207
+    },
+    {
+     "name": "Part208",
+     "mesh": 208
+    },
+    {
+     "name": "Part209",
+     "mesh": 209
+    },
+    {
+     "name": "Part210",
+     "mesh": 210
+    },
+    {
+     "name": "Part211",
+     "mesh": 211
+    },
+    {
+     "name": "Part212",
+     "mesh": 212
+    },
+    {
+     "name": "Part213",
+     "mesh": 213
+    },
+    {
+     "name": "Part214",
+     "mesh": 214
+    },
+    {
+     "name": "Part215",
+     "mesh": 215
+    },
+    {
+     "name": "Part216",
+     "mesh": 216
+    },
+    {
+     "name": "Part217",
+     "mesh": 217
+    },
+    {
+     "name": "Part218",
+     "mesh": 218
+    },
+    {
+     "name": "Part219",
+     "mesh": 219
+    },
+    {
+     "name": "Part220",
+     "mesh": 220
+    },
+    {
+     "name": "Part221",
+     "mesh": 221
+    },
+    {
+     "name": "Part222",
+     "mesh": 222
+    },
+    {
+     "name": "Part223",
+     "mesh": 223
+    },
+    {
+     "name": "Part224",
+     "mesh": 224
+    },
+    {
+     "name": "Part225",
+     "mesh": 225
+    },
+    {
+     "name": "Part226",
+     "mesh": 226
+    },
+    {
+     "name": "Part227",
+     "mesh": 227
+    },
+    {
+     "name": "Part228",
+     "mesh": 228
+    },
+    {
+     "name": "Part229",
+     "mesh": 229
+    },
+    {
+     "name": "Part230",
+     "mesh": 230
+    },
+    {
+     "name": "Part231",
+     "mesh": 231
+    },
+    {
+     "name": "Part232",
+     "mesh": 232
+    },
+    {
+     "name": "Part233",
+     "mesh": 233
+    },
+    {
+     "name": "Part234",
+     "mesh": 234
+    },
+    {
+     "name": "Part235",
+     "mesh": 235
+    },
+    {
+     "name": "Part236",
+     "mesh": 236
+    },
+    {
+     "name": "Part237",
+     "mesh": 237
+    },
+    {
+     "name": "Part238",
+     "mesh": 238
+    },
+    {
+     "name": "Part239",
+     "mesh": 239
+    },
+    {
+     "name": "Part240",
+     "mesh": 240
+    },
+    {
+     "name": "Part241",
+     "mesh": 241
+    },
+    {
+     "name": "Part242",
+     "mesh": 242
+    },
+    {
+     "name": "Part243",
+     "mesh": 243
+    },
+    {
+     "name": "Part244",
+     "mesh": 244
+    },
+    {
+     "name": "Part245",
+     "mesh": 245
+    },
+    {
+     "name": "Part246",
+     "mesh": 246
+    },
+    {
+     "name": "Part247",
+     "mesh": 247
+    },
+    {
+     "name": "Part248",
+     "mesh": 248
+    },
+    {
+     "name": "Part249",
+     "mesh": 249
+    },
+    {
+     "name": "Part250",
+     "mesh": 250
+    },
+    {
+     "name": "Part251",
+     "mesh": 251
+    },
+    {
+     "name": "Part252",
+     "mesh": 252
+    },
+    {
+     "name": "Part253",
+     "mesh": 253
+    },
+    {
+     "name": "Part254",
+     "mesh": 254
+    },
+    {
+     "name": "Part255",
+     "mesh": 255
+    },
+    {
+     "name": "Part256",
+     "mesh": 256
+    }
+   ],
+   "expected": [
+    {
+     "node": 1,
+     "name": "Part0"
+    },
+    {
+     "node": 2,
+     "name": "Part1"
+    },
+    {
+     "node": 3,
+     "name": "Part2"
+    },
+    {
+     "node": 4,
+     "name": "Part3"
+    },
+    {
+     "node": 5,
+     "name": "Part4"
+    },
+    {
+     "node": 6,
+     "name": "Part5"
+    },
+    {
+     "node": 7,
+     "name": "Part6"
+    },
+    {
+     "node": 8,
+     "name": "Part7"
+    },
+    {
+     "node": 9,
+     "name": "Part8"
+    },
+    {
+     "node": 10,
+     "name": "Part9"
+    },
+    {
+     "node": 11,
+     "name": "Part10"
+    },
+    {
+     "node": 12,
+     "name": "Part11"
+    },
+    {
+     "node": 13,
+     "name": "Part12"
+    },
+    {
+     "node": 14,
+     "name": "Part13"
+    },
+    {
+     "node": 15,
+     "name": "Part14"
+    },
+    {
+     "node": 16,
+     "name": "Part15"
+    },
+    {
+     "node": 17,
+     "name": "Part16"
+    },
+    {
+     "node": 18,
+     "name": "Part17"
+    },
+    {
+     "node": 19,
+     "name": "Part18"
+    },
+    {
+     "node": 20,
+     "name": "Part19"
+    },
+    {
+     "node": 21,
+     "name": "Part20"
+    },
+    {
+     "node": 22,
+     "name": "Part21"
+    },
+    {
+     "node": 23,
+     "name": "Part22"
+    },
+    {
+     "node": 24,
+     "name": "Part23"
+    },
+    {
+     "node": 25,
+     "name": "Part24"
+    },
+    {
+     "node": 26,
+     "name": "Part25"
+    },
+    {
+     "node": 27,
+     "name": "Part26"
+    },
+    {
+     "node": 28,
+     "name": "Part27"
+    },
+    {
+     "node": 29,
+     "name": "Part28"
+    },
+    {
+     "node": 30,
+     "name": "Part29"
+    },
+    {
+     "node": 31,
+     "name": "Part30"
+    },
+    {
+     "node": 32,
+     "name": "Part31"
+    },
+    {
+     "node": 33,
+     "name": "Part32"
+    },
+    {
+     "node": 34,
+     "name": "Part33"
+    },
+    {
+     "node": 35,
+     "name": "Part34"
+    },
+    {
+     "node": 36,
+     "name": "Part35"
+    },
+    {
+     "node": 37,
+     "name": "Part36"
+    },
+    {
+     "node": 38,
+     "name": "Part37"
+    },
+    {
+     "node": 39,
+     "name": "Part38"
+    },
+    {
+     "node": 40,
+     "name": "Part39"
+    },
+    {
+     "node": 41,
+     "name": "Part40"
+    },
+    {
+     "node": 42,
+     "name": "Part41"
+    },
+    {
+     "node": 43,
+     "name": "Part42"
+    },
+    {
+     "node": 44,
+     "name": "Part43"
+    },
+    {
+     "node": 45,
+     "name": "Part44"
+    },
+    {
+     "node": 46,
+     "name": "Part45"
+    },
+    {
+     "node": 47,
+     "name": "Part46"
+    },
+    {
+     "node": 48,
+     "name": "Part47"
+    },
+    {
+     "node": 49,
+     "name": "Part48"
+    },
+    {
+     "node": 50,
+     "name": "Part49"
+    },
+    {
+     "node": 51,
+     "name": "Part50"
+    },
+    {
+     "node": 52,
+     "name": "Part51"
+    },
+    {
+     "node": 53,
+     "name": "Part52"
+    },
+    {
+     "node": 54,
+     "name": "Part53"
+    },
+    {
+     "node": 55,
+     "name": "Part54"
+    },
+    {
+     "node": 56,
+     "name": "Part55"
+    },
+    {
+     "node": 57,
+     "name": "Part56"
+    },
+    {
+     "node": 58,
+     "name": "Part57"
+    },
+    {
+     "node": 59,
+     "name": "Part58"
+    },
+    {
+     "node": 60,
+     "name": "Part59"
+    },
+    {
+     "node": 61,
+     "name": "Part60"
+    },
+    {
+     "node": 62,
+     "name": "Part61"
+    },
+    {
+     "node": 63,
+     "name": "Part62"
+    },
+    {
+     "node": 64,
+     "name": "Part63"
+    },
+    {
+     "node": 65,
+     "name": "Part64"
+    },
+    {
+     "node": 66,
+     "name": "Part65"
+    },
+    {
+     "node": 67,
+     "name": "Part66"
+    },
+    {
+     "node": 68,
+     "name": "Part67"
+    },
+    {
+     "node": 69,
+     "name": "Part68"
+    },
+    {
+     "node": 70,
+     "name": "Part69"
+    },
+    {
+     "node": 71,
+     "name": "Part70"
+    },
+    {
+     "node": 72,
+     "name": "Part71"
+    },
+    {
+     "node": 73,
+     "name": "Part72"
+    },
+    {
+     "node": 74,
+     "name": "Part73"
+    },
+    {
+     "node": 75,
+     "name": "Part74"
+    },
+    {
+     "node": 76,
+     "name": "Part75"
+    },
+    {
+     "node": 77,
+     "name": "Part76"
+    },
+    {
+     "node": 78,
+     "name": "Part77"
+    },
+    {
+     "node": 79,
+     "name": "Part78"
+    },
+    {
+     "node": 80,
+     "name": "Part79"
+    },
+    {
+     "node": 81,
+     "name": "Part80"
+    },
+    {
+     "node": 82,
+     "name": "Part81"
+    },
+    {
+     "node": 83,
+     "name": "Part82"
+    },
+    {
+     "node": 84,
+     "name": "Part83"
+    },
+    {
+     "node": 85,
+     "name": "Part84"
+    },
+    {
+     "node": 86,
+     "name": "Part85"
+    },
+    {
+     "node": 87,
+     "name": "Part86"
+    },
+    {
+     "node": 88,
+     "name": "Part87"
+    },
+    {
+     "node": 89,
+     "name": "Part88"
+    },
+    {
+     "node": 90,
+     "name": "Part89"
+    },
+    {
+     "node": 91,
+     "name": "Part90"
+    },
+    {
+     "node": 92,
+     "name": "Part91"
+    },
+    {
+     "node": 93,
+     "name": "Part92"
+    },
+    {
+     "node": 94,
+     "name": "Part93"
+    },
+    {
+     "node": 95,
+     "name": "Part94"
+    },
+    {
+     "node": 96,
+     "name": "Part95"
+    },
+    {
+     "node": 97,
+     "name": "Part96"
+    },
+    {
+     "node": 98,
+     "name": "Part97"
+    },
+    {
+     "node": 99,
+     "name": "Part98"
+    },
+    {
+     "node": 100,
+     "name": "Part99"
+    },
+    {
+     "node": 101,
+     "name": "Part100"
+    },
+    {
+     "node": 102,
+     "name": "Part101"
+    },
+    {
+     "node": 103,
+     "name": "Part102"
+    },
+    {
+     "node": 104,
+     "name": "Part103"
+    },
+    {
+     "node": 105,
+     "name": "Part104"
+    },
+    {
+     "node": 106,
+     "name": "Part105"
+    },
+    {
+     "node": 107,
+     "name": "Part106"
+    },
+    {
+     "node": 108,
+     "name": "Part107"
+    },
+    {
+     "node": 109,
+     "name": "Part108"
+    },
+    {
+     "node": 110,
+     "name": "Part109"
+    },
+    {
+     "node": 111,
+     "name": "Part110"
+    },
+    {
+     "node": 112,
+     "name": "Part111"
+    },
+    {
+     "node": 113,
+     "name": "Part112"
+    },
+    {
+     "node": 114,
+     "name": "Part113"
+    },
+    {
+     "node": 115,
+     "name": "Part114"
+    },
+    {
+     "node": 116,
+     "name": "Part115"
+    },
+    {
+     "node": 117,
+     "name": "Part116"
+    },
+    {
+     "node": 118,
+     "name": "Part117"
+    },
+    {
+     "node": 119,
+     "name": "Part118"
+    },
+    {
+     "node": 120,
+     "name": "Part119"
+    },
+    {
+     "node": 121,
+     "name": "Part120"
+    },
+    {
+     "node": 122,
+     "name": "Part121"
+    },
+    {
+     "node": 123,
+     "name": "Part122"
+    },
+    {
+     "node": 124,
+     "name": "Part123"
+    },
+    {
+     "node": 125,
+     "name": "Part124"
+    },
+    {
+     "node": 126,
+     "name": "Part125"
+    },
+    {
+     "node": 127,
+     "name": "Part126"
+    },
+    {
+     "node": 128,
+     "name": "Part127"
+    },
+    {
+     "node": 129,
+     "name": "Part128"
+    },
+    {
+     "node": 130,
+     "name": "Part129"
+    },
+    {
+     "node": 131,
+     "name": "Part130"
+    },
+    {
+     "node": 132,
+     "name": "Part131"
+    },
+    {
+     "node": 133,
+     "name": "Part132"
+    },
+    {
+     "node": 134,
+     "name": "Part133"
+    },
+    {
+     "node": 135,
+     "name": "Part134"
+    },
+    {
+     "node": 136,
+     "name": "Part135"
+    },
+    {
+     "node": 137,
+     "name": "Part136"
+    },
+    {
+     "node": 138,
+     "name": "Part137"
+    },
+    {
+     "node": 139,
+     "name": "Part138"
+    },
+    {
+     "node": 140,
+     "name": "Part139"
+    },
+    {
+     "node": 141,
+     "name": "Part140"
+    },
+    {
+     "node": 142,
+     "name": "Part141"
+    },
+    {
+     "node": 143,
+     "name": "Part142"
+    },
+    {
+     "node": 144,
+     "name": "Part143"
+    },
+    {
+     "node": 145,
+     "name": "Part144"
+    },
+    {
+     "node": 146,
+     "name": "Part145"
+    },
+    {
+     "node": 147,
+     "name": "Part146"
+    },
+    {
+     "node": 148,
+     "name": "Part147"
+    },
+    {
+     "node": 149,
+     "name": "Part148"
+    },
+    {
+     "node": 150,
+     "name": "Part149"
+    },
+    {
+     "node": 151,
+     "name": "Part150"
+    },
+    {
+     "node": 152,
+     "name": "Part151"
+    },
+    {
+     "node": 153,
+     "name": "Part152"
+    },
+    {
+     "node": 154,
+     "name": "Part153"
+    },
+    {
+     "node": 155,
+     "name": "Part154"
+    },
+    {
+     "node": 156,
+     "name": "Part155"
+    },
+    {
+     "node": 157,
+     "name": "Part156"
+    },
+    {
+     "node": 158,
+     "name": "Part157"
+    },
+    {
+     "node": 159,
+     "name": "Part158"
+    },
+    {
+     "node": 160,
+     "name": "Part159"
+    },
+    {
+     "node": 161,
+     "name": "Part160"
+    },
+    {
+     "node": 162,
+     "name": "Part161"
+    },
+    {
+     "node": 163,
+     "name": "Part162"
+    },
+    {
+     "node": 164,
+     "name": "Part163"
+    },
+    {
+     "node": 165,
+     "name": "Part164"
+    },
+    {
+     "node": 166,
+     "name": "Part165"
+    },
+    {
+     "node": 167,
+     "name": "Part166"
+    },
+    {
+     "node": 168,
+     "name": "Part167"
+    },
+    {
+     "node": 169,
+     "name": "Part168"
+    },
+    {
+     "node": 170,
+     "name": "Part169"
+    },
+    {
+     "node": 171,
+     "name": "Part170"
+    },
+    {
+     "node": 172,
+     "name": "Part171"
+    },
+    {
+     "node": 173,
+     "name": "Part172"
+    },
+    {
+     "node": 174,
+     "name": "Part173"
+    },
+    {
+     "node": 175,
+     "name": "Part174"
+    },
+    {
+     "node": 176,
+     "name": "Part175"
+    },
+    {
+     "node": 177,
+     "name": "Part176"
+    },
+    {
+     "node": 178,
+     "name": "Part177"
+    },
+    {
+     "node": 179,
+     "name": "Part178"
+    },
+    {
+     "node": 180,
+     "name": "Part179"
+    },
+    {
+     "node": 181,
+     "name": "Part180"
+    },
+    {
+     "node": 182,
+     "name": "Part181"
+    },
+    {
+     "node": 183,
+     "name": "Part182"
+    },
+    {
+     "node": 184,
+     "name": "Part183"
+    },
+    {
+     "node": 185,
+     "name": "Part184"
+    },
+    {
+     "node": 186,
+     "name": "Part185"
+    },
+    {
+     "node": 187,
+     "name": "Part186"
+    },
+    {
+     "node": 188,
+     "name": "Part187"
+    },
+    {
+     "node": 189,
+     "name": "Part188"
+    },
+    {
+     "node": 190,
+     "name": "Part189"
+    },
+    {
+     "node": 191,
+     "name": "Part190"
+    },
+    {
+     "node": 192,
+     "name": "Part191"
+    },
+    {
+     "node": 193,
+     "name": "Part192"
+    },
+    {
+     "node": 194,
+     "name": "Part193"
+    },
+    {
+     "node": 195,
+     "name": "Part194"
+    },
+    {
+     "node": 196,
+     "name": "Part195"
+    },
+    {
+     "node": 197,
+     "name": "Part196"
+    },
+    {
+     "node": 198,
+     "name": "Part197"
+    },
+    {
+     "node": 199,
+     "name": "Part198"
+    },
+    {
+     "node": 200,
+     "name": "Part199"
+    },
+    {
+     "node": 201,
+     "name": "Part200"
+    },
+    {
+     "node": 202,
+     "name": "Part201"
+    },
+    {
+     "node": 203,
+     "name": "Part202"
+    },
+    {
+     "node": 204,
+     "name": "Part203"
+    },
+    {
+     "node": 205,
+     "name": "Part204"
+    },
+    {
+     "node": 206,
+     "name": "Part205"
+    },
+    {
+     "node": 207,
+     "name": "Part206"
+    },
+    {
+     "node": 208,
+     "name": "Part207"
+    },
+    {
+     "node": 209,
+     "name": "Part208"
+    },
+    {
+     "node": 210,
+     "name": "Part209"
+    },
+    {
+     "node": 211,
+     "name": "Part210"
+    },
+    {
+     "node": 212,
+     "name": "Part211"
+    },
+    {
+     "node": 213,
+     "name": "Part212"
+    },
+    {
+     "node": 214,
+     "name": "Part213"
+    },
+    {
+     "node": 215,
+     "name": "Part214"
+    },
+    {
+     "node": 216,
+     "name": "Part215"
+    },
+    {
+     "node": 217,
+     "name": "Part216"
+    },
+    {
+     "node": 218,
+     "name": "Part217"
+    },
+    {
+     "node": 219,
+     "name": "Part218"
+    },
+    {
+     "node": 220,
+     "name": "Part219"
+    },
+    {
+     "node": 221,
+     "name": "Part220"
+    },
+    {
+     "node": 222,
+     "name": "Part221"
+    },
+    {
+     "node": 223,
+     "name": "Part222"
+    },
+    {
+     "node": 224,
+     "name": "Part223"
+    },
+    {
+     "node": 225,
+     "name": "Part224"
+    },
+    {
+     "node": 226,
+     "name": "Part225"
+    },
+    {
+     "node": 227,
+     "name": "Part226"
+    },
+    {
+     "node": 228,
+     "name": "Part227"
+    },
+    {
+     "node": 229,
+     "name": "Part228"
+    },
+    {
+     "node": 230,
+     "name": "Part229"
+    },
+    {
+     "node": 231,
+     "name": "Part230"
+    },
+    {
+     "node": 232,
+     "name": "Part231"
+    },
+    {
+     "node": 233,
+     "name": "Part232"
+    },
+    {
+     "node": 234,
+     "name": "Part233"
+    },
+    {
+     "node": 235,
+     "name": "Part234"
+    },
+    {
+     "node": 236,
+     "name": "Part235"
+    },
+    {
+     "node": 237,
+     "name": "Part236"
+    },
+    {
+     "node": 238,
+     "name": "Part237"
+    },
+    {
+     "node": 239,
+     "name": "Part238"
+    },
+    {
+     "node": 240,
+     "name": "Part239"
+    },
+    {
+     "node": 241,
+     "name": "Part240"
+    },
+    {
+     "node": 242,
+     "name": "Part241"
+    },
+    {
+     "node": 243,
+     "name": "Part242"
+    },
+    {
+     "node": 244,
+     "name": "Part243"
+    },
+    {
+     "node": 245,
+     "name": "Part244"
+    },
+    {
+     "node": 246,
+     "name": "Part245"
+    },
+    {
+     "node": 247,
+     "name": "Part246"
+    },
+    {
+     "node": 248,
+     "name": "Part247"
+    },
+    {
+     "node": 249,
+     "name": "Part248"
+    },
+    {
+     "node": 250,
+     "name": "Part249"
+    },
+    {
+     "node": 251,
+     "name": "Part250"
+    },
+    {
+     "node": 252,
+     "name": "Part251"
+    },
+    {
+     "node": 253,
+     "name": "Part252"
+    },
+    {
+     "node": 254,
+     "name": "Part253"
+    },
+    {
+     "node": 255,
+     "name": "Part254"
+    },
+    {
+     "node": 256,
+     "name": "Part255"
+    }
+   ]
+  },
+  {
+   "name": "no nodes",
+   "nodes": [],
+   "expected": []
+  }
+ ]
+}

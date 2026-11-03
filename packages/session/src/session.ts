@@ -1,4 +1,4 @@
-import { IdSchema, ParamSchemas, type VmcPosesEnvelope, AssetRecordSchema, type AssetRecord, type ExpressionState, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate, type AppError, type InputUpdate, type BlueprintInspect, type AvatarPose, type DeviceKind, type ScalarValue, type BlueprintDebug, type TrackingProbe, type TrackingProbeParams, type TrackingStatus, type ArkitName } from "@opensekai/contracts";
+import { IdSchema, ParamSchemas, type VmcPosesEnvelope, AssetRecordSchema, type AssetRecord, type ExpressionState, meshList, type MeshList, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate, type AppError, type InputUpdate, type BlueprintInspect, type AvatarPose, type DeviceKind, type ScalarValue, type BlueprintDebug, type TrackingProbe, type TrackingProbeParams, type TrackingStatus, type ArkitName } from "@opensekai/contracts";
 import { createTransformAdapter } from "./ecs";
 import {createTrackingComposer} from "./tracking";
 import { createBlueprintRuntime, logicKey, type BlueprintEvent, type GraphRun, type StepEnv } from './blueprint-runtime';
@@ -46,6 +46,7 @@ export interface Session {
     emitBlueprintEvent(name: string, payload?: ScalarValue): Reply<{revision: number}>;
     setAssetRecords(records: readonly AssetRecord[]): void;
     getExpressions(avatarId: Id): Reply<ExpressionState>;
+    meshList(avatarId: Id): Reply<MeshList>;
     setExpression(avatarId: Id, name: string, active: boolean): Reply<ExpressionState>;
 }
 const failure = (code: ErrorCode, message: string, ids: Id[] = []): Reply<never> => ({ ok: false, error: { code, message, ids } });
@@ -385,6 +386,14 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             return poses.length ? { kind: 'vmcPoses', sessionId, tick: frame.tick, poses } : null;
         },
         setAssetRecords: storeRecords,
+        meshList(avatarId) {
+            const entity = persistent.entities.find(item => item.id === avatarId);
+            if (!entity) return failure('NOT_FOUND', 'Entity not found', [avatarId]);
+            if (entity.kind !== 'avatar') return failure('INVALID_INPUT', 'Entity is not an avatar', [avatarId]);
+            const meshes = entity.assetId === null ? undefined : record(entity.assetId)?.meshes;
+            if (!meshes) return failure('NOT_FOUND', 'Asset has no mesh list', [avatarId]);
+            return { ok: true, data: meshList(meshes, entity.hiddenMeshes) };
+        },
         getExpressions(avatarId) {
             return expressionView(reconcileExpressions(expressions, persistent), persistent, record, avatarId);
         },

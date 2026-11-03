@@ -10,6 +10,8 @@ import { BlueprintGraphSchema, blueprintPorts, nodeDefinition, connectionType, o
 export type SceneEffect =
  | { kind: 'setVisibility'; entityId: Id; visible: boolean }
  | { kind: 'toggleVisibility'; entityId: Id }
+ | { kind: 'toggleMeshes'; entityId: Id; names: string[] }
+ | { kind: 'setMeshesVisible'; entityId: Id; names: string[]; visible: boolean }
  | { kind: 'selectCamera'; outputId: Id; cameraId: Id };
 export type CharacterLayerEffect = BlendShapeEffect | LookAtEffect;
 export type BlueprintEffect = SceneEffect | OverrideWrite | ExpressionEffect | BoneOffsetEffect | CharacterLayerEffect | DebugEffect;

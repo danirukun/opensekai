@@ -5,7 +5,7 @@ import { clone } from "three/addons/utils/SkeletonUtils.js";
 import type { RuntimeFrame, FrameApplied, RendererDiagnostics, CaptureBytes, Id, ResourceHost, AppError, SceneEntity, QualityProfile, ScreenshotBytes, OutputSpec } from "@opensekai/contracts";
 import { LIMITS, RuntimeFrameSchema } from "@opensekai/contracts";
 import { selectFrame, failure, createRenderQueue } from "./apply-frame";
-import { createAssetCache, createAssetLoader, disposeObject } from "./assets";
+import { applyHiddenMeshes, createAssetCache, createAssetLoader, disposeObject } from "./assets";
 import { createAvatarBinding } from "./avatar-pose";
 import { countLiveMaterials } from "./diagnostics";
 import { initializeBackend } from "./backend";
@@ -64,7 +64,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     let haze: Haze | null = null, hazeFailed = false;
     const assets = createAssetCache(loadAsset);
     const environmentLight = createEnvironmentLight(roomEnvironmentMap(renderer));
-    type Ready = { root: Object3D; avatar?: ReturnType<typeof createAvatarBinding>; assetId?: string; assetDispose?: () => void; instanceDispose?: () => void; materials?: InstanceMaterials; lit: number; warnings: AppError[]; dispose(): void };
+    type Ready = { root: Object3D; avatar?: ReturnType<typeof createAvatarBinding>; meshes?: ReadonlyMap<string, Object3D>; assetId?: string; assetDispose?: () => void; instanceDispose?: () => void; materials?: InstanceMaterials; lit: number; warnings: AppError[]; dispose(): void };
     const loadListeners = new Set<(entries: AssetLoadStatus[]) => void>();
     const prepare = async (root: Object3D, report: (r: LoadReport) => void, cancelled: () => boolean) => {
         if (cancelled() || disposed) throw failure("CANCELLED", "Asset load cancelled");
@@ -84,7 +84,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
                 sceneLights.assign(avatar.root, "characters");
                 const lit = sceneLights.generation();
                 await prepare(avatar.root, report, cancelled);
-                return { root: avatar.root, avatar, assetDispose: asset.dispose, lit, warnings: asset.warnings, dispose: asset.dispose };
+                return { root: avatar.root, avatar, meshes: asset.meshes, assetDispose: asset.dispose, lit, warnings: asset.warnings, dispose: asset.dispose };
             } catch (error) { asset.dispose(); throw error; }
         }
         const asset = await assets.get(request.assetId);
@@ -108,6 +108,8 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         assetId?: string;
         pickable?: boolean;
         avatar?: ReturnType<typeof createAvatarBinding>;
+        // The mesh nodes of an avatar by mesh name (B26 R7); avatars are not cloned, so the map holds the drawn objects.
+        meshes?: ReadonlyMap<string, Object3D>;
         assetDispose?: () => void;
         instanceDispose?: () => void;
         materials?: InstanceMaterials;
@@ -242,6 +244,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             for (const warning of value.warnings ?? [])
                 if (!warnings.some(x => x.message === warning.message && x.ids[0] === warning.ids[0])) warnings.push(warning);
             value.avatar?.apply(frame.avatarPoses?.find(pose => pose.avatarId === entity.id));
+            if (value.meshes && entity.kind === "avatar") applyHiddenMeshes(value.meshes, entity.hiddenMeshes);
             value.materials?.reflections(reflections);
             if (!editor?.frozen(entity.id)) place(value.root, entity);
         }
@@ -252,10 +255,11 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             const entity = frame.scene.entities.find(item => item.id === entityId)!;
             const old = objects.get(entityId);
             if (old) releaseObject(old);
-            const installed = { signature: entity.kind + ":" + request.assetId, root: ready.root, owned: false, avatar: ready.avatar, assetId: ready.assetId, assetDispose: ready.assetDispose, instanceDispose: ready.instanceDispose, materials: ready.materials, group: groupOf(entity) ?? undefined, lit: ready.lit, warnings: ready.warnings, pickable: entity.kind !== "environment" };
+            const installed = { signature: entity.kind + ":" + request.assetId, root: ready.root, owned: false, avatar: ready.avatar, meshes: ready.meshes, assetId: ready.assetId, assetDispose: ready.assetDispose, instanceDispose: ready.instanceDispose, materials: ready.materials, group: groupOf(entity) ?? undefined, lit: ready.lit, warnings: ready.warnings, pickable: entity.kind !== "environment" };
             scene.add(installed.root);
             objects.set(entityId, installed);
             installed.avatar?.apply(frame.avatarPoses?.find(pose => pose.avatarId === entityId));
+            if (installed.meshes && entity.kind === "avatar") applyHiddenMeshes(installed.meshes, entity.hiddenMeshes);
             installed.materials?.reflections(reflections);
             if (!editor?.frozen(entityId)) place(installed.root, entity);
             warnings.push(...ready.warnings);

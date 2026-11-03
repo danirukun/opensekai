@@ -7,6 +7,7 @@ import type { DeviceKind } from './devices';
 import type { ScalarValue } from './blueprint-values';
 import type { CameraAntiAliasing, OutputFrameLimit, OutputRenderScale, QualityProfileId } from './quality';
 import type { AvatarRig, VmcPosesEnvelope, VmcSenderSettings, VmcSenderStatus } from './vmc-sender';
+import type { AssetMesh, MeshList } from './meshes';
 import type { ArkitName, AssetExpression, ExpressionSettings, ExpressionState } from './expressions';
 import type { IntegrationsSetParams, YouTubeStatus } from './youtube';
 export type Id = string;
@@ -61,6 +62,7 @@ export type SceneEntity = (EntityBase & {
     tracking?: AvatarTracking;
     idleAnimation?: AvatarIdle;
     expressions?: Record<string, ExpressionSettings>;
+    hiddenMeshes?: string[];
 }) | (EntityBase & {
     kind: "tracking";
     config: TrackingConfig;
@@ -129,7 +131,7 @@ type ExistingPatchOp = {
     entityId: Id;
     visible: boolean;
 };
-export type LivePatchOp = {kind:'setTrackingSmoothing';entityId:Id;smoothing:TrackingSmoothing}|{kind:'calibrateTracking';entityId:Id}|{kind:'fitBlendShapeRanges';entityId:Id;neutral:Partial<Record<ArkitName,number>>}|{kind:'setTrackingCalibration';entityId:Id;calibration:TrackingCalibration|null}|{kind:'setTrackingMapping';entityId:Id;mapping:TrackingMapping}| {kind:'setAvatarIdle';entityId:Id;idleAnimation:AvatarIdle}|{kind:'createEntity';entity:SceneEntity}|{kind:'setCameraLens';entityId:Id;lens:Extract<SceneEntity,{kind:'camera'}>['lens']}|{kind:'setAvatarTracking';entityId:Id;tracking:AvatarTracking}|{kind:'setTrackingConfig';entityId:Id;config:TrackingConfig}|{kind:'setAvatarModel';entityId:Id;assetId:Id|null}|{kind:'setEnvironmentModel';entityId:Id;assetId:Id|null}|{kind:'setMeshModel';entityId:Id;assetId:Id|null}|{kind:'setEnvironmentReflections';entityId:Id;reflectionsIntensity:number}|{kind:'setLight';entityId:Id;light:LightSettings}|{kind:'setHaze';entityId:Id;haze:HazeSettings}|{kind:'setFpsCounter';entityId:Id;fpsCounter:FpsCounterSettings}|{kind:'setVmcSender';entityId:Id;vmcSender:VmcSenderSettings}|{kind:'setCameraRenderEnvironment';entityId:Id;renderEnvironment:boolean}|{kind:'setCameraAntiAliasing';entityId:Id;antiAliasing:CameraAntiAliasing}|{kind:'setCameraNavigation';entityId:Id;navigation:CameraNavigation}|{kind:'setAvatarExpression';entityId:Id;name:string;settings:ExpressionSettings|null};
+export type LivePatchOp = {kind:'setTrackingSmoothing';entityId:Id;smoothing:TrackingSmoothing}|{kind:'calibrateTracking';entityId:Id}|{kind:'fitBlendShapeRanges';entityId:Id;neutral:Partial<Record<ArkitName,number>>}|{kind:'setTrackingCalibration';entityId:Id;calibration:TrackingCalibration|null}|{kind:'setTrackingMapping';entityId:Id;mapping:TrackingMapping}| {kind:'setAvatarIdle';entityId:Id;idleAnimation:AvatarIdle}|{kind:'createEntity';entity:SceneEntity}|{kind:'setCameraLens';entityId:Id;lens:Extract<SceneEntity,{kind:'camera'}>['lens']}|{kind:'setAvatarTracking';entityId:Id;tracking:AvatarTracking}|{kind:'setTrackingConfig';entityId:Id;config:TrackingConfig}|{kind:'setAvatarModel';entityId:Id;assetId:Id|null}|{kind:'setEnvironmentModel';entityId:Id;assetId:Id|null}|{kind:'setMeshModel';entityId:Id;assetId:Id|null}|{kind:'setEnvironmentReflections';entityId:Id;reflectionsIntensity:number}|{kind:'setLight';entityId:Id;light:LightSettings}|{kind:'setHaze';entityId:Id;haze:HazeSettings}|{kind:'setFpsCounter';entityId:Id;fpsCounter:FpsCounterSettings}|{kind:'setVmcSender';entityId:Id;vmcSender:VmcSenderSettings}|{kind:'setCameraRenderEnvironment';entityId:Id;renderEnvironment:boolean}|{kind:'setCameraAntiAliasing';entityId:Id;antiAliasing:CameraAntiAliasing}|{kind:'setCameraNavigation';entityId:Id;navigation:CameraNavigation}|{kind:'setAvatarExpression';entityId:Id;name:string;settings:ExpressionSettings|null}|{kind:'setHiddenMeshes';entityId:Id;hiddenMeshes:string[]};
 export type AssetManagementPatchOp = {kind:'renameEntity';entityId:Id;name:string}|{kind:'removeEntity';entityId:Id};
 export type OutputPatchOp = {kind:'setOutputFormat';outputId:Id;width:number;height:number;fps:OutputFrameLimit;renderScale:OutputRenderScale};
 export type PatchOp = ExistingPatchOp | LivePatchOp | AssetManagementPatchOp | OutputPatchOp;
@@ -152,6 +154,7 @@ export interface AssetRecord {
     expressions: AssetExpression[];
     eyeBones?: boolean;
     rig?: AvatarRig;
+    meshes?: AssetMesh[];
 }
 export interface AssetSummary { id: Id; kind: "avatar" | "scene" | "fixture"; name: string; credits?: AssetCredits; }
 export interface AssetList { assets: AssetSummary[]; next: Id | null; }
@@ -294,6 +297,7 @@ export interface AppApi {
     assetList(params: { after?: Id }): Promise<Reply<AssetList>>;
     expressionGet(params: { avatarId: Id }): Promise<Reply<ExpressionState>>;
     expressionSet(params: { avatarId: Id; name: string; active: boolean }): Promise<Reply<ExpressionState>>;
+    meshList(params: { avatarId: Id }): Promise<Reply<MeshList>>;
     cameraScreenshot(params: CameraScreenshotParams): Promise<Reply<CameraScreenshotResult>>;
     // Host-answered: stores the YouTube link in the user settings and restarts the chat client.
     integrationsSet(params: IntegrationsSetParams): Promise<Reply<YouTubeStatus>>;

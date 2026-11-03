@@ -180,6 +180,35 @@ async fn expression_calls_reach_the_session_publisher() {
     service.shutdown().await.unwrap();
 }
 #[tokio::test]
+async fn mesh_list_reaches_the_session_publisher_and_checks_the_reply() {
+    let (_dir, service) = service(false).await;
+    let mut publisher = auth(&service.publisher_descriptor()).await;
+    let mut operator = auth(&service.operator_descriptor()).await;
+    for (id, data, ok) in [
+        (
+            "good",
+            json!({"meshes":[{"name":"Hair","hidden":true}],"unknown":["Tail"]}),
+            true,
+        ),
+        (
+            "bad",
+            json!({"meshes":[{"name":"Hair","hidden":true},{"name":"Hair","hidden":false}],"unknown":[]}),
+            false,
+        ),
+    ] {
+        let params = json!({"avatarId":"performer"});
+        send(&mut operator, call(id, "meshList", params.clone())).await;
+        let relayed = recv(&mut publisher).await;
+        assert_eq!(relayed["method"], "meshList");
+        assert_eq!(relayed["params"], params);
+        send(&mut publisher, json!({"kind":"reply","requestId":relayed["requestId"],"result":{"ok":true,"data":data}})).await;
+        let response = recv(&mut operator).await;
+        assert_eq!(response["requestId"], id);
+        assert_eq!(response["result"]["ok"], ok, "{response}");
+    }
+    service.shutdown().await.unwrap();
+}
+#[tokio::test]
 async fn blueprint_debug_reaches_the_session_publisher_and_checks_the_reply() {
     let (_dir, service) = service(false).await;
     let mut publisher = auth(&service.publisher_descriptor()).await;
