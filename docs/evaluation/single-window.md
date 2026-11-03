@@ -32,6 +32,7 @@ Setup: commit cfcdef0, `OPENSEKAI_EVALUATION=1 pnpm dev:desktop`, macOS 27.2, OB
 
 | Check | Result |
 | --- | --- |
+| Assets layout at 1440 × 900 | The Hierarchy (224 px), the scene pane, and the Inspector (320 px) show side by side. With Catboy selected the Inspector shows the Transform, Model, and Expressions sections. At 28 px Inspector padding the Position Y field cut off "0.2514". The padding is now 16 px; the field check after that change is open. The tracking guide was not checked at 320 px. |
 | Select Catboy in the Hierarchy | The viewport shows the gizmo on Catboy. The toolbar and the Inspector show Catboy. |
 | Select Camera in the Hierarchy, then click Catboy in the viewport | The Hierarchy row, the toolbar name, and the Inspector change to Catboy. |
 | Drag the Y arrow of the Move gizmo | During the drag the Inspector shows the draft (Y 0.2514). After the release the scene has Y 0.2514. |
@@ -105,12 +106,12 @@ The window was minimized for 5 minutes (AXMinimized; `kCGWindowIsOnscreen` empty
 
 One read, about 15 s after the minimize, had no `output_main` frame and no tracking status, and the sender was `waiting`. `output_main` CPU time was 3.1 to 5.8 ms while minimized.
 
-Result: R13 is not met. With the one window minimized, `output_main` and VMC send slow down. The session tick keeps its average but has uneven intervals. OBS kept 60 FPS with no skipped frames, but OBS draws its own frames; that does not show that the output kept the motion. Before the merge, with only the Scene window minimized and the Editor window visible, `output_main` kept 57.1 per s (see [Before the merge](#before-the-merge)). The owner accepted this result as a known limit of the one-window build.
+Result: R13 is not met. With the one window minimized, `output_main` slows down. The session tick keeps its average but has uneven intervals. OBS kept 60 FPS with no skipped frames, but OBS draws its own frames; that does not show that the output kept the motion. Before the merge, with only the Scene window minimized and the Editor window visible, `output_main` kept 57.1 per s (see [Before the merge](#before-the-merge)). The owner accepted this result as a known limit of the one-window build.
 
 Notes:
 
 - The load average was 6 to 12 during the run, mostly from the macOS indexer (`knowledgeconstructiond`, about 54 % CPU). `output_main` went back to 60.0 per s when the window was restored, while the load stayed high. The cause is not known. One possible cause is App Nap: when the only window is minimized, the app has no visible window. This was not checked.
-- VMC receive stayed at about 46 packets per s after the restore. The minimized state does not explain this part.
+- VMC send was 296 datagrams per s in front, 235 minimized, and 228 after the restore. VMC receive was 59.2, 46.8, and 45.6 packets per s. Both stayed low after the restore, so this check does not attribute their change to the minimized state.
 - This was a dev build. A release build was not measured.
 
 ### Camera tracking
