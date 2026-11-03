@@ -1,6 +1,6 @@
 import {expect,it} from 'vitest';
 import {makeAuthoringEntity} from '../src/editor/authoring';
-import {currentSection,isCollapsed,parseSectionState,sectionsFor,setCollapsed,START_STATE,toggleSection} from '../src/editor/inspector-sections';
+import {currentSection,indexShows,isCollapsed,parseSectionState,sectionsFor,setCollapsed,START_STATE,toggleSection} from '../src/editor/inspector-sections';
 
 const ids=(kind:Parameters<typeof makeAuthoringEntity>[0],expressions=false)=>sectionsFor(makeAuthoringEntity(kind,'id',[]),{expressions}).map(section=>section.label);
 
@@ -56,4 +56,13 @@ it('marks the last section whose top is at or above the scroll top plus 8 px (R1
  // A column that does not scroll marks the first section.
  expect(currentSection([0,100],0,400,400)).toBe(0);
  expect(currentSection([],0,400,2000)).toBe(-1);
+});
+it('shows the index only for two or more sections that do not fit (R13)',()=>{
+ expect(indexShows(5,1800,1100,0)).toBe(true);
+ expect(indexShows(5,900,1100,0)).toBe(false);
+ expect(indexShows(5,1100,1100,0)).toBe(false);
+ expect(indexShows(1,1800,1100,0)).toBe(false);
+ // The index height does not count, so the index does not hide itself.
+ expect(indexShows(5,1130,1100,40)).toBe(false);
+ expect(indexShows(5,1150,1100,40)).toBe(true);
 });

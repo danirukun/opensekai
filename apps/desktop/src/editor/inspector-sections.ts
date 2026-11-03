@@ -48,3 +48,5 @@ export function currentSection(tops:readonly number[],scrollTop:number,clientHei
  tops.forEach((top,index)=>{if(top<=scrollTop+8)current=index;});
  return current;
 }
+// Two or more sections that do not fit in the column; the index height does not count, so showing it cannot hide it (R13).
+export const indexShows=(sectionCount:number,scrollHeight:number,clientHeight:number,indexHeight:number):boolean=>sectionCount>=2&&scrollHeight-indexHeight>clientHeight;

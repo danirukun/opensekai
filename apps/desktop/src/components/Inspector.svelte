@@ -31,7 +31,7 @@
  import ResetMark from './ResetMark.svelte';
  import {tick} from 'svelte';
  import {resetMarks} from '../editor/property-defaults';
- import {currentSection,isCollapsed,parseSectionState,sectionsFor,SECTION_STORAGE_KEY,toggleSection,setCollapsed,type SectionState} from '../editor/inspector-sections';
+ import {currentSection,indexShows,isCollapsed,parseSectionState,sectionsFor,SECTION_STORAGE_KEY,toggleSection,setCollapsed,type SectionState} from '../editor/inspector-sections';
  import TrackingSourceFields from './TrackingSourceFields.svelte';
  import TransformFields from './TransformFields.svelte';
  type Props=LivePropertyCallbacks&Omit<EditorPanelProps,'model'>&{model:EditorPanelProps['model']&{setTransform?:(id:string,transform:Transform,revision?:number)=>Promise<Reply<{revision:number}>>};onlivefield?:(request:LiveRequest)=>void;onlivefieldend?:()=>void;draft?:{entityId:string;transform:Transform}|null;ondraft?:(draft:{entityId:string;transform:Transform}|null)=>void;disabled?:boolean;onlivetransform?:(id:string,transform:Transform)=>void;oncanceltransform?:()=>void;onfinishtransform?:()=>void;transformError?:string|null;livePending?:boolean;assets?:AssetRecord[];loads?:AssetLoadStatus[];importingId?:string|null;onchoosemodel?:(id:string)=>void;importError?:{entityId:string;message:string}|null;onchoosescene?:(id:string)=>void;onpickscene?:(id:string,assetId:string|null)=>void;onrenderenvironment?:(id:string,value:boolean,revision:number)=>Promise<Reply<unknown>|undefined>;expressionApi?:ExpressionApi|null;onexpressionsettings?:(id:string,name:string,settings:ExpressionSettings|null,revision:number)=>Promise<unknown>;onnavigation?:(id:string,navigation:CameraNavigation,revision:number)=>Promise<Reply<unknown>|undefined>;onscreenshot?:(id:string)=>Promise<Reply<CameraScreenshotResult>|undefined>;onopenscreenshots?:()=>Promise<void>;onguide?:(avatarId:string)=>void;vmcSenders?:VmcSenderStatus[]};
@@ -54,22 +54,25 @@
  let sectionState=$state.raw<SectionState>(readSections());
  function readSections(){try{return parseSectionState(localStorage.getItem(SECTION_STORAGE_KEY));}catch{return parseSectionState(null);}}
  function saveSections(next:SectionState){sectionState=next;try{localStorage.setItem(SECTION_STORAGE_KEY,JSON.stringify(next));}catch{}}
- let panel=$state<HTMLElement>(),scroller=$state<HTMLElement|null>(null),wide=$state(false),current=$state(0);
+ let panel=$state<HTMLElement>(),scroller=$state<HTMLElement|null>(null),indexed=$state(false),current=$state(0);
  let jumping=false,jumpTimer:ReturnType<typeof setTimeout>|undefined;
- const indexed=$derived(wide&&sections.length>=2);
  const headings=()=>[...(panel?.querySelectorAll<HTMLElement>('.inspector-section')??[])];
+ // The sticky index covers the top of the scroll area, so section tops and jumps start below it (R14, R16).
+ const indexHeight=()=>panel?.querySelector<HTMLElement>('.inspector-index')?.offsetHeight??0;
  function follow(){
   if(!scroller||jumping)return;
-  const top=scroller.getBoundingClientRect().top-scroller.scrollTop;
+  const top=scroller.getBoundingClientRect().top-scroller.scrollTop+indexHeight();
   current=Math.max(0,currentSection(headings().map(item=>item.getBoundingClientRect().top-top),scroller.scrollTop,scroller.clientHeight,scroller.scrollHeight));
  }
- // The index shows when the properties column is at least 520 px wide (R13); it follows scroll and resize (R14).
+ function measure(){if(scroller)indexed=indexShows(sections.length,scroller.scrollHeight,scroller.clientHeight,indexHeight());follow();}
+ // The index shows when the sections do not fit in the column (R13); it follows scroll and resize (R14).
  $effect(()=>{
   const column=panel?.closest<HTMLElement>('.properties-column')??null;
   scroller=column;
-  if(!column)return;
-  const resize=new ResizeObserver(()=>{wide=column.clientWidth>=520;follow();});
+  if(!column||!panel)return;
+  const resize=new ResizeObserver(()=>measure());
   resize.observe(column);
+  resize.observe(panel);
   const scroll=()=>follow(),end=()=>{jumping=false;clearTimeout(jumpTimer);};
   column.addEventListener('scroll',scroll,{passive:true});
   column.addEventListener('scrollend',end);
@@ -77,9 +80,9 @@
  });
  // A new selection starts at the top of the column (R17).
  let shownId:string|undefined;
- $effect(()=>{const id=entity?.id;if(id===shownId)return;shownId=id;if(scroller)scroller.scrollTop=0;jumping=false;void tick().then(follow);});
+ $effect(()=>{const id=entity?.id;if(id===shownId)return;shownId=id;if(scroller)scroller.scrollTop=0;jumping=false;void tick().then(measure);});
  // A section that a type change or an expressions load adds or removes moves the others without a scroll event.
- $effect(()=>{void sections.length;void tick().then(follow);});
+ $effect(()=>{void sections.length;void tick().then(measure);});
  function toggle(id:string){if(!entity)return;saveSections(toggleSection(sectionState,entity.kind,id));void tick().then(follow);}
  async function jump(index:number){
   const section=sections[index];
@@ -88,7 +91,7 @@
   await tick();
   const element=headings()[index],button=element?.querySelector<HTMLButtonElement>('.section-heading');
   if(!element||!button)return;
-  const top=element.getBoundingClientRect().top-scroller.getBoundingClientRect().top+scroller.scrollTop;
+  const top=element.getBoundingClientRect().top-scroller.getBoundingClientRect().top+scroller.scrollTop-indexHeight();
   const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
   // The jumped section stays current after the scroll ends, also when the column cannot scroll that far (R16).
   jumping=true;current=index;clearTimeout(jumpTimer);jumpTimer=setTimeout(()=>{jumping=false;},1000);
@@ -125,7 +128,7 @@
    {:else if id==='diagnostics'}<TrackingDiagnostics kind={entity.config.kind} generation={entity.generation} status={matchingStatus(trackingStatus,entity.id,entity.generation)}/>{/if}
   {/if}{/if}
  {/snippet}
- <div class="inspector-layout" class:indexed>
+ <div class="inspector-layout">
   {#if indexed}<InspectorIndex {sections} {current} onjump={jump}/>{/if}
   <div class="inspector-sections">{#each sections as section (section.id)}<InspectorSection id={section.id} label={section.label} collapsed={isCollapsed(sectionState,entity.kind,section.id)} ontoggle={()=>toggle(section.id)}>{@render body(section.id)}</InspectorSection>{/each}</div>
  </div>

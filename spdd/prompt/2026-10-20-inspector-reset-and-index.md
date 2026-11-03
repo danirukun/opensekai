@@ -42,10 +42,10 @@ R12. Each section starts expanded, except Smoothing, Face, and Diagnostics of a 
 
 ### Section index (UX-01)
 
-R13. When the properties column is at least 520 px wide and the entity shows two or more sections, a section index shows at the left of the sections. It is a `nav` with the accessible name `Sections` and one button for each section in section order. It stays in view while the properties column scrolls (`position: sticky`). A narrower column or a single section shows no index.
-R14. The current section is the last section whose top is at or above the top of the scroll area plus 8 px. When the scroll area is at its end, the current section is the last section. When no section top is above that line, it is the first section. A pure function `currentSection(tops, scrollTop, clientHeight, scrollHeight)` computes it. The Inspector updates it on scroll, on resize of the properties column, on a section collapse or expand, and on a change of the selected entity.
+R13. When the entity shows two or more sections and its sections do not fit in the height of the properties column, a section index shows above the sections. The index height does not count in this test, so the index does not show and hide in a loop. It is a `nav` with the accessible name `Sections` and one button for each section in section order. The buttons are in a row that wraps. The index stays at the top of the properties column while the column scrolls (`position: sticky`). A single section, or sections that fit, show no index. A pure function `indexShows(sectionCount, scrollHeight, clientHeight, indexHeight)` decides it. The Inspector checks it again when the column or the Inspector content changes size. Changed 2026-11-03: the index was at the left of the sections at a column width of 520 px or more. Since the Editor and the scene preview are one window (#254), the properties column is 320 px wide, and that index never showed.
+R14. The current section is the last section whose top is at or above the top of the scroll area plus 8 px. When the index shows, the top of the scroll area is the bottom of the index. When the scroll area is at its end, the current section is the last section. When no section top is above that line, it is the first section. A pure function `currentSection(tops, scrollTop, clientHeight, scrollHeight)` computes it. The Inspector updates it on scroll, on resize of the properties column, on a section collapse or expand, and on a change of the selected entity.
 R15. The current entry has `aria-current="true"`, a heavier font weight, and the text color of the selected Hierarchy row. It has no side bar, background pill, or badge.
-R16. A click on an entry expands its section when it is collapsed, saves that state (R12), scrolls the section heading to the top of the scroll area (smooth, or instant when `prefers-reduced-motion: reduce`), and moves focus to the section heading button. The current entry is that section after the scroll ends.
+R16. A click on an entry expands its section when it is collapsed, saves that state (R12), scrolls the section heading to the top of the scroll area, below the index (smooth, or instant when `prefers-reduced-motion: reduce`), and moves focus to the section heading button. The current entry is that section after the scroll ends.
 R17. A change of the selected entity scrolls the properties column to the top.
 
 ### Documents
@@ -59,6 +59,7 @@ R18. `docs/warudo-parity.md` records only the verified subset of UX-01 and UX-02
 - `InspectorSection = { id: string; label: string }`. `sectionsFor(entity: SceneEntity, options: { expressions: boolean }): InspectorSection[]` (R11).
 - `SectionState = { version: 1; collapsed: string[] }`. `parseSectionState(text: string | null): SectionState`, `isCollapsed(state, kind, id): boolean`, `toggleSection(state, kind, id): SectionState` (R12, start state included).
 - `currentSection(tops: number[], scrollTop: number, clientHeight: number, scrollHeight: number): number` (R14).
+- `indexShows(sectionCount: number, scrollHeight: number, clientHeight: number, indexHeight: number): boolean` (R13).
 
 ## A — Approach
 
@@ -79,7 +80,7 @@ Write the pure modules first with unit tests: defaults and equality, section lis
 2. `inspector-sections.ts` with `sectionsFor`, the section state functions, and `currentSection`. Unit tests: the R11 order for each kind, Shadow absent for ambient, Expressions only with expressions; the R12 start state, an invalid or oversize stored value, a toggle round trip; the R14 cases (top, middle, exact line, end of scroll, empty list).
 3. `ResetMark.svelte` and the reset entry in each field component (R5–R9). Each component gets the defaults for its group as a prop and calls its existing commit path.
 4. `InspectorSection.svelte` and the section layout in `Inspector.svelte` (R10–R12).
-5. `InspectorIndex.svelte`: width check with a `ResizeObserver`, scroll follow, and jump (R13–R17).
+5. `InspectorIndex.svelte`: fit check with a `ResizeObserver` on the column and the Inspector, scroll follow, and jump (R13–R17).
 6. Headless Chromium check of the Editor window connected to a session (evidence in `docs/evaluation/inspector-reset-and-index.md`):
    - Add a Point Light. No reset mark shows. Drag Intensity. The Intensity mark shows. Click it. Exactly one `scenePatch` goes out, the light intensity is 20, the revision increases by one, and the mark goes away.
    - Change Range through MCP `scene_patch`. The Range mark shows after the revision arrives.
