@@ -31,6 +31,20 @@ Screenshots: [new point light](inspector-reset-and-index/point-light-new.png), [
 
 Unit tests: `apps/desktop/test/property-defaults.test.ts` (8 tests: add defaults for each kind and light type, reset field lists for each kind and none of R4, the R2 tolerance, fallbacks for missing fields) and `apps/desktop/test/inspector-sections.test.ts` (5 tests: section order, start state, invalid and oversize stored values, toggle round trip, current section rule).
 
+## macOS, index above the sections (2026-11-03)
+
+Since #254 the properties column is 320 px wide, so the index at 520 px and wider never showed. R13 now shows the index above the sections when they do not fit in the column. The Linux index rows above check the old rule.
+
+Environment: macOS 27.2, `pnpm dev:desktop` (Tauri WebView), Editor window 1440 × 900. Driven through the accessibility tree and window screenshots.
+
+| Check | Result |
+| --- | --- |
+| A Directional Light and a Camera with collapsed sections fit in the column and show no index | Pass |
+| A Camera with Transform, Rendering, Lens, and Control expanded shows the index as a row above the sections. It wraps to two lines and stays at the top while the column scrolls | Pass |
+| A click on Screenshot (collapsed) expands it, scrolls to the end, focuses its heading, and marks it current | Pass |
+| A click on Rendering scrolls its heading to just below the index and marks it current | Pass |
+| All sections collapsed again: the index goes away | Pass |
+
 ## Handbook
 
 The [Warudo asset overview](https://docs.warudo.app/docs/assets/overview) loaded on 2026-10-20. It says only that the properties of a selected asset show in the right panel. It does not describe a reset mark, sections, a section index, or collapse. Thus there is no difference to record against the contract.
