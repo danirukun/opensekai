@@ -38,6 +38,7 @@ fn avatar(asset: &str) -> SceneEntity {
         tracking: None,
         idle_animation: None,
         expressions: None,
+        hidden_meshes: None,
     }
 }
 fn sender(id: &str, enabled: bool, port: u16) -> SceneEntity {
@@ -106,6 +107,7 @@ fn record(id: &str, rig: Option<AvatarRig>) -> AssetRecord {
         expressions: vec![],
         eye_bones: None,
         rig,
+        meshes: None,
     }
 }
 fn pose(id: &str) -> VmcSendPose {

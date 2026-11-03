@@ -1,0 +1,7 @@
+# backend=webgl2
+PASS the fixture avatar draws with no hidden mesh {"drawn":56718}
+PASS hiding Hair draws fewer pixels and keeps the rest of the avatar (R7) {"all":56718,"hair":52602}
+PASS hiding each mesh draws nothing, and the transparent clear keeps alpha 0 (R7) {"none":0}
+PASS an empty list shows each mesh again without a reload (R7) {"all":56718,"back":56718}
+PASS no page error []
+5 pass, 0 fail

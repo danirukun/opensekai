@@ -71,6 +71,10 @@ Bundle B13 (branch `opensekai/blueprint-depth`) adds 118 node types. The catalog
 3. 19 of 174 node types have a live macOS run on record. Each B13 row has `tests` evidence until the integrated macOS run records it.
 4. Each Warudo name in the B13 rows is a candidate or `null`, as before.
 
+## B26 update (2026-11-03)
+
+Bundle B26 adds Toggle Character Meshes (the Warudo name from the tutorial Toggling Clothing & Accessories) and Set Character Meshes Visible (an OpenSekai addition) in the Characters category. Each row has `tests` evidence. The table above still counts the rows at the B13 update.
+
 ## What remains for BP-13
 
 - Record the Warudo node names for each palette category from the live palette, on a host with a supported GPU. Then replace each candidate with the recorded name, or with `null` and a reason.

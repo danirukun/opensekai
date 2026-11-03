@@ -89,7 +89,14 @@
   const first = record ? triggerableExpressions(record)[0] : undefined;
   return first ? [{ avatarId: entity.id, expression: first.name }] : [];
  })[0]);
- const refs = $derived<DefaultRefs>({ entityId: targets[0]?.id, avatarId: face?.avatarId, expression: face?.expression, cameraId: cameras[0]?.id, outputId, trackingSourceId: trackingSources[0]?.id, keystroke: defaultKeystroke(platform), variables: graph?.variables ?? [], graphId: graph?.id });
+ // The first mesh of the default character, for the mesh node defaults (B26 R11). Without a character that has a
+ // triggerable expression, the default character is the first one whose model has a mesh list.
+ const meshesOf = (id: string | undefined) => {
+  const avatar = scene?.entities.find(entity => entity.id === id);
+  return avatar?.kind === 'avatar' && avatar.assetId !== null ? assets.find(asset => asset.id === avatar.assetId)?.meshes ?? [] : [];
+ };
+ const avatarId = $derived(face?.avatarId ?? scene?.entities.find(entity => entity.kind === 'avatar' && meshesOf(entity.id).length > 0)?.id);
+ const refs = $derived<DefaultRefs>({ entityId: targets[0]?.id, avatarId, expression: face?.expression, mesh: meshesOf(avatarId)[0]?.name, cameraId: cameras[0]?.id, outputId, trackingSourceId: trackingSources[0]?.id, keystroke: defaultKeystroke(platform), variables: graph?.variables ?? [], graphId: graph?.id });
  const taken = $derived(new Set((status?.warnings ?? []).flatMap(warning => warning.ids)));
  const inputWarning = $derived(status?.warnings.find(warning => warning.ids.includes('input-monitoring')));
  const deviceWarnings = $derived((status?.warnings ?? []).filter(warning => warning.ids.some(id => id === 'device-gamepad' || id === 'device-midi' || id === 'device-pointer')));

@@ -217,6 +217,7 @@ impl Shared {
                 | "trackingProbe"
                 | "expressionGet"
                 | "expressionSet"
+                | "meshList"
         ) {
             return Reply::failure(err(ErrorCode::Unsupported, "Not a scene command"));
         }
@@ -398,6 +399,7 @@ impl Shared {
                 | "trackingProbe"
                 | "expressionGet"
                 | "expressionSet"
+                | "meshList"
         ) {
             return self.route_scene_call(call, client_id).await;
         }

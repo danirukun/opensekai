@@ -261,6 +261,12 @@ pub enum SceneEntity {
         idle_animation: Option<AvatarIdle>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         expressions: Option<BTreeMap<String, ExpressionSettings>>,
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            rename = "hiddenMeshes"
+        )]
+        hidden_meshes: Option<Vec<String>>,
     },
     Tracking {
         id: Id,
@@ -524,6 +530,12 @@ pub enum PatchOp {
         name: String,
         settings: Option<ExpressionSettings>,
     },
+    SetHiddenMeshes {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+        #[serde(rename = "hiddenMeshes")]
+        hidden_meshes: Vec<String>,
+    },
     SetTrackingSmoothing {
         #[serde(rename = "entityId")]
         entity_id: Id,
@@ -589,6 +601,44 @@ pub struct AssetRecord {
     pub eye_bones: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rig: Option<AvatarRig>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub meshes: Option<Vec<AssetMesh>>,
+}
+object!(AssetMesh {
+    node: u32,
+    name: String
+});
+object!(MeshView {
+    name: String,
+    hidden: bool
+});
+object!(MeshList {
+    meshes: Vec<MeshView>,
+    unknown: Vec<String>
+});
+object!(MeshListParams { avatar_id: Id });
+/// The mesh limits of B26. Keep in step with `packages/contracts/src/meshes.ts`.
+pub const MAX_MESHES: usize = 256;
+pub const MAX_MESH_NAME: usize = 128;
+pub fn mesh_name_ok(name: &str) -> bool {
+    (1..=MAX_MESH_NAME).contains(&name.encode_utf16().count())
+}
+/// A list of at most 256 unique mesh names.
+pub fn mesh_names_ok<'a>(names: impl IntoIterator<Item = &'a String>) -> bool {
+    let mut seen = HashSet::new();
+    let mut count = 0;
+    names.into_iter().all(|name| {
+        count += 1;
+        count <= MAX_MESHES && mesh_name_ok(name) && seen.insert(name.as_str())
+    })
+}
+impl Validate for MeshList {
+    fn validate(&self) -> Result<(), AppError> {
+        require(
+            mesh_names_ok(self.meshes.iter().map(|m| &m.name)) && mesh_names_ok(&self.unknown),
+            "invalid mesh list",
+        )
+    }
 }
 object!(AssetExpression {
     name: String,
@@ -2177,6 +2227,9 @@ impl Validate for ScenePatch {
                         settings.validate()?;
                     }
                 }
+                PatchOp::SetHiddenMeshes { hidden_meshes, .. } => {
+                    require(mesh_names_ok(hidden_meshes), "invalid hidden meshes")?
+                }
                 _ => {}
             }
         }
@@ -2335,6 +2388,12 @@ impl Validate for AssetRecord {
         if let Some(rig) = &self.rig {
             rig.validate()?;
         }
+        if let Some(meshes) = &self.meshes {
+            require(
+                mesh_names_ok(meshes.iter().map(|m| &m.name)),
+                "invalid mesh list",
+            )?;
+        }
         hash(&self.sha256)
     }
 }
@@ -2365,6 +2424,10 @@ pub fn validate_call(method: &str, params: &Value) -> Result<(), AppError> {
         "integrationsSet" => decode::<IntegrationsSetParams>(params)?.validate(),
         "expressionGet" => {
             let p = decode::<ExpressionGetParams>(params)?;
+            require(id_text_ok(&p.avatar_id), "invalid avatar ID")
+        }
+        "meshList" => {
+            let p = decode::<MeshListParams>(params)?;
             require(id_text_ok(&p.avatar_id), "invalid avatar ID")
         }
         "expressionSet" => {
@@ -2427,6 +2490,7 @@ pub fn validate_result(method: &str, result: &Value) -> Result<(), AppError> {
             | "assetList"
             | "expressionGet"
             | "expressionSet"
+            | "meshList"
             | "cameraScreenshot"
             | "integrationsSet"
     );
@@ -2470,6 +2534,7 @@ pub fn validate_result(method: &str, result: &Value) -> Result<(), AppError> {
         "evidenceRead" => decode::<EvidenceManifest>(data)?.validate(),
         "assetList" => decode::<AssetList>(data)?.validate(),
         "expressionGet" | "expressionSet" => decode::<ExpressionState>(data)?.validate(),
+        "meshList" => decode::<MeshList>(data)?.validate(),
         "cameraScreenshot" => decode::<CameraScreenshotResult>(data)?.validate(),
         "integrationsSet" => decode::<YouTubeStatus>(data)?.validate(),
         _ => unreachable!(),
@@ -2897,6 +2962,13 @@ impl Validate for SceneEntity {
             for settings in expressions.values() {
                 settings.validate()?;
             }
+        }
+        if let Self::Avatar {
+            hidden_meshes: Some(hidden),
+            ..
+        } = self
+        {
+            require(mesh_names_ok(hidden), "invalid hidden meshes")?;
         }
         Ok(())
     }
