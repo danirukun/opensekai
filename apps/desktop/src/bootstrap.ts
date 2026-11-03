@@ -116,12 +116,3 @@ export async function bootstrapDesktop(canvas: HTMLCanvasElement, editorOptions?
  }
 }
 
-export interface NativeEditorConnection { operator:ConnectionDescriptor;output:ConnectionDescriptor;assets:AssetRecord[];rendererMode:'auto'|'force-webgl2' }
-export async function bootstrapEditor(){
- const info=await invoke<NativeEditorConnection>('editor_connection');
- for(const descriptor of [info.operator,info.output])ConnectionDescriptorSchema.parse(descriptor);
- if(info.operator.role!=='operator'||info.output.role!=='renderer'||info.output.outputId!=='output_main'||info.operator.sessionId!==info.output.sessionId)throw new Error('Editor connection scope mismatch');
- const client=await connectClient(info.operator);
- const outputUrl=makeOutputUrl(info.output,info.rendererMode);
- return {client,assets:info.assets,outputUrl,canEdit:info.operator.capabilities.includes('edit'),stop(){client.close();}};
-}
