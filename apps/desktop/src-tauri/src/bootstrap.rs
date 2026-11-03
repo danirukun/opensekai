@@ -30,14 +30,6 @@ pub struct NativeBootstrap {
     renderer_mode: RendererMode,
     fixture_mode: bool,
 }
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct NativeEditorConnection {
-    operator: ConnectionDescriptor,
-    output: ConnectionDescriptor,
-    assets: Vec<AssetRecord>,
-    renderer_mode: RendererMode,
-}
 #[derive(Default)]
 struct Owned {
     service: Option<ServiceHandle>,
@@ -189,21 +181,13 @@ impl DesktopState {
             }
         }
     }
-    pub async fn editor_connection(&self) -> Result<NativeEditorConnection, AppError> {
-        let ready = self.wait_ready().await?;
-        Ok(NativeEditorConnection {
-            operator: ready.operator,
-            output: ready.output,
-            assets: self
-                .owned
-                .lock()
-                .await
-                .service
-                .as_ref()
-                .map(|s| s.asset_records())
-                .unwrap_or(ready.assets),
-            renderer_mode: ready.renderer_mode,
-        })
+    /// The session bootstrap with the live asset records, so a reload sees models imported after startup.
+    pub async fn session_bootstrap(&self) -> Result<NativeBootstrap, AppError> {
+        let mut ready = self.wait_ready().await?;
+        if let Some(service) = self.owned.lock().await.service.as_ref() {
+            ready.assets = service.asset_records();
+        }
+        Ok(ready)
     }
     pub async fn import_avatar(
         &self,
@@ -280,8 +264,9 @@ mod tests {
             ErrorCode::Unavailable
         );
     }
+    // Real managed-file boundary: an imported avatar must reach a later session bootstrap, not only the startup snapshot.
     #[tokio::test]
-    async fn editor_projection_contains_only_connection_assets_and_safe_renderer_mode() {
+    async fn session_bootstrap_returns_the_live_asset_records_after_an_import() {
         let dir = tempfile::tempdir().unwrap();
         let manifest = dir.path().join("manifest.json");
         std::fs::write(
@@ -289,6 +274,18 @@ mod tests {
             r#"{"schemaVersion":1,"fixtureId":"smoke_v1","assets":[]}"#,
         )
         .unwrap();
+        let source = dir.path().join("avatar.vrm");
+        let mut json = include_bytes!("../tests/fixtures/minimal-vrm1.json").to_vec();
+        while !json.len().is_multiple_of(4) {
+            json.push(b' ');
+        }
+        let mut bytes = b"glTF".to_vec();
+        bytes.extend(2u32.to_le_bytes());
+        bytes.extend((20 + json.len() as u32).to_le_bytes());
+        bytes.extend((json.len() as u32).to_le_bytes());
+        bytes.extend(0x4e4f534au32.to_le_bytes());
+        bytes.extend(json);
+        std::fs::write(&source, &bytes).unwrap();
         let state = DesktopState::new();
         state
             .clone()
@@ -302,37 +299,16 @@ mod tests {
                 dir.path().join("descriptors"),
             )
             .await;
-        let owner = serde_json::to_value(state.wait_ready().await.unwrap()).unwrap();
-        let editor = serde_json::to_value(state.editor_connection().await.unwrap()).unwrap();
-        let keys: Vec<_> = editor
-            .as_object()
-            .unwrap()
-            .keys()
-            .map(String::as_str)
-            .collect();
-        assert_eq!(keys, ["assets", "operator", "output", "rendererMode"]);
-        assert_eq!(editor["rendererMode"], owner["rendererMode"]);
-        assert_eq!(editor["operator"], owner["operator"]);
-        assert_eq!(editor["output"], owner["output"]);
-        assert_eq!(editor["assets"], owner["assets"]);
-        assert_eq!(editor["operator"]["role"], "operator");
-        assert_eq!(editor["output"]["role"], "renderer");
-        // Vary the existing readiness preference without process-global environment races.
-        let mut ready = state.wait_ready().await.unwrap();
-        for (mode, expected) in [
-            (RendererMode::Auto, "auto"),
-            (RendererMode::ForceWebgl2, "force-webgl2"),
-        ] {
-            ready.renderer_mode = mode;
-            state.ready.send_replace(Some(Ok(ready.clone())));
-            let projected = serde_json::to_value(state.editor_connection().await.unwrap()).unwrap();
-            assert_eq!(projected["rendererMode"], expected);
-            assert_eq!(projected["operator"], owner["operator"]);
-            assert_eq!(projected["output"], owner["output"]);
-        }
+        let before = state.session_bootstrap().await.unwrap();
+        let imported = state.import_avatar(source).await.unwrap();
+        let after = state.session_bootstrap().await.unwrap();
+        assert!(!before.assets.iter().any(|a| a.id == imported.record.id));
+        assert!(after.assets.iter().any(|a| a.id == imported.record.id));
+        assert_eq!(after.operator, before.operator);
+        assert_eq!(after.output, before.output);
         state.shutdown().await.unwrap();
         assert_eq!(
-            state.editor_connection().await.err().unwrap().code,
+            state.session_bootstrap().await.err().unwrap().code,
             ErrorCode::Unavailable
         );
     }

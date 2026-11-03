@@ -108,19 +108,19 @@ Do not round a partial result up to Pass. A measurement you could not take is "u
 Record only when every check is Pass or Needs owner. A demo of a broken flow misleads reviewers. With a Fail, skip to step 8.
 
 1. Plan a short script (under about 90 s raw) that shows the main user-visible change from the PR summary, using the flows you already verified. Set up state with MCP first so the recording shows only the interesting part.
-2. Tile both app windows. The demo always shows the Editor and the Scene window together, because most changes have a cause in one window and an effect in the other:
+2. Fit the app window to the screen. The scene pane and the Inspector show together on the Assets tab, so most changes show their cause and their effect in one view:
    ```sh
    osascript -l JavaScript $SKILL/scripts/arrange-windows.js            # dev build; pass "OpenSekai" for a release bundle
    ```
-   It puts `OpenSekai Editor` on the left and `OpenSekai — Scene` on the right, fills the main screen's visible area (below the menu bar, beside the Dock), raises both on top, and prints JSON with a `crop` filter for that area. Keep the `crop` value. The script needs Accessibility permission for the terminal. If macOS refuses, tell the user where to grant it (System Settings › Privacy & Security › Accessibility) and wait.
+   It sizes the `OpenSekai` window to the main screen's visible area (below the menu bar, beside the Dock), raises it on top, and prints JSON with a `crop` filter for that area. Keep the `crop` value. The script needs Accessibility permission for the terminal. If macOS refuses, tell the user where to grant it (System Settings › Privacy & Security › Accessibility) and wait.
 3. Check capture with `cap doctor --json`. If it reports `captureReady: false`, tell the user (it is usually the Screen Recording permission) and continue without a video. Get the main screen ID from `cap targets --json` (`screens[]`, `primary: true`).
-4. Record the screen. A screen recording keeps both windows in one video. The crop removes the menu bar and the Dock later:
+4. Record the screen. A screen recording also keeps native dialogs in the video. The crop removes the menu bar and the Dock later:
    ```sh
    cap record start --screen <id> --fps 30 --detach --json --path <scratch>/qa-<pr>/demo.cap
    # ... perform the demo with computer use and MCP ...
    cap record stop --path <scratch>/qa-<pr>/demo.cap --json
    ```
-   During the demo, work only in the two OpenSekai windows. If another app comes to the front (a dialog, Finder, OBS), run `arrange-windows.js` again before you continue. Do not resize or move the windows, or the crop no longer fits.
+   During the demo, work only in the OpenSekai window. If another app comes to the front (a dialog, Finder, OBS), run `arrange-windows.js` again before you continue. Do not resize or move the windows, or the crop no longer fits.
 5. Export, then crop, speed up, and compress:
    ```sh
    cap export <scratch>/qa-<pr>/demo.cap <scratch>/qa-<pr>/demo-raw.mp4 --quality web --optimize-filesize --fps 30 --json

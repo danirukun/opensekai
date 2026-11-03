@@ -7,7 +7,7 @@ description: Use when the user asks to record a demo, screen capture, or video o
 
 Record a window or screen with the `cap` CLI, then finish the video with ffmpeg for the place it goes. `$SKILL` is this skill's directory, `<repo>/.agents/skills/recording-demos`. Call the scripts with `bash $SKILL/scripts/<name>.sh`. Put scratch files (recordings, check frames) in the session scratchpad.
 
-For a PR acceptance demo inside a QA run, use the `local-qa-e2e` skill. It records both app windows and posts to the PR.
+For a PR acceptance demo inside a QA run, use the `local-qa-e2e` skill. It records the app window and posts to the PR.
 
 ## 1. Record
 
@@ -19,8 +19,8 @@ Skip this step if the user gives an existing video.
    cap targets --json | jq -r '.windows[] | select(.name|test("OpenSekai")) | "\(.id)\t\(.name)\t\(.bounds.width)x\(.bounds.height)"'
    cap targets --json | jq -r '.screens[] | "\(.id)\t\(.name)\tprimary=\(.primary)"'
    ```
-   The dev app's windows are `OpenSekai Editor` and `OpenSekai — Scene`.
-3. Raise the window and keep it on top. `--window` records the window's area of the screen, so a window in front of it is recorded instead. The Scene window also stops drawing while another app (for example OBS) is frontmost.
+   The app has one window, `OpenSekai`.
+3. Raise the window and keep it on top. `--window` records the window's area of the screen, so a window in front of it is recorded instead. The scene preview also stops drawing while another app (for example OBS) is frontmost, and while a tab other than Assets shows.
 4. Set up the state first (with MCP), so the recording shows only the interesting part. Turn on Do Not Disturb, so notifications do not appear in the video.
 5. Record at 60 fps for app motion:
    ```sh

@@ -10,7 +10,7 @@ mod show;
 pub mod tracking;
 pub mod vmc_sender;
 pub mod youtube;
-use bootstrap::{DesktopState, NativeBootstrap, NativeEditorConnection};
+use bootstrap::{DesktopState, NativeBootstrap};
 use opensekai_contracts::{AppError, ErrorCode};
 use std::{path::PathBuf, sync::Arc};
 use tauri::Manager;
@@ -31,7 +31,7 @@ async fn bootstrap_session(
     state: tauri::State<'_, Arc<DesktopState>>,
 ) -> Result<NativeBootstrap, AppError> {
     require_window_label(window.label(), "main")?;
-    state.wait_ready().await
+    state.session_bootstrap().await
 }
 #[tauri::command]
 async fn shutdown_session(
@@ -41,7 +41,7 @@ async fn shutdown_session(
     require_window_label(window.label(), "main")?;
     state.shutdown().await
 }
-/// Sends a new or replaced record to the Scene window, so the session sees the expressions of a new model.
+/// Sends a new or replaced record to the session worker, so the session sees the expressions of a new model.
 fn announce_record(window: &tauri::WebviewWindow, record: &opensekai_contracts::AssetRecord) {
     use tauri::Emitter;
     let _ = window.app_handle().emit_to("main", "asset-record", record);
@@ -58,19 +58,11 @@ fn require_window_label(actual: &str, expected: &str) -> Result<(), AppError> {
     }
 }
 #[tauri::command]
-async fn editor_connection(
-    window: tauri::WebviewWindow,
-    state: tauri::State<'_, Arc<DesktopState>>,
-) -> Result<NativeEditorConnection, AppError> {
-    require_window_label(window.label(), "editor")?;
-    state.editor_connection().await
-}
-#[tauri::command]
 async fn import_avatar(
     window: tauri::WebviewWindow,
     state: tauri::State<'_, Arc<DesktopState>>,
 ) -> Result<Option<crate::assets::ImportResult>, AppError> {
-    require_window_label(window.label(), "editor")?;
+    require_window_label(window.label(), "main")?;
     let app = window.app_handle().clone();
     let path = tauri::async_runtime::spawn_blocking(move || {
         let dialog = app.dialog().file().set_title("Import VRM avatar");
@@ -100,7 +92,7 @@ async fn import_scene(
     window: tauri::WebviewWindow,
     state: tauri::State<'_, Arc<DesktopState>>,
 ) -> Result<Option<crate::assets::ImportResult>, AppError> {
-    require_window_label(window.label(), "editor")?;
+    require_window_label(window.label(), "main")?;
     let app = window.app_handle().clone();
     let path = tauri::async_runtime::spawn_blocking(move || {
         let dialog = app.dialog().file().set_title("Import model");
@@ -144,7 +136,7 @@ async fn save_show_as(
     window: tauri::WebviewWindow,
     document: serde_json::Value,
 ) -> Result<Option<String>, AppError> {
-    require_window_label(window.label(), "editor")?;
+    require_window_label(window.label(), "main")?;
     show::validate_show(&document)?;
     let name = document["name"].as_str().unwrap_or("OpenSekai Show");
     let filename = format!("{}.osekai", name.replace(['/', '\\', ':'], "-"));
@@ -176,7 +168,7 @@ async fn save_show(
     show_file: tauri::State<'_, show::ShowFile>,
     document: serde_json::Value,
 ) -> Result<Option<String>, AppError> {
-    require_window_label(window.label(), "editor")?;
+    require_window_label(window.label(), "main")?;
     let Some(path) = show_file.path() else {
         return save_show_as(window, document).await;
     };
@@ -189,7 +181,7 @@ async fn save_show(
 }
 #[tauri::command]
 async fn open_show(window: tauri::WebviewWindow) -> Result<Option<serde_json::Value>, AppError> {
-    require_window_label(window.label(), "editor")?;
+    require_window_label(window.label(), "main")?;
     let app = window.app_handle().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let dialog = app.dialog().file().set_title("Open OpenSekai show");
@@ -212,38 +204,9 @@ fn set_show_dirty(
     show_file: tauri::State<'_, show::ShowFile>,
     dirty: bool,
 ) -> Result<(), AppError> {
-    require_window_label(window.label(), "editor")?;
+    require_window_label(window.label(), "main")?;
     show_file.set_dirty(dirty);
     Ok(())
-}
-/// Asks before the editor closes with unsaved changes: `save`, `discard`, or `cancel`.
-#[tauri::command]
-async fn confirm_close_editor(window: tauri::WebviewWindow) -> Result<&'static str, AppError> {
-    require_window_label(window.label(), "editor")?;
-    let app = window.app_handle().clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        use tauri_plugin_dialog::{MessageDialogButtons, MessageDialogResult};
-        let result = app
-            .dialog()
-            .message("Save changes to the show before closing?")
-            .title("Unsaved changes")
-            .parent(&window)
-            .buttons(MessageDialogButtons::YesNoCancelCustom(
-                "Save".into(),
-                "Don't Save".into(),
-                "Cancel".into(),
-            ))
-            .blocking_show_with_result();
-        match result {
-            MessageDialogResult::Yes => "save",
-            MessageDialogResult::Custom(label) if label == "Save" => "save",
-            MessageDialogResult::No => "discard",
-            MessageDialogResult::Custom(label) if label == "Don't Save" => "discard",
-            _ => "cancel",
-        }
-    })
-    .await
-    .map_err(chooser_unavailable)
 }
 const QUIT_MENU_ID: &str = "opensekai-quit";
 /// Menu item ID, `show-command` payload, label, and accelerator for each File menu show action.
@@ -296,15 +259,16 @@ fn install_menu(app: &tauri::AppHandle) -> tauri::Result<()> {
     app.set_menu(menu)?;
     Ok(())
 }
-/// Brings the editor forward and asks it to run a show command, so the editor builds the document.
+/// Brings the window forward and asks it to run a show command, so the editor builds the document.
 fn send_show_command(app: &tauri::AppHandle, command: &str) {
     use tauri::Emitter;
-    let Some(editor) = app.get_webview_window("editor") else {
+    let Some(window) = app.get_webview_window("main") else {
         return;
     };
-    let _ = editor.show();
-    let _ = editor.set_focus();
-    let _ = app.emit_to("editor", "show-command", command);
+    let _ = window.show();
+    let _ = window.unminimize();
+    let _ = window.set_focus();
+    let _ = app.emit_to("main", "show-command", command);
 }
 /// Quits now, or first asks when the show has unsaved changes.
 fn request_quit(app: &tauri::AppHandle) {
@@ -331,7 +295,7 @@ fn request_quit(app: &tauri::AppHandle) {
 }
 #[tauri::command]
 async fn import_blueprint_file(window: tauri::WebviewWindow) -> Result<Option<String>, AppError> {
-    require_window_label(window.label(), "editor")?;
+    require_window_label(window.label(), "main")?;
     let app = window.app_handle().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let dialog = app
@@ -364,7 +328,7 @@ async fn export_blueprint_file(
     name: String,
     text: String,
 ) -> Result<Option<String>, AppError> {
-    require_window_label(window.label(), "editor")?;
+    require_window_label(window.label(), "main")?;
     if text.len() as u64 > blueprint_file::MAX_BLUEPRINT_FILE_BYTES {
         return Err(AppError {
             code: ErrorCode::InvalidInput,
@@ -401,62 +365,20 @@ async fn export_blueprint_file(
         ids: vec![],
     })?
 }
-fn window_error(_: tauri::Error) -> AppError {
-    AppError {
-        code: ErrorCode::Unavailable,
-        message: "Editor window is unavailable".into(),
-        ids: vec![],
-    }
-}
-#[tauri::command]
-fn show_editor(window: tauri::WebviewWindow) -> Result<(), AppError> {
-    require_window_label(window.label(), "main")?;
-    let editor = window
-        .get_webview_window("editor")
-        .ok_or_else(|| AppError {
-            code: ErrorCode::Unavailable,
-            message: "Editor window is unavailable".into(),
-            ids: vec![],
-        })?;
-    editor.show().map_err(window_error)?;
-    editor.set_focus().map_err(window_error)
-}
-fn scene_window_unavailable() -> AppError {
-    AppError {
-        code: ErrorCode::Unavailable,
-        message: "Scene window is unavailable".into(),
-        ids: vec![],
-    }
-}
-#[tauri::command]
-fn show_scene(window: tauri::WebviewWindow) -> Result<(), AppError> {
-    require_window_label(window.label(), "editor")?;
-    let scene = window
-        .get_webview_window("main")
-        .ok_or_else(scene_window_unavailable)?;
-    scene.show().map_err(|_| scene_window_unavailable())?;
-    scene.unminimize().map_err(|_| scene_window_unavailable())?;
-    scene.set_focus().map_err(|_| scene_window_unavailable())
-}
-#[tauri::command]
-fn hide_editor(window: tauri::WebviewWindow) -> Result<(), AppError> {
-    require_window_label(window.label(), "editor")?;
-    window.hide().map_err(window_error)
-}
 #[tauri::command]
 async fn set_keystroke_capture(
     window: tauri::WebviewWindow,
     state: tauri::State<'_, Arc<DesktopState>>,
     active: bool,
 ) -> Result<(), AppError> {
-    require_window_label(window.label(), "editor")?;
+    require_window_label(window.label(), "main")?;
     state.set_keystroke_capture(active).await;
     Ok(())
 }
 /// Opens the macOS Input Monitoring pane, where the operator allows held-key input.
 #[tauri::command]
 fn open_input_monitoring_settings(window: tauri::WebviewWindow) -> Result<(), AppError> {
-    require_window_label(window.label(), "editor")?;
+    require_window_label(window.label(), "main")?;
     #[cfg(target_os = "macos")]
     std::process::Command::new("open")
         .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")
@@ -472,7 +394,7 @@ fn open_input_monitoring_settings(window: tauri::WebviewWindow) -> Result<(), Ap
 #[tauri::command]
 fn open_screenshots_folder(window: tauri::WebviewWindow) -> Result<(), AppError> {
     use tauri_plugin_opener::OpenerExt;
-    require_window_label(window.label(), "editor")?;
+    require_window_label(window.label(), "main")?;
     let unavailable = || AppError {
         code: ErrorCode::Unavailable,
         message: "Screenshots folder unavailable".into(),
@@ -546,7 +468,7 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            if window.label() == "editor" && matches!(event, tauri::WindowEvent::Focused(false)) {
+            if window.label() == "main" && matches!(event, tauri::WindowEvent::Focused(false)) {
                 let state = window
                     .app_handle()
                     .state::<Arc<DesktopState>>()
@@ -565,10 +487,6 @@ pub fn run() {
             app_version,
             bootstrap_session,
             shutdown_session,
-            editor_connection,
-            show_editor,
-            show_scene,
-            hide_editor,
             set_keystroke_capture,
             open_input_monitoring_settings,
             open_screenshots_folder,
@@ -578,7 +496,6 @@ pub fn run() {
             save_show_as,
             open_show,
             set_show_dirty,
-            confirm_close_editor,
             import_blueprint_file,
             export_blueprint_file
         ])
@@ -601,57 +518,66 @@ pub fn run() {
 mod command_boundary_tests {
     use super::*;
     #[test]
-    fn scene_focus_permission_is_granted_only_to_editor() {
-        let editor: serde_json::Value =
-            serde_json::from_str(include_str!("../capabilities/editor.json")).unwrap();
-        let owner: serde_json::Value =
+    fn the_only_window_is_main() {
+        let config: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        let windows = config["app"]["windows"].as_array().unwrap();
+        assert_eq!(windows.len(), 1);
+        let window = &windows[0];
+        assert_eq!(window["label"], "main");
+        assert_eq!(window["title"], "OpenSekai");
+        assert_eq!(window["width"], 1440);
+        assert_eq!(window["height"], 900);
+        assert_eq!(window["minWidth"], 960);
+        assert_eq!(window["minHeight"], 600);
+        assert_eq!(window["backgroundThrottling"], "disabled");
+        assert!(window.get("url").is_none());
+        assert_eq!(
+            config["app"]["security"]["capabilities"],
+            serde_json::json!(["main"])
+        );
+    }
+    #[test]
+    fn main_capability_has_the_exact_permission_list() {
+        let main: serde_json::Value =
             serde_json::from_str(include_str!("../capabilities/main.json")).unwrap();
-        assert_eq!(editor["windows"], serde_json::json!(["editor"]));
-        assert!(editor["permissions"]
+        assert_eq!(main["windows"], serde_json::json!(["main"]));
+        let permissions: std::collections::BTreeSet<&str> = main["permissions"]
             .as_array()
             .unwrap()
             .iter()
-            .any(|p| p == "allow-show-scene"));
-        assert!(!owner["permissions"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|p| p == "allow-show-scene"));
-        // The editor opens the screenshot folder only through the command; no window gets `opener:`.
-        for capability in [&editor, &owner] {
-            assert!(!capability["permissions"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .any(|p| p.as_str().is_some_and(|p| p.starts_with("opener:"))));
-        }
-        for permission in [
+            .map(|p| p.as_str().unwrap())
+            .collect();
+        let expected: std::collections::BTreeSet<&str> = [
+            "allow-app-version",
+            "allow-bootstrap-session",
+            "allow-shutdown-session",
+            "allow-set-keystroke-capture",
+            "allow-open-input-monitoring-settings",
+            "allow-open-screenshots-folder",
+            "allow-import-avatar",
+            "allow-import-scene",
+            "allow-save-show",
             "allow-save-show-as",
             "allow-open-show",
-            "allow-open-screenshots-folder",
-        ] {
-            assert!(editor["permissions"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .any(|p| p == permission));
-            assert!(!owner["permissions"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .any(|p| p == permission));
-        }
+            "allow-set-show-dirty",
+            "allow-import-blueprint-file",
+            "allow-export-blueprint-file",
+            "core:event:allow-listen",
+            "core:event:allow-unlisten",
+        ]
+        .into_iter()
+        .collect();
+        assert_eq!(permissions, expected);
+        // The window opens the screenshot folder only through the command; it gets no `opener:` permission.
+        assert!(!permissions.iter().any(|p| p.starts_with("opener:")));
+        assert!(!permissions.contains("core:window:allow-minimize"));
+        assert!(!permissions.contains("core:window:allow-unminimize"));
     }
     #[test]
     fn editor_commands_and_owner_commands_reject_other_window_labels() {
         assert!(require_window_label("main", "main").is_ok());
-        assert!(require_window_label("editor", "editor").is_ok());
-        for (actual, expected) in [
-            ("editor", "main"),
-            ("main", "editor"),
-            ("remote", "editor"),
-            ("", "main"),
-        ] {
+        for (actual, expected) in [("editor", "main"), ("remote", "main"), ("", "main")] {
             assert_eq!(
                 require_window_label(actual, expected).unwrap_err().code,
                 ErrorCode::Forbidden

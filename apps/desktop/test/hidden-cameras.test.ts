@@ -1,6 +1,5 @@
 import {describe,expect,it} from 'vitest';
 import {checkPatterns,matchLabels,visibleCameras,loadHiddenCameras,saveHiddenCameras,fitDevices,createHiddenCameras,DEFAULT_HIDDEN_CAMERAS,HIDDEN_CAMERAS_KEY,matchRequest,type WorkerPort} from '../src/tracking/hidden-cameras';
-import {parseUIMessage} from '../src/editor/ui-message';
 
 const memory=(value:string|null=null)=>{const data=new Map<string,string>();if(value!==null)data.set(HIDDEN_CAMERAS_KEY,value);return {data,getItem:(key:string)=>data.get(key)??null,setItem:(key:string,next:string)=>{data.set(key,next);}};};
 const broken={getItem:()=>{throw new Error('denied');},setItem:()=>{throw new Error('denied');}};
@@ -45,8 +44,9 @@ describe('fitDevices',()=>{
   const fitted=fitDevices(long);
   expect(fitted).toEqual(long.slice(0,fitted.length));
   expect(fitted.length).toBeLessThan(16);
-  expect(parseUIMessage({kind:'trackingDevices',devices:fitted})).not.toBeNull();
-  expect(parseUIMessage({kind:'trackingDevices',devices:long.slice(0,fitted.length+1)})).toBeNull();
+  const bytes=(devices:unknown[])=>new TextEncoder().encode(JSON.stringify({kind:'trackingDevices',devices})).length;
+  expect(bytes(fitted)).toBeLessThanOrEqual(4096);
+  expect(bytes(long.slice(0,fitted.length+1))).toBeGreaterThan(4096);
  });
 });
 

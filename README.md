@@ -8,7 +8,7 @@ Start on macOS. Keep the core portable to Windows, and keep a path to mobile. Us
 
 ## Status
 
-The macOS app runs a session worker as the single scene authority. It also has a VRM/glTF renderer, a separate editor window, a transparent OBS output, and MCP tools. The [Warudo parity checklist](docs/warudo-parity.md) owns feature status. It claims only behavior that was verified.
+The macOS app runs a session worker as the single scene authority. It also has a VRM/glTF renderer, one editor window with the scene preview, a transparent OBS output, and MCP tools. The [Warudo parity checklist](docs/warudo-parity.md) owns feature status. It claims only behavior that was verified.
 
 The app has these features on macOS:
 
@@ -53,8 +53,7 @@ flowchart LR
 
   subgraph app["OpenSekai desktop app"]
     Host["Rust host<br/>loopback HTTP + WebSocket service<br/>router, tokens, 60 Hz clock,<br/>asset library, show files"]
-    Scene["Scene window<br/>session worker (scene authority)<br/>MediaPipe tracking,<br/>preview renderer + editor viewport"]
-    Editor["Editor window<br/>Svelte 5 + @oshi-connect/ui<br/>inspector, Blueprints"]
+    Editor["Editor window<br/>Svelte 5 + @oshi-connect/ui<br/>session worker (scene authority)<br/>MediaPipe tracking,<br/>preview renderer + editor viewport,<br/>inspector, Blueprints"]
   end
 
   MCP["MCP server<br/>apps/mcp (stdio)"]
@@ -62,18 +61,18 @@ flowchart LR
 
   Trackers -- UDP --> Host
   Keys --> Host
-  Webcam --> Scene
+  Webcam --> Editor
   Editor -- "calls (operator)" --> Host
   MCP -- "calls (operator)" --> Host
-  Host -- "clock, tracking, relayed calls" --> Scene
-  Scene -- "evaluated frames (publisher)" --> Host
+  Host -- "clock, tracking, relayed calls" --> Editor
+  Editor -- "evaluated frames (publisher)" --> Host
   Host -- "frames (renderer)" --> OBS
   OBS -- "GET /assets/{id}" --> Host
 ```
 
 The design follows these rules:
 
-- **One authority.** The session worker (`packages/session`) runs in the Scene window. It owns the scene state, the simulation, tracking, idle animation, expressions, and Blueprints. The host does not own scene state.
+- **One authority.** The session worker (`packages/session`) runs in the Editor window. It owns the scene state, the simulation, tracking, idle animation, expressions, and Blueprints. The host does not own scene state.
 - **One command path.** The editor and the MCP server send the same validated calls (`packages/contracts`). The host router checks the role of the caller and relays the call to the session. Each accepted edit increases the scene revision.
 - **State, not pixels.** On each tick of the host clock, the session publishes an evaluated frame: the scene view, the avatar poses, and the tracking status. The host sends each frame to each renderer. Each renderer draws the frame with the same three.js renderer (`packages/renderer`) and loads assets from `GET /assets/{id}`. No image data goes through Tauri IPC.
 - **Local trust.** The service listens on `127.0.0.1` on a random port. Each connection has a token and one role: `publisher`, `operator`, or `renderer`. The host checks the `Host` and `Origin` headers. A stored asset is one self-contained GLB, and the host and the renderer both reject external URIs.
@@ -85,7 +84,7 @@ The design follows these rules:
 | Renderer | `packages/renderer` |
 | Client for all TypeScript connections | `packages/browser-client` |
 | Native host, service, and assets | `apps/desktop/src-tauri` |
-| Scene and Editor windows | `apps/desktop/src` |
+| Editor window | `apps/desktop/src` |
 | OBS output page | `apps/output` |
 | MCP server | `apps/mcp` |
 | Extension sandbox (QuickJS) | `packages/extensions` |
