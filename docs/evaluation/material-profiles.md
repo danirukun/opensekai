@@ -2,7 +2,7 @@
 
 Date: 2026-11-03. Contract: [material profiles](../../spdd/prompt/2026-11-03-material-profiles.md). Issue: #73 (MAT-01, slice 1).
 
-Platform: Linux cloud container (Ubuntu, x86_64, no GPU, no OBS). Node 26.10.0, three.js 0.180.0, `@pixiv/three-vrm` 3.5.5, Playwright Chromium (headless) from `/opt/pw-browsers` with `chromiumGpuArgs`. Base commit: `b1d5ac5`; the change is the pull request head of `claude/b27-mtoon-pbr-impl`. A software adapter proves that the code runs. It does not prove the MToon look, alpha, outlines, or cost on a real GPU or in OBS.
+Platform: Linux cloud container (Ubuntu, x86_64, no GPU, no OBS). Node 26.10.0, three.js 0.180.0, `@pixiv/three-vrm` 3.5.5, Playwright Chromium (headless) from `/opt/pw-browsers` with `chromiumGpuArgs`. Base commit: `b1d5ac5`; the checked commit is `72c4322`. A software adapter proves that the code runs. It does not prove the MToon look, alpha, outlines, or cost on a real GPU or in OBS.
 
 Setup lines:
 
