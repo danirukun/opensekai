@@ -1,4 +1,4 @@
-import { SceneViewSchema, type AvatarTracking, type ErrorCode, type Id, type Reply, type ScenePatch, type SceneView } from "@opensekai/contracts";
+import { SceneViewSchema, setMeshesVisible, toggleMeshes, type AvatarTracking, type PatchOp, type ErrorCode, type Id, type Reply, type ScenePatch, type SceneView } from "@opensekai/contracts";
 import type { SceneEffect } from "./blueprint";
 import { delta, followers, shifted } from "./camera-follow";
 
@@ -36,7 +36,7 @@ export function applyOperations(scene: SceneView, operations: ScenePatch["operat
             for (const operation of operations) {
                 if(operation.kind==='createEntity'){
                     if(next.entities.some(e=>e.id===operation.entity.id))return failure('INVALID_INPUT','Duplicate entity ID',[operation.entity.id]);
-                    const created=structuredClone(operation.entity);if(created.kind==='tracking')created.generation=generation;if(created.kind==='avatar'&&created.tracking)created.tracking=withoutNullFingers(created.tracking);next.entities.push(created);continue;
+                    const created=structuredClone(operation.entity);if(created.kind==='avatar'&&created.hiddenMeshes?.length===0)delete created.hiddenMeshes;if(created.kind==='tracking')created.generation=generation;if(created.kind==='avatar'&&created.tracking)created.tracking=withoutNullFingers(created.tracking);next.entities.push(created);continue;
                 }
                 // An output format change has no entity ID; only the OBS output takes one (B22 R3).
                 if(operation.kind==='setOutputFormat'){
@@ -83,6 +83,7 @@ export function applyOperations(scene: SceneView, operations: ScenePatch["operat
                   if(kept.length||operation.settings)entity.expressions=expressions;else delete entity.expressions;
                   break;
                  }
+                 case 'setHiddenMeshes':if(entity.kind!=='avatar')return failure('INVALID_INPUT','Entity is not an avatar',[entity.id]);if(operation.hiddenMeshes.length)entity.hiddenMeshes=[...operation.hiddenMeshes];else delete entity.hiddenMeshes;break;
                  case 'setCameraRenderEnvironment':if(entity.kind!=='camera')return failure('INVALID_INPUT','Entity is not a camera',[entity.id]);entity.renderEnvironment=operation.renderEnvironment;break;
                  case 'setCameraAntiAliasing':if(entity.kind!=='camera')return failure('INVALID_INPUT','Entity is not a camera',[entity.id]);entity.antiAliasing=operation.antiAliasing;break;
                  case 'setCameraNavigation':if(entity.kind!=='camera')return failure('INVALID_INPUT','Entity is not a camera',[entity.id]);entity.navigation=structuredClone(operation.navigation);break;
@@ -104,6 +105,19 @@ export function applyOperations(scene: SceneView, operations: ScenePatch["operat
             return { ok: true, data: next };
 }
 
+// A delta effect resolves against the running scene of the run, so two effects on one entity give the final state (B26 R10).
+const sceneOperation = (entity: SceneView['entities'][number], effect: Exclude<SceneEffect, { kind: 'selectCamera' }>): Reply<PatchOp> => {
+ switch (effect.kind) {
+  case 'setVisibility': return { ok: true, data: { kind: 'setVisibility', entityId: entity.id, visible: effect.visible } };
+  case 'toggleVisibility': return { ok: true, data: { kind: 'setVisibility', entityId: entity.id, visible: !entity.visible } };
+  case 'toggleMeshes': case 'setMeshesVisible': {
+   if (entity.kind !== 'avatar') return failure('INVALID_INPUT', 'Entity is not an avatar', [entity.id]);
+   const hidden = entity.hiddenMeshes ?? [];
+   return { ok: true, data: { kind: 'setHiddenMeshes', entityId: entity.id, hiddenMeshes: effect.kind === 'toggleMeshes' ? toggleMeshes(hidden, effect.names) : setMeshesVisible(hidden, effect.names, effect.visible) } };
+  }
+ }
+};
+
 export function applyEffects(scene: SceneView, effects: SceneEffect[]): Reply<SceneView> {
  let next = structuredClone(scene);
  for (const effect of effects) {
@@ -116,7 +130,9 @@ export function applyEffects(scene: SceneView, effects: SceneEffect[]): Reply<Sc
   }
   const entity = next.entities.find(item => item.id === effect.entityId);
   if (!entity) return failure('NOT_FOUND', 'Entity not found', [effect.entityId]);
-  const applied = applyOperations(next, [{ kind: 'setVisibility', entityId: effect.entityId, visible: effect.kind === 'toggleVisibility' ? !entity.visible : effect.visible }], next.revision);
+  const operation = sceneOperation(entity, effect);
+  if (!operation.ok) return operation;
+  const applied = applyOperations(next, [operation.data], next.revision);
   if (!applied.ok) return applied;
   next = applied.data;
  }

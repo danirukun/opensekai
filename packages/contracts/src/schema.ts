@@ -10,6 +10,7 @@ import { z } from "zod";
 import { CameraAntiAliasingSchema, QualityProfileIdSchema, OUTPUT_FRAME_LIMITS, OUTPUT_RENDER_SCALES, isOutputSize, isDefaultOutputFormat } from './quality';
 import { AvatarRigSchema, VmcPosesEnvelopeSchema, VmcSenderSettingsSchema, VmcSenderStatusSchema } from './vmc-sender';
 import { AssetExpressionsSchema, AvatarExpressionsSchema, ExpressionNameSchema, ExpressionSettingsSchema, ExpressionStateSchema, ARKIT_NAMES } from './expressions';
+import { AssetMeshesSchema, HiddenMeshesSchema, MeshListSchema } from './meshes';
 import type { AppApi, Capability, Reply, ValidatedCall } from "./types";
 export const LIMITS = {
     jsonBytes: 262144,
@@ -174,7 +175,8 @@ export const SceneEntitySchema = z.discriminatedUnion("kind", [
         assetId: IdSchema.nullable(),
         tracking: AvatarTrackingSchema.optional(),
         idleAnimation: AvatarIdleSchema.optional(),
-        expressions: AvatarExpressionsSchema.optional()
+        expressions: AvatarExpressionsSchema.optional(),
+        hiddenMeshes: HiddenMeshesSchema.optional()
     }),
     EntityBaseSchema.extend({kind:z.literal('tracking'),config:TrackingConfigSchema,generation:u,smoothing:TrackingSmoothingSchema.optional(),calibration:TrackingCalibrationSchema.optional(),mapping:TrackingMappingSchema.optional()}),
     EntityBaseSchema.extend({
@@ -264,6 +266,7 @@ export const PatchOpSchema = z.discriminatedUnion("kind", [
     z.strictObject({kind:z.literal('setFpsCounter'),entityId:IdSchema,fpsCounter:FpsCounterSettingsSchema}),
     z.strictObject({kind:z.literal('setOutputFormat'),outputId:IdSchema,width:u.positive(),height:u.positive(),fps:OutputSpecSchema.shape.fps,renderScale:z.union(OUTPUT_RENDER_SCALES.map(scale => z.literal(scale)))}).refine(isOutputSize, 'Invalid output size'),
     z.strictObject({kind:z.literal('setVmcSender'),entityId:IdSchema,vmcSender:VmcSenderSettingsSchema}),
+    z.strictObject({kind:z.literal('setHiddenMeshes'),entityId:IdSchema,hiddenMeshes:HiddenMeshesSchema}),
     z.strictObject({kind:z.literal('setAvatarExpression'),entityId:IdSchema,name:ExpressionNameSchema,settings:ExpressionSettingsSchema.nullable()}),
     z.strictObject({kind:z.literal('setCameraRenderEnvironment'),entityId:IdSchema,renderEnvironment:z.boolean()}),
     z.strictObject({kind:z.literal('setCameraAntiAliasing'),entityId:IdSchema,antiAliasing:CameraAntiAliasingSchema}),
@@ -312,7 +315,8 @@ export const AssetRecordSchema = z.strictObject({
     credits: AssetCreditsSchema.optional(),
     expressions: AssetExpressionsSchema,
     eyeBones: z.boolean().optional(),
-    rig: AvatarRigSchema.optional()
+    rig: AvatarRigSchema.optional(),
+    meshes: AssetMeshesSchema.optional()
 });
 // One page of `assetList`: the host answers it from the asset library, in ascending ID order.
 export const AssetSummarySchema = z.strictObject({
@@ -531,6 +535,7 @@ export const ParamSchemas = {
     assetList: z.strictObject({ after: IdSchema.optional() }),
     expressionGet: z.strictObject({ avatarId: IdSchema }),
     expressionSet: z.strictObject({ avatarId: IdSchema, name: ExpressionNameSchema, active: z.boolean() }),
+    meshList: z.strictObject({ avatarId: IdSchema }),
     cameraScreenshot: CameraScreenshotParamsSchema,
     integrationsSet: IntegrationsSetParamsSchema
 };
@@ -557,6 +562,7 @@ export const ResultSchemas = {
     assetList: AssetListSchema,
     expressionGet: ExpressionStateSchema,
     expressionSet: ExpressionStateSchema,
+    meshList: MeshListSchema,
     cameraScreenshot: CameraScreenshotResultSchema,
     integrationsSet: YouTubeStatusSchema
 };
@@ -579,6 +585,7 @@ export const MethodSchema = z.enum([
     "assetList",
     "expressionGet",
     "expressionSet",
+    "meshList",
     "cameraScreenshot",
     "integrationsSet"
 ]);

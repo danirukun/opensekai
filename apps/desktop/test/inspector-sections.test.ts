@@ -12,6 +12,7 @@ it('lists the sections of each kind in field order (R11)',()=>{
  expect(ids('environment')).toEqual(['Transform','Environment']);
  expect(ids('character')).toEqual(['Transform','Model','Tracking']);
  expect(ids('character',true)).toEqual(['Transform','Model','Expressions','Tracking']);
+ expect(sectionsFor(makeAuthoringEntity('character','id',[]),{expressions:true,meshes:true}).map(section=>section.label)).toEqual(['Transform','Model','Expressions','Meshes','Tracking']);
  expect(ids('mediapipe')).toEqual(['Receiver','Smoothing','Face','Diagnostics']);
 });
 it('starts with the former Advanced sections collapsed and the rest expanded (R12)',()=>{

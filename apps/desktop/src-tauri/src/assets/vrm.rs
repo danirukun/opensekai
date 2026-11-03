@@ -1,7 +1,7 @@
-//! VRM document checks that read the glTF JSON: humanoid rig diagnostics, expression names, and the rest data of the rig.
+//! VRM document checks that read the glTF JSON: humanoid rig diagnostics, expression names, mesh names, and the rest data of the rig.
 use opensekai_contracts::{
-    is_tracked_expression, AppError, AssetExpression, AvatarRig, ErrorCode, RigMetaVersion,
-    MAX_EXPRESSIONS,
+    is_tracked_expression, AppError, AssetExpression, AssetMesh, AvatarRig, ErrorCode,
+    RigMetaVersion, MAX_EXPRESSIONS, MAX_MESHES, MAX_MESH_NAME,
 };
 use serde::de::{Deserializer, IgnoredAny, MapAccess, Visitor};
 use serde::Deserialize;
@@ -409,8 +409,83 @@ pub(super) fn vrm_rig(json: &Value) -> Option<AvatarRig> {
     })
 }
 
+/// The ECMAScript `String.prototype.trim` set: Unicode white space without U+0085, and U+FEFF.
+fn js_space(c: char) -> bool {
+    (c.is_whitespace() && c != '\u{85}') || c == '\u{feff}'
+}
+/// The first `units` UTF-16 code units of `name`, without half of a surrogate pair at the end.
+fn cut_units(name: &str, units: usize) -> &str {
+    let mut used = 0;
+    for (index, c) in name.char_indices() {
+        if used + c.len_utf16() > units {
+            return &name[..index];
+        }
+        used += c.len_utf16();
+    }
+    name
+}
+/// The mesh nodes of a glTF document in node order, each with a unique name (B26 R1).
+/// Keep in step with `meshEntries` in `packages/contracts/src/meshes.ts`; `fixtures/protocol/mesh-names.json` pins both.
+pub(super) fn vrm_meshes(json: &Value) -> Vec<AssetMesh> {
+    let nodes = json["nodes"].as_array().map(Vec::as_slice).unwrap_or(&[]);
+    let mut taken = HashSet::new();
+    let mut entries = Vec::new();
+    let mut found = 0usize;
+    for (node, value) in nodes.iter().enumerate() {
+        if !value.get("mesh").is_some_and(Value::is_number) {
+            continue;
+        }
+        found += 1;
+        if entries.len() >= MAX_MESHES {
+            continue;
+        }
+        let Ok(node) = u32::try_from(node) else {
+            continue;
+        };
+        let trimmed = value["name"].as_str().unwrap_or("").trim_matches(js_space);
+        let base = if trimmed.is_empty() {
+            format!("Mesh {node}")
+        } else {
+            trimmed.to_string()
+        };
+        let base = cut_units(&base, MAX_MESH_NAME).to_string();
+        let mut name = base.clone();
+        let mut n = 2;
+        while taken.contains(&name) {
+            let suffix = format!(" ({n})");
+            name = format!("{}{suffix}", cut_units(&base, MAX_MESH_NAME - suffix.len()));
+            n += 1;
+        }
+        taken.insert(name.clone());
+        entries.push(AssetMesh { node, name });
+    }
+    if found > MAX_MESHES {
+        eprintln!(
+            "OpenSekai keeps the first {MAX_MESHES} of {found} mesh nodes; {} cannot be hidden",
+            found - MAX_MESHES
+        );
+    }
+    entries
+}
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn mesh_names_match_the_shared_vectors() {
+        let vectors: Value = serde_json::from_str(include_str!(
+            "../../../../../fixtures/protocol/mesh-names.json"
+        ))
+        .unwrap();
+        for case in vectors["cases"].as_array().unwrap() {
+            let json = serde_json::json!({ "nodes": case["nodes"] });
+            assert_eq!(
+                serde_json::to_value(vrm_meshes(&json)).unwrap(),
+                case["expected"],
+                "{}",
+                case["name"]
+            );
+        }
+    }
     use super::*;
     fn vrm1() -> Value {
         serde_json::from_str(include_str!("../../tests/fixtures/minimal-vrm1.json")).unwrap()

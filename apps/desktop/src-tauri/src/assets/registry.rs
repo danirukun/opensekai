@@ -103,10 +103,15 @@ impl AssetRegistry {
                 // Records from before B21 have no rig: the VMC sender needs its rest data.
                 let rigless = value.get("format").and_then(Value::as_str) == Some("vrm")
                     && value.get("rig").is_none();
+                // Records from before B26 have no mesh list.
+                let meshless = value.get("format").and_then(Value::as_str) == Some("vrm")
+                    && value.get("meshes").is_none();
                 let named = value.is_object()
                     && (value.get("name").is_none() || value.get("expressions").is_none() || stale);
-                let mut backfilled = named || (value.is_object() && rigless);
+                let mut backfilled = named || (value.is_object() && (rigless || meshless));
                 if backfilled {
+                    // Each field has its own flag: a field that cannot be read does not cause a write.
+                    let mut written = named;
                     // Older records have no name or expression list: read them from the stored file.
                     let vrm = stored.is_file().then(|| stored_vrm(&stored)).flatten();
                     if value.get("name").is_none() {
@@ -127,18 +132,23 @@ impl AssetRegistry {
                     if rigless {
                         match vrm.as_ref().and_then(|(json, _)| super::vrm::vrm_rig(json)) {
                             Some(rig) => {
-                                value["rig"] = serde_json::to_value(rig).unwrap_or_default()
+                                value["rig"] = serde_json::to_value(rig).unwrap_or_default();
+                                written = true;
                             }
-                            None => {
-                                eprintln!(
-                                    "OpenSekai cannot read the rig of asset {}",
-                                    value["id"].as_str().unwrap_or("")
-                                );
-                                // Do not write the record again only for a rig that cannot be read.
-                                backfilled = named;
-                            }
+                            None => eprintln!(
+                                "OpenSekai cannot read the rig of asset {}",
+                                value["id"].as_str().unwrap_or("")
+                            ),
                         }
                     }
+                    if meshless {
+                        if let Some((json, _)) = vrm.as_ref() {
+                            value["meshes"] = serde_json::to_value(super::vrm::vrm_meshes(json))
+                                .unwrap_or_default();
+                            written = true;
+                        }
+                    }
+                    backfilled = written;
                 }
                 let Ok(record) = serde_json::from_value::<AssetRecord>(value) else {
                     continue;
@@ -286,6 +296,17 @@ impl AssetRegistry {
                         record.insert("rig".into(), serde_json::to_value(rig).unwrap_or_default());
                     }
                 }
+                // Fixture avatars get the mesh list in memory only (B26 R3).
+                if !record.contains_key("meshes")
+                    && record.get("format").and_then(Value::as_str) == Some("vrm")
+                {
+                    if let Some((json, _)) = path.as_ref().and_then(|path| stored_vrm(path)) {
+                        record.insert(
+                            "meshes".into(),
+                            serde_json::to_value(super::vrm::vrm_meshes(&json)).unwrap_or_default(),
+                        );
+                    }
+                }
             }
         }
         let manifest: Manifest =
@@ -417,6 +438,7 @@ pub fn prepare_scene(packed: PackedScene) -> Result<PreparedScene, AppError> {
         expressions: vec![],
         eye_bones: None,
         rig: None,
+        meshes: None,
     };
     record.validate()?;
     Ok(PreparedScene {
@@ -479,6 +501,7 @@ pub fn stage_avatar(library: &Path, path: &Path) -> Result<StagedAsset, AppError
     let expressions = super::vrm::vrm_expressions(&json, &raw);
     let eye_bones = Some(super::vrm::vrm_has_eye_bones(&json));
     let rig = super::vrm::vrm_rig(&json);
+    let meshes = Some(super::vrm::vrm_meshes(&json));
     let sha256 = hex(&hash.finalize());
     let id = format!("avatar_{sha256}");
     let name = meta_name(&json)
@@ -501,6 +524,7 @@ pub fn stage_avatar(library: &Path, path: &Path) -> Result<StagedAsset, AppError
         expressions,
         eye_bones,
         rig,
+        meshes,
     };
     copy.as_file()
         .sync_all()
@@ -651,6 +675,22 @@ mod tests {
                     rig.rest_positions.len(),
                     rig.identity_rest
                 );
+                // The mesh list of each fixture avatar (B26 O1).
+                let names: Vec<_> = record
+                    .meshes
+                    .as_ref()
+                    .expect("fixture meshes")
+                    .iter()
+                    .map(|m| m.name.as_str())
+                    .collect();
+                match record.id.as_str() {
+                    "fixture_vrm_1" => assert_eq!(names, ["Body", "Face", "Hair"]),
+                    "fixture_vrm0_arkit" => {
+                        assert_eq!(names.len(), 57);
+                        assert_eq!(names[..3], ["Face", "Body", "Hair001"]);
+                    }
+                    _ => {}
+                }
             }
         }
     }
@@ -936,6 +976,106 @@ mod import_tests {
         let broken = AssetRegistry::empty(&managed).unwrap();
         assert_eq!(broken.records().len(), 1);
         assert!(broken.records()[0].rig.is_none());
+    }
+    /// The minimal VRM 1 document with three mesh nodes; `rigless` makes the hips translation unreadable.
+    fn with_meshes(rigless: bool) -> String {
+        let mut json: Value =
+            serde_json::from_str(include_str!("../../tests/fixtures/minimal-vrm1.json")).unwrap();
+        let nodes = json["nodes"].as_array_mut().unwrap();
+        for (mesh, name) in ["Body", "Hair", "Hair"].iter().enumerate() {
+            nodes.push(serde_json::json!({"name": name, "mesh": mesh}));
+        }
+        if rigless {
+            nodes[0]["translation"] = Value::String("bad".into());
+        }
+        json.to_string()
+    }
+    fn mesh_names(record: &AssetRecord) -> Option<Vec<(u32, String)>> {
+        record
+            .meshes
+            .as_ref()
+            .map(|list| list.iter().map(|m| (m.node, m.name.clone())).collect())
+    }
+    #[test]
+    fn import_and_library_load_fill_the_mesh_list() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("meshes.vrm");
+        std::fs::write(&path, vrm(&with_meshes(false))).unwrap();
+        let managed = dir.path().join("managed");
+        let mut r = AssetRegistry::empty(&managed).unwrap();
+        let imported = r.import_avatar(&path).unwrap().record;
+        let expected = vec![
+            (16, "Body".to_string()),
+            (17, "Hair".to_string()),
+            (18, "Hair (2)".to_string()),
+        ];
+        assert_eq!(mesh_names(&imported), Some(expected.clone()));
+        // A record from before B26 gets the mesh list from its stored file, and the library writes it again.
+        let json_path = r.library().join(format!("{}.json", imported.id));
+        let mut old: Value = serde_json::from_slice(&std::fs::read(&json_path).unwrap()).unwrap();
+        old.as_object_mut().unwrap().remove("meshes");
+        std::fs::write(&json_path, old.to_string()).unwrap();
+        let reopened = AssetRegistry::empty(&managed).unwrap();
+        assert_eq!(mesh_names(&reopened.records()[0]), Some(expected.clone()));
+        let written: Value = serde_json::from_slice(&std::fs::read(&json_path).unwrap()).unwrap();
+        assert_eq!(written["meshes"][2]["name"], "Hair (2)");
+        // A stored file that cannot be read leaves the record without a mesh list and does not write it again.
+        std::fs::write(&json_path, old.to_string()).unwrap();
+        let stored = r.library().join(format!("{}.vrm", imported.id));
+        std::fs::write(&stored, b"broken").unwrap();
+        let broken = AssetRegistry::empty(&managed).unwrap();
+        assert_eq!(broken.records().len(), 1);
+        assert!(broken.records()[0].meshes.is_none());
+        assert_eq!(
+            std::fs::read_to_string(&json_path).unwrap(),
+            old.to_string()
+        );
+    }
+    #[test]
+    fn a_record_whose_rig_cannot_be_read_still_gets_the_mesh_list() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("meshes.vrm");
+        std::fs::write(&path, vrm(&with_meshes(false))).unwrap();
+        let managed = dir.path().join("managed");
+        let mut r = AssetRegistry::empty(&managed).unwrap();
+        let imported = r.import_avatar(&path).unwrap().record;
+        // An old record without a rig and without meshes, beside a stored file whose rig cannot be read.
+        let json_path = r.library().join(format!("{}.json", imported.id));
+        let mut old: Value = serde_json::from_slice(&std::fs::read(&json_path).unwrap()).unwrap();
+        old.as_object_mut().unwrap().remove("meshes");
+        old.as_object_mut().unwrap().remove("rig");
+        std::fs::write(&json_path, old.to_string()).unwrap();
+        let stored = r.library().join(format!("{}.vrm", imported.id));
+        std::fs::write(&stored, vrm(&with_meshes(true))).unwrap();
+        let reopened = AssetRegistry::empty(&managed).unwrap();
+        let record = &reopened.records()[0];
+        assert!(record.rig.is_none());
+        assert_eq!(mesh_names(record).map(|m| m.len()), Some(3));
+        let written: Value = serde_json::from_slice(&std::fs::read(&json_path).unwrap()).unwrap();
+        assert_eq!(written["meshes"].as_array().map(Vec::len), Some(3));
+        assert!(written.get("rig").is_none());
+    }
+    #[test]
+    fn fixture_manifest_records_get_the_mesh_list_in_memory() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("fixture.vrm");
+        let bytes = vrm(&with_meshes(false));
+        std::fs::write(&path, &bytes).unwrap();
+        let sha256 = hex(&Sha256::digest(&bytes));
+        let manifest = dir.path().join("manifest.json");
+        let text = serde_json::json!({"schemaVersion": 1, "fixtureId": "smoke_v1", "assets": [{"path": path, "record": {
+            "id": "fixture_meshes", "format": "vrm", "sha256": sha256, "bytes": bytes.len(), "sourceUrl": null,
+            "licenseLabel": "Test", "importerVersion": 1, "name": "Meshes", "expressions": []}}]})
+        .to_string();
+        std::fs::write(&manifest, &text).unwrap();
+        let registry = AssetRegistry::load(&manifest).unwrap();
+        let record = registry
+            .fixture_records()
+            .into_iter()
+            .find(|r| r.id == "fixture_meshes")
+            .unwrap();
+        assert_eq!(mesh_names(&record).map(|m| m.len()), Some(3));
+        assert_eq!(std::fs::read_to_string(&manifest).unwrap(), text);
     }
     #[test]
     fn import_and_library_load_record_expression_names() {

@@ -2,7 +2,7 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import type { LoadReport } from "./load-jobs";
 import { MToonMaterialLoaderPlugin, VRMLoaderPlugin, VRMUtils, type VRM } from "@pixiv/three-vrm";
 import { MToonNodeMaterial } from "@pixiv/three-vrm/nodes";
-import type { ResourceHost, AppError } from "@opensekai/contracts";
+import { meshEntries, type ResourceHost, type AppError } from "@opensekai/contracts";
 import type { Object3D, Mesh, SkinnedMesh, Material, Texture } from "three/webgpu";
 import { failure } from "./apply-frame";
 import { createTexturePool } from "./texture-sharing";
@@ -92,6 +92,18 @@ export function inspectContainer(bytes: ArrayBuffer): { extensions: string[]; im
         throw failure("UNSUPPORTED", "External or URI resources are not supported");
     return { extensions: json.extensionsUsed ?? [], imageCount: json.images?.length ?? 0 };
 }
+// B26 R7: the object of each mesh node, by its mesh name. A node with two or more primitives loads as a group; the map holds
+// the node object. glTF has no hidden node state, so each object starts visible.
+export function meshObjects(gltf: { scene: Object3D; parser: { json: unknown; associations: Map<unknown, { nodes?: number }> } }): Map<string, Object3D> {
+    const byNode = new Map<number, Object3D>();
+    gltf.scene.traverse(object => { const node = gltf.parser.associations.get(object)?.nodes; if (node !== undefined && !byNode.has(node)) byNode.set(node, object); });
+    return new Map(meshEntries(gltf.parser.json).flatMap(entry => { const object = byNode.get(entry.node); return object ? [[entry.name, object] as const] : []; }));
+}
+// Children of a hidden node are hidden with it. An unknown name has no effect.
+export function applyHiddenMeshes(meshes: ReadonlyMap<string, Object3D>, hidden: readonly string[] = []) {
+    const names = new Set(hidden);
+    for (const [name, object] of meshes) object.visible = !names.has(name);
+}
 export function createAssetLoader(resources: ResourceHost, options: { maxTextureSize?: 1024 | 2048 } = {}) {
     const textures = createTexturePool();
     const images = createImageResizePolicy(options.maxTextureSize);
@@ -136,7 +148,7 @@ export function createAssetLoader(resources: ResourceHost, options: { maxTexture
                     warnings.push({ code: "UNSUPPORTED", message: extension + " simulation is disabled in renderer", ids: [id] });
             }
             let disposed = false;
-            return { scene: gltf.scene, vrm, warnings, dispose() { if (disposed)
+            return { scene: gltf.scene, vrm, meshes: vrm ? meshObjects(gltf) : undefined, warnings, dispose() { if (disposed)
                     return; disposed = true; disposeObject(gltf.scene, lease); lease.release(); } };
         } catch (error) {
             lease.release();

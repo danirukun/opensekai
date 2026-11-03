@@ -228,6 +228,7 @@ export function createEditorModel(api: AppApi) {
    return patch({ kind: 'setTransform', entityId, transform: { ...structuredClone(entity.transform), position: [...position] } });
   },
   setVisibility(entityId: Id, visible: boolean, expectedRevision?: number): Promise<Reply<{ revision: number }>> { return patch({ kind: 'setVisibility', entityId, visible }, expectedRevision); },
+  setHiddenMeshes(entityId: Id, hiddenMeshes: string[], expectedRevision?: number): Promise<Reply<{ revision: number }>> { return patch({ kind: 'setHiddenMeshes', entityId, hiddenMeshes }, expectedRevision); },
   selectCamera(cameraId: Id, expectedRevision?: number): Promise<Reply<{ revision: number }>> {
    if (expectedRevision !== undefined && expectedRevision !== view.scene?.revision) { publish({ error: 'CONFLICT' }); return Promise.resolve(failure('CONFLICT')); }
    return execute(async () => {

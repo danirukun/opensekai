@@ -1,0 +1,19 @@
+fixture_vrm_1 meshes [{"node":0,"name":"Body"},{"node":1,"name":"Face"},{"node":2,"name":"Hair"}]
+PASS the Inspector of the character has a Meshes section after Model and before Tracking (R12) ["Transform","Model","Meshes","Tracking"]
+PASS the section index lists Meshes (R12) ["Transform","Model","Meshes","Tracking"]
+PASS one checked checkbox for each mesh, labeled with the mesh name, in record order (R12) ["Body","Face","Hair"]
+PASS clearing Hair sends one setHiddenMeshes patch with ["Hair"] (R5, R12) [{"kind":"setHiddenMeshes","entityId":"performer","hiddenMeshes":["Hair"]}]
+PASS the Hair checkbox shows the hidden state 
+PASS checking Hair again removes the field (R4, R5) 
+PASS the palette adds Toggle Character Meshes with the first mesh of the character (R11) {"entityId":"performer","meshes":["Body"]}
+PASS the node properties show a Meshes list with one entry (R11) 1
+PASS a choice replaces the entry: meshes ["Hair"] {"entityId":"performer","meshes":["Hair"]}
+PASS + adds the next mesh that the list does not use: ["Hair","Body"] (R11) {"entityId":"performer","meshes":["Hair","Body"]}
+PASS the second entry does not offer the name of the first entry ["Body","Face"]
+PASS the remove control removes the entry: ["Hair"] (R11) {"entityId":"performer","meshes":["Hair"]}
+PASS the remove control of the last entry is disabled 
+PASS Run once hides Hair with one revision (R10) {"hidden":["Hair"],"revision":3}
+PASS Run twice shows Hair again (R10) 
+PASS a saved name that the record does not have shows as Missing (R11) "Missing"
+PASS no page errors []
+17/17 passed

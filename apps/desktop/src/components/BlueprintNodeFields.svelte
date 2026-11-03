@@ -1,6 +1,7 @@
 <script lang="ts">
- import { Input, Select, Textarea } from '@oshi-connect/ui';
- import { blendShapeNames, DEFAULT_EASING, EASINGS, nodeDefinition, triggerableExpressions, type AssetRecord, type BlueprintField, type BlueprintNode, type BlueprintVariable, type DataType, type KeystrokeSettings, type SceneView, type Vec3 } from '@opensekai/contracts';
+ import { Button, Input, Select, Textarea } from '@oshi-connect/ui';
+ import { Plus, X } from '@lucide/svelte';
+ import { blendShapeNames, DEFAULT_EASING, EASINGS, MAX_NODE_MESHES, nodeDefinition, triggerableExpressions, type AssetRecord, type BlueprintField, type BlueprintNode, type BlueprintVariable, type DataType, type KeystrokeSettings, type SceneView, type Vec3 } from '@opensekai/contracts';
  import KeystrokeField from './KeystrokeField.svelte';
  import { chooseTypedVariable, formatStringCases, parseStringCases, resizeTypes, typedVariableOptions } from '../blueprints/data-fields';
  import { boneOptions, dataTypeOptions, fitPropertySettings, formatCases, keyOptions, parseCases, parseScalar, propertyOptions, vectorParts } from '../blueprints/fields';
@@ -69,6 +70,19 @@
   const record = avatar?.kind === 'avatar' && avatar.assetId !== null ? assets.find(asset => asset.id === avatar.assetId) : undefined;
   return (record ? triggerableExpressions(record) : []).map(entry => ({ value: entry.name, label: entry.name }));
  }
+ // The meshes of the record of the selected character, in record order (B26 R11).
+ function meshChoices() {
+  const avatar = scene?.entities.find(entity => entity.id === settings.entityId);
+  const record = avatar?.kind === 'avatar' && avatar.assetId !== null ? assets.find(asset => asset.id === avatar.assetId) : undefined;
+  return (record?.meshes ?? []).map(entry => ({ value: entry.name, label: entry.name }));
+ }
+ const meshNames = (field: BlueprintField) => settings[field.key] as string[];
+ // Each entry offers the record meshes that no other entry uses; a saved name that the record does not have shows as missing.
+ const meshOptions = (field: BlueprintField, index: number) => {
+  const names = meshNames(field), value = names[index]!, list = meshChoices().filter(item => item.value === value || !names.includes(item.value));
+  return list.some(item => item.value === value) ? list : [{ value, label: 'Missing' }, ...list];
+ };
+ const nextMesh = (field: BlueprintField) => meshNames(field).length < MAX_NODE_MESHES ? meshChoices().find(item => !meshNames(field).includes(item.value))?.value : undefined;
  function blendShapeChoices() {
   const avatar = scene?.entities.find(entity => entity.id === settings.entityId);
   const record = avatar?.kind === 'avatar' && avatar.assetId !== null ? assets.find(asset => asset.id === avatar.assetId) : undefined;
@@ -130,6 +144,17 @@
   {#each types(field) as type, index (index)}
    <Select label={`{${index}}`} value={type} options={dataTypeOptions(field.options)} onchange={event => set(field.key, types(field).map((item, i) => i === index ? event.currentTarget.value : item))} />
   {/each}
+ {:else if field.kind === 'meshes'}
+  {@const next = nextMesh(field)}
+  <div class="blueprint-field-list" role="group" aria-label={field.label}>
+   {#each meshNames(field) as name, index (name)}
+    <div class="blueprint-field-entry">
+     <Select label={index === 0 ? field.label : undefined} value={name} options={meshOptions(field, index)} onchange={event => set(field.key, meshNames(field).map((item, i) => i === index ? event.currentTarget.value : item))} />
+     <Button variant="ghost" size="sm" title={`Remove ${name}`} disabled={meshNames(field).length === 1} onclick={() => set(field.key, meshNames(field).filter((_, i) => i !== index))}><X size={14}/></Button>
+    </div>
+   {/each}
+   <Button variant="ghost" size="sm" title={`Add ${field.label.toLowerCase()}`} disabled={next === undefined} onclick={() => { if (next !== undefined) set(field.key, [...meshNames(field), next]); }}><Plus size={14}/></Button>
+  </div>
  {:else if field.kind === 'keystroke'}
   <KeystrokeField value={settings as KeystrokeSettings} {platform} {unavailable} onchange={next => onsettings(next)} />
  {:else}

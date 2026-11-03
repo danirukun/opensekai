@@ -4,6 +4,7 @@
  import {modelLabel} from '../editor/authoring';
  import AvatarModelField from './AvatarModelField.svelte';
  import AvatarExpressionFields,{type ExpressionApi} from './AvatarExpressionFields.svelte';
+ import AvatarMeshFields from './AvatarMeshFields.svelte';
  import {hasTriggerableExpressions} from '../editor/expressions';
  import type { EditorPanelProps } from '../editor/model';
  import {antiAliasingOptions,matchingStatus,settleCheckbox,type LivePropertyCallbacks} from '../editor/live-fields';
@@ -45,7 +46,9 @@
  // Reset marks follow the scene value; any pending edit disables them (B17 R5–R9).
  const marks=$derived(entity?resetMarks(entity,view.pending||disabled||(view.livePending??false)):null);
  const expressions=$derived(entity?.kind==='avatar'&&expressionApi!==null&&onexpressionsettings!==undefined&&hasTriggerableExpressions(entity.assetId,assets));
- const sections=$derived(entity?sectionsFor(entity,{expressions}):[]);
+ // The mesh list of the avatar model; no section without one (B26 R12).
+ const avatarMeshes=$derived(entity?.kind==='avatar'&&entity.assetId!==null?assets.find(asset=>asset.id===entity.assetId)?.meshes??[]:[]);
+ const sections=$derived(entity?sectionsFor(entity,{expressions,meshes:avatarMeshes.length>0}):[]);
  const storedExpressions=$derived(new Set(entity?.kind==='avatar'?Object.keys(entity.expressions??{}):[]));
  // The collapse state is per user in the Editor window storage, never in the show (R12).
  let sectionState=$state.raw<SectionState>(readSections());
@@ -113,6 +116,7 @@
   {:else if entity.kind==='avatar'}
    {#if id==='model'}<AvatarModelField label={modelLabel(entity.assetId,assets)} status={loads.find(load=>load.entityId===entity!.id)??null} importing={importingId===entity.id} disabled={view.pending||livePending||disabled||!onchoosemodel} onchoose={()=>onchoosemodel?.(entity!.id)}/>
    {:else if id==='expressions'&&expressionApi&&onexpressionsettings}<AvatarExpressionFields avatarId={entity.id} revision={scene.revision} api={expressionApi} stored={storedExpressions} disabled={busy||livePending||disabled} onsettings={onexpressionsettings} onsettingslive={(id,name,settings)=>live(id,revision=>model.setAvatarExpression(id,name,settings,revision,true))} onliveend={onlivefieldend}/>
+   {:else if id==='meshes'}<AvatarMeshFields meshes={avatarMeshes} hidden={entity.hiddenMeshes} disabled={view.pending||livePending||disabled} oncommit={hidden=>model.setHiddenMeshes(entity!.id,hidden,view.scene?.revision)}/>
    {:else if id==='tracking'}<AvatarSourceFields marks={marks!} entityId={entity.id} tracking={entity.tracking} idleAnimation={entity.idleAnimation} onidle={onavataridle} entities={scene.entities} revision={scene.revision} disabled={view.pending||livePending||disabled} oncommit={onavatartracking} {onguide}/>{/if}
   {:else if entity.kind==='tracking'}
    {#if id==='receiver'}<TrackingSourceFields marks={marks!} entityId={entity.id} config={entity.config} generation={entity.generation} revision={scene.revision} disabled={view.pending||disabled} oncommit={ontrackingconfig} ontoggle={ontrackingtoggle} statuses={trackingStatus} {localAddresses} {devices} calibrated={entity.calibration!==undefined} oncalibrate={ontrackingcalibrate} onresetcalibration={ontrackingcalibrationreset}/>

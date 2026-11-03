@@ -1,7 +1,7 @@
 import type { AppApi, Reply } from '@opensekai/contracts';
 import type { Session } from './session';
 
-export const SESSION_METHODS = ['sceneInspect', 'scenePatch', 'sceneReplace', 'cameraSelect', 'blueprintRun', 'blueprintEdit', 'blueprintInspect', 'blueprintDebug', 'trackingProbe', 'expressionGet', 'expressionSet'] as const;
+export const SESSION_METHODS = ['sceneInspect', 'scenePatch', 'sceneReplace', 'cameraSelect', 'blueprintRun', 'blueprintEdit', 'blueprintInspect', 'blueprintDebug', 'trackingProbe', 'expressionGet', 'expressionSet', 'meshList'] as const;
 export type SessionMethod = (typeof SESSION_METHODS)[number];
 export const isSessionMethod = (method: string): method is SessionMethod => (SESSION_METHODS as readonly string[]).includes(method);
 
@@ -20,5 +20,6 @@ export function sessionApi(session: Session): Pick<AppApi, SessionMethod> {
   trackingProbe: async params => session.probeTracking(params),
   expressionGet: async ({ avatarId }) => session.getExpressions(avatarId),
   expressionSet: async ({ avatarId, name, active }) => session.setExpression(avatarId, name, active),
+  meshList: async ({ avatarId }) => session.meshList(avatarId),
  };
 }

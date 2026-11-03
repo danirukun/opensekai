@@ -13,5 +13,7 @@ export const CHARACTER_EVALUATORS = {
  } },
  'character.offsetBoneRotation': { flow: (node, c) => c.emit({ kind: 'offsetBone', entityId: node.settings.entityId, bone: node.settings.bone, euler: c.read('euler') as Vec3 }) },
  'character.setBlendShape': { flow: (node, c) => c.emit({ kind: 'setBlendShape', entityId: node.settings.entityId, blendShape: node.settings.blendShape, weight: Number(c.read('weight')), ...withTransition(node.settings) }) },
+ 'character.toggleMeshes': { flow: (node, c) => c.emit({ kind: 'toggleMeshes', entityId: node.settings.entityId, names: [...node.settings.meshes] }) },
+ 'character.setMeshesVisible': { flow: (node, c) => c.emit({ kind: 'setMeshesVisible', entityId: node.settings.entityId, names: [...node.settings.meshes], visible: Boolean(c.read('visible')) }) },
  'character.lookAt': { flow: (node, c) => c.emit({ kind: 'lookAt', entityId: node.settings.entityId, targetId: node.settings.targetId, weight: Number(c.read('weight')), ...withTransition(node.settings) }) },
 } satisfies Partial<EvaluatorTable>;
