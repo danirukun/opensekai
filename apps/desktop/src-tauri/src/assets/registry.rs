@@ -1114,6 +1114,37 @@ mod import_tests {
         assert_eq!(broken.records().len(), 1);
         assert!(broken.records()[0].expressions.is_empty());
     }
+    fn with_required(names: &str) -> String {
+        include_str!("../../tests/fixtures/minimal-vrm1.json").replacen(
+            r#""asset": {"#,
+            &format!(r#""extensionsRequired": [{names}], "asset": {{"#),
+            1,
+        )
+    }
+    #[test]
+    fn import_checks_required_extensions() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("required.vrm");
+        let mut r = AssetRegistry::empty(&dir.path().join("managed")).unwrap();
+        std::fs::write(
+            &path,
+            vrm(&with_required(r#""KHR_draco_mesh_compression""#)),
+        )
+        .unwrap();
+        assert_eq!(
+            r.import_avatar(&path).unwrap_err().message,
+            "Unsupported required extension: KHR_draco_mesh_compression"
+        );
+        assert!(r.records().is_empty());
+        std::fs::write(
+            &path,
+            vrm(&with_required(
+                r#""KHR_texture_transform", "VRMC_materials_mtoon""#,
+            )),
+        )
+        .unwrap();
+        assert!(r.import_avatar(&path).is_ok());
+    }
     #[test]
     fn imports_vrm0_thumb_metadata() {
         let dir = tempfile::tempdir().unwrap();
@@ -1313,6 +1344,7 @@ fn validate_import_file(file: &mut std::fs::File, len: u64) -> Result<(Value, Ve
     {
         return Err(invalid("Unsupported VRM version"));
     }
+    super::check_required(&json, super::VRM_REQUIRED)?;
     super::vrm::validate_humanoid(&json, vrm0.is_some())?;
     Ok((json, raw))
 }

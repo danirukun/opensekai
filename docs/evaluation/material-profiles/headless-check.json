@@ -1,0 +1,118 @@
+[
+ {
+  "fixture": "fixture_vrm_1",
+  "backend": "webgpu",
+  "profiles": {
+   "mtoon": 13
+  },
+  "materialWarnings": [],
+  "pipelineFailures": 0,
+  "otherWarnings": [
+   "UNSUPPORTED VRMC_springBone simulation is disabled in renderer",
+   "UNSUPPORTED VRMC_node_constraint simulation is disabled in renderer"
+  ],
+  "pageErrors": [],
+  "png": "unknown: the page screenshot is one flat color"
+ },
+ {
+  "fixture": "fixture_vrm_1",
+  "backend": "webgl2",
+  "profiles": {
+   "mtoon": 13
+  },
+  "materialWarnings": [],
+  "pipelineFailures": 0,
+  "otherWarnings": [
+   "UNSUPPORTED VRMC_springBone simulation is disabled in renderer",
+   "UNSUPPORTED VRMC_node_constraint simulation is disabled in renderer"
+  ],
+  "pageErrors": [],
+  "png": {
+   "file": "docs/evaluation/material-profiles/fixture_vrm_1-webgl2.png",
+   "transparentFraction": 0.958
+  }
+ },
+ {
+  "fixture": "fixture_vrm0_arkit",
+  "backend": "webgpu",
+  "profiles": {
+   "mtoon": 16
+  },
+  "materialWarnings": [],
+  "pipelineFailures": 0,
+  "otherWarnings": [],
+  "pageErrors": [],
+  "png": "unknown: the page screenshot is one flat color"
+ },
+ {
+  "fixture": "fixture_vrm0_arkit",
+  "backend": "webgl2",
+  "profiles": {
+   "mtoon": 16
+  },
+  "materialWarnings": [],
+  "pipelineFailures": 0,
+  "otherWarnings": [],
+  "pageErrors": [],
+  "png": {
+   "file": "docs/evaluation/material-profiles/fixture_vrm0_arkit-webgl2.png",
+   "transparentFraction": 0.941
+  }
+ },
+ {
+  "fixture": "fixture_glb_stage",
+  "backend": "webgpu",
+  "profiles": {
+   "pbr": 25
+  },
+  "materialWarnings": [],
+  "pipelineFailures": 0,
+  "otherWarnings": [],
+  "pageErrors": [],
+  "png": "unknown: the page screenshot is one flat color"
+ },
+ {
+  "fixture": "fixture_glb_stage",
+  "backend": "webgl2",
+  "profiles": {
+   "pbr": 25
+  },
+  "materialWarnings": [],
+  "pipelineFailures": 0,
+  "otherWarnings": [],
+  "pageErrors": [],
+  "png": {
+   "file": "docs/evaluation/material-profiles/fixture_glb_stage-webgl2.png",
+   "transparentFraction": 0
+  }
+ },
+ {
+  "fixture": "fixture_test_stage",
+  "backend": "webgpu",
+  "profiles": {
+   "pbr": 11,
+   "unlit": 1
+  },
+  "materialWarnings": [],
+  "pipelineFailures": 0,
+  "otherWarnings": [],
+  "pageErrors": [],
+  "png": "unknown: the page screenshot is one flat color"
+ },
+ {
+  "fixture": "fixture_test_stage",
+  "backend": "webgl2",
+  "profiles": {
+   "pbr": 11,
+   "unlit": 1
+  },
+  "materialWarnings": [],
+  "pipelineFailures": 0,
+  "otherWarnings": [],
+  "pageErrors": [],
+  "png": {
+   "file": "docs/evaluation/material-profiles/fixture_test_stage-webgl2.png",
+   "transparentFraction": 0.12
+  }
+ }
+]

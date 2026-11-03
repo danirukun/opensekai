@@ -30,25 +30,6 @@ use std::path::PathBuf;
 const JSON_CHUNK: u32 = 0x4e4f534a;
 const BIN_CHUNK: u32 = 0x004e4942;
 const LIGHTS: &str = "KHR_lights_punctual";
-// Extensions that three.js GLTFLoader handles without an extra decoder in this renderer.
-const SUPPORTED_REQUIRED: &[&str] = &[
-    "KHR_materials_anisotropy",
-    "KHR_materials_clearcoat",
-    "KHR_materials_dispersion",
-    "KHR_materials_emissive_strength",
-    "KHR_materials_ior",
-    "KHR_materials_iridescence",
-    "KHR_materials_sheen",
-    "KHR_materials_specular",
-    "KHR_materials_transmission",
-    "KHR_materials_unlit",
-    "KHR_materials_volume",
-    "KHR_mesh_quantization",
-    "KHR_texture_transform",
-    "KHR_lights_punctual",
-    "EXT_texture_webp",
-    "EXT_mesh_gpu_instancing",
-];
 
 fn named(message: &str, reference: &str) -> AppError {
     invalid(format!(
@@ -424,17 +405,7 @@ fn pack(
     if !json.is_object() || json.pointer("/asset/version").and_then(Value::as_str) != Some("2.0") {
         return Err(invalid("Unsupported glTF version"));
     }
-    for name in json
-        .get("extensionsRequired")
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-    {
-        let name = name.as_str().unwrap_or("");
-        if !SUPPORTED_REQUIRED.contains(&name) {
-            return Err(named("Unsupported required extension", name));
-        }
-    }
+    super::check_required(&json, &[])?;
     if let Some(path) = stray_uri(&json, &mut Vec::new()) {
         return Err(named("Unsupported file reference", &path));
     }
@@ -859,6 +830,13 @@ mod tests {
             message(pack_scene(&dir.path().join("scene.gltf"), Limits::DEFAULT))
                 .contains("KHR_draco_mesh_compression")
         );
+    }
+    #[test]
+    fn accepts_required_extensions_that_the_loader_reads() {
+        let mut json = room("a.png");
+        json["extensionsRequired"] = json!(["EXT_materials_bump", "EXT_texture_avif"]);
+        let dir = folder(&json, &[("a.png", PNG)]);
+        assert!(pack_scene(&dir.path().join("scene.gltf"), Limits::DEFAULT).is_ok());
     }
     #[test]
     fn rejects_bad_zip_archives() {
