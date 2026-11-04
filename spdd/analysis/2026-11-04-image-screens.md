@@ -40,7 +40,8 @@ The parity checklist splits this work. MED-01 is image screens and transparency.
 
 - WebKit, Chromium (OBS uses CEF), and the headless cloud browser must all decode the four types with `createImageBitmap`. WebP and GIF decode in current WebKit and Chromium. The cloud check proves Chromium only. The owner checks the Editor window (WebKit) and OBS on macOS.
 - Wrong alpha handling gives dark fringes or a gray halo in OBS. The contract fixes one rule (straight alpha in the texture, normal blending) and a pixel check on the headless output.
-- A large image uses GPU memory. The header limit (8192 × 8192) and the profile texture limit bound it.
+- A large image uses memory when it decodes. A full decode of 8192 × 8192 is about 256 MB of RGBA before a downscale. The contract bounds the area (33,554,432 pixels) and decodes in one `createImageBitmap` call with the target size, so the profile texture limit applies at decode and not after it.
+- A JPEG with EXIF orientation 5 to 8 has its sides swapped on screen. The host reads the orientation, so the record keeps the display size, and the quad aspect comes from the record.
 
 ## Out of scope
 
