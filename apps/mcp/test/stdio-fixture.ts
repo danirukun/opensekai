@@ -21,7 +21,7 @@ export function fixtureApi(): AppApi {
   trackingProbe:async ({sourceId}) => ok({sourceId,generation:0,state:'waiting' as const,values:{},peaks:{},presentChannels:[],eyeBones:false}),
   cameraScreenshot:async p => p.cameraId !== 'camera_main' ? {ok:false,error:{code:'NOT_FOUND',message:'Camera not found',ids:[p.cameraId]}} : ok({fileName:'20261017-090507-042-camera_main.png',width:1920 as const,height:1080 as const,bytes:1024,sha256:'0'.repeat(64),cameraId:p.cameraId,revision:p.expectedRevision}),
   cameraSelect:denied,blueprintRun:denied,captureFrame:async () => ({ok:false,error:{code:'RATE_LIMITED',message:'Capture limit',ids:[]}}),benchmarkStart:denied,benchmarkStatus:denied,benchmarkCancel:denied,
-  assetList:async () => ok({assets:[{id:'avatar_one',kind:'avatar' as const,name:'One'},{id:'scene_room',kind:'scene' as const,name:'Room',credits:{title:'Room',author:'Ada',license:'CC-BY-4.0',sourceUrl:'https://example.com/room'}}],next:null}),
+  assetList:async () => ok({assets:[{id:'avatar_one',kind:'avatar' as const,name:'One'},{id:'image_logo',kind:'image' as const,name:'Logo'},{id:'scene_room',kind:'scene' as const,name:'Room',credits:{title:'Room',author:'Ada',license:'CC-BY-4.0',sourceUrl:'https://example.com/room'}}],next:null}),
   expressionGet:denied,expressionSet:denied,meshList:denied,
   evidenceRead:async () => ok({id:'opaque',kind:'capture',sessionId:'fixture',fixtureId:'smoke_v1',appCommit:'fixture',resources:[{uri:'opensekai://evidence/opaque/capture.png',mimeType:'image/png',bytes:3,sha256:createHash('sha256').update(new Uint8Array([1,2,3])).digest('hex')}]})
  };

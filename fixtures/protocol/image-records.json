@@ -1,0 +1,398 @@
+{
+ "valid": [
+  {
+   "name": "png",
+   "record": {
+    "id": "image_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "png",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 120,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Logo",
+    "expressions": [],
+    "image": {
+     "width": 640,
+     "height": 480,
+     "frames": 1
+    }
+   }
+  },
+  {
+   "name": "jpeg",
+   "record": {
+    "id": "image_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "jpeg",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 120,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Logo",
+    "expressions": [],
+    "image": {
+     "width": 640,
+     "height": 480,
+     "frames": 1
+    }
+   }
+  },
+  {
+   "name": "webp",
+   "record": {
+    "id": "image_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "webp",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 120,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Logo",
+    "expressions": [],
+    "image": {
+     "width": 640,
+     "height": 480,
+     "frames": 1
+    }
+   }
+  },
+  {
+   "name": "animated gif",
+   "record": {
+    "id": "image_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "gif",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 120,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Logo",
+    "expressions": [],
+    "image": {
+     "width": 3,
+     "height": 2,
+     "frames": 4096
+    }
+   }
+  },
+  {
+   "name": "largest area",
+   "record": {
+    "id": "image_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "png",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 120,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Logo",
+    "expressions": [],
+    "image": {
+     "width": 8192,
+     "height": 4096,
+     "frames": 1
+    }
+   }
+  },
+  {
+   "name": "glb without image",
+   "record": {
+    "id": "scene_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "glb",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 120,
+    "sourceUrl": null,
+    "licenseLabel": "",
+    "importerVersion": 1,
+    "name": "Room",
+    "expressions": []
+   }
+  }
+ ],
+ "invalid": [
+  {
+   "name": "image format without image",
+   "record": {
+    "id": "image_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "png",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 120,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Logo",
+    "expressions": []
+   }
+  },
+  {
+   "name": "image format with scene ID",
+   "record": {
+    "id": "scene_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "png",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 120,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Logo",
+    "expressions": [],
+    "image": {
+     "width": 640,
+     "height": 480,
+     "frames": 1
+    }
+   }
+  },
+  {
+   "name": "image with expressions",
+   "record": {
+    "id": "image_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "png",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 120,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Logo",
+    "expressions": [
+     {
+      "name": "happy",
+      "preset": true
+     }
+    ],
+    "image": {
+     "width": 640,
+     "height": 480,
+     "frames": 1
+    }
+   }
+  },
+  {
+   "name": "image with eyeBones",
+   "record": {
+    "id": "image_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "png",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 120,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Logo",
+    "expressions": [],
+    "image": {
+     "width": 640,
+     "height": 480,
+     "frames": 1
+    },
+    "eyeBones": true
+   }
+  },
+  {
+   "name": "image with meshes",
+   "record": {
+    "id": "image_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "png",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 120,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Logo",
+    "expressions": [],
+    "image": {
+     "width": 640,
+     "height": 480,
+     "frames": 1
+    },
+    "meshes": []
+   }
+  },
+  {
+   "name": "zero width",
+   "record": {
+    "id": "image_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "png",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 120,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Logo",
+    "expressions": [],
+    "image": {
+     "width": 0,
+     "height": 1,
+     "frames": 1
+    }
+   }
+  },
+  {
+   "name": "side above 8192",
+   "record": {
+    "id": "image_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "png",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 120,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Logo",
+    "expressions": [],
+    "image": {
+     "width": 8193,
+     "height": 1,
+     "frames": 1
+    }
+   }
+  },
+  {
+   "name": "area above limit",
+   "record": {
+    "id": "image_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "png",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 120,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Logo",
+    "expressions": [],
+    "image": {
+     "width": 8192,
+     "height": 4097,
+     "frames": 1
+    }
+   }
+  },
+  {
+   "name": "zero frames",
+   "record": {
+    "id": "image_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "png",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 120,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Logo",
+    "expressions": [],
+    "image": {
+     "width": 1,
+     "height": 1,
+     "frames": 0
+    }
+   }
+  },
+  {
+   "name": "frames above 4096",
+   "record": {
+    "id": "image_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "png",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 120,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Logo",
+    "expressions": [],
+    "image": {
+     "width": 1,
+     "height": 1,
+     "frames": 4097
+    }
+   }
+  },
+  {
+   "name": "fractional width",
+   "record": {
+    "id": "image_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "png",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 120,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Logo",
+    "expressions": [],
+    "image": {
+     "width": 1.5,
+     "height": 1,
+     "frames": 1
+    }
+   }
+  },
+  {
+   "name": "unknown image field",
+   "record": {
+    "id": "image_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "png",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 120,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Logo",
+    "expressions": [],
+    "image": {
+     "width": 1,
+     "height": 1,
+     "frames": 1,
+     "depth": 8
+    }
+   }
+  },
+  {
+   "name": "unknown format",
+   "record": {
+    "id": "image_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "bmp",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 120,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Logo",
+    "expressions": [],
+    "image": {
+     "width": 640,
+     "height": 480,
+     "frames": 1
+    }
+   }
+  },
+  {
+   "name": "glb with image",
+   "record": {
+    "id": "scene_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "glb",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 120,
+    "sourceUrl": null,
+    "licenseLabel": "",
+    "importerVersion": 1,
+    "name": "Room",
+    "expressions": [],
+    "image": {
+     "width": 1,
+     "height": 1,
+     "frames": 1
+    }
+   }
+  },
+  {
+   "name": "glb with image ID",
+   "record": {
+    "id": "image_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "glb",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 120,
+    "sourceUrl": null,
+    "licenseLabel": "",
+    "importerVersion": 1,
+    "name": "Room",
+    "expressions": []
+   }
+  }
+ ]
+}

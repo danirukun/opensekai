@@ -9,6 +9,7 @@ it('lists the properties of each entity kind', () => {
  expect(propertiesFor('environment').map(p => p.key)).toEqual(['position', 'rotation', 'scale', 'visible']);
  expect(propertiesFor('avatar').map(p => p.key)).toEqual(['position', 'rotation', 'scale', 'visible']);
  expect(propertiesFor('mesh').map(p => p.key)).toEqual(['position', 'rotation', 'scale', 'visible']);
+ expect(propertiesFor('screen').map(p => p.key)).toEqual(['position', 'rotation', 'scale', 'visible']);
  expect(propertiesFor('tracking')).toEqual([]);
 });
 
@@ -62,4 +63,19 @@ it('reads and writes the environment and the camera Render Environment', () => {
  expect(same.ok && same.data).toEqual(camera);
  const back = off.ok && writeProperty(off.data, 'renderEnvironment', true);
  expect(back && back.ok && back.data.kind === 'camera' && back.data.renderEnvironment).toBe(true);
+});
+
+it('reads and writes the placed properties of a screen (B28 R10)', () => {
+ const screen: SceneEntity = { id: 'logo', name: 'Logo', visible: true, transform: { position: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] }, kind: 'screen', content: { kind: 'image', assetId: 'image_a' } };
+ const moved = writeProperty(screen, 'position', [1, 2, 3]);
+ expect(moved.ok && moved.data.transform.position).toEqual([1, 2, 3]);
+ const scaled = writeProperty(screen, 'scale', [2, 1, 1]);
+ expect(scaled.ok && scaled.data.transform.scale).toEqual([2, 1, 1]);
+ const turned = writeProperty(screen, 'rotation', [0, 90, 0]);
+ expect(turned.ok).toBe(true);
+ if (turned.ok) close(turned.data.transform.rotation, [0, Math.SQRT1_2, 0, Math.SQRT1_2]);
+ const hidden = writeProperty(screen, 'visible', false);
+ expect(hidden.ok && hidden.data.visible).toBe(false);
+ expect(readProperty(screen, 'fovDegrees')).toBeUndefined();
+ expect(writeProperty(screen, 'intensity', 1).ok).toBe(false);
 });

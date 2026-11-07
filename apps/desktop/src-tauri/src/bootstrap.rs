@@ -218,6 +218,20 @@ impl DesktopState {
             .ok_or_else(|| error(ErrorCode::Unavailable, "Session unavailable"))?;
         ports.import_scene(path).await
     }
+    pub async fn import_image(
+        &self,
+        path: PathBuf,
+    ) -> Result<crate::assets::ImportResult, AppError> {
+        let ports = self
+            .owned
+            .lock()
+            .await
+            .service
+            .as_ref()
+            .map(|service| service.ports())
+            .ok_or_else(|| error(ErrorCode::Unavailable, "Session unavailable"))?;
+        ports.import_image(path).await
+    }
     pub async fn wait_ready(&self) -> Result<NativeBootstrap, AppError> {
         let mut receiver = self.ready.subscribe();
         tokio::time::timeout(Duration::from_secs(5), async {

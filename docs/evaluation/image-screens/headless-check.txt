@@ -1,0 +1,58 @@
+PASS png direct webgl2: loads without a warning []
+PASS png direct webgl2: backend webgl2 "webgl2"
+PASS png direct webgl2 page: opaque part is opaque red {"at":[356,295],"actual":[255,0,0,255],"expected":[255,0,0,255]}
+PASS png direct webgl2 page: top rows are blue (upright) {"at":[356,171],"actual":[0,0,255,255],"expected":[0,0,255,255]}
+PASS png direct webgl2 page: transparent part has alpha 0 {"at":[525,270],"actual":[0,0,0,0],"expected":[null,null,null,0]}
+PASS png direct webgl2 page: half-alpha strip keeps alpha 128 {"at":[618,270],"actual":[0,255,0,128],"expected":[0,255,0,128]}
+PASS png direct webgl2 page: transparent edge column has alpha 0 {"at":[698,270],"actual":[0,0,0,0],"expected":[null,null,null,0]}
+PASS png direct webgl2 page: outside the quad has alpha 0 {"at":[480,72],"actual":[0,0,0,0],"expected":[null,null,null,0]}
+PASS png fxaa webgl2: loads without a warning []
+PASS png fxaa webgl2: backend webgl2 "webgl2"
+PASS png fxaa webgl2 page: opaque part is opaque red {"at":[356,295],"actual":[255,0,0,255],"expected":[255,0,0,255]}
+PASS png fxaa webgl2 page: top rows are blue (upright) {"at":[356,171],"actual":[0,0,255,255],"expected":[0,0,255,255]}
+PASS png fxaa webgl2 page: transparent part has alpha 0 {"at":[525,270],"actual":[0,0,0,0],"expected":[null,null,null,0]}
+PASS png fxaa webgl2 page: half-alpha strip keeps alpha 128 {"at":[618,270],"actual":[0,255,0,128],"expected":[0,255,0,128]}
+PASS png fxaa webgl2 page: transparent edge column has alpha 0 {"at":[698,270],"actual":[0,0,0,0],"expected":[null,null,null,0]}
+PASS png fxaa webgl2 page: outside the quad has alpha 0 {"at":[480,72],"actual":[0,0,0,0],"expected":[null,null,null,0]}
+PASS png haze webgl2: loads without a warning []
+PASS png haze webgl2: backend webgl2 "webgl2"
+PASS png haze webgl2 page: opaque part is opaque red {"at":[356,295],"actual":[255,0,0,255],"expected":[255,0,0,255]}
+PASS png haze webgl2 page: top rows are blue (upright) {"at":[356,171],"actual":[0,0,255,255],"expected":[0,0,255,255]}
+PASS png haze webgl2 page: transparent part has alpha 0 {"at":[525,270],"actual":[0,0,0,0],"expected":[null,null,null,0]}
+PASS png haze webgl2 page: half-alpha strip keeps alpha 128 {"at":[618,270],"actual":[0,255,0,128],"expected":[0,255,0,128]}
+PASS png haze webgl2 page: transparent edge column has alpha 0 {"at":[698,270],"actual":[0,0,0,0],"expected":[null,null,null,0]}
+PASS png haze webgl2 page: outside the quad has alpha 0 {"at":[480,72],"actual":[0,0,0,0],"expected":[null,null,null,0]}
+PASS png back webgl2: loads without a warning []
+PASS png back webgl2: backend webgl2 "webgl2"
+PASS png back webgl2 page: back: opaque half is on the right {"at":[604,295],"actual":[255,0,0,255],"expected":[255,0,0,255]}
+PASS png back webgl2 page: back: left half is transparent {"at":[435,270],"actual":[0,0,0,0],"expected":[null,null,null,0]}
+PASS jpeg orientation 6 webgl2: loads without a warning []
+PASS jpeg orientation 6 webgl2: backend webgl2 "webgl2"
+PASS jpeg orientation 6 webgl2 page: orientation 6: top is blue {"at":[480,166],"actual":[0,0,254,255],"expected":[0,0,255,255]}
+PASS jpeg orientation 6 webgl2 page: orientation 6: bottom is red {"at":[480,369],"actual":[254,0,0,255],"expected":[255,0,0,255]}
+PASS jpeg orientation 6 webgl2 page: orientation 6: 0.5 m wide (alpha 0 at x = 0.4 m) {"at":[579,270],"actual":[0,0,0,0],"expected":[null,null,null,0]}
+PASS jpeg orientation 6 webgl2 page: orientation 6: 0.5 m wide (opaque at x = 0.2 m) {"at":[529,270],"actual":[254,0,0,255],"expected":[null,null,null,255]}
+PASS webp webgl2: loads without a warning []
+PASS webp webgl2: backend webgl2 "webgl2"
+PASS webp webgl2 page: WebP opaque part is red {"at":[356,295],"actual":[255,0,0,255],"expected":[255,0,0,255]}
+PASS webp webgl2 page: WebP top rows are blue {"at":[356,171],"actual":[0,0,255,255],"expected":[0,0,255,255]}
+PASS webp webgl2 page: WebP transparent half has alpha 0 {"at":[604,270],"actual":[0,0,0,0],"expected":[null,null,null,0]}
+PASS png direct webgpu: loads without a warning []
+PASS png direct webgpu: backend webgpu "webgpu"
+UNKNOWN png direct webgpu page pixels unknown: one flat color
+PASS png fxaa webgpu: loads without a warning []
+PASS png fxaa webgpu: backend webgpu "webgpu"
+UNKNOWN png fxaa webgpu page pixels unknown: one flat color
+PASS png haze webgpu: loads without a warning []
+PASS png haze webgpu: backend webgpu "webgpu"
+UNKNOWN png haze webgpu page pixels unknown: one flat color
+PASS png back webgpu: loads without a warning []
+PASS png back webgpu: backend webgpu "webgpu"
+UNKNOWN png back webgpu page pixels unknown: one flat color
+PASS jpeg orientation 6 webgpu: loads without a warning []
+PASS jpeg orientation 6 webgpu: backend webgpu "webgpu"
+UNKNOWN jpeg orientation 6 webgpu page pixels unknown: one flat color
+PASS webp webgpu: loads without a warning []
+PASS webp webgpu: backend webgpu "webgpu"
+UNKNOWN webp webgpu page pixels unknown: one flat color
+51 pass, 0 fail, 6 unknown
