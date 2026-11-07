@@ -125,6 +125,21 @@ it('draws one quad for each screen with one shared texture, and none for a scree
     expect(quads()).toEqual([]);
     r.dispose();
 });
+it('draws nothing for a screen whose new image fails, also when an older image was drawn (R13)', async () => {
+    ports.image.mockImplementation(async (_read: unknown) => image());
+    const r = await make();
+    await r.applyFrame(frame([screen('a', 'image_good')]));
+    await settle();
+    await r.applyFrame(frame([screen('a', 'image_good')]));
+    expect(quads()).toHaveLength(1);
+    ports.image.mockReset().mockImplementation(async () => { throw Object.assign(new Error(IMAGE_LOAD_FAILED), { code: 'INVALID_INPUT', ids: [] }); });
+    await r.applyFrame(frame([screen('a', 'scene_room')]));
+    await settle();
+    const applied = await r.applyFrame(frame([screen('a', 'scene_room')]));
+    expect(applied.warnings).toContainEqual({ code: 'UNAVAILABLE', message: 'Asset load failed: Image failed to load', ids: ['scene_room'] });
+    expect(quads()).toEqual([]);
+    r.dispose();
+});
 it('names a failed image in the frame warning and still draws the other screens', async () => {
     const r = await make();
     ports.image.mockImplementation(async () => { throw Object.assign(new Error(IMAGE_LOAD_FAILED), { code: 'INVALID_INPUT', ids: [] }); });

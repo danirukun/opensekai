@@ -281,7 +281,11 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         }
         for (const [entityId, request] of needed) {
             const message = jobs.failure(entityId);
-            if (message) warnings.push({ code: "UNAVAILABLE", message: "Asset load failed: " + message, ids: [request.assetId] });
+            if (!message) continue;
+            warnings.push({ code: "UNAVAILABLE", message: "Asset load failed: " + message, ids: [request.assetId] });
+            // A failed screen draws nothing, so the image of an earlier asset goes too (B28 R13).
+            const old = request.kind === "screen" ? objects.get(entityId) : undefined;
+            if (old) { releaseObject(old); objects.delete(entityId); }
         }
         for (const entry of jobs.status()) if (entry.stage !== "failed") warnings.push({ code: "BUSY", message: "Asset loading", ids: [entry.assetId] });
         if (pipelineFailed) warnings.push({ code: "UNSUPPORTED", message: "Pipeline compile failed", ids: [] });

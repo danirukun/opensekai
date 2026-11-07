@@ -172,13 +172,14 @@ fn exif_orientation(tiff: &[u8]) -> Option<u16> {
     }
     let ifd = usize::try_from(u32_at(4)?).ok()?;
     let count = usize::from(u16_at(ifd)?);
-    (0..count).find_map(|index| {
-        let entry = ifd.checked_add(2)?.checked_add(index.checked_mul(12)?)?;
-        (u16_at(entry)? == 0x0112 && u16_at(entry + 2)? == 3)
-            .then(|| u16_at(entry + 8))
-            .flatten()
-            .filter(|value| (1..=8).contains(value))
-    })
+    // The first Orientation entry decides, as in `readImageHeader` of the renderer.
+    let entry = (0..count)
+        .map(|index| ifd.checked_add(2)?.checked_add(index.checked_mul(12)?))
+        .find(|entry| entry.and_then(&u16_at) == Some(0x0112))??;
+    (u16_at(entry + 2)? == 3)
+        .then(|| u16_at(entry + 8))
+        .flatten()
+        .filter(|value| (1..=8).contains(value))
 }
 
 fn webp(bytes: &[u8]) -> Result<ImageHeader, AppError> {
@@ -448,6 +449,21 @@ pub(crate) mod tests {
             parse_image(&jpeg_bytes(40, 30, Some(9))).unwrap(),
             header(AssetFormat::Jpeg, 40, 30, 1)
         );
+    }
+    #[test]
+    fn the_first_orientation_entry_decides() {
+        // IFD0 with two Orientation entries: 9 (invalid), then 6. The renderer reads the first one too.
+        let mut tiff = b"MM\0\x2a\0\0\0\x08".to_vec();
+        tiff.extend(2u16.to_be_bytes());
+        for value in [9u16, 6] {
+            tiff.extend(0x0112u16.to_be_bytes());
+            tiff.extend(3u16.to_be_bytes());
+            tiff.extend(1u32.to_be_bytes());
+            tiff.extend(value.to_be_bytes());
+            tiff.extend([0, 0]);
+        }
+        tiff.extend(0u32.to_be_bytes());
+        assert_eq!(exif_orientation(&tiff), None);
     }
     #[test]
     fn rejects_unknown_and_truncated_files() {

@@ -33,7 +33,9 @@ function exifOrientation(view: DataView, start: number, end: number): number | n
     if (count === null) return null;
     for (let index = 0; index < count; index++) {
         const entry = ifd + 2 + index * 12;
-        if (read16(entry) === 0x0112 && read16(entry + 2) === 3) {
+        // The first Orientation entry decides, as in the host.
+        if (read16(entry) === 0x0112) {
+            if (read16(entry + 2) !== 3) return null;
             const value = read16(entry + 8);
             return value !== null && value >= 1 && value <= 8 ? value : null;
         }
