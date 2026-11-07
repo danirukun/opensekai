@@ -69,11 +69,11 @@ R10. The Blueprint property registry adds `screen` to Position, Rotation, Scale,
 
 ### Renderer
 
-R11. Each renderer client (OBS page, scene pane preview, editor viewport, and screenshot) draws one quad for each visible screen with a non-null `assetId` that loads. The quad is 1 m high and `record.image.width / record.image.height` m wide, centered on the entity origin, in the local XY plane. It faces local +Z with `DoubleSide`. The front shows the image upright and not mirrored. The back shows it mirrored. The entity transform applies. A screen with `assetId: null` draws nothing. The screen is drawn when the output camera has `renderEnvironment: false`.
+R11. Each renderer client (OBS page, scene pane preview, editor viewport, and screenshot) draws one quad for each visible screen with a non-null `assetId` that loads. The quad is 1 m high and `width / height` m wide, where `width` and `height` are the display size that the renderer reads from the header (R12). This is the same value as `record.image`, because the host serves the file only when the header equals the record (R6). A renderer client has no asset records. centered on the entity origin, in the local XY plane. It faces local +Z with `DoubleSide`. The front shows the image upright and not mirrored. The back shows it mirrored. The entity transform applies. A screen with `assetId: null` draws nothing. The screen is drawn when the output camera has `renderEnvironment: false`.
 R12. Image loading:
-- The renderer reads the bytes with `readAsset` and checks the signature again. The signature must be one of the four types and must match the record format.
+- The renderer reads the bytes with `readAsset` and checks the signature and the header again (`readImageHeader` in `screen.ts`, the same rules as R4 for the type and the display size). The signature must be one of the four types. The renderer has no record; the host check of R6 makes sure that the type and the size equal the record.
 - It makes the texture with one `createImageBitmap(blob, options)` call. The options are `premultiplyAlpha: 'none'`, `colorSpaceConversion: 'default'`, and `imageOrientation: 'from-image'`. When the longest display side is above the `maxTextureSize` of the quality profile, the same call also gets `resizeWidth`, `resizeHeight` (from the record display size), and `resizeQuality: 'high'`. No second resize step runs.
-- The texture has `colorSpace` sRGB and `flipY` set so the front is upright on WebGL 2 and WebGPU.
+- The texture has `colorSpace` sRGB and `flipY` false. The quad UVs put image row 0 at the top, so the front is upright on WebGL 2 and WebGPU without an upload flip (WebGL 2 ignores the flip for an `ImageBitmap`).
 - A GIF and an animated WebP show the first frame only.
 - One texture serves all screens with the same asset in one client. The screen asset IDs are in the `used` set and in `retainOnly`. When no screen uses the asset, the renderer closes the bitmap and disposes the texture.
 R13. Screen loads use the load jobs with a new `LoadRequest.kind` `screen`. Each failure of a screen job has the message `Image failed to load`. The failures are: an unknown asset, a GLB or VRM record, a bad or mismatched signature, and a decode failure. The frame warning is `Asset load failed: Image failed to load`, and the Inspector failure message is `Image failed to load`. A failed job retries under the existing rule (a newer revision and 3 s). A failure draws nothing for that screen and does not stop the other entities. A loading image gives the existing `Asset loading` warning. The asset ID branch in `renderer.ts` handles a screen explicitly. A screen is never read as a mesh.
@@ -99,7 +99,7 @@ R19. The Inspector for a screen shows Name, Visible, Transform, and a **Screen**
 - the load status;
 - the failure message.
 
-It has the same form as the Prop **Source** field. A record option sends `setScreenImage`. `Import file…` runs `import_image` through a new `chooseImage` handler in `EditorApp.svelte`. A returned record sends `setScreenImage` for that screen only. A cancelled dialog keeps the value. An import error shows the host message, or `Could not import image` when it has none. An unknown `assetId` shows `Missing image`. The Inspector reset (default `assetId: null`) and the section index cover the section (B17). The Assets list shows image records with their format, as it does for the other records.
+It has the same form as the Prop **Source** field. The empty option is `Choose image…`, as the Prop field has `Choose model…`. A record option sends `setScreenImage`. `Import file…` runs `import_image` through a new `chooseImage` handler in `EditorApp.svelte`. A returned record sends `setScreenImage` for that screen only. A cancelled dialog keeps the value. An import error shows the host message, or `Could not import image` when it has none. An unknown `assetId` shows `Missing image`. The Inspector reset (default `assetId: null`) and the section index cover the section (B17). The Assets list shows image records with their format, as it does for the other records.
 R20. Regression tests: the Prop and Environment source selects (`sceneSourceOptions`) and the character model field do not list image records. The Screen select lists only image records.
 
 ### MCP and files
@@ -146,7 +146,8 @@ Add one asset kind and one entity kind. Reuse the prop paths at each step. The h
 - `apps/desktop/src`:
   - `editor/live-fields.ts`, `editor/authoring.ts` (factory, import failure text)
   - `editor/asset-groups.ts`, `editor/inspector-sections.ts`, `editor/property-defaults.ts`
-  - `editor/model.ts` (`setScreenImage`, `importImage`)
+  - `editor/model.ts` (`setScreenImage`), `editor/screen.ts` (`imageSourceOptions`)
+  - `components/ScreenImageFields.svelte`
   - `components/Hierarchy.svelte`, `components/Inspector.svelte`
   - `EditorApp.svelte` (`chooseImage`)
 - `apps/mcp/src/server.ts`: descriptions.

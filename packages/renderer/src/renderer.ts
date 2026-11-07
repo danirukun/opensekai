@@ -19,6 +19,7 @@ import { createDiagnosticMarker } from "./diagnostic-marker";
 import { createPostChain } from "./post-chain";
 import { createHaze, type Haze } from "./haze";
 import { renderScreenshot, SCREENSHOT_HEIGHT, SCREENSHOT_WIDTH } from "./screenshot";
+import { createScreenMesh, loadScreenImage } from "./screen";
 export interface RendererHandle {
     editor?: EditorHandle;
     applyFrame(frame: RuntimeFrame): Promise<FrameApplied>;
@@ -63,6 +64,8 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     // The haze volume (B13 R7). A pipeline failure while it draws stops it until the next node-set rebuild (R9).
     let haze: Haze | null = null, hazeFailed = false;
     const assets = createAssetCache(loadAsset);
+    // One texture for each image asset in this client, shared by all screens that show it (B28 R12).
+    const images = createAssetCache(id => loadScreenImage(() => options.resources.readAsset(id), quality.maxTextureSize));
     const environmentLight = createEnvironmentLight(roomEnvironmentMap(renderer));
     type Ready = { root: Object3D; avatar?: ReturnType<typeof createAvatarBinding>; meshes?: ReadonlyMap<string, Object3D>; assetId?: string; assetDispose?: () => void; instanceDispose?: () => void; materials?: InstanceMaterials; lit: number; warnings: AppError[]; dispose(): void };
     const loadListeners = new Set<(entries: AssetLoadStatus[]) => void>();
@@ -75,6 +78,14 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         finally { for (const object of culled) object.frustumCulled = true; }
     };
     const build = async (request: LoadRequest, report: (r: LoadReport) => void, cancelled: () => boolean): Promise<Ready> => {
+        if (request.kind === "screen") {
+            const image = await images.get(request.assetId);
+            if (cancelled() || disposed) throw failure("CANCELLED", "Asset load cancelled");
+            const quad = createScreenMesh(image);
+            try { await prepare(quad.root, report, cancelled); }
+            catch (error) { quad.dispose(); throw error; }
+            return { root: quad.root, assetId: request.assetId, instanceDispose: quad.dispose, lit: 0, warnings: [], dispose: quad.dispose };
+        }
         if (request.kind === "avatar") {
             const asset = await loadAsset(request.assetId, report);
             try {
@@ -136,6 +147,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         objects.clear();
         jobs.dispose();
         assets.dispose();
+        images.dispose();
         environmentLight.dispose();
         sceneLights.dispose();
         restoreModules?.();
@@ -222,7 +234,8 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
                 }
                 continue;
             }
-            const assetId = entity.kind === "avatar" || entity.kind === "environment" ? entity.assetId : entity.source.kind === "asset" ? entity.source.assetId : null;
+            // A screen is never read as a mesh: it has its own load kind (B28 R13).
+            const assetId = entity.kind === "avatar" || entity.kind === "environment" ? entity.assetId : entity.kind === "screen" ? entity.content.assetId : entity.source.kind === "asset" ? entity.source.assetId : null;
             let value = objects.get(entity.id);
             if (assetId === null && (entity.kind !== "mesh" || entity.source.kind === "asset")) {
                 if (value) { releaseObject(value); objects.delete(entity.id); }
@@ -237,7 +250,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
                     objects.set(entity.id, value);
                 } else {
                     // The new model is still loading: keep posing the old model, if any, until the job installs the new one.
-                    needed.set(entity.id, { kind: entity.kind === "avatar" ? "avatar" : entity.kind === "environment" ? "environment" : "mesh", assetId });
+                    needed.set(entity.id, { kind: entity.kind === "avatar" ? "avatar" : entity.kind === "environment" ? "environment" : entity.kind === "screen" ? "screen" : "mesh", assetId });
                     if (!value) continue;
                 }
             }
@@ -286,6 +299,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         const used = new Set([...objects.values()].flatMap(x => x.assetId ? [x.assetId] : []));
         for (const id of jobs.assetIds()) used.add(id);
         assets.retainOnly(used);
+        images.retainOnly(used);
         camera.fov = cameraEntity.lens.fovDegrees;
         camera.aspect = width / height;
         camera.near = cameraEntity.lens.near;

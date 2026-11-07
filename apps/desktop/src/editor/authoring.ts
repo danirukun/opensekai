@@ -1,4 +1,4 @@
-import {AppErrorSchema,defaultTrackingConfig,type AssetRecord,type SceneEntity,type SceneView} from '@opensekai/contracts';
+import {AppErrorSchema,LIMITS,defaultTrackingConfig,type AssetRecord,type SceneEntity,type SceneView} from '@opensekai/contracts';
 import type {AddKind} from './live-fields';
 import {vmcSenderLimitReached,vmcSenderSettings} from './vmc-sender';
 import {AMBIENT_LIGHT,DIRECTIONAL_LIGHT,FPS_COUNTER,HAZE,POINT_LIGHT,SPOT_LIGHT,fpsCounterLimitReached,hazeLimitReached,hazeTransform,lightLimitReached,lightTransform} from './lights';
@@ -17,7 +17,7 @@ export function nextAvatarTransform(entities:readonly SceneEntity[],scale:Vec3=[
 }
 const transform=()=>({position:[0,0,0] as [number,number,number],rotation:[0,0,0,1] as [number,number,number,number],scale:[1,1,1] as [number,number,number]});
 export function makeAuthoringEntity(kind:AddKind,id:string,entities:readonly SceneEntity[]):SceneEntity {
- const label=({camera:'Camera',character:'Character',environment:'Environment',prop:'Prop',directionalLight:'Directional Light',pointLight:'Point Light',spotLight:'Spot Light',ambientLight:'Ambient Light',haze:'Haze',fpsCounter:'FPS Counter',vmcSender:'VMC Sender',vmc:'VMC Receiver',ifacialmocap:'iFacialMocap Receiver',mediapipe:'MediaPipe Tracker'} as const)[kind];
+ const label=({camera:'Camera',character:'Character',environment:'Environment',prop:'Prop',screen:'Screen',directionalLight:'Directional Light',pointLight:'Point Light',spotLight:'Spot Light',ambientLight:'Ambient Light',haze:'Haze',fpsCounter:'FPS Counter',vmcSender:'VMC Sender',vmc:'VMC Receiver',ifacialmocap:'iFacialMocap Receiver',mediapipe:'MediaPipe Tracker'} as const)[kind];
  const taken=new Set(entities.map(entity=>entity.name));
  let n=2;while(taken.has(`${label} ${n}`))n++;
  const base={id,name:taken.has(label)?`${label} ${n}`:label,visible:true,transform:transform()};
@@ -25,6 +25,7 @@ export function makeAuthoringEntity(kind:AddKind,id:string,entities:readonly Sce
  if(kind==='character')return {...base,kind:'avatar',transform:nextAvatarTransform(entities),assetId:null,tracking:{bodySourceId:null,faceSourceId:null},idleAnimation:{kind:'builtin',enabled:true}};
  if(kind==='environment')return {...base,kind,assetId:null};
  if(kind==='prop')return {...base,kind:'mesh',source:{kind:'asset',assetId:null}};
+ if(kind==='screen')return {...base,kind:'screen',content:{kind:'image',assetId:null}};
  if(kind==='directionalLight')return {...base,kind:'light',transform:lightTransform('directional'),light:structuredClone(DIRECTIONAL_LIGHT)};
  if(kind==='pointLight')return {...base,kind:'light',transform:lightTransform('point'),light:structuredClone(POINT_LIGHT)};
  if(kind==='spotLight')return {...base,kind:'light',transform:lightTransform('spot'),light:structuredClone(SPOT_LIGHT)};
@@ -44,8 +45,11 @@ export function addLimitReached(kind:AddKind,entities:readonly SceneEntity[]):bo
  if(kind==='haze')return hazeLimitReached(entities);
  if(kind==='fpsCounter')return fpsCounterLimitReached(entities);
  if(kind==='vmcSender')return vmcSenderLimitReached(entities);
+ if(kind==='screen')return screenLimitReached(entities);
  return false;
 }
+// A scene holds at most 16 screens (B28 R8).
+export const screenLimitReached=(entities:readonly SceneEntity[])=>entities.filter(entity=>entity.kind==='screen').length>=LIMITS.screens;
 export function modelLabel(assetId:string|null,assets:readonly AssetRecord[]):string {
  if(assetId===null)return 'Choose VRM…';
  return assets.find(asset=>asset.id===assetId)?.name??'Missing model';

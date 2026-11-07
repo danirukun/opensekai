@@ -39,6 +39,7 @@ fn main() {
             "open_screenshots_folder",
             "import_avatar",
             "import_scene",
+            "import_image",
             "save_show",
             "save_show_as",
             "open_show",
