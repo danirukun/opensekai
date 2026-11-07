@@ -245,6 +245,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
                 if (!warnings.some(x => x.message === warning.message && x.ids[0] === warning.ids[0])) warnings.push(warning);
             value.avatar?.apply(frame.avatarPoses?.find(pose => pose.avatarId === entity.id));
             if (value.meshes && entity.kind === "avatar") applyHiddenMeshes(value.meshes, entity.hiddenMeshes);
+            value.avatar?.uv(frame.elapsedMs);
             value.materials?.reflections(reflections);
             if (!editor?.frozen(entity.id)) place(value.root, entity);
         }
@@ -260,6 +261,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             objects.set(entityId, installed);
             installed.avatar?.apply(frame.avatarPoses?.find(pose => pose.avatarId === entityId));
             if (installed.meshes && entity.kind === "avatar") applyHiddenMeshes(installed.meshes, entity.hiddenMeshes);
+            installed.avatar?.uv(frame.elapsedMs);
             installed.materials?.reflections(reflections);
             if (!editor?.frozen(entityId)) place(installed.root, entity);
             warnings.push(...ready.warnings);

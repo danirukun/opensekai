@@ -498,6 +498,8 @@ pub fn stage_avatar(library: &Path, path: &Path) -> Result<StagedAsset, AppError
         .flush()
         .map_err(|_| error(ErrorCode::Unavailable, ""))?;
     let (json, raw) = validate_import_file(copy.as_file_mut(), count)?;
+    // Only a new import: a record that is already stored is not checked again.
+    super::check_required(&json, super::VRM_REQUIRED)?;
     let expressions = super::vrm::vrm_expressions(&json, &raw);
     let eye_bones = Some(super::vrm::vrm_has_eye_bones(&json));
     let rig = super::vrm::vrm_rig(&json);
@@ -1113,6 +1115,48 @@ mod import_tests {
         let broken = AssetRegistry::empty(&managed).unwrap();
         assert_eq!(broken.records().len(), 1);
         assert!(broken.records()[0].expressions.is_empty());
+    }
+    fn with_required(names: &str) -> String {
+        include_str!("../../tests/fixtures/minimal-vrm1.json").replacen(
+            r#""asset": {"#,
+            &format!(r#""extensionsRequired": [{names}], "asset": {{"#),
+            1,
+        )
+    }
+    #[test]
+    fn import_checks_required_extensions() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("required.vrm");
+        let mut r = AssetRegistry::empty(&dir.path().join("managed")).unwrap();
+        std::fs::write(
+            &path,
+            vrm(&with_required(r#""KHR_draco_mesh_compression""#)),
+        )
+        .unwrap();
+        assert_eq!(
+            r.import_avatar(&path).unwrap_err().message,
+            "Unsupported required extension: KHR_draco_mesh_compression"
+        );
+        assert!(r.records().is_empty());
+        std::fs::write(
+            &path,
+            vrm(&with_required(
+                r#""KHR_texture_transform", "VRMC_materials_mtoon""#,
+            )),
+        )
+        .unwrap();
+        assert!(r.import_avatar(&path).is_ok());
+    }
+    #[test]
+    fn stored_avatar_is_not_checked_for_required_extensions_again() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("stored.vrm");
+        std::fs::write(
+            &path,
+            vrm(&with_required(r#""KHR_draco_mesh_compression""#)),
+        )
+        .unwrap();
+        assert!(stored_vrm(&path).is_some());
     }
     #[test]
     fn imports_vrm0_thumb_metadata() {

@@ -2,6 +2,7 @@ import {Object3D,Quaternion,Vector3} from 'three/webgpu';
 import type {VRM, VRMHumanBoneName, VRMPose} from '@pixiv/three-vrm';
 import type {AvatarPose} from '@opensekai/contracts';
 import {canonicalArkitName,createArkitMorphBinding} from './arkit-expressions';
+import {createUvAnimation} from './mtoon-uv';
 
 const aliases: Record<string,string> = {Joy:'happy',Angry:'angry',Sorrow:'sad',Fun:'relaxed',A:'aa',I:'ih',U:'ou',E:'ee',O:'oh',Blink:'blink',Blink_L:'blinkLeft',Blink_R:'blinkRight',eyeBlink_L:'blinkLeft',eyeBlink_R:'blinkRight',eyeBlinkLeft:'blinkLeft',eyeBlinkRight:'blinkRight',jawOpen:'aa',mouthSmile_L:'happy',mouthSmile_R:'happy',mouthSmileLeft:'happy',mouthSmileRight:'happy'};
 export function expressionWeights(expressions: Record<string,number>, names: ReadonlySet<string>) {
@@ -60,7 +61,9 @@ export function createAvatarBinding(vrm: VRM) {
     };
     const names = new Set(vrm.expressionManager?.expressions.map(expression=>expression.expressionName) ?? []);
     const morphs=createArkitMorphBinding(vrm.scene);
-    return {root, apply(pose?: AvatarPose) {
+    // The surface materials and their outline clones; the clones have the same speeds (R5).
+    const uv=createUvAnimation(vrm.materials ?? []);
+    return {root, uv, apply(pose?: AvatarPose) {
         // Reset raw state before normalized deltas so lost channels return to rest.
         for (const [node, transform] of rest) {node.position.fromArray(transform.position);node.quaternion.fromArray(transform.rotation);}
         vrm.humanoid.resetNormalizedPose();

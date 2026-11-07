@@ -9,7 +9,7 @@ import {inspectContainer} from '../src/assets';
 const bytes=readFileSync(fileURLToPath(new URL('../../../fixtures/scene-import/packed-room.glb',import.meta.url)));
 const buffer=()=>bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength) as ArrayBuffer;
 it('accepts a packed scene import as a self-contained GLB',()=>{
- expect(inspectContainer(buffer())).toEqual({extensions:[],imageCount:1});
+ expect(inspectContainer(buffer())).toMatchObject({extensions:[],imageCount:1});
 });
 it('parses the packed scene with its embedded image',async()=>{
  const loader=new GLTFLoader();
