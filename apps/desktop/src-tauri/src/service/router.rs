@@ -212,6 +212,7 @@ impl Shared {
                 | "cameraSelect"
                 | "blueprintRun"
                 | "blueprintEdit"
+                | "proposalApply"
                 | "blueprintInspect"
                 | "blueprintDebug"
                 | "trackingProbe"
@@ -238,31 +239,36 @@ impl Shared {
             .await
         {
             Ok(result) => {
-                if method == "blueprintEdit" {
-                    if let Some(data) = result
-                        .get("data")
-                        .and_then(|d| serde_json::from_value::<BlueprintEditResult>(d.clone()).ok())
-                    {
-                        let current = lock(&self.inner).publisher.as_ref().map(|p| &p.id)
-                            == Some(&publisher_id);
-                        if current
-                            && self.learn_keystrokes(
-                                &publisher_id,
-                                data.revision,
-                                data.keystrokes.into_iter().collect(),
-                                data.held_keys.into_iter().collect(),
-                                data.devices.unwrap_or_default().into_iter().collect(),
-                                data.youtube == Some(true),
-                            )
-                        {
-                            self.sync_keystrokes().await;
-                        }
-                    }
+                let edit = match method.as_str() {
+                    "blueprintEdit" => result.get("data").cloned(),
+                    "proposalApply" => result.get("data").and_then(|d| d.get("blueprint")).cloned(),
+                    _ => None,
+                };
+                if let Some(data) =
+                    edit.and_then(|d| serde_json::from_value::<BlueprintEditResult>(d).ok())
+                {
+                    self.learn_from(&publisher_id, data).await;
                 }
                 serde_json::from_value(result)
                     .unwrap_or_else(|_| Reply::failure(invalid("Invalid publisher reply")))
             }
             Err(error) => Reply::failure(error),
+        }
+    }
+    async fn learn_from(&self, publisher_id: &str, data: BlueprintEditResult) {
+        let current =
+            lock(&self.inner).publisher.as_ref().map(|p| p.id.as_str()) == Some(publisher_id);
+        if current
+            && self.learn_keystrokes(
+                publisher_id,
+                data.revision,
+                data.keystrokes.into_iter().collect(),
+                data.held_keys.into_iter().collect(),
+                data.devices.unwrap_or_default().into_iter().collect(),
+                data.youtube == Some(true),
+            )
+        {
+            self.sync_keystrokes().await;
         }
     }
     pub(super) async fn route_call(
@@ -280,7 +286,9 @@ impl Shared {
         }
         let required = match call.method.as_str() {
             "scenePatch" | "sceneReplace" | "cameraSelect" | "blueprintRun" | "blueprintEdit"
-            | "expressionSet" | "cameraScreenshot" | "integrationsSet" => Capability::Edit,
+            | "proposalApply" | "expressionSet" | "cameraScreenshot" | "integrationsSet" => {
+                Capability::Edit
+            }
             "captureFrame" => Capability::Capture,
             "benchmarkStart" | "benchmarkCancel" => Capability::Benchmark,
             _ => Capability::Read,
@@ -394,6 +402,7 @@ impl Shared {
                 | "cameraSelect"
                 | "blueprintRun"
                 | "blueprintEdit"
+                | "proposalApply"
                 | "blueprintInspect"
                 | "blueprintDebug"
                 | "trackingProbe"

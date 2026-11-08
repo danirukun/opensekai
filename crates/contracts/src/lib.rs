@@ -1073,6 +1073,46 @@ impl BlueprintRunParams {
     }
 }
 object!(BlueprintEditParams { client_id: Id, batch_id: Id, ops: Vec<Value> });
+object!(Expectation { id: Id, fingerprint: Option<String> });
+object!(ProposalExpect { entities: Vec<Expectation>, blueprints: Vec<Expectation> });
+object!(ProposalOutput {
+    output_id: Id,
+    camera_id: Id
+});
+object!(ProposalApplyParams {
+    scene_id: Id,
+    expect: ProposalExpect,
+    scene_ops: Vec<PatchOp>,
+    blueprint: Option<BlueprintEditParams>,
+    output: Option<ProposalOutput>
+});
+impl Validate for ProposalApplyParams {
+    fn validate(&self) -> Result<(), AppError> {
+        scalar_checks(&serde_json::to_value(self).map_err(|e| invalid(e.to_string()))?)?;
+        let list = |items: &[Expectation], max: usize| {
+            require(
+                items.len() <= max
+                    && items.iter().all(|e| {
+                        e.fingerprint.as_ref().is_none_or(|f| {
+                            f.len() == 16
+                                && f.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+                        })
+                    }),
+                "invalid expectations",
+            )
+        };
+        list(&self.expect.entities, 64)?;
+        list(&self.expect.blueprints, 16)?;
+        validate_patch_ops(&self.scene_ops, 64)?;
+        if let Some(batch) = &self.blueprint {
+            validate_blueprint_ops(&batch.ops)?;
+        }
+        require(
+            !self.scene_ops.is_empty() || self.blueprint.is_some() || self.output.is_some(),
+            "a proposal must change something",
+        )
+    }
+}
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BlueprintEditResult {
@@ -1085,6 +1125,12 @@ pub struct BlueprintEditResult {
     /// Present (and true) when a listened graph has a YouTube node.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub youtube: Option<bool>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ProposalApplyResult {
+    pub revision: u64,
+    pub blueprint: Option<BlueprintEditResult>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -2173,68 +2219,69 @@ impl Validate for SceneReplaceParams {
 impl Validate for ScenePatch {
     fn validate(&self) -> Result<(), AppError> {
         scalar_checks(&serde_json::to_value(self).map_err(|e| invalid(e.to_string()))?)?;
-        require(
-            (1..=32).contains(&self.operations.len()),
-            "invalid operation count",
-        )?;
-        for o in &self.operations {
-            match o {
-                PatchOp::RenameEntity { name, .. } => require(
-                    !name.trim().is_empty() && name.trim().encode_utf16().count() <= 128,
-                    "invalid entity name",
-                )?,
-                PatchOp::SetTransform { transform, .. } => transform.validate()?,
-                PatchOp::CreateEntity { entity } => entity.validate()?,
-                PatchOp::SetCameraLens { lens, .. } => lens.validate()?,
-                PatchOp::SetCameraNavigation { navigation, .. } => navigation.validate()?,
-                PatchOp::SetLight { light, .. } => light.validate()?,
-                PatchOp::SetHaze { haze, .. } => haze.validate()?,
-                PatchOp::SetFpsCounter { fps_counter, .. } => fps_counter.validate()?,
-                PatchOp::SetVmcSender { vmc_sender, .. } => vmc_sender.validate()?,
-                PatchOp::SetOutputFormat {
-                    width,
-                    height,
-                    fps,
-                    render_scale,
-                    ..
-                } => require(
-                    output_format_ok(*width, *height, *fps, *render_scale),
-                    "invalid output format",
-                )?,
-                PatchOp::SetEnvironmentReflections {
-                    reflections_intensity,
-                    ..
-                } => require(
-                    reflections_intensity_ok(*reflections_intensity),
-                    "invalid reflections intensity",
-                )?,
-                PatchOp::SetTrackingConfig { config, .. } => config.validate()?,
-                PatchOp::SetTrackingSmoothing { smoothing, .. } => smoothing.validate()?,
-                PatchOp::SetTrackingCalibration {
-                    calibration: Some(calibration),
-                    ..
-                } => calibration.validate()?,
-                PatchOp::SetTrackingMapping { mapping, .. } => mapping.validate()?,
-                PatchOp::FitBlendShapeRanges { neutral, .. } => require(
-                    neutral.iter().all(|(name, value)| {
-                        ARKIT_NAMES.contains(&name.as_str()) && (0. ..=1.).contains(value)
-                    }),
-                    "invalid blend shape neutral",
-                )?,
-                PatchOp::SetAvatarExpression { name, settings, .. } => {
-                    require(expression_name_ok(name), "invalid expression name")?;
-                    if let Some(settings) = settings {
-                        settings.validate()?;
-                    }
-                }
-                PatchOp::SetHiddenMeshes { hidden_meshes, .. } => {
-                    require(mesh_names_ok(hidden_meshes), "invalid hidden meshes")?
-                }
-                _ => {}
-            }
-        }
-        Ok(())
+        require(!self.operations.is_empty(), "invalid operation count")?;
+        validate_patch_ops(&self.operations, 32)
     }
+}
+pub fn validate_patch_ops(ops: &[PatchOp], max: usize) -> Result<(), AppError> {
+    require(ops.len() <= max, "invalid operation count")?;
+    for o in ops {
+        match o {
+            PatchOp::RenameEntity { name, .. } => require(
+                !name.trim().is_empty() && name.trim().encode_utf16().count() <= 128,
+                "invalid entity name",
+            )?,
+            PatchOp::SetTransform { transform, .. } => transform.validate()?,
+            PatchOp::CreateEntity { entity } => entity.validate()?,
+            PatchOp::SetCameraLens { lens, .. } => lens.validate()?,
+            PatchOp::SetCameraNavigation { navigation, .. } => navigation.validate()?,
+            PatchOp::SetLight { light, .. } => light.validate()?,
+            PatchOp::SetHaze { haze, .. } => haze.validate()?,
+            PatchOp::SetFpsCounter { fps_counter, .. } => fps_counter.validate()?,
+            PatchOp::SetVmcSender { vmc_sender, .. } => vmc_sender.validate()?,
+            PatchOp::SetOutputFormat {
+                width,
+                height,
+                fps,
+                render_scale,
+                ..
+            } => require(
+                output_format_ok(*width, *height, *fps, *render_scale),
+                "invalid output format",
+            )?,
+            PatchOp::SetEnvironmentReflections {
+                reflections_intensity,
+                ..
+            } => require(
+                reflections_intensity_ok(*reflections_intensity),
+                "invalid reflections intensity",
+            )?,
+            PatchOp::SetTrackingConfig { config, .. } => config.validate()?,
+            PatchOp::SetTrackingSmoothing { smoothing, .. } => smoothing.validate()?,
+            PatchOp::SetTrackingCalibration {
+                calibration: Some(calibration),
+                ..
+            } => calibration.validate()?,
+            PatchOp::SetTrackingMapping { mapping, .. } => mapping.validate()?,
+            PatchOp::FitBlendShapeRanges { neutral, .. } => require(
+                neutral.iter().all(|(name, value)| {
+                    ARKIT_NAMES.contains(&name.as_str()) && (0. ..=1.).contains(value)
+                }),
+                "invalid blend shape neutral",
+            )?,
+            PatchOp::SetAvatarExpression { name, settings, .. } => {
+                require(expression_name_ok(name), "invalid expression name")?;
+                if let Some(settings) = settings {
+                    settings.validate()?;
+                }
+            }
+            PatchOp::SetHiddenMeshes { hidden_meshes, .. } => {
+                require(mesh_names_ok(hidden_meshes), "invalid hidden meshes")?
+            }
+            _ => {}
+        }
+    }
+    Ok(())
 }
 impl Validate for RuntimeFrame {
     fn validate(&self) -> Result<(), AppError> {
@@ -2409,6 +2456,7 @@ pub fn validate_call(method: &str, params: &Value) -> Result<(), AppError> {
         "cameraSelect" => decode::<CameraSelectParams>(params).map(|_| ()),
         "blueprintRun" => decode::<BlueprintRunParams>(params)?.validate(),
         "blueprintEdit" => validate_blueprint_ops(&decode::<BlueprintEditParams>(params)?.ops),
+        "proposalApply" => decode::<ProposalApplyParams>(params)?.validate(),
         "blueprintInspect" => decode::<BlueprintInspectParams>(params).map(|_| ()),
         "blueprintDebug" => decode::<BlueprintDebugParams>(params).map(|_| ()),
         "trackingProbe" => {
@@ -2469,6 +2517,24 @@ fn reply_data(result: &Value) -> Result<Option<&Value>, AppError> {
         _ => Err(invalid("invalid reply discriminator")),
     }
 }
+fn validate_blueprint_edit_result(r: &BlueprintEditResult) -> Result<(), AppError> {
+    require(
+        r.keystrokes.len() <= 64
+            && r.keystrokes
+                .iter()
+                .all(|k| (1..=64).contains(&k.chars().count())),
+        "invalid keystrokes",
+    )?;
+    require(
+        r.held_keys.len() <= 16
+            && r.held_keys
+                .iter()
+                .all(|k| (1..=32).contains(&k.chars().count())),
+        "invalid held keys",
+    )?;
+    require(r.youtube.is_none_or(|y| y), "invalid YouTube flag")?;
+    validate_device_kinds(&r.devices)
+}
 pub fn validate_result(method: &str, result: &Value) -> Result<(), AppError> {
     let known = matches!(
         method,
@@ -2479,6 +2545,7 @@ pub fn validate_result(method: &str, result: &Value) -> Result<(), AppError> {
             | "cameraSelect"
             | "blueprintRun"
             | "blueprintEdit"
+            | "proposalApply"
             | "blueprintInspect"
             | "blueprintDebug"
             | "trackingProbe"
@@ -2505,24 +2572,12 @@ pub fn validate_result(method: &str, result: &Value) -> Result<(), AppError> {
         "scenePatch" | "cameraSelect" | "blueprintRun" => {
             decode::<RevisionResult>(data).map(|_| ())
         }
-        "blueprintEdit" => {
-            let r = decode::<BlueprintEditResult>(data)?;
-            require(
-                r.keystrokes.len() <= 64
-                    && r.keystrokes
-                        .iter()
-                        .all(|k| (1..=64).contains(&k.chars().count())),
-                "invalid keystrokes",
-            )?;
-            require(
-                r.held_keys.len() <= 16
-                    && r.held_keys
-                        .iter()
-                        .all(|k| (1..=32).contains(&k.chars().count())),
-                "invalid held keys",
-            )?;
-            require(r.youtube.is_none_or(|y| y), "invalid YouTube flag")?;
-            validate_device_kinds(&r.devices)
+        "blueprintEdit" => validate_blueprint_edit_result(&decode::<BlueprintEditResult>(data)?),
+        "proposalApply" => {
+            let r = decode::<ProposalApplyResult>(data)?;
+            r.blueprint
+                .as_ref()
+                .map_or(Ok(()), validate_blueprint_edit_result)
         }
         "blueprintInspect" => validate_blueprint_inspect(data),
         "blueprintDebug" => validate_blueprint_debug(data),

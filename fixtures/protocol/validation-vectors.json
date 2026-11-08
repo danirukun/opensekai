@@ -21293,5 +21293,932 @@
         }
       ]
     }
+  },
+  {
+    "name": "proposal-apply-all-parts",
+    "target": "call",
+    "method": "proposalApply",
+    "valid": true,
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expect": {
+        "entities": [
+          {
+            "id": "marker",
+            "fingerprint": "0123456789abcdef"
+          },
+          {
+            "id": "new_one",
+            "fingerprint": null
+          }
+        ],
+        "blueprints": [
+          {
+            "id": "g",
+            "fingerprint": "fedcba9876543210"
+          }
+        ]
+      },
+      "sceneOps": [
+        {
+          "kind": "removeEntity",
+          "entityId": "marker"
+        }
+      ],
+      "blueprint": {
+        "clientId": "c1",
+        "batchId": "b1",
+        "ops": [
+          {
+            "kind": "removeGraph",
+            "graphId": "g"
+          }
+        ]
+      },
+      "output": {
+        "outputId": "output_main",
+        "cameraId": "camera_wide"
+      }
+    }
+  },
+  {
+    "name": "proposal-apply-no-change",
+    "target": "call",
+    "method": "proposalApply",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expect": {
+        "entities": [
+          {
+            "id": "marker",
+            "fingerprint": "0123456789abcdef"
+          },
+          {
+            "id": "new_one",
+            "fingerprint": null
+          }
+        ],
+        "blueprints": [
+          {
+            "id": "g",
+            "fingerprint": "fedcba9876543210"
+          }
+        ]
+      },
+      "sceneOps": [],
+      "blueprint": null,
+      "output": null
+    }
+  },
+  {
+    "name": "proposal-apply-65-scene-ops",
+    "target": "call",
+    "method": "proposalApply",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expect": {
+        "entities": [
+          {
+            "id": "marker",
+            "fingerprint": "0123456789abcdef"
+          },
+          {
+            "id": "new_one",
+            "fingerprint": null
+          }
+        ],
+        "blueprints": [
+          {
+            "id": "g",
+            "fingerprint": "fedcba9876543210"
+          }
+        ]
+      },
+      "sceneOps": [
+        {
+          "kind": "removeEntity",
+          "entityId": "x0"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x1"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x2"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x3"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x4"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x5"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x6"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x7"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x8"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x9"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x10"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x11"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x12"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x13"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x14"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x15"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x16"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x17"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x18"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x19"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x20"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x21"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x22"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x23"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x24"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x25"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x26"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x27"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x28"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x29"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x30"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x31"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x32"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x33"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x34"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x35"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x36"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x37"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x38"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x39"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x40"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x41"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x42"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x43"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x44"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x45"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x46"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x47"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x48"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x49"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x50"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x51"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x52"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x53"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x54"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x55"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x56"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x57"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x58"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x59"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x60"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x61"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x62"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x63"
+        },
+        {
+          "kind": "removeEntity",
+          "entityId": "x64"
+        }
+      ],
+      "blueprint": {
+        "clientId": "c1",
+        "batchId": "b1",
+        "ops": [
+          {
+            "kind": "removeGraph",
+            "graphId": "g"
+          }
+        ]
+      },
+      "output": {
+        "outputId": "output_main",
+        "cameraId": "camera_wide"
+      }
+    }
+  },
+  {
+    "name": "proposal-apply-65-entity-expectations",
+    "target": "call",
+    "method": "proposalApply",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expect": {
+        "entities": [
+          {
+            "id": "e0",
+            "fingerprint": null
+          },
+          {
+            "id": "e1",
+            "fingerprint": null
+          },
+          {
+            "id": "e2",
+            "fingerprint": null
+          },
+          {
+            "id": "e3",
+            "fingerprint": null
+          },
+          {
+            "id": "e4",
+            "fingerprint": null
+          },
+          {
+            "id": "e5",
+            "fingerprint": null
+          },
+          {
+            "id": "e6",
+            "fingerprint": null
+          },
+          {
+            "id": "e7",
+            "fingerprint": null
+          },
+          {
+            "id": "e8",
+            "fingerprint": null
+          },
+          {
+            "id": "e9",
+            "fingerprint": null
+          },
+          {
+            "id": "e10",
+            "fingerprint": null
+          },
+          {
+            "id": "e11",
+            "fingerprint": null
+          },
+          {
+            "id": "e12",
+            "fingerprint": null
+          },
+          {
+            "id": "e13",
+            "fingerprint": null
+          },
+          {
+            "id": "e14",
+            "fingerprint": null
+          },
+          {
+            "id": "e15",
+            "fingerprint": null
+          },
+          {
+            "id": "e16",
+            "fingerprint": null
+          },
+          {
+            "id": "e17",
+            "fingerprint": null
+          },
+          {
+            "id": "e18",
+            "fingerprint": null
+          },
+          {
+            "id": "e19",
+            "fingerprint": null
+          },
+          {
+            "id": "e20",
+            "fingerprint": null
+          },
+          {
+            "id": "e21",
+            "fingerprint": null
+          },
+          {
+            "id": "e22",
+            "fingerprint": null
+          },
+          {
+            "id": "e23",
+            "fingerprint": null
+          },
+          {
+            "id": "e24",
+            "fingerprint": null
+          },
+          {
+            "id": "e25",
+            "fingerprint": null
+          },
+          {
+            "id": "e26",
+            "fingerprint": null
+          },
+          {
+            "id": "e27",
+            "fingerprint": null
+          },
+          {
+            "id": "e28",
+            "fingerprint": null
+          },
+          {
+            "id": "e29",
+            "fingerprint": null
+          },
+          {
+            "id": "e30",
+            "fingerprint": null
+          },
+          {
+            "id": "e31",
+            "fingerprint": null
+          },
+          {
+            "id": "e32",
+            "fingerprint": null
+          },
+          {
+            "id": "e33",
+            "fingerprint": null
+          },
+          {
+            "id": "e34",
+            "fingerprint": null
+          },
+          {
+            "id": "e35",
+            "fingerprint": null
+          },
+          {
+            "id": "e36",
+            "fingerprint": null
+          },
+          {
+            "id": "e37",
+            "fingerprint": null
+          },
+          {
+            "id": "e38",
+            "fingerprint": null
+          },
+          {
+            "id": "e39",
+            "fingerprint": null
+          },
+          {
+            "id": "e40",
+            "fingerprint": null
+          },
+          {
+            "id": "e41",
+            "fingerprint": null
+          },
+          {
+            "id": "e42",
+            "fingerprint": null
+          },
+          {
+            "id": "e43",
+            "fingerprint": null
+          },
+          {
+            "id": "e44",
+            "fingerprint": null
+          },
+          {
+            "id": "e45",
+            "fingerprint": null
+          },
+          {
+            "id": "e46",
+            "fingerprint": null
+          },
+          {
+            "id": "e47",
+            "fingerprint": null
+          },
+          {
+            "id": "e48",
+            "fingerprint": null
+          },
+          {
+            "id": "e49",
+            "fingerprint": null
+          },
+          {
+            "id": "e50",
+            "fingerprint": null
+          },
+          {
+            "id": "e51",
+            "fingerprint": null
+          },
+          {
+            "id": "e52",
+            "fingerprint": null
+          },
+          {
+            "id": "e53",
+            "fingerprint": null
+          },
+          {
+            "id": "e54",
+            "fingerprint": null
+          },
+          {
+            "id": "e55",
+            "fingerprint": null
+          },
+          {
+            "id": "e56",
+            "fingerprint": null
+          },
+          {
+            "id": "e57",
+            "fingerprint": null
+          },
+          {
+            "id": "e58",
+            "fingerprint": null
+          },
+          {
+            "id": "e59",
+            "fingerprint": null
+          },
+          {
+            "id": "e60",
+            "fingerprint": null
+          },
+          {
+            "id": "e61",
+            "fingerprint": null
+          },
+          {
+            "id": "e62",
+            "fingerprint": null
+          },
+          {
+            "id": "e63",
+            "fingerprint": null
+          },
+          {
+            "id": "e64",
+            "fingerprint": null
+          }
+        ],
+        "blueprints": [
+          {
+            "id": "g",
+            "fingerprint": "fedcba9876543210"
+          }
+        ]
+      },
+      "sceneOps": [
+        {
+          "kind": "removeEntity",
+          "entityId": "marker"
+        }
+      ],
+      "blueprint": {
+        "clientId": "c1",
+        "batchId": "b1",
+        "ops": [
+          {
+            "kind": "removeGraph",
+            "graphId": "g"
+          }
+        ]
+      },
+      "output": {
+        "outputId": "output_main",
+        "cameraId": "camera_wide"
+      }
+    }
+  },
+  {
+    "name": "proposal-apply-17-blueprint-expectations",
+    "target": "call",
+    "method": "proposalApply",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expect": {
+        "entities": [
+          {
+            "id": "marker",
+            "fingerprint": "0123456789abcdef"
+          },
+          {
+            "id": "new_one",
+            "fingerprint": null
+          }
+        ],
+        "blueprints": [
+          {
+            "id": "g0",
+            "fingerprint": null
+          },
+          {
+            "id": "g1",
+            "fingerprint": null
+          },
+          {
+            "id": "g2",
+            "fingerprint": null
+          },
+          {
+            "id": "g3",
+            "fingerprint": null
+          },
+          {
+            "id": "g4",
+            "fingerprint": null
+          },
+          {
+            "id": "g5",
+            "fingerprint": null
+          },
+          {
+            "id": "g6",
+            "fingerprint": null
+          },
+          {
+            "id": "g7",
+            "fingerprint": null
+          },
+          {
+            "id": "g8",
+            "fingerprint": null
+          },
+          {
+            "id": "g9",
+            "fingerprint": null
+          },
+          {
+            "id": "g10",
+            "fingerprint": null
+          },
+          {
+            "id": "g11",
+            "fingerprint": null
+          },
+          {
+            "id": "g12",
+            "fingerprint": null
+          },
+          {
+            "id": "g13",
+            "fingerprint": null
+          },
+          {
+            "id": "g14",
+            "fingerprint": null
+          },
+          {
+            "id": "g15",
+            "fingerprint": null
+          },
+          {
+            "id": "g16",
+            "fingerprint": null
+          }
+        ]
+      },
+      "sceneOps": [
+        {
+          "kind": "removeEntity",
+          "entityId": "marker"
+        }
+      ],
+      "blueprint": {
+        "clientId": "c1",
+        "batchId": "b1",
+        "ops": [
+          {
+            "kind": "removeGraph",
+            "graphId": "g"
+          }
+        ]
+      },
+      "output": {
+        "outputId": "output_main",
+        "cameraId": "camera_wide"
+      }
+    }
+  },
+  {
+    "name": "proposal-apply-bad-fingerprint",
+    "target": "call",
+    "method": "proposalApply",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expect": {
+        "entities": [
+          {
+            "id": "marker",
+            "fingerprint": "ABC"
+          }
+        ],
+        "blueprints": [
+          {
+            "id": "g",
+            "fingerprint": "fedcba9876543210"
+          }
+        ]
+      },
+      "sceneOps": [
+        {
+          "kind": "removeEntity",
+          "entityId": "marker"
+        }
+      ],
+      "blueprint": {
+        "clientId": "c1",
+        "batchId": "b1",
+        "ops": [
+          {
+            "kind": "removeGraph",
+            "graphId": "g"
+          }
+        ]
+      },
+      "output": {
+        "outputId": "output_main",
+        "cameraId": "camera_wide"
+      }
+    }
+  },
+  {
+    "name": "proposal-apply-invalid-scene-op",
+    "target": "call",
+    "method": "proposalApply",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expect": {
+        "entities": [
+          {
+            "id": "marker",
+            "fingerprint": "0123456789abcdef"
+          },
+          {
+            "id": "new_one",
+            "fingerprint": null
+          }
+        ],
+        "blueprints": [
+          {
+            "id": "g",
+            "fingerprint": "fedcba9876543210"
+          }
+        ]
+      },
+      "sceneOps": [
+        {
+          "kind": "setLight",
+          "entityId": "light_1",
+          "light": {
+            "type": "directional",
+            "color": "orange",
+            "intensity": 3,
+            "range": 0,
+            "castShadow": false
+          }
+        }
+      ],
+      "blueprint": {
+        "clientId": "c1",
+        "batchId": "b1",
+        "ops": [
+          {
+            "kind": "removeGraph",
+            "graphId": "g"
+          }
+        ]
+      },
+      "output": {
+        "outputId": "output_main",
+        "cameraId": "camera_wide"
+      }
+    }
+  },
+  {
+    "name": "proposal-apply-reply-with-blueprint",
+    "target": "reply",
+    "method": "proposalApply",
+    "valid": true,
+    "payload": {
+      "ok": true,
+      "data": {
+        "revision": 4,
+        "blueprint": {
+          "revision": 2,
+          "keystrokes": [
+            "KeyA"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "proposal-apply-reply-bad-blueprint",
+    "target": "reply",
+    "method": "proposalApply",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "ok": true,
+      "data": {
+        "revision": 4,
+        "blueprint": {
+          "revision": 2
+        }
+      }
+    }
   }
 ]

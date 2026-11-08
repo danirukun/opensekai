@@ -1,6 +1,6 @@
 import type {AvatarIdle,AvatarTracking,TrackingConfig,TrackingSmoothing,TrackingCalibration,TrackingMapping,AvatarPose,TrackingStatus,TrackingUpdate,TrackingProbe,TrackingProbeParams} from './tracking';
 import type { BlueprintBatch } from './blueprint-ops';
-import type { BlueprintInspect, InputUpdate } from './schema';
+import type { BlueprintInspect, InputUpdate, ProposalApplyParams, ProposalApplyResult } from './schema';
 import type { BlueprintDebug } from './blueprint-debug';
 import type { ShowDocument } from './show';
 import type { DeviceKind } from './devices';
@@ -280,6 +280,7 @@ export interface AppApi {
     }>>;
     blueprintRun(params: { graphId: Id; triggerNodeId: Id } | { event: string; payload?: ScalarValue }): Promise<Reply<{ revision: number }>>;
     blueprintEdit(params: BlueprintBatch): Promise<Reply<{ revision: number; keystrokes: string[]; heldKeys?: string[]; devices?: DeviceKind[]; youtube?: true }>>;
+    proposalApply(params: ProposalApplyParams): Promise<Reply<ProposalApplyResult>>;
     blueprintInspect(params: { sinceRevision?: number }): Promise<Reply<BlueprintInspect>>;
     blueprintDebug(params: { since?: number }): Promise<Reply<BlueprintDebug>>;
     trackingProbe(params: TrackingProbeParams): Promise<Reply<TrackingProbe>>;
