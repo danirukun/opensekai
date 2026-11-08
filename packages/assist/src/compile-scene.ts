@@ -1,14 +1,10 @@
 import { eulerFromQuaternion, LIMITS, quaternionFromEuler, rotateByQuaternion, type LightSettings, type Quat, type Reply, type SceneEntity, type Transform, type Vec3 } from '@opensekai/contracts';
 import { lookAt, targetPoint } from './aim';
-import type { ColorWord, Direction, Framing, Height, Intensity, Intent, IntentTool } from './intents';
+import type { ColorWord, Direction, Framing, Height, Intensity, Intent } from './intents';
 import { WORDS } from './words';
-import { create, emit, entityRef, invalid, note, ok, resolveAsset, resolveEntity, resolveTarget, SCENE_ENTITIES, touch, type CompileContext, type Compiler, type WorkingState } from './compile';
+import { create, emit, entityRef, invalid, note, ok, only, resolveAsset, resolveEntity, resolveTarget, SCENE_ENTITIES, touch, type WorkingState } from './compile-kit';
 
-type Of<T extends IntentTool> = Extract<Intent, { tool: T }>;
-const only = <T extends IntentTool>(tool: T, f: (intent: Of<T>, state: WorkingState, context: CompileContext) => Reply<WorkingState>): Compiler =>
- (intent, state, context) => intent.tool === tool ? f(intent as Of<T>, state, context) : invalid(`Expected ${tool}`);
-
-type Role = Of<'light_setup'>['role'];
+type Role = Extract<Intent, { tool: 'light_setup' }>['role'];
 const ROLES: Record<Role, { name: string; direction: Direction; height: Height; distance: number; intensity: Intensity; color: ColorWord; shadow: boolean }> = {
  key: { name: 'Key light', direction: 'frontLeft', height: 'high', distance: 3, intensity: 'normal', color: 'neutral', shadow: true },
  fill: { name: 'Fill light', direction: 'frontRight', height: 'eye', distance: 3.5, intensity: 'soft', color: 'neutral', shadow: false },

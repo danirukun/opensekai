@@ -2,5 +2,5 @@ export * from './intents';
 export * from './words';
 export * from './refs';
 export * from './summary';
-export * from './aim';
-export * from './compile';
+export { eulerDegrees, lookAt, targetPoint } from './aim';
+export { applyToWorking, compileIntents, emptyProposal, type CompileContext, type Compiler, type Note, type Proposal, type WorkingState } from './compile';
