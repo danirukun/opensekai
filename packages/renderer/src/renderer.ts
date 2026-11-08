@@ -20,6 +20,7 @@ import { createPostChain } from "./post-chain";
 import { createHaze, type Haze } from "./haze";
 import { renderScreenshot, SCREENSHOT_HEIGHT, SCREENSHOT_WIDTH } from "./screenshot";
 import { createScreenImagePool, createScreenMesh, loadScreenImage } from "./screen";
+import { loadVideoSource, openScreenVideo, type ScreenVideoPlayer, type VideoSource } from "./video-screen";
 export interface RendererHandle {
     editor?: EditorHandle;
     applyFrame(frame: RuntimeFrame): Promise<FrameApplied>;
@@ -29,6 +30,10 @@ export interface RendererHandle {
     diagnostics?(rendererEpoch: string): RendererDiagnostics | null;
     onLoadStatus(listener: (entries: AssetLoadStatus[]) => void): () => void;
     dismissLoad(entityId: string): void;
+    /** Pauses each video element; the next applied frame seeks and plays them again (B29 R14, the preview pump stop). */
+    pauseVideos(): void;
+    /** Test only: resolves when the last seek or play of the screen's video has a new frame in its texture (B29 R14). */
+    videoSettled(entityId: Id): Promise<void>;
     dispose(): void;
 }
 export interface RendererOptions {
@@ -39,6 +44,8 @@ export interface RendererOptions {
     resources: ResourceHost;
     diagnostics: boolean;
     quality: QualityProfile;
+    /** Only the OBS page plays video sound (B29 R16). Without it, each video element is muted. */
+    audio?: boolean;
 }
 // The output render scale multiplies the quality profile scale; the canvas CSS size does not change (B22 R5).
 export const drawingBufferSize = (output: Pick<OutputSpec, "width" | "height" | "renderScale">, quality: Pick<QualityProfile, "resolutionScale">) => {
@@ -67,8 +74,12 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     // One texture for each image asset in this client, shared by all screens that show it (B28 R12). Each quad holds a
     // lease, so the texture closes only when no quad uses it.
     const images = createScreenImagePool(id => loadScreenImage(() => options.resources.readAsset(id), quality.maxTextureSize));
+    // One object URL for each video asset in this client (B29 R13). Each screen has its own element, so two screens with
+    // one asset keep their own positions; the URL is revoked when no screen holds it.
+    const videos = createScreenImagePool<VideoSource>(id => loadVideoSource(() => options.resources.readAsset(id)));
+    const audio = options.audio === true;
     const environmentLight = createEnvironmentLight(roomEnvironmentMap(renderer));
-    type Ready = { root: Object3D; avatar?: ReturnType<typeof createAvatarBinding>; meshes?: ReadonlyMap<string, Object3D>; assetId?: string; assetDispose?: () => void; instanceDispose?: () => void; materials?: InstanceMaterials; lit: number; warnings: AppError[]; dispose(): void };
+    type Ready = { root: Object3D; video?: ScreenVideoPlayer; avatar?: ReturnType<typeof createAvatarBinding>; meshes?: ReadonlyMap<string, Object3D>; assetId?: string; assetDispose?: () => void; instanceDispose?: () => void; materials?: InstanceMaterials; lit: number; warnings: AppError[]; dispose(): void };
     const loadListeners = new Set<(entries: AssetLoadStatus[]) => void>();
     const prepare = async (root: Object3D, report: (r: LoadReport) => void, cancelled: () => boolean) => {
         if (cancelled() || disposed) throw failure("CANCELLED", "Asset load cancelled");
@@ -79,6 +90,20 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         finally { for (const object of culled) object.frustumCulled = true; }
     };
     const build = async (request: LoadRequest, report: (r: LoadReport) => void, cancelled: () => boolean): Promise<Ready> => {
+        if (request.kind === "video") {
+            const lease = await videos.acquire(request.assetId);
+            if (cancelled() || disposed) { lease.release(); throw failure("CANCELLED", "Asset load cancelled"); }
+            let player: ScreenVideoPlayer;
+            // The loop and the volume come from the first frame sync, before the element plays.
+            try { player = await openScreenVideo(lease.image, { audio, loop: true, volume: 1, upload: backend === "webgpu" ? "bitmap" : "element" }); }
+            catch (error) { lease.release(); throw error; }
+            const quad = createScreenMesh(player);
+            const release = () => { quad.dispose(); player.dispose(); lease.release(); };
+            if (cancelled() || disposed) { release(); throw failure("CANCELLED", "Asset load cancelled"); }
+            try { await prepare(quad.root, report, cancelled); }
+            catch (error) { release(); throw error; }
+            return { root: quad.root, video: player, assetId: request.assetId, instanceDispose: release, lit: 0, warnings: [], dispose: release };
+        }
         if (request.kind === "screen") {
             const lease = await images.acquire(request.assetId);
             if (cancelled() || disposed) { lease.release(); throw failure("CANCELLED", "Asset load cancelled"); }
@@ -120,6 +145,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         owned: boolean;
         assetId?: string;
         pickable?: boolean;
+        video?: ScreenVideoPlayer;
         avatar?: ReturnType<typeof createAvatarBinding>;
         // The mesh nodes of an avatar by mesh name (B26 R7); avatars are not cloned, so the map holds the drawn objects.
         meshes?: ReadonlyMap<string, Object3D>;
@@ -150,6 +176,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         jobs.dispose();
         assets.dispose();
         images.dispose();
+        videos.dispose();
         environmentLight.dispose();
         sceneLights.dispose();
         restoreModules?.();
@@ -191,6 +218,10 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
                 objects.delete(id);
             }
         }
+        const syncVideo = (player: ScreenVideoPlayer, entityId: string, content: { loop: boolean; volume: number }, visible: boolean, assetId: string) => {
+            const warning = player.sync(frame.screenPlayback?.find(entry => entry.entityId === entityId), content, visible);
+            if (warning) warnings.push({ ...warning, ids: [assetId] });
+        };
         // The Reflections Intensity of the environment applies to the props too, as in Warudo (prop import R4).
         const reflections = frame.scene.entities.find((x): x is Extract<SceneEntity, { kind: "environment" }> => x.kind === "environment")?.reflectionsIntensity ?? 1;
         const needed = new Map<string, LoadRequest>();
@@ -236,14 +267,23 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
                 }
                 continue;
             }
-            // A screen is never read as a mesh: it has its own load kind (B28 R13).
+            // A screen is never read as a mesh: an image screen and a video screen each have their own load kind (B28 R13,
+            // B29 R15), so a video is never read as an image either.
             const assetId = entity.kind === "avatar" || entity.kind === "environment" ? entity.assetId : entity.kind === "screen" ? entity.content.assetId : entity.source.kind === "asset" ? entity.source.assetId : null;
+            const videoContent = entity.kind === "screen" && entity.content.kind === "video" ? entity.content : null;
+            const request: LoadRequest | null = assetId === null ? null : videoContent ? { kind: "video", assetId, retryKey: JSON.stringify(videoContent) } : { kind: entity.kind === "avatar" ? "avatar" : entity.kind === "environment" ? "environment" : entity.kind === "screen" ? "screen" : "mesh", assetId };
             let value = objects.get(entity.id);
+            // An element error after the load draws nothing and becomes a failed job, so the retry rule applies (B29 R15).
+            const lateFailure = value?.video?.failure();
+            if (value && lateFailure && request) {
+                releaseObject(value); objects.delete(entity.id); value = undefined;
+                jobs.fail(entity.id, request, lateFailure);
+            }
             if (assetId === null && (entity.kind !== "mesh" || entity.source.kind === "asset")) {
                 if (value) { releaseObject(value); objects.delete(entity.id); }
                 continue;
             }
-            const signature = entity.kind + ":" + (assetId ?? "box");
+            const signature = entity.kind + ":" + (videoContent ? "video:" : "") + (assetId ?? "box");
             if (value?.signature !== signature) {
                 if (assetId === null) {
                     if (value) releaseObject(value);
@@ -252,7 +292,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
                     objects.set(entity.id, value);
                 } else {
                     // The new model is still loading: keep posing the old model, if any, until the job installs the new one.
-                    needed.set(entity.id, { kind: entity.kind === "avatar" ? "avatar" : entity.kind === "environment" ? "environment" : entity.kind === "screen" ? "screen" : "mesh", assetId });
+                    needed.set(entity.id, request!);
                     if (!value) continue;
                 }
             }
@@ -263,6 +303,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             value.avatar?.uv(frame.elapsedMs);
             value.materials?.reflections(reflections);
             if (!editor?.frozen(entity.id)) place(value.root, entity);
+            if (value.video && videoContent) syncVideo(value.video, entity.id, videoContent, entity.visible, assetId!);
         }
         jobs.reconcile(needed, frame.scene.revision);
         for (const [entityId, request] of needed) {
@@ -271,7 +312,8 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             const entity = frame.scene.entities.find(item => item.id === entityId)!;
             const old = objects.get(entityId);
             if (old) releaseObject(old);
-            const installed = { signature: entity.kind + ":" + request.assetId, root: ready.root, owned: false, avatar: ready.avatar, meshes: ready.meshes, assetId: ready.assetId, assetDispose: ready.assetDispose, instanceDispose: ready.instanceDispose, materials: ready.materials, group: groupOf(entity) ?? undefined, lit: ready.lit, warnings: ready.warnings, pickable: entity.kind !== "environment" };
+            const installedVideo = entity.kind === "screen" && entity.content.kind === "video" ? entity.content : null;
+            const installed = { signature: entity.kind + ":" + (installedVideo ? "video:" : "") + request.assetId, root: ready.root, video: ready.video, owned: false, avatar: ready.avatar, meshes: ready.meshes, assetId: ready.assetId, assetDispose: ready.assetDispose, instanceDispose: ready.instanceDispose, materials: ready.materials, group: groupOf(entity) ?? undefined, lit: ready.lit, warnings: ready.warnings, pickable: entity.kind !== "environment" };
             scene.add(installed.root);
             objects.set(entityId, installed);
             installed.avatar?.apply(frame.avatarPoses?.find(pose => pose.avatarId === entityId));
@@ -279,6 +321,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             installed.avatar?.uv(frame.elapsedMs);
             installed.materials?.reflections(reflections);
             if (!editor?.frozen(entityId)) place(installed.root, entity);
+            if (installed.video && installedVideo) syncVideo(installed.video, entityId, installedVideo, entity.visible, request.assetId);
             warnings.push(...ready.warnings);
         }
         for (const [entityId, request] of needed) {
@@ -286,7 +329,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             if (!message) continue;
             warnings.push({ code: "UNAVAILABLE", message: "Asset load failed: " + message, ids: [request.assetId] });
             // A failed screen draws nothing, so the image of an earlier asset goes too (B28 R13).
-            const old = request.kind === "screen" ? objects.get(entityId) : undefined;
+            const old = request.kind === "screen" || request.kind === "video" ? objects.get(entityId) : undefined;
             if (old) { releaseObject(old); objects.delete(entityId); }
         }
         for (const entry of jobs.status()) if (entry.stage !== "failed") warnings.push({ code: "BUSY", message: "Asset loading", ids: [entry.assetId] });
@@ -382,6 +425,8 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     },
     onLoadStatus(listener) { loadListeners.add(listener); listener(jobs.status()); return () => { loadListeners.delete(listener); }; },
     dismissLoad(entityId) { jobs.dismiss(entityId); },
+    pauseVideos() { for (const value of objects.values()) value.video?.pause(); },
+    videoSettled(entityId) { const player = objects.get(entityId)?.video; return player ? player.settled() : Promise.reject(failure("NOT_FOUND", "Video not loaded", [entityId])); },
     applyFrame(raw) { const frame = RuntimeFrameSchema.parse(raw); const selected = selectFrame(accepted, frame); if (!selected.ok)
             return Promise.reject(failure(selected.error.code, selected.error.message)); accepted = frame; return queue.enqueue("frame", () => submit(frame)); }, capture() { return queue.enqueue("capture", async () => { policy.reserve(performance.now()); if (!displayed || !displayFrame)
             throw failure("UNAVAILABLE", "No displayed frame"); const metadata = structuredClone(displayed); await submit(displayFrame); const png = await readPng(options.canvas); policy.checkBytes(png.byteLength); return { frame: metadata, png, width: options.canvas.width, height: options.canvas.height }; }); }, dispose() { if (disposed)

@@ -108,7 +108,7 @@ export async function bootstrapDesktop(canvas: HTMLCanvasElement, editorOptions?
   const onPlayback = (listener: (state: PlaybackState) => void) => { playbackListeners.add(listener); listener(playback); return () => { playbackListeners.delete(listener); }; };
   // While the pump stops (the Preview toggle or another tab), this instance pauses its video elements (B29 R14).
   let previewEnabled = true;
-  const pauseVideos = () => (renderer as { pauseVideos?: () => void }).pauseVideos?.();
+  const pauseVideos = () => renderer.pauseVideos();
   const setPreviewEnabled = (enabled: boolean) => { previewEnabled = enabled; pump.setEnabled(enabled); if (!enabled) pauseVideos(); };
   // The host relays cameraScreenshot to this preview_main renderer; the PNG goes back over the WebSocket, not Tauri IPC.
   const offScreenshot = preview.onScreenshot(async params => {
