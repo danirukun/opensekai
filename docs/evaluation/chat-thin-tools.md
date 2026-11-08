@@ -12,7 +12,7 @@ This check covers the thin tools through the MCP server on the running app. One 
 
 ## Tool calls
 
-Scene `scene_smoke` started empty at revision 0, with the default camera and directional light. A `scene_patch` (an existing tool) added the Catboy avatar at the origin (revision 1). All other changes came from the thin tools.
+Scene `scene_smoke` started at revision 0 with only the default camera and directional light. A `scene_patch` (an existing tool) added the Catboy avatar at the origin (revision 1). All other changes came from the thin tools.
 
 | # | Tool | Input (without `sceneId`) | Reply |
 | --- | --- | --- | --- |
@@ -30,6 +30,25 @@ Scene `scene_smoke` started empty at revision 0, with the default camera and dir
 | 12 | `camera_add` | closeUp, target `@e999` | `INVALID_INPUT`, ids `["@e999"]` |
 
 No call returned a note. Each change was one `proposalApply` with one new scene revision. After call 9, `scene_inspect` showed `output_main` on the new camera. `blueprint_inspect` showed one graph, "Orbit push-in": an `event.manual` trigger and 16 `property.set` nodes (3 for the start pose: position, rotation, and field of view; 12 for 6 orbit steps of 15°: position and rotation; 1 for the end field of view).
+
+## Second run: replace, hotkey, and move direction
+
+Date: 2026-11-08. Commit: `9f21a45` (after the final review fixes). The app was started again, and the first 8 calls above were made again with the same replies.
+
+The Scene window reloaded one time during this run. The session ID changed, and `output_camera` returned `UNAVAILABLE` "Connection closed". The app restored the scene at revision 9 (the Play end pose write). A new MCP process continued the run. Its `scene_summary` gave the same references (`@e3` Catboy, `@e5` Key, `@e9` Orbit cam, `@b1` Orbit push-in), because the references come from the scene order.
+
+| # | Tool | Input (without `sceneId`) | Reply |
+| --- | --- | --- | --- |
+| 1 | `output_camera` | `@e9` | revision 10 |
+| 2 | `scene_patch` (existing tool) | move Fill 0.5 m on X | revision 11 |
+| 3 | `light_setup` | key, target `@e3`, purple, normal, shadow, "Key", replace `@e5` | revision 12, note `replacedExisting @e5` |
+| 4 | `look_up` | `@e5` | `… spot · color #a02aff · intensity 160 · shadow on` (it was 320) |
+| 5 | `blueprint_build` | "Orbit cam hotkey", hotkey `Alt+1`, switchCamera `@e9` | revision 13, created `@b2` |
+| 6 | `blueprint_build` | the same with hotkey `Alt+2`, replace `@b2` | revision 14, note `replacedExisting @b2` |
+| 7 | `camera_add` | closeUp, target `@e3`, "Close" | revision 15, created `@e10` |
+| 8 | `camera_move` | `@e10`, pushIn, target `@e3`, end framing closeUp | `INVALID_INPUT` "Camera is already nearer than closeUp", ids `["@e10"]` |
+
+Calls 3 and 6 sent non-null expectations (the key light and the stored hotkey graph) through the Rust router. Both applied. The edit to the fill light in call 2 did not block call 3. After call 6, `blueprint_inspect` listed the keystroke `Alt+Digit2` and no `Alt+Digit1`.
 
 ## OBS recording
 
@@ -55,4 +74,5 @@ The script took source captures every 257 ms on average and measured the mean ch
 
 - A local model, the Chat panel, and Accept or Reject in the editor (slices 2 to 4).
 - `CONFLICT` on the running app. No MCP tool sends `proposalApply` with a stale expectation. The session tests and the MCP integration test cover it.
+- A key press of the hotkey. The check did not press `Alt+2`.
 - Smoothness as a person sees it (see above). Windows and Linux.
