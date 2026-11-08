@@ -70,3 +70,14 @@ it('rejects invalid params and another scene', () => {
     expect(s.applyProposal({})).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
     expect(s.applyProposal(apply({ sceneId: 'other', sceneOps: [move('performer')] }))).toMatchObject({ ok: false, error: { code: 'NOT_FOUND', ids: ['other'] } });
 });
+it('checks a Blueprint expectation against the stored document, so a graph that does not compile can be replaced', () => {
+    const s = make();
+    const broken = { ...graph('g1'), nodes: [...graph('g1').nodes, { id: 'dangling', version: 1, type: 'variable.getNumber', settings: { variableId: 'missing' }, position: { x: 0, y: 0 } }] };
+    expect(s.editBlueprints(batch([{ kind: 'createGraph', graph: broken }])).ok).toBe(true);
+    const snapshot = s.inspectBlueprints();
+    const stored = snapshot.kind === 'snapshot' ? snapshot.blueprints.find(g => g.id === 'g1')! : null;
+    expect(snapshot.errors).toEqual([expect.objectContaining({ graphId: 'g1', kind: 'compile' })]);
+    const reply = s.applyProposal(apply({ expect: { entities: [], blueprints: [{ id: 'g1', fingerprint: fingerprint(stored) }] }, blueprint: batch([{ kind: 'removeGraph', graphId: 'g1' }, { kind: 'createGraph', graph: graph('g1') }]) }));
+    expect(reply).toMatchObject({ ok: true, data: { blueprint: { revision: 2 } } });
+    expect(s.inspectBlueprints().errors).toEqual([]);
+});

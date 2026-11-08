@@ -365,8 +365,9 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
                 const entity = persistent.entities.find(item => item.id === id);
                 if ((entity ? fingerprint(entity) : null) !== expected) failed.add(id);
             }
+            // The client fingerprints the stored document, so a graph whose document does not compile can still be replaced.
             for (const { id, fingerprint: expected } of value.expect.blueprints) {
-                const graph = store.active(id);
+                const graph = store.document(id);
                 if ((graph ? fingerprint(graph) : null) !== expected) failed.add(id);
             }
             if (failed.size > 0)
