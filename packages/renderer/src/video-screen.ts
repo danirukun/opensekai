@@ -425,7 +425,8 @@ export async function openScreenVideo(source: VideoSource, options: PlayerOption
         if (playing) return;
         playing = true;
         pending = true;
-        void element.play().then(() => { blocked = false; }, () => { blocked = true; playing = false; });
+        // A pause during a pending play() rejects with AbortError; only a refused play() is blocked.
+        void element.play().then(() => { blocked = false; }, (error: unknown) => { playing = false; if ((error as { name?: string } | null)?.name !== "AbortError") blocked = true; });
     };
     const pause = () => { playing = false; if (!element.paused) element.pause(); };
     return {

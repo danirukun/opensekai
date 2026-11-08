@@ -305,7 +305,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             if (!editor?.frozen(entity.id)) place(value.root, entity);
             if (value.video && videoContent) syncVideo(value.video, entity.id, videoContent, entity.visible, assetId!);
         }
-        jobs.reconcile(needed, frame.scene.revision);
+        jobs.reconcile(needed, frame.scene.revision, new Set(frame.scene.entities.filter(entity => entity.kind === "screen" && entity.content.kind === "video").map(entity => entity.id)));
         for (const [entityId, request] of needed) {
             const ready = jobs.take(entityId);
             if (!ready) continue;

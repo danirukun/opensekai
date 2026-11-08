@@ -149,6 +149,14 @@ it('names the codec for a decode or source error and gives the other message for
     late.error = { code: 3 }; late.emit('error');
     expect(player.failure()).toBe('Video codec not supported: H.264');
 });
+it('does not warn when a pause aborts a pending play() (R14)', async () => {
+    const el = fakeElement();
+    const player = await openScreenVideo(source(), { audio: true, loop: true, volume: 1, upload: 'element', element: element(el) });
+    el.play.mockImplementation(() => Promise.reject(Object.assign(new Error('aborted'), { name: 'AbortError' })));
+    player.sync({ playing: true, positionMs: 0 }, { loop: true, volume: 1 }, true);
+    await Promise.resolve(); await Promise.resolve();
+    expect(player.sync({ playing: true, positionMs: 16 }, { loop: true, volume: 1 }, true)).toBeNull();
+});
 it('plays, pauses, and seeks the element from the session position, and warns while play() is blocked (R14)', async () => {
     const el = fakeElement({ playRejects: true });
     const player = await openScreenVideo(source(), { audio: true, loop: true, volume: 1, upload: 'element', element: element(el) });
@@ -234,6 +242,23 @@ it('retries a failed video at most 3 times for one asset ID until the asset ID o
     meshJobs.reconcile(mesh, 1); await settle();
     for (let i = 0; i < 6; i++) { clock.time += 3000; meshJobs.reconcile(mesh, 2 + i); await settle(); }
     expect(other).toHaveBeenCalledTimes(7);
+});
+it('keeps the retry count when a loaded video fails after the load (R15)', async () => {
+    const start = vi.fn((_: LoadRequest) => Promise.resolve({ dispose: vi.fn() }));
+    const clock = { time: 0 };
+    const jobs = createLoadJobs<{ dispose(): void }>(start, vi.fn(), { now: () => clock.time });
+    const request = { kind: 'video' as const, assetId: 'video_a', retryKey: 'a' };
+    const screens = new Set(['screen']);
+    let revision = 1;
+    jobs.reconcile(new Map([['screen', request]]), revision, screens); await new Promise(r => setTimeout(r, 0));
+    for (let i = 0; i < 6; i++) {
+        jobs.take('screen');
+        jobs.reconcile(new Map(), ++revision, screens);
+        jobs.fail('screen', request, 'Video codec not supported: VP9');
+        clock.time += 3000;
+        jobs.reconcile(new Map([['screen', request]]), ++revision, screens); await new Promise(r => setTimeout(r, 0));
+    }
+    expect(start).toHaveBeenCalledTimes(1 + VIDEO_RETRY_LIMIT);
 });
 it('turns an error after the load into a failed job (R15)', () => {
     const jobs = createLoadJobs<{ dispose(): void }>(vi.fn(() => new Promise<never>(() => {})), vi.fn());

@@ -58,11 +58,12 @@ export function createLoadJobs<T extends { dispose(): void }>(
     });
   };
   return {
-    reconcile(needed: ReadonlyMap<string, LoadRequest>, frameRevision: number) {
+    reconcile(needed: ReadonlyMap<string, LoadRequest>, frameRevision: number, videoScreens: ReadonlySet<string> = new Set()) {
       if (closed) return;
       revision = frameRevision;
       let changed = false;
-      for (const entityId of [...retries.keys()]) if (needed.get(entityId)?.kind !== 'video') retries.delete(entityId);
+      // An installed video keeps its count, so an element error after the load does not reset the cap.
+      for (const entityId of [...retries.keys()]) if (needed.get(entityId)?.kind !== 'video' && !videoScreens.has(entityId)) retries.delete(entityId);
       for (const [entityId, request] of needed) {
         const count = retries.get(entityId);
         if (request.kind === 'video' && (count?.assetId !== request.assetId || count.key !== request.retryKey)) retries.set(entityId, { assetId: request.assetId, key: request.retryKey, count: 0 });
