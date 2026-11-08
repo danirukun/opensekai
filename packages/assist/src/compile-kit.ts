@@ -11,9 +11,12 @@ export type Proposal = {
 export type WorkingState = { scene: SceneView; blueprints: BlueprintGraph[]; proposal: Proposal };
 export type Compiler = (intent: Intent, state: WorkingState, context: CompileContext) => Reply<WorkingState>;
 
-// SceneViewSchema holds at most 64 entities; BlueprintSetSchema holds at most 8 graphs.
+// SceneViewSchema holds at most 64 entities; BlueprintSetSchema at most 8 graphs; BlueprintBatchSchema at most 64 ops.
 export const SCENE_ENTITIES = 64;
 export const SHOW_BLUEPRINTS = 8;
+export const BLUEPRINT_OPS = 64;
+// The editor distance between two node columns in a generated graph.
+export const COLUMN = 240;
 
 export const invalid = (message: string, ids: string[] = []): Reply<never> => ({ ok: false, error: { code: 'INVALID_INPUT', message, ids } });
 export const ok = <T>(data: T): Reply<T> => ({ ok: true, data });

@@ -1,23 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { BlueprintGraphSchema, quaternionFromEuler, rotateByQuaternion, type BlueprintGraph, type BlueprintNode, type Reply, type Vec3 } from '@opensekai/contracts';
-import { compileIntents, orbitSteps, targetPoint, WORDS, type Intent, type Proposal } from '../src';
-import { ctx, graphs, scene } from './context';
+import { BlueprintGraphSchema, quaternionFromEuler, rotateByQuaternion, type BlueprintGraph, type BlueprintNode, type Vec3 } from '@opensekai/contracts';
+import { compileIntents, eulerDegrees, orbitSteps, targetPoint, WORDS, type Intent } from '../src';
+import { badWires, ctx, data, graphOf, graphs, scene } from './context';
 
-const data = <T>(r: Reply<T>): T => { if (!r.ok) throw new Error(r.error.message); return r.data; };
-const graphOf = (p: Proposal, i = 0): BlueprintGraph => {
- const op = p.blueprintOps[i];
- if (op?.kind !== 'createGraph') throw new Error('not a createGraph');
- return op.graph;
-};
 const performer = scene.entities.find(e => e.id === 'performer')!;
 const cameraWide = scene.entities.find(e => e.id === 'camera_wide')!;
 type SetNode = Extract<BlueprintNode, { type: 'property.set' }>;
 const node = (g: BlueprintGraph, id: string) => g.nodes.find(n => n.id === id)!;
 const wire = (g: BlueprintGraph, from: string, port: string) => g.connections.find(c => c.sourceNodeId === from && c.sourcePort === port)?.targetNodeId;
-// The steps in play order: each position node and the rotation node after its `exit`.
+// The moving steps in play order (after the start snap): each position node and the rotation node after its `exit`.
 const steps = (g: BlueprintGraph): { position: SetNode; rotation: SetNode }[] => {
  const out: { position: SetNode; rotation: SetNode }[] = [];
- for (let id = wire(g, 'play', 'flow'); id && !out.some(s => s.position.id === id); id = wire(g, id, 'transitionEnd'))
+ for (let id = wire(g, 'start', 'transitionEnd'); id && id !== 'start' && !out.some(s => s.position.id === id); id = wire(g, id, 'transitionEnd'))
   out.push({ position: node(g, id) as SetNode, rotation: node(g, wire(g, id, 'exit')!) as SetNode });
  return out;
 };
@@ -46,9 +40,19 @@ describe('compileIntents: camera_move', () => {
   const p = data(r);
   const graph = graphOf(p);
   expect(BlueprintGraphSchema.safeParse(graph).success).toBe(true);
+  expect(badWires(graph)).toEqual([]);
   expect(graph.nodes.filter(n => n.type === 'event.manual')).toHaveLength(1);
   expect(graph.nodes.some(n => n.type === 'event.enable')).toBe(false);
-  expect(graph.nodes.filter(n => n.type === 'property.set')).toHaveLength(13);
+  // 3 start nodes + 6 position steps + 6 rotation steps + 1 fovDegrees.
+  expect(graph.nodes.filter(n => n.type === 'property.set')).toHaveLength(16);
+  // Play snaps to the pose at compile time (0 s), and its end starts the move.
+  expect(wire(graph, 'play', 'flow')).toBe('start');
+  expect(wire(graph, 'start', 'exit')).toBe('start_rotation');
+  expect(wire(graph, 'start_rotation', 'exit')).toBe('start_fov');
+  const snap = ['start', 'start_rotation', 'start_fov'].map(id => node(graph, id) as SetNode);
+  expect(snap.map(n => [n.settings.entityId, n.settings.property, n.settings.transitionSeconds])).toEqual([['camera_wide', 'position', 0], ['camera_wide', 'rotation', 0], ['camera_wide', 'fovDegrees', 0]]);
+  expect(snap.map(n => n.inputs!.value)).toEqual([cameraWide.transform.position, eulerDegrees(cameraWide.transform.rotation), cameraWide.kind === 'camera' && cameraWide.lens.fovDegrees]);
+  expect(wire(graph, 'start', 'transitionEnd')).toBe('step_1');
   const chain = steps(graph);
   expect(chain).toHaveLength(6);
   for (const { position, rotation } of chain) {
@@ -84,7 +88,8 @@ describe('compileIntents: camera_move', () => {
   expect(chain).toHaveLength(24);
   const points = chain.map(s => vec(s.position).map(v => v.toFixed(3)).join());
   expect(new Set(points).size).toBe(24);
-  expect(wire(graph, chain.at(-1)!.position.id, 'transitionEnd')).toBe(chain[0]!.position.id);
+  expect(badWires(graph)).toEqual([]);
+  expect(wire(graph, chain.at(-1)!.position.id, 'transitionEnd')).toBe('start');
   // The last step lands on the start point, so the loop has no seam; with no end framing the radius and height stay.
   vec(chain.at(-1)!.position).forEach((v, i) => expect(v).toBeCloseTo(cameraWide.transform.position[i]!));
   for (const s of chain) expect(flat(vec(s.position), performer.transform.position)).toBeCloseTo(3);
@@ -92,7 +97,8 @@ describe('compileIntents: camera_move', () => {
   expect(vec(chain[0]!.position)[0]).toBeLessThan(0);
   // A loop keeps one speed, so every step is linear.
   expect(chain.every(s => s.position.settings.easing === 'Linear')).toBe(true);
-  expect(graph.nodes.some(n => n.settings && 'property' in n.settings && n.settings.property === 'fovDegrees')).toBe(false);
+  // No end framing: only the start snap sets the field of view.
+  expect(graph.nodes.filter(n => n.type === 'property.set' && n.settings.property === 'fovDegrees').map(n => n.id)).toEqual(['start_fov']);
  });
 
  it('eases in on the first step and out on the last', () => {
@@ -110,8 +116,9 @@ describe('compileIntents: camera_move', () => {
   const last = (g: BlueprintGraph) => steps(g)[0]!;
   for (const g of [dolly!, push!, pull!, crane!]) {
    expect(BlueprintGraphSchema.safeParse(g).success).toBe(true);
+   expect(badWires(g)).toEqual([]);
    expect(steps(g)).toHaveLength(1);
-   expect(g.nodes.filter(n => n.type === 'property.set')).toHaveLength(g === pull ? 3 : 2);
+   expect(g.nodes.filter(n => n.type === 'property.set')).toHaveLength(3 + (g === pull ? 3 : 2));
   }
   const dist = (g: BlueprintGraph, framing: 'medium' | 'closeUp' | 'wide') => { const v = vec(last(g).position), a = targetPoint(performer, framing); return Math.hypot(v[0] - a[0], v[1] - a[1], v[2] - a[2]); };
   expect(dist(dolly!, 'medium')).toBeCloseTo(WORDS.framing.medium.distance);
@@ -145,9 +152,26 @@ describe('compileIntents: camera_move', () => {
  it('falls back to the first avatar and rejects a reference that is not a camera', () => {
   const p = data(compileIntents([{ tool: 'camera_move', camera: '@e2', kind: 'orbit' }], ctx()));
   expect(p.notes).toEqual([{ code: 'targetDefaulted', ref: '@e1' }]);
+  // The selected camera is the one that moves, so the fallback skips it and takes the first avatar.
+  const selected = data(compileIntents([{ tool: 'camera_move', camera: '@e2', kind: 'pushIn' }], ctx({ selection: 'camera_wide' })));
+  expect(selected.notes).toEqual([{ code: 'targetDefaulted', ref: '@e1' }]);
+  const s = steps(graphOf(selected))[0]!;
+  expect(aimError(vec(s.position), vec(s.rotation), targetPoint(performer, 'closeUp'))).toBeLessThan(1);
+  // With no avatar, it falls back to the origin.
+  const noAvatar = { ...scene, entities: scene.entities.filter(e => e.kind !== 'avatar') };
+  const origin = data(compileIntents([{ tool: 'camera_move', camera: '@e2', kind: 'pushIn' }], ctx({ scene: noAvatar, selection: 'camera_wide' })));
+  expect(origin.notes).toEqual([{ code: 'targetDefaulted' }]);
   expect(compileIntents([move({ camera: '@e1' })], ctx())).toEqual({ ok: false, error: { code: 'INVALID_INPUT', message: expect.any(String), ids: ['@e1'] } });
   expect(compileIntents([move({ camera: '@e99' })], ctx())).toMatchObject({ ok: false, error: { ids: ['@e99'] } });
   expect(compileIntents([move({ target: '@e2' })], ctx())).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', ids: ['@e2'] } });
+ });
+
+ it('clamps the default name to the graph name limit', () => {
+  const long = { ...cameraWide, name: 'C'.repeat(128) };
+  const g = graphOf(data(compileIntents([move({ kind: 'pushIn' })], ctx({ scene: { ...scene, entities: scene.entities.map(e => e.id === 'camera_wide' ? long : e) } }))));
+  expect(g.name).toBe('C'.repeat(128));
+  expect(BlueprintGraphSchema.safeParse(g).success).toBe(true);
+  expect(graphOf(data(compileIntents([move({ kind: 'pushIn' })], ctx()))).name).toBe(`${cameraWide.name} push-in`);
  });
 
  it('fails at the Blueprint limit with a message that names it', () => {

@@ -1,10 +1,9 @@
 import { KEYSTROKE_CODES, keystrokeHasModifier, type BlueprintGraph, type BlueprintNode, type Id, type KeystrokeSettings, type Reply } from '@opensekai/contracts';
-import { invalid, note, ok, only, putGraph, resolveEntity, type WorkingState } from './compile-kit';
+import { COLUMN, invalid, note, ok, only, putGraph, resolveEntity, type WorkingState } from './compile-kit';
 import type { BlueprintAction, BlueprintTrigger, Ref } from './intents';
 import { resolveRef } from './refs';
 import { WORDS } from './words';
 
-const COLUMN = 240;
 type Modifier = 'control' | 'alt' | 'shift' | 'meta';
 const MODIFIERS: Record<string, Modifier> = {
  control: 'control', ctrl: 'control', alt: 'alt', option: 'alt', shift: 'shift', meta: 'meta', super: 'meta', cmd: 'meta', command: 'meta',

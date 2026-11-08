@@ -1,7 +1,7 @@
 import { PROPOSAL_LIMITS, type Reply } from '@opensekai/contracts';
 import { z } from 'zod';
 import { IntentSchema, type Intent, type IntentTool } from './intents';
-import { emptyProposal, invalid, ok, type CompileContext, type Compiler, type Proposal, type WorkingState } from './compile-kit';
+import { BLUEPRINT_OPS, emptyProposal, invalid, ok, type CompileContext, type Compiler, type Proposal, type WorkingState } from './compile-kit';
 import { compileCamera, compileEnvironment, compileHaze, compileLight, compileOutput, compileProps } from './compile-scene';
 import { compileCameraMove } from './camera-move';
 import { compileBlueprintBuild } from './blueprint-build';
@@ -24,6 +24,7 @@ export const compileIntents = (intents: Intent[], context: CompileContext): Repl
  if (!done.ok) return done;
  const p = done.data.proposal;
  if (p.sceneOps.length > PROPOSAL_LIMITS.sceneOps) return invalid(`A proposal has at most ${PROPOSAL_LIMITS.sceneOps} scene operations`);
+ if (p.blueprintOps.length > BLUEPRINT_OPS) return invalid(`A proposal has at most ${BLUEPRINT_OPS} Blueprint operations`);
  if (p.sceneOps.length === 0 && p.blueprintOps.length === 0 && p.output === null) return invalid('Nothing to change');
  return ok(p);
 };

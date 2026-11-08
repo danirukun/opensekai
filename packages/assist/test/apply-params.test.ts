@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { fingerprint, ProposalApplyParamsSchema, type Reply } from '@opensekai/contracts';
+import { fingerprint, ProposalApplyParamsSchema } from '@opensekai/contracts';
 import { assignRefs, compileIntents, toApplyParams, type Intent } from '../src';
-import { ctx, graph, scene, summaryRefs } from './context';
+import { ctx, data, graph, scene, summaryRefs } from './context';
 
-const data = <T>(r: Reply<T>): T => { if (!r.ok) throw new Error(r.error.message); return r.data; };
 const batch = { clientId: 'opensekai-test', batchId: 'batch_1' };
 
 describe('toApplyParams', () => {

@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { LightSettingsSchema, PatchOpSchema, PROPOSAL_LIMITS, quaternionFromEuler, rotateByQuaternion, SceneViewSchema, type Reply, type SceneEntity, type SceneView, type Vec3 } from '@opensekai/contracts';
+import { LightSettingsSchema, PatchOpSchema, PROPOSAL_LIMITS, quaternionFromEuler, rotateByQuaternion, SceneViewSchema, type SceneEntity, type SceneView, type Vec3 } from '@opensekai/contracts';
 import { applyToWorking, compileIntents, targetPoint, WORDS, type Intent, type Proposal } from '../src';
-import { assets, ctx, lightEntity, scene, summaryRefs } from './context';
+import { assets, ctx, data, lightEntity, scene, summaryRefs } from './context';
 
-const data = <T>(r: Reply<T>): T => { if (!r.ok) throw new Error(r.error.message); return r.data; };
 const createdEntities = (p: Proposal) => p.sceneOps.flatMap(o => o.kind === 'createEntity' ? [o.entity] : []);
 const angle = (a: Vec3, b: Vec3) =>
  Math.acos(Math.min(1, (a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) / (Math.hypot(...a) * Math.hypot(...b)))) * 180 / Math.PI;

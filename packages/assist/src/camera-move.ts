@@ -1,6 +1,6 @@
 import { quaternionFromEuler, rotateByQuaternion, type BlueprintConnection, type BlueprintGraph, type BlueprintNode, type Easing, type SceneEntity, type Vec3 } from '@opensekai/contracts';
 import { eulerDegrees, lookAt, targetPoint } from './aim';
-import { invalid, ok, only, putGraph, resolveEntity, resolveTarget, withProposal } from './compile-kit';
+import { COLUMN, invalid, ok, only, putGraph, resolveEntity, resolveTarget, withProposal } from './compile-kit';
 import type { EasingWord, Framing, Intent } from './intents';
 import { WORDS } from './words';
 
@@ -8,7 +8,7 @@ type Move = Extract<Intent, { tool: 'camera_move' }>;
 type Waypoint = { position: Vec3; aim: Vec3 };
 
 const MAX_STEP = 15, DEFAULT_ANGLE = 90, CRANE_RISE = 1.5, CRANE_FLOOR = 0.2, EPS = 1e-9;
-const COLUMN = 240, ROW = 160;
+const ROW = 160, GRAPH_NAME = 128;
 const MOVE_NAMES: Record<Move['kind'], string> = { orbit: 'orbit', dolly: 'dolly', pushIn: 'push-in', pullOut: 'pull-out', crane: 'crane' };
 const STRAIGHT_FRAMING: Record<'dolly' | 'pushIn' | 'pullOut', Framing> = { dolly: 'medium', pushIn: 'closeUp', pullOut: 'wide' };
 const EASE_IN: Record<EasingWord, Easing> = { smooth: 'InSine', linear: 'Linear', easeIn: 'InQuad', easeOut: 'Linear' };
@@ -59,41 +59,51 @@ const easings = (word: EasingWord, n: number, loop: boolean): Easing[] =>
 
 const setNode = (id: string, x: number, y: number, settings: object, value: Vec3 | number): BlueprintNode =>
  ({ id, version: 1, type: 'property.set', position: { x, y }, settings, inputs: { value } }) as BlueprintNode;
+type Link = [source: string, port: string, target: string];
 
-// Play → step_1 (position) → exit → step_1_rotation; step_k transitionEnd → step_k+1 (the Camera Sway pattern). The field of view joins the last step.
-const moveGraph = (id: string, name: string, cameraId: string, points: Waypoint[], i: Move): BlueprintGraph => {
+// Play → start (snap to the pose at compile time, 0 s) → step_1 → … → step_n. Each step sets position, then (exit) rotation;
+// its transitionEnd starts the next step (the Camera Sway pattern). The field of view joins the last step; a loop returns to the start.
+const moveGraph = (id: string, name: string, camera: Extract<SceneEntity, { kind: 'camera' }>, points: Waypoint[], i: Move): BlueprintGraph => {
  const seconds = WORDS.duration[i.duration ?? 'normal'] / points.length;
  const ease = easings(i.easing ?? 'smooth', points.length, i.loop === true);
- const settings = (property: string, k: number) => ({ entityId: cameraId, property, transitionSeconds: seconds, easing: ease[k]! });
+ const settings = (property: string, k: number) => ({ entityId: camera.id, property, transitionSeconds: seconds, easing: ease[k]! });
+ const snap = (property: string) => ({ entityId: camera.id, property, transitionSeconds: 0 });
  const step = (k: number) => `step_${k + 1}`;
+ const last = points.length - 1;
  const nodes: BlueprintNode[] = [
   { id: 'play', version: 1, type: 'event.manual', position: { x: 0, y: 0 }, settings: {} },
+  setNode('start', COLUMN, 0, snap('position'), [...camera.transform.position]),
+  setNode('start_rotation', COLUMN, ROW, snap('rotation'), eulerDegrees(camera.transform.rotation)),
+  setNode('start_fov', COLUMN, 2 * ROW, snap('fovDegrees'), camera.lens.fovDegrees),
   ...points.flatMap((w, k) => [
-   setNode(step(k), COLUMN * (k + 1), 0, settings('position', k), w.position),
-   setNode(`${step(k)}_rotation`, COLUMN * (k + 1), ROW, settings('rotation', k), eulerDegrees(lookAt(w.position, w.aim))),
+   setNode(step(k), COLUMN * (k + 2), 0, settings('position', k), w.position),
+   setNode(`${step(k)}_rotation`, COLUMN * (k + 2), ROW, settings('rotation', k), eulerDegrees(lookAt(w.position, w.aim))),
   ]),
-  ...(i.endFraming ? [setNode('fov', COLUMN * (points.length + 1), ROW, settings('fovDegrees', points.length - 1), WORDS.framing[i.endFraming].fovDegrees)] : []),
+  ...(i.endFraming ? [setNode('fov', COLUMN * (last + 3), ROW, settings('fovDegrees', last), WORDS.framing[i.endFraming].fovDegrees)] : []),
  ];
- const last = points.length - 1;
- const links: [string, string, string][] = [
-  ['play', 'flow', step(0)],
-  ...points.flatMap((_, k): [string, string, string][] => [[step(k), 'exit', `${step(k)}_rotation`], ...(k < last ? [[step(k), 'transitionEnd', step(k + 1)] as [string, string, string]] : [])]),
-  ...(i.loop ? [[step(last), 'transitionEnd', step(0)] as [string, string, string]] : []),
-  ...(i.endFraming ? [[`${step(last)}_rotation`, 'exit', 'fov'] as [string, string, string]] : []),
+ const links: Link[] = [
+  ['play', 'flow', 'start'], ['start', 'exit', 'start_rotation'], ['start_rotation', 'exit', 'start_fov'], ['start', 'transitionEnd', step(0)],
+  ...points.flatMap((_, k): Link[] => [[step(k), 'exit', `${step(k)}_rotation`], ...(k < last ? [[step(k), 'transitionEnd', step(k + 1)] as Link] : [])]),
+  ...(i.loop ? [[step(last), 'transitionEnd', 'start'] as Link] : []),
+  ...(i.endFraming ? [[`${step(last)}_rotation`, 'exit', 'fov'] as Link] : []),
  ];
  const connections: BlueprintConnection[] = links.map(([sourceNodeId, sourcePort, targetNodeId], k) => ({ id: `wire_${k + 1}`, sourceNodeId, sourcePort, targetNodeId, targetPort: 'flow' }));
  return { schemaVersion: 1, id, name, enabled: true, nodes, connections, variables: [] };
 };
 
 export const compileCameraMove = only('camera_move', (i, state, context) => {
- const camera = resolveEntity(state, i.camera, ['camera'], 'a camera');
- if (!camera.ok) return camera;
- const t = resolveTarget(state, context, i.target);
+ const resolved = resolveEntity(state, i.camera, ['camera'], 'a camera');
+ if (!resolved.ok) return resolved;
+ const camera = resolved.data;
+ if (camera.kind !== 'camera') return invalid(`${i.camera} is not a camera`, [i.camera]);
+ // A selected camera is the one that moves, not the target, so the fallback skips it.
+ const t = resolveTarget(state, context.selection === camera.id ? { ...context, selection: null } : context, i.target);
  if (!t.ok) return t;
- if (t.data.target.id === camera.data.id) return invalid('A camera cannot orbit or aim at itself', [i.target ?? i.camera]);
  const { target } = t.data;
- const points = i.kind === 'orbit' ? orbit(i, camera.data, target) : [i.kind === 'crane' ? crane(i, camera.data, target) : line(i.kind, i, camera.data, target)];
+ if (target.id === camera.id) return invalid('A camera cannot orbit or aim at itself', [i.target ?? i.camera]);
+ const points = i.kind === 'orbit' ? orbit(i, camera, target) : [i.kind === 'crane' ? crane(i, camera, target) : line(i.kind, i, camera, target)];
  const id = context.newId('blueprint');
- const put = putGraph(t.data.state, moveGraph(id, i.name ?? `${camera.data.name} ${MOVE_NAMES[i.kind]}`, camera.data.id, points, i), null);
+ const name = (i.name ?? `${camera.name} ${MOVE_NAMES[i.kind]}`).slice(0, GRAPH_NAME).trim();
+ const put = putGraph(t.data.state, moveGraph(id, name, camera, points, i), null);
  return put.ok ? ok(withProposal(put.data, p => ({ play: [...p.play, { graphId: id, nodeId: 'play' }] }))) : put;
 });

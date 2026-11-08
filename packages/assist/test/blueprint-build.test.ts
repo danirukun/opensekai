@@ -1,14 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { applyBlueprintOps, BlueprintGraphSchema, BlueprintSetSchema, type BlueprintGraph, type Reply } from '@opensekai/contracts';
-import { assignRefs, compileIntents, WORDS, type Intent, type Proposal } from '../src';
-import { ctx, graph, graphs, summaryRefs } from './context';
+import { applyBlueprintOps, BlueprintGraphSchema, BlueprintSetSchema, type BlueprintGraph } from '@opensekai/contracts';
+import { assignRefs, compileIntents, WORDS, type Intent } from '../src';
+import { badWires, ctx, data, graph, graphOf, graphs, summaryRefs } from './context';
 
-const data = <T>(r: Reply<T>): T => { if (!r.ok) throw new Error(r.error.message); return r.data; };
-const graphOf = (p: Proposal, i = 0): BlueprintGraph => {
- const op = p.blueprintOps[i];
- if (op?.kind !== 'createGraph') throw new Error('not a createGraph');
- return op.graph;
-};
 type Build = Extract<Intent, { tool: 'blueprint_build' }>;
 const build = (over: Partial<Build> = {}): Intent => ({
  tool: 'blueprint_build', name: 'Heart on Super Chat', trigger: { kind: 'youtube', event: 'superChat' },
@@ -27,6 +21,7 @@ describe('compileIntents: blueprint_build', () => {
   const g = graphOf(p);
   expect(BlueprintGraphSchema.safeParse(g).success).toBe(true);
   expect(BlueprintSetSchema.safeParse([g]).success).toBe(true);
+  expect(badWires(g)).toEqual([]);
   expect(g.name).toBe('Heart on Super Chat');
   expect(g.nodes.map(n => [n.id, n.type])).toEqual([['trigger', 'youtube.superChat'], ['action_1', 'character.setExpression']]);
   expect(g.nodes[1]).toMatchObject({ settings: { entityId: 'performer', expression: 'heart' }, inputs: { active: true } });
@@ -54,6 +49,7 @@ describe('compileIntents: blueprint_build', () => {
   })], ctx()));
   const g = graphOf(p);
   expect(BlueprintGraphSchema.safeParse(g).success).toBe(true);
+  expect(badWires(g)).toEqual([]);
   expect(flowOrder(g)).toEqual(['trigger', ...Array.from({ length: 8 }, (_, i) => `action_${i + 1}`)]);
   expect(g.nodes.map(n => ({ type: n.type, settings: n.settings, inputs: n.inputs }))).toEqual([
    { type: 'event.keystroke', settings: { code: 'KeyH', control: true, alt: false, shift: true, meta: false }, inputs: undefined },
@@ -116,6 +112,14 @@ describe('compileIntents: blueprint_build', () => {
   expect(p.touched.blueprints).toEqual([]);
   expect(p.play).toEqual([]);
   expect(applyBlueprintOps([], p.blueprintOps).ok).toBe(true);
+ });
+
+ it('fails above 64 Blueprint operations with a message that names the limit', () => {
+  const refs = { ...assignRefs(summaryRefs, { entities: [], blueprints: ['chat_old'], assets: [] }), owned: ['chat_old'] };
+  const context = () => ctx({ blueprints: [graph('chat_old')], refs });
+  // Each replace is two operations (remove and create).
+  expect(data(compileIntents(Array.from({ length: 32 }, () => build({ replace: '@b1' })), context())).blueprintOps).toHaveLength(64);
+  expect(compileIntents(Array.from({ length: 33 }, () => build({ replace: '@b1' })), context())).toEqual(invalidWith([], /64 Blueprint operations/));
  });
 
  it('fails at the Blueprint limit with a message that names it', () => {
