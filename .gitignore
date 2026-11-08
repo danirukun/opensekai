@@ -26,3 +26,6 @@ apps/desktop/src-tauri/resources/output/
 apps/desktop/src-tauri/gen/
 
 apps/desktop/public/tracking/
+
+# direnv
+.direnv/

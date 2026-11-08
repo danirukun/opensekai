@@ -94,30 +94,37 @@ The design follows these rules:
 - macOS (the first target).
 - Node 26.10.0 (see `.node-version`) and pnpm 12.8.1 (see `packageManager`). Do not use npm or yarn.
 - Rust 1.93.1 (pinned in `rust-toolchain.toml`).
+- Nix with flakes, and direnv. The dev shell puts the Cargo build output of all worktrees in one directory.
 - A local checkout of `oshi-connect-ui` for the shared UI kit snapshot.
 - OBS Studio, if you want to check the OBS output.
 
 ## Getting started
 
-1. Make the UI kit snapshot in this checkout. Do this once in each worktree:
+1. Load the dev shell. Do this once in each worktree:
+
+   ```sh
+   direnv allow
+   ```
+
+2. Make the UI kit snapshot in this checkout. Do this once in each worktree:
 
    ```sh
    OPENSEKAI_UI_SOURCE=/path/to/oshi-connect-ui node scripts/bootstrap-ui.ts
    ```
 
-2. Install the dependencies:
+3. Install the dependencies:
 
    ```sh
    pnpm install
    ```
 
-3. Download the cached tracking models. Do this one time:
+4. Download the cached tracking models. Do this one time:
 
    ```sh
    pnpm exec tsx scripts/prepare-tracking.ts --download
    ```
 
-4. Start the desktop app in development mode:
+5. Start the desktop app in development mode:
 
    ```sh
    pnpm dev:desktop
