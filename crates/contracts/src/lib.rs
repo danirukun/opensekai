@@ -2531,7 +2531,9 @@ impl Validate for RuntimeFrame {
             require(
                 playback.len() <= MAX_VIDEO_SCREENS
                     && ids.len() == playback.len()
-                    && playback.iter().all(|p| p.position_ms as f64 <= MAX_SAFE_INTEGER),
+                    && playback
+                        .iter()
+                        .all(|p| p.position_ms as f64 <= MAX_SAFE_INTEGER),
                 "invalid screen playback",
             )?;
         }

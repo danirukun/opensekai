@@ -1,9 +1,10 @@
 use super::image::parse_image;
 use super::scene_import::PackedScene;
+use super::video::parse_video;
 use opensekai_contracts::{
     invalid, is_tracked_expression, AppError, AssetRecord, ErrorCode, Validate,
 };
-use opensekai_contracts::{AssetFormat, AssetImage, MAX_IMAGE_BYTES};
+use opensekai_contracts::{AssetFormat, AssetImage, MAX_IMAGE_BYTES, MAX_VIDEO_BYTES};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -332,6 +333,7 @@ impl AssetRegistry {
                 !r.id.starts_with("avatar_")
                     && !r.id.starts_with("scene_")
                     && !r.id.starts_with("image_")
+                    && !r.id.starts_with("video_")
             })
             .collect()
     }
@@ -371,6 +373,12 @@ pub fn read_located(path: &Path, record: &AssetRecord) -> Result<Vec<u8>, AppErr
                 && header.height == image.height
         });
         if !matches {
+            return Err(error(ErrorCode::InvalidInput, id));
+        }
+    } else if record.format.is_video() {
+        // B29 R6: the detected container, codecs, size, and duration must equal the record.
+        let header = parse_video(&bytes).map_err(|_| error(ErrorCode::InvalidInput, id))?;
+        if header.format != record.format || record.video.as_ref() != Some(&header.video()) {
             return Err(error(ErrorCode::InvalidInput, id));
         }
     } else {
@@ -447,6 +455,103 @@ pub fn stage_image(library: &Path, path: &Path) -> Result<StagedAsset, AppError>
         name,
         library: library.to_path_buf(),
         files: vec![file, json],
+        deduplicate: true,
+    })
+}
+const VIDEO_TOO_LARGE: &str = "Video is larger than 256 MiB";
+/// Copies `source` to `target` in 1 MiB chunks and hashes each chunk. Stops when the copy passes `limit`.
+fn copy_hashed(
+    mut source: impl Read,
+    mut target: impl Write,
+    limit: u64,
+    too_large: &str,
+) -> Result<(u64, String), AppError> {
+    let mut hash = Sha256::new();
+    let mut buffer = vec![0u8; 1024 * 1024];
+    let mut count = 0u64;
+    loop {
+        let n = match source.read(&mut buffer) {
+            Ok(n) => n,
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(_) => return Err(error(ErrorCode::Unavailable, "")),
+        };
+        if n == 0 {
+            break;
+        }
+        count += n as u64;
+        if count > limit {
+            return Err(invalid(too_large));
+        }
+        hash.update(&buffer[..n]);
+        target
+            .write_all(&buffer[..n])
+            .map_err(|_| error(ErrorCode::Unavailable, ""))?;
+    }
+    Ok((count, hex(&hash.finalize())))
+}
+/// Copies, hashes, and checks a video into temporary library files. Runs without the registry lock (B29 R5).
+pub fn stage_video(library: &Path, path: &Path) -> Result<StagedAsset, AppError> {
+    let source = std::fs::File::open(path).map_err(|_| error(ErrorCode::NotFound, ""))?;
+    let size = source
+        .metadata()
+        .map_err(|_| error(ErrorCode::Unavailable, ""))?
+        .len();
+    if size > MAX_VIDEO_BYTES {
+        return Err(invalid(VIDEO_TOO_LARGE));
+    }
+    std::fs::create_dir_all(library).map_err(|_| error(ErrorCode::Unavailable, ""))?;
+    let mut copy =
+        tempfile::NamedTempFile::new_in(library).map_err(|_| error(ErrorCode::Unavailable, ""))?;
+    let (count, sha256) =
+        copy_hashed(source, copy.as_file_mut(), MAX_VIDEO_BYTES, VIDEO_TOO_LARGE)?;
+    copy.as_file()
+        .sync_all()
+        .map_err(|_| error(ErrorCode::Unavailable, ""))?;
+    // Parse the copy, not the source: the hash and the parse use the same bytes.
+    let header = {
+        let file = copy.as_file_mut();
+        file.seek(SeekFrom::Start(0))
+            .map_err(|_| error(ErrorCode::Unavailable, ""))?;
+        let mut bytes = Vec::with_capacity(count as usize);
+        file.take(count + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|_| error(ErrorCode::Unavailable, ""))?;
+        if bytes.len() as u64 != count {
+            return Err(error(ErrorCode::Unavailable, ""));
+        }
+        parse_video(&bytes)?
+    };
+    let id = format!("video_{sha256}");
+    let name = path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .and_then(bounded_name)
+        .unwrap_or_else(|| "Video".into());
+    let record = AssetRecord {
+        id: id.clone(),
+        format: header.format.clone(),
+        sha256,
+        bytes: count,
+        source_url: None,
+        license_label: "User supplied".into(),
+        importer_version: 1,
+        name: name.clone(),
+        credits: None,
+        catalog: None,
+        expressions: vec![],
+        eye_bones: None,
+        rig: None,
+        meshes: None,
+        image: None,
+        video: Some(header.video()),
+    };
+    record.validate()?;
+    let json = record_file(library, &record)?;
+    Ok(StagedAsset {
+        record,
+        name,
+        library: library.to_path_buf(),
+        files: vec![(copy, format!("{id}.{}", header.format.extension())), json],
         deduplicate: true,
     })
 }
@@ -931,6 +1036,155 @@ mod boundary_tests {
             frames: 1,
         });
         assert!(read_located(&path, &gif).is_err());
+        // A changed file fails the hash check.
+        assert!(read_located(&path, &record).is_err());
+    }
+    #[test]
+    fn stages_a_video_deduplicates_and_reloads_it() {
+        use super::super::video::tests::fixture;
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("Clip.webm");
+        std::fs::write(&source, fixture("vp9-opus.webm")).unwrap();
+        let mut registry = AssetRegistry::empty(&dir.path().join("app")).unwrap();
+        let result = registry
+            .commit(stage_video(&registry.library(), &source).unwrap())
+            .unwrap();
+        let record = &result.record;
+        assert_eq!(record.id, format!("video_{}", record.sha256));
+        assert_eq!(record.format, AssetFormat::Webm);
+        assert_eq!(record.name, "Clip");
+        assert_eq!(result.name, "Clip");
+        assert_eq!(record.license_label, "User supplied");
+        assert_eq!(record.source_url, None);
+        assert_eq!(record.importer_version, 1);
+        assert!(record.credits.is_none() && record.image.is_none());
+        let video = record.video.clone().unwrap();
+        assert_eq!((video.width, video.height, video.alpha), (64, 36, false));
+        assert_eq!(video.video_codec, opensekai_contracts::VideoCodec::Vp9);
+        assert_eq!(
+            video.audio_codec,
+            Some(opensekai_contracts::VideoAudioCodec::Opus)
+        );
+        assert!(registry
+            .library()
+            .join(format!("{}.webm", record.id))
+            .is_file());
+        assert_eq!(registry.read(&record.id).unwrap(), fixture("vp9-opus.webm"));
+        // The same bytes under another name keep the existing record.
+        let copy = dir.path().join("Other.webm");
+        std::fs::write(&copy, fixture("vp9-opus.webm")).unwrap();
+        let again = registry
+            .commit(stage_video(&registry.library(), &copy).unwrap())
+            .unwrap();
+        assert_eq!(again.record, *record);
+        // An empty stem gives the name Video.
+        let mp4 = dir.path().join("   .mp4");
+        std::fs::write(&mp4, fixture("h264-aac.mp4")).unwrap();
+        let unnamed = registry
+            .commit(stage_video(&registry.library(), &mp4).unwrap())
+            .unwrap();
+        assert_eq!(unnamed.record.name, "Video");
+        assert_eq!(unnamed.record.format, AssetFormat::Mp4);
+        assert!(registry
+            .library()
+            .join(format!("{}.mp4", unnamed.record.id))
+            .is_file());
+        assert!(registry.fixture_records().is_empty());
+        // The library load finds the .mp4 and .webm files through the extension table.
+        let reopened = AssetRegistry::empty(&dir.path().join("app")).unwrap();
+        assert_eq!(reopened.records().len(), 2);
+        assert!(reopened.records().contains(record));
+        assert_eq!(reopened.read(&record.id).unwrap(), fixture("vp9-opus.webm"));
+        assert_eq!(
+            reopened.read(&unnamed.record.id).unwrap(),
+            fixture("h264-aac.mp4")
+        );
+    }
+    #[test]
+    fn video_import_rejects_large_and_unknown_files() {
+        let dir = tempfile::tempdir().unwrap();
+        // A sparse file: the metadata check fails before a read.
+        let large = dir.path().join("large.mp4");
+        std::fs::File::create(&large)
+            .unwrap()
+            .set_len(MAX_VIDEO_BYTES + 1)
+            .unwrap();
+        let error = stage_video(dir.path(), &large).err().unwrap();
+        assert_eq!(error.code, ErrorCode::InvalidInput);
+        assert_eq!(error.message, "Video is larger than 256 MiB");
+        let model = dir.path().join("model.mp4");
+        std::fs::write(&model, glb()).unwrap();
+        assert_eq!(
+            stage_video(dir.path(), &model).err().unwrap().code,
+            ErrorCode::InvalidInput
+        );
+        let leftovers = std::fs::read_dir(dir.path())
+            .unwrap()
+            .filter(|e| {
+                let name = e.as_ref().unwrap().file_name();
+                name != "large.mp4" && name != "model.mp4"
+            })
+            .count();
+        assert_eq!(leftovers, 0, "a failed import leaves no temporary file");
+    }
+    #[test]
+    fn the_video_copy_stops_when_it_passes_the_limit() {
+        // A source that grows after the metadata check: the copy counts the bytes it reads.
+        let mut sink = Vec::new();
+        let error = copy_hashed(
+            std::io::repeat(7).take(3 * 1024 * 1024),
+            &mut sink,
+            2 * 1024 * 1024,
+            VIDEO_TOO_LARGE,
+        )
+        .unwrap_err();
+        assert_eq!(error.code, ErrorCode::InvalidInput);
+        assert_eq!(error.message, "Video is larger than 256 MiB");
+        assert!(sink.len() <= 2 * 1024 * 1024);
+        let mut sink = Vec::new();
+        let (count, sha256) = copy_hashed(&b"abc"[..], &mut sink, 3, VIDEO_TOO_LARGE).unwrap();
+        assert_eq!((count, sink.as_slice()), (3, &b"abc"[..]));
+        assert_eq!(sha256, hex(&Sha256::digest(b"abc")));
+    }
+    #[test]
+    fn serving_a_video_checks_the_container_against_the_record() {
+        use super::super::video::tests::fixture;
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("a.mp4");
+        std::fs::write(&source, fixture("h264-aac.mp4")).unwrap();
+        let mut registry = AssetRegistry::empty(dir.path()).unwrap();
+        let record = registry
+            .commit(stage_video(&registry.library(), &source).unwrap())
+            .unwrap()
+            .record;
+        let path = registry.library().join(format!("{}.mp4", record.id));
+        assert!(read_located(&path, &record).is_ok());
+        assert_eq!(record.format.content_type(), "video/mp4");
+        // A record with another codec, size, or audio codec, over the same bytes.
+        let changes: [fn(&mut AssetRecord); 5] = [
+            |r| r.video.as_mut().unwrap().video_codec = opensekai_contracts::VideoCodec::Hevc,
+            |r| r.video.as_mut().unwrap().audio_codec = None,
+            |r| r.video.as_mut().unwrap().width = 63,
+            |r| r.video.as_mut().unwrap().duration_ms += 1,
+            |r| r.video = None,
+        ];
+        for change in changes {
+            let mut other = record.clone();
+            change(&mut other);
+            assert!(read_located(&path, &other).is_err());
+        }
+        // WebM bytes under an MP4 record, with a matching hash and length.
+        let webm = fixture("vp9-opus.webm");
+        std::fs::write(&path, &webm).unwrap();
+        let mut wrong_type = record.clone();
+        wrong_type.sha256 = hex(&Sha256::digest(&webm));
+        wrong_type.bytes = webm.len() as u64;
+        assert!(read_located(&path, &wrong_type).is_err());
+        let mut as_webm = wrong_type.clone();
+        as_webm.format = AssetFormat::Webm;
+        as_webm.video = Some(super::super::parse_video(&webm).unwrap().video());
+        assert!(read_located(&path, &as_webm).is_ok());
+        assert_eq!(as_webm.format.content_type(), "video/webm");
         // A changed file fails the hash check.
         assert!(read_located(&path, &record).is_err());
     }

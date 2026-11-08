@@ -57,12 +57,10 @@ fn video_screens_round_trip_within_the_limit() {
     let mut full: Vec<_> = (0..MAX_VIDEO_SCREENS)
         .map(|i| video(&format!("v{i}")))
         .collect();
-    full.extend((MAX_VIDEO_SCREENS..MAX_SCREENS).map(|i| {
-        placed(
-            &format!("i{i}"),
-            json!({"kind":"image","assetId":null}),
-        )
-    }));
+    full.extend(
+        (MAX_VIDEO_SCREENS..MAX_SCREENS)
+            .map(|i| placed(&format!("i{i}"), json!({"kind":"image","assetId":null}))),
+    );
     assert!(validate_value::<SceneView>(&scene(full)).is_ok());
     let over: Vec<_> = (0..=MAX_VIDEO_SCREENS)
         .map(|i| video(&format!("v{i}")))
@@ -94,9 +92,7 @@ fn video_operations_parse() {
 }
 #[test]
 fn frames_carry_screen_playback() {
-    let frame = |playback: Value| {
-        json!({"schemaVersion":1,"sessionId":"s","sequence":1,"tick":1,"elapsedMs":16,"scene":scene(vec![]),"screenPlayback":playback})
-    };
+    let frame = |playback: Value| json!({"schemaVersion":1,"sessionId":"s","sequence":1,"tick":1,"elapsedMs":16,"scene":scene(vec![]),"screenPlayback":playback});
     assert!(validate_value::<RuntimeFrame>(&frame(
         json!([{"entityId":"a","playing":true,"positionMs":1250}])
     ))
@@ -105,8 +101,13 @@ fn frames_carry_screen_playback() {
         json!([{"entityId":"a","playing":true,"positionMs":1},{"entityId":"a","playing":false,"positionMs":2}]),
         json!([{"entityId":"a","playing":true,"positionMs":1.5}]),
         json!([{"entityId":"a","playing":true,"positionMs":-1}]),
-        json!((0..=MAX_VIDEO_SCREENS).map(|i| json!({"entityId":format!("v{i}"),"playing":true,"positionMs":0})).collect::<Vec<_>>()),
+        json!((0..=MAX_VIDEO_SCREENS)
+            .map(|i| json!({"entityId":format!("v{i}"),"playing":true,"positionMs":0}))
+            .collect::<Vec<_>>()),
     ] {
-        assert!(validate_value::<RuntimeFrame>(&frame(bad.clone())).is_err(), "{bad}");
+        assert!(
+            validate_value::<RuntimeFrame>(&frame(bad.clone())).is_err(),
+            "{bad}"
+        );
     }
 }

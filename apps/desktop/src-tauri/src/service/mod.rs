@@ -778,6 +778,21 @@ impl ServicePorts {
         .await
         .map_err(|_| err(ErrorCode::Unavailable, "Image import failed"))?
     }
+    pub async fn import_video(
+        &self,
+        path: PathBuf,
+    ) -> Result<crate::assets::ImportResult, AppError> {
+        let shared = self.shared.clone();
+        // Copy, hash, and check outside the registry lock; `commit` keeps an intact existing record (B29 R5).
+        tokio::task::spawn_blocking(move || {
+            let library = lock(&shared.registry).library();
+            let staged = crate::assets::stage_video(&library, &path)?;
+            shared.asset_step(AssetStep::Store);
+            lock(&shared.registry).commit(staged)
+        })
+        .await
+        .map_err(|_| err(ErrorCode::Unavailable, "Video import failed"))?
+    }
     pub fn asset_records(&self) -> Vec<AssetRecord> {
         lock(&self.shared.registry).records()
     }
@@ -957,6 +972,12 @@ impl ServiceHandle {
         path: PathBuf,
     ) -> Result<crate::assets::ImportResult, AppError> {
         self.ports().import_image(path).await
+    }
+    pub async fn import_video(
+        &self,
+        path: PathBuf,
+    ) -> Result<crate::assets::ImportResult, AppError> {
+        self.ports().import_video(path).await
     }
     pub fn asset_records(&self) -> Vec<AssetRecord> {
         lock(&self.shared.registry).records()

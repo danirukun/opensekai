@@ -15,6 +15,7 @@
     "allow-import-avatar",
     "allow-import-scene",
     "allow-import-image",
+    "allow-import-video",
     "allow-save-show",
     "allow-save-show-as",
     "allow-open-show",
