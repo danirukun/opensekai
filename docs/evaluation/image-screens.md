@@ -58,6 +58,14 @@ Result: 51 pass, 0 fail, 6 unknown. The haze box is outside the camera view, so 
 
 The viewport is WebGPU in this check, and its page capture is one flat color ([viewport](image-screens/editor-screen.png)), so the viewport pixels are unknown.
 
+## The freeze after an Open (owner QA on #258, macOS)
+
+Cause: three.js 0.180 keeps one texture binding template for each material cache key, and it clears that template when the template's texture is disposed. Screen materials of one alpha class had the same key. After the first image of a class was disposed (the last screen with it reset or removed), the next new screen of that class threw `Invalid value used as weak map key` when it drew. The host sends at most 2 frames that the renderer has not acknowledged, and a failed frame is not acknowledged, so the output stopped. The image lease change alone does not prevent this. `createScreenMesh` now adds the texture ID to the material cache key.
+
+Evidence (commit after the lease change):
+- Renderer in Chrome on Metal, the QA sequence (import PNG, JPEG, WebP, GIF one at a time; reset PNG; remove JPEG; add PNG and JPEG screens again): 3 failed frames without the key change, 0 with it.
+- Dev app on macOS (WebKit preview, before the lease change), the same sequence through MCP: without the key change the preview stops at the last revision with `BUSY "Asset loading"`; with it the preview follows every revision and the log has no submission failure.
+
 ## Not verified here (owner on macOS)
 
 The Editor window (WebKit) and the OBS page (CEF) with a PNG with alpha, a JPEG with EXIF orientation, a WebP with alpha, and an animated GIF (first frame); no halo or dark fringe on transparent edges over a colored OBS background; the gizmo; a Blueprint Set Asset Property transition on a screen; Save As and Open. An older build does not open a show with a screen (the scene schema rejects the `screen` kind).
