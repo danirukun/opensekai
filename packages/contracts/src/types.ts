@@ -140,6 +140,7 @@ export interface ScenePatch {
     expectedRevision: number;
     operations: PatchOp[];
 }
+export interface AssetCatalog { description: string | null; tags: string[]; }
 export interface AssetCredits { title: string | null; author: string | null; license: string | null; sourceUrl: string | null; }
 export interface AssetRecord {
     id: Id;
@@ -151,12 +152,13 @@ export interface AssetRecord {
     importerVersion: 1;
     name: string;
     credits?: AssetCredits;
+    catalog?: AssetCatalog;
     expressions: AssetExpression[];
     eyeBones?: boolean;
     rig?: AvatarRig;
     meshes?: AssetMesh[];
 }
-export interface AssetSummary { id: Id; kind: "avatar" | "scene" | "fixture"; name: string; credits?: AssetCredits; }
+export interface AssetSummary { id: Id; kind: "avatar" | "scene" | "fixture"; name: string; credits?: AssetCredits; catalog?: AssetCatalog; }
 export interface AssetList { assets: AssetSummary[]; next: Id | null; }
 export interface ConnectionDescriptor {
     schemaVersion: 1;

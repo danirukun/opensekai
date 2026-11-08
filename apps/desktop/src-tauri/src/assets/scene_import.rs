@@ -1,4 +1,4 @@
-use opensekai_contracts::{invalid, AppError, AssetCredits};
+use opensekai_contracts::{invalid, AppError, AssetCatalog, AssetCredits};
 use std::path::Path;
 #[derive(Debug, Clone, Copy)]
 pub struct Limits {
@@ -19,6 +19,7 @@ impl Limits {
 pub struct PackedScene {
     pub glb: Vec<u8>,
     pub credits: Option<AssetCredits>,
+    pub catalog: Option<AssetCatalog>,
     pub stem: String,
 }
 use base64::{engine::general_purpose::STANDARD, Engine};
@@ -255,9 +256,15 @@ fn pack_root(
         )
     };
     let credits = read_credits(&json);
+    let catalog = read_catalog(&json);
     let budget = Budget(limits.max_glb.saturating_sub(bytes.len() as u64));
     let glb = pack(json, bytes, bin, source, limits, budget)?;
-    Ok(PackedScene { glb, credits, stem })
+    Ok(PackedScene {
+        glb,
+        credits,
+        catalog,
+        stem,
+    })
 }
 
 // Returns the JSON and the byte range of the BIN chunk in `bytes`, so the caller can borrow the chunk instead of copying it.
@@ -657,6 +664,29 @@ fn read_credits(json: &Value) -> Option<AssetCredits> {
         || credits.source_url.is_some())
     .then_some(credits)
 }
+fn read_catalog(json: &Value) -> Option<AssetCatalog> {
+    let extras = |key: &str| json.pointer(&format!("/asset/extras/{key}"));
+    let description = extras("description")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| (1..=280).contains(&s.encode_utf16().count()))
+        .map(str::to_owned);
+    let mut tags: Vec<String> = Vec::new();
+    for tag in extras("tags")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .map(|t| t.trim().to_lowercase())
+        .filter(|t| (1..=32).contains(&t.encode_utf16().count()))
+    {
+        if !tags.contains(&tag) {
+            tags.push(tag);
+        }
+    }
+    tags.truncate(8);
+    (description.is_some() || !tags.is_empty()).then_some(AssetCatalog { description, tags })
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -978,6 +1008,44 @@ mod tests {
         };
         assert!(message(pack_scene(&dir.path().join("scene.gltf"), limits))
             .contains("glTF JSON exceeds budget"));
+    }
+    #[test]
+    fn reads_description_and_tags_from_extras() {
+        let json = json!({"asset":{"extras":{"description":"  Palm tree for a beach ","tags":["Palm"," beach ","", 3, "x".repeat(33)]}}});
+        assert_eq!(
+            read_catalog(&json),
+            Some(AssetCatalog {
+                description: Some("Palm tree for a beach".into()),
+                tags: vec!["palm".into(), "beach".into()]
+            })
+        );
+        assert_eq!(read_catalog(&json!({"asset":{}})), None);
+        assert_eq!(
+            read_catalog(&json!({"asset":{"extras":{"description":"  ","tags":[""]}}})),
+            None
+        );
+    }
+    #[test]
+    fn catalog_limits_count_utf16_units_and_keep_non_ascii_tags() {
+        let wide = "ス".repeat(32);
+        let json = json!({"asset":{"extras":{"description":"😀".repeat(140),"tags":["ステージ","ステージ","STAGE","stage", wide, "ス".repeat(33), "😀".repeat(16), "😀".repeat(17)]}}});
+        let catalog = read_catalog(&json).unwrap();
+        assert_eq!(catalog.description.unwrap().encode_utf16().count(), 280);
+        assert_eq!(
+            catalog.tags,
+            vec!["ステージ", "stage", &wide, &"😀".repeat(16)]
+        );
+        let json = json!({"asset":{"extras":{"description":"😀".repeat(141)}}});
+        assert_eq!(read_catalog(&json), None);
+    }
+    #[test]
+    fn catalog_keeps_the_first_eight_tags() {
+        let tags: Vec<String> = (0..12).map(|i| format!("t{i}")).collect();
+        let json = json!({"asset":{"extras":{"tags":tags}}});
+        let catalog = read_catalog(&json).unwrap();
+        assert_eq!(catalog.description, None);
+        assert_eq!(catalog.tags.len(), 8);
+        assert_eq!(catalog.tags[7], "t7");
     }
     #[test]
     fn drops_a_source_with_an_uppercase_scheme() {

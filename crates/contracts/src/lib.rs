@@ -583,6 +583,10 @@ object!(AssetCredits {
     license: Option<String>,
     source_url: Option<String>
 });
+object!(AssetCatalog {
+    description: Option<String>,
+    tags: Vec<String>
+});
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AssetRecord {
@@ -596,6 +600,8 @@ pub struct AssetRecord {
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub credits: Option<AssetCredits>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub catalog: Option<AssetCatalog>,
     pub expressions: Vec<AssetExpression>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub eye_bones: Option<bool>,
@@ -1801,6 +1807,8 @@ pub struct AssetSummary {
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub credits: Option<AssetCredits>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub catalog: Option<AssetCatalog>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -1825,6 +1833,7 @@ impl AssetSummary {
             kind,
             name: record.name.clone(),
             credits: record.credits.clone(),
+            catalog: record.catalog.clone(),
         }
     }
 }
@@ -1869,6 +1878,22 @@ fn credits_ok(credits: &Option<AssetCredits>) -> Result<(), AppError> {
         "invalid credits source URL",
     )
 }
+fn catalog_ok(catalog: &Option<AssetCatalog>) -> Result<(), AppError> {
+    let Some(c) = catalog else { return Ok(()) };
+    require(
+        c.description
+            .as_ref()
+            .is_none_or(|d| (1..=280).contains(&d.encode_utf16().count())),
+        "invalid catalog description",
+    )?;
+    require(
+        c.tags.len() <= 8
+            && c.tags
+                .iter()
+                .all(|t| (1..=32).contains(&t.encode_utf16().count()) && *t == t.to_lowercase()),
+        "invalid catalog tags",
+    )
+}
 fn id_text_ok(id: &str) -> bool {
     !id.is_empty() && id.encode_utf16().count() <= 256
 }
@@ -1888,6 +1913,7 @@ impl Validate for AssetList {
                 "invalid asset name",
             )?;
             credits_ok(&asset.credits)?;
+            catalog_ok(&asset.catalog)?;
         }
         Ok(())
     }
@@ -2431,6 +2457,7 @@ impl Validate for AssetRecord {
             "invalid source URL",
         )?;
         credits_ok(&self.credits)?;
+        catalog_ok(&self.catalog)?;
         expressions_ok(&self.expressions)?;
         if let Some(rig) = &self.rig {
             rig.validate()?;

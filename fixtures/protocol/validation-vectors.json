@@ -22220,5 +22220,197 @@
         }
       }
     }
+  },
+  {
+    "name": "asset-catalog-valid",
+    "target": "asset",
+    "valid": true,
+    "payload": {
+      "id": "scene_a",
+      "format": "glb",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bytes": 1,
+      "sourceUrl": null,
+      "licenseLabel": "",
+      "importerVersion": 1,
+      "name": "Room",
+      "catalog": {
+        "description": "Palm tree 🌴",
+        "tags": [
+          "palm",
+          "ステージ"
+        ]
+      },
+      "expressions": []
+    }
+  },
+  {
+    "name": "asset-list-catalog-valid",
+    "target": "assetList",
+    "valid": true,
+    "payload": {
+      "assets": [
+        {
+          "id": "scene_a",
+          "kind": "scene",
+          "name": "Room",
+          "catalog": {
+            "description": "Palm tree 🌴",
+            "tags": [
+              "palm",
+              "ステージ"
+            ]
+          }
+        }
+      ],
+      "next": null
+    }
+  },
+  {
+    "name": "asset-catalog-nine-tags",
+    "target": "asset",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "id": "scene_a",
+      "format": "glb",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bytes": 1,
+      "sourceUrl": null,
+      "licenseLabel": "",
+      "importerVersion": 1,
+      "name": "Room",
+      "catalog": {
+        "description": null,
+        "tags": [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f",
+          "g",
+          "h",
+          "i"
+        ]
+      },
+      "expressions": []
+    }
+  },
+  {
+    "name": "asset-list-catalog-nine-tags",
+    "target": "assetList",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "assets": [
+        {
+          "id": "scene_a",
+          "kind": "scene",
+          "name": "Room",
+          "catalog": {
+            "description": null,
+            "tags": [
+              "a",
+              "b",
+              "c",
+              "d",
+              "e",
+              "f",
+              "g",
+              "h",
+              "i"
+            ]
+          }
+        }
+      ],
+      "next": null
+    }
+  },
+  {
+    "name": "asset-catalog-long-description",
+    "target": "asset",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "id": "scene_a",
+      "format": "glb",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bytes": 1,
+      "sourceUrl": null,
+      "licenseLabel": "",
+      "importerVersion": 1,
+      "name": "Room",
+      "catalog": {
+        "description": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "tags": []
+      },
+      "expressions": []
+    }
+  },
+  {
+    "name": "asset-list-catalog-long-description",
+    "target": "assetList",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "assets": [
+        {
+          "id": "scene_a",
+          "kind": "scene",
+          "name": "Room",
+          "catalog": {
+            "description": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "tags": []
+          }
+        }
+      ],
+      "next": null
+    }
+  },
+  {
+    "name": "asset-catalog-uppercase-tag",
+    "target": "asset",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "id": "scene_a",
+      "format": "glb",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bytes": 1,
+      "sourceUrl": null,
+      "licenseLabel": "",
+      "importerVersion": 1,
+      "name": "Room",
+      "catalog": {
+        "description": null,
+        "tags": [
+          "Palm"
+        ]
+      },
+      "expressions": []
+    }
+  },
+  {
+    "name": "asset-list-catalog-uppercase-tag",
+    "target": "assetList",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "assets": [
+        {
+          "id": "scene_a",
+          "kind": "scene",
+          "name": "Room",
+          "catalog": {
+            "description": null,
+            "tags": [
+              "Palm"
+            ]
+          }
+        }
+      ],
+      "next": null
+    }
   }
 ]

@@ -309,6 +309,10 @@ export const AssetCreditsSchema = z.strictObject({
     license: creditText,
     sourceUrl: z.url().refine(value => /^https?:\/\//.test(value), 'Invalid source URL').nullable()
 });
+export const AssetCatalogSchema = z.strictObject({
+    description: z.string().refine(d => d.length >= 1 && d.length <= 280, 'Invalid catalog description').nullable(),
+    tags: z.array(z.string().refine(t => t.length >= 1 && t.length <= 32 && t === t.toLowerCase(), 'Invalid catalog tag')).max(8)
+});
 export const AssetRecordSchema = z.strictObject({
     id: IdSchema,
     format: z.enum([
@@ -322,6 +326,7 @@ export const AssetRecordSchema = z.strictObject({
     importerVersion: z.literal(1),
     name: z.string().refine(name => name.trim().length > 0 && name.length <= 128, 'Invalid asset name'),
     credits: AssetCreditsSchema.optional(),
+    catalog: AssetCatalogSchema.optional(),
     expressions: AssetExpressionsSchema,
     eyeBones: z.boolean().optional(),
     rig: AvatarRigSchema.optional(),
@@ -332,7 +337,8 @@ export const AssetSummarySchema = z.strictObject({
     id: IdSchema,
     kind: z.enum(['avatar', 'scene', 'fixture']),
     name: z.string().refine(name => name.trim().length > 0 && name.length <= 128, 'Invalid asset name'),
-    credits: AssetCreditsSchema.optional()
+    credits: AssetCreditsSchema.optional(),
+    catalog: AssetCatalogSchema.optional()
 });
 export const AssetListSchema = z.strictObject({
     assets: z.array(AssetSummarySchema).max(64),
