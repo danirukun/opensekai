@@ -263,6 +263,7 @@ Sources: [Mod SDK](https://docs.warudo.app/docs/modding/mod-sdk), [SDK installat
 - [ ] EXT-14 — Scripting API behavior audit. Later; required before extension parity claims. [GitHub #107](https://github.com/danirukun/opensekai/issues/107)
   - First audit part: 15 documented Warudo scripting behaviors compared with extension API version 1: 0 Same, 3 Partial, 4 Different, 7 Missing, 1 Unknown. The Warudo cells come from search summaries; the handbook pages were not opened ([scripting audit](evaluation/scripting-api-audit.md)).
 - [ ] EXT-15 — Package content scan and trust warnings. Later; additional OpenSekai goal. [GitHub #186](https://github.com/danirukun/opensekai/issues/186)
+- [ ] EXT-16 — Chat: change the scene and the Blueprints from a sentence. Additional OpenSekai goal. Partial: the thin tools through MCP on macOS. They built a concert scene (environment, key, fill, and rim light, haze, a camera, an orbit with a push-in, and the output camera) on the running app, with one `proposalApply` and one revision for each change, and the move played in OBS ([check](evaluation/chat-thin-tools.md)). The session and MCP tests verify atomic apply and the scoped conflict check. Not verified: a local model, the Chat panel, Windows, and Linux.
 
 ## Editor experience
 
