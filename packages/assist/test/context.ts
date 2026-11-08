@@ -1,4 +1,4 @@
-import type { AssetSummary, LightSettings, SceneEntity, SceneView } from '@opensekai/contracts';
+import type { AssetSummary, BlueprintGraph, LightSettings, SceneEntity, SceneView } from '@opensekai/contracts';
 import smoke from '../../../fixtures/protocol/valid-scene.json';
 import { assignRefs, emptyRefs, type CompileContext } from '../src';
 
@@ -31,3 +31,6 @@ export const seqIds = () => {
 
 export const ctx = (over: Partial<CompileContext> = {}): CompileContext =>
  ({ scene, blueprints: [], assets, refs: summaryRefs, selection: null, newId: seqIds(), ...over });
+
+export const graph = (id: string, name = id): BlueprintGraph => ({ schemaVersion: 1, id, name, enabled: true, nodes: [], connections: [], variables: [] });
+export const graphs = (n: number): BlueprintGraph[] => Array.from({ length: n }, (_, i) => graph(`user_graph_${i + 1}`));

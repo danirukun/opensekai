@@ -1,4 +1,4 @@
-import type { AssetSummary, BlueprintGraph, BlueprintOp, Id, PatchOp, Reply, SceneEntity, SceneView } from '@opensekai/contracts';
+import { applyBlueprintOps, type AssetSummary, type BlueprintGraph, type BlueprintOp, type Id, type PatchOp, type Reply, type SceneEntity, type SceneView } from '@opensekai/contracts';
 import type { Intent, IntentTool, Ref } from './intents';
 import { assignRefs, resolveRef, type RefTable } from './refs';
 
@@ -11,8 +11,9 @@ export type Proposal = {
 export type WorkingState = { scene: SceneView; blueprints: BlueprintGraph[]; proposal: Proposal };
 export type Compiler = (intent: Intent, state: WorkingState, context: CompileContext) => Reply<WorkingState>;
 
-// SceneViewSchema holds at most 64 entities.
+// SceneViewSchema holds at most 64 entities; BlueprintSetSchema holds at most 8 graphs.
 export const SCENE_ENTITIES = 64;
+export const SHOW_BLUEPRINTS = 8;
 
 export const invalid = (message: string, ids: string[] = []): Reply<never> => ({ ok: false, error: { code: 'INVALID_INPUT', message, ids } });
 export const ok = <T>(data: T): Reply<T> => ({ ok: true, data });
@@ -87,4 +88,22 @@ export const resolveTarget = (state: WorkingState, context: CompileContext, ref:
  const found = state.scene.entities.find(e => e.id === context.selection) ?? state.scene.entities.find(e => e.kind === 'avatar');
  const r = found && entityRef(state, found.id);
  return ok({ target: found ?? ORIGIN, state: note(state, r ? { code: 'targetDefaulted', ref: r } : { code: 'targetDefaulted' }) });
+};
+
+// Adds a graph to the working Blueprints, or swaps the graph `replaced` for it with the same ID. A new graph is owned by Chat.
+export const putGraph = (state: WorkingState, graph: BlueprintGraph, replaced: Id | null): Reply<WorkingState> => {
+ if (replaced === null && state.blueprints.length >= SHOW_BLUEPRINTS) return invalid(`Show has the maximum of ${SHOW_BLUEPRINTS} Blueprints`);
+ const ops: BlueprintOp[] = replaced === null ? [{ kind: 'createGraph', graph }] : [{ kind: 'removeGraph', graphId: replaced }, { kind: 'createGraph', graph }];
+ // applyBlueprintOps checks the result with BlueprintSetSchema.
+ const applied = applyBlueprintOps(state.blueprints, ops);
+ if (!applied.ok) return applied;
+ return ok(withProposal({ ...state, blueprints: applied.data }, p => replaced === null ? {
+  blueprintOps: [...p.blueprintOps, ...ops],
+  created: { ...p.created, blueprints: [...p.created.blueprints, graph.id] },
+  refs: { ...assignRefs(p.refs, { entities: [], blueprints: [graph.id], assets: [] }), owned: [...p.refs.owned, graph.id] },
+ } : {
+  blueprintOps: [...p.blueprintOps, ...ops],
+  play: p.play.filter(x => x.graphId !== replaced),
+  touched: p.created.blueprints.includes(replaced) || p.touched.blueprints.includes(replaced) ? p.touched : { ...p.touched, blueprints: [...p.touched.blueprints, replaced] },
+ }));
 };

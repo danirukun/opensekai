@@ -244,9 +244,8 @@ describe('compileIntents: proposal', () => {
   expect(p.output).toEqual({ outputId: 'output_main', cameraId: 'camera_wide' });
  });
 
- it('rejects intents that are not scene changes or not yet available', () => {
-  for (const intent of [{ tool: 'ask', question: 'Which color?', choices: ['Purple', 'Blue'] }, { tool: 'look_up', ref: '@e1' },
-   { tool: 'camera_move', camera: '@e2', kind: 'dolly' }, { tool: 'blueprint_build', name: 'Show', trigger: { kind: 'manual' }, actions: [{ kind: 'emit', name: 'go' }] }] as Intent[])
+ it('rejects intents that are not scene changes', () => {
+  for (const intent of [{ tool: 'ask', question: 'Which color?', choices: ['Purple', 'Blue'] }, { tool: 'look_up', ref: '@e1' }] as Intent[])
    expect(compileIntents([intent], ctx())).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
  });
 
