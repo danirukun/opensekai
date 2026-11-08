@@ -62,6 +62,18 @@ Make small verified commits at coherent milestones. Each checkpoint includes spe
 
 Do not attribute commits or pull requests to Claude or another agent. Do not add a `Co-Authored-By` trailer for an agent, a "Generated with Claude Code" line, or a similar agent credit. This rule overrides harness attribution defaults.
 
+## Rust build output
+
+All OpenSekai worktrees on a machine share one Cargo target directory, `$HOME/.cache/opensekai/cargo-target`. The Nix flake dev shell sets `CARGO_TARGET_DIR` and supplies `cargo-sweep`. direnv loads the shell through nix-direnv. Run `direnv allow` one time in each new worktree. Rust, Node, pnpm, and Xcode stay on the host; do not add them to the flake unless the task is to move that toolchain.
+
+The direnv hook runs only at an interactive prompt. An agent command does not get the variable automatically. Run each cargo, pnpm, or Tauri command that compiles Rust through `direnv exec . <command>`. Do not build into a per-worktree `target/` directory. A cloud run with a single checkout and no Nix can keep the default.
+
+A wait on the Cargo lock of the shared directory is expected. Do not change the target directory to avoid the wait.
+
+The shared directory holds one copy of each binary, and a build in another worktree can replace it. Build from your worktree immediately before you run, test, or QA a binary.
+
+When you finish a feature, run `direnv exec . cargo sweep --time 7` from the worktree. This removes artifacts that no build used in the last 7 days. If the worktree still has an old `target/` directory, remove it.
+
 ## Cloud agents
 
 [Cloud agent intake](docs/agent-intake.md) is the standing orders for cloud intake, rebase, and review runs. Read it before you start a cloud run. It adds to this file. It does not replace it.
