@@ -91,6 +91,12 @@ it('makes a 1 m high quad with the image aspect, an unlit double-sided material,
     expect([(blended.material as MeshBasicNodeMaterial).transparent, (blended.material as MeshBasicNodeMaterial).depthWrite]).toEqual([true, false]);
     expect(blended.renderOrder).toBe(0);
 });
+it('gives each image its own material cache key, so a disposed image cannot break another screen', () => {
+    const key = (texture: Texture) => (createScreenMesh({ texture, width: 1, height: 1, alpha: true }).root as Mesh<never, MeshBasicNodeMaterial>).material.customProgramCacheKey();
+    const first = new Texture(), second = new Texture();
+    expect(key(first)).toBe(key(first));
+    expect(key(first)).not.toBe(key(second));
+});
 
 it('closes a shared image only when the last quad lease goes, and loads a failed image again', async () => {
     const made: { dispose: ReturnType<typeof vi.fn> }[] = [];

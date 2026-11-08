@@ -169,6 +169,10 @@ export function createScreenMesh(image: Pick<ScreenImage, "texture" | "width" | 
     for (let i = 0; i < uv.count; i++) uv.setY(i, 1 - uv.getY(i));
     const material = new MeshBasicNodeMaterial({ map: image.texture, side: DoubleSide, transparent: image.alpha, depthWrite: !image.alpha });
     material.toneMapped = false;
+    // three.js 0.180 keeps one texture binding template per material cache key and clears it when the
+    // template's texture is disposed. A later screen with that key then fails to draw, so key by texture.
+    const baseKey = material.customProgramCacheKey.bind(material);
+    material.customProgramCacheKey = () => `${baseKey()}:${image.texture.uuid}`;
     const mesh = new Mesh(geometry, material);
     mesh.castShadow = false;
     mesh.receiveShadow = false;
