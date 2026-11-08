@@ -1,0 +1,33 @@
+PASS Add Screen still makes image content (R20) {"kind":"image","assetId":null}
+PASS the Screen section shows Content before Image (R19) ["Visible","position X","position Y","position Z","rotation X","rotation Y","rotation Z","scale X","scale Y","scale Z","Content","Image"]
+PASS Content has Image and Video (R19) 
+PASS the Image select does not list the video record (R20) ["Choose image…","Logo","Import file…"]
+PASS Content Video sends setScreenVideo with assetId null, autoPlay false, loop true, volume 1 (R19) [{"kind":"setScreenVideo","entityId":"65b67541-669d-4175-bab5-4582cf40f04c","video":{"assetId":null,"autoPlay":false,"loop":true,"volume":1}}]
+PASS the Video select lists Choose video…, no record yet, and Import file… (R19, R20) ["Choose video…","Import file…"]
+PASS without a video, Play shows and is disabled (R19) "Play"
+PASS a cancelled import sends nothing and keeps the value (R19) []
+PASS an import error shows the host message (R19) "Video is too large"
+PASS an import error without a host message shows Could not import video (R19) "Could not import video"
+PASS Import file… runs import_video and sends setScreenVideo for this screen with the other values unchanged (R19) [{"kind":"setScreenVideo","entityId":"65b67541-669d-4175-bab5-4582cf40f04c","video":{"assetId":"video_7fd6d03f8e967843520810b4e82b679db728dd9a5ac961efe6f99061e8217a60","autoPlay":false,"loop":true,"volume":1}}]
+PASS the Video select shows the imported record and no Image record (R19, R20) 
+PASS the import error clears after a good import 
+INFO preview read the video bytes 1 time(s)
+PASS Auto Play, Loop, and Volume send setScreenVideo with the other values unchanged (R19) [{"kind":"setScreenVideo","entityId":"65b67541-669d-4175-bab5-4582cf40f04c","video":{"assetId":"video_7fd6d03f8e967843520810b4e82b679db728dd9a5ac961efe6f99061e8217a60","autoPlay":true,"loop":true,"volume":1}},{"kind":"setScreenVideo","entityId":"65b67541-669d-4175-bab5-4582cf40f04c","video":{"assetId":"video_7fd6d03f8e967843520810b4e82b679db728dd9a5ac961efe6f99061e8217a60","autoPlay":true,"loop":false,"volume":1}},{"kind":"setScreenVideo","entityId":"65b67541-669d-4175-bab5-4582cf40f04c","video":{"assetId":"video_7fd6d03f8e967843520810b4e82b679db728dd9a5ac961efe6f99061e8217a60","autoPlay":true,"loop":false,"volume":0.5}}]
+PASS Content, Video, Auto Play, Loop, and Volume show reset marks (R19, B17) ["Reset Content","Reset Video","Reset Auto Play","Reset Loop","Reset Volume"]
+PASS Play sends controlScreenVideo play and the label turns to Pause from the frame (R19) {"label":"Pause","sent":[{"kind":"controlScreenVideo","entityId":"65b67541-669d-4175-bab5-4582cf40f04c","action":"play"}],"frame":[{"entityId":"65b67541-669d-4175-bab5-4582cf40f04c","playing":true,"positionMs":178}]}
+PASS Restart sends controlScreenVideo restart and keeps playing (R19) [{"kind":"controlScreenVideo","entityId":"65b67541-669d-4175-bab5-4582cf40f04c","action":"restart"}]
+PASS Pause sends controlScreenVideo pause and the label turns to Play (R19) [{"kind":"controlScreenVideo","entityId":"65b67541-669d-4175-bab5-4582cf40f04c","action":"pause"}]
+PASS with the preview off, the label still follows the frames (R19) "Pause"
+console Failed to load resource: the server responded with a status of 404 (Not Found)
+PASS a video ID that is not in the library shows Missing video (R22) "Missing video"
+PASS Open keeps the video screen and its saved content (R22) {"assetId":"video_7fd6d03f8e967843520810b4e82b679db728dd9a5ac961efe6f99061e8217a60","autoPlay":true,"loop":true,"volume":0.75,"kind":"video"}
+PASS after Open, the label follows autoPlay (Pause) (R22) "Pause"
+PASS the stand-in adds three video screens and one image screen true
+PASS at the video screen limit, Content Video is disabled on an image screen (R19) 
+PASS a video screen can still choose its Content at the limit (R19) 
+PASS Duplicate is disabled for a video screen at the limit (R19) 
+PASS Duplicate stays enabled for an image screen at the video limit 
+PASS the Content reset sends setScreenImage with null (R19, B17) [{"kind":"setScreenImage","entityId":"65b67541-669d-4175-bab5-4582cf40f04c","assetId":null}]
+PASS the Assets list shows the video format, video codec, and audio codec (R19) ["LogoPNGUser supplied","ClipWEBM · VP9 · OpusUser supplied"]
+PASS no page errors []
+30/30 passed
