@@ -50,6 +50,25 @@ The Scene window reloaded one time during this run. The session ID changed, and 
 
 Calls 3 and 6 sent non-null expectations (the key light and the stored hotkey graph) through the Rust router. Both applied. The edit to the fill light in call 2 did not block call 3. After call 6, `blueprint_inspect` listed the keystroke `Alt+Digit2` and no `Alt+Digit1`.
 
+## Third run: light calibration
+
+Date: 2026-11-08. Code: `2aeff28`. The owner saw that the `bright` lights blew out the face and hair. The renderer uses physical units with decay 2, so a spot light gives `intensity / d²` at the avatar. The `bright` key spot (320 at 3.3 m) gave about 30 there, and the default directional light (3) stayed on under it. MToon shows the texture color near π in total.
+
+A sweep set raw intensities with `scene_patch` on the same rig and took OBS source frames of a medium front camera and a close-up side camera. The table gives the share of clipped pixels (any channel 250 or more) in the center 30% of the frame.
+
+| Key, fill, rim, directional | Front | Side |
+| --- | --- | --- |
+| 320, 80, 320, 3 (old `bright`) | 99.6% | 94.1% |
+| 160, 80, 160, 3 (old `normal`) | 72.3% | 47.8% |
+| 60, 20, 60, 3 (editor defaults) | 14.2% | 21.6% |
+| 21, 10, 16, 3 | 12.2% | 19.9% |
+| 21, 10, 16, 1 | 11.0% | 12.6% |
+| 21, 10, 16, 0 | 10.4% | 8.0% |
+
+Below the editor defaults, the front value stays near 10%: that is the white test boards. The face and hair kept detail only when the directional light was 1 or less. The words now give the light at the target (`dim` 0.5, `soft` 1, `normal` 2, `bright` 3), and a new key light dims each directional light to `dim`.
+
+A new app run built the same rig with the thin tools (key purple `bright` with shadow, fill cool `soft`, rim blue `bright`, `medium` haze). The key reply had the note `dimmedLight @e2`. The lights were key 32.9, fill 12.3, rim 32.9, and directional 0.5. Clipped pixels: front 11.7%, side 16.0%. [Before and after](chat-thin-tools-exposure.jpg) (left: old values; right: new values; top: medium front; bottom: side close-up). The face, hair, eyes, and color chart have detail, and the purple and blue light still show.
+
 ## OBS recording
 
 An isolated QA scene with one browser source showed `output_main`. The script switched the program scene to it, started a local test recording, and 2 s later ran Play with `blueprint_run` (`triggerNodeId: play`). It then stopped the recording and restored the prior program scene. OBS removed the QA scene and source. The final OBS state was: program scene "Scene", not streaming, not recording.
@@ -66,7 +85,7 @@ The script took source captures every 257 ms on average and measured the mean ch
 
 ## Findings
 
-- **Exposure.** At the end pose, the face and hair are white with no detail ([OBS end frame](chat-thin-tools-obs-end.png)). The `bright` key spot is 320 with purple. The `bright` rim is blue. With `medium` haze, this is too bright for the test stage. The word values are the builder's choice (`words.ts`). Change them before slice 2 measures prompts against the scene result.
+- **Exposure (fixed in the third run).** At the end pose, the face and hair were white with no detail ([OBS end frame](chat-thin-tools-obs-end.png)). See [Third run: light calibration](#third-run-light-calibration).
 - **Scene ID.** No MCP tool gives the current scene ID. This check used `scene_smoke` from the editor default. A small model must get the ID from the harness, or `scene_summary` must not need it.
 - **Play moves the persistent camera.** When the move ends, the revision goes from 9 to 10. The Blueprint writes the end pose to the scene. A later `camera_move` on the same camera starts from the snap pose, so the result is the same.
 
