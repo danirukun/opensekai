@@ -39,10 +39,10 @@ describe('sceneSummary', () => {
   expect(lines[0]).toContain('Island');
  });
 
- it('puts assets that the scene uses first', () => {
-  const assets = [asset('a', 'Alpha', ['palm']), asset('fixture_glb_1', 'Zed')];
+ it('puts assets that an avatar or environment in the scene uses first, but not a prop mesh asset', () => {
+  const assets = [asset('a', 'Alpha', ['palm']), asset('fixture_vrm_1', 'Zed'), asset('fixture_glb_1', 'Prop')];
   const lines = assetLines(sceneSummary({ ...base, scene, assets, prompt: 'palm' }).text);
-  expect(lines[0]).toContain('Zed');
+  expect(lines.map(l => l.split(' · ')[0]!.replace(/^@a\d+ /, ''))).toEqual(['Zed', 'Alpha', 'Prop']);
  });
 
  it('ranks assets for a Japanese prompt', () => {
@@ -108,6 +108,19 @@ describe('lookUp', () => {
   expect(e.ok && e.data).toContain('Concert hall');
   const a = lookUp({ ...base, scene: withEnv, assets: [room], refs, ref: refs.assets.room! });
   for (const part of ['Hall', 'Ada', 'CC-BY-4.0', 'https://example.com/hall']) expect(a.ok && a.data).toContain(part);
+ });
+
+ it('omits a null credit title or author', () => {
+  const credited = (title: string | null, author: string | null): AssetSummary => ({ id: 'room', kind: 'scene', name: 'Hall', credits: { title, author, license: 'CC0', sourceUrl: null } });
+  const text = (title: string | null, author: string | null) => {
+   const assets = [credited(title, author)], { refs } = sceneSummary({ ...base, scene, assets });
+   const r = lookUp({ ...base, scene, assets, refs, ref: refs.assets.room! });
+   return r.ok ? r.data : '';
+  };
+  expect(text(null, 'Ada')).toBe('Hall · scene · by Ada, CC0');
+  expect(text('Hall', null)).toBe('Hall · scene · Hall, CC0');
+  expect(text(null, null)).toBe('Hall · scene · CC0');
+  for (const t of [text(null, 'Ada'), text('Hall', null), text(null, null)]) expect(t).not.toContain('null');
  });
 
  it('gives a Blueprint its node type counts', () => {

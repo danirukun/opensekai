@@ -5,9 +5,6 @@ export const SUMMARY_ASSETS = 12;
 
 type Input = { scene: SceneView; blueprints: BlueprintGraph[]; assets: AssetSummary[]; refs: RefTable; selection: Id | null };
 
-const entityAssetId = (e: SceneEntity): Id | null =>
- e.kind === 'avatar' || e.kind === 'environment' ? e.assetId : e.kind === 'mesh' && e.source.kind === 'asset' ? e.source.assetId : null;
-
 const entityRefOrNone = (refs: RefTable, id: Id | null) => id !== null && Object.hasOwn(refs.entities, id) ? refOf(refs, 'entity', id) : 'none';
 
 const words = (s: string) => s.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
@@ -17,7 +14,8 @@ const score = (a: AssetSummary, prompt: string) =>
   .filter(w => w !== '' && prompt.includes(w)).length;
 
 const rankAssets = (assets: AssetSummary[], scene: SceneView, prompt: string): AssetSummary[] => {
- const used = new Set(scene.entities.map(entityAssetId));
+ // Only the assets of avatars and environments come first (R9); a prop mesh asset ranks by the prompt.
+ const used = new Set(scene.entities.flatMap(e => e.kind === 'avatar' || e.kind === 'environment' ? [e.assetId] : []));
  const p = prompt.toLowerCase();
  return assets
   .map(a => ({ a, used: used.has(a.id), s: score(a, p) }))
@@ -64,7 +62,7 @@ const describeEntity = (e: SceneEntity, assets: AssetSummary[]): string =>
 
 const describeAsset = (a: AssetSummary): string => [
  a.name, a.kind, a.catalog?.description, a.catalog?.tags.join(', '),
- a.credits && [`${a.credits.title} by ${a.credits.author}`, a.credits.license, a.credits.sourceUrl].filter(Boolean).join(', '),
+ a.credits && [[a.credits.title, a.credits.author && `by ${a.credits.author}`].filter(Boolean).join(' '), a.credits.license, a.credits.sourceUrl].filter(Boolean).join(', '),
 ].filter(Boolean).join(' · ');
 
 export const lookUp = (input: Input & { ref: string }): Reply<string> => {
