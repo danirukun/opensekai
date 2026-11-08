@@ -82,13 +82,15 @@ export const resolveAsset = (state: WorkingState, context: CompileContext, ref: 
 // An avatar-like stand-in at the origin: the last target fallback. It is never emitted.
 const ORIGIN: SceneEntity = { id: '', name: 'origin', visible: true, kind: 'avatar', assetId: null, transform: { position: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] } };
 
-// A missing target falls back to the selection, then the first avatar, then the origin (R11).
+const TARGET_KINDS: readonly SceneEntity['kind'][] = ['avatar', 'mesh', 'camera', 'light', 'environment'];
+
+// A missing target falls back to the selection (when it is a target kind), then the first avatar, then the origin (R11).
 export const resolveTarget = (state: WorkingState, context: CompileContext, ref: Ref | undefined): Reply<{ target: SceneEntity; state: WorkingState }> => {
  if (ref !== undefined) {
-  const hit = resolveEntity(state, ref, null, 'an entity');
+  const hit = resolveEntity(state, ref, TARGET_KINDS, 'a target entity');
   return hit.ok ? ok({ target: hit.data, state }) : hit;
  }
- const found = state.scene.entities.find(e => e.id === context.selection) ?? state.scene.entities.find(e => e.kind === 'avatar');
+ const found = state.scene.entities.find(e => e.id === context.selection && TARGET_KINDS.includes(e.kind)) ?? state.scene.entities.find(e => e.kind === 'avatar');
  const r = found && entityRef(state, found.id);
  return ok({ target: found ?? ORIGIN, state: note(state, r ? { code: 'targetDefaulted', ref: r } : { code: 'targetDefaulted' }) });
 };

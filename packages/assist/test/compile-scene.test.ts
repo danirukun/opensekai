@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { LightSettingsSchema, PatchOpSchema, PROPOSAL_LIMITS, quaternionFromEuler, rotateByQuaternion, SceneViewSchema, type SceneEntity, type SceneView, type Vec3 } from '@opensekai/contracts';
-import { applyToWorking, compileIntents, targetPoint, WORDS, type Intent, type Proposal } from '../src';
+import { applyToWorking, assignRefs, compileIntents, targetPoint, WORDS, type Intent, type Proposal } from '../src';
 import { assets, ctx, data, lightEntity, scene, summaryRefs } from './context';
 
 const createdEntities = (p: Proposal) => p.sceneOps.flatMap(o => o.kind === 'createEntity' ? [o.entity] : []);
@@ -130,6 +130,18 @@ describe('compileIntents: references', () => {
   expect(compileIntents([{ tool: 'camera_add', framing: 'wide', target: '@a1' }], ctx())).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', ids: ['@a1'] } });
   expect(compileIntents([{ tool: 'environment_set', asset: '@e1' }], ctx())).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', ids: ['@e1'] } });
   expect(compileIntents([{ tool: 'environment_set', asset: '@a3' }], ctx())).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', ids: ['@a3'] } });
+ });
+
+ it('accepts only avatar, mesh, camera, light, and environment entities as a target or near', () => {
+  const fog: SceneEntity = { id: 'fog', name: 'Fog', visible: true, kind: 'haze', haze: WORDS.haze.light, transform: { position: [0, 4, 0], rotation: [0, 0, 0, 1], scale: [20, 8, 20] } };
+  const refs = assignRefs(summaryRefs, { entities: ['fog'], blueprints: [], assets: [] }), fogRef = refs.entities.fog!;
+  const c = ctx({ scene: withEntities(fog), refs });
+  for (const intent of [{ tool: 'light_setup', role: 'key', target: fogRef }, { tool: 'camera_add', framing: 'wide', target: fogRef }, { tool: 'prop_place', asset: '@a2', near: fogRef }] as Intent[])
+   expect(compileIntents([intent], c)).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', ids: [fogRef] } });
+  for (const target of ['@e1', '@e2', '@e3', '@e4'])
+   expect(compileIntents([{ tool: 'camera_add', framing: 'wide', target }], c).ok).toBe(true);
+  // A selected haze is not a target, so the fallback takes the first avatar.
+  expect(data(compileIntents([{ tool: 'light_setup', role: 'key' }], { ...c, selection: 'fog' })).notes).toEqual([{ code: 'targetDefaulted', ref: '@e1' }]);
  });
 
  it('ignores a selection that is not in the scene', () => {
