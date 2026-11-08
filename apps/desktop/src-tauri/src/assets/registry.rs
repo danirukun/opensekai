@@ -384,6 +384,7 @@ fn library_prefix(format: &AssetFormat) -> &'static str {
         AssetFormat::Vrm => "avatar",
         AssetFormat::Glb => "scene",
         AssetFormat::Png | AssetFormat::Jpeg | AssetFormat::Webp | AssetFormat::Gif => "image",
+        AssetFormat::Mp4 | AssetFormat::Webm => "video",
     }
 }
 /// Reads, checks, and hashes an image into temporary library files. Runs without the registry lock (B28 R5).
@@ -432,6 +433,7 @@ pub fn stage_image(library: &Path, path: &Path) -> Result<StagedAsset, AppError>
             height: header.height,
             frames: header.frames,
         }),
+        video: None,
     };
     record.validate()?;
     std::fs::create_dir_all(library).map_err(|_| error(ErrorCode::Unavailable, ""))?;
@@ -522,6 +524,7 @@ pub fn prepare_scene(packed: PackedScene) -> Result<PreparedScene, AppError> {
         rig: None,
         meshes: None,
         image: None,
+        video: None,
     };
     record.validate()?;
     Ok(PreparedScene {
@@ -612,6 +615,7 @@ pub fn stage_avatar(library: &Path, path: &Path) -> Result<StagedAsset, AppError
         rig,
         meshes,
         image: None,
+        video: None,
     };
     copy.as_file()
         .sync_all()

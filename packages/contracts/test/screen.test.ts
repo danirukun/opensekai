@@ -21,7 +21,7 @@ it('accepts screens with and without an image up to the limit', () => {
     expect(SceneViewSchema.safeParse(full).success).toBe(true);
     full.entities.push(screen('over', null));
     expect(SceneViewSchema.safeParse(full).success).toBe(false);
-    expect(SceneViewSchema.safeParse({ ...scene, entities: [...scene.entities, { ...screen('v', null), content: { kind: 'video', assetId: null } }] }).success).toBe(false);
+    expect(SceneViewSchema.safeParse({ ...scene, entities: [...scene.entities, { ...screen('w', null), content: { kind: 'web', assetId: null } }] }).success).toBe(false);
 });
 it('parses setScreenImage with an image or null and rejects it without assetId', () => {
     expect(PatchOpSchema.safeParse({ kind: 'setScreenImage', entityId: 'logo', assetId: 'image_a' }).success).toBe(true);
