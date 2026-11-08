@@ -445,3 +445,29 @@ async fn ending_a_capture_that_is_not_active_does_not_reconcile() {
     assert_eq!(last_set(&fake), vec!["Control+Alt+KeyH".to_string()]);
     s.shutdown().await.unwrap();
 }
+
+#[tokio::test]
+async fn a_proposal_apply_reply_teaches_the_router_its_blueprint_keystrokes() {
+    let (_d, s) = service().await;
+    let fake: Sets = std::sync::Arc::new(Fake(Default::default()));
+    s.ports().set_keystroke_registrar(fake.clone());
+    let mut p = auth(&s.publisher_descriptor()).await;
+    let mut o = auth(&s.operator_descriptor()).await;
+    send(
+        &mut o,
+        json!({"kind":"call","requestId":"apply","method":"proposalApply","params":{"sceneId":"scene_main","expect":{"entities":[],"blueprints":[{"id":"g","fingerprint":null}]},"sceneOps":[],"blueprint":{"clientId":"c","batchId":"b","ops":[{"kind":"removeGraph","graphId":"g"}]},"output":null}}),
+    )
+    .await;
+    let relayed = recv_non_clock(&mut p).await;
+    assert_eq!(relayed["method"], "proposalApply");
+    send(
+        &mut p,
+        json!({"kind":"reply","requestId":relayed["requestId"],"result":{"ok":true,"data":{"revision":3,"blueprint":{"revision":1,"keystrokes":["Control+Alt+KeyK"]}}}}),
+    )
+    .await;
+    let reply = recv_non_clock(&mut o).await;
+    assert_eq!(reply["requestId"], "apply");
+    assert_eq!(reply["result"]["ok"], true);
+    assert_eq!(last_set(&fake), vec!["Control+Alt+KeyK".to_string()]);
+    s.shutdown().await.unwrap();
+}
