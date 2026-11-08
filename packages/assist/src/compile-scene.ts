@@ -28,6 +28,7 @@ const place = (target: SceneEntity, offset: Vec3, height: number): Vec3 => {
  return [x + dx, y + height + dy, z + dz];
 };
 const scale = ([x, y, z]: Vec3, k: number): Vec3 => [x * k, y * k, z * k];
+const squaredDistance = ([ax, ay, az]: Vec3, [bx, by, bz]: Vec3) => (ax - bx) ** 2 + (ay - by) ** 2 + (az - bz) ** 2;
 
 export const compileLight = only('light_setup', (i, state, context) => {
  const t = resolveTarget(state, context, i.target);
@@ -42,15 +43,17 @@ export const compileLight = only('light_setup', (i, state, context) => {
  const type = i.role === 'ambient' ? 'ambient' : 'spot';
  const wantShadow = i.shadow ?? role.shadow;
  const shadow = type === 'spot' && wantShadow && others.filter(e => e.light.shadow.enabled).length < LIMITS.shadowLights;
- const light: LightSettings = {
-  type, color: WORDS.color[i.color ?? role.color], intensity: WORDS.intensity[i.intensity ?? role.intensity][type], range: type === 'spot' ? SPOT.range : 0,
-  affectCharacters: true, affectProps: true, affectEnvironment: true, shadow: { enabled: shadow, ...SHADOW },
-  ...(type === 'spot' ? { cone: { ...SPOT.cone }, volumetric: SPOT.volumetric } : {}),
- };
  const height = WORDS.height[i.height ?? role.height];
  // An ambient light has no place or direction; it stays above the target with no rotation.
  const position = type === 'ambient' ? place(target, [0, 0, 0], height) : place(target, scale(WORDS.direction[i.direction ?? role.direction], role.distance), height);
- const rotation = type === 'ambient' ? IDENTITY : lookAt(position, targetPoint(target));
+ const aim = targetPoint(target);
+ const rotation = type === 'ambient' ? IDENTITY : lookAt(position, aim);
+ const word = WORDS.intensity[i.intensity ?? role.intensity][type];
+ const light: LightSettings = {
+  type, color: WORDS.color[i.color ?? role.color], intensity: type === 'spot' ? Math.round(word * squaredDistance(position, aim) * 10) / 10 : word, range: type === 'spot' ? SPOT.range : 0,
+  affectCharacters: true, affectProps: true, affectEnvironment: true, shadow: { enabled: shadow, ...SHADOW },
+  ...(type === 'spot' ? { cone: { ...SPOT.cone }, volumetric: SPOT.volumetric } : {}),
+ };
  if (replaced) {
   const ops = [
    { kind: 'setLight' as const, entityId: replaced.id, light },
@@ -62,10 +65,19 @@ export const compileLight = only('light_setup', (i, state, context) => {
  }
  const id = context.newId('light');
  const made = create(t.data.state, { id, name: i.name ?? role.name, visible: true, kind: 'light', transform: transform(position, rotation), light });
- if (!made.ok || !wantShadow || shadow) return made;
+ if (!made.ok) return made;
  const ref = entityRef(made.data, id);
- return ok(note(made.data, ref ? { code: 'shadowSkipped', ref } : { code: 'shadowSkipped' }));
+ const created = !wantShadow || shadow ? made.data : note(made.data, ref ? { code: 'shadowSkipped', ref } : { code: 'shadowSkipped' });
+ return ok(i.role === 'key' ? dimSuns(created, others) : created);
 });
+
+// A new key light becomes the main light: a bright directional light under it clips an MToon face.
+const dimSuns = (state: WorkingState, lights: SceneEntity[]): WorkingState => lights.reduce((s, e) => {
+ if (e.kind !== 'light' || !e.visible || e.light.type !== 'directional' || e.light.intensity <= WORDS.intensity.dim.directional) return s;
+ const ref = entityRef(s, e.id);
+ const dimmed = touch(emit(s, [{ kind: 'setLight', entityId: e.id, light: { ...e.light, intensity: WORDS.intensity.dim.directional } }]), e.id);
+ return note(dimmed, ref ? { code: 'dimmedLight', ref } : { code: 'dimmedLight' });
+}, state);
 
 export const compileCamera = only('camera_add', (i, state, context) => {
  const t = resolveTarget(state, context, i.target);

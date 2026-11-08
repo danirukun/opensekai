@@ -8,11 +8,13 @@ const s2 = Math.SQRT1_2;
 // Direction vectors are unit offsets from the target, +Y up. Avatars face +Z, and the words are from the viewer's side,
 // facing the avatar from its front: `left` is −X, left in the output image and the avatar's right.
 export const WORDS = {
+ // Light at the target in directional-light units; the compiler scales a spot or point light by its distance squared.
+ // Calibrated on OBS frames of an MToon avatar, which shows its texture color near π in total.
  intensity: {
-  dim: { directional: 0.4, point: 15, spot: 30, ambient: 0.15 },
-  soft: { directional: 0.8, point: 40, spot: 80, ambient: 0.3 },
-  normal: { directional: 1.4, point: 80, spot: 160, ambient: 0.5 },
-  bright: { directional: 2.4, point: 160, spot: 320, ambient: 0.8 },
+  dim: { directional: 0.5, point: 0.5, spot: 0.5, ambient: 0.15 },
+  soft: { directional: 1, point: 1, spot: 1, ambient: 0.3 },
+  normal: { directional: 2, point: 2, spot: 2, ambient: 0.5 },
+  bright: { directional: 3, point: 3, spot: 3, ambient: 0.8 },
  } satisfies Record<Intensity, Record<LightType, number>>,
  color: {
   candle: '#ff9329', warm: '#ffc58f', neutral: '#fff1e0', daylight: '#ffffff', cool: '#c9e2ff', white: '#ffffff',

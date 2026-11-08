@@ -3,7 +3,7 @@ import type { Intent, IntentTool, Ref } from './intents';
 import { assignRefs, resolveRef, type RefTable } from './refs';
 
 export type CompileContext = { scene: SceneView; blueprints: BlueprintGraph[]; assets: AssetSummary[]; refs: RefTable; selection: Id | null; newId: (kind: string) => Id };
-export type Note = { code: 'targetDefaulted' | 'shadowSkipped' | 'replacedExisting' | 'countClamped' | 'playFailed'; ref?: Ref };
+export type Note = { code: 'targetDefaulted' | 'shadowSkipped' | 'replacedExisting' | 'countClamped' | 'dimmedLight' | 'playFailed'; ref?: Ref };
 export type Proposal = {
  sceneOps: PatchOp[]; blueprintOps: BlueprintOp[]; output: { outputId: Id; cameraId: Id } | null; play: { graphId: Id; nodeId: Id }[];
  touched: { entities: Id[]; blueprints: Id[] }; created: { entities: Id[]; blueprints: Id[] }; notes: Note[]; refs: RefTable;

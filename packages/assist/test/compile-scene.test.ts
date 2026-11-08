@@ -13,6 +13,14 @@ const aimError = (e: SceneEntity, target: Vec3) => {
 const performer = scene.entities.find(e => e.id === 'performer')!;
 const withEntities = (...entities: SceneEntity[]): SceneView => ({ ...scene, entities: [...scene.entities, ...entities] });
 const threePoint: Intent[] = [{ tool: 'light_setup', role: 'key' }, { tool: 'light_setup', role: 'fill' }, { tool: 'light_setup', role: 'rim' }];
+// The light that arrives at the aim point from a spot light with decay 2.
+const atTarget = (e: SceneEntity, target: Vec3) => e.kind === 'light' ? e.light.intensity / Math.hypot(...e.transform.position.map((v, k) => v - target[k]!) as Vec3) ** 2 : NaN;
+const sun = (id: string, intensity: number, visible = true): SceneEntity => {
+ const e = lightEntity(id);
+ return e.kind === 'light' ? { ...e, visible, light: { ...e.light, type: 'directional', intensity, range: 0 } } : e;
+};
+// @e3 (`lamp`) as a directional light.
+const withSun = (intensity: number, visible = true): SceneView => ({ ...scene, entities: scene.entities.map(e => e.id === 'lamp' ? sun('lamp', intensity, visible) : e) });
 
 describe('compileIntents: lights', () => {
  it('compiles a three-point light around the selected avatar', () => {
@@ -53,8 +61,40 @@ describe('compileIntents: lights', () => {
  it('uses the color, intensity, height, and name words', () => {
   const p = data(compileIntents([{ tool: 'light_setup', role: 'fill', target: '@e1', color: 'purple', intensity: 'bright', height: 'low', name: 'Purple fill' }], ctx()));
   const [e] = createdEntities(p);
-  expect(e).toMatchObject({ name: 'Purple fill', light: { color: WORDS.color.purple, intensity: WORDS.intensity.bright.spot } });
+  expect(e).toMatchObject({ name: 'Purple fill', light: { color: WORDS.color.purple } });
+  expect(atTarget(e!, targetPoint(performer))).toBeCloseTo(WORDS.intensity.bright.spot, 1);
   expect(e!.transform.position[1]).toBeCloseTo(WORDS.height.low);
+ });
+
+ it('gives each spot light the word\'s light at the target, whatever its distance', () => {
+  const p = data(compileIntents(threePoint, ctx({ selection: 'performer' })));
+  const [key, fill, rim] = createdEntities(p);
+  expect(atTarget(key!, targetPoint(performer))).toBeCloseTo(WORDS.intensity.normal.spot, 1);
+  expect(atTarget(fill!, targetPoint(performer))).toBeCloseTo(WORDS.intensity.soft.spot, 1);
+  expect(atTarget(rim!, targetPoint(performer))).toBeCloseTo(WORDS.intensity.normal.spot, 1);
+  expect(key!.kind === 'light' && key!.light.intensity).not.toBe(fill!.kind === 'light' && fill!.light.intensity);
+ });
+
+ it('dims a bright directional light when it creates a key light', () => {
+  const p = data(compileIntents([{ tool: 'light_setup', role: 'key', target: '@e1' }], ctx({ scene: withSun(3) })));
+  const dim = p.sceneOps.find(o => o.kind === 'setLight');
+  expect(dim).toMatchObject({ kind: 'setLight', entityId: 'lamp', light: { type: 'directional', intensity: WORDS.intensity.dim.directional, range: 0 } });
+  expect(p.touched.entities).toEqual(['lamp']);
+  expect(p.notes).toEqual([{ code: 'dimmedLight', ref: '@e3' }]);
+ });
+
+ it('leaves a directional light alone when it is already dim, hidden, or the light is not a new key', () => {
+  for (const [intents, view] of [
+   [[{ tool: 'light_setup', role: 'key', target: '@e1' }], withSun(WORDS.intensity.dim.directional)],
+   [[{ tool: 'light_setup', role: 'key', target: '@e1' }], withSun(3, false)],
+   [[{ tool: 'light_setup', role: 'fill', target: '@e1' }, { tool: 'light_setup', role: 'rim', target: '@e1' }], withSun(3)],
+  ] as [Intent[], SceneView][]) {
+   const p = data(compileIntents(intents, ctx({ scene: view })));
+   expect(p.sceneOps.some(o => o.kind === 'setLight')).toBe(false);
+   expect(p.notes).toEqual([]);
+  }
+  const replaced = data(compileIntents([{ tool: 'light_setup', role: 'key', target: '@e1', replace: '@e3' }], ctx({ scene: withEntities(sun('sun', 3)) })));
+  expect(replaced.sceneOps.filter(o => o.kind === 'setLight').map(o => 'entityId' in o && o.entityId)).toEqual(['lamp']);
  });
 
  it('makes an ambient light with no shadow', () => {
