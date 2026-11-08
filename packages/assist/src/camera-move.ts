@@ -1,4 +1,4 @@
-import { quaternionFromEuler, rotateByQuaternion, type BlueprintConnection, type BlueprintGraph, type BlueprintNode, type Easing, type SceneEntity, type Vec3 } from '@opensekai/contracts';
+import { quaternionFromEuler, rotateByQuaternion, type BlueprintConnection, type BlueprintGraph, type BlueprintNode, type Easing, type Reply, type SceneEntity, type Vec3 } from '@opensekai/contracts';
 import { eulerDegrees, lookAt, targetPoint } from './aim';
 import { COLUMN, invalid, ok, only, putGraph, resolveEntity, resolveTarget, withProposal } from './compile-kit';
 import type { EasingWord, Framing, Intent } from './intents';
@@ -41,10 +41,14 @@ const orbit = (i: Move, camera: SceneEntity, target: SceneEntity): Waypoint[] =>
 };
 
 // Dolly, push-in, and pull-out move along the line from the aim point to the camera, to the framing distance.
-const line = (kind: keyof typeof STRAIGHT_FRAMING, i: Move, camera: SceneEntity, target: SceneEntity): Waypoint => {
+// A push-in must end nearer to the aim point and a pull-out farther; a dolly has no direction.
+const line = (kind: keyof typeof STRAIGHT_FRAMING, i: Move, camera: SceneEntity, target: SceneEntity): Reply<Waypoint> => {
  const framing = i.endFraming ?? STRAIGHT_FRAMING[kind];
- const aim = targetPoint(target, framing);
- return { position: along(aim, unit(sub(camera.transform.position, aim), [0, 0, 1]), WORDS.framing[framing].distance), aim };
+ const aim = targetPoint(target, framing), offset = sub(camera.transform.position, aim);
+ const now = Math.hypot(...offset), distance = WORDS.framing[framing].distance;
+ if (kind === 'pushIn' && now <= distance) return invalid(`Camera is already nearer than ${framing}`, [i.camera]);
+ if (kind === 'pullOut' && now >= distance) return invalid(`Camera is already farther than ${framing}`, [i.camera]);
+ return ok({ position: along(aim, unit(offset, [0, 0, 1]), distance), aim });
 };
 // A crane moves straight up or down and keeps the camera above the floor.
 const crane = (i: Move, camera: SceneEntity, target: SceneEntity): Waypoint => {
@@ -101,7 +105,9 @@ export const compileCameraMove = only('camera_move', (i, state, context) => {
  if (!t.ok) return t;
  const { target } = t.data;
  if (target.id === camera.id) return invalid('A camera cannot orbit or aim at itself', [i.target ?? i.camera]);
- const points = i.kind === 'orbit' ? orbit(i, camera, target) : [i.kind === 'crane' ? crane(i, camera, target) : line(i.kind, i, camera, target)];
+ const straight = i.kind === 'orbit' || i.kind === 'crane' ? null : line(i.kind, i, camera, target);
+ if (straight && !straight.ok) return straight;
+ const points = i.kind === 'orbit' ? orbit(i, camera, target) : [straight ? straight.data : crane(i, camera, target)];
  const id = context.newId('blueprint');
  const name = (i.name ?? `${camera.name} ${MOVE_NAMES[i.kind]}`).slice(0, GRAPH_NAME).trim();
  const put = putGraph(t.data.state, moveGraph(id, name, camera, points, i), null);

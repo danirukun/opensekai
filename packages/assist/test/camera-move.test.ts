@@ -138,6 +138,20 @@ describe('compileIntents: camera_move', () => {
   expect(new Set(p.blueprintOps.map((_, i) => graphOf(p, i).id)).size).toBe(4);
  });
 
+ it('rejects a push-in or pull-out that would move the wrong way', () => {
+  const at = (z: number) => ({ scene: { ...scene, entities: scene.entities.map(e => e.id === 'camera_wide' ? { ...cameraWide, transform: { ...cameraWide.transform, position: [0, 1, z] as Vec3 } } : e) } });
+  expect(compileIntents([move({ kind: 'pullOut' })], ctx(at(9)))).toEqual({ ok: false, error: { code: 'INVALID_INPUT', message: 'Camera is already farther than wide', ids: ['@e2'] } });
+  expect(compileIntents([move({ kind: 'pullOut', endFraming: 'medium' })], ctx(at(4)))).toMatchObject({ ok: false, error: { ids: ['@e2'] } });
+  expect(compileIntents([move({ kind: 'pushIn' })], ctx(at(1)))).toEqual({ ok: false, error: { code: 'INVALID_INPUT', message: 'Camera is already nearer than closeUp', ids: ['@e2'] } });
+  expect(compileIntents([move({ kind: 'pushIn', endFraming: 'wide' })], ctx(at(3)))).toMatchObject({ ok: false, error: { ids: ['@e2'] } });
+  // A dolly has no direction: it goes to the medium distance from either side.
+  for (const z of [1, 9]) {
+   const v = vec(steps(graphOf(data(compileIntents([move({ kind: 'dolly' })], ctx(at(z))))))[0]!.position), a = targetPoint(performer, 'medium');
+   expect(Math.hypot(v[0] - a[0], v[1] - a[1], v[2] - a[2])).toBeCloseTo(WORDS.framing.medium.distance);
+  }
+  expect(vec(steps(graphOf(data(compileIntents([move({ kind: 'pullOut' })], ctx(at(4))))))[0]!.position)[2]).toBeGreaterThan(4);
+ });
+
  it('keeps a crane down above the floor', () => {
   const s = steps(graphOf(data(compileIntents([move({ kind: 'crane', rise: 'down' })], ctx()))))[0]!;
   expect(vec(s.position)[1]).toBeGreaterThan(0);
