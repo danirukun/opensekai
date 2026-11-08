@@ -178,6 +178,30 @@ await settle(1500);
 const missing=await page.locator('.screen-image select option:checked').textContent();
 check('an image ID that is not in the library shows Missing image (R22)',missing?.trim()==='Missing image',missing);
 await page.screenshot({path:out+'/missing-image.png'});
+// Owner QA on #258 saw both renderers stop after an Open. Repeat the Open path (sceneReplace) with image resets and a
+// removed screen, then ask for a screenshot at the newest revision: the preview must still draw the image.
+const saved=structuredClone(await refresh());
+saved.entities=saved.entities.map(entity=>entity.id===id?{...entity,content:{kind:'image',assetId:record.id}}:entity);
+for(let round=0;round<6;round++){
+ await patch(round%2===0?[{kind:'setScreenImage',entityId:id,assetId:null}]:[{kind:'removeEntity',entityId:id}]);
+ await settle(150);
+ const current=await refresh();
+ const reply=await hostCall('sceneReplace',{scene:{...saved,revision:current.revision},expectedRevision:current.revision});
+ if(!reply.ok)log('sceneReplace',JSON.stringify(reply.error));
+ await settle(round%3===0?50:400);
+}
+await settle(3000);
+shot=null;
+preview?.send(JSON.stringify({kind:'screenshotRequest',requestId:'shot_2',params:{cameraId:camera.id,expectedRevision:(await refresh()).revision}}));
+{const asked=Date.now();while(!shot&&Date.now()-asked<20000)await settle(200);}
+if(shot?.ok){
+ const image=PNG.sync.read(Buffer.from(shot.data.pngBase64,'base64'));
+ writeFileSync(out+'/after-open-screenshot.png',PNG.sync.write(image));
+ const half=3*Math.tan(20*Math.PI/180);
+ const [x,y]=[Math.round((-0.5/(half*16/9)+1)/2*1920),540];
+ const alpha=image.data[(y*1920+x)*4+3];
+ check('after six Opens with resets and a removed screen, the preview draws the newest revision and the image (owner QA on #258)',alpha===255,{alpha});
+}else check('after six Opens with resets and a removed screen, the preview answers a screenshot at the newest revision (owner QA on #258)',false,shot?.error??'no reply');
 check('no page errors',errors.length===0,errors);
 clearInterval(clock);
 await browser.close();

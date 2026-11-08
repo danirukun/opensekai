@@ -174,3 +174,40 @@ export function createScreenMesh(image: Pick<ScreenImage, "texture" | "width" | 
     mesh.receiveShadow = false;
     return { root: mesh, dispose() { geometry.dispose(); material.dispose(); mesh.removeFromParent(); } };
 }
+
+export interface ScreenImageLease { image: ScreenImage; release(): void }
+/**
+ * Shared images for one renderer client. Each built quad holds a lease, and the texture and the bitmap close only when
+ * the last lease goes, so a drawn quad never holds a closed image. A failed load is not kept, so a retry loads again.
+ */
+export function createScreenImagePool(load: (id: string) => Promise<ScreenImage>) {
+    type Entry = { promise: Promise<ScreenImage>; leases: number; image?: ScreenImage };
+    const entries = new Map<string, Entry>();
+    let closed = false;
+    const drop = (id: string, entry: Entry) => {
+        if (entries.get(id) === entry) entries.delete(id);
+        entry.image?.dispose();
+    };
+    return {
+        async acquire(id: string): Promise<ScreenImageLease> {
+            if (closed) throw failure("CANCELLED", "Image pool disposed");
+            let entry = entries.get(id);
+            if (!entry) {
+                const created: Entry = { promise: load(id), leases: 0 };
+                created.promise.then(image => { created.image = image; if (created.leases === 0 || closed) drop(id, created); }, () => { if (entries.get(id) === created) entries.delete(id); });
+                entries.set(id, created);
+                entry = created;
+            }
+            const held = entry;
+            held.leases++;
+            let image: ScreenImage;
+            try { image = await held.promise; }
+            catch (error) { held.leases--; throw error; }
+            if (closed) { held.leases--; if (held.leases === 0) drop(id, held); throw failure("CANCELLED", "Image pool disposed"); }
+            let released = false;
+            return { image, release() { if (released) return; released = true; held.leases--; if (held.leases === 0) drop(id, held); } };
+        },
+        size: () => entries.size,
+        dispose() { closed = true; for (const [id, entry] of [...entries]) if (entry.leases === 0) drop(id, entry); },
+    };
+}

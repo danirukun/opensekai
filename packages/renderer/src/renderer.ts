@@ -19,7 +19,7 @@ import { createDiagnosticMarker } from "./diagnostic-marker";
 import { createPostChain } from "./post-chain";
 import { createHaze, type Haze } from "./haze";
 import { renderScreenshot, SCREENSHOT_HEIGHT, SCREENSHOT_WIDTH } from "./screenshot";
-import { createScreenMesh, loadScreenImage } from "./screen";
+import { createScreenImagePool, createScreenMesh, loadScreenImage } from "./screen";
 export interface RendererHandle {
     editor?: EditorHandle;
     applyFrame(frame: RuntimeFrame): Promise<FrameApplied>;
@@ -64,8 +64,9 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     // The haze volume (B13 R7). A pipeline failure while it draws stops it until the next node-set rebuild (R9).
     let haze: Haze | null = null, hazeFailed = false;
     const assets = createAssetCache(loadAsset);
-    // One texture for each image asset in this client, shared by all screens that show it (B28 R12).
-    const images = createAssetCache(id => loadScreenImage(() => options.resources.readAsset(id), quality.maxTextureSize));
+    // One texture for each image asset in this client, shared by all screens that show it (B28 R12). Each quad holds a
+    // lease, so the texture closes only when no quad uses it.
+    const images = createScreenImagePool(id => loadScreenImage(() => options.resources.readAsset(id), quality.maxTextureSize));
     const environmentLight = createEnvironmentLight(roomEnvironmentMap(renderer));
     type Ready = { root: Object3D; avatar?: ReturnType<typeof createAvatarBinding>; meshes?: ReadonlyMap<string, Object3D>; assetId?: string; assetDispose?: () => void; instanceDispose?: () => void; materials?: InstanceMaterials; lit: number; warnings: AppError[]; dispose(): void };
     const loadListeners = new Set<(entries: AssetLoadStatus[]) => void>();
@@ -79,12 +80,13 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     };
     const build = async (request: LoadRequest, report: (r: LoadReport) => void, cancelled: () => boolean): Promise<Ready> => {
         if (request.kind === "screen") {
-            const image = await images.get(request.assetId);
-            if (cancelled() || disposed) throw failure("CANCELLED", "Asset load cancelled");
-            const quad = createScreenMesh(image);
+            const lease = await images.acquire(request.assetId);
+            if (cancelled() || disposed) { lease.release(); throw failure("CANCELLED", "Asset load cancelled"); }
+            const quad = createScreenMesh(lease.image);
+            const release = () => { quad.dispose(); lease.release(); };
             try { await prepare(quad.root, report, cancelled); }
-            catch (error) { quad.dispose(); throw error; }
-            return { root: quad.root, assetId: request.assetId, instanceDispose: quad.dispose, lit: 0, warnings: [], dispose: quad.dispose };
+            catch (error) { release(); throw error; }
+            return { root: quad.root, assetId: request.assetId, instanceDispose: release, lit: 0, warnings: [], dispose: release };
         }
         if (request.kind === "avatar") {
             const asset = await loadAsset(request.assetId, report);
@@ -303,7 +305,6 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         const used = new Set([...objects.values()].flatMap(x => x.assetId ? [x.assetId] : []));
         for (const id of jobs.assetIds()) used.add(id);
         assets.retainOnly(used);
-        images.retainOnly(used);
         camera.fov = cameraEntity.lens.fovDegrees;
         camera.aspect = width / height;
         camera.near = cameraEntity.lens.near;

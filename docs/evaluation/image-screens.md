@@ -48,11 +48,13 @@ Result: 51 pass, 0 fail, 6 unknown. The haze box is outside the camera view, so 
 
 ## Editor and camera screenshot (headless Chromium)
 
-`image-screens/editor-check.mjs` runs the built Editor window with a stand-in host. Since the one-window change, the window runs the session worker as the publisher; the stand-in relays operator calls to it and frames to the preview renderer ([raw output](image-screens/editor-check.txt)). 17 of 17 pass:
+`image-screens/editor-check.mjs` runs the built Editor window with a stand-in host. Since the one-window change, the window runs the session worker as the publisher; the stand-in relays operator calls to it and frames to the preview renderer ([raw output](image-screens/editor-check.txt)). 18 of 18 pass:
 
 - The Add menu has Screen after Prop; Add makes `Screen`, then `Screen 2` (R17). The Hierarchy shows Screens (R18).
 - The Inspector has Transform and Screen; the Image select has `Choose image…`, the record, and `Import file…`. `Import file…` runs `import_image` once and sends one `setScreenImage` for that screen. The viewport reads the image over `GET /assets`, with no load failure. A chosen image has a reset mark, and the reset sends `null`. An ID that is not in the library shows `Missing image` (R19, R22). [Inspector](image-screens/inspector-screen.png), [missing image](image-screens/missing-image.png).
 - The preview renderer answers a camera screenshot request. The 1920 × 1080 PNG has alpha 255 on the opaque part, 0 on the transparent part and outside, and 128 on the strip (R15). [Screenshot](image-screens/camera-screenshot.png).
+
+- After six Opens (`sceneReplace`) with image resets and a removed screen in between, the preview answers a screenshot at the newest revision and draws the image ([screenshot](image-screens/after-open-screenshot.png)). This step was added after the owner QA on #258 saw both renderers stop after an Open. It also passes on the code before the image lease fix, so the cloud did not reproduce that freeze.
 
 The viewport is WebGPU in this check, and its page capture is one flat color ([viewport](image-screens/editor-screen.png)), so the viewport pixels are unknown.
 

@@ -1,7 +1,7 @@
 import { it, expect, vi, beforeEach } from 'vitest';
 import { DoubleSide, Mesh, Texture, type Group, type MeshBasicNodeMaterial } from 'three/webgpu';
 import { QUALITY_PROFILES, makeSmokeFrame, type RuntimeFrame, type SceneEntity } from '@opensekai/contracts';
-import { bitmapOptions, createScreenMesh, decodeSize, hasAlpha, imageFormatOf, IMAGE_LOAD_FAILED, readImageHeader } from '../src/screen';
+import { bitmapOptions, createScreenImagePool, createScreenMesh, decodeSize, hasAlpha, imageFormatOf, IMAGE_LOAD_FAILED, readImageHeader } from '../src/screen';
 const ports = vi.hoisted(() => ({ load: vi.fn(), render: vi.fn(), compile: vi.fn(), image: vi.fn() }));
 vi.mock('../src/backend', () => ({ initializeBackend: async () => ({ backend: 'webgl2', renderer: { shadowMap: { enabled: false }, info: { memory: { geometries: 0, textures: 0 } }, setSize: vi.fn(), renderAsync: ports.render, compileAsync: ports.compile, dispose: vi.fn() } }) }));
 vi.mock('../src/assets', async original => ({ ...await original<typeof import('../src/assets')>(), createAssetLoader: () => ports.load }));
@@ -92,6 +92,27 @@ it('makes a 1 m high quad with the image aspect, an unlit double-sided material,
     expect(blended.renderOrder).toBe(0);
 });
 
+it('closes a shared image only when the last quad lease goes, and loads a failed image again', async () => {
+    const made: { dispose: ReturnType<typeof vi.fn> }[] = [];
+    let fail = true;
+    const pool = createScreenImagePool(async () => { if (fail) throw new Error('read'); const image = { texture: new Texture(), width: 1, height: 1, alpha: false, dispose: vi.fn() }; made.push(image); return image; });
+    await expect(pool.acquire('image_a')).rejects.toThrow('read');
+    expect(pool.size()).toBe(0);
+    fail = false;
+    const first = await pool.acquire('image_a'), second = await pool.acquire('image_a');
+    expect(made).toHaveLength(1);
+    expect(second.image).toBe(first.image);
+    first.release(); first.release();
+    expect(made[0]!.dispose).not.toHaveBeenCalled();
+    second.release();
+    expect(made[0]!.dispose).toHaveBeenCalledTimes(1);
+    const again = await pool.acquire('image_a');
+    expect(made).toHaveLength(2);
+    pool.dispose();
+    expect(made[1]!.dispose).not.toHaveBeenCalled();
+    again.release();
+    expect(made[1]!.dispose).toHaveBeenCalledTimes(1);
+});
 // The renderer paths of R11 to R13, with a stand-in image load.
 const settle = () => new Promise(r => setTimeout(r, 0));
 let sequence = 0;
@@ -138,6 +159,22 @@ it('draws nothing for a screen whose new image fails, also when an older image w
     const applied = await r.applyFrame(frame([screen('a', 'scene_room')]));
     expect(applied.warnings).toContainEqual({ code: 'UNAVAILABLE', message: 'Asset load failed: Image failed to load', ids: ['scene_room'] });
     expect(quads()).toEqual([]);
+    r.dispose();
+});
+it('keeps the shared texture of a drawn screen while another screen with the same image changes', async () => {
+    const shared = image();
+    ports.image.mockResolvedValue(shared);
+    const r = await make();
+    await r.applyFrame(frame([screen('a', 'image_x'), screen('b', 'image_x')]));
+    await settle();
+    await r.applyFrame(frame([screen('a', 'image_x'), screen('b', 'image_x')]));
+    expect(quads()).toHaveLength(2);
+    // One screen clears its image while the other still draws it: the texture stays open.
+    await r.applyFrame(frame([screen('a', null), screen('b', 'image_x')]));
+    expect(shared.dispose).not.toHaveBeenCalled();
+    expect((quads()[0]!.material as MeshBasicNodeMaterial).map).toBe(shared.texture);
+    await r.applyFrame(frame([screen('a', null), screen('b', null)]));
+    expect(shared.dispose).toHaveBeenCalledTimes(1);
     r.dispose();
 });
 it('names a failed image in the frame warning and still draws the other screens', async () => {
