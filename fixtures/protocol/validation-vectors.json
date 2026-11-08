@@ -21677,6 +21677,609 @@
     }
   },
   {
+    "name": "proposal-apply-64-blueprint-ops",
+    "target": "call",
+    "method": "proposalApply",
+    "valid": true,
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expect": {
+        "entities": [
+          {
+            "id": "marker",
+            "fingerprint": "0123456789abcdef"
+          },
+          {
+            "id": "new_one",
+            "fingerprint": null
+          }
+        ],
+        "blueprints": [
+          {
+            "id": "g",
+            "fingerprint": "fedcba9876543210"
+          }
+        ]
+      },
+      "sceneOps": [
+        {
+          "kind": "removeEntity",
+          "entityId": "marker"
+        }
+      ],
+      "blueprint": {
+        "clientId": "c1",
+        "batchId": "b1",
+        "ops": [
+          {
+            "kind": "removeGraph",
+            "graphId": "g0"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g1"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g2"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g3"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g4"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g5"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g6"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g7"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g8"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g9"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g10"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g11"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g12"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g13"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g14"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g15"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g16"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g17"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g18"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g19"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g20"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g21"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g22"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g23"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g24"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g25"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g26"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g27"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g28"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g29"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g30"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g31"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g32"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g33"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g34"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g35"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g36"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g37"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g38"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g39"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g40"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g41"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g42"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g43"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g44"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g45"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g46"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g47"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g48"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g49"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g50"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g51"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g52"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g53"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g54"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g55"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g56"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g57"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g58"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g59"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g60"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g61"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g62"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g63"
+          }
+        ]
+      },
+      "output": {
+        "outputId": "output_main",
+        "cameraId": "camera_wide"
+      }
+    }
+  },
+  {
+    "name": "proposal-apply-65-blueprint-ops",
+    "target": "call",
+    "method": "proposalApply",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expect": {
+        "entities": [
+          {
+            "id": "marker",
+            "fingerprint": "0123456789abcdef"
+          },
+          {
+            "id": "new_one",
+            "fingerprint": null
+          }
+        ],
+        "blueprints": [
+          {
+            "id": "g",
+            "fingerprint": "fedcba9876543210"
+          }
+        ]
+      },
+      "sceneOps": [
+        {
+          "kind": "removeEntity",
+          "entityId": "marker"
+        }
+      ],
+      "blueprint": {
+        "clientId": "c1",
+        "batchId": "b1",
+        "ops": [
+          {
+            "kind": "removeGraph",
+            "graphId": "g0"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g1"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g2"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g3"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g4"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g5"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g6"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g7"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g8"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g9"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g10"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g11"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g12"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g13"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g14"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g15"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g16"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g17"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g18"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g19"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g20"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g21"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g22"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g23"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g24"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g25"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g26"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g27"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g28"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g29"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g30"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g31"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g32"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g33"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g34"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g35"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g36"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g37"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g38"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g39"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g40"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g41"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g42"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g43"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g44"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g45"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g46"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g47"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g48"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g49"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g50"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g51"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g52"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g53"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g54"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g55"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g56"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g57"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g58"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g59"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g60"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g61"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g62"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g63"
+          },
+          {
+            "kind": "removeGraph",
+            "graphId": "g64"
+          }
+        ]
+      },
+      "output": {
+        "outputId": "output_main",
+        "cameraId": "camera_wide"
+      }
+    }
+  },
+  {
     "name": "proposal-apply-65-entity-expectations",
     "target": "call",
     "method": "proposalApply",
