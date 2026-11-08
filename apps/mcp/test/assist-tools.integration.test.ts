@@ -38,8 +38,9 @@ it('builds a concert scene with thin tools', async () => {
   const camera = await call('camera_add', { sceneId, framing: 'closeUp', target: avatar });
   expect(camera).toMatchObject({ ok: true, data: { created: [expect.stringMatching(/^@e\d+$/)] } });
   const cameraRef = camera.data.created[0];
-  const move = await call('camera_move', { sceneId, camera: cameraRef, kind: 'orbit', angleDegrees: 90, duration: 'slow', endFraming: 'closeUp' });
-  expect(move).toMatchObject({ ok: true, data: { created: [expect.stringMatching(/^@b\d+$/)] } });
+  const move = await call('camera_move', { sceneId, camera: cameraRef, target: avatar, kind: 'orbit', angleDegrees: 90, duration: 'slow', endFraming: 'closeUp' });
+  // Play ran after the apply (no playFailed), and the target is explicit (no targetDefaulted).
+  expect(move).toMatchObject({ ok: true, data: { created: [expect.stringMatching(/^@b\d+$/)], notes: [] } });
   const graphs = await call('blueprint_inspect', {});
   expect(graphs.data.blueprints.some((g: { nodes: { type: string }[] }) => g.nodes.some(n => n.type === 'event.manual'))).toBe(true);
 
