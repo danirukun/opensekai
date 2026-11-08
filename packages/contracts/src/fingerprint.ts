@@ -1,6 +1,7 @@
+// Like JSON, an object skips a key whose value is undefined, and an array writes undefined as null.
 const canonical = (v: unknown): string =>
  Array.isArray(v) ? `[${v.map(canonical).join(',')}]`
- : v !== null && typeof v === 'object' ? `{${Object.keys(v).sort().map(k => `${JSON.stringify(k)}:${canonical((v as Record<string, unknown>)[k])}`).join(',')}}`
+ : v !== null && typeof v === 'object' ? (o => `{${Object.keys(o).filter(k => o[k] !== undefined).sort().map(k => `${JSON.stringify(k)}:${canonical(o[k])}`).join(',')}}`)(v as Record<string, unknown>)
  : JSON.stringify(v) ?? 'null';
 
 const MASK = 0xffffffffffffffffn;

@@ -10,6 +10,11 @@ it('fingerprint ignores key order and changes with values', () => {
  expect(fingerprint({ a: 1 })).toMatch(/^[0-9a-f]{16}$/);
  expect(fingerprint([1, 2])).not.toBe(fingerprint([2, 1]));
 });
+it('fingerprint skips undefined keys like JSON', () => {
+ expect(fingerprint({ a: 1, b: undefined })).toBe(fingerprint({ a: 1 }));
+ expect(fingerprint({ a: { c: undefined, d: 2 } })).toBe(fingerprint(JSON.parse(JSON.stringify({ a: { c: undefined, d: 2 } }))));
+ expect(fingerprint([1, undefined])).toBe(fingerprint([1, null]));
+});
 it('validates proposalApply limits', () => {
  expect(validateCall('proposalApply', ok).ok).toBe(true);
  expect(validateCall('proposalApply', { ...ok, output: null }).ok).toBe(false);
