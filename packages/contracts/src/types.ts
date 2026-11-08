@@ -87,6 +87,9 @@ export type SceneEntity = (EntityBase & {
     kind: "vmcSender";
     vmcSender: VmcSenderSettings;
 }) | (EntityBase & {
+    kind: "screen";
+    content: ScreenContent;
+}) | (EntityBase & {
     kind: "camera";
     renderEnvironment?: boolean;
     antiAliasing?: CameraAntiAliasing;
@@ -97,6 +100,7 @@ export type SceneEntity = (EntityBase & {
         far: number;
     };
 });
+export type ScreenContent = { kind: "image"; assetId: Id | null };
 export interface LightShadow { enabled: boolean; intensity: number; soft: boolean; bias: number; normalBias: number; }
 export interface LightCone { angleDegrees: number; penumbra: number; }
 export interface LightSettings { type: "directional" | "point" | "spot" | "ambient"; color: string; intensity: number; range: number; affectCharacters: boolean; affectProps: boolean; affectEnvironment: boolean; shadow: LightShadow; cone?: LightCone; volumetric?: boolean; }
@@ -131,7 +135,7 @@ type ExistingPatchOp = {
     entityId: Id;
     visible: boolean;
 };
-export type LivePatchOp = {kind:'setTrackingSmoothing';entityId:Id;smoothing:TrackingSmoothing}|{kind:'calibrateTracking';entityId:Id}|{kind:'fitBlendShapeRanges';entityId:Id;neutral:Partial<Record<ArkitName,number>>}|{kind:'setTrackingCalibration';entityId:Id;calibration:TrackingCalibration|null}|{kind:'setTrackingMapping';entityId:Id;mapping:TrackingMapping}| {kind:'setAvatarIdle';entityId:Id;idleAnimation:AvatarIdle}|{kind:'createEntity';entity:SceneEntity}|{kind:'setCameraLens';entityId:Id;lens:Extract<SceneEntity,{kind:'camera'}>['lens']}|{kind:'setAvatarTracking';entityId:Id;tracking:AvatarTracking}|{kind:'setTrackingConfig';entityId:Id;config:TrackingConfig}|{kind:'setAvatarModel';entityId:Id;assetId:Id|null}|{kind:'setEnvironmentModel';entityId:Id;assetId:Id|null}|{kind:'setMeshModel';entityId:Id;assetId:Id|null}|{kind:'setEnvironmentReflections';entityId:Id;reflectionsIntensity:number}|{kind:'setLight';entityId:Id;light:LightSettings}|{kind:'setHaze';entityId:Id;haze:HazeSettings}|{kind:'setFpsCounter';entityId:Id;fpsCounter:FpsCounterSettings}|{kind:'setVmcSender';entityId:Id;vmcSender:VmcSenderSettings}|{kind:'setCameraRenderEnvironment';entityId:Id;renderEnvironment:boolean}|{kind:'setCameraAntiAliasing';entityId:Id;antiAliasing:CameraAntiAliasing}|{kind:'setCameraNavigation';entityId:Id;navigation:CameraNavigation}|{kind:'setAvatarExpression';entityId:Id;name:string;settings:ExpressionSettings|null}|{kind:'setHiddenMeshes';entityId:Id;hiddenMeshes:string[]};
+export type LivePatchOp = {kind:'setTrackingSmoothing';entityId:Id;smoothing:TrackingSmoothing}|{kind:'calibrateTracking';entityId:Id}|{kind:'fitBlendShapeRanges';entityId:Id;neutral:Partial<Record<ArkitName,number>>}|{kind:'setTrackingCalibration';entityId:Id;calibration:TrackingCalibration|null}|{kind:'setTrackingMapping';entityId:Id;mapping:TrackingMapping}| {kind:'setAvatarIdle';entityId:Id;idleAnimation:AvatarIdle}|{kind:'createEntity';entity:SceneEntity}|{kind:'setCameraLens';entityId:Id;lens:Extract<SceneEntity,{kind:'camera'}>['lens']}|{kind:'setAvatarTracking';entityId:Id;tracking:AvatarTracking}|{kind:'setTrackingConfig';entityId:Id;config:TrackingConfig}|{kind:'setAvatarModel';entityId:Id;assetId:Id|null}|{kind:'setEnvironmentModel';entityId:Id;assetId:Id|null}|{kind:'setMeshModel';entityId:Id;assetId:Id|null}|{kind:'setScreenImage';entityId:Id;assetId:Id|null}|{kind:'setEnvironmentReflections';entityId:Id;reflectionsIntensity:number}|{kind:'setLight';entityId:Id;light:LightSettings}|{kind:'setHaze';entityId:Id;haze:HazeSettings}|{kind:'setFpsCounter';entityId:Id;fpsCounter:FpsCounterSettings}|{kind:'setVmcSender';entityId:Id;vmcSender:VmcSenderSettings}|{kind:'setCameraRenderEnvironment';entityId:Id;renderEnvironment:boolean}|{kind:'setCameraAntiAliasing';entityId:Id;antiAliasing:CameraAntiAliasing}|{kind:'setCameraNavigation';entityId:Id;navigation:CameraNavigation}|{kind:'setAvatarExpression';entityId:Id;name:string;settings:ExpressionSettings|null}|{kind:'setHiddenMeshes';entityId:Id;hiddenMeshes:string[]};
 export type AssetManagementPatchOp = {kind:'renameEntity';entityId:Id;name:string}|{kind:'removeEntity';entityId:Id};
 export type OutputPatchOp = {kind:'setOutputFormat';outputId:Id;width:number;height:number;fps:OutputFrameLimit;renderScale:OutputRenderScale};
 export type PatchOp = ExistingPatchOp | LivePatchOp | AssetManagementPatchOp | OutputPatchOp;
@@ -143,7 +147,7 @@ export interface ScenePatch {
 export interface AssetCredits { title: string | null; author: string | null; license: string | null; sourceUrl: string | null; }
 export interface AssetRecord {
     id: Id;
-    format: "glb" | "vrm";
+    format: "glb" | "vrm" | "png" | "jpeg" | "webp" | "gif";
     sha256: string;
     bytes: number;
     sourceUrl: string | null;
@@ -155,8 +159,10 @@ export interface AssetRecord {
     eyeBones?: boolean;
     rig?: AvatarRig;
     meshes?: AssetMesh[];
+    image?: AssetImage;
 }
-export interface AssetSummary { id: Id; kind: "avatar" | "scene" | "fixture"; name: string; credits?: AssetCredits; }
+export interface AssetImage { width: number; height: number; frames: number; }
+export interface AssetSummary { id: Id; kind: "avatar" | "scene" | "image" | "fixture"; name: string; credits?: AssetCredits; }
 export interface AssetList { assets: AssetSummary[]; next: Id | null; }
 export interface ConnectionDescriptor {
     schemaVersion: 1;

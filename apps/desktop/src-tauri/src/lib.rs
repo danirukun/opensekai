@@ -117,6 +117,31 @@ async fn import_scene(
     announce_record(&window, &result.record);
     Ok(Some(result))
 }
+#[tauri::command]
+async fn import_image(
+    window: tauri::WebviewWindow,
+    state: tauri::State<'_, Arc<DesktopState>>,
+) -> Result<Option<crate::assets::ImportResult>, AppError> {
+    require_window_label(window.label(), "main")?;
+    let app = window.app_handle().clone();
+    let path = tauri::async_runtime::spawn_blocking(move || {
+        let dialog = app.dialog().file().set_title("Import image");
+        // macOS can disable custom extensions through rfd's deprecated file-type filter.
+        #[cfg(not(target_os = "macos"))]
+        let dialog = dialog.add_filter("Image", &["png", "jpg", "jpeg", "webp", "gif"]);
+        dialog.blocking_pick_file()
+    })
+    .await
+    .map_err(|_| AppError {
+        code: ErrorCode::Unavailable,
+        message: "File chooser unavailable".into(),
+        ids: vec![],
+    })?;
+    let Some(path) = path else { return Ok(None) };
+    let result = state.import_image(local_path(path)?).await?;
+    announce_record(&window, &result.record);
+    Ok(Some(result))
+}
 fn local_path(path: tauri_plugin_dialog::FilePath) -> Result<PathBuf, AppError> {
     path.into_path().map_err(|_| AppError {
         code: ErrorCode::InvalidInput,
@@ -492,6 +517,7 @@ pub fn run() {
             open_screenshots_folder,
             import_avatar,
             import_scene,
+            import_image,
             save_show,
             save_show_as,
             open_show,
@@ -557,6 +583,7 @@ mod command_boundary_tests {
             "allow-open-screenshots-folder",
             "allow-import-avatar",
             "allow-import-scene",
+            "allow-import-image",
             "allow-save-show",
             "allow-save-show-as",
             "allow-open-show",

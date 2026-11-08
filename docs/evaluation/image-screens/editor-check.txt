@@ -1,0 +1,20 @@
+PASS the Add menu has Screen after Prop (R17) ["Camera","Character","Environment","Prop","Screen","Directional Light","Point Light","Spot Light","Ambient Light","Haze","FPS Counter","VMC Receiver","VMC Sender","iFacialMocap Receiver","MediaPipe Tracker"]
+PASS Add Screen creates a screen named Screen without an image (R17) [{"id":"1efac8c4-5aa5-4c69-981e-8996a5b950a3","name":"Screen","visible":true,"transform":{"position":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"kind":"screen","content":{"kind":"image","assetId":null}}]
+PASS the Hierarchy groups it under Screens (R18) ["Lights","Cameras","Screens"]
+PASS the Inspector has Transform and Screen sections (R19) ["Transform","Screen"]
+PASS the Image select lists the image record and Import file… (R19) ["Choose image…","Sign","Import file…"]
+PASS Import file… runs import_image once and sends setScreenImage for this screen (R3, R19) [{"kind":"setScreenImage","entityId":"1efac8c4-5aa5-4c69-981e-8996a5b950a3","assetId":"image_fa7576972ef83f7773e8b152a20bf757227fdd9228b028bbfed285cc0e6135f8"}]
+PASS the viewport reads the image over GET /assets (R12) 1
+PASS no load failure in the Inspector []
+PASS a second screen is Screen 2 (R17) ["Screen","Screen 2"]
+PASS a chosen image shows a reset mark (R19, B17) 1
+PASS camera screenshot: opaque part has alpha 255 within 2/255 (R15) {"at":[713,540],"value":[255,0,0,255]}
+PASS camera screenshot: transparent part has alpha 0 within 2/255 (R15) {"at":[1059,540],"value":[0,0,0,0]}
+PASS camera screenshot: half-alpha strip has alpha 128 within 2/255 (R15) {"at":[1237,540],"value":[0,255,0,128]}
+PASS camera screenshot: outside the quad has alpha 0 within 2/255 (R15) {"at":[960,194],"value":[0,0,0,0]}
+PASS the reset sends setScreenImage with null (R19) {"kind":"image","assetId":null}
+console Failed to load resource: the server responded with a status of 404 (Not Found)
+PASS an image ID that is not in the library shows Missing image (R22) "Missing image"
+PASS after six Opens with resets and a removed screen, the preview draws the newest revision and the image (owner QA on #258) {"alpha":255}
+PASS no page errors []
+18/18 passed

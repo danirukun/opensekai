@@ -1,9 +1,11 @@
+mod image;
 mod registry;
 mod scene_import;
 mod vrm;
+pub use image::{parse_image, ImageHeader};
 pub use registry::{
-    prepare_scene, read_located, resolve_asset, stage_avatar, stage_scene, AssetRegistry,
-    ImportResult, PreparedScene, StagedAsset,
+    prepare_scene, read_located, resolve_asset, stage_avatar, stage_image, stage_scene,
+    AssetRegistry, ImportResult, PreparedScene, StagedAsset,
 };
 pub use scene_import::{pack_scene, Limits, PackedScene};
 

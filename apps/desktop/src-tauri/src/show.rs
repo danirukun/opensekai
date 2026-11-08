@@ -170,6 +170,24 @@ mod tests {
         assert_eq!(read_show(&path).unwrap(), document);
     }
 
+    // B28 R22: Save As and Open keep a screen and its image, also an image that is not in the library.
+    #[test]
+    fn round_trip_keeps_a_screen_with_an_unknown_image() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("sign.osekai");
+        let mut document = show();
+        document["scene"]["entities"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({
+                "id": "sign", "name": "Screen", "visible": true, "kind": "screen",
+                "transform": {"position": [0, 1, 0], "rotation": [0, 0, 0, 1], "scale": [2, 2, 1]},
+                "content": {"kind": "image", "assetId": format!("image_{}", "b".repeat(64))}
+            }));
+        write_show(&path, &document).unwrap();
+        assert_eq!(read_show(&path).unwrap(), document);
+    }
+
     #[test]
     fn round_trip_keeps_the_output_format_and_rejects_a_preview_change() {
         let dir = tempfile::tempdir().unwrap();

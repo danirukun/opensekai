@@ -135,3 +135,51 @@ async fn imported_scene_folder_is_packed_served_and_survives_restart() {
     assert!(restarted.asset_records().contains(&imported.record));
     restarted.shutdown().await.unwrap();
 }
+// Real file, managed library, and authenticated HTTP boundaries: an image is served with its own type (B28 R5, R6).
+#[tokio::test]
+async fn imported_image_is_served_with_its_content_type_and_survives_restart() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut png_bytes = Vec::new();
+    {
+        let mut encoder = png::Encoder::new(&mut png_bytes, 2, 1);
+        encoder.set_color(png::ColorType::Rgba);
+        encoder.set_depth(png::BitDepth::Eight);
+        encoder
+            .write_header()
+            .unwrap()
+            .write_image_data(&[255, 0, 0, 255, 0, 0, 0, 0])
+            .unwrap();
+    }
+    let source = dir.path().join("Sign.png");
+    std::fs::write(&source, &png_bytes).unwrap();
+    let config = || ServiceConfig {
+        output_root: dir.path().into(),
+        asset_manifest: Default::default(),
+        evidence_root: dir.path().join("evidence"),
+        evaluation_enabled: false,
+    };
+    let service = start_service(config()).await.unwrap();
+    let imported = service.import_image(source.clone()).await.unwrap();
+    assert!(imported.record.id.starts_with("image_"));
+    assert_eq!(imported.record.name, "Sign");
+    let image = imported.record.image.clone().unwrap();
+    assert_eq!((image.width, image.height, image.frames), (2, 1, 1));
+    let again = service.import_image(source.clone()).await.unwrap();
+    assert_eq!(again.record, imported.record);
+    let descriptor = service.operator_descriptor();
+    let url = format!("{}/assets/{}", descriptor.http_origin, imported.record.id);
+    let response = reqwest::Client::new()
+        .get(&url)
+        .bearer_auth(&descriptor.token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    assert_eq!(response.headers()["content-type"], "image/png");
+    assert_eq!(response.headers()["x-content-type-options"], "nosniff");
+    assert_eq!(response.bytes().await.unwrap().as_ref(), png_bytes);
+    service.shutdown().await.unwrap();
+    let restarted = start_service(config()).await.unwrap();
+    assert_eq!(restarted.asset_records(), vec![imported.record]);
+    restarted.shutdown().await.unwrap();
+}

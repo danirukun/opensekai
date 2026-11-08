@@ -1,0 +1,86 @@
+[
+ {
+  "label": "png direct webgl2",
+  "backend": "webgl2",
+  "warnings": [],
+  "pageErrors": [],
+  "page": "docs/evaluation/image-screens/png-direct-webgl2.png"
+ },
+ {
+  "label": "png fxaa webgl2",
+  "backend": "webgl2",
+  "warnings": [],
+  "pageErrors": [],
+  "page": "docs/evaluation/image-screens/png-fxaa-webgl2.png"
+ },
+ {
+  "label": "png haze webgl2",
+  "backend": "webgl2",
+  "warnings": [],
+  "pageErrors": [],
+  "page": "docs/evaluation/image-screens/png-haze-webgl2.png"
+ },
+ {
+  "label": "png back webgl2",
+  "backend": "webgl2",
+  "warnings": [],
+  "pageErrors": [],
+  "page": "docs/evaluation/image-screens/png-back-webgl2.png"
+ },
+ {
+  "label": "jpeg orientation 6 webgl2",
+  "backend": "webgl2",
+  "warnings": [],
+  "pageErrors": [],
+  "page": "docs/evaluation/image-screens/jpeg-orientation-6-webgl2.png"
+ },
+ {
+  "label": "webp webgl2",
+  "backend": "webgl2",
+  "warnings": [],
+  "pageErrors": [],
+  "page": "docs/evaluation/image-screens/webp-webgl2.png"
+ },
+ {
+  "label": "png direct webgpu",
+  "backend": "webgpu",
+  "warnings": [],
+  "pageErrors": [],
+  "page": "unknown: one flat color"
+ },
+ {
+  "label": "png fxaa webgpu",
+  "backend": "webgpu",
+  "warnings": [],
+  "pageErrors": [],
+  "page": "unknown: one flat color"
+ },
+ {
+  "label": "png haze webgpu",
+  "backend": "webgpu",
+  "warnings": [],
+  "pageErrors": [],
+  "page": "unknown: one flat color"
+ },
+ {
+  "label": "png back webgpu",
+  "backend": "webgpu",
+  "warnings": [],
+  "pageErrors": [],
+  "page": "unknown: one flat color"
+ },
+ {
+  "label": "jpeg orientation 6 webgpu",
+  "backend": "webgpu",
+  "warnings": [],
+  "pageErrors": [],
+  "page": "unknown: one flat color"
+ },
+ {
+  "label": "webp webgpu",
+  "backend": "webgpu",
+  "warnings": [],
+  "pageErrors": [],
+  "page": "unknown: one flat color"
+ }
+]

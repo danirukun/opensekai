@@ -521,10 +521,12 @@ impl Shared {
         }
     }
     /// Locates under the registry lock, then reads and verifies the file without it.
-    fn read_asset(&self, id: &str) -> Result<Vec<u8>, AppError> {
+    /// Returns the bytes and the content type of the record format (B28 R6).
+    fn read_asset(&self, id: &str) -> Result<(Vec<u8>, &'static str), AppError> {
         let (path, record) = lock(&self.registry).locate(id)?;
         self.asset_step(AssetStep::Read(id.into()));
         crate::assets::read_located(&path, &record)
+            .map(|bytes| (bytes, record.format.content_type()))
     }
 }
 pub async fn start_service(config: ServiceConfig) -> Result<ServiceHandle, AppError> {
@@ -761,6 +763,21 @@ impl ServicePorts {
         .await
         .map_err(|_| err(ErrorCode::Unavailable, "Scene import failed"))?
     }
+    pub async fn import_image(
+        &self,
+        path: PathBuf,
+    ) -> Result<crate::assets::ImportResult, AppError> {
+        let shared = self.shared.clone();
+        // Read, check, and hash outside the registry lock; `commit` keeps an intact existing record.
+        tokio::task::spawn_blocking(move || {
+            let library = lock(&shared.registry).library();
+            let staged = crate::assets::stage_image(&library, &path)?;
+            shared.asset_step(AssetStep::Store);
+            lock(&shared.registry).commit(staged)
+        })
+        .await
+        .map_err(|_| err(ErrorCode::Unavailable, "Image import failed"))?
+    }
     pub fn asset_records(&self) -> Vec<AssetRecord> {
         lock(&self.shared.registry).records()
     }
@@ -934,6 +951,12 @@ impl ServiceHandle {
         path: PathBuf,
     ) -> Result<crate::assets::ImportResult, AppError> {
         self.ports().import_scene(path).await
+    }
+    pub async fn import_image(
+        &self,
+        path: PathBuf,
+    ) -> Result<crate::assets::ImportResult, AppError> {
+        self.ports().import_image(path).await
     }
     pub fn asset_records(&self) -> Vec<AssetRecord> {
         lock(&self.shared.registry).records()
@@ -1138,9 +1161,9 @@ async fn asset(
     let registry = shared.clone();
     let result = tokio::task::spawn_blocking(move || registry.read_asset(&id)).await;
     let mut response = match result {
-        Ok(Ok(bytes)) => (
+        Ok(Ok((bytes, content_type))) => (
             [
-                ("content-type", "model/gltf-binary"),
+                ("content-type", content_type),
                 ("x-content-type-options", "nosniff"),
             ],
             bytes,

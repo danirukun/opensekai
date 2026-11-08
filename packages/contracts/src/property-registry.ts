@@ -8,7 +8,7 @@ export type PropertyKey = (typeof PROPERTY_KEYS)[number];
 type Kind = SceneEntity['kind'];
 export interface AssetProperty { key: PropertyKey; label: string; kinds: readonly Kind[]; type: PropertyType; rule: PropertyRule }
 
-const placed: readonly Kind[] = ['mesh', 'avatar', 'camera', 'environment'];
+const placed: readonly Kind[] = ['mesh', 'avatar', 'camera', 'environment', 'screen'];
 // Scale has no effect on a light, so a light has no scale target.
 const lit: readonly Kind[] = [...placed, 'light', 'haze'];
 // A haze box has a size, so it has a scale target (B13 R14).
