@@ -10,7 +10,7 @@ const PREFIX: Record<string, RefKind> = { e: 'entity', b: 'blueprint', a: 'asset
 export const emptyRefs = (): RefTable => ({ entities: {}, blueprints: {}, assets: {}, next: { e: 1, b: 1, a: 1 }, owned: [] });
 
 const assignKind = (map: Record<Id, Ref>, next: number, letter: string, ids: Id[]) =>
- ids.reduce((s, id) => id in s.map ? s : { map: { ...s.map, [id]: `@${letter}${s.next}` as Ref }, next: s.next + 1 }, { map, next });
+ ids.reduce((s, id) => Object.hasOwn(s.map, id) ? s : { map: { ...s.map, [id]: `@${letter}${s.next}` as Ref }, next: s.next + 1 }, { map, next });
 
 export const assignRefs = (table: RefTable, ids: { entities: Id[]; blueprints: Id[]; assets: Id[] }): RefTable => {
  const e = assignKind(table.entities, table.next.e, 'e', ids.entities);

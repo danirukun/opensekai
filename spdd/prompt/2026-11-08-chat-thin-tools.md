@@ -20,7 +20,7 @@ Analysis: [Chat thin tools](../analysis/2026-11-08-chat-thin-tools.md). Design: 
 14. **Blueprint build.** `blueprint_build` creates one graph from a trigger (hotkey, manual, custom event, YouTube event, or show start) and 1 to 8 actions in sequence (expression on, off, or toggle; show, hide, or toggle visibility; switch camera; wait; emit an event). It replaces a graph only when `replace` is a reference in the owned set of the table; otherwise `INVALID_INPUT`. Created graphs go into the owned set.
 15. **Apply params.** `toApplyParams(proposal, context, batch)` gives `expect` from the context: each touched existing entity and graph with its fingerprint, and each created ID with `null`.
 16. **Asset catalog.** At import, the host reads `asset.extras.description` (trimmed, 1 to 280 UTF-16 units) and `asset.extras.tags` (at most 8 strings, trimmed, lower case, 1 to 32 units each; others dropped) into optional `catalog` on `AssetRecord`, and `AssetSummary` returns it. TypeScript and Rust validate the same shape.
-17. **MCP.** The MCP server adds `scene_summary {sceneId, prompt?}`, `look_up {sceneId, ref}`, `ask {question, choices}`, and one tool per scene or Blueprint intent (`{sceneId, ...intent fields}`). Each intent tool reads the scene, the Blueprints, and the asset list, compiles that one intent, calls `proposalApply`, runs Play for a camera move, and returns `{revision, created, notes}`. The MCP server keeps one reference table for its process. Existing tools do not change.
+17. **MCP.** The MCP server adds `scene_summary {sceneId, prompt?}`, `look_up {sceneId, ref}`, `ask {question, choices}`, and one tool per scene or Blueprint intent (`{sceneId, ...intent fields}`). Each intent tool reads the scene, the Blueprints, and the asset list, compiles that one intent, calls `proposalApply`, runs Play for a camera move, and returns `{revision, created, notes}`. When Play fails after the apply, the call still succeeds and `notes` has `playFailed` with the reference of the Blueprint. The MCP server keeps one reference table for its process. Existing tools do not change.
 
 ## E — Entities
 
@@ -32,7 +32,7 @@ Analysis: [Chat thin tools](../analysis/2026-11-08-chat-thin-tools.md). Design: 
 - `Intent`: discriminated union on `tool`. `TOOL_CONTRACT_VERSION = 1`.
 - `CompileContext`: `{scene: SceneView, blueprints: BlueprintGraph[], assets: AssetSummary[], refs: RefTable, selection: Id | null, newId: (kind: string) => Id}`.
 - `Proposal`: `{sceneOps: PatchOp[], blueprintOps: BlueprintOp[], output: {outputId, cameraId} | null, play: {graphId, nodeId}[], touched: {entities: Id[], blueprints: Id[]}, created: {entities: Id[], blueprints: Id[]}, notes: Note[], refs: RefTable}`.
-- `Note`: `{code: 'targetDefaulted' | 'shadowSkipped' | 'replacedExisting' | 'countClamped', ref?: Ref}`.
+- `Note`: `{code: 'targetDefaulted' | 'shadowSkipped' | 'replacedExisting' | 'countClamped' | 'playFailed', ref?: Ref}`.
 
 ## A — Approach
 

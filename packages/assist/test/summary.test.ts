@@ -64,6 +64,19 @@ describe('sceneSummary', () => {
  });
 });
 
+describe('sceneSummary header', () => {
+ it('names the scene and the output camera', () => {
+  const { text, refs } = sceneSummary({ ...base, scene, assets: [] });
+  expect(text).toMatch(/^scene scene_smoke$/m);
+  expect(text).toMatch(new RegExp(`^output ${refs.entities.camera_wide}$`, 'm'));
+ });
+
+ it('gives none when the output camera is not an entity', () => {
+  const { text } = sceneSummary({ ...base, scene: { ...scene, outputs: [] }, assets: [] });
+  expect(text).toMatch(/^output none$/m);
+ });
+});
+
 describe('lookUp', () => {
  const graph = { schemaVersion: 1, id: 'g1', name: 'Show', enabled: true, connections: [], variables: [],
   nodes: [{ id: 'n1', type: 'event.start' }, { id: 'n2', type: 'action.wait' }, { id: 'n3', type: 'action.wait' }] } as unknown as BlueprintGraph;
@@ -74,6 +87,27 @@ describe('lookUp', () => {
   expect(r.ok && r.data).toContain('point');
   expect(r.ok && r.data).toContain('#ff8800');
   expect(r.ok && r.data).toContain('2.5');
+  expect(r.ok && r.data).toContain('shadow off');
+  expect(r.ok && r.data).toContain('1, 2, 3');
+ });
+
+ it('gives a camera its rounded position and field of view', () => {
+  const cam: SceneView = { ...scene, entities: scene.entities.map(e => e.kind === 'camera' ? { ...e, transform: { ...e.transform, position: [0.123456, 1.5, -2.004] }, lens: { ...e.lens, fovDegrees: 32 } } : e) };
+  const { refs } = sceneSummary({ ...base, scene: cam, assets: [] });
+  const r = lookUp({ ...base, scene: cam, assets: [], refs, ref: refs.entities.camera_wide! });
+  expect(r.ok && r.data).toContain('0.12, 1.5, -2');
+  expect(r.ok && r.data).toContain('fov 32');
+ });
+
+ it('gives an environment its asset name and an asset its credits', () => {
+  const room: AssetSummary = { id: 'room', kind: 'scene', name: 'Concert hall', credits: { title: 'Hall', author: 'Ada', license: 'CC-BY-4.0', sourceUrl: 'https://example.com/hall' } };
+  const env = { id: 'env', name: 'env', visible: true, kind: 'environment', assetId: 'room', transform: { position: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] } } as unknown as SceneView['entities'][number];
+  const withEnv: SceneView = { ...scene, entities: [...scene.entities, env] };
+  const { refs } = sceneSummary({ ...base, scene: withEnv, assets: [room] });
+  const e = lookUp({ ...base, scene: withEnv, assets: [room], refs, ref: refs.entities.env! });
+  expect(e.ok && e.data).toContain('Concert hall');
+  const a = lookUp({ ...base, scene: withEnv, assets: [room], refs, ref: refs.assets.room! });
+  for (const part of ['Hall', 'Ada', 'CC-BY-4.0', 'https://example.com/hall']) expect(a.ok && a.data).toContain(part);
  });
 
  it('gives a Blueprint its node type counts', () => {

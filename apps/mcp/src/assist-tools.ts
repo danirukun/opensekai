@@ -54,10 +54,14 @@ export async function runIntent(api: AppApi, state: State, sceneId: Id, intent: 
  const applied = await invokeTool(api, 'proposalApply', toApplyParams(proposal, context, { clientId: CLIENT_ID, batchId: crypto.randomUUID() }));
  if (!applied.ok) return applied;
  state.refs = proposal.refs;
- // The proposal is applied; a failed run leaves the move unplayed, and blueprint_run can play it again.
- for (const { graphId, nodeId } of proposal.play) await invokeTool(api, 'blueprintRun', { graphId, triggerNodeId: nodeId });
+ // The proposal is applied, so a failed Play run is a note, not an error; blueprint_run can play the move again.
+ const failed: Note[] = [];
+ for (const { graphId, nodeId } of proposal.play) {
+  const run = await invokeTool(api, 'blueprintRun', { graphId, triggerNodeId: nodeId });
+  if (!run.ok) failed.push({ code: 'playFailed', ref: refOf(proposal.refs, 'blueprint', graphId) });
+ }
  const created = [...proposal.created.entities.map(id => refOf(proposal.refs, 'entity', id)), ...proposal.created.blueprints.map(id => refOf(proposal.refs, 'blueprint', id))];
- return { ok: true, data: { revision: (applied.data as ProposalApplyResult).revision, created, notes: proposal.notes } };
+ return { ok: true, data: { revision: (applied.data as ProposalApplyResult).revision, created, notes: [...proposal.notes, ...failed] } };
 }
 
 const SummaryParams = z.strictObject({ sceneId: IdSchema, prompt: z.string().max(1000).optional() });
