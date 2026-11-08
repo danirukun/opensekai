@@ -5,7 +5,8 @@ export type LightType = 'directional' | 'point' | 'spot' | 'ambient';
 
 const s2 = Math.SQRT1_2;
 
-// Direction vectors are unit offsets from the target in a +Y-up, +Z-front frame.
+// Direction vectors are unit offsets from the target, +Y up. Avatars face +Z, and the words are from the viewer's side,
+// facing the avatar from its front: `left` is −X, left in the output image and the avatar's right.
 export const WORDS = {
  intensity: {
   dim: { directional: 0.4, point: 15, spot: 30, ambient: 0.15 },
