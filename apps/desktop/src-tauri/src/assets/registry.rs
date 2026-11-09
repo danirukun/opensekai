@@ -422,6 +422,7 @@ pub fn stage_image(library: &Path, path: &Path) -> Result<StagedAsset, AppError>
         importer_version: 1,
         name: name.clone(),
         credits: None,
+        catalog: None,
         expressions: vec![],
         eye_bones: None,
         rig: None,
@@ -494,6 +495,7 @@ pub fn prepare_scene(packed: PackedScene) -> Result<PreparedScene, AppError> {
     let sha256 = hex(&Sha256::digest(&packed.glb));
     let id = format!("scene_{sha256}");
     let credits = packed.credits;
+    let catalog = packed.catalog;
     let name = credits
         .as_ref()
         .and_then(|c| c.title.as_deref())
@@ -514,6 +516,7 @@ pub fn prepare_scene(packed: PackedScene) -> Result<PreparedScene, AppError> {
         importer_version: 1,
         name: name.clone(),
         credits,
+        catalog,
         expressions: vec![],
         eye_bones: None,
         rig: None,
@@ -603,6 +606,7 @@ pub fn stage_avatar(library: &Path, path: &Path) -> Result<StagedAsset, AppError
         importer_version: 1,
         name: name.clone(),
         credits: None,
+        catalog: None,
         expressions,
         eye_bones,
         rig,
@@ -803,6 +807,7 @@ mod boundary_tests {
                 license: Some("CC-BY-4.0".into()),
                 source_url: Some("https://sketchfab.com/3d-models/room".into()),
             }),
+            catalog: None,
             stem: "scene".into(),
         }
     }

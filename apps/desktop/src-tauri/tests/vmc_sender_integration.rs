@@ -104,6 +104,7 @@ fn record(id: &str, rig: Option<AvatarRig>) -> AssetRecord {
         importer_version: 1,
         name: "Avatar".into(),
         credits: None,
+        catalog: None,
         expressions: vec![],
         eye_bones: None,
         rig,

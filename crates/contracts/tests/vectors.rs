@@ -129,6 +129,7 @@ fn expanded_shared_vectors() {
             "applied" => validate_value::<opensekai_contracts::FrameApplied>(p).map(|_| ()),
             "wire" => parse_wire(&serde_json::to_vec(p).unwrap()).map(|_| ()),
             "call" => opensekai_contracts::validate_call(vector["method"].as_str().unwrap(), p),
+            "reply" => validate_result(vector["method"].as_str().unwrap(), p),
             "wireText" => parse_wire(p.as_str().unwrap().as_bytes()).map(|_| ()),
             "screenshotResult" => validate_result(
                 "cameraScreenshot",
@@ -182,6 +183,7 @@ fn asset_list_pages_in_id_order_within_count_and_byte_limits() {
         importer_version: 1,
         name: "Room".into(),
         credits,
+        catalog: None,
         expressions: vec![],
         eye_bones: None,
         rig: None,

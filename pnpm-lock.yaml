@@ -281,6 +281,9 @@ importers:
       '@modelcontextprotocol/server':
         specifier: 2.3.0
         version: 2.3.0
+      '@opensekai/assist':
+        specifier: workspace:*
+        version: link:../../packages/assist
       '@opensekai/browser-client':
         specifier: workspace:*
         version: link:../../packages/browser-client
@@ -309,6 +312,15 @@ importers:
       '@opensekai/renderer':
         specifier: workspace:*
         version: link:../../packages/renderer
+
+  packages/assist:
+    dependencies:
+      '@opensekai/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
 
   packages/browser-client:
     dependencies:

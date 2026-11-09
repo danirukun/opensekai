@@ -13,6 +13,7 @@ export interface BlueprintStore {
  inspect(sinceRevision?: number, runtimeErrors?: ReadonlyMap<Id, AppError>): BlueprintInspect;
  revision(): number;
  active(graphId: Id): BlueprintGraph | undefined;
+ document(graphId: Id): BlueprintGraph | undefined;
 }
 
 // The last valid version keeps the executable content of its compile; `enabled` always comes from the current document.
@@ -84,5 +85,6 @@ export function createBlueprintStore(runtime: BlueprintRuntime): BlueprintStore 
   },
   revision: () => revision,
   active: graphId => { const doc = documents.find(item => item.id === graphId); const last = valid.get(graphId)?.graph; return doc && last ? { ...last, enabled: doc.enabled } : undefined; },
+  document: graphId => documents.find(item => item.id === graphId),
  };
 }

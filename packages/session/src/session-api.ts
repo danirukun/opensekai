@@ -1,7 +1,7 @@
 import type { AppApi, Reply } from '@opensekai/contracts';
 import type { Session } from './session';
 
-export const SESSION_METHODS = ['sceneInspect', 'scenePatch', 'sceneReplace', 'cameraSelect', 'blueprintRun', 'blueprintEdit', 'blueprintInspect', 'blueprintDebug', 'trackingProbe', 'expressionGet', 'expressionSet', 'meshList'] as const;
+export const SESSION_METHODS = ['sceneInspect', 'scenePatch', 'proposalApply', 'sceneReplace', 'cameraSelect', 'blueprintRun', 'blueprintEdit', 'blueprintInspect', 'blueprintDebug', 'trackingProbe', 'expressionGet', 'expressionSet', 'meshList'] as const;
 export type SessionMethod = (typeof SESSION_METHODS)[number];
 export const isSessionMethod = (method: string): method is SessionMethod => (SESSION_METHODS as readonly string[]).includes(method);
 
@@ -11,6 +11,7 @@ export function sessionApi(session: Session): Pick<AppApi, SessionMethod> {
    ? { ok: true, data: session.inspect() }
    : { ok: false, error: { code: 'NOT_FOUND', message: 'Scene not found', ids: [sceneId] } },
   scenePatch: async patch => session.applyPatch(patch),
+  proposalApply: async params => session.applyProposal(params),
   sceneReplace: async ({ scene, expectedRevision }) => session.replaceScene(scene, expectedRevision),
   cameraSelect: async params => session.selectCamera(params),
   blueprintRun: async params => ('event' in params ? session.emitBlueprintEvent(params.event, params.payload) : session.runBlueprint(params.graphId, params.triggerNodeId)),

@@ -78,6 +78,23 @@ for (const vector of vectors)
             expect(ResultSchemas.cameraScreenshot.safeParse(vector.payload).success).toBe(vector.valid);
             return;
         }
+        if (vector.target === "reply") {
+            const reply = vector.payload as { data: unknown };
+            expect(ResultSchemas[(vector as { method: keyof typeof ResultSchemas }).method].safeParse(reply.data).success).toBe(vector.valid);
+            return;
+        }
+        if (vector.valid && vector.target === "asset") {
+            expect(AssetRecordSchema.safeParse(vector.payload).success).toBe(true);
+            return;
+        }
+        if (vector.valid && vector.target === "assetList") {
+            expect(AssetListSchema.safeParse(vector.payload).success).toBe(true);
+            return;
+        }
+        if (vector.valid && vector.target === "call") {
+            expect(validateCall((vector as { method?: string }).method, vector.payload).ok).toBe(true);
+            return;
+        }
         if (vector.valid) {
             expect(() => parseWire(vector.payload as string)).not.toThrow();
             return;

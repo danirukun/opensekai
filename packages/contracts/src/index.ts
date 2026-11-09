@@ -23,4 +23,6 @@ export * from './blueprint-debug';
 export * from './vmc-sender';
 export * from './youtube';
 export * from './meshes';
+export * from './fingerprint';
+export * from './proposal';
 export * from './materials';

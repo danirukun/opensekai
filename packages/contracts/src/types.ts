@@ -1,6 +1,6 @@
 import type {AvatarIdle,AvatarTracking,TrackingConfig,TrackingSmoothing,TrackingCalibration,TrackingMapping,AvatarPose,TrackingStatus,TrackingUpdate,TrackingProbe,TrackingProbeParams} from './tracking';
 import type { BlueprintBatch } from './blueprint-ops';
-import type { BlueprintInspect, InputUpdate } from './schema';
+import type { BlueprintInspect, InputUpdate, ProposalApplyParams, ProposalApplyResult } from './schema';
 import type { BlueprintDebug } from './blueprint-debug';
 import type { ShowDocument } from './show';
 import type { DeviceKind } from './devices';
@@ -144,6 +144,7 @@ export interface ScenePatch {
     expectedRevision: number;
     operations: PatchOp[];
 }
+export interface AssetCatalog { description: string | null; tags: string[]; }
 export interface AssetCredits { title: string | null; author: string | null; license: string | null; sourceUrl: string | null; }
 export interface AssetRecord {
     id: Id;
@@ -155,6 +156,7 @@ export interface AssetRecord {
     importerVersion: 1;
     name: string;
     credits?: AssetCredits;
+    catalog?: AssetCatalog;
     expressions: AssetExpression[];
     eyeBones?: boolean;
     rig?: AvatarRig;
@@ -162,7 +164,7 @@ export interface AssetRecord {
     image?: AssetImage;
 }
 export interface AssetImage { width: number; height: number; frames: number; }
-export interface AssetSummary { id: Id; kind: "avatar" | "scene" | "image" | "fixture"; name: string; credits?: AssetCredits; }
+export interface AssetSummary { id: Id; kind: "avatar" | "scene" | "image" | "fixture"; name: string; credits?: AssetCredits; catalog?: AssetCatalog; }
 export interface AssetList { assets: AssetSummary[]; next: Id | null; }
 export interface ConnectionDescriptor {
     schemaVersion: 1;
@@ -286,6 +288,7 @@ export interface AppApi {
     }>>;
     blueprintRun(params: { graphId: Id; triggerNodeId: Id } | { event: string; payload?: ScalarValue }): Promise<Reply<{ revision: number }>>;
     blueprintEdit(params: BlueprintBatch): Promise<Reply<{ revision: number; keystrokes: string[]; heldKeys?: string[]; devices?: DeviceKind[]; youtube?: true }>>;
+    proposalApply(params: ProposalApplyParams): Promise<Reply<ProposalApplyResult>>;
     blueprintInspect(params: { sinceRevision?: number }): Promise<Reply<BlueprintInspect>>;
     blueprintDebug(params: { since?: number }): Promise<Reply<BlueprintDebug>>;
     trackingProbe(params: TrackingProbeParams): Promise<Reply<TrackingProbe>>;

@@ -1,6 +1,7 @@
 import {TrackingConfigSchema,TrackingSmoothingSchema,TrackingProbeParamsSchema,TrackingProbeSchema,TrackingCalibrationSchema,TrackingMappingSchema,AvatarIdleSchema,AvatarTrackingSchema,AvatarPoseSchema,TrackingStatusSchema,TrackingUpdateSchema} from './tracking';
 import { BlueprintGraphSchema, BlueprintSetSchema } from './blueprint';
 import { BlueprintBatchSchema } from './blueprint-ops';
+import { ExpectationSchema, PROPOSAL_LIMITS } from './proposal';
 import { BlueprintDebugParamsSchema, BlueprintDebugSchema } from './blueprint-debug';
 import { KEYSTROKE_CODES } from './blueprint-nodes';
 import { DeviceKindListSchema, DeviceUpdateSchema } from './devices';
@@ -303,6 +304,14 @@ export const ScenePatchSchema = z.strictObject({
     expectedRevision: u,
     operations: z.array(PatchOpSchema).min(1).max(32)
 });
+export const ProposalApplyParamsSchema = z.strictObject({
+    sceneId: IdSchema,
+    expect: z.strictObject({ entities: z.array(ExpectationSchema).max(PROPOSAL_LIMITS.entities), blueprints: z.array(ExpectationSchema).max(PROPOSAL_LIMITS.blueprints) }),
+    sceneOps: z.array(PatchOpSchema).max(PROPOSAL_LIMITS.sceneOps),
+    blueprint: BlueprintBatchSchema.nullable(),
+    output: z.strictObject({ outputId: IdSchema, cameraId: IdSchema }).nullable()
+}).refine(p => p.sceneOps.length > 0 || p.blueprint !== null || p.output !== null, 'A proposal must change something');
+export type ProposalApplyParams = z.infer<typeof ProposalApplyParamsSchema>;
 const sha = z.string().regex(/^[a-f0-9]{64}$/);
 const creditText = z.string().nullable();
 export const AssetCreditsSchema = z.strictObject({
@@ -310,6 +319,10 @@ export const AssetCreditsSchema = z.strictObject({
     author: creditText,
     license: creditText,
     sourceUrl: z.url().refine(value => /^https?:\/\//.test(value), 'Invalid source URL').nullable()
+});
+export const AssetCatalogSchema = z.strictObject({
+    description: z.string().refine(d => d.length >= 1 && d.length <= 280, 'Invalid catalog description').nullable(),
+    tags: z.array(z.string().refine(t => t.length >= 1 && t.length <= 32 && t === t.toLowerCase(), 'Invalid catalog tag')).max(8)
 });
 export const IMAGE_FORMATS = ['png', 'jpeg', 'webp', 'gif'] as const;
 export const IMAGE_LIMITS = { side: 8192, area: 33554432, frames: 4096, bytes: 64 * 1024 * 1024 } as const;
@@ -333,6 +346,7 @@ export const AssetRecordSchema = z.strictObject({
     importerVersion: z.literal(1),
     name: z.string().refine(name => name.trim().length > 0 && name.length <= 128, 'Invalid asset name'),
     credits: AssetCreditsSchema.optional(),
+    catalog: AssetCatalogSchema.optional(),
     expressions: AssetExpressionsSchema,
     eyeBones: z.boolean().optional(),
     rig: AvatarRigSchema.optional(),
@@ -347,7 +361,8 @@ export const AssetSummarySchema = z.strictObject({
     id: IdSchema,
     kind: z.enum(['avatar', 'scene', 'image', 'fixture']),
     name: z.string().refine(name => name.trim().length > 0 && name.length <= 128, 'Invalid asset name'),
-    credits: AssetCreditsSchema.optional()
+    credits: AssetCreditsSchema.optional(),
+    catalog: AssetCatalogSchema.optional()
 });
 export const AssetListSchema = z.strictObject({
     assets: z.array(AssetSummarySchema).max(64),
@@ -542,6 +557,7 @@ export const ParamSchemas = {
     blueprintRun: z.strictObject({ graphId: IdSchema.optional(), triggerNodeId: IdSchema.optional(), event: z.string().trim().min(1).max(64).optional(), payload: ScalarValueSchema.optional() })
         .refine(p => p.event === undefined ? p.graphId !== undefined && p.triggerNodeId !== undefined && p.payload === undefined : p.graphId === undefined && p.triggerNodeId === undefined, 'Invalid Blueprint run'),
     blueprintEdit: BlueprintBatchSchema,
+    proposalApply: ProposalApplyParamsSchema,
     blueprintInspect: z.strictObject({ sinceRevision: u.optional() }),
     blueprintDebug: BlueprintDebugParamsSchema,
     trackingProbe: TrackingProbeParamsSchema,
@@ -563,6 +579,9 @@ export const ParamSchemas = {
     cameraScreenshot: CameraScreenshotParamsSchema,
     integrationsSet: IntegrationsSetParamsSchema
 };
+const BlueprintEditResultSchema = z.strictObject({ revision: u, keystrokes: KeystrokeListSchema, heldKeys: HeldCodeListSchema.optional(), devices: DeviceKindListSchema.optional(), youtube: z.literal(true).optional() });
+export const ProposalApplyResultSchema = z.strictObject({ revision: u, blueprint: BlueprintEditResultSchema.nullable() });
+export type ProposalApplyResult = z.infer<typeof ProposalApplyResultSchema>;
 export const ResultSchemas = {
     appStatus: AppStatusSchema,
     sceneInspect: SceneViewSchema,
@@ -574,7 +593,8 @@ export const ResultSchemas = {
         revision: u
     }),
     blueprintRun: z.strictObject({ revision: u }),
-    blueprintEdit: z.strictObject({ revision: u, keystrokes: KeystrokeListSchema, heldKeys: HeldCodeListSchema.optional(), devices: DeviceKindListSchema.optional(), youtube: z.literal(true).optional() }),
+    blueprintEdit: BlueprintEditResultSchema,
+    proposalApply: ProposalApplyResultSchema,
     blueprintInspect: BlueprintInspectSchema,
     blueprintDebug: BlueprintDebugSchema,
     trackingProbe: TrackingProbeSchema,
@@ -598,6 +618,7 @@ export const MethodSchema = z.enum([
     "cameraSelect",
     "blueprintRun",
     "blueprintEdit",
+    "proposalApply",
     "blueprintInspect",
     "blueprintDebug",
     "trackingProbe",
@@ -636,7 +657,7 @@ export function validateCall(method: unknown, params: unknown): Reply<ValidatedC
     };
 }
 export function requiredCapability(method: keyof AppApi): Capability {
-    if (method === "scenePatch" || method === "sceneReplace" || method === "cameraSelect" || method === "blueprintRun" || method === "blueprintEdit" || method === "expressionSet" || method === "cameraScreenshot" || method === "integrationsSet")
+    if (method === "scenePatch" || method === "sceneReplace" || method === "cameraSelect" || method === "blueprintRun" || method === "blueprintEdit" || method === "proposalApply" || method === "expressionSet" || method === "cameraScreenshot" || method === "integrationsSet")
         return "edit";
     if (method === "captureFrame")
         return "capture";

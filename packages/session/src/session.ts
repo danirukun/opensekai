@@ -1,4 +1,4 @@
-import { IdSchema, ParamSchemas, type VmcPosesEnvelope, AssetRecordSchema, type AssetRecord, type ExpressionState, meshList, type MeshList, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate, type AppError, type InputUpdate, type BlueprintInspect, type AvatarPose, type DeviceKind, type ScalarValue, type BlueprintDebug, type TrackingProbe, type TrackingProbeParams, type TrackingStatus, type ArkitName } from "@opensekai/contracts";
+import { fingerprint, IdSchema, ParamSchemas, ProposalApplyParamsSchema, type ProposalApplyResult, type VmcPosesEnvelope, AssetRecordSchema, type AssetRecord, type ExpressionState, meshList, type MeshList, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate, type AppError, type InputUpdate, type BlueprintInspect, type AvatarPose, type DeviceKind, type ScalarValue, type BlueprintDebug, type TrackingProbe, type TrackingProbeParams, type TrackingStatus, type ArkitName } from "@opensekai/contracts";
 import { createTransformAdapter } from "./ecs";
 import {createTrackingComposer} from "./tracking";
 import { createBlueprintRuntime, logicKey, type BlueprintEvent, type GraphRun, type StepEnv } from './blueprint-runtime';
@@ -23,6 +23,7 @@ export interface Session {
     applyPatch(patch: ScenePatch): Reply<{
         revision: number;
     }>;
+    applyProposal(params: unknown): Reply<ProposalApplyResult>;
     selectCamera(params: {
         outputId: Id;
         cameraId: Id;
@@ -349,6 +350,60 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             const committed = commit(applied.data);
             if (committed.ok) { overrides = dropOverrides(overrides, value.operations); tweens = dropTweens(tweens, value.operations); }
             return committed;
+        },
+        applyProposal(params) {
+            // Order: parse, scene ID, every expectation, scene ops, output camera, revision overflow, Blueprint batch, scene commit.
+            // The Blueprint edit is the last step that can fail and the commit cannot fail after the overflow check, so no step needs a rollback.
+            const parsed = ProposalApplyParamsSchema.safeParse(params);
+            if (!parsed.success)
+                return failure("INVALID_INPUT", "Invalid proposal");
+            const value = parsed.data;
+            if (value.sceneId !== persistent.sceneId)
+                return failure("NOT_FOUND", "Scene not found", [value.sceneId]);
+            const failed = new Set<Id>();
+            for (const { id, fingerprint: expected } of value.expect.entities) {
+                const entity = persistent.entities.find(item => item.id === id);
+                if ((entity ? fingerprint(entity) : null) !== expected) failed.add(id);
+            }
+            // The client fingerprints the stored document, so a graph whose document does not compile can still be replaced.
+            for (const { id, fingerprint: expected } of value.expect.blueprints) {
+                const graph = store.document(id);
+                if ((graph ? fingerprint(graph) : null) !== expected) failed.add(id);
+            }
+            if (failed.size > 0)
+                return failure("CONFLICT", "Proposal target changed", [...failed]);
+            let next = structuredClone(persistent);
+            if (value.sceneOps.length > 0) {
+                const operations = resolveCalibrations(value.sceneOps);
+                if (!operations.ok) return operations;
+                const applied = applyOperations(persistent, operations.data, persistent.revision + 1);
+                if (!applied.ok) return applied;
+                next = applied.data;
+            }
+            if (value.output) {
+                const output = next.outputs.find(item => item.id === value.output!.outputId);
+                if (!output)
+                    return failure("NOT_FOUND", "Output not found", [value.output.outputId]);
+                const camera = next.entities.find(entity => entity.id === value.output!.cameraId);
+                if (!camera)
+                    return failure("NOT_FOUND", "Camera not found", [value.output.cameraId]);
+                if (camera.kind !== "camera")
+                    return failure("INVALID_INPUT", "Entity is not a camera", [camera.id]);
+                output.cameraId = camera.id;
+            }
+            if (!Number.isSafeInteger(persistent.revision + 1))
+                return failure("INVALID_INPUT", "Revision limit reached");
+            let blueprint: ProposalApplyResult['blueprint'] = null;
+            if (value.blueprint) {
+                const edited = api.editBlueprints(value.blueprint);
+                if (!edited.ok) return edited;
+                blueprint = edited.data;
+            }
+            const committed = commit(next);
+            if (!committed.ok) return committed;
+            overrides = dropOverrides(overrides, value.sceneOps);
+            tweens = dropTweens(tweens, value.sceneOps);
+            return { ok: true, data: { revision: committed.data.revision, blueprint } };
         },
         selectCamera(params) {
             const parsed = ParamSchemas.cameraSelect.safeParse(params);
