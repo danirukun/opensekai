@@ -31,7 +31,8 @@ export const LIMITS = {
     shadowLights: 2,
     hazes: 1,
     fpsCounters: 1,
-    vmcSenders: 4
+    vmcSenders: 4,
+    screens: 16
 } as const;
 export const IdSchema = z.string().min(1).max(256);
 const n = z.number().finite(), u = n.int().nonnegative().max(Number.MAX_SAFE_INTEGER);
@@ -158,6 +159,10 @@ export const FpsCounterSettingsSchema = z.strictObject({
     color: LightColorSchema
 });
 export const ReflectionsIntensitySchema = n.min(0).max(2);
+// B29 to B31 add video, web page, and capture members.
+export const ScreenContentSchema = z.discriminatedUnion("kind", [
+    z.strictObject({ kind: z.literal("image"), assetId: IdSchema.nullable() })
+]);
 export const SceneEntitySchema = z.discriminatedUnion("kind", [
     EntityBaseSchema.extend({
         kind: z.literal("mesh"),
@@ -202,6 +207,10 @@ export const SceneEntitySchema = z.discriminatedUnion("kind", [
         vmcSender: VmcSenderSettingsSchema
     }),
     EntityBaseSchema.extend({
+        kind: z.literal("screen"),
+        content: ScreenContentSchema
+    }),
+    EntityBaseSchema.extend({
         kind: z.literal("camera"),
         lens: LensSchema,
         renderEnvironment: z.boolean().optional(),
@@ -231,6 +240,7 @@ export const SceneViewSchema = z.strictObject({
  if(lights.length>LIMITS.lights||lights.filter(e=>e.light.shadow.enabled).length>LIMITS.shadowLights)return false;
  if(s.entities.filter(e=>e.kind==='haze').length>LIMITS.hazes)return false;
  if(s.entities.filter(e=>e.kind==='fpsCounter').length>LIMITS.fpsCounters)return false;
+ if(s.entities.filter(e=>e.kind==='screen').length>LIMITS.screens)return false;
  const senders=s.entities.filter(e=>e.kind==='vmcSender');
  if(senders.length>LIMITS.vmcSenders||!senders.every(e=>e.vmcSender.avatarId===null||s.entities.some(a=>a.id===e.vmcSender.avatarId&&a.kind==='avatar')))return false;
  if(!s.entities.every(e=>{if(e.kind!=='camera'||e.navigation?.mode!=='orbitCharacter')return true;const target=e.navigation.targetId;return target===null||s.entities.some(a=>a.id===target&&a.kind==='avatar');}))return false;
@@ -261,6 +271,7 @@ export const PatchOpSchema = z.discriminatedUnion("kind", [
     z.strictObject({kind:z.literal('setAvatarModel'),entityId:IdSchema,assetId:IdSchema.nullable()}),
     z.strictObject({kind:z.literal('setEnvironmentModel'),entityId:IdSchema,assetId:IdSchema.nullable()}),
     z.strictObject({kind:z.literal('setMeshModel'),entityId:IdSchema,assetId:IdSchema.nullable()}),
+    z.strictObject({kind:z.literal('setScreenImage'),entityId:IdSchema,assetId:IdSchema.nullable()}),
     z.strictObject({kind:z.literal('setEnvironmentReflections'),entityId:IdSchema,reflectionsIntensity:ReflectionsIntensitySchema}),
     z.strictObject({kind:z.literal('setLight'),entityId:IdSchema,light:LightSettingsSchema}),
     z.strictObject({kind:z.literal('setHaze'),entityId:IdSchema,haze:HazeSettingsSchema}),
@@ -313,11 +324,20 @@ export const AssetCatalogSchema = z.strictObject({
     description: z.string().refine(d => d.length >= 1 && d.length <= 280, 'Invalid catalog description').nullable(),
     tags: z.array(z.string().refine(t => t.length >= 1 && t.length <= 32 && t === t.toLowerCase(), 'Invalid catalog tag')).max(8)
 });
+export const IMAGE_FORMATS = ['png', 'jpeg', 'webp', 'gif'] as const;
+export const IMAGE_LIMITS = { side: 8192, area: 33554432, frames: 4096, bytes: 64 * 1024 * 1024 } as const;
+const isImageFormat = (format: string): boolean => (IMAGE_FORMATS as readonly string[]).includes(format);
+export const AssetImageSchema = z.strictObject({
+    width: n.int().min(1).max(IMAGE_LIMITS.side),
+    height: n.int().min(1).max(IMAGE_LIMITS.side),
+    frames: n.int().min(1).max(IMAGE_LIMITS.frames)
+}).refine(image => image.width * image.height <= IMAGE_LIMITS.area, 'Image area is too large');
 export const AssetRecordSchema = z.strictObject({
     id: IdSchema,
     format: z.enum([
         "glb",
-        "vrm"
+        "vrm",
+        ...IMAGE_FORMATS
     ]),
     sha256: sha,
     bytes: u,
@@ -330,12 +350,16 @@ export const AssetRecordSchema = z.strictObject({
     expressions: AssetExpressionsSchema,
     eyeBones: z.boolean().optional(),
     rig: AvatarRigSchema.optional(),
-    meshes: AssetMeshesSchema.optional()
-});
+    meshes: AssetMeshesSchema.optional(),
+    image: AssetImageSchema.optional()
+}).refine(record => isImageFormat(record.format)
+    ? record.image !== undefined && record.id.startsWith('image_') && record.expressions.length === 0 && record.rig === undefined && record.eyeBones === undefined && record.meshes === undefined
+    : record.image === undefined && !record.id.startsWith('image_'), 'Image fields do not match the format');
+export const isImageRecord = (record: { format: string }): boolean => isImageFormat(record.format);
 // One page of `assetList`: the host answers it from the asset library, in ascending ID order.
 export const AssetSummarySchema = z.strictObject({
     id: IdSchema,
-    kind: z.enum(['avatar', 'scene', 'fixture']),
+    kind: z.enum(['avatar', 'scene', 'image', 'fixture']),
     name: z.string().refine(name => name.trim().length > 0 && name.length <= 128, 'Invalid asset name'),
     credits: AssetCreditsSchema.optional(),
     catalog: AssetCatalogSchema.optional()

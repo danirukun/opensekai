@@ -1,8 +1,9 @@
+use super::image::parse_image;
 use super::scene_import::PackedScene;
-use opensekai_contracts::AssetFormat;
 use opensekai_contracts::{
     invalid, is_tracked_expression, AppError, AssetRecord, ErrorCode, Validate,
 };
+use opensekai_contracts::{AssetFormat, AssetImage, MAX_IMAGE_BYTES};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -153,17 +154,9 @@ impl AssetRegistry {
                 let Ok(record) = serde_json::from_value::<AssetRecord>(value) else {
                     continue;
                 };
-                let extension = if record.format == AssetFormat::Vrm
-                    && record.id == format!("avatar_{}", record.sha256)
-                {
-                    Some("vrm")
-                } else if record.format == AssetFormat::Glb
-                    && record.id == format!("scene_{}", record.sha256)
-                {
-                    Some("glb")
-                } else {
-                    None
-                };
+                let extension = (record.id
+                    == format!("{}_{}", library_prefix(&record.format), record.sha256))
+                .then(|| record.format.extension());
                 if let (true, true, Some(extension)) =
                     (record.validate().is_ok(), opaque(&record.id), extension)
                 {
@@ -335,7 +328,11 @@ impl AssetRegistry {
     pub fn fixture_records(&self) -> Vec<AssetRecord> {
         self.records()
             .into_iter()
-            .filter(|r| !r.id.starts_with("avatar_") && !r.id.starts_with("scene_"))
+            .filter(|r| {
+                !r.id.starts_with("avatar_")
+                    && !r.id.starts_with("scene_")
+                    && !r.id.starts_with("image_")
+            })
             .collect()
     }
     pub fn records(&self) -> Vec<AssetRecord> {
@@ -365,8 +362,91 @@ pub fn read_located(path: &Path, record: &AssetRecord) -> Result<Vec<u8>, AppErr
     if bytes.len() as u64 != record.bytes || hex(&Sha256::digest(&bytes)) != record.sha256 {
         return Err(error(ErrorCode::InvalidInput, id));
     }
-    validate_glb(&bytes).map_err(|_| error(ErrorCode::InvalidInput, id))?;
+    if record.format.is_image() {
+        // B28 R6: the detected type and display size must equal the record.
+        let header = parse_image(&bytes).map_err(|_| error(ErrorCode::InvalidInput, id))?;
+        let matches = record.image.as_ref().is_some_and(|image| {
+            header.format == record.format
+                && header.width == image.width
+                && header.height == image.height
+        });
+        if !matches {
+            return Err(error(ErrorCode::InvalidInput, id));
+        }
+    } else {
+        validate_glb(&bytes).map_err(|_| error(ErrorCode::InvalidInput, id))?;
+    }
     Ok(bytes)
+}
+/// The ID prefix of a library record of each format (B28 R2).
+fn library_prefix(format: &AssetFormat) -> &'static str {
+    match format {
+        AssetFormat::Vrm => "avatar",
+        AssetFormat::Glb => "scene",
+        AssetFormat::Png | AssetFormat::Jpeg | AssetFormat::Webp | AssetFormat::Gif => "image",
+    }
+}
+/// Reads, checks, and hashes an image into temporary library files. Runs without the registry lock (B28 R5).
+pub fn stage_image(library: &Path, path: &Path) -> Result<StagedAsset, AppError> {
+    let source = std::fs::File::open(path).map_err(|_| error(ErrorCode::NotFound, ""))?;
+    let size = source
+        .metadata()
+        .map_err(|_| error(ErrorCode::Unavailable, ""))?
+        .len();
+    if size > MAX_IMAGE_BYTES {
+        return Err(invalid("Image is larger than 64 MiB"));
+    }
+    let mut bytes = Vec::new();
+    source
+        .take(MAX_IMAGE_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|_| error(ErrorCode::Unavailable, ""))?;
+    if bytes.len() as u64 > MAX_IMAGE_BYTES {
+        return Err(invalid("Image is larger than 64 MiB"));
+    }
+    let header = parse_image(&bytes)?;
+    let sha256 = hex(&Sha256::digest(&bytes));
+    let id = format!("image_{sha256}");
+    let name = path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .and_then(bounded_name)
+        .unwrap_or_else(|| "Image".into());
+    let record = AssetRecord {
+        id: id.clone(),
+        format: header.format.clone(),
+        sha256,
+        bytes: bytes.len() as u64,
+        source_url: None,
+        license_label: "User supplied".into(),
+        importer_version: 1,
+        name: name.clone(),
+        credits: None,
+        catalog: None,
+        expressions: vec![],
+        eye_bones: None,
+        rig: None,
+        meshes: None,
+        image: Some(AssetImage {
+            width: header.width,
+            height: header.height,
+            frames: header.frames,
+        }),
+    };
+    record.validate()?;
+    std::fs::create_dir_all(library).map_err(|_| error(ErrorCode::Unavailable, ""))?;
+    let file = (
+        temp_file(library, &bytes)?,
+        format!("{id}.{}", header.format.extension()),
+    );
+    let json = record_file(library, &record)?;
+    Ok(StagedAsset {
+        record,
+        name,
+        library: library.to_path_buf(),
+        files: vec![file, json],
+        deduplicate: true,
+    })
 }
 /// Temporary library files that `AssetRegistry::commit` renames into place. Dropping it removes the files.
 pub struct StagedAsset {
@@ -441,6 +521,7 @@ pub fn prepare_scene(packed: PackedScene) -> Result<PreparedScene, AppError> {
         eye_bones: None,
         rig: None,
         meshes: None,
+        image: None,
     };
     record.validate()?;
     Ok(PreparedScene {
@@ -500,6 +581,8 @@ pub fn stage_avatar(library: &Path, path: &Path) -> Result<StagedAsset, AppError
         .flush()
         .map_err(|_| error(ErrorCode::Unavailable, ""))?;
     let (json, raw) = validate_import_file(copy.as_file_mut(), count)?;
+    // Only a new import: a record that is already stored is not checked again.
+    super::check_required(&json, super::VRM_REQUIRED)?;
     let expressions = super::vrm::vrm_expressions(&json, &raw);
     let eye_bones = Some(super::vrm::vrm_has_eye_bones(&json));
     let rig = super::vrm::vrm_rig(&json);
@@ -528,6 +611,7 @@ pub fn stage_avatar(library: &Path, path: &Path) -> Result<StagedAsset, AppError
         eye_bones,
         rig,
         meshes,
+        image: None,
     };
     copy.as_file()
         .sync_all()
@@ -745,6 +829,106 @@ mod boundary_tests {
         let reopened = AssetRegistry::empty(dir.path()).unwrap();
         assert_eq!(reopened.records(), vec![record.clone()]);
         assert_eq!(reopened.read(&record.id).unwrap(), glb());
+    }
+    #[test]
+    fn stages_an_image_deduplicates_and_reloads_it() {
+        use super::super::image::tests::{gif_bytes, png_bytes};
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("Logo.png");
+        std::fs::write(&source, png_bytes(40, 20)).unwrap();
+        let mut registry = AssetRegistry::empty(&dir.path().join("app")).unwrap();
+        let staged = stage_image(&registry.library(), &source).unwrap();
+        let result = registry.commit(staged).unwrap();
+        let record = &result.record;
+        assert_eq!(record.id, format!("image_{}", record.sha256));
+        assert_eq!(record.format, AssetFormat::Png);
+        assert_eq!(record.name, "Logo");
+        assert_eq!(record.license_label, "User supplied");
+        assert_eq!(
+            record.image,
+            Some(AssetImage {
+                width: 40,
+                height: 20,
+                frames: 1
+            })
+        );
+        assert!(registry
+            .library()
+            .join(format!("{}.png", record.id))
+            .is_file());
+        assert_eq!(registry.read(&record.id).unwrap(), png_bytes(40, 20));
+        // The same bytes under another name keep the existing record.
+        let copy = dir.path().join("Other.png");
+        std::fs::write(&copy, png_bytes(40, 20)).unwrap();
+        let again = registry
+            .commit(stage_image(&registry.library(), &copy).unwrap())
+            .unwrap();
+        assert_eq!(again.record, *record);
+        let gif = dir.path().join("   .gif");
+        std::fs::write(&gif, gif_bytes(3, 2, 4)).unwrap();
+        let animated = registry
+            .commit(stage_image(&registry.library(), &gif).unwrap())
+            .unwrap();
+        assert_eq!(animated.record.name, "Image");
+        assert_eq!(animated.record.image.as_ref().unwrap().frames, 4);
+        assert!(registry
+            .library()
+            .join(format!("{}.gif", animated.record.id))
+            .is_file());
+        assert!(registry.fixture_records().is_empty());
+        let reopened = AssetRegistry::empty(&dir.path().join("app")).unwrap();
+        assert_eq!(reopened.records().len(), 2);
+        assert_eq!(reopened.read(&record.id).unwrap(), png_bytes(40, 20));
+    }
+    #[test]
+    fn image_import_rejects_large_and_unknown_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let large = dir.path().join("large.png");
+        std::fs::File::create(&large)
+            .unwrap()
+            .set_len(MAX_IMAGE_BYTES + 1)
+            .unwrap();
+        let error = stage_image(dir.path(), &large).err().unwrap();
+        assert_eq!(error.code, ErrorCode::InvalidInput);
+        assert!(error.message.contains("64 MiB"));
+        let model = dir.path().join("model.png");
+        std::fs::write(&model, glb()).unwrap();
+        assert_eq!(
+            stage_image(dir.path(), &model).err().unwrap().code,
+            ErrorCode::InvalidInput
+        );
+    }
+    #[test]
+    fn serving_an_image_checks_the_type_and_the_size_against_the_record() {
+        use super::super::image::tests::{gif_bytes, png_bytes};
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("a.png");
+        std::fs::write(&source, png_bytes(4, 3)).unwrap();
+        let mut registry = AssetRegistry::empty(dir.path()).unwrap();
+        let record = registry
+            .commit(stage_image(&registry.library(), &source).unwrap())
+            .unwrap()
+            .record;
+        let path = registry.library().join(format!("{}.png", record.id));
+        assert!(read_located(&path, &record).is_ok());
+        // Bytes of another image type under a PNG record, with a matching hash and length.
+        let other = gif_bytes(4, 3, 1);
+        std::fs::write(&path, &other).unwrap();
+        let mut wrong_type = record.clone();
+        wrong_type.sha256 = hex(&Sha256::digest(&other));
+        wrong_type.bytes = other.len() as u64;
+        assert!(read_located(&path, &wrong_type).is_err());
+        let mut gif = wrong_type.clone();
+        gif.format = AssetFormat::Gif;
+        assert!(read_located(&path, &gif).is_ok());
+        gif.image = Some(AssetImage {
+            width: 3,
+            height: 4,
+            frames: 1,
+        });
+        assert!(read_located(&path, &gif).is_err());
+        // A changed file fails the hash check.
+        assert!(read_located(&path, &record).is_err());
     }
     #[test]
     fn same_scene_returns_the_existing_record() {
@@ -1117,6 +1301,48 @@ mod import_tests {
         let broken = AssetRegistry::empty(&managed).unwrap();
         assert_eq!(broken.records().len(), 1);
         assert!(broken.records()[0].expressions.is_empty());
+    }
+    fn with_required(names: &str) -> String {
+        include_str!("../../tests/fixtures/minimal-vrm1.json").replacen(
+            r#""asset": {"#,
+            &format!(r#""extensionsRequired": [{names}], "asset": {{"#),
+            1,
+        )
+    }
+    #[test]
+    fn import_checks_required_extensions() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("required.vrm");
+        let mut r = AssetRegistry::empty(&dir.path().join("managed")).unwrap();
+        std::fs::write(
+            &path,
+            vrm(&with_required(r#""KHR_draco_mesh_compression""#)),
+        )
+        .unwrap();
+        assert_eq!(
+            r.import_avatar(&path).unwrap_err().message,
+            "Unsupported required extension: KHR_draco_mesh_compression"
+        );
+        assert!(r.records().is_empty());
+        std::fs::write(
+            &path,
+            vrm(&with_required(
+                r#""KHR_texture_transform", "VRMC_materials_mtoon""#,
+            )),
+        )
+        .unwrap();
+        assert!(r.import_avatar(&path).is_ok());
+    }
+    #[test]
+    fn stored_avatar_is_not_checked_for_required_extensions_again() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("stored.vrm");
+        std::fs::write(
+            &path,
+            vrm(&with_required(r#""KHR_draco_mesh_compression""#)),
+        )
+        .unwrap();
+        assert!(stored_vrm(&path).is_some());
     }
     #[test]
     fn imports_vrm0_thumb_metadata() {

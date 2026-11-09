@@ -19,6 +19,12 @@ pub const MAX_LIGHTS: usize = 8;
 pub const MAX_SHADOW_LIGHTS: usize = 2;
 pub const MAX_HAZES: usize = 1;
 pub const MAX_FPS_COUNTERS: usize = 1;
+pub const MAX_SCREENS: usize = 16;
+/// The image limits of B28 R1. Keep in step with `IMAGE_LIMITS` in `packages/contracts/src/schema.ts`.
+pub const MAX_IMAGE_SIDE: u32 = 8192;
+pub const MAX_IMAGE_AREA: u64 = 33_554_432;
+pub const MAX_IMAGE_FRAMES: u32 = 4096;
+pub const MAX_IMAGE_BYTES: u64 = 64 * 1024 * 1024;
 macro_rules! object { ($name:ident { $($field:ident : $ty:ty),* $(,)? }) => {#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)] #[serde(rename_all="camelCase", deny_unknown_fields)] pub struct $name {$(pub $field: $ty),*}} }
 macro_rules! strings { ($name:ident { $($variant:ident => $wire:literal),* $(,)? }) => {#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)] pub enum $name {$(#[serde(rename=$wire)] $variant),*}} }
 mod tracking;
@@ -34,7 +40,32 @@ strings!(Capability { Read=>"read", Edit=>"edit", Capture=>"capture", Benchmark=
 strings!(Role { Publisher=>"publisher", Operator=>"operator", Renderer=>"renderer" });
 strings!(ErrorCode { InvalidInput=>"INVALID_INPUT", Conflict=>"CONFLICT", Forbidden=>"FORBIDDEN", Unavailable=>"UNAVAILABLE", NotFound=>"NOT_FOUND", Unsupported=>"UNSUPPORTED", Timeout=>"TIMEOUT", RateLimited=>"RATE_LIMITED", Busy=>"BUSY", Cancelled=>"CANCELLED", VersionMismatch=>"VERSION_MISMATCH", StaleFrame=>"STALE_FRAME" });
 strings!(RunState { Warming=>"warming", Measuring=>"measuring", Complete=>"complete", Cancelled=>"cancelled", Failed=>"failed" });
-strings!(AssetFormat { Glb=>"glb", Vrm=>"vrm" });
+strings!(AssetFormat { Glb=>"glb", Vrm=>"vrm", Png=>"png", Jpeg=>"jpeg", Webp=>"webp", Gif=>"gif" });
+impl AssetFormat {
+    pub fn is_image(&self) -> bool {
+        matches!(self, Self::Png | Self::Jpeg | Self::Webp | Self::Gif)
+    }
+    /// The library file extension (B28 R2).
+    pub fn extension(&self) -> &'static str {
+        match self {
+            Self::Glb => "glb",
+            Self::Vrm => "vrm",
+            Self::Png => "png",
+            Self::Jpeg => "jpg",
+            Self::Webp => "webp",
+            Self::Gif => "gif",
+        }
+    }
+    pub fn content_type(&self) -> &'static str {
+        match self {
+            Self::Glb | Self::Vrm => "model/gltf-binary",
+            Self::Png => "image/png",
+            Self::Jpeg => "image/jpeg",
+            Self::Webp => "image/webp",
+            Self::Gif => "image/gif",
+        }
+    }
+}
 strings!(EvidenceKind { Capture=>"capture", Benchmark=>"benchmark" });
 strings!(CapturePreset { DiagnosticV1=>"diagnostic_v1" });
 strings!(FixtureId { SmokeV1=>"smoke_v1" });
@@ -234,6 +265,15 @@ impl Validate for FpsCounterSettings {
 fn reflections_intensity_ok(n: f64) -> bool {
     n.is_finite() && (0. ..=2.).contains(&n)
 }
+/// B29 to B31 add video, web page, and capture members.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
+pub enum ScreenContent {
+    Image {
+        #[serde(rename = "assetId")]
+        asset_id: Option<Id>,
+    },
+}
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub enum SceneEntity {
@@ -326,6 +366,13 @@ pub enum SceneEntity {
         #[serde(rename = "vmcSender")]
         vmc_sender: VmcSenderSettings,
     },
+    Screen {
+        id: Id,
+        name: String,
+        visible: bool,
+        transform: Transform,
+        content: ScreenContent,
+    },
     Camera {
         id: Id,
         name: String,
@@ -359,6 +406,7 @@ impl SceneEntity {
             | Self::Haze { id, .. }
             | Self::FpsCounter { id, .. }
             | Self::VmcSender { id, .. }
+            | Self::Screen { id, .. }
             | Self::Tracking { id, .. } => id,
         }
     }
@@ -372,6 +420,7 @@ impl SceneEntity {
             | Self::Haze { transform, .. }
             | Self::FpsCounter { transform, .. }
             | Self::VmcSender { transform, .. }
+            | Self::Screen { transform, .. }
             | Self::Tracking { transform, .. } => transform,
         }
     }
@@ -465,6 +514,12 @@ pub enum PatchOp {
         asset_id: Option<Id>,
     },
     SetMeshModel {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+        #[serde(rename = "assetId")]
+        asset_id: Option<Id>,
+    },
+    SetScreenImage {
         #[serde(rename = "entityId")]
         entity_id: Id,
         #[serde(rename = "assetId")]
@@ -609,6 +664,20 @@ pub struct AssetRecord {
     pub rig: Option<AvatarRig>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub meshes: Option<Vec<AssetMesh>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image: Option<AssetImage>,
+}
+object!(AssetImage {
+    width: u32,
+    height: u32,
+    frames: u32
+});
+impl AssetImage {
+    pub fn size_ok(width: u32, height: u32) -> bool {
+        (1..=MAX_IMAGE_SIDE).contains(&width)
+            && (1..=MAX_IMAGE_SIDE).contains(&height)
+            && u64::from(width) * u64::from(height) <= MAX_IMAGE_AREA
+    }
 }
 object!(AssetMesh {
     node: u32,
@@ -1798,7 +1867,7 @@ fn validate_blueprint_inspect(data: &Value) -> Result<(), AppError> {
     validate_blueprint_errors(data)
 }
 object!(RunParams { run_id: Id });
-strings!(AssetKind { Avatar=>"avatar", Scene=>"scene", Fixture=>"fixture" });
+strings!(AssetKind { Avatar=>"avatar", Scene=>"scene", Image=>"image", Fixture=>"fixture" });
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AssetSummary {
@@ -1825,6 +1894,8 @@ impl AssetSummary {
             AssetKind::Avatar
         } else if record.id.starts_with("scene_") {
             AssetKind::Scene
+        } else if record.id.starts_with("image_") {
+            AssetKind::Image
         } else {
             AssetKind::Fixture
         };
@@ -2150,6 +2221,14 @@ impl Validate for SceneView {
                 <= MAX_FPS_COUNTERS,
             "too many fps counters",
         )?;
+        require(
+            self.entities
+                .iter()
+                .filter(|e| matches!(e, SceneEntity::Screen { .. }))
+                .count()
+                <= MAX_SCREENS,
+            "too many screens",
+        )?;
         let senders: Vec<_> = self
             .entities
             .iter()
@@ -2466,6 +2545,31 @@ impl Validate for AssetRecord {
             require(
                 mesh_names_ok(meshes.iter().map(|m| &m.name)),
                 "invalid mesh list",
+            )?;
+        }
+        // B28 R1: the same cross-field rules as `AssetRecordSchema`.
+        if self.format.is_image() {
+            let image = self
+                .image
+                .as_ref()
+                .ok_or_else(|| invalid("image record needs image"))?;
+            require(
+                AssetImage::size_ok(image.width, image.height)
+                    && (1..=MAX_IMAGE_FRAMES).contains(&image.frames),
+                "invalid image size",
+            )?;
+            require(
+                self.id.starts_with("image_")
+                    && self.expressions.is_empty()
+                    && self.rig.is_none()
+                    && self.eye_bones.is_none()
+                    && self.meshes.is_none(),
+                "invalid image record",
+            )?;
+        } else {
+            require(
+                self.image.is_none() && !self.id.starts_with("image_"),
+                "invalid model record",
             )?;
         }
         hash(&self.sha256)

@@ -2,7 +2,7 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import type { LoadReport } from "./load-jobs";
 import { MToonMaterialLoaderPlugin, VRMLoaderPlugin, VRMUtils, type VRM } from "@pixiv/three-vrm";
 import { MToonNodeMaterial } from "@pixiv/three-vrm/nodes";
-import { meshEntries, type ResourceHost, type AppError } from "@opensekai/contracts";
+import { materialReport, materialWarning, meshEntries, type ResourceHost, type AppError } from "@opensekai/contracts";
 import type { Object3D, Mesh, SkinnedMesh, Material, Texture } from "three/webgpu";
 import { failure } from "./apply-frame";
 import { createTexturePool } from "./texture-sharing";
@@ -72,7 +72,7 @@ export function disposeObject(root: Object3D, shared?: { textures: ReadonlySet<T
     for (const image of images)
         image.close();
 }
-export function inspectContainer(bytes: ArrayBuffer): { extensions: string[]; imageCount: number } {
+export function inspectContainer(bytes: ArrayBuffer): { extensions: string[]; imageCount: number; json: unknown } {
     const view = new DataView(bytes);
     if (view.byteLength < 20 || view.getUint32(0, true) !== 0x46546c67 || view.getUint32(4, true) !== 2 || view.getUint32(8, true) !== view.byteLength)
         throw failure("INVALID_INPUT", "Expected self-contained GLB");
@@ -90,7 +90,7 @@ export function inspectContainer(bytes: ArrayBuffer): { extensions: string[]; im
     };
     if ([...json.buffers ?? [], ...json.images ?? []].some(x => x.uri !== undefined))
         throw failure("UNSUPPORTED", "External or URI resources are not supported");
-    return { extensions: json.extensionsUsed ?? [], imageCount: json.images?.length ?? 0 };
+    return { extensions: json.extensionsUsed ?? [], imageCount: json.images?.length ?? 0, json };
 }
 // B26 R7: the object of each mesh node, by its mesh name. A node with two or more primitives loads as a group; the map holds
 // the node object. glTF has no hidden node state, so each object starts visible.
@@ -134,7 +134,9 @@ export function createAssetLoader(resources: ResourceHost, options: { maxTexture
                 const next = progress === null ? -1 : Math.floor(progress * 100);
                 if (next !== percent) { percent = next; report({ stage: 'download', progress }); }
             });
-            const { extensions, imageCount } = inspectContainer(bytes);
+            // The report reads the JSON of the bytes: v0compat replaces VRM 0.x entries of parser.json.materials during the parse.
+            const { extensions, imageCount, json } = inspectContainer(bytes);
+            const material = materialWarning(materialReport(json));
             imageTotal = imageCount;
             if (imageTotal > 0) report({ stage: 'textures', progress: 0, count: { done: 0, total: imageTotal } });
             const gltf = await loader.parseAsync(bytes, "");
@@ -147,6 +149,7 @@ export function createAssetLoader(resources: ResourceHost, options: { maxTexture
                 if (extension === "VRMC_node_constraint" || extension === "VRMC_springBone")
                     warnings.push({ code: "UNSUPPORTED", message: extension + " simulation is disabled in renderer", ids: [id] });
             }
+            if (material) warnings.push({ code: "UNSUPPORTED", message: material, ids: [id] });
             let disposed = false;
             return { scene: gltf.scene, vrm, meshes: vrm ? meshObjects(gltf) : undefined, warnings, dispose() { if (disposed)
                     return; disposed = true; disposeObject(gltf.scene, lease); lease.release(); } };

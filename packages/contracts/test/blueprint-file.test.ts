@@ -203,3 +203,14 @@ it('treats two tracking sources with the same name as missing', () => {
  const imported = ok(importBlueprint(file, twins, ids()));
  expect(imported.report).toMatchObject({ enabled: false, remapped: [], missing: [{ name: 'Face', kind: 'tracking', id: 'old-face', nodeIds: ['lost'] }] });
 });
+
+it('exports a screen reference and imports it again (B28 R10)', () => {
+ const logo: SceneView['entities'][number] = { id: 'logo', name: 'Logo', visible: true, transform: { position: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] }, kind: 'screen', content: { kind: 'image', assetId: null } };
+ const withScreen = { ...scene, entities: [...scene.entities, logo] };
+ const file = exportBlueprint(graph([manual, toggle('hide', 'logo')], [wire('w1', 'run', 'hide')]), withScreen);
+ expect(file.references).toEqual([{ id: 'logo', kind: 'screen', name: 'Logo' }]);
+ const imported = ok(importBlueprint(serializeBlueprintFile(file), withScreen, ids()));
+ expect(imported.report).toMatchObject({ enabled: true, remapped: [], missing: [] });
+ const moved = ok(importBlueprint(serializeBlueprintFile(file), rename(withScreen, 'logo', { id: 'logo_2' }), ids()));
+ expect(moved.report.remapped).toEqual([{ name: 'Logo', kind: 'screen', from: 'logo', to: 'logo_2' }]);
+});

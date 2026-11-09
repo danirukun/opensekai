@@ -1,0 +1,81 @@
+# REASONS: Camera orbit node and main camera selection
+
+Date: 2026-11-07. Scope: bundle B32, the rest of #49 (CAM-01) and #50 (CAM-02). Analysis: [camera orbit and selection](../analysis/2026-11-07-camera-orbit-selection.md). Related: [camera workflow](2026-10-17-camera-workflow.md) (B7), [camera animation example](2026-10-27-camera-animation-example.md) (B24), [Blueprint transitions](2026-10-18-blueprint-h-transitions.md).
+
+This file is the contract only. The implementation run starts after the owner merges it. The [Warudo Camera](https://docs.warudo.app/docs/assets/camera) page was read again on 2026-11-07. The analysis maps each of its CAM-01 and CAM-02 statements to the state on `main`. This slice closes the two code gaps: the Camera Orbit Character node and the main camera rule of Switch Camera. The other open items of CAM-01 and CAM-02 are owner checks on macOS and OBS (R14).
+
+## R — Requirements
+
+### Camera Orbit Character node (CAM-01)
+
+R1. A new Blueprint node type `camera.orbitCharacter`, label `Camera Orbit Character`, category Scene. Settings: `cameraId` (field kind `camera`, label Camera), `transitionSeconds` and `easing` (the shared `transitionSettings` and `transitionFields`). Inputs: `flow`, `yaw` (number, label Yaw (°)), `pitch` (number, label Pitch (°)), `distance` (number, label Distance (m)). Outputs: `exit` and `transitionEnd` (label On Transition End). Defaults: the first camera, Yaw 0, Pitch 10, Distance 2.5. A graph saved before this node exists loads without change.
+R2. Angle convention, in user values. Yaw 0° puts the camera on the +Z side of the pivot, looking toward −Z. A larger Yaw turns the camera counter-clockwise about +Y when seen from above. Pitch is positive when the camera is above the pivot and looks down. The session converts them to the internal `OrbitState` (yaw in radians with the same sign, internal pitch = −Pitch in radians). Pitch is clamped to ±89°, and Distance to 0.2–50 m (`NAVIGATION.minDistance` and `maxDistance`). Yaw is any finite number. A non-finite input fails the run with `INVALID_INPUT`.
+R3. The node acts only on a camera entity whose `navigation.mode` is `orbitCharacter`. An unknown camera fails the run with `NOT_FOUND`. A camera in another mode fails the run with `INVALID_INPUT` and the camera ID. A failed run changes no state, as for other nodes.
+R4. The node works in persistent coordinates, as a B7 Orbit Character gesture does (B7 R6a). The pivot is the persistent root position of the Focus Character (`navigation.targetId`) plus `navigation.pivotOffset`, or `pivotOffset` alone when `targetId` is `null` (`orbitPivot`). The session samples it again at each advance during a transition. The camera position that the node writes excludes the follow offset. The override that the node writes is marked as follow-relative, and `followed()` in `overrides.ts` adds the follow offset (the target position override minus the persistent target position) on top of a follow-relative camera position override; it still skips the follow for any other camera position override. Thus the evaluated camera orbits a character that a Blueprint moves, during and after the move. The idle commit writes the persistent (follow-free) value, and the B7 idle-commit rule moves the persistent camera with its target, so the evaluated camera does not jump.
+R5. Without a transition (no `transitionSeconds`, or 0 s), the node writes the camera position and rotation from `transformFromOrbit` (the camera scale does not change) through the override layer, as an immediate Set Asset Property write does. The rotation goes to the layer as Euler degrees (`eulerFromQuaternion`), because the layer stores `rotation` as Euler. An immediate write stops a running orbit tween or position or rotation tween on the camera, as `writeTransitioned` does for a property. The idle commit writes the values to the scene. On Transition End runs on the next clock step. When the target equals the current state, nothing is written and the end goes to the pending list, as `startTween` does today.
+R6. With a transition, the node starts an orbit tween on the session clock. The start state is `orbitFromTransform` of the current persistent-coordinate camera position around the current pivot. Yaw and Pitch come from the camera position, not from its rotation, so a camera that does not look at the pivot (for example after a Set Asset Property Rotation) turns to the pivot on the first advance (Approximate). The tween eases Yaw, Pitch, and Distance with the node easing. Yaw goes the short way: with the start `from` and the requested `to` in degrees, the tween target is `to + 360 × round((from − to) / 360)`, so the change is at most 180°. At each advance the tween writes the position and rotation from the eased state and the pivot of that advance. At the end it writes the exact target state. On Transition End runs on the clock step after the end. Exit runs when the move starts.
+R7. One orbit tween for each camera. It owns the camera position and rotation: it is one record (a new `orbit` variant of `TweenValue`) that the layer stores under both keys `<camera>\0position` and `<camera>\0rotation`. Thus `tweening`, `writeTransitioned`, `dropTweens`, and the idle-commit busy check work by key without a special path. `sampleTween`, `advanceTweens`, `tweenOwners`, and `dropGraphTweens` handle the variant once for each camera, and it counts once toward `MAX_TWEENS`. A new orbit tween on the same camera to the same target joins the running one (its end is added, at most `MAX_TWEEN_ENDS`). A new orbit tween to another target replaces it, and the old ends do not run. A Set Asset Property write (immediate or tween) to the camera Position or Rotation stops it. A running position or rotation property tween on the camera stops when an orbit tween starts. A scene patch that changes the camera transform or its `navigation` stops it (a viewport gesture, the Inspector, MCP). For `navigation`, `touchedProperties` in `overrides.ts` maps `setCameraNavigation` to the camera `position` and `rotation`, so a change of Control Mode, Focus Character, or pivot also drops the camera position and rotation overrides. A graph change, disable, or delete stops the tweens of that graph. A stopped tween does not run its ends. Orbit tweens count toward `MAX_TWEENS`.
+R8. The override under an orbit tween does not commit (the idle-commit busy check sees both keys). The idle commit after the end writes the final transform once, so the scene revision does not increase at the frame rate. A session test keeps a Blueprint position override on the character during and after the move and checks that the evaluated camera position is continuous across the end and the idle commit.
+R9. The editor node shows a Use current value button, as Set Asset Property does. It writes the current Yaw, Pitch, and Distance of the node camera around its pivot (R2 units, rounded to 0.1° and 0.01 m) into the three inline inputs with `setNodeInput`, in one undo step. It is disabled when the camera does not exist, is not in Orbit Character mode, or the graph is not editable.
+R10. The Blueprint file format lists the node camera as a `camera` reference and remaps it on import, as for Switch Camera. MCP reaches the node through the existing Blueprint tools; no new MCP tool.
+
+### Main camera rule (CAM-02)
+
+R11. A Switch Camera node (`camera.switch`) with Output `output_main` sets the camera of `output_main` and of `preview_main` in one revision. The editor paths (`model.selectCamera`: Hierarchy, Output panel, Tab and Ctrl+Tab) already move both outputs, with two `cameraSelect` calls. With Output `preview_main` the node sets only `preview_main`. The evaluator keeps the effect shape `{ kind: 'selectCamera', outputId, cameraId }`; the rule is a branch in `applyEffects`. The node settings do not change, so saved graphs keep their shape and logic key. The B24 Camera Sway template does not use the node.
+R12. The other selection paths stay as they are. MCP `camera_select` and the `cameraSelect` call keep one output for each call, because they name the output; an MCP client that wants the main camera calls it for both outputs, as the editor does.
+
+### Documents
+
+R13. `docs/warudo-parity.md`: CAM-01 and CAM-02 record only the verified subset, and stay unchecked until the owner passes R14. BP-05 and BP-09 note Camera Orbit Character. `docs/evaluation/blueprint-node-audit.json` maps the Warudo Cinematography node Camera Orbit Character to `camera.orbitCharacter` (Approximate, because of the pivot candidate) and Switch Main Camera to `camera.switch`. `ARCHITECTURE.md` gets the orbit tween in the transitions paragraph and the shared orbit math module.
+R14. The pull request lists these local checks for the owner, on macOS with `pnpm dev:desktop` and OBS connected:
+ 1. The B7 checks that are still open: the feel of Free Look and Orbit Character, OBS following a gesture at about 10 Hz, Tab and Ctrl+Tab in the macOS WebView, and a camera cut in OBS with continued motion while the editor is minimized.
+ 2. A Camera Orbit Character chain (two nodes through On Transition End, 3 s, InOutSine) moves the camera around the character in the preview and in OBS, and a viewport drag stops it.
+ 3. A Switch Camera hotkey on `output_main` cuts the preview and OBS together.
+ 4. The pivot candidate: one orbit of the same character in Warudo and in OpenSekai, compared side by side.
+
+## E — Entities
+
+- Node settings: `{ cameraId: Id; transitionSeconds?: number; easing?: Easing }`. Inputs: `yaw`, `pitch`, `distance` (number).
+- `OrbitState = { pivot: Vec3; distance: number; yaw: number; pitch: number }` (radians, internal sign), moved to `packages/contracts` with `rotationOf`, `anglesOf`, `forwardOf`, `orbitPivot`, `orbitFromTransform`, `transformFromOrbit`, and the `NAVIGATION` distance and pitch limits.
+- Orbit user values: `{ yawDegrees: number; pitchDegrees: number; distance: number }`, with `orbitFromUser` and `userFromOrbit`.
+- Session orbit tween: a `TweenValue` variant `{ kind: 'orbit'; from: OrbitUser; to: OrbitUser }` on a tween record for the camera, stored in the same `TweenLayer` under the `position` and `rotation` keys of the camera.
+- Follow-relative override: an override entry flag that `followed()` reads (R4).
+- Blueprint effect `{ kind: 'orbitCamera'; cameraId: Id; target: OrbitUser; transition?: Transition; end?: TransitionEnd }`.
+
+## A — Approach
+
+First move the pure orbit math from the renderer to the contracts package and keep the renderer imports, with no behavior change; the existing navigation tests must pass without change. Then add the user-value conversion with unit tests. Then add the node definition, the effect, and the orbit tween in the session, test-first with session tests on the session clock. Then change the Switch Camera effect, with a session test that fails on the old code. Then add the editor button. Check the node in headless Chromium with the real renderer on a software adapter. Leave the macOS and OBS checks to the owner.
+
+## S — Structure
+
+- `packages/contracts/src/camera-orbit.ts` (new: shared orbit math and user conversion), `index.ts`; `packages/contracts/src/blueprint-nodes/scene.ts` (node definition); `packages/contracts/test/camera-orbit.test.ts` (new).
+- `packages/renderer/src/camera-navigation.ts` (import the moved functions; keep its exports for the viewport).
+- `packages/session/src/blueprint.ts` (effect type), `blueprint-eval/scene.ts` (node evaluator), `tweens.ts` (orbit variant, two keys, stop rules), `overrides.ts` (follow-relative override in `followed()`, `setCameraNavigation` in `touchedProperties`), `session.ts` (only if the idle commit needs the follow-relative flag), `scene-ops.ts` (Switch Camera branch in `applyEffects`); `packages/session/test/camera-orbit-node.test.ts` (new), and a Switch Camera test next to the existing Blueprint scene tests.
+- `apps/desktop/src/blueprints/rete-editor.ts`, `components/BlueprintNodeView.svelte` (Use current value for the new node); desktop tests where the existing Use current value tests are.
+- `packages/contracts/src/blueprint-file.ts` only if the generic `camera` field rule does not already cover the node.
+- `ARCHITECTURE.md`, `docs/warudo-parity.md`, `docs/evaluation/blueprint-node-audit.json`, `docs/evaluation/camera-orbit-selection.md` (new).
+
+## O — Operations
+
+1. Move the orbit math to `packages/contracts/src/camera-orbit.ts`. Run the renderer navigation tests without change.
+2. Add `orbitFromUser` and `userFromOrbit`. Unit tests: a round trip with `orbitFromTransform` and `transformFromOrbit` at Yaw 0, 90, 180, −90 and Pitch −60, 0, 60; Yaw 0 and Pitch 0 puts the camera at pivot + (0, 0, Distance); Pitch 30 puts the camera above the pivot; the clamps; the short-way Yaw target (350° to 10° changes by +20°).
+3. Add the node definition and the evaluator. Session tests on the session clock: the immediate write and its end on the next step; a 1 s InOutSine move at 0, 0.5, and 1 s (eased Yaw, Pitch, and Distance, exact end state); Exit at the start and On Transition End one step after the end; a chain of two nodes through On Transition End; a pivot that moves with a Blueprint position override of the character during the move; the join and replace rules; each stop rule in R5 and R7 (including an immediate orbit write and a `setCameraNavigation` patch), with no end after a stop; no idle commit while an orbit tween runs; the continuity test of R8; the rotation round trip through Euler; `NOT_FOUND`, the mode rule, and non-finite inputs with no state change; one revision increase after the end (R8).
+4. Change the Switch Camera effect (R11). A session test sets `output_main` and checks that both outputs name the camera in one revision. It fails on the old code. A second test checks that `preview_main` alone changes only the preview.
+5. Add Use current value for the node (R9). A desktop test checks the values written and the disabled states.
+6. Headless Chromium on a software adapter with the real renderer and a fixture VRM (`fixture_vrm0_arkit` when the `fixtures:` line lists it): render the camera after Camera Orbit Character with Yaw 0, 90, 180, and 270 and check that the character shows in each frame and the frames differ. Record the backend.
+7. Documents (R13). `docs/evaluation/camera-orbit-selection.md` records the commit, the platform, the backend, each check with its raw result, and the gaps of R14.
+
+## N — Norms
+
+- Unit tests for the orbit math and the conversion (pure logic). Session tests for the tween, the stop rules, and the Switch Camera rule, on the session clock, through the same session API that the host relay calls. A desktop test for the editor button. A headless render for the angle convention.
+- A bug fix (R11) needs a test that fails on the old code.
+- Functional TypeScript and plain data. The orbit math has no three.js object state.
+- UI copy is the control label only (constitution principle 1). Controls come from `@oshi-connect/ui`.
+
+## S — Safeguards
+
+- Do not change the scene schema, the show file version, or the settings of `camera.switch`.
+- Do not commit the camera transform at the frame rate. Keep one idle commit after the end.
+- Do not change the orbit pivot (root plus `pivotOffset`). The pivot height is a candidate with a selection gate.
+- Do not change a camera's Control Mode from a Blueprint node.
+- Do not claim a macOS, OBS, or GPU result. CAM-01 and CAM-02 stay unchecked until the owner passes R14.

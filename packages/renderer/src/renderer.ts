@@ -19,6 +19,7 @@ import { createDiagnosticMarker } from "./diagnostic-marker";
 import { createPostChain } from "./post-chain";
 import { createHaze, type Haze } from "./haze";
 import { renderScreenshot, SCREENSHOT_HEIGHT, SCREENSHOT_WIDTH } from "./screenshot";
+import { createScreenImagePool, createScreenMesh, loadScreenImage } from "./screen";
 export interface RendererHandle {
     editor?: EditorHandle;
     applyFrame(frame: RuntimeFrame): Promise<FrameApplied>;
@@ -63,6 +64,9 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     // The haze volume (B13 R7). A pipeline failure while it draws stops it until the next node-set rebuild (R9).
     let haze: Haze | null = null, hazeFailed = false;
     const assets = createAssetCache(loadAsset);
+    // One texture for each image asset in this client, shared by all screens that show it (B28 R12). Each quad holds a
+    // lease, so the texture closes only when no quad uses it.
+    const images = createScreenImagePool(id => loadScreenImage(() => options.resources.readAsset(id), quality.maxTextureSize));
     const environmentLight = createEnvironmentLight(roomEnvironmentMap(renderer));
     type Ready = { root: Object3D; avatar?: ReturnType<typeof createAvatarBinding>; meshes?: ReadonlyMap<string, Object3D>; assetId?: string; assetDispose?: () => void; instanceDispose?: () => void; materials?: InstanceMaterials; lit: number; warnings: AppError[]; dispose(): void };
     const loadListeners = new Set<(entries: AssetLoadStatus[]) => void>();
@@ -75,6 +79,15 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         finally { for (const object of culled) object.frustumCulled = true; }
     };
     const build = async (request: LoadRequest, report: (r: LoadReport) => void, cancelled: () => boolean): Promise<Ready> => {
+        if (request.kind === "screen") {
+            const lease = await images.acquire(request.assetId);
+            if (cancelled() || disposed) { lease.release(); throw failure("CANCELLED", "Asset load cancelled"); }
+            const quad = createScreenMesh(lease.image);
+            const release = () => { quad.dispose(); lease.release(); };
+            try { await prepare(quad.root, report, cancelled); }
+            catch (error) { release(); throw error; }
+            return { root: quad.root, assetId: request.assetId, instanceDispose: release, lit: 0, warnings: [], dispose: release };
+        }
         if (request.kind === "avatar") {
             const asset = await loadAsset(request.assetId, report);
             try {
@@ -136,6 +149,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         objects.clear();
         jobs.dispose();
         assets.dispose();
+        images.dispose();
         environmentLight.dispose();
         sceneLights.dispose();
         restoreModules?.();
@@ -222,7 +236,8 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
                 }
                 continue;
             }
-            const assetId = entity.kind === "avatar" || entity.kind === "environment" ? entity.assetId : entity.source.kind === "asset" ? entity.source.assetId : null;
+            // A screen is never read as a mesh: it has its own load kind (B28 R13).
+            const assetId = entity.kind === "avatar" || entity.kind === "environment" ? entity.assetId : entity.kind === "screen" ? entity.content.assetId : entity.source.kind === "asset" ? entity.source.assetId : null;
             let value = objects.get(entity.id);
             if (assetId === null && (entity.kind !== "mesh" || entity.source.kind === "asset")) {
                 if (value) { releaseObject(value); objects.delete(entity.id); }
@@ -237,7 +252,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
                     objects.set(entity.id, value);
                 } else {
                     // The new model is still loading: keep posing the old model, if any, until the job installs the new one.
-                    needed.set(entity.id, { kind: entity.kind === "avatar" ? "avatar" : entity.kind === "environment" ? "environment" : "mesh", assetId });
+                    needed.set(entity.id, { kind: entity.kind === "avatar" ? "avatar" : entity.kind === "environment" ? "environment" : entity.kind === "screen" ? "screen" : "mesh", assetId });
                     if (!value) continue;
                 }
             }
@@ -245,6 +260,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
                 if (!warnings.some(x => x.message === warning.message && x.ids[0] === warning.ids[0])) warnings.push(warning);
             value.avatar?.apply(frame.avatarPoses?.find(pose => pose.avatarId === entity.id));
             if (value.meshes && entity.kind === "avatar") applyHiddenMeshes(value.meshes, entity.hiddenMeshes);
+            value.avatar?.uv(frame.elapsedMs);
             value.materials?.reflections(reflections);
             if (!editor?.frozen(entity.id)) place(value.root, entity);
         }
@@ -260,13 +276,18 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             objects.set(entityId, installed);
             installed.avatar?.apply(frame.avatarPoses?.find(pose => pose.avatarId === entityId));
             if (installed.meshes && entity.kind === "avatar") applyHiddenMeshes(installed.meshes, entity.hiddenMeshes);
+            installed.avatar?.uv(frame.elapsedMs);
             installed.materials?.reflections(reflections);
             if (!editor?.frozen(entityId)) place(installed.root, entity);
             warnings.push(...ready.warnings);
         }
         for (const [entityId, request] of needed) {
             const message = jobs.failure(entityId);
-            if (message) warnings.push({ code: "UNAVAILABLE", message: "Asset load failed: " + message, ids: [request.assetId] });
+            if (!message) continue;
+            warnings.push({ code: "UNAVAILABLE", message: "Asset load failed: " + message, ids: [request.assetId] });
+            // A failed screen draws nothing, so the image of an earlier asset goes too (B28 R13).
+            const old = request.kind === "screen" ? objects.get(entityId) : undefined;
+            if (old) { releaseObject(old); objects.delete(entityId); }
         }
         for (const entry of jobs.status()) if (entry.stage !== "failed") warnings.push({ code: "BUSY", message: "Asset loading", ids: [entry.assetId] });
         if (pipelineFailed) warnings.push({ code: "UNSUPPORTED", message: "Pipeline compile failed", ids: [] });
