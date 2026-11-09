@@ -179,13 +179,14 @@ export function createScreenMesh(image: Pick<ScreenImage, "texture" | "width" | 
     return { root: mesh, dispose() { geometry.dispose(); material.dispose(); mesh.removeFromParent(); } };
 }
 
-export interface ScreenImageLease { image: ScreenImage; release(): void }
+export interface ScreenImageLease<T = ScreenImage> { image: T; release(): void }
 /**
- * Shared images for one renderer client. Each built quad holds a lease, and the texture and the bitmap close only when
- * the last lease goes, so a drawn quad never holds a closed image. A failed load is not kept, so a retry loads again.
+ * Shared images (or video object URLs, B29 R13) for one renderer client. Each built quad holds a lease, and the value
+ * closes only when the last lease goes, so a drawn quad never holds a closed image. A failed load is not kept, so a
+ * retry loads again.
  */
-export function createScreenImagePool(load: (id: string) => Promise<ScreenImage>) {
-    type Entry = { promise: Promise<ScreenImage>; leases: number; image?: ScreenImage };
+export function createScreenImagePool<T extends { dispose(): void } = ScreenImage>(load: (id: string) => Promise<T>) {
+    type Entry = { promise: Promise<T>; leases: number; image?: T };
     const entries = new Map<string, Entry>();
     let closed = false;
     const drop = (id: string, entry: Entry) => {
@@ -193,7 +194,7 @@ export function createScreenImagePool(load: (id: string) => Promise<ScreenImage>
         entry.image?.dispose();
     };
     return {
-        async acquire(id: string): Promise<ScreenImageLease> {
+        async acquire(id: string): Promise<ScreenImageLease<T>> {
             if (closed) throw failure("CANCELLED", "Image pool disposed");
             let entry = entries.get(id);
             if (!entry) {
@@ -204,7 +205,7 @@ export function createScreenImagePool(load: (id: string) => Promise<ScreenImage>
             }
             const held = entry;
             held.leases++;
-            let image: ScreenImage;
+            let image: T;
             try { image = await held.promise; }
             catch (error) { held.leases--; throw error; }
             if (closed) { held.leases--; if (held.leases === 0) drop(id, held); throw failure("CANCELLED", "Image pool disposed"); }

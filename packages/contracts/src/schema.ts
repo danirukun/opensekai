@@ -32,7 +32,8 @@ export const LIMITS = {
     hazes: 1,
     fpsCounters: 1,
     vmcSenders: 4,
-    screens: 16
+    screens: 16,
+    videoScreens: 4
 } as const;
 export const IdSchema = z.string().min(1).max(256);
 const n = z.number().finite(), u = n.int().nonnegative().max(Number.MAX_SAFE_INTEGER);
@@ -159,10 +160,13 @@ export const FpsCounterSettingsSchema = z.strictObject({
     color: LightColorSchema
 });
 export const ReflectionsIntensitySchema = n.min(0).max(2);
-// B29 to B31 add video, web page, and capture members.
+// B30 and B31 add web page and capture members.
+export const ScreenVideoSchema = z.strictObject({ assetId: IdSchema.nullable(), autoPlay: z.boolean(), loop: z.boolean(), volume: n.min(0).max(1) });
 export const ScreenContentSchema = z.discriminatedUnion("kind", [
-    z.strictObject({ kind: z.literal("image"), assetId: IdSchema.nullable() })
+    z.strictObject({ kind: z.literal("image"), assetId: IdSchema.nullable() }),
+    ScreenVideoSchema.extend({ kind: z.literal("video") })
 ]);
+export const isVideoScreen = (entity: { kind: string; content?: { kind: string } }): boolean => entity.kind === 'screen' && entity.content?.kind === 'video';
 export const SceneEntitySchema = z.discriminatedUnion("kind", [
     EntityBaseSchema.extend({
         kind: z.literal("mesh"),
@@ -240,7 +244,7 @@ export const SceneViewSchema = z.strictObject({
  if(lights.length>LIMITS.lights||lights.filter(e=>e.light.shadow.enabled).length>LIMITS.shadowLights)return false;
  if(s.entities.filter(e=>e.kind==='haze').length>LIMITS.hazes)return false;
  if(s.entities.filter(e=>e.kind==='fpsCounter').length>LIMITS.fpsCounters)return false;
- if(s.entities.filter(e=>e.kind==='screen').length>LIMITS.screens)return false;
+ if(s.entities.filter(e=>e.kind==='screen').length>LIMITS.screens||s.entities.filter(isVideoScreen).length>LIMITS.videoScreens)return false;
  const senders=s.entities.filter(e=>e.kind==='vmcSender');
  if(senders.length>LIMITS.vmcSenders||!senders.every(e=>e.vmcSender.avatarId===null||s.entities.some(a=>a.id===e.vmcSender.avatarId&&a.kind==='avatar')))return false;
  if(!s.entities.every(e=>{if(e.kind!=='camera'||e.navigation?.mode!=='orbitCharacter')return true;const target=e.navigation.targetId;return target===null||s.entities.some(a=>a.id===target&&a.kind==='avatar');}))return false;
@@ -272,6 +276,9 @@ export const PatchOpSchema = z.discriminatedUnion("kind", [
     z.strictObject({kind:z.literal('setEnvironmentModel'),entityId:IdSchema,assetId:IdSchema.nullable()}),
     z.strictObject({kind:z.literal('setMeshModel'),entityId:IdSchema,assetId:IdSchema.nullable()}),
     z.strictObject({kind:z.literal('setScreenImage'),entityId:IdSchema,assetId:IdSchema.nullable()}),
+    z.strictObject({kind:z.literal('setScreenVideo'),entityId:IdSchema,video:ScreenVideoSchema}),
+    // Runtime only (B29 R10): the session applies it after the commit and never saves it.
+    z.strictObject({kind:z.literal('controlScreenVideo'),entityId:IdSchema,action:z.enum(['play','pause','restart'])}),
     z.strictObject({kind:z.literal('setEnvironmentReflections'),entityId:IdSchema,reflectionsIntensity:ReflectionsIntensitySchema}),
     z.strictObject({kind:z.literal('setLight'),entityId:IdSchema,light:LightSettingsSchema}),
     z.strictObject({kind:z.literal('setHaze'),entityId:IdSchema,haze:HazeSettingsSchema}),
@@ -327,6 +334,23 @@ export const AssetCatalogSchema = z.strictObject({
 export const IMAGE_FORMATS = ['png', 'jpeg', 'webp', 'gif'] as const;
 export const IMAGE_LIMITS = { side: 8192, area: 33554432, frames: 4096, bytes: 64 * 1024 * 1024 } as const;
 const isImageFormat = (format: string): boolean => (IMAGE_FORMATS as readonly string[]).includes(format);
+export const VIDEO_FORMATS = ['mp4', 'webm'] as const;
+export const VIDEO_CODECS = ['h264', 'hevc', 'vp8', 'vp9', 'av1'] as const;
+export const VIDEO_AUDIO_CODECS = ['aac', 'mp3', 'opus', 'vorbis'] as const;
+export const VIDEO_LIMITS = { side: 4096, durationMs: 14_400_000, bytes: 256 * 1024 * 1024 } as const;
+const isVideoFormat = (format: string): boolean => (VIDEO_FORMATS as readonly string[]).includes(format);
+export const AssetVideoSchema = z.strictObject({
+    width: n.int().min(1).max(VIDEO_LIMITS.side),
+    height: n.int().min(1).max(VIDEO_LIMITS.side),
+    durationMs: n.int().min(1).max(VIDEO_LIMITS.durationMs),
+    videoCodec: z.enum(VIDEO_CODECS),
+    audioCodec: z.enum(VIDEO_AUDIO_CODECS).nullable(),
+    alpha: z.boolean()
+});
+// B29 R1: the codecs that each container allows, and alpha only for WebM VP8 or VP9.
+const videoCodecsOk = (format: string, video: z.infer<typeof AssetVideoSchema>): boolean => format === 'mp4'
+    ? ['h264', 'hevc', 'av1'].includes(video.videoCodec) && video.audioCodec !== 'vorbis' && !video.alpha
+    : ['vp8', 'vp9', 'av1'].includes(video.videoCodec) && (video.audioCodec === null || video.audioCodec === 'opus' || video.audioCodec === 'vorbis') && (!video.alpha || video.videoCodec !== 'av1');
 export const AssetImageSchema = z.strictObject({
     width: n.int().min(1).max(IMAGE_LIMITS.side),
     height: n.int().min(1).max(IMAGE_LIMITS.side),
@@ -337,7 +361,8 @@ export const AssetRecordSchema = z.strictObject({
     format: z.enum([
         "glb",
         "vrm",
-        ...IMAGE_FORMATS
+        ...IMAGE_FORMATS,
+        ...VIDEO_FORMATS
     ]),
     sha256: sha,
     bytes: u,
@@ -351,15 +376,20 @@ export const AssetRecordSchema = z.strictObject({
     eyeBones: z.boolean().optional(),
     rig: AvatarRigSchema.optional(),
     meshes: AssetMeshesSchema.optional(),
-    image: AssetImageSchema.optional()
+    image: AssetImageSchema.optional(),
+    video: AssetVideoSchema.optional()
 }).refine(record => isImageFormat(record.format)
     ? record.image !== undefined && record.id.startsWith('image_') && record.expressions.length === 0 && record.rig === undefined && record.eyeBones === undefined && record.meshes === undefined
-    : record.image === undefined && !record.id.startsWith('image_'), 'Image fields do not match the format');
+    : record.image === undefined && !record.id.startsWith('image_'), 'Image fields do not match the format')
+  .refine(record => isVideoFormat(record.format)
+    ? record.video !== undefined && record.id.startsWith('video_') && record.bytes <= VIDEO_LIMITS.bytes && videoCodecsOk(record.format, record.video) && record.expressions.length === 0 && record.rig === undefined && record.eyeBones === undefined && record.meshes === undefined
+    : record.video === undefined && !record.id.startsWith('video_'), 'Video fields do not match the format');
 export const isImageRecord = (record: { format: string }): boolean => isImageFormat(record.format);
+export const isVideoRecord = (record: { format: string }): boolean => isVideoFormat(record.format);
 // One page of `assetList`: the host answers it from the asset library, in ascending ID order.
 export const AssetSummarySchema = z.strictObject({
     id: IdSchema,
-    kind: z.enum(['avatar', 'scene', 'image', 'fixture']),
+    kind: z.enum(['avatar', 'scene', 'image', 'video', 'fixture']),
     name: z.string().refine(name => name.trim().length > 0 && name.length <= 128, 'Invalid asset name'),
     credits: AssetCreditsSchema.optional(),
     catalog: AssetCatalogSchema.optional()
@@ -388,6 +418,8 @@ export const ConnectionDescriptorSchema = z.strictObject({
     capabilities: CapabilitiesSchema,
     outputId: IdSchema.nullable()
 }).refine(d => new URL(d.wsUrl).host === new URL(d.httpOrigin).host).refine(d => d.role !== "renderer" || (d.outputId !== null && d.capabilities.every(c => c === "read")));
+// B29 R11: the session-owned position of each video screen. It is not wrapped by the duration.
+export const ScreenPlaybackSchema = z.strictObject({ entityId: IdSchema, playing: z.boolean(), positionMs: u });
 export const RuntimeFrameSchema = z.strictObject({
     schemaVersion: z.literal(1),
     sessionId: IdSchema,
@@ -397,7 +429,8 @@ export const RuntimeFrameSchema = z.strictObject({
     scene: SceneViewSchema,
     blueprintRevision: u.optional(),
     avatarPoses:z.array(AvatarPoseSchema).max(2).optional(),
-    trackingStatus:z.array(TrackingStatusSchema).max(4).refine(values=>new Set(values.map(value=>value.sourceId)).size===values.length).optional()
+    trackingStatus:z.array(TrackingStatusSchema).max(4).refine(values=>new Set(values.map(value=>value.sourceId)).size===values.length).optional(),
+    screenPlayback:z.array(ScreenPlaybackSchema).max(LIMITS.videoScreens).refine(values=>new Set(values.map(value=>value.entityId)).size===values.length).optional()
 });
 export const FrameAppliedSchema = z.strictObject({
     outputId: IdSchema,

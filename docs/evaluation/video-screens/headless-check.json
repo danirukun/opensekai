@@ -1,0 +1,1117 @@
+{
+ "browser": "chromium",
+ "gpu": {
+  "webgpu": {
+   "vendor": "google",
+   "architecture": "swiftshader",
+   "description": "",
+   "device": true
+  },
+  "webgl2": {
+   "renderer": "ANGLE (Mesa, Vulkan 1.4.318 (llvmpipe (LLVM 20.1.2 256 bits) (0x00000000)), llvmpipe)"
+  }
+ },
+ "cases": [
+  {
+   "label": "video_vp9opus webgl2",
+   "backend": "webgl2",
+   "asset": "vp9-opus.webm",
+   "checks": [
+    {
+     "name": "paused at 250 ms is red (videoSettled: settled)",
+     "actual": [
+      255,
+      24,
+      0,
+      255
+     ],
+     "reference": [
+      255,
+      24,
+      0
+     ],
+     "expected": "red",
+     "nominalDistance": 24
+    },
+    {
+     "name": "paused at 750 ms is green (videoSettled: settled)",
+     "actual": [
+      0,
+      216,
+      0,
+      255
+     ],
+     "reference": [
+      0,
+      216,
+      0
+     ],
+     "expected": "green",
+     "nominalDistance": 39
+    },
+    {
+     "name": "paused at 1250 ms is blue (videoSettled: settled)",
+     "actual": [
+      0,
+      15,
+      255,
+      255
+     ],
+     "reference": [
+      0,
+      15,
+      255
+     ],
+     "expected": "blue",
+     "nominalDistance": 15
+    },
+    {
+     "name": "direct path (page capture) at 1250 ms is blue",
+     "actual": [
+      0,
+      15,
+      255,
+      255
+     ],
+     "reference": [
+      0,
+      15,
+      255
+     ],
+     "expected": "blue",
+     "nominalDistance": 15
+    },
+    {
+     "name": "paused at 1750 ms is white (videoSettled: settled)",
+     "actual": [
+      255,
+      255,
+      255,
+      255
+     ],
+     "reference": [
+      255,
+      255,
+      255
+     ],
+     "expected": "white",
+     "nominalDistance": 0
+    },
+    {
+     "name": "loop true, 2250 ms is red",
+     "actual": [
+      255,
+      24,
+      0,
+      255
+     ],
+     "reference": [
+      255,
+      24,
+      0
+     ],
+     "expected": "red",
+     "nominalDistance": 24
+    },
+    {
+     "name": "loop false, 2250 ms is white",
+     "actual": [
+      255,
+      255,
+      255,
+      255
+     ],
+     "reference": [
+      255,
+      255,
+      255
+     ],
+     "expected": "white",
+     "nominalDistance": 0
+    },
+    {
+     "name": "loop false, a playing entry at 2250 ms stays white (the end)",
+     "actual": [
+      255,
+      255,
+      255,
+      255
+     ],
+     "reference": [
+      255,
+      255,
+      255
+     ],
+     "expected": "white",
+     "nominalDistance": 0
+    }
+   ],
+   "reference": [
+    {
+     "time": 250,
+     "right": [
+      255,
+      24,
+      0,
+      255
+     ],
+     "left": [
+      255,
+      24,
+      0,
+      255
+     ]
+    },
+    {
+     "time": 750,
+     "right": [
+      0,
+      216,
+      0,
+      255
+     ],
+     "left": [
+      0,
+      216,
+      0,
+      255
+     ]
+    },
+    {
+     "time": 1250,
+     "right": [
+      0,
+      15,
+      255,
+      255
+     ],
+     "left": [
+      0,
+      15,
+      255,
+      255
+     ]
+    },
+    {
+     "time": 1750,
+     "right": [
+      255,
+      255,
+      255,
+      255
+     ],
+     "left": [
+      255,
+      255,
+      255,
+      255
+     ]
+    },
+    {
+     "time": 1983,
+     "right": [
+      255,
+      255,
+      255,
+      255
+     ],
+     "left": [
+      255,
+      255,
+      255,
+      255
+     ]
+    }
+   ],
+   "appliedBackend": "webgl2",
+   "screenshot": "vp9-opus-webm-1250ms-webgl2.png",
+   "pageErrors": []
+  },
+  {
+   "label": "video_h264aac webgl2",
+   "backend": "webgl2",
+   "asset": "h264-aac.mp4",
+   "checks": [
+    {
+     "name": "paused at 250 ms is red (videoSettled: settled)",
+     "actual": [
+      255,
+      24,
+      0,
+      255
+     ],
+     "reference": [
+      255,
+      24,
+      0
+     ],
+     "expected": "red",
+     "nominalDistance": 24
+    },
+    {
+     "name": "paused at 750 ms is green (videoSettled: settled)",
+     "actual": [
+      0,
+      216,
+      0,
+      255
+     ],
+     "reference": [
+      0,
+      216,
+      0
+     ],
+     "expected": "green",
+     "nominalDistance": 39
+    },
+    {
+     "name": "paused at 1250 ms is blue (videoSettled: settled)",
+     "actual": [
+      0,
+      15,
+      255,
+      255
+     ],
+     "reference": [
+      0,
+      15,
+      255
+     ],
+     "expected": "blue",
+     "nominalDistance": 15
+    },
+    {
+     "name": "direct path (page capture) at 1250 ms is blue",
+     "actual": [
+      0,
+      15,
+      255,
+      255
+     ],
+     "reference": [
+      0,
+      15,
+      255
+     ],
+     "expected": "blue",
+     "nominalDistance": 15
+    },
+    {
+     "name": "paused at 1750 ms is white (videoSettled: settled)",
+     "actual": [
+      255,
+      255,
+      255,
+      255
+     ],
+     "reference": [
+      255,
+      255,
+      255
+     ],
+     "expected": "white",
+     "nominalDistance": 0
+    },
+    {
+     "name": "loop true, 2250 ms is red",
+     "actual": [
+      255,
+      24,
+      0,
+      255
+     ],
+     "reference": [
+      255,
+      24,
+      0
+     ],
+     "expected": "red",
+     "nominalDistance": 24
+    },
+    {
+     "name": "loop false, 2250 ms is white",
+     "actual": [
+      255,
+      255,
+      255,
+      255
+     ],
+     "reference": [
+      255,
+      255,
+      255
+     ],
+     "expected": "white",
+     "nominalDistance": 0
+    },
+    {
+     "name": "loop false, a playing entry at 2250 ms stays white (the end)",
+     "actual": [
+      255,
+      255,
+      255,
+      255
+     ],
+     "reference": [
+      255,
+      255,
+      255
+     ],
+     "expected": "white",
+     "nominalDistance": 0
+    }
+   ],
+   "reference": [
+    {
+     "time": 250,
+     "right": [
+      255,
+      24,
+      0,
+      255
+     ],
+     "left": [
+      255,
+      24,
+      0,
+      255
+     ]
+    },
+    {
+     "time": 750,
+     "right": [
+      0,
+      216,
+      0,
+      255
+     ],
+     "left": [
+      0,
+      216,
+      0,
+      255
+     ]
+    },
+    {
+     "time": 1250,
+     "right": [
+      0,
+      15,
+      255,
+      255
+     ],
+     "left": [
+      0,
+      15,
+      255,
+      255
+     ]
+    },
+    {
+     "time": 1750,
+     "right": [
+      255,
+      255,
+      255,
+      255
+     ],
+     "left": [
+      255,
+      255,
+      255,
+      255
+     ]
+    },
+    {
+     "time": 1983,
+     "right": [
+      255,
+      255,
+      255,
+      255
+     ],
+     "left": [
+      255,
+      255,
+      255,
+      255
+     ]
+    }
+   ],
+   "appliedBackend": "webgl2",
+   "screenshot": "h264-aac-mp4-1250ms-webgl2.png",
+   "pageErrors": []
+  },
+  {
+   "label": "hevc and vp9 webgl2",
+   "backend": "webgl2",
+   "warnings": [
+    {
+     "code": "UNAVAILABLE",
+     "message": "Asset load failed: Video codec not supported: HEVC",
+     "ids": [
+      "video_hevc"
+     ]
+    }
+   ],
+   "appliedBackend": "webgl2",
+   "screenshot": "hevc-failure-webgl2.png"
+  },
+  {
+   "label": "vp9 alpha direct webgl2",
+   "backend": "webgl2",
+   "checks": [
+    {
+     "where": "screenshot PNG",
+     "left": [
+      0,
+      0,
+      0,
+      0
+     ],
+     "right": [
+      255,
+      24,
+      0,
+      255
+     ],
+     "outside": [
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "where": "page capture",
+     "left": [
+      0,
+      0,
+      0,
+      0
+     ],
+     "right": [
+      255,
+      24,
+      0,
+      255
+     ],
+     "outside": [
+      0,
+      0,
+      0,
+      0
+     ]
+    }
+   ],
+   "reference": [
+    {
+     "time": 250,
+     "right": [
+      255,
+      24,
+      0,
+      255
+     ],
+     "left": [
+      0,
+      0,
+      0,
+      0
+     ]
+    }
+   ],
+   "appliedBackend": "webgl2",
+   "screenshot": "vp9-alpha-direct-screenshot-webgl2.png",
+   "page": "vp9-alpha-direct-page-webgl2.png"
+  },
+  {
+   "label": "vp9 alpha fxaa webgl2",
+   "backend": "webgl2",
+   "checks": [
+    {
+     "where": "screenshot PNG",
+     "left": [
+      0,
+      0,
+      0,
+      0
+     ],
+     "right": [
+      255,
+      24,
+      0,
+      255
+     ],
+     "outside": [
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "where": "page capture",
+     "left": [
+      0,
+      0,
+      0,
+      0
+     ],
+     "right": [
+      255,
+      24,
+      0,
+      255
+     ],
+     "outside": [
+      0,
+      0,
+      0,
+      0
+     ]
+    }
+   ],
+   "reference": [
+    {
+     "time": 250,
+     "right": [
+      255,
+      24,
+      0,
+      255
+     ],
+     "left": [
+      0,
+      0,
+      0,
+      0
+     ]
+    }
+   ],
+   "appliedBackend": "webgl2",
+   "screenshot": "vp9-alpha-fxaa-screenshot-webgl2.png",
+   "page": "vp9-alpha-fxaa-page-webgl2.png"
+  },
+  {
+   "label": "video_vp9opus webgpu",
+   "backend": "webgpu",
+   "asset": "vp9-opus.webm",
+   "checks": [
+    {
+     "name": "paused at 250 ms is red (videoSettled: settled)",
+     "actual": [
+      255,
+      24,
+      0,
+      255
+     ],
+     "reference": [
+      255,
+      24,
+      0
+     ],
+     "expected": "red",
+     "nominalDistance": 24
+    },
+    {
+     "name": "paused at 750 ms is green (videoSettled: settled)",
+     "actual": [
+      0,
+      216,
+      0,
+      255
+     ],
+     "reference": [
+      0,
+      216,
+      0
+     ],
+     "expected": "green",
+     "nominalDistance": 39
+    },
+    {
+     "name": "paused at 1250 ms is blue (videoSettled: settled)",
+     "actual": [
+      0,
+      15,
+      255,
+      255
+     ],
+     "reference": [
+      0,
+      15,
+      255
+     ],
+     "expected": "blue",
+     "nominalDistance": 15
+    },
+    {
+     "name": "paused at 1750 ms is white (videoSettled: settled)",
+     "actual": [
+      255,
+      255,
+      255,
+      255
+     ],
+     "reference": [
+      255,
+      255,
+      255
+     ],
+     "expected": "white",
+     "nominalDistance": 0
+    },
+    {
+     "name": "loop true, 2250 ms is red",
+     "actual": [
+      255,
+      24,
+      0,
+      255
+     ],
+     "reference": [
+      255,
+      24,
+      0
+     ],
+     "expected": "red",
+     "nominalDistance": 24
+    },
+    {
+     "name": "loop false, 2250 ms is white",
+     "actual": [
+      255,
+      255,
+      255,
+      255
+     ],
+     "reference": [
+      255,
+      255,
+      255
+     ],
+     "expected": "white",
+     "nominalDistance": 0
+    },
+    {
+     "name": "loop false, a playing entry at 2250 ms stays white (the end)",
+     "actual": [
+      255,
+      255,
+      255,
+      255
+     ],
+     "reference": [
+      255,
+      255,
+      255
+     ],
+     "expected": "white",
+     "nominalDistance": 0
+    }
+   ],
+   "reference": [
+    {
+     "time": 250,
+     "right": [
+      255,
+      24,
+      0,
+      255
+     ],
+     "left": [
+      255,
+      24,
+      0,
+      255
+     ]
+    },
+    {
+     "time": 750,
+     "right": [
+      0,
+      216,
+      0,
+      255
+     ],
+     "left": [
+      0,
+      216,
+      0,
+      255
+     ]
+    },
+    {
+     "time": 1250,
+     "right": [
+      0,
+      15,
+      255,
+      255
+     ],
+     "left": [
+      0,
+      15,
+      255,
+      255
+     ]
+    },
+    {
+     "time": 1750,
+     "right": [
+      255,
+      255,
+      255,
+      255
+     ],
+     "left": [
+      255,
+      255,
+      255,
+      255
+     ]
+    },
+    {
+     "time": 1983,
+     "right": [
+      255,
+      255,
+      255,
+      255
+     ],
+     "left": [
+      255,
+      255,
+      255,
+      255
+     ]
+    }
+   ],
+   "appliedBackend": "webgpu",
+   "screenshot": "vp9-opus-webm-1250ms-webgpu.png",
+   "pageErrors": []
+  },
+  {
+   "label": "video_h264aac webgpu",
+   "backend": "webgpu",
+   "asset": "h264-aac.mp4",
+   "checks": [
+    {
+     "name": "paused at 250 ms is red (videoSettled: settled)",
+     "actual": [
+      255,
+      24,
+      0,
+      255
+     ],
+     "reference": [
+      255,
+      24,
+      0
+     ],
+     "expected": "red",
+     "nominalDistance": 24
+    },
+    {
+     "name": "paused at 750 ms is green (videoSettled: settled)",
+     "actual": [
+      0,
+      216,
+      0,
+      255
+     ],
+     "reference": [
+      0,
+      216,
+      0
+     ],
+     "expected": "green",
+     "nominalDistance": 39
+    },
+    {
+     "name": "paused at 1250 ms is blue (videoSettled: settled)",
+     "actual": [
+      0,
+      15,
+      255,
+      255
+     ],
+     "reference": [
+      0,
+      15,
+      255
+     ],
+     "expected": "blue",
+     "nominalDistance": 15
+    },
+    {
+     "name": "paused at 1750 ms is white (videoSettled: settled)",
+     "actual": [
+      255,
+      255,
+      255,
+      255
+     ],
+     "reference": [
+      255,
+      255,
+      255
+     ],
+     "expected": "white",
+     "nominalDistance": 0
+    },
+    {
+     "name": "loop true, 2250 ms is red",
+     "actual": [
+      255,
+      24,
+      0,
+      255
+     ],
+     "reference": [
+      255,
+      24,
+      0
+     ],
+     "expected": "red",
+     "nominalDistance": 24
+    },
+    {
+     "name": "loop false, 2250 ms is white",
+     "actual": [
+      255,
+      255,
+      255,
+      255
+     ],
+     "reference": [
+      255,
+      255,
+      255
+     ],
+     "expected": "white",
+     "nominalDistance": 0
+    },
+    {
+     "name": "loop false, a playing entry at 2250 ms stays white (the end)",
+     "actual": [
+      255,
+      255,
+      255,
+      255
+     ],
+     "reference": [
+      255,
+      255,
+      255
+     ],
+     "expected": "white",
+     "nominalDistance": 0
+    }
+   ],
+   "reference": [
+    {
+     "time": 250,
+     "right": [
+      255,
+      24,
+      0,
+      255
+     ],
+     "left": [
+      255,
+      24,
+      0,
+      255
+     ]
+    },
+    {
+     "time": 750,
+     "right": [
+      0,
+      216,
+      0,
+      255
+     ],
+     "left": [
+      0,
+      216,
+      0,
+      255
+     ]
+    },
+    {
+     "time": 1250,
+     "right": [
+      0,
+      15,
+      255,
+      255
+     ],
+     "left": [
+      0,
+      15,
+      255,
+      255
+     ]
+    },
+    {
+     "time": 1750,
+     "right": [
+      255,
+      255,
+      255,
+      255
+     ],
+     "left": [
+      255,
+      255,
+      255,
+      255
+     ]
+    },
+    {
+     "time": 1983,
+     "right": [
+      255,
+      255,
+      255,
+      255
+     ],
+     "left": [
+      255,
+      255,
+      255,
+      255
+     ]
+    }
+   ],
+   "appliedBackend": "webgpu",
+   "screenshot": "h264-aac-mp4-1250ms-webgpu.png",
+   "pageErrors": []
+  },
+  {
+   "label": "hevc and vp9 webgpu",
+   "backend": "webgpu",
+   "warnings": [
+    {
+     "code": "UNAVAILABLE",
+     "message": "Asset load failed: Video codec not supported: HEVC",
+     "ids": [
+      "video_hevc"
+     ]
+    }
+   ],
+   "appliedBackend": "webgpu",
+   "screenshot": "hevc-failure-webgpu.png"
+  },
+  {
+   "label": "vp9 alpha direct webgpu",
+   "backend": "webgpu",
+   "checks": [
+    {
+     "where": "screenshot PNG",
+     "left": [
+      0,
+      0,
+      0,
+      0
+     ],
+     "right": [
+      255,
+      24,
+      0,
+      255
+     ],
+     "outside": [
+      0,
+      0,
+      0,
+      0
+     ]
+    }
+   ],
+   "reference": [
+    {
+     "time": 250,
+     "right": [
+      255,
+      24,
+      0,
+      255
+     ],
+     "left": [
+      0,
+      0,
+      0,
+      0
+     ]
+    }
+   ],
+   "appliedBackend": "webgpu",
+   "screenshot": "vp9-alpha-direct-screenshot-webgpu.png"
+  },
+  {
+   "label": "vp9 alpha fxaa webgpu",
+   "backend": "webgpu",
+   "checks": [
+    {
+     "where": "screenshot PNG",
+     "left": [
+      0,
+      0,
+      0,
+      0
+     ],
+     "right": [
+      255,
+      24,
+      0,
+      255
+     ],
+     "outside": [
+      0,
+      0,
+      0,
+      0
+     ]
+    }
+   ],
+   "reference": [
+    {
+     "time": 250,
+     "right": [
+      255,
+      24,
+      0,
+      255
+     ],
+     "left": [
+      0,
+      0,
+      0,
+      0
+     ]
+    }
+   ],
+   "appliedBackend": "webgpu",
+   "screenshot": "vp9-alpha-fxaa-screenshot-webgpu.png"
+  },
+  {
+   "label": "autoplay no-user-gesture-required, audio on (OBS page) webgl2",
+   "backend": "webgl2",
+   "warnings": []
+  },
+  {
+   "label": "autoplay document-user-activation-required, audio on (OBS page) webgl2",
+   "backend": "webgl2",
+   "warnings": []
+  },
+  {
+   "label": "autoplay document-user-activation-required, audio off (preview) webgl2",
+   "backend": "webgl2",
+   "warnings": []
+  }
+ ]
+}

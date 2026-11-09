@@ -34,7 +34,7 @@ it('groups screens under Screens after Props, with a Transform and a Screen sect
 });
 it('resets the image to none and marks a chosen image as changed (R19)',()=>{
  const screen=makeAuthoringEntity('screen','s',[]);
- expect(resetFieldIds(screen)).toEqual(['visible','position','rotation','scale','image']);
+ expect(resetFieldIds(screen)).toEqual(['visible','position','rotation','scale','content','image']);
  expect(defaultsFor(screen).image).toBeNull();
  expect(changedFields(screen).has('image')).toBe(false);
  expect(changedFields({...screen,content:{kind:'image',assetId:'image_a'}} as SceneEntity).has('image')).toBe(true);

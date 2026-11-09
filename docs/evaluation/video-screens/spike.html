@@ -1,0 +1,59 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:transparent}canvas{display:block;width:320px;height:180px}</style>
+<script type="importmap">{"imports":{"three/webgpu":"/three/three.webgpu.js"}}</script></head>
+<body><canvas id="c"></canvas>
+<script type="module">
+// Operation 5 step 1: one quad that fills a 320 x 180 render target, with the screen UV rule of B28 R12 (row 0 at the
+// top, flipY false), sRGB, unlit. `video` uploads with a three.js VideoTexture; `bitmap` uploads one ImageBitmap of the
+// element. The pixels come from a render target read, because the page capture of a WebGPU canvas is one flat color on
+// the software adapter.
+import { RenderTarget, UnsignedByteType, Texture, WebGPURenderer, Scene, OrthographicCamera, PlaneGeometry, Mesh, MeshBasicNodeMaterial, VideoTexture, SRGBColorSpace, DoubleSide } from 'three/webgpu';
+const timeout = (promise, ms) => Promise.race([promise, new Promise(resolve => setTimeout(() => resolve('timeout'), ms))]);
+// A VP8 clip that MediaRecorder makes from a canvas: top half blue with a green left quarter, bottom half red.
+async function upright() {
+  const c = document.createElement('canvas'); c.width = 64; c.height = 36; const g = c.getContext('2d');
+  const draw = () => { g.fillStyle = '#ff0000'; g.fillRect(0, 0, 64, 36); g.fillStyle = '#0000ff'; g.fillRect(0, 0, 64, 18); g.fillStyle = '#00ff00'; g.fillRect(0, 0, 16, 18); };
+  draw();
+  const recorder = new MediaRecorder(c.captureStream(30), { mimeType: 'video/webm;codecs=vp8', videoBitsPerSecond: 2e6 });
+  const chunks = []; recorder.ondataavailable = e => chunks.push(e.data);
+  const done = new Promise(r => { recorder.onstop = r; }); recorder.start();
+  const timer = setInterval(draw, 30); await new Promise(r => setTimeout(r, 700)); recorder.stop(); clearInterval(timer); await done;
+  return new Blob(chunks, { type: 'video/webm' });
+}
+window.spike = async (src, backend, time, mode) => {
+  const blob = src === 'upright' ? await upright() : await (await fetch(src)).blob();
+  const video = document.createElement('video'); video.muted = true; video.playsInline = true; video.preload = 'auto';
+  video.src = URL.createObjectURL(blob);
+  await new Promise((resolve, reject) => { video.onloadeddata = resolve; video.onerror = () => reject(new Error('element error ' + video.error?.code)); });
+  if (time !== null) { video.currentTime = time / 1000; await new Promise(r => { video.onseeked = r; }); }
+  // Does requestVideoFrameCallback run for a paused element outside the DOM after a seek?
+  const pausedCallback = await timeout(new Promise(r => video.requestVideoFrameCallback(() => r('called'))), 3000);
+  const ref = document.createElement('canvas'); ref.width = video.videoWidth; ref.height = video.videoHeight;
+  const rg = ref.getContext('2d', { willReadFrequently: true }); rg.drawImage(video, 0, 0);
+  const refAt = (x, y) => Array.from(rg.getImageData(Math.floor(x * ref.width), Math.floor(y * ref.height), 1, 1).data);
+  const reference = { left: refAt(0.25, 0.75), right: refAt(0.75, 0.75), topLeft: refAt(0.1, 0.25), topRight: refAt(0.75, 0.25) };
+  const canvas = document.getElementById('c');
+  const renderer = new WebGPURenderer({ canvas, alpha: true, forceWebGL: backend === 'webgl2' });
+  await renderer.init(); renderer.setPixelRatio(1); renderer.setSize(320, 180, false); renderer.setClearColor(0x000000, 0);
+  const errors = [];
+  const device = renderer.backend.device;
+  device?.addEventListener?.('uncapturederror', e => errors.push(String(e.error?.message ?? e).split('\n')[0]));
+  const texture = mode === 'bitmap' ? new Texture(await createImageBitmap(video)) : new VideoTexture(video);
+  texture.colorSpace = SRGBColorSpace; texture.flipY = false; texture.premultiplyAlpha = false;
+  // VideoTexture marks an update only from requestVideoFrameCallback; this paused element gets none, so mark it once.
+  texture.needsUpdate = true;
+  const alpha = src.includes('alpha');
+  const geometry = new PlaneGeometry(2, 2); const uv = geometry.getAttribute('uv'); for (let i = 0; i < uv.count; i++) uv.setY(i, 1 - uv.getY(i));
+  const material = new MeshBasicNodeMaterial({ map: texture, side: DoubleSide, transparent: alpha, depthWrite: !alpha }); material.toneMapped = false;
+  const scene = new Scene(); scene.add(new Mesh(geometry, material));
+  const camera = new OrthographicCamera(-1, 1, 1, -1, 0.1, 10); camera.position.z = 1;
+  const target = new RenderTarget(320, 180, { type: UnsignedByteType });
+  renderer.setRenderTarget(target); await renderer.renderAsync(scene, camera); await renderer.renderAsync(scene, camera);
+  const pixels = await renderer.readRenderTargetPixelsAsync(target, 0, 0, 320, 180); renderer.setRenderTarget(null);
+  // WebGL 2 reads rows from the bottom; WebGPU from the top. The values are linear (no output transfer on a target).
+  const at = (x, y) => { const row = backend === 'webgl2' ? 179 - y : y; return Array.from(pixels.subarray((row * 320 + x) * 4, (row * 320 + x) * 4 + 4)); };
+  await new Promise(r => setTimeout(r, 100));
+  return { backend: renderer.backend.isWebGPUBackend ? 'webgpu' : 'webgl2', mode, pausedCallback, reference, linear: { left: at(80, 135), right: at(240, 135), topLeft: at(32, 45), topRight: at(240, 45) }, errors };
+};
+window.ready = true;
+</script></body></html>

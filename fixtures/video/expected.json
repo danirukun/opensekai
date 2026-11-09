@@ -1,0 +1,92 @@
+{
+  "h264-aac.mp4": {
+    "format": "mp4",
+    "width": 64,
+    "height": 36,
+    "durationMs": 2000,
+    "videoCodec": "h264",
+    "audioCodec": "aac",
+    "alpha": false,
+    "codecString": "avc1.42C00A"
+  },
+  "h264-late-moov.mp4": {
+    "format": "mp4",
+    "width": 64,
+    "height": 36,
+    "durationMs": 2000,
+    "videoCodec": "h264",
+    "audioCodec": null,
+    "alpha": false,
+    "codecString": "avc1.42C00A"
+  },
+  "h264-turned.mp4": {
+    "format": "mp4",
+    "width": 36,
+    "height": 64,
+    "durationMs": 2000,
+    "videoCodec": "h264",
+    "audioCodec": null,
+    "alpha": false,
+    "codecString": "avc1.42C00A"
+  },
+  "hevc.mp4": {
+    "format": "mp4",
+    "width": 64,
+    "height": 36,
+    "durationMs": 2000,
+    "videoCodec": "hevc",
+    "audioCodec": null,
+    "alpha": false,
+    "codecString": "hvc1.1.6.L30.90"
+  },
+  "av1.mp4": {
+    "format": "mp4",
+    "width": 64,
+    "height": 36,
+    "durationMs": 2000,
+    "videoCodec": "av1",
+    "audioCodec": null,
+    "alpha": false,
+    "codecString": "av01.0.00M.08"
+  },
+  "vp8.webm": {
+    "format": "webm",
+    "width": 64,
+    "height": 36,
+    "durationMs": 2000,
+    "videoCodec": "vp8",
+    "audioCodec": null,
+    "alpha": false,
+    "codecString": "vp8"
+  },
+  "vp9-opus.webm": {
+    "format": "webm",
+    "width": 64,
+    "height": 36,
+    "durationMs": 2008,
+    "videoCodec": "vp9",
+    "audioCodec": "opus",
+    "alpha": false,
+    "codecString": "vp9"
+  },
+  "vp9-alpha.webm": {
+    "format": "webm",
+    "width": 64,
+    "height": 36,
+    "durationMs": 2000,
+    "videoCodec": "vp9",
+    "audioCodec": null,
+    "alpha": true,
+    "codecString": "vp9"
+  },
+  "av1.webm": {
+    "format": "webm",
+    "width": 64,
+    "height": 36,
+    "durationMs": 2000,
+    "videoCodec": "av1",
+    "audioCodec": null,
+    "alpha": false,
+    "codecString": "av01.0.00M.08"
+  }
+}

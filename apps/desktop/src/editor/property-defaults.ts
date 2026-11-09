@@ -1,6 +1,7 @@
 import {DEFAULT_TRACKING_MAPPING,DEFAULT_TRACKING_SMOOTHING,defaultTrackingConfig,type LightSettings,type SceneEntity} from '@opensekai/contracts';
 import {makeAuthoringEntity} from './authoring';
 import {VMC_SENDER} from './vmc-sender';
+import {VIDEO_DEFAULTS} from './screen';
 import {AMBIENT_LIGHT,DIRECTIONAL_LIGHT,FPS_COUNTER,HAZE,POINT_LIGHT,SPOT_LIGHT,hazeTransform} from './lights';
 // The reset defaults of the Inspector fields (B17 R1–R4). Each value comes from the add defaults, so a reset and an add cannot differ.
 export type EntityDefaults=Readonly<Record<string,unknown>>;
@@ -25,7 +26,7 @@ export function valuesFor(entity:SceneEntity):Record<string,unknown> {
  if(entity.kind==='fpsCounter')return {...base,...entity.fpsCounter};
  if(entity.kind==='vmcSender')return {address:entity.vmcSender.address,port:entity.vmcSender.port};
  if(entity.kind==='environment')return {...base,reflectionsIntensity:entity.reflectionsIntensity??1};
- if(entity.kind==='screen')return {...base,image:entity.content.assetId};
+ if(entity.kind==='screen')return entity.content.kind==='video'?{...base,content:'video',video:entity.content.assetId,autoPlay:entity.content.autoPlay,loop:entity.content.loop,volume:entity.content.volume}:{...base,content:'image',image:entity.content.assetId};
  if(entity.kind==='avatar')return {...base,idleAnimation:entity.idleAnimation?.enabled??false};
  if(entity.kind==='tracking')return {...configValues(entity.config),...smoothingValues(entity.smoothing),...mappingValues(entity.mapping)};
  return base;
@@ -38,7 +39,8 @@ export function defaultsFor(entity:SceneEntity):EntityDefaults {
  if(entity.kind==='fpsCounter')return {...base,...FPS_COUNTER};
  if(entity.kind==='vmcSender')return {...VMC_SENDER};
  if(entity.kind==='environment')return {...base,reflectionsIntensity:1};
- if(entity.kind==='screen'){const added=makeAuthoringEntity('screen','screen_default',[]);return {...base,image:added.kind==='screen'?added.content.assetId:null};}
+ // The Add menu makes image content; the video values are the start values of a change to Video (B29 R19).
+ if(entity.kind==='screen'){const added=makeAuthoringEntity('screen','screen_default',[]);return {...base,content:added.kind==='screen'?added.content.kind:'image',image:added.kind==='screen'?added.content.assetId:null,video:VIDEO_DEFAULTS.assetId,autoPlay:VIDEO_DEFAULTS.autoPlay,loop:VIDEO_DEFAULTS.loop,volume:VIDEO_DEFAULTS.volume};}
  if(entity.kind==='avatar'){const added=makeAuthoringEntity('character','avatar_default',[]);return {...base,idleAnimation:added.kind==='avatar'&&added.idleAnimation?.enabled};}
  if(entity.kind==='tracking')return {...configValues(defaultTrackingConfig(entity.config.kind)),...smoothingValues(),...mappingValues()};
  return base;
@@ -57,7 +59,7 @@ export function resetFieldIds(entity:SceneEntity):string[] {
  // A sender has no Transform or Visible field. Its character default depends on the scene, so it has no reset (B21 R5).
  if(entity.kind==='vmcSender')return ['address','port'];
  if(entity.kind==='environment')return [...base,'reflectionsIntensity'];
- if(entity.kind==='screen')return [...base,'image'];
+ if(entity.kind==='screen')return [...base,'content',...(entity.content.kind==='video'?['video','autoPlay','loop','volume']:['image'])];
  if(entity.kind==='avatar')return [...base,'idleAnimation'];
  if(entity.kind==='tracking')return [...(entity.config.kind==='mediapipe'?['face','upperBody','hands','mirror']:['bindAddress','port','address']),'smoothing','minCutoff','beta','derivativeCutoff','headIntensity','headOffsetX','headOffsetY','headOffsetZ','eyeIntensity','blendShapeSensitivity','linkedBlink'];
  return base;
