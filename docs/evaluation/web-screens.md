@@ -66,9 +66,22 @@ The first run found a defect: with two cross-origin pages in one layer, headless
 
 The first run of this check found a defect: a number input bound with `bind:value` gives a number, and the size clamp failed on it. The clamp now takes a number or a string, with a unit test.
 
+## Trust check on macOS (local, Operation 7 first step)
+
+A test page on `https:` (a temporary Cloudflare quick tunnel) ran each probe in the frame and sent the result to a local log. macOS 27.2, OBS 33.0.1, `pnpm dev:desktop`.
+
+| Check | Editor window (WebKit) | OBS page (CEF) |
+| --- | --- | --- |
+| `window.__TAURI_INTERNALS__` and `window.__TAURI__` are undefined; `parent.__TAURI_INTERNALS__` throws `SecurityError` | Pass | Pass ([probes](web-screens/trust-check-obs-probes.png)) |
+| `fetch` and `XMLHttpRequest` to `ipc://localhost/` and `http://ipc.localhost/` fail | Pass | Pass |
+| Frame navigation to `tauri://localhost/`, `ipc://localhost/`, `http://ipc.localhost/`, `http://127.0.0.1:<port>/renderer/` is blocked | Pass after the fix below ([frames](web-screens/trust-check-editor-dev.png)) | Pass |
+| Control: a frame navigation to a loopback `http:` server makes no request to it | Pass | Pass |
+
+The first run failed in the Editor window: the frame loaded `tauri://localhost/` (an answer from the Tauri `tauri:` protocol) and `ipc://localhost/` (`only POST and OPTIONS are allowed`, the GET answer of the Tauri IPC protocol). Cause: Tauri sends the `tauri.conf.json` CSP only as a header of its `tauri:` protocol, and a macOS dev build loads the Editor document from the Vite dev server, so the document had no CSP. Fix: `apps/desktop/index.html` has the meta CSP `frame-src https:` (R12). After the fix, each of the five navigations keeps the test page in the frame. A release build was not checked.
+
 ## Not verified here (owner on macOS)
 
-- The trust check of Operation 7 in the Editor window (WebKit) and the OBS page: no `__TAURI_INTERNALS__` or `__TAURI__` in a frame, failed `ipc://` and `http://ipc.localhost` requests, and blocked frame navigations to `tauri://localhost/`, `ipc://localhost/`, `http://ipc.localhost/`, and the host renderer route.
+- The trust check in a release build (the dev build check is above).
 - The page on the screen in the Editor window and in OBS (CEF), the edge during an orbit and a gizmo drag, a camera switch, and a fast camera move.
 - OBS Interact (scroll and click), page sound in OBS only, which services allow a frame (StreamElements, Streamlabs, YouTube chat popout), a minimized Editor window for 30 s, and Save As and Open in the app.
 - WebGPU pixels, visual quality on a real GPU, and Windows.

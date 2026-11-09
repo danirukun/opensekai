@@ -72,6 +72,7 @@ R12. Security rules for each iframe, in each instance:
 - The renderer builds the iframe only from a `url` that passes `isWebScreenUrl` again, and whose parsed `href` also passes it (the parser percent-encodes some characters, so the `href` can be over 2048 characters). A failing value gives no iframe and no quad, and the renderer does not throw.
 - The renderer never reads or writes the iframe document, never sends a message to it, and ignores each `message` event from it.
 - The Editor window CSP (`tauri.conf.json`) adds `frame-src https:`. No other CSP directive changes.
+- The Editor document (`apps/desktop/index.html`) also gets `<meta http-equiv="Content-Security-Policy" content="frame-src https:">`. Tauri sends the `tauri.conf.json` CSP only as a header of its `tauri:` protocol. A macOS dev build loads the Editor document from the Vite dev server, so that document has no CSP, and a frame can navigate to `tauri://localhost/` and `ipc://localhost/` (local QA found this). The meta tag puts the same directive in the document in each build. In a release build, the header and the meta tag apply together.
 - The OBS page is on the host service origin (`http://127.0.0.1:<port>`) and keeps the bearer descriptor in its `localStorage`. A sandbox without `allow-top-navigation` still lets a frame navigate itself, or get a redirect, to `http://127.0.0.1:<port>/`. Such a frame is same-origin with the OBS page and can read the token. So `apps/output/index.html` gets `<meta http-equiv="Content-Security-Policy" content="frame-src https:">`, which applies to each navigation and redirect of a frame. No other directive is in it.
 - Each host service response (all routes in `service/`) gets `x-frame-options: DENY` and `content-security-policy: frame-ancestors 'none'`, so no page can frame a host route. This is a second barrier for the same attack. The OBS page loads as a top-level page, so it does not change.
 - `capabilities/main.json` gets no `remote` entry. The Tauri 2 default runs the initialization scripts in the main frame only; this slice does not change it, and the owner check confirms it (Operation 7).
@@ -127,6 +128,7 @@ Add one content member and one saved operation. Do not store the page. Let the b
 - `apps/output`: `index.html` (layers, canvas pointer rule, `frame-src` meta CSP), `src/main.ts` (`webLayers`).
 - `apps/desktop/src-tauri/src/service/`: the `x-frame-options` and `frame-ancestors` response headers, with a test.
 - `apps/desktop/src-tauri/tauri.conf.json`: `frame-src https:`.
+- `apps/desktop/index.html`: the `frame-src https:` meta CSP.
 - `apps/desktop/src`: `components/ScenePane.svelte` (layers), `bootstrap.ts` (`webLayers`), `editor/screen.ts`, `editor/model.ts` (`setScreenWeb`), `editor/inspector-sections.ts`, `editor/property-defaults.ts`, `components/ScreenWebFields.svelte` (new), `components/Inspector.svelte`, `components/Hierarchy.svelte` (Duplicate limit).
 - `apps/mcp/src/server.ts`: descriptions.
 - `ARCHITECTURE.md`: the Output path, the trust rule, and the workspace map.
@@ -161,7 +163,7 @@ Add one content member and one saved operation. Do not store the page. Let the b
    - Open follow-up issues with the `needs-slice` label for Custom CSS and for framing diagnostics, and link them in the parity line. #61 stays open.
    - `ARCHITECTURE.md`.
 7. **macOS check by the owner (accept:local).**
-   - First, the trust check. In the Editor window, set a web screen URL to a test page that tries: `window.__TAURI_INTERNALS__` and `window.__TAURI__` (must be undefined); a `fetch` and an `XMLHttpRequest` to `ipc://localhost/...` and `http://ipc.localhost/...`; a navigation of the frame to `tauri://localhost/`, `ipc://localhost/`, `http://ipc.localhost/`, and `http://127.0.0.1:<port>/renderer/` (each must be blocked by `frame-src https:`). Each attempt must fail. If one succeeds, stop and report it. Do not ship the Editor iframe.
+   - First, the trust check. In the Editor window, set a web screen URL to a test page that tries: `window.__TAURI_INTERNALS__` and `window.__TAURI__` (must be undefined); a `fetch` and an `XMLHttpRequest` to `ipc://localhost/...` and `http://ipc.localhost/...`; a navigation of the frame to `tauri://localhost/`, `ipc://localhost/`, `http://ipc.localhost/`, and `http://127.0.0.1:<port>/renderer/` (each must be blocked by `frame-src https:`; do this check in a dev build too, because the meta tag is its only CSP). Each attempt must fail. If one succeeds, stop and report it. Do not ship the Editor iframe.
    - Repeat the navigation attempts in the OBS page.
    - The Editor window (WebKit) shows the page on the screen. The page edge stays on the quad edge during a viewport orbit and a gizmo drag.
    - The OBS page (CEF) shows the page over a colored OBS background. The character in front of an `onTop: false` screen covers the page. A transparent widget with `onTop: true` shows the stage behind it.
