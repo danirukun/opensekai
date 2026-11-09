@@ -12,6 +12,7 @@ import { CameraAntiAliasingSchema, QualityProfileIdSchema, OUTPUT_FRAME_LIMITS, 
 import { AvatarRigSchema, VmcPosesEnvelopeSchema, VmcSenderSettingsSchema, VmcSenderStatusSchema } from './vmc-sender';
 import { AssetExpressionsSchema, AvatarExpressionsSchema, ExpressionNameSchema, ExpressionSettingsSchema, ExpressionStateSchema, ARKIT_NAMES } from './expressions';
 import { AssetMeshesSchema, HiddenMeshesSchema, MeshListSchema } from './meshes';
+import { isWebScreenUrl } from './web-url';
 import type { AppApi, Capability, Reply, ValidatedCall } from "./types";
 export const LIMITS = {
     jsonBytes: 262144,
@@ -32,7 +33,8 @@ export const LIMITS = {
     hazes: 1,
     fpsCounters: 1,
     vmcSenders: 4,
-    screens: 16
+    screens: 16,
+    webScreens: 4
 } as const;
 export const IdSchema = z.string().min(1).max(256);
 const n = z.number().finite(), u = n.int().nonnegative().max(Number.MAX_SAFE_INTEGER);
@@ -159,9 +161,16 @@ export const FpsCounterSettingsSchema = z.strictObject({
     color: LightColorSchema
 });
 export const ReflectionsIntensitySchema = n.min(0).max(2);
-// B29 to B31 add video, web page, and capture members.
+// B30 R1: the page viewport in CSS pixels and the URL rule of R2. B29 and B31 add video and capture members.
+export const WebScreenSchema = z.strictObject({
+    url: z.string().refine(isWebScreenUrl, 'Enter an https URL').nullable(),
+    width: n.int().min(64).max(3840),
+    height: n.int().min(64).max(2160),
+    onTop: z.boolean()
+});
 export const ScreenContentSchema = z.discriminatedUnion("kind", [
-    z.strictObject({ kind: z.literal("image"), assetId: IdSchema.nullable() })
+    z.strictObject({ kind: z.literal("image"), assetId: IdSchema.nullable() }),
+    WebScreenSchema.extend({ kind: z.literal("web") })
 ]);
 export const SceneEntitySchema = z.discriminatedUnion("kind", [
     EntityBaseSchema.extend({
@@ -241,6 +250,7 @@ export const SceneViewSchema = z.strictObject({
  if(s.entities.filter(e=>e.kind==='haze').length>LIMITS.hazes)return false;
  if(s.entities.filter(e=>e.kind==='fpsCounter').length>LIMITS.fpsCounters)return false;
  if(s.entities.filter(e=>e.kind==='screen').length>LIMITS.screens)return false;
+ if(s.entities.filter(e=>e.kind==='screen'&&e.content.kind==='web').length>LIMITS.webScreens)return false;
  const senders=s.entities.filter(e=>e.kind==='vmcSender');
  if(senders.length>LIMITS.vmcSenders||!senders.every(e=>e.vmcSender.avatarId===null||s.entities.some(a=>a.id===e.vmcSender.avatarId&&a.kind==='avatar')))return false;
  if(!s.entities.every(e=>{if(e.kind!=='camera'||e.navigation?.mode!=='orbitCharacter')return true;const target=e.navigation.targetId;return target===null||s.entities.some(a=>a.id===target&&a.kind==='avatar');}))return false;
@@ -272,6 +282,7 @@ export const PatchOpSchema = z.discriminatedUnion("kind", [
     z.strictObject({kind:z.literal('setEnvironmentModel'),entityId:IdSchema,assetId:IdSchema.nullable()}),
     z.strictObject({kind:z.literal('setMeshModel'),entityId:IdSchema,assetId:IdSchema.nullable()}),
     z.strictObject({kind:z.literal('setScreenImage'),entityId:IdSchema,assetId:IdSchema.nullable()}),
+    z.strictObject({kind:z.literal('setScreenWeb'),entityId:IdSchema,web:WebScreenSchema}),
     z.strictObject({kind:z.literal('setEnvironmentReflections'),entityId:IdSchema,reflectionsIntensity:ReflectionsIntensitySchema}),
     z.strictObject({kind:z.literal('setLight'),entityId:IdSchema,light:LightSettingsSchema}),
     z.strictObject({kind:z.literal('setHaze'),entityId:IdSchema,haze:HazeSettingsSchema}),

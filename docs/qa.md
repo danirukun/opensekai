@@ -23,6 +23,7 @@ Answer each question that applies. Put the answer in the pull request under **Ev
 - Record the commit, the renderer backend, the quality profile, and the fixture revision when they apply.
 - Put screenshots, captures, and JSON evidence in `docs/evaluation/` and link to them.
 - A running editor preview is not evidence for OBS output.
+- A screenshot or a capture is not evidence for web screen page content. Page pixels are never in the canvas, a screenshot, or a capture (B30 R11).
 - A check on one platform is not evidence for another platform. The Linux cloud container cannot prove a macOS, OBS, GPU, or hardware result (see [cloud agent intake](agent-intake.md)).
 - A known failure is evidence only when you name it, link its issue, and show that it is the same failure.
 

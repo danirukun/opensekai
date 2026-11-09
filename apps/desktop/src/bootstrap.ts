@@ -22,7 +22,7 @@ export interface NativeBootstrap {
  rendererMode: 'auto' | 'force-webgl2';
 }
 export interface PreviewFrameProbe { begin(): boolean; end(): void }
-export async function bootstrapDesktop(canvas: HTMLCanvasElement, editorOptions?: EditorOptions, previewProbe?: PreviewFrameProbe, counterHost?: HTMLElement): Promise<{
+export async function bootstrapDesktop(canvas: HTMLCanvasElement, editorOptions?: EditorOptions, previewProbe?: PreviewFrameProbe, counterHost?: HTMLElement, webLayers?: { back: HTMLElement; front: HTMLElement }): Promise<{
  client: BrowserClient; outputUrl: string; assets: AssetRecord[]; canEdit:boolean; editor?:EditorHandle; tracking:{submit(update:TrackingUpdate):void;now():number|null;onClock(listener:()=>void):()=>void}; onLoadStatus(listener:(entries:AssetLoadStatus[])=>void):()=>void;dismissLoad(entityId:string):void; setPreviewEnabled(enabled:boolean):void; stop(): Promise<void>;
 }> {
  const info = await invoke<NativeBootstrap>('bootstrap_session');
@@ -82,7 +82,8 @@ export async function bootstrapDesktop(canvas: HTMLCanvasElement, editorOptions?
   const [client, preview] = clients;
   const renderer = await createRenderer({ canvas, outputId: 'preview_main', mode: info.rendererMode,
    resources: preview, diagnostics: false, quality: QUALITY_PROFILES.preview_v1,
-   editor: info.operator.capabilities.includes('edit') ? editorOptions : undefined });
+   editor: info.operator.capabilities.includes('edit') ? editorOptions : undefined,
+   webLayers: webLayers ? { ...webLayers, interactive: false } : undefined });
   const fpsCounter = counterHost ? createFpsCounterOverlay({ host: counterHost, canvas }) : null;
   const pump = createPreviewPump<RuntimeFrame>(async frame => {
    const measuring = previewProbe?.begin() ?? false;

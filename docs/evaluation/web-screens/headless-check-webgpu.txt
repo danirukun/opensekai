@@ -1,0 +1,122 @@
+PASS straight webgpu: backend webgpu "webgpu"
+PASS straight webgpu: no frame warning []
+UNKNOWN straight webgpu canvas: hole RGBA 0 inside corner 0 the capture is one flat color
+UNKNOWN straight webgpu canvas: hole RGBA 0 inside corner 1 the capture is one flat color
+UNKNOWN straight webgpu canvas: hole RGBA 0 inside corner 2 the capture is one flat color
+UNKNOWN straight webgpu canvas: hole RGBA 0 inside corner 3 the capture is one flat color
+UNKNOWN straight webgpu canvas: hole RGBA 0 at the center the capture is one flat color
+UNKNOWN straight webgpu canvas: wall outside the hole is opaque the capture is one flat color
+UNKNOWN straight webgpu page: red inside corner 0 headless WebGPU page capture
+UNKNOWN straight webgpu page: red inside corner 1 headless WebGPU page capture
+UNKNOWN straight webgpu page: red inside corner 2 headless WebGPU page capture
+UNKNOWN straight webgpu page: red inside corner 3 headless WebGPU page capture
+UNKNOWN straight webgpu page: wall outside the page is not red headless WebGPU page capture
+UNKNOWN straight webgpu page: edge alignment headless WebGPU page capture
+PASS straight webgpu: no page error []
+PASS yaw 30 webgpu: backend webgpu "webgpu"
+PASS yaw 30 webgpu: no frame warning []
+UNKNOWN yaw 30 webgpu canvas: hole RGBA 0 inside corner 0 the capture is one flat color
+UNKNOWN yaw 30 webgpu canvas: hole RGBA 0 inside corner 1 the capture is one flat color
+UNKNOWN yaw 30 webgpu canvas: hole RGBA 0 inside corner 2 the capture is one flat color
+UNKNOWN yaw 30 webgpu canvas: hole RGBA 0 inside corner 3 the capture is one flat color
+UNKNOWN yaw 30 webgpu canvas: hole RGBA 0 at the center the capture is one flat color
+UNKNOWN yaw 30 webgpu canvas: wall outside the hole is opaque the capture is one flat color
+UNKNOWN yaw 30 webgpu page: red inside corner 0 headless WebGPU page capture
+UNKNOWN yaw 30 webgpu page: red inside corner 1 headless WebGPU page capture
+UNKNOWN yaw 30 webgpu page: red inside corner 2 headless WebGPU page capture
+UNKNOWN yaw 30 webgpu page: red inside corner 3 headless WebGPU page capture
+UNKNOWN yaw 30 webgpu page: wall outside the page is not red headless WebGPU page capture
+UNKNOWN yaw 30 webgpu page: edge alignment headless WebGPU page capture
+PASS yaw 30 webgpu: no page error []
+PASS pitch 20 webgpu: backend webgpu "webgpu"
+PASS pitch 20 webgpu: no frame warning []
+UNKNOWN pitch 20 webgpu canvas: hole RGBA 0 inside corner 0 the capture is one flat color
+UNKNOWN pitch 20 webgpu canvas: hole RGBA 0 inside corner 1 the capture is one flat color
+UNKNOWN pitch 20 webgpu canvas: hole RGBA 0 inside corner 2 the capture is one flat color
+UNKNOWN pitch 20 webgpu canvas: hole RGBA 0 inside corner 3 the capture is one flat color
+UNKNOWN pitch 20 webgpu canvas: hole RGBA 0 at the center the capture is one flat color
+UNKNOWN pitch 20 webgpu canvas: wall outside the hole is opaque the capture is one flat color
+UNKNOWN pitch 20 webgpu page: red inside corner 0 headless WebGPU page capture
+UNKNOWN pitch 20 webgpu page: red inside corner 1 headless WebGPU page capture
+UNKNOWN pitch 20 webgpu page: red inside corner 2 headless WebGPU page capture
+UNKNOWN pitch 20 webgpu page: red inside corner 3 headless WebGPU page capture
+UNKNOWN pitch 20 webgpu page: wall outside the page is not red headless WebGPU page capture
+UNKNOWN pitch 20 webgpu page: edge alignment headless WebGPU page capture
+PASS pitch 20 webgpu: no page error []
+PASS 16:9 output in a 4:3 box webgpu: backend webgpu "webgpu"
+PASS 16:9 output in a 4:3 box webgpu: no frame warning []
+UNKNOWN 16:9 output in a 4:3 box webgpu canvas: hole RGBA 0 inside corner 0 the capture is one flat color
+UNKNOWN 16:9 output in a 4:3 box webgpu canvas: hole RGBA 0 inside corner 1 the capture is one flat color
+UNKNOWN 16:9 output in a 4:3 box webgpu canvas: hole RGBA 0 inside corner 2 the capture is one flat color
+UNKNOWN 16:9 output in a 4:3 box webgpu canvas: hole RGBA 0 inside corner 3 the capture is one flat color
+UNKNOWN 16:9 output in a 4:3 box webgpu canvas: hole RGBA 0 at the center the capture is one flat color
+UNKNOWN 16:9 output in a 4:3 box webgpu canvas: wall outside the hole is opaque the capture is one flat color
+UNKNOWN 16:9 output in a 4:3 box webgpu page: red inside corner 0 headless WebGPU page capture
+UNKNOWN 16:9 output in a 4:3 box webgpu page: red inside corner 1 headless WebGPU page capture
+UNKNOWN 16:9 output in a 4:3 box webgpu page: red inside corner 2 headless WebGPU page capture
+UNKNOWN 16:9 output in a 4:3 box webgpu page: red inside corner 3 headless WebGPU page capture
+UNKNOWN 16:9 output in a 4:3 box webgpu page: wall outside the page is not red headless WebGPU page capture
+UNKNOWN 16:9 output in a 4:3 box webgpu page: edge alignment headless WebGPU page capture
+PASS 16:9 output in a 4:3 box webgpu: no page error []
+PASS 960 x 540 output webgpu: backend webgpu "webgpu"
+PASS 960 x 540 output webgpu: no frame warning []
+UNKNOWN 960 x 540 output webgpu canvas: hole RGBA 0 inside corner 0 the capture is one flat color
+UNKNOWN 960 x 540 output webgpu canvas: hole RGBA 0 inside corner 1 the capture is one flat color
+UNKNOWN 960 x 540 output webgpu canvas: hole RGBA 0 inside corner 2 the capture is one flat color
+UNKNOWN 960 x 540 output webgpu canvas: hole RGBA 0 inside corner 3 the capture is one flat color
+UNKNOWN 960 x 540 output webgpu canvas: hole RGBA 0 at the center the capture is one flat color
+UNKNOWN 960 x 540 output webgpu canvas: wall outside the hole is opaque the capture is one flat color
+UNKNOWN 960 x 540 output webgpu page: red inside corner 0 headless WebGPU page capture
+UNKNOWN 960 x 540 output webgpu page: red inside corner 1 headless WebGPU page capture
+UNKNOWN 960 x 540 output webgpu page: red inside corner 2 headless WebGPU page capture
+UNKNOWN 960 x 540 output webgpu page: red inside corner 3 headless WebGPU page capture
+UNKNOWN 960 x 540 output webgpu page: wall outside the page is not red headless WebGPU page capture
+UNKNOWN 960 x 540 output webgpu page: edge alignment headless WebGPU page capture
+PASS 960 x 540 output webgpu: no page error []
+UNKNOWN occlusion webgpu page: the box in front covers the page (not red) headless WebGPU page capture
+UNKNOWN occlusion webgpu page: the box behind does not show (red) headless WebGPU page capture
+UNKNOWN on top webgpu page: the page covers the box in front (red) headless WebGPU page capture
+UNKNOWN on top webgpu canvas: the canvas still draws the box (no hole) the capture is one flat color
+UNKNOWN transparent light onTop false webgpu page: the square is red headless WebGPU page capture
+UNKNOWN transparent light onTop false webgpu page: outside the square has alpha 0 headless WebGPU page capture
+UNKNOWN transparent light onTop true webgpu page: the square is red headless WebGPU page capture
+UNKNOWN transparent light onTop true webgpu page: outside the square has alpha 0 headless WebGPU page capture
+UNKNOWN transparent light over a box webgpu page: the box shows outside the square headless WebGPU page capture
+UNKNOWN transparent light over a box webgpu page: the square is red headless WebGPU page capture
+UNKNOWN transparent dark onTop false webgpu page: the square is red headless WebGPU page capture
+RECORD transparent dark onTop false webgpu page: outside the square with color-scheme dark null
+UNKNOWN transparent dark onTop true webgpu page: the square is red headless WebGPU page capture
+RECORD transparent dark onTop true webgpu page: outside the square with color-scheme dark null
+RECORD transparent dark over a box webgpu page: outside the square with color-scheme dark null
+UNKNOWN transparent dark over a box webgpu page: the square is red headless WebGPU page capture
+UNKNOWN two screens webgpu page: the overlap shows the nearer (yellow) page headless WebGPU page capture
+UNKNOWN two screens webgpu page: the far page shows outside the overlap (blue) headless WebGPU page capture
+NOTE fxaa webgpu: capture failed {"code":"TIMEOUT","message":"Handler timed out","ids":[]}
+UNKNOWN fxaa webgpu canvas: hole RGBA 0 inside corner 0 the capture is one flat color
+UNKNOWN fxaa webgpu canvas: hole RGBA 0 inside corner 1 the capture is one flat color
+UNKNOWN fxaa webgpu canvas: hole RGBA 0 inside corner 2 the capture is one flat color
+UNKNOWN fxaa webgpu canvas: hole RGBA 0 inside corner 3 the capture is one flat color
+UNKNOWN fxaa webgpu canvas: wall outside is opaque the capture is one flat color
+PASS fxaa webgpu: no frame warning []
+NOTE haze webgpu: capture failed {"code":"TIMEOUT","message":"Handler timed out","ids":[]}
+UNKNOWN haze webgpu canvas: hole RGBA 0 inside corner 0 the capture is one flat color
+UNKNOWN haze webgpu canvas: hole RGBA 0 inside corner 1 the capture is one flat color
+UNKNOWN haze webgpu canvas: hole RGBA 0 inside corner 2 the capture is one flat color
+UNKNOWN haze webgpu canvas: hole RGBA 0 inside corner 3 the capture is one flat color
+UNKNOWN haze webgpu canvas: wall outside is opaque the capture is one flat color
+PASS haze webgpu: no frame warning []
+PASS frame barrier: no frame request reached the host origin []
+PASS frame barrier: no frame is on the host origin ["chrome-error://chromewebdata/","chrome-error://chromewebdata/","https://screen.test.invalid/storage"]
+PASS frame barrier: the storage page cannot read the OBS page storage "blocked"
+PASS frame barrier: each iframe has the sandbox, the referrer policy, autoplay, and pointer events [{"sandbox":"allow-scripts allow-same-origin allow-forms","referrerpolicy":"no-referrer","allow":"autoplay","pointer":"auto"},{"sandbox":"allow-scripts allow-same-origin allow-forms","referrerpolicy":"no-referrer","allow":"autoplay","pointer":"auto"},{"sandbox":"allow-scripts allow-same-origin allow-forms","referrerpolicy":"no-referrer","allow":"autoplay","pointer":"auto"}]
+PASS OBS page: the canvas takes no pointer events "none"
+PASS OBS page: the meta CSP is frame-src https: only "frame-src https:"
+PASS frame lifecycle: a width change keeps the same iframe and sets its CSS width {"same":true,"width":"640px"}
+PASS frame lifecycle: a URL change replaces the iframe {"same":false,"src":"https://screen.test.invalid/blue","count":1}
+PASS frame lifecycle: onTop true moves the iframe to the front layer {"front":true,"back":false}
+PASS frame lifecycle: a hidden screen keeps its iframe with visibility hidden {"visibility":"hidden","count":1}
+PASS frame lifecycle: a null URL removes the iframe 0
+PASS frame lifecycle: no page error []
+PASS camera through the screen: the iframe shows in front, hides at the plane and behind the camera [[3,"visible"],[1,"visible"],[0.3,"visible"],[0.05,"visible"],[0.005,"hidden"],[-0.5,"hidden"],[-2,"hidden"]]
+PASS camera through the screen: no page error and frames continue {"errors":[],"revision":7}
+31 pass, 0 fail, 85 unknown

@@ -188,6 +188,24 @@ mod tests {
         assert_eq!(read_show(&path).unwrap(), document);
     }
 
+    // B30 R16: Save As and Open keep a web screen and its content; it has no asset reference.
+    #[test]
+    fn round_trip_keeps_a_web_screen() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("chat.osekai");
+        let mut document = show();
+        document["scene"]["entities"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({
+                "id": "chat", "name": "Screen", "visible": true, "kind": "screen",
+                "transform": {"position": [1, 1, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1]},
+                "content": {"kind": "web", "url": "https://example.com/chat?room=1", "width": 400, "height": 900, "onTop": true}
+            }));
+        write_show(&path, &document).unwrap();
+        assert_eq!(read_show(&path).unwrap(), document);
+    }
+
     #[test]
     fn round_trip_keeps_the_output_format_and_rejects_a_preview_change() {
         let dir = tempfile::tempdir().unwrap();

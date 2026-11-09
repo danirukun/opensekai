@@ -20,6 +20,7 @@ pub const MAX_SHADOW_LIGHTS: usize = 2;
 pub const MAX_HAZES: usize = 1;
 pub const MAX_FPS_COUNTERS: usize = 1;
 pub const MAX_SCREENS: usize = 16;
+pub const MAX_WEB_SCREENS: usize = 4;
 /// The image limits of B28 R1. Keep in step with `IMAGE_LIMITS` in `packages/contracts/src/schema.ts`.
 pub const MAX_IMAGE_SIDE: u32 = 8192;
 pub const MAX_IMAGE_AREA: u64 = 33_554_432;
@@ -265,7 +266,7 @@ impl Validate for FpsCounterSettings {
 fn reflections_intensity_ok(n: f64) -> bool {
     n.is_finite() && (0. ..=2.).contains(&n)
 }
-/// B29 to B31 add video, web page, and capture members.
+/// B29 and B31 add video and capture members.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub enum ScreenContent {
@@ -273,6 +274,96 @@ pub enum ScreenContent {
         #[serde(rename = "assetId")]
         asset_id: Option<Id>,
     },
+    Web {
+        url: Option<String>,
+        width: u32,
+        height: u32,
+        #[serde(rename = "onTop")]
+        on_top: bool,
+    },
+}
+/// The page settings of a web screen (B30 R1); `setScreenWeb` carries them.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WebScreen {
+    pub url: Option<String>,
+    pub width: u32,
+    pub height: u32,
+    #[serde(rename = "onTop")]
+    pub on_top: bool,
+}
+fn web_screen_ok(url: Option<&str>, width: u32, height: u32) -> bool {
+    (64..=3840).contains(&width)
+        && (64..=2160).contains(&height)
+        && url.is_none_or(is_web_screen_url)
+}
+impl Validate for WebScreen {
+    fn validate(&self) -> Result<(), AppError> {
+        require(
+            web_screen_ok(self.url.as_deref(), self.width, self.height),
+            "invalid web screen",
+        )
+    }
+}
+impl Validate for ScreenContent {
+    fn validate(&self) -> Result<(), AppError> {
+        match self {
+            Self::Image { .. } => Ok(()),
+            Self::Web {
+                url, width, height, ..
+            } => require(
+                web_screen_ok(url.as_deref(), *width, *height),
+                "invalid web screen",
+            ),
+        }
+    }
+}
+fn private_ipv4(ip: std::net::Ipv4Addr) -> bool {
+    let [a, b, ..] = ip.octets();
+    a == 0
+        || a == 10
+        || a == 127
+        || (a == 169 && b == 254)
+        || (a == 172 && (16..32).contains(&b))
+        || (a == 192 && b == 168)
+        || (a == 100 && (64..128).contains(&b))
+}
+fn private_ipv6(ip: std::net::Ipv6Addr) -> bool {
+    let first = ip.segments()[0];
+    ip.is_unspecified()
+        || ip.is_loopback()
+        || (first & 0xfe00) == 0xfc00
+        || (first & 0xffc0) == 0xfe80
+        || ip.to_ipv4_mapped().is_some_and(private_ipv4)
+}
+/// The web screen URL rule (B30 R2). `isWebScreenUrl` in `packages/contracts` is the same rule;
+/// `fixtures/protocol/web-urls.json` pins both.
+pub fn is_web_screen_url(value: &str) -> bool {
+    if !(12..=2048).contains(&value.len())
+        || !value.bytes().all(|b| (0x21..=0x7e).contains(&b))
+        || !value.starts_with("https://")
+        || value[8..].starts_with('/')
+    {
+        return false;
+    }
+    let Ok(parsed) = url::Url::parse(value) else {
+        return false;
+    };
+    if parsed.scheme() != "https" || !parsed.username().is_empty() || parsed.password().is_some() {
+        return false;
+    }
+    match parsed.host() {
+        Some(url::Host::Domain(name)) => {
+            let name = name.trim_end_matches('.');
+            !name.is_empty()
+                && name != "localhost"
+                && !name.ends_with(".localhost")
+                && !name.ends_with(".local")
+        }
+        Some(url::Host::Ipv4(ip)) => !private_ipv4(ip),
+        Some(url::Host::Ipv6(ip)) => !private_ipv6(ip),
+        None => false,
+    }
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
@@ -524,6 +615,11 @@ pub enum PatchOp {
         entity_id: Id,
         #[serde(rename = "assetId")]
         asset_id: Option<Id>,
+    },
+    SetScreenWeb {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+        web: WebScreen,
     },
     SetEnvironmentReflections {
         #[serde(rename = "entityId")]
@@ -2229,6 +2325,22 @@ impl Validate for SceneView {
                 <= MAX_SCREENS,
             "too many screens",
         )?;
+        require(
+            self.entities
+                .iter()
+                .filter(|e| {
+                    matches!(
+                        e,
+                        SceneEntity::Screen {
+                            content: ScreenContent::Web { .. },
+                            ..
+                        }
+                    )
+                })
+                .count()
+                <= MAX_WEB_SCREENS,
+            "too many web screens",
+        )?;
         let senders: Vec<_> = self
             .entities
             .iter()
@@ -2343,6 +2455,7 @@ pub fn validate_patch_ops(ops: &[PatchOp], max: usize) -> Result<(), AppError> {
             PatchOp::SetLight { light, .. } => light.validate()?,
             PatchOp::SetHaze { haze, .. } => haze.validate()?,
             PatchOp::SetFpsCounter { fps_counter, .. } => fps_counter.validate()?,
+            PatchOp::SetScreenWeb { web, .. } => web.validate()?,
             PatchOp::SetVmcSender { vmc_sender, .. } => vmc_sender.validate()?,
             PatchOp::SetOutputFormat {
                 width,
@@ -3124,6 +3237,9 @@ impl Validate for SceneEntity {
         }
         if let Self::VmcSender { vmc_sender, .. } = self {
             vmc_sender.validate()?;
+        }
+        if let Self::Screen { content, .. } = self {
+            content.validate()?;
         }
         if let Self::Environment {
             reflections_intensity: Some(n),

@@ -307,6 +307,39 @@ async fn service_auth_denies_http_host_origin_and_null() {
     );
     service.shutdown().await.unwrap();
 }
+// B30 R12: no page may frame a host route, so a web screen frame that navigates to the host
+// origin does not load it. Each route answers with both frame headers, also an error answer.
+#[tokio::test]
+async fn service_routes_deny_framing() {
+    let (_dir, service) = service(false).await;
+    let descriptor = service.operator_descriptor();
+    let client = reqwest::Client::new();
+    for path in [
+        "/renderer/",
+        "/renderer/missing.js",
+        "/assets/image_missing",
+        "/diagnostics/output_main",
+        "/evidence/run/missing.json",
+        "/ws",
+    ] {
+        let response = client
+            .get(format!("{}{path}", descriptor.http_origin))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(
+            response.headers().get("x-frame-options").unwrap(),
+            "DENY",
+            "{path}"
+        );
+        assert_eq!(
+            response.headers().get("content-security-policy").unwrap(),
+            "frame-ancestors 'none'",
+            "{path}"
+        );
+    }
+    service.shutdown().await.unwrap();
+}
 #[tokio::test]
 async fn service_roles_reject_renderer_edits_and_route_default_operator_edits() {
     let (_dir, service) = service(false).await;

@@ -20,6 +20,7 @@ import { createPostChain } from "./post-chain";
 import { createHaze, type Haze } from "./haze";
 import { renderScreenshot, SCREENSHOT_HEIGHT, SCREENSHOT_WIDTH } from "./screenshot";
 import { createScreenImagePool, createScreenMesh, loadScreenImage } from "./screen";
+import { createWebLayers, createWebQuad, webQuadWidth, webScreenPlan, type WebLayers } from "./web-screen";
 export interface RendererHandle {
     editor?: EditorHandle;
     applyFrame(frame: RuntimeFrame): Promise<FrameApplied>;
@@ -39,6 +40,8 @@ export interface RendererOptions {
     resources: ResourceHost;
     diagnostics: boolean;
     quality: QualityProfile;
+    /** The page layers behind and in front of the canvas (B30 R5). Without them, the instance shows no web pages. */
+    webLayers?: WebLayers;
 }
 // The output render scale multiplies the quality profile scale; the canvas CSS size does not change (B22 R5).
 export const drawingBufferSize = (output: Pick<OutputSpec, "width" | "height" | "renderScale">, quality: Pick<QualityProfile, "resolutionScale">) => {
@@ -131,6 +134,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         warnings?: AppError[];
     }>();
     const editor = options.editor ? createEditorViewport(options.canvas, camera, scene, objects, options.editor) : null;
+    const webLayers = options.webLayers ? createWebLayers(options.webLayers) : null;
     let disposed = false, cleaned = false, accepted: RuntimeFrame | null = null, displayed: FrameApplied | null = null, displayFrame: RuntimeFrame | null = null;
     const releaseObject = (value: {root: Object3D; owned: boolean; assetDispose?: () => void; instanceDispose?: () => void}) => {
         value.instanceDispose?.();
@@ -145,6 +149,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         if (cleaned) return;
         cleaned = true;
         editor?.dispose();
+        webLayers?.dispose();
         for (const value of objects.values()) releaseObject(value);
         objects.clear();
         jobs.dispose();
@@ -194,6 +199,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         // The Reflections Intensity of the environment applies to the props too, as in Warudo (prop import R4).
         const reflections = frame.scene.entities.find((x): x is Extract<SceneEntity, { kind: "environment" }> => x.kind === "environment")?.reflectionsIntensity ?? 1;
         const needed = new Map<string, LoadRequest>();
+        const webPlans = webScreenPlan(frame.scene);
         for (const entity of frame.scene.entities) {
             if (entity.kind === "tracking" || entity.kind === "fpsCounter" || entity.kind === "vmcSender") continue;
             if (entity.kind === "camera") {
@@ -236,8 +242,28 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
                 }
                 continue;
             }
+            // A web screen has no asset and no load job (B30 R10). Its quad is the hole or a pick target (R8, R9); the page is in a DOM layer.
+            if (entity.kind === "screen" && entity.content.kind === "web") {
+                const plan = webPlans.find(item => item.entityId === entity.id);
+                let value = objects.get(entity.id);
+                if (!plan && !editor) {
+                    if (value) { releaseObject(value); objects.delete(entity.id); }
+                    continue;
+                }
+                const aspect = plan ? webQuadWidth(plan) : 1280 / 720, hole = !!plan && !plan.onTop;
+                const signature = `web:${aspect}:${hole}`;
+                if (value?.signature !== signature) {
+                    if (value) releaseObject(value);
+                    const quad = createWebQuad(aspect, hole);
+                    value = { signature, root: quad.root, owned: false, instanceDispose: quad.dispose };
+                    scene.add(value.root);
+                    objects.set(entity.id, value);
+                }
+                if (!editor?.frozen(entity.id)) place(value.root, entity);
+                continue;
+            }
             // A screen is never read as a mesh: it has its own load kind (B28 R13).
-            const assetId = entity.kind === "avatar" || entity.kind === "environment" ? entity.assetId : entity.kind === "screen" ? entity.content.assetId : entity.source.kind === "asset" ? entity.source.assetId : null;
+            const assetId = entity.kind === "avatar" || entity.kind === "environment" ? entity.assetId : entity.kind === "screen" ? (entity.content.kind === "image" ? entity.content.assetId : null) : entity.source.kind === "asset" ? entity.source.assetId : null;
             let value = objects.get(entity.id);
             if (assetId === null && (entity.kind !== "mesh" || entity.source.kind === "asset")) {
                 if (value) { releaseObject(value); objects.delete(entity.id); }
@@ -334,6 +360,8 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         }
         if (disposed)
             throw failure("CANCELLED", "Renderer disposed");
+        // The pages follow the camera that drew the canvas, in the logical output size stretched as the canvas is (B30 R7).
+        webLayers?.render({ plans: webPlans, root: id => objects.get(id)?.root, camera, width: output.width, height: output.height, cssWidth: options.canvas.clientWidth, cssHeight: options.canvas.clientHeight, selectedId: editor?.selectedId() ?? null });
         displayFrame = frame;
         displayed = { outputId: options.outputId, sessionId: frame.sessionId, sequence: frame.sequence, tick: frame.tick, revision: frame.scene.revision, cameraId: cameraEntity.id, backend, cpuMs: performance.now() - started, gpuMs: null, warnings, qualityProfile: quality.id };
         for (const waiter of [...revisionWaiters]) waiter.check(frame.scene.revision);
