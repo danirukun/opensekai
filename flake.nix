@@ -23,7 +23,7 @@
           shellHook = ''
             export PATH="${pkgs.cargo-sweep}/bin:$(printf '%s' "$PATH" | tr ':' '\n' | grep -v '^/nix/store/' | paste -sd: -)"
             unset MACOSX_DEPLOYMENT_TARGET SOURCE_DATE_EPOCH
-            export CARGO_TARGET_DIR="$HOME/.cache/opensekai/cargo-target"
+            export CARGO_TARGET_DIR="$HOME/.cache/opensekai/target"
           '';
         };
       });
