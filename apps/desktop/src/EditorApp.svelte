@@ -20,6 +20,7 @@ import { createEditorMemory } from './blueprints/editor-memory';
  import {previewActive} from './editor/preview-gate';
  import {toolForKey} from './editor/scene-keys';
  import {collectWarnings} from './editor/warnings';
+ import {screenVideo,type PlaybackState} from './editor/screen';
  import type { Draft, Tool } from './editor/ui-message';
  import type {AssetLoadStatus} from '@opensekai/renderer';
  import {AssetRecordSchema,ShowDocumentSchema} from '@opensekai/contracts';
@@ -53,6 +54,8 @@ import { createEditorMemory } from './blueprints/editor-memory';
  $effect(()=>{if(canEdit)void invoke('set_show_dirty',{dirty}).catch(()=>{});});
  let importError=$state<{entityId:string;message:string}|null>(null),trackingError=$state<string|null>(null);
  let importingId=$state<string|null>(null);const importing=$derived(importingId!==null);let loads=$state<AssetLoadStatus[]>([]);
+ // The playing value of each video screen from the preview frames (B29 R19).
+ let playback=$state.raw<PlaybackState>(new Map());
  let devices=$state<{deviceId:string;label:string}[]>([]);
  // The avatar whose tracking guide replaces the Inspector.
  let guideFor=$state<string|null>(null);
@@ -111,6 +114,15 @@ import { createEditorMemory } from './blueprints/editor-memory';
    await model.setScreenImage(entityId,record.id,model.read().scene?.revision);
   }catch(cause){importError={entityId,message:importFailure(cause,'Could not import image')};}finally{importingId=null;}
  }
+ async function chooseVideo(entityId:string){
+  if(importingId||!model||!view.scene)return;importingId=entityId;importError=null;
+  try{
+   const result=await invoke<{record:AssetRecord;name:string}|null>('import_video');if(!result)return;
+   const record=AssetRecordSchema.parse(result.record);assets=[...assets.filter(asset=>asset.id!==record.id),record];
+   const entity=model.read().scene?.entities.find(item=>item.id===entityId);
+   if(entity)await model.setScreenVideo(entityId,{...screenVideo(entity),assetId:record.id},model.read().scene?.revision);
+  }catch(cause){importError={entityId,message:importFailure(cause,'Could not import video')};}finally{importingId=null;}
+ }
  async function configureTracking(id:string,config:TrackingConfig,revision:number){
   if(!model)return;trackingError=null;
   const reply=await applyTrackingConfig(id,config,revision,{commit:(id,config,revision)=>model!.setTrackingConfig(id,config,revision)});
@@ -159,7 +171,7 @@ import { createEditorMemory } from './blueprints/editor-memory';
  const showCommands={open:()=>openShow(),save:()=>saveShow(),saveAs:()=>saveShow(true)};
  function runShowCommand(command:unknown){if(canEdit&&available&&typeof command==='string'&&Object.hasOwn(showCommands,command))void showCommands[command as keyof typeof showCommands]();}
  onMount(()=>{
-  let disposed=false,off=()=>{},offMenu=()=>{},offLoads=()=>{},offClock=()=>{},poll:ReturnType<typeof createEditorPoll>|undefined;
+  let disposed=false,off=()=>{},offMenu=()=>{},offLoads=()=>{},offPlayback=()=>{},offClock=()=>{},poll:ReturnType<typeof createEditorPoll>|undefined;
   let tracker:ReturnType<typeof createMediaPipeTracker>|undefined;
   const stats=new Stats();stats.showPanel(0);stats.dom.style.position='static';monitorHost!.appendChild(stats.dom);
   try{perfVisible=localStorage.getItem('opensekai.scene.perfMonitor')==='true';}catch{}
@@ -181,14 +193,14 @@ import { createEditorMemory } from './blueprints/editor-memory';
    onCycleCamera(direction){const state=model?.read();const next=cycleCamera(state?.scene??null,direction);if(next&&!state?.pending)void model?.selectCamera(next);},
   },{begin(){if(!perfVisible)return false;stats.begin();return true;},end(){stats.end();}},counterHost!,{back:webBack!,front:webFront!}).then(async value=>{if(disposed){await value.stop();return;}
    session=value;api=value.client.api;assets=value.assets;outputUrl=value.outputUrl;canEdit=value.canEdit;
-   offLoads=value.onLoadStatus(entries=>{loads=entries;});
+   offLoads=value.onLoadStatus(entries=>{loads=entries;});offPlayback=value.onPlayback(next=>{playback=next;});
    model=createEditorModel(value.client.api);sync=createBlueprintSync(value.client.api);debugFeed=createDebugFeed(value.client.api,showDebugToasts);liveTransform=createLiveTransform(model,code=>{transformError=code;},pending=>{livePending=pending;});liveField=createLiveEdit(model,()=>{},pending=>{fieldPending=pending;});
    tracker=createMediaPipeTracker({now:()=>value.tracking.now()??0,onSample:sample=>value.tracking.submit({samples:[sample],statuses:[]}),onStatus:status=>value.tracking.submit({samples:[],statuses:[status]}),onDevices:choices=>{devices=fitDevices(choices.map(device=>({deviceId:device.deviceId.slice(0,512),label:device.label.slice(0,128)})));}});
    offClock=value.tracking.onClock(reconcileTracking);
    off=model.subscribe(next=>{const previous=view;view=next;if(previous.scene?.revision!==next.scene?.revision)draft=null;syncViewport();reconcileTracking();});
    poll=createEditorPoll(value.client.api,model,next=>{status=next;available=next.revision!==null;error=null;if(!available)cancelDrag();if(!savedMark&&next.revision!==null)savedMark={name:showName,revision:next.revision,blueprintRevision:next.blueprintRevision};syncViewport();},code=>{available=false;error=code;cancelDrag();syncViewport();},sync,()=>panel==='blueprints');await poll.poll();syncViewport();
   }).catch(cause=>{if(!disposed)error=cause instanceof Error?cause.message:'Session startup failed';});
-  return()=>{disposed=true;clearInterval(timer);offToasts();resize.disconnect();tracker?.shutdown();offClock();offLoads();liveTransform?.close();liveField?.close();poll?.close();off();offMenu();stats.dom.remove();void session?.stop().catch(()=>{});};
+  return()=>{disposed=true;clearInterval(timer);offToasts();resize.disconnect();tracker?.shutdown();offClock();offLoads();offPlayback();liveTransform?.close();liveField?.close();poll?.close();off();offMenu();stats.dom.remove();void session?.stop().catch(()=>{});};
  });
 </script>
 <svelte:window onkeydown={key}/>
@@ -211,7 +223,7 @@ import { createEditorMemory } from './blueprints/editor-memory';
    <ScenePane bind:canvas bind:webBack bind:webFront bind:counterHost bind:monitorHost hidden={panel!=='assets'} {tool} {canEdit} {available} pending={view.pending} selectedName={selected?.name??''} selectedEditable={!!selected&&selected.kind!=='tracking'} {previewOn} {perfVisible} {loads} {names} ontool={setTool} onpreviewtoggle={()=>{previewOn=!previewOn;}} onperftoggle={togglePerf} ondismissload={id=>session?.dismissLoad(id)}/>
    <!-- The guide stays mounted while another rail panel shows, so a panel switch keeps the run (R14a). -->
    {#if model&&api&&guideFor}<div class="properties-column" hidden={panel!=='assets'}><TrackingGuide avatarId={guideFor} {model} {view} {api} {assets} localAddresses={status?.localAddresses??[]} trackingStatus={status?.trackingStatus??[]} disabled={!canEdit||!available} onclose={()=>{guideFor=null;}}/></div>{/if}
-   {#if panel==='assets'}{#if model&&!(api&&guideFor)}<div class="properties-column"><Inspector onguide={id=>{guideFor=id;}} {model} {view} onlivefield={request=>{liveField?.offer(request);}} onlivefieldend={()=>liveField?.end()} {assets} {loads} {importingId} {importError} onchoosemodel={chooseModel} onchoosescene={chooseScene} onchooseimage={chooseImage} onpickimage={(id,assetId)=>{void model?.setScreenImage(id,assetId,model.read().scene?.revision);}} onpickscene={(id,assetId)=>{void setSceneModel(id,assetId);}} onrenderenvironment={(id,value,revision)=>model?.setCameraRenderEnvironment(id,value,revision)??Promise.resolve(undefined)} {expressionApi} onexpressionsettings={(id,name,settings,revision)=>model?.setAvatarExpression(id,name,settings,revision)??Promise.resolve(undefined)} onnavigation={(id,navigation,revision)=>model?.setCameraNavigation(id,navigation,revision)??Promise.resolve(undefined)} onscreenshot={id=>model?.cameraScreenshot(id)??Promise.resolve(undefined)} onopenscreenshots={()=>invoke<void>('open_screenshots_folder')} {draft} {transformError} {livePending} onlivetransform={transformLive} oncanceltransform={()=>liveTransform?.cancel()} onfinishtransform={()=>liveTransform?.end()} disabled={!canEdit||!available||importing} {devices} trackingStatus={status?.trackingStatus??[]} localAddresses={status?.localAddresses??[]} vmcSenders={status?.vmcSenders??[]} onlens={async(id,lens,revision)=>{await model?.setCameraLens(id,lens,revision);}} onavataridle={async(id,idle,revision)=>{await model?.setAvatarIdle(id,idle,revision);}} onavatartracking={async(id,tracking,revision)=>{await model?.setAvatarTracking(id,tracking,revision);}} ontrackingsmoothing={async(id,smoothing,revision)=>{await model?.setTrackingSmoothing(id,smoothing,revision);}} ontrackingmapping={async(id,mapping,revision)=>{await model?.setTrackingMapping(id,mapping,revision);}} ontrackingcalibrate={(id,revision)=>model?.calibrateTracking(id,revision)??Promise.resolve(undefined)} ontrackingcalibrationreset={(id,revision)=>model?.resetTrackingCalibration(id,revision)??Promise.resolve(undefined)} ontrackingconfig={configureTracking} ontrackingtoggle={toggleTracking}/></div>{/if}
+   {#if panel==='assets'}{#if model&&!(api&&guideFor)}<div class="properties-column"><Inspector onguide={id=>{guideFor=id;}} {model} {view} onlivefield={request=>{liveField?.offer(request);}} onlivefieldend={()=>liveField?.end()} {assets} {loads} {importingId} {importError} onchoosemodel={chooseModel} onchoosescene={chooseScene} onchooseimage={chooseImage} onchoosevideo={chooseVideo} {playback} onpickimage={(id,assetId)=>{void model?.setScreenImage(id,assetId,model.read().scene?.revision);}} onpickscene={(id,assetId)=>{void setSceneModel(id,assetId);}} onrenderenvironment={(id,value,revision)=>model?.setCameraRenderEnvironment(id,value,revision)??Promise.resolve(undefined)} {expressionApi} onexpressionsettings={(id,name,settings,revision)=>model?.setAvatarExpression(id,name,settings,revision)??Promise.resolve(undefined)} onnavigation={(id,navigation,revision)=>model?.setCameraNavigation(id,navigation,revision)??Promise.resolve(undefined)} onscreenshot={id=>model?.cameraScreenshot(id)??Promise.resolve(undefined)} onopenscreenshots={()=>invoke<void>('open_screenshots_folder')} {draft} {transformError} {livePending} onlivetransform={transformLive} oncanceltransform={()=>liveTransform?.cancel()} onfinishtransform={()=>liveTransform?.end()} disabled={!canEdit||!available||importing} {devices} trackingStatus={status?.trackingStatus??[]} localAddresses={status?.localAddresses??[]} vmcSenders={status?.vmcSenders??[]} onlens={async(id,lens,revision)=>{await model?.setCameraLens(id,lens,revision);}} onavataridle={async(id,idle,revision)=>{await model?.setAvatarIdle(id,idle,revision);}} onavatartracking={async(id,tracking,revision)=>{await model?.setAvatarTracking(id,tracking,revision);}} ontrackingsmoothing={async(id,smoothing,revision)=>{await model?.setTrackingSmoothing(id,smoothing,revision);}} ontrackingmapping={async(id,mapping,revision)=>{await model?.setTrackingMapping(id,mapping,revision);}} ontrackingcalibrate={(id,revision)=>model?.calibrateTracking(id,revision)??Promise.resolve(undefined)} ontrackingcalibrationreset={(id,revision)=>model?.resetTrackingCalibration(id,revision)??Promise.resolve(undefined)} ontrackingconfig={configureTracking} ontrackingtoggle={toggleTracking}/></div>{/if}
    {:else if panel==='output'}<section class="output-panel"><h2>Output</h2>{#if model}<OutputControls {model} {view} {status} {outputUrl} disabled={!canEdit||!available||livePending||fieldPending}/>{/if}</section>
    {:else if panel==='blueprints'}{#if sync}<BlueprintPanel {api} {sync} debug={debugFeed} {memory} {status} {assets} scene={view.scene} selectedEntityId={view.selectedId} disabled={!canEdit||!available||view.pending} onrun={()=>{void model?.load();}}/>{/if}
    {:else if panel==='settings'}<SettingsPanel {api} youtube={status?.youtube} disabled={!canEdit} onchange={youtube=>{if(status)status={...status,youtube};}}/>

@@ -35,6 +35,17 @@ describe('pipeline diagnostics (owner QA finding 2, option 3)', () => {
         device.createRenderPipeline(d); device.createRenderPipeline(d); await settle();
         expect(report.mock.calls.map(call => call[1])).toEqual([true, false]);
     });
+    it('reports a failure after the caller resets its reused pipeline descriptor (three.js r187)', async () => {
+        const sync = fakeDevice({ sync: 'invalid' }), async = fakeDevice({ async: 'invalid' }), report = vi.fn();
+        watchPipelineErrors(sync, report); watchPipelineErrors(async, report);
+        const reset = (d: { label: string; vertex: unknown; fragment: unknown }) => Object.assign(d, { label: '', vertex: null, fragment: null });
+        const first = descriptor(sync, 'fn f() {}');
+        sync.createRenderPipeline(first); reset(first); await settle();
+        const second = descriptor(async, 'fn g() {}');
+        const pending = async.createRenderPipelineAsync(second); reset(second);
+        await expect(pending).rejects.toThrow('invalid');
+        expect(report.mock.calls.map(call => [call[0].label, call[0].fragment])).toEqual([['mesh', 'fn f() {}'], ['mesh', 'fn g() {}']]);
+    });
     it('stays silent for a good pipeline and logs at most 16 distinct failures', async () => {
         const good = fakeDevice(), report = vi.fn();
         watchPipelineErrors(good, report);

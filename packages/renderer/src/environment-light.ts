@@ -3,16 +3,16 @@ import { uniform, vec3 } from 'three/tsl';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { isLitMaterial, type RoomLight } from './scene-lights';
 export interface EnvironmentMap { texture: Texture; dispose(): void }
-type Share = { fill: UniformNode<number>; reflections: UniformNode<Color> };
+type Share = { fill: UniformNode<'float'>; reflections: UniformNode<'color'> };
 type Sum = Node & { addAssign(node: unknown): unknown; mul(node: unknown): unknown };
 type LightingContext = { radiance: Sum; iblIrradiance: Sum; lightingModel: { clearcoatRadiance?: Sum | null } };
 
-// three.js r180 EnvironmentNode adds the reflections of the map to `radiance` (and `clearcoatRadiance`) and its diffuse part to
+// three.js r187 EnvironmentNode adds the reflections of the map to `radiance` (and `clearcoatRadiance`) and its diffuse part to
 // `iblIrradiance`. This one collects each part and adds it times its share of the room light (B13 R4a).
 class RoomEnvironmentNode extends EnvironmentNode {
     private readonly share: Share;
     constructor(envNode: Node, share: Share) { super(envNode); this.share = share; }
-    setup(builder: NodeBuilder) {
+    setup(builder: NodeBuilder): undefined {
         const context = (builder as unknown as { context: LightingContext }).context, model = context.lightingModel;
         const scene = { radiance: context.radiance, irradiance: context.iblIrradiance, clearcoat: model.clearcoatRadiance };
         const room = { radiance: vec3().toVar('roomRadiance'), irradiance: vec3().toVar('roomIrradiance'), clearcoat: vec3().toVar('roomClearcoat') };
@@ -36,7 +36,7 @@ class RoomPhysicalMaterial extends MeshPhysicalNodeMaterial {
     declare roomShare?: Share;
     setupEnvironment(builder: NodeBuilder) { return withShare(super.setupEnvironment(builder), this.roomShare); }
 }
-// The node material for an environment copy, with the properties of the glTF material as three.js r180 `NodeLibrary.fromMaterial`
+// The node material for an environment copy, with the properties of the glTF material as three.js r187 `NodeLibrary.fromMaterial`
 // copies them. An own type keeps it apart from other standard node materials in the shader cache.
 const roomMaterial = (material: Material, share: Share): Material => {
     const physical = (material as { isMeshPhysicalMaterial?: boolean }).isMeshPhysicalMaterial === true;

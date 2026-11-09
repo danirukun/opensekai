@@ -189,6 +189,7 @@ fn asset_list_pages_in_id_order_within_count_and_byte_limits() {
         rig: None,
         meshes: None,
         image: None,
+        video: None,
     };
     let mut records: Vec<_> = (0..70)
         .rev()

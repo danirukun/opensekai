@@ -66,7 +66,7 @@ fn screens_round_trip_within_the_limit() {
     over.push(screen("s_over", Value::Null));
     assert!(validate_value::<SceneView>(&scene(over)).is_err());
     let mut video = screen("v", Value::Null);
-    video["content"]["kind"] = json!("video");
+    video["content"]["kind"] = json!("web");
     assert!(validate_value::<SceneView>(&scene(vec![video])).is_err());
 }
 #[test]

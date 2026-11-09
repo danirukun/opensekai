@@ -1,4 +1,4 @@
-import {AppErrorSchema,LIMITS,defaultTrackingConfig,type AssetRecord,type SceneEntity,type SceneView} from '@opensekai/contracts';
+import {AppErrorSchema,LIMITS,defaultTrackingConfig,isVideoRecord,type AssetRecord,type SceneEntity,type SceneView} from '@opensekai/contracts';
 import type {AddKind} from './live-fields';
 import {vmcSenderLimitReached,vmcSenderSettings} from './vmc-sender';
 import {AMBIENT_LIGHT,DIRECTIONAL_LIGHT,FPS_COUNTER,HAZE,POINT_LIGHT,SPOT_LIGHT,fpsCounterLimitReached,hazeLimitReached,hazeTransform,lightLimitReached,lightTransform} from './lights';
@@ -52,7 +52,8 @@ export function addLimitReached(kind:AddKind,entities:readonly SceneEntity[]):bo
 export const screenLimitReached=(entities:readonly SceneEntity[])=>entities.filter(entity=>entity.kind==='screen').length>=LIMITS.screens;
 export function modelLabel(assetId:string|null,assets:readonly AssetRecord[]):string {
  if(assetId===null)return 'Choose VRM…';
- return assets.find(asset=>asset.id===assetId)?.name??'Missing model';
+ // A video record is never a character model (B29 R20).
+ return assets.find(asset=>asset.id===assetId&&!isVideoRecord(asset))?.name??'Missing model';
 }
 export function makeEmptyScene():SceneView {
  return {schemaVersion:1,sceneId:'scene_smoke',revision:0,entities:[makeAuthoringEntity('camera','camera_main',[]),makeAuthoringEntity('directionalLight','light_main',[])],outputs:['output_main','preview_main'].map(id=>({id,cameraId:'camera_main',width:1920,height:1080,fps:60}))};

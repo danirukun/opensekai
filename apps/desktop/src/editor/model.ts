@@ -1,5 +1,5 @@
-import { ExpressionNameSchema,ExpressionSettingsSchema,TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,FitNeutralSchema,TrackingSmoothingSchema,TrackingMappingSchema,EntityNameSchema,ShowSceneSchema,IdSchema,CameraAntiAliasingSchema,CameraNavigationSchema,LightSettingsSchema,HazeSettingsSchema,FpsCounterSettingsSchema,VmcSenderSettingsSchema,ReflectionsIntensitySchema,PatchOpSchema,WebScreenSchema } from '@opensekai/contracts';
-import type { ExpressionSettings, AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing, TrackingMapping, ArkitName, CameraAntiAliasing, CameraNavigation, CameraScreenshotResult, LightSettings, HazeSettings, FpsCounterSettings, VmcSenderSettings, WebScreen } from '@opensekai/contracts';
+import { ExpressionNameSchema,ExpressionSettingsSchema,TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,FitNeutralSchema,TrackingSmoothingSchema,TrackingMappingSchema,EntityNameSchema,ShowSceneSchema,IdSchema,CameraAntiAliasingSchema,CameraNavigationSchema,LightSettingsSchema,HazeSettingsSchema,FpsCounterSettingsSchema,VmcSenderSettingsSchema,ReflectionsIntensitySchema,PatchOpSchema,ScreenVideoSchema,WebScreenSchema } from '@opensekai/contracts';
+import type { ExpressionSettings, AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing, TrackingMapping, ArkitName, CameraAntiAliasing, CameraNavigation, CameraScreenshotResult, LightSettings, HazeSettings, FpsCounterSettings, VmcSenderSettings, ScreenVideo, ScreenVideoAction, WebScreen } from '@opensekai/contracts';
 import {makeEntityCopy} from './asset-management';
 type CameraLens=Extract<SceneEntity,{kind:'camera'}>['lens'];
 export interface EditorView {
@@ -130,6 +130,15 @@ export function createEditorModel(api: AppApi) {
   setScreenWeb(entityId:Id,web:WebScreen,expectedRevision?:number):Promise<Reply<{revision:number}>> {
    const parsed=WebScreenSchema.safeParse(web);if(!ofKind(entityId,'screen')||!parsed.success)return invalid();
    return patch({kind:'setScreenWeb',entityId,web:parsed.data},expectedRevision);
+  },
+  setScreenVideo(entityId:Id,video:ScreenVideo,expectedRevision?:number,live=false):Promise<Reply<{revision:number}>> {
+   const parsed=ScreenVideoSchema.safeParse(video);if(!ofKind(entityId,'screen')||!parsed.success)return invalid();
+   return patch({kind:'setScreenVideo',entityId,video:parsed.data},expectedRevision,live);
+  },
+  // A control-only patch never commits: the session ignores its expected revision and replies with the current one (B29 R10).
+  controlScreenVideo(entityId:Id,action:ScreenVideoAction):Promise<Reply<{revision:number}>> {
+   if(!ofKind(entityId,'screen')||!['play','pause','restart'].includes(action))return invalid();
+   return patch({kind:'controlScreenVideo',entityId,action});
   },
   setEnvironmentReflections(entityId:Id,reflectionsIntensity:number,expectedRevision?:number,live=false):Promise<Reply<{revision:number}>> {
    const parsed=ReflectionsIntensitySchema.safeParse(reflectionsIntensity);if(!ofKind(entityId,'environment')||!parsed.success)return invalid();

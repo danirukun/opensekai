@@ -1,7 +1,13 @@
 export type LoadStage = 'download' | 'textures' | 'prepare' | 'failed';
 export interface LoadReport { stage: Exclude<LoadStage, 'failed'>; progress: number | null; count?: { done: number; total: number } }
 export interface AssetLoadStatus { entityId: string; assetId: string; stage: LoadStage; progress: number | null; count?: { done: number; total: number }; message?: string }
-export interface LoadRequest { kind: 'avatar' | 'mesh' | 'environment' | 'screen'; assetId: string }
+/**
+ * `retryKey` is the content of a video screen: a change of it, or of the asset ID, starts a new retry count (B29 R15).
+ * It is not part of the request identity, so a change of Loop or Volume does not load the video again.
+ */
+export interface LoadRequest { kind: 'avatar' | 'mesh' | 'environment' | 'screen' | 'video'; assetId: string; retryKey?: string }
+/** A failed video job retries at most this many times for one asset ID in one renderer instance (B29 R15). */
+export const VIDEO_RETRY_LIMIT = 3;
 
 type Job<T> = { request: LoadRequest; state: 'loading' | 'ready' | 'failed'; status: AssetLoadStatus; value?: T; cancelled: boolean; dismissed: boolean; failed?: { revision: number; time: number } };
 const sameRequest = (a: LoadRequest, b: LoadRequest) => a.kind === b.kind && a.assetId === b.assetId;
@@ -13,6 +19,7 @@ export function createLoadJobs<T extends { dispose(): void }>(
   { now = () => performance.now(), retryAfterMs = 3000 }: { now?: () => number; retryAfterMs?: number } = {},
 ) {
   const jobs = new Map<string, Job<T>>();
+  const retries = new Map<string, { assetId: string; key: string | undefined; count: number }>();
   let closed = false, revision = -Infinity;
   const status = () => [...jobs.values()].filter(job => job.state === 'loading' || (job.state === 'failed' && !job.dismissed)).map(job => ({ ...job.status }));
   const emit = () => { if (!closed) onStatus(status()); };
@@ -23,6 +30,11 @@ export function createLoadJobs<T extends { dispose(): void }>(
     job.cancelled = true;
     job.value?.dispose();
     job.value = undefined;
+  };
+  const failJob = (job: Job<T>, entityId: string, message: string) => {
+    job.state = 'failed';
+    job.failed = { revision, time: now() };
+    job.status = { entityId, assetId: job.request.assetId, stage: 'failed', progress: null, message };
   };
   const begin = (entityId: string, request: LoadRequest) => {
     const job: Job<T> = { request, state: 'loading', status: { entityId, assetId: request.assetId, stage: 'download', progress: null }, cancelled: false, dismissed: false };
@@ -41,21 +53,30 @@ export function createLoadJobs<T extends { dispose(): void }>(
       emit();
     }, error => {
       if (job.cancelled) return;
-      job.state = 'failed';
-      job.failed = { revision, time: now() };
-      job.status = { entityId, assetId: request.assetId, stage: 'failed', progress: null, message: messageOf(error) };
+      failJob(job, entityId, messageOf(error));
       emit();
     });
   };
   return {
-    reconcile(needed: ReadonlyMap<string, LoadRequest>, frameRevision: number) {
+    reconcile(needed: ReadonlyMap<string, LoadRequest>, frameRevision: number, videoScreens: ReadonlySet<string> = new Set()) {
       if (closed) return;
       revision = frameRevision;
       let changed = false;
+      // An installed video keeps its count, so an element error after the load does not reset the cap.
+      for (const entityId of [...retries.keys()]) if (needed.get(entityId)?.kind !== 'video' && !videoScreens.has(entityId)) retries.delete(entityId);
+      for (const [entityId, request] of needed) {
+        const count = retries.get(entityId);
+        if (request.kind === 'video' && (count?.assetId !== request.assetId || count.key !== request.retryKey)) retries.set(entityId, { assetId: request.assetId, key: request.retryKey, count: 0 });
+      }
       for (const [entityId, job] of [...jobs]) {
         const request = needed.get(entityId);
-        const retry = job.failed !== undefined && frameRevision > job.failed.revision && now() - job.failed.time >= retryAfterMs;
-        if (!request || !sameRequest(request, job.request) || retry) { cancel(entityId); changed = true; }
+        const count = retries.get(entityId);
+        const capped = request?.kind === 'video' && count !== undefined && count.count >= VIDEO_RETRY_LIMIT;
+        const retry = job.failed !== undefined && frameRevision > job.failed.revision && now() - job.failed.time >= retryAfterMs && !capped;
+        if (!request || !sameRequest(request, job.request) || retry) {
+          if (retry && request && sameRequest(request, job.request) && request.kind === 'video' && count) count.count++;
+          cancel(entityId); changed = true;
+        }
       }
       for (const [entityId, request] of needed) if (!jobs.has(entityId)) { begin(entityId, request); changed = true; }
       if (changed) emit();
@@ -65,6 +86,15 @@ export function createLoadJobs<T extends { dispose(): void }>(
       if (job?.state !== 'ready') return undefined;
       jobs.delete(entityId);
       return job.value;
+    },
+    /** Marks a loaded and taken value as failed (a video element error after `loadeddata`), so the retry rule applies. */
+    fail(entityId: string, request: LoadRequest, message: string) {
+      if (closed) return;
+      cancel(entityId);
+      const job: Job<T> = { request, state: 'loading', status: { entityId, assetId: request.assetId, stage: 'download', progress: null }, cancelled: false, dismissed: false };
+      failJob(job, entityId, message);
+      jobs.set(entityId, job);
+      emit();
     },
     failure: (entityId: string) => { const job = jobs.get(entityId); return job?.state === 'failed' ? job.status.message : undefined; },
     dismiss(entityId: string) { const job = jobs.get(entityId); if (job?.state === 'failed' && !job.dismissed) { job.dismissed = true; emit(); } },

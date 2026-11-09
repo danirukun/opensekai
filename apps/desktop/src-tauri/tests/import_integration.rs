@@ -183,3 +183,61 @@ async fn imported_image_is_served_with_its_content_type_and_survives_restart() {
     assert_eq!(restarted.asset_records(), vec![imported.record]);
     restarted.shutdown().await.unwrap();
 }
+// Real file, managed library, and authenticated HTTP boundaries: a video is served whole with its own type (B29 R5, R6).
+#[tokio::test]
+async fn imported_video_is_served_with_its_content_type_and_survives_restart() {
+    let dir = tempfile::tempdir().unwrap();
+    let fixtures = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../fixtures/video");
+    let config = || ServiceConfig {
+        output_root: dir.path().into(),
+        asset_manifest: Default::default(),
+        evidence_root: dir.path().join("evidence"),
+        evaluation_enabled: false,
+    };
+    let service = start_service(config()).await.unwrap();
+    let descriptor = service.operator_descriptor();
+    let mut records = Vec::new();
+    for (file, stem, content_type) in [
+        ("h264-aac.mp4", "Intro", "video/mp4"),
+        ("vp9-opus.webm", "Loop", "video/webm"),
+    ] {
+        let bytes = std::fs::read(fixtures.join(file)).unwrap();
+        let source = dir
+            .path()
+            .join(format!("{stem}.{}", file.rsplit('.').next().unwrap()));
+        std::fs::write(&source, &bytes).unwrap();
+        let imported = service.import_video(source.clone()).await.unwrap();
+        assert!(imported.record.id.starts_with("video_"));
+        assert_eq!(imported.record.name, stem);
+        assert!(imported.record.video.is_some());
+        let again = service.import_video(source).await.unwrap();
+        assert_eq!(again.record, imported.record);
+        let url = format!("{}/assets/{}", descriptor.http_origin, imported.record.id);
+        let response = reqwest::Client::new()
+            .get(&url)
+            .bearer_auth(&descriptor.token)
+            .header("range", "bytes=0-99")
+            .send()
+            .await
+            .unwrap();
+        // No Range support in this slice: the full file with status 200.
+        assert_eq!(response.status(), 200);
+        assert_eq!(response.headers()["content-type"], content_type);
+        assert_eq!(response.headers()["x-content-type-options"], "nosniff");
+        assert!(response.headers().get("accept-ranges").is_none());
+        assert!(response.headers().get("content-range").is_none());
+        assert_eq!(response.bytes().await.unwrap().as_ref(), bytes);
+        records.push(imported.record);
+    }
+    // A file that is not a video is rejected and adds no record.
+    let text = dir.path().join("notes.mp4");
+    std::fs::write(&text, b"not a video").unwrap();
+    assert!(service.import_video(text).await.is_err());
+    service.shutdown().await.unwrap();
+    let restarted = start_service(config()).await.unwrap();
+    let mut reloaded = restarted.asset_records();
+    reloaded.sort_by(|a, b| a.id.cmp(&b.id));
+    records.sort_by(|a, b| a.id.cmp(&b.id));
+    assert_eq!(reloaded, records);
+    restarted.shutdown().await.unwrap();
+}

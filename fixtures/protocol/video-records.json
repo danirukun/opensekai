@@ -1,0 +1,742 @@
+{
+ "valid": [
+  {
+   "name": "mp4 h264 aac",
+   "record": {
+    "id": "video_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "mp4",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 1048576,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Clip",
+    "expressions": [],
+    "video": {
+     "width": 1920,
+     "height": 1080,
+     "durationMs": 12000,
+     "videoCodec": "h264",
+     "audioCodec": "aac",
+     "alpha": false
+    }
+   }
+  },
+  {
+   "name": "mp4 hevc without audio",
+   "record": {
+    "id": "video_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "mp4",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 1048576,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Clip",
+    "expressions": [],
+    "video": {
+     "width": 1920,
+     "height": 1080,
+     "durationMs": 12000,
+     "videoCodec": "hevc",
+     "audioCodec": null,
+     "alpha": false
+    }
+   }
+  },
+  {
+   "name": "mp4 av1 opus",
+   "record": {
+    "id": "video_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "mp4",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 1048576,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Clip",
+    "expressions": [],
+    "video": {
+     "width": 1920,
+     "height": 1080,
+     "durationMs": 12000,
+     "videoCodec": "av1",
+     "audioCodec": "opus",
+     "alpha": false
+    }
+   }
+  },
+  {
+   "name": "mp4 h264 mp3",
+   "record": {
+    "id": "video_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "mp4",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 1048576,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Clip",
+    "expressions": [],
+    "video": {
+     "width": 1920,
+     "height": 1080,
+     "durationMs": 12000,
+     "videoCodec": "h264",
+     "audioCodec": "mp3",
+     "alpha": false
+    }
+   }
+  },
+  {
+   "name": "webm vp8 vorbis",
+   "record": {
+    "id": "video_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "webm",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 1048576,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Clip",
+    "expressions": [],
+    "video": {
+     "width": 1920,
+     "height": 1080,
+     "durationMs": 12000,
+     "videoCodec": "vp8",
+     "audioCodec": "vorbis",
+     "alpha": false
+    }
+   }
+  },
+  {
+   "name": "webm vp9 alpha",
+   "record": {
+    "id": "video_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "webm",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 1048576,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Clip",
+    "expressions": [],
+    "video": {
+     "width": 1920,
+     "height": 1080,
+     "durationMs": 12000,
+     "videoCodec": "vp9",
+     "audioCodec": null,
+     "alpha": true
+    }
+   }
+  },
+  {
+   "name": "webm av1 opus",
+   "record": {
+    "id": "video_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "webm",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 1048576,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Clip",
+    "expressions": [],
+    "video": {
+     "width": 1920,
+     "height": 1080,
+     "durationMs": 12000,
+     "videoCodec": "av1",
+     "audioCodec": "opus",
+     "alpha": false
+    }
+   }
+  },
+  {
+   "name": "largest size and duration",
+   "record": {
+    "id": "video_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "mp4",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 268435456,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Clip",
+    "expressions": [],
+    "video": {
+     "width": 4096,
+     "height": 4096,
+     "durationMs": 14400000,
+     "videoCodec": "h264",
+     "audioCodec": "aac",
+     "alpha": false
+    }
+   }
+  },
+  {
+   "name": "glb without video",
+   "record": {
+    "id": "scene_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "glb",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 1200,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Room",
+    "expressions": []
+   }
+  }
+ ],
+ "invalid": [
+  {
+   "name": "video format without video",
+   "record": {
+    "id": "video_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "mp4",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 1048576,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Clip",
+    "expressions": []
+   }
+  },
+  {
+   "name": "video format with scene ID",
+   "record": {
+    "id": "scene_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "mp4",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 1048576,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Clip",
+    "expressions": [],
+    "video": {
+     "width": 1920,
+     "height": 1080,
+     "durationMs": 12000,
+     "videoCodec": "h264",
+     "audioCodec": "aac",
+     "alpha": false
+    }
+   }
+  },
+  {
+   "name": "video format with image ID",
+   "record": {
+    "id": "image_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "mp4",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 1048576,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Clip",
+    "expressions": [],
+    "video": {
+     "width": 1920,
+     "height": 1080,
+     "durationMs": 12000,
+     "videoCodec": "h264",
+     "audioCodec": "aac",
+     "alpha": false
+    }
+   }
+  },
+  {
+   "name": "bytes above 256 MiB",
+   "record": {
+    "id": "video_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "mp4",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 268435457,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Clip",
+    "expressions": [],
+    "video": {
+     "width": 1920,
+     "height": 1080,
+     "durationMs": 12000,
+     "videoCodec": "h264",
+     "audioCodec": "aac",
+     "alpha": false
+    }
+   }
+  },
+  {
+   "name": "video with expressions",
+   "record": {
+    "id": "video_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "mp4",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 1048576,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Clip",
+    "expressions": [
+     {
+      "name": "happy",
+      "preset": true
+     }
+    ],
+    "video": {
+     "width": 1920,
+     "height": 1080,
+     "durationMs": 12000,
+     "videoCodec": "h264",
+     "audioCodec": "aac",
+     "alpha": false
+    }
+   }
+  },
+  {
+   "name": "video with image",
+   "record": {
+    "id": "video_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "mp4",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 1048576,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Clip",
+    "expressions": [],
+    "video": {
+     "width": 1920,
+     "height": 1080,
+     "durationMs": 12000,
+     "videoCodec": "h264",
+     "audioCodec": "aac",
+     "alpha": false
+    },
+    "image": {
+     "width": 1,
+     "height": 1,
+     "frames": 1
+    }
+   }
+  },
+  {
+   "name": "video with eyeBones",
+   "record": {
+    "id": "video_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "mp4",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 1048576,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Clip",
+    "expressions": [],
+    "video": {
+     "width": 1920,
+     "height": 1080,
+     "durationMs": 12000,
+     "videoCodec": "h264",
+     "audioCodec": "aac",
+     "alpha": false
+    },
+    "eyeBones": true
+   }
+  },
+  {
+   "name": "video with meshes",
+   "record": {
+    "id": "video_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "mp4",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 1048576,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Clip",
+    "expressions": [],
+    "video": {
+     "width": 1920,
+     "height": 1080,
+     "durationMs": 12000,
+     "videoCodec": "h264",
+     "audioCodec": "aac",
+     "alpha": false
+    },
+    "meshes": []
+   }
+  },
+  {
+   "name": "zero width",
+   "record": {
+    "id": "video_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "mp4",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 1048576,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Clip",
+    "expressions": [],
+    "video": {
+     "width": 0,
+     "height": 1080,
+     "durationMs": 12000,
+     "videoCodec": "h264",
+     "audioCodec": "aac",
+     "alpha": false
+    }
+   }
+  },
+  {
+   "name": "height above 4096",
+   "record": {
+    "id": "video_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "mp4",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 1048576,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Clip",
+    "expressions": [],
+    "video": {
+     "width": 1920,
+     "height": 4097,
+     "durationMs": 12000,
+     "videoCodec": "h264",
+     "audioCodec": "aac",
+     "alpha": false
+    }
+   }
+  },
+  {
+   "name": "fractional width",
+   "record": {
+    "id": "video_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "mp4",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 1048576,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Clip",
+    "expressions": [],
+    "video": {
+     "width": 1.5,
+     "height": 1080,
+     "durationMs": 12000,
+     "videoCodec": "h264",
+     "audioCodec": "aac",
+     "alpha": false
+    }
+   }
+  },
+  {
+   "name": "zero duration",
+   "record": {
+    "id": "video_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "mp4",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 1048576,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Clip",
+    "expressions": [],
+    "video": {
+     "width": 1920,
+     "height": 1080,
+     "durationMs": 0,
+     "videoCodec": "h264",
+     "audioCodec": "aac",
+     "alpha": false
+    }
+   }
+  },
+  {
+   "name": "duration above 4 hours",
+   "record": {
+    "id": "video_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "mp4",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 1048576,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Clip",
+    "expressions": [],
+    "video": {
+     "width": 1920,
+     "height": 1080,
+     "durationMs": 14400001,
+     "videoCodec": "h264",
+     "audioCodec": "aac",
+     "alpha": false
+    }
+   }
+  },
+  {
+   "name": "unknown video codec",
+   "record": {
+    "id": "video_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "mp4",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 1048576,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Clip",
+    "expressions": [],
+    "video": {
+     "width": 1920,
+     "height": 1080,
+     "durationMs": 12000,
+     "videoCodec": "mpeg4",
+     "audioCodec": "aac",
+     "alpha": false
+    }
+   }
+  },
+  {
+   "name": "unknown audio codec",
+   "record": {
+    "id": "video_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "mp4",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 1048576,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Clip",
+    "expressions": [],
+    "video": {
+     "width": 1920,
+     "height": 1080,
+     "durationMs": 12000,
+     "videoCodec": "h264",
+     "audioCodec": "ac3",
+     "alpha": false
+    }
+   }
+  },
+  {
+   "name": "mp4 with vp9",
+   "record": {
+    "id": "video_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "mp4",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 1048576,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Clip",
+    "expressions": [],
+    "video": {
+     "width": 1920,
+     "height": 1080,
+     "durationMs": 12000,
+     "videoCodec": "vp9",
+     "audioCodec": "aac",
+     "alpha": false
+    }
+   }
+  },
+  {
+   "name": "mp4 with vorbis",
+   "record": {
+    "id": "video_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "mp4",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 1048576,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Clip",
+    "expressions": [],
+    "video": {
+     "width": 1920,
+     "height": 1080,
+     "durationMs": 12000,
+     "videoCodec": "h264",
+     "audioCodec": "vorbis",
+     "alpha": false
+    }
+   }
+  },
+  {
+   "name": "mp4 with alpha",
+   "record": {
+    "id": "video_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "mp4",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 1048576,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Clip",
+    "expressions": [],
+    "video": {
+     "width": 1920,
+     "height": 1080,
+     "durationMs": 12000,
+     "videoCodec": "h264",
+     "audioCodec": "aac",
+     "alpha": true
+    }
+   }
+  },
+  {
+   "name": "webm with h264",
+   "record": {
+    "id": "video_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "webm",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 1048576,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Clip",
+    "expressions": [],
+    "video": {
+     "width": 1920,
+     "height": 1080,
+     "durationMs": 12000,
+     "videoCodec": "h264",
+     "audioCodec": null,
+     "alpha": false
+    }
+   }
+  },
+  {
+   "name": "webm with aac",
+   "record": {
+    "id": "video_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "webm",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 1048576,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Clip",
+    "expressions": [],
+    "video": {
+     "width": 1920,
+     "height": 1080,
+     "durationMs": 12000,
+     "videoCodec": "vp9",
+     "audioCodec": "aac",
+     "alpha": false
+    }
+   }
+  },
+  {
+   "name": "webm av1 with alpha",
+   "record": {
+    "id": "video_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "webm",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 1048576,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Clip",
+    "expressions": [],
+    "video": {
+     "width": 1920,
+     "height": 1080,
+     "durationMs": 12000,
+     "videoCodec": "av1",
+     "audioCodec": null,
+     "alpha": true
+    }
+   }
+  },
+  {
+   "name": "missing audioCodec",
+   "record": {
+    "id": "video_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "mp4",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 1048576,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Clip",
+    "expressions": [],
+    "video": {
+     "width": 1920,
+     "height": 1080,
+     "durationMs": 12000,
+     "videoCodec": "h264",
+     "alpha": false
+    }
+   }
+  },
+  {
+   "name": "unknown video field",
+   "record": {
+    "id": "video_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "mp4",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 1048576,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Clip",
+    "expressions": [],
+    "video": {
+     "width": 1920,
+     "height": 1080,
+     "durationMs": 12000,
+     "videoCodec": "h264",
+     "audioCodec": "aac",
+     "alpha": false,
+     "fps": 30
+    }
+   }
+  },
+  {
+   "name": "glb with video",
+   "record": {
+    "id": "scene_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "glb",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 1200,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Room",
+    "expressions": [],
+    "video": {
+     "width": 1920,
+     "height": 1080,
+     "durationMs": 12000,
+     "videoCodec": "h264",
+     "audioCodec": "aac",
+     "alpha": false
+    }
+   }
+  },
+  {
+   "name": "glb with video ID",
+   "record": {
+    "id": "video_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "format": "glb",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 1200,
+    "sourceUrl": null,
+    "licenseLabel": "User supplied",
+    "importerVersion": 1,
+    "name": "Room",
+    "expressions": []
+   }
+  }
+ ]
+}

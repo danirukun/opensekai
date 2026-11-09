@@ -246,3 +246,16 @@ This slice does not change the benchmark. It gives the parts that the benchmark 
 - Do not add a Rust media crate, a native decoder, or a new vendor.
 - Do not claim these from this slice: HEVC alpha, MOV or Matroska, streaming, the benchmark subset, Blueprint playback, audio in the Editor window, OBS audio sync, decode cost on a real GPU, or Windows support.
 - An old build does not open a show with a video screen. Record this in the evidence.
+
+## Implementation record
+
+The implementation (branch `claude/b29-video-screens-impl`) changes these points. Each one is recorded here before the evidence claims it.
+
+- R4: an MP4 also needs an `mdat` box (`MP4: no mdat box`). Without it, a faststart file cut after its `moov` is a valid structure, and Operation 3 "each prefix fails" cannot pass. Failure messages have the form `<Type>: <reason>` (for example `MP4: Video has no duration`). The MP4 matrix may have a translation. A WebM AV1 track with `AlphaMode` 1 fails with `Video codec not supported`.
+- R11: `play` on a playing entry changes nothing. `positionMs` is `floor(offsetMs + elapsedMs − anchorMs)`. "Now" is the session `elapsedMs` of the last step. The session also makes entries for the video screens of its first scene, as `replaceScene` does. An entry exists for a screen with a null `assetId`, but the frame list leaves it out.
+- R13: WebGL 2 uses `VideoTexture`. WebGPU uploads one `ImageBitmap` of the element for each new video frame (`requestVideoFrameCallback` and `seeked`), because Dawn on the software adapter rejects the external texture copy of the element and of a `VideoFrame` (Operation 5.1 spike, `docs/evaluation/video-screens/spike-check.txt`).
+- R14: `videoSettled` resolves after `seeked` plus 6 applied frames for a seek, because `requestVideoFrameCallback` does not run for a paused element outside the DOM. A loaded screen without a `screenPlayback` entry pauses.
+- R15: for a codec string without a profile (`vp9`, or `av01` from a WebM without `CodecPrivate`), the check uses `canPlayType`, because Chromium `decodingInfo` answers `supported: false` for `video/webm; codecs="vp9"`. The retry count resets when the content value of the screen changes. `Video playback blocked` uses the code `UNSUPPORTED`.
+- R15: at the 10 s limit, an element with `readyState` `HAVE_METADATA` or more gives `Video codec not supported: <codec>` with the code `UNSUPPORTED`. An element with less gives `Video failed to load`. The reason: macOS WebKit (macOS 27.2, the Editor window) answers `decodingInfo` `supported: true` and `canPlayType` `probably` for AV1 in WebM. The element then reads the metadata (`loadedmetadata`, `videoWidth` 64), decodes no frame, and sends no `error` event. The file arrived and the container was read, so the codec is the failure.
+- R19: Play and Restart are disabled while no video is chosen. The Video field has its own reset mark. The Content select is `ScreenContentField.svelte`.
+- Operation 5.3: the fixture green decodes to (0, 216, 0) in Chromium's own 2D canvas. So the checks compare each pixel with the browser decode of the same file (within 24) and require the nearest nominal color.

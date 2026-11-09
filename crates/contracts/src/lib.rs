@@ -21,6 +21,12 @@ pub const MAX_HAZES: usize = 1;
 pub const MAX_FPS_COUNTERS: usize = 1;
 pub const MAX_SCREENS: usize = 16;
 pub const MAX_WEB_SCREENS: usize = 4;
+/// B29 R8. Keep in step with `LIMITS.videoScreens`.
+pub const MAX_VIDEO_SCREENS: usize = 4;
+/// The video limits of B29 R1. Keep in step with `VIDEO_LIMITS` in `packages/contracts/src/schema.ts`.
+pub const MAX_VIDEO_SIDE: u32 = 4096;
+pub const MAX_VIDEO_DURATION_MS: u64 = 14_400_000;
+pub const MAX_VIDEO_BYTES: u64 = 256 * 1024 * 1024;
 /// The image limits of B28 R1. Keep in step with `IMAGE_LIMITS` in `packages/contracts/src/schema.ts`.
 pub const MAX_IMAGE_SIDE: u32 = 8192;
 pub const MAX_IMAGE_AREA: u64 = 33_554_432;
@@ -41,10 +47,13 @@ strings!(Capability { Read=>"read", Edit=>"edit", Capture=>"capture", Benchmark=
 strings!(Role { Publisher=>"publisher", Operator=>"operator", Renderer=>"renderer" });
 strings!(ErrorCode { InvalidInput=>"INVALID_INPUT", Conflict=>"CONFLICT", Forbidden=>"FORBIDDEN", Unavailable=>"UNAVAILABLE", NotFound=>"NOT_FOUND", Unsupported=>"UNSUPPORTED", Timeout=>"TIMEOUT", RateLimited=>"RATE_LIMITED", Busy=>"BUSY", Cancelled=>"CANCELLED", VersionMismatch=>"VERSION_MISMATCH", StaleFrame=>"STALE_FRAME" });
 strings!(RunState { Warming=>"warming", Measuring=>"measuring", Complete=>"complete", Cancelled=>"cancelled", Failed=>"failed" });
-strings!(AssetFormat { Glb=>"glb", Vrm=>"vrm", Png=>"png", Jpeg=>"jpeg", Webp=>"webp", Gif=>"gif" });
+strings!(AssetFormat { Glb=>"glb", Vrm=>"vrm", Png=>"png", Jpeg=>"jpeg", Webp=>"webp", Gif=>"gif", Mp4=>"mp4", Webm=>"webm" });
 impl AssetFormat {
     pub fn is_image(&self) -> bool {
         matches!(self, Self::Png | Self::Jpeg | Self::Webp | Self::Gif)
+    }
+    pub fn is_video(&self) -> bool {
+        matches!(self, Self::Mp4 | Self::Webm)
     }
     /// The library file extension (B28 R2).
     pub fn extension(&self) -> &'static str {
@@ -55,6 +64,8 @@ impl AssetFormat {
             Self::Jpeg => "jpg",
             Self::Webp => "webp",
             Self::Gif => "gif",
+            Self::Mp4 => "mp4",
+            Self::Webm => "webm",
         }
     }
     pub fn content_type(&self) -> &'static str {
@@ -64,6 +75,8 @@ impl AssetFormat {
             Self::Jpeg => "image/jpeg",
             Self::Webp => "image/webp",
             Self::Gif => "image/gif",
+            Self::Mp4 => "video/mp4",
+            Self::Webm => "video/webm",
         }
     }
 }
@@ -266,7 +279,7 @@ impl Validate for FpsCounterSettings {
 fn reflections_intensity_ok(n: f64) -> bool {
     n.is_finite() && (0. ..=2.).contains(&n)
 }
-/// B29 and B31 add video and capture members.
+/// B31 adds capture members.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub enum ScreenContent {
@@ -280,6 +293,15 @@ pub enum ScreenContent {
         height: u32,
         #[serde(rename = "onTop")]
         on_top: bool,
+    },
+    Video {
+        #[serde(rename = "assetId")]
+        asset_id: Option<Id>,
+        #[serde(rename = "autoPlay")]
+        auto_play: bool,
+        #[serde(rename = "loop")]
+        looped: bool,
+        volume: f64,
     },
 }
 /// The page settings of a web screen (B30 R1); `setScreenWeb` carries them.
@@ -315,6 +337,9 @@ impl Validate for ScreenContent {
                 web_screen_ok(url.as_deref(), *width, *height),
                 "invalid web screen",
             ),
+            Self::Video { volume, .. } => {
+                require(screen_volume_ok(*volume), "invalid screen volume")
+            }
         }
     }
 }
@@ -365,6 +390,25 @@ pub fn is_web_screen_url(value: &str) -> bool {
         None => false,
     }
 }
+/// The saved video settings of `setScreenVideo` (B29 R9).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ScreenVideo {
+    pub asset_id: Option<Id>,
+    pub auto_play: bool,
+    #[serde(rename = "loop")]
+    pub looped: bool,
+    pub volume: f64,
+}
+fn screen_volume_ok(volume: f64) -> bool {
+    volume.is_finite() && (0. ..=1.).contains(&volume)
+}
+strings!(ScreenVideoAction { Play=>"play", Pause=>"pause", Restart=>"restart" });
+object!(ScreenPlayback {
+    entity_id: Id,
+    playing: bool,
+    position_ms: u64
+});
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub enum SceneEntity {
@@ -501,6 +545,15 @@ impl SceneEntity {
             | Self::Tracking { id, .. } => id,
         }
     }
+    pub fn is_video_screen(&self) -> bool {
+        matches!(
+            self,
+            Self::Screen {
+                content: ScreenContent::Video { .. },
+                ..
+            }
+        )
+    }
     pub fn transform(&self) -> &Transform {
         match self {
             Self::Mesh { transform, .. }
@@ -620,6 +673,17 @@ pub enum PatchOp {
         #[serde(rename = "entityId")]
         entity_id: Id,
         web: WebScreen,
+    },
+    SetScreenVideo {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+        video: ScreenVideo,
+    },
+    /// Runtime only (B29 R10): the session never commits it.
+    ControlScreenVideo {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+        action: ScreenVideoAction,
     },
     SetEnvironmentReflections {
         #[serde(rename = "entityId")]
@@ -762,6 +826,8 @@ pub struct AssetRecord {
     pub meshes: Option<Vec<AssetMesh>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub image: Option<AssetImage>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub video: Option<AssetVideo>,
 }
 object!(AssetImage {
     width: u32,
@@ -773,6 +839,53 @@ impl AssetImage {
         (1..=MAX_IMAGE_SIDE).contains(&width)
             && (1..=MAX_IMAGE_SIDE).contains(&height)
             && u64::from(width) * u64::from(height) <= MAX_IMAGE_AREA
+    }
+}
+strings!(VideoCodec { H264=>"h264", Hevc=>"hevc", Vp8=>"vp8", Vp9=>"vp9", Av1=>"av1" });
+strings!(VideoAudioCodec { Aac=>"aac", Mp3=>"mp3", Opus=>"opus", Vorbis=>"vorbis" });
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AssetVideo {
+    pub width: u32,
+    pub height: u32,
+    pub duration_ms: u64,
+    pub video_codec: VideoCodec,
+    /// Required, and null for a video without audio (as `AssetVideoSchema`).
+    #[serde(deserialize_with = "nullable")]
+    pub audio_codec: Option<VideoAudioCodec>,
+    pub alpha: bool,
+}
+fn nullable<'de, D: serde::Deserializer<'de>, T: Deserialize<'de>>(
+    deserializer: D,
+) -> Result<Option<T>, D::Error> {
+    Option::<T>::deserialize(deserializer)
+}
+impl AssetVideo {
+    /// B29 R1: the size, duration, and codec rules of one container.
+    pub fn ok_for(&self, format: &AssetFormat) -> bool {
+        let size = (1..=MAX_VIDEO_SIDE).contains(&self.width)
+            && (1..=MAX_VIDEO_SIDE).contains(&self.height)
+            && (1..=MAX_VIDEO_DURATION_MS).contains(&self.duration_ms);
+        let codecs = match format {
+            AssetFormat::Mp4 => {
+                matches!(
+                    self.video_codec,
+                    VideoCodec::H264 | VideoCodec::Hevc | VideoCodec::Av1
+                ) && !matches!(self.audio_codec, Some(VideoAudioCodec::Vorbis))
+                    && !self.alpha
+            }
+            AssetFormat::Webm => {
+                matches!(
+                    self.video_codec,
+                    VideoCodec::Vp8 | VideoCodec::Vp9 | VideoCodec::Av1
+                ) && matches!(
+                    self.audio_codec,
+                    None | Some(VideoAudioCodec::Opus) | Some(VideoAudioCodec::Vorbis)
+                ) && (!self.alpha || self.video_codec != VideoCodec::Av1)
+            }
+            _ => false,
+        };
+        size && codecs
     }
 }
 object!(AssetMesh {
@@ -998,6 +1111,8 @@ pub struct RuntimeFrame {
     pub tracking_status: Option<Vec<TrackingStatus>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub blueprint_revision: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub screen_playback: Option<Vec<ScreenPlayback>>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -1963,7 +2078,7 @@ fn validate_blueprint_inspect(data: &Value) -> Result<(), AppError> {
     validate_blueprint_errors(data)
 }
 object!(RunParams { run_id: Id });
-strings!(AssetKind { Avatar=>"avatar", Scene=>"scene", Image=>"image", Fixture=>"fixture" });
+strings!(AssetKind { Avatar=>"avatar", Scene=>"scene", Image=>"image", Video=>"video", Fixture=>"fixture" });
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AssetSummary {
@@ -1992,6 +2107,8 @@ impl AssetSummary {
             AssetKind::Scene
         } else if record.id.starts_with("image_") {
             AssetKind::Image
+        } else if record.id.starts_with("video_") {
+            AssetKind::Video
         } else {
             AssetKind::Fixture
         };
@@ -2326,6 +2443,10 @@ impl Validate for SceneView {
             "too many screens",
         )?;
         require(
+            self.entities.iter().filter(|e| e.is_video_screen()).count() <= MAX_VIDEO_SCREENS,
+            "too many video screens",
+        )?;
+        require(
             self.entities
                 .iter()
                 .filter(|e| {
@@ -2496,6 +2617,9 @@ pub fn validate_patch_ops(ops: &[PatchOp], max: usize) -> Result<(), AppError> {
             PatchOp::SetHiddenMeshes { hidden_meshes, .. } => {
                 require(mesh_names_ok(hidden_meshes), "invalid hidden meshes")?
             }
+            PatchOp::SetScreenVideo { video, .. } => {
+                require(screen_volume_ok(video.volume), "invalid screen volume")?
+            }
             _ => {}
         }
     }
@@ -2517,6 +2641,17 @@ impl Validate for RuntimeFrame {
         }
         if let Some(statuses) = &self.tracking_status {
             validate_statuses(statuses)?;
+        }
+        if let Some(playback) = &self.screen_playback {
+            let ids: HashSet<_> = playback.iter().map(|p| &p.entity_id).collect();
+            require(
+                playback.len() <= MAX_VIDEO_SCREENS
+                    && ids.len() == playback.len()
+                    && playback
+                        .iter()
+                        .all(|p| p.position_ms as f64 <= MAX_SAFE_INTEGER),
+                "invalid screen playback",
+            )?;
         }
         self.scene.validate()
     }
@@ -2682,6 +2817,28 @@ impl Validate for AssetRecord {
         } else {
             require(
                 self.image.is_none() && !self.id.starts_with("image_"),
+                "invalid model record",
+            )?;
+        }
+        // B29 R1: the same cross-field rules as `AssetRecordSchema`.
+        if self.format.is_video() {
+            let video = self
+                .video
+                .as_ref()
+                .ok_or_else(|| invalid("video record needs video"))?;
+            require(video.ok_for(&self.format), "invalid video fields")?;
+            require(
+                self.id.starts_with("video_")
+                    && self.bytes <= MAX_VIDEO_BYTES
+                    && self.expressions.is_empty()
+                    && self.rig.is_none()
+                    && self.eye_bones.is_none()
+                    && self.meshes.is_none(),
+                "invalid video record",
+            )?;
+        } else {
+            require(
+                self.video.is_none() && !self.id.starts_with("video_"),
                 "invalid model record",
             )?;
         }

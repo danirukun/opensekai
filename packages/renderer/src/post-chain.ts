@@ -28,7 +28,7 @@ export function createPostChain(renderer: WebGPURenderer) {
             hazePass.setLayers(hazeLayers());
             hazePass.setResolution(HAZE_RESOLUTION);
             const blurred = gaussianBlur(hazePass, uniform(HAZE_BLUR));
-            color = hazeComposite(color, blurred as unknown as typeof color, haze.intensity as unknown as typeof color) as unknown as typeof color;
+            color = hazeComposite(color, blurred as unknown as typeof color, haze.intensity) as unknown as typeof color;
             owned.push(hazePass, blurred);
         }
         if (mode === "fxaa") {

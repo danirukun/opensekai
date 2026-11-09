@@ -30,12 +30,17 @@ export function watchPipelineErrors(device: PipelineDevice, report: (failure: Pi
     const sources = new WeakMap<ShaderModule, string>();
     const reported = new Set<string>();
     const original = { createShaderModule: device.createShaderModule, createRenderPipeline: device.createRenderPipeline, createRenderPipelineAsync: device.createRenderPipelineAsync };
-    const fail = (descriptor: PipelineDescriptor, error: ErrorLike) => {
-        const vertex = sources.get(descriptor.vertex.module) ?? null, fragment = descriptor.fragment ? sources.get(descriptor.fragment.module) ?? null : null;
+    // Read at call time: three.js r187 reuses one descriptor object and resets it before the error scope settles.
+    const snapshot = (descriptor: PipelineDescriptor) => ({
+        label: descriptor.label ?? null,
+        vertex: sources.get(descriptor.vertex.module) ?? null,
+        fragment: descriptor.fragment ? sources.get(descriptor.fragment.module) ?? null : null,
+    });
+    const fail = ({ label, vertex, fragment }: ReturnType<typeof snapshot>, error: ErrorLike) => {
         const key = `${vertex}\u0000${fragment}`;
         const first = !reported.has(key) && reported.size < MAX_REPORTED_FAILURES;
         if (first) reported.add(key);
-        report({ message: error.message, label: descriptor.label ?? null, vertex, fragment, maxNesting: Math.max(bracketNesting(vertex ?? ""), bracketNesting(fragment ?? "")) }, first);
+        report({ message: error.message, label, vertex, fragment, maxNesting: Math.max(bracketNesting(vertex ?? ""), bracketNesting(fragment ?? "")) }, first);
     };
     device.createShaderModule = function (descriptor) {
         const module = original.createShaderModule.call(this, descriptor);
@@ -45,12 +50,13 @@ export function watchPipelineErrors(device: PipelineDevice, report: (failure: Pi
     device.createRenderPipeline = function (descriptor) {
         this.pushErrorScope("internal");
         this.pushErrorScope("validation");
-        const pipeline = original.createRenderPipeline.call(this, descriptor);
-        void Promise.all([this.popErrorScope(), this.popErrorScope()]).then(errors => { for (const error of errors) if (error) fail(descriptor, error); }, () => undefined);
+        const pipeline = original.createRenderPipeline.call(this, descriptor), shot = snapshot(descriptor);
+        void Promise.all([this.popErrorScope(), this.popErrorScope()]).then(errors => { for (const error of errors) if (error) fail(shot, error); }, () => undefined);
         return pipeline;
     };
     device.createRenderPipelineAsync = function (descriptor) {
-        return original.createRenderPipelineAsync.call(this, descriptor).catch((error: ErrorLike) => { fail(descriptor, error); throw error; });
+        const shot = snapshot(descriptor);
+        return original.createRenderPipelineAsync.call(this, descriptor).catch((error: ErrorLike) => { fail(shot, error); throw error; });
     };
     return () => Object.assign(device, original);
 }

@@ -17,6 +17,7 @@ import { advanceTweens, dropGraphTweens, dropTweens, EMPTY_TWEENS, transitionSta
 import { advanceBlendShapes, blendShapeOwners, composeBlendShapes, dropGraphBlendShapes, EMPTY_BLEND_SHAPES, setBlendShape, type BlendShapeStates } from './blend-shapes';
 import { vmcPosesFor, withSendersStopped } from './vmc-send';
 import { dropGraphLookAts, EMPTY_LOOK_AT, lookAtOwners, sceneLookup, setLookAt, stepLookAt, type LookAtStates } from './look-at';
+import { applyControls as applyVideoControls, checkControl, isControlOp, reconcilePlayback, screenPlayback, type ControlOp, type VideoPlaybacks } from './video-playback';
 export interface Session {
     inspect(): SceneView;
     replaceScene(scene: SceneView, expectedRevision: number): Reply<SceneView>;
@@ -77,12 +78,15 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
     // The tracking status of the last advance. A probe reports its state.
     let lastTrackingStatus: TrackingStatus[] = [];
     let sequence = 0;
+    // The playback of each video screen on the session clock (B29 R11). Never committed or saved.
+    let videoPlayback: VideoPlaybacks = reconcilePlayback(new Map(), null, persistent, elapsed);
     function commit(next: SceneView): Reply<{
         revision: number;
     }> {
         if (!Number.isSafeInteger(persistent.revision + 1))
             return failure("INVALID_INPUT", "Revision limit reached");
         next.revision = persistent.revision + 1;
+        videoPlayback = reconcilePlayback(videoPlayback, persistent, next, elapsed);
         persistent = next;
         expressions = reconcileExpressions(expressions, persistent);
         return { ok: true, data: { revision: persistent.revision } };
@@ -289,6 +293,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             blendShapes = EMPTY_BLEND_SHAPES;
             lookAts = EMPTY_LOOK_AT;
             previousPoses = new Map();
+            videoPlayback = reconcilePlayback(new Map(), null, persistent, elapsed);
             return { ok: true, data: structuredClone(persistent) };
         },
         editBlueprints(batch) {
@@ -341,14 +346,27 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             const value = parsed.data;
             if (value.sceneId !== persistent.sceneId)
                 return failure("NOT_FOUND", "Scene not found", [value.sceneId]);
+            // Video control is runtime only: it never commits, and it is checked against the scene that the other operations make (B29 R10).
+            const controls = value.operations.filter(isControlOp);
+            const sceneOperations = value.operations.filter(operation => !isControlOp(operation));
+            const checkControls = (scene: SceneView) => controls.map(control => checkControl(scene, control)).find(reply => !reply.ok);
+            const runControls = (list: readonly ControlOp[]) => { videoPlayback = applyVideoControls(videoPlayback, list, elapsed); };
+            if (controls.length > 0 && sceneOperations.length === 0) {
+                const bad = checkControls(persistent);
+                if (bad) return bad;
+                runControls(controls);
+                return { ok: true, data: { revision: persistent.revision } };
+            }
             if (value.expectedRevision !== persistent.revision)
                 return failure("CONFLICT", "Scene revision changed");
-            const operations = resolveCalibrations(value.operations);
+            const operations = resolveCalibrations(sceneOperations);
             if (!operations.ok) return operations;
             const applied = applyOperations(persistent, operations.data, persistent.revision + 1);
             if (!applied.ok) return applied;
+            const bad = checkControls(applied.data);
+            if (bad) return bad;
             const committed = commit(applied.data);
-            if (committed.ok) { overrides = dropOverrides(overrides, value.operations); tweens = dropTweens(tweens, value.operations); }
+            if (committed.ok) { overrides = dropOverrides(overrides, sceneOperations); tweens = dropTweens(tweens, sceneOperations); runControls(controls); }
             return committed;
         },
         applyProposal(params) {
@@ -499,7 +517,8 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             previousPoses = new Map(live.avatarPoses.map(pose => [pose.avatarId, structuredClone(pose)]));
             const faces = composeBlendShapes(composeExpressions(live.avatarPoses, expressions, persistent, record), blendShapes);
             const avatarPoses = composeBoneOffsets(faces, looked.offsets);
-            return { schemaVersion: 1, sessionId, sequence, tick, elapsedMs, scene, blueprintRevision: store.revision(), ...(avatarPoses.length?{avatarPoses}:{}),...(live.trackingStatus.length?{trackingStatus:live.trackingStatus}:{}) };
+            const playback = screenPlayback(videoPlayback, persistent, elapsedMs);
+            return { schemaVersion: 1, sessionId, sequence, tick, elapsedMs, scene, blueprintRevision: store.revision(), ...(avatarPoses.length?{avatarPoses}:{}),...(live.trackingStatus.length?{trackingStatus:live.trackingStatus}:{}),...(playback.length?{screenPlayback:playback}:{}) };
         },
     };
     return api;

@@ -28,7 +28,7 @@ The first macOS run drew the stage, the spot light, the cone helper, and the haz
 Three changes followed (contract R7a, commit `f087d92`):
 - **Light layers.** Point and spot lights also enable the haze layer.
 - **Shadow cameras.** Each shadow camera keeps layer 0 and the haze layer, so a shadow map drawn during the haze pass keeps its casters.
-- **Lighting model.** The haze material uses a subclass of the internal r180 `VolumetricLightingModel` that skips the shadow factor for a light without a shadow.
+- **Lighting model.** The haze material uses a subclass of the internal r180 `VolumetricLightingModel` that skips the shadow factor for a light without a shadow. Three.js r187 does this in its own model, so the subclass was removed with the r187 upgrade.
 
 A fourth defect was in the depth node: `texture().sample()` made a clone that the depth swap missed. Unit tests cover all four (`haze.test.ts`, `scene-lights.test.ts`).
 

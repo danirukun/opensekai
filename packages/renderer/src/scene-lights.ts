@@ -12,7 +12,7 @@ const isLight = (entity: SceneEntity): entity is LightEntity => entity.kind === 
 export const groupOf = (entity: SceneEntity): LightGroup | null =>
     entity.kind === "avatar" ? "characters" : entity.kind === "mesh" ? "props" : entity.kind === "environment" ? "environment" : null;
 
-/** A point or spot light with `volumetric` scatters in haze; three.js r180 ignores lights without a distance (B13 R1, R7). */
+/** A point or spot light with `volumetric` scatters in haze; three.js ignores lights without a distance (B13 R1, R7). */
 export const scattersInHaze = (light: LightSettings): boolean => light.volumetric === true && (light.type === "point" || light.type === "spot");
 
 /** The light entities that light each material group, in scene order (R6), and the lights that scatter in haze (B13 R7). */
@@ -97,7 +97,7 @@ export function createSceneLights(scene: Scene, renderer: WebGPURenderer): Scene
     const owned = new Map<Id, { type: LightSettings["type"]; light: ThreeLight }>();
     let current = "", generation = 0, nodes: Record<LightGroup, ReturnType<typeof lights>> | null = null, shadows = false;
     // A placed light is also on the haze layer, so the haze pass sees it; its shadow camera keeps layer 0 and the haze
-    // layer, so a shadow map drawn during the haze pass still has its casters (three.js r180 example, B13 R7).
+    // layer, so a shadow map drawn during the haze pass still has its casters (three.js example, B13 R7).
     const create = (settings: LightSettings): ThreeLight => {
         const light = build(settings);
         if ((light as AmbientLight).isAmbientLight) return light;

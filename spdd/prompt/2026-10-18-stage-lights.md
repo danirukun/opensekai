@@ -40,6 +40,8 @@ R7a. (Added after the macOS probe, 2026-10-18.) three.js r180 needs three change
 - Each shadow camera keeps layer 0 and the haze layer, so a shadow map that the haze pass draws keeps its casters.
 - The haze material uses a subclass of the internal `VolumetricLightingModel` that skips the shadow factor for a light without a shadow (r180 multiplies by a missing shadow node, and such a light scatters nothing).
 
+Three.js r187 (2026-11-09) skips the shadow factor for a light without a shadow in its own `VolumetricLightingModel`. The haze material is a plain `VolumeNodeMaterial` again. The first two changes stay. A unit test keeps the r187 behavior: a light without a shadow scatters.
+
 The depth node is one texture node with its UV, because `sample()` makes a clone that a later texture change misses.
 R8. When a visible haze exists, the renderer draws through one post chain:
 - the scene pass, with its depth;

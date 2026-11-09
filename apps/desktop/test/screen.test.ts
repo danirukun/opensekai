@@ -5,7 +5,7 @@ import {sectionsFor} from '../src/editor/inspector-sections';
 import {groupEntities} from '../src/editor/asset-groups';
 import {changedFields,defaultsFor,resetFieldIds} from '../src/editor/property-defaults';
 import {sceneSourceOptions} from '../src/editor/environment';
-import {DEFAULT_WEB_SCREEN,clampWebSize,contentOptions,imageSourceOptions,parseWebUrl,webLimitReached} from '../src/editor/screen';
+import {DEFAULT_WEB_SCREEN,clampWebSize,contentOptions,duplicateLimitReached,imageSourceOptions,parseWebUrl,webLimitReached} from '../src/editor/screen';
 const sha='a'.repeat(64);
 const image=(id:string,name:string,format:AssetRecord['format']='png'):AssetRecord=>({id,format,sha256:sha,bytes:1,sourceUrl:null,licenseLabel:'User supplied',importerVersion:1,name,expressions:[],image:{width:4,height:3,frames:1}});
 const room:AssetRecord={id:'scene_room',format:'glb',sha256:sha,bytes:1,sourceUrl:null,licenseLabel:'',importerVersion:1,name:'Room',expressions:[]};
@@ -48,13 +48,14 @@ it('lists only image records for a screen, and no image record for a prop or an 
 });
 // B30 R13: the Content select and the Web page fields.
 const webScreen=(id:string,content:Partial<typeof DEFAULT_WEB_SCREEN>={}):SceneEntity=>({...makeAuthoringEntity('screen',id,[]),id,content:{kind:'web',...DEFAULT_WEB_SCREEN,...content}} as SceneEntity);
+const web=(kind:'image'|'video'|'web',scene:SceneEntity[])=>contentOptions(kind,scene).find(o=>o.value==='web')!.disabled;
 it('disables Web page at the web screen limit, unless the screen already shows a page',()=>{
  const scene:SceneEntity[]=[...makeSmokeScene().entities,webScreen('w0'),webScreen('w1'),webScreen('w2')];
- expect(contentOptions('image',scene).map(o=>[o.label,o.disabled])).toEqual([['Image',false],['Web page',false]]);
+ expect(contentOptions('image',scene).map(o=>[o.label,o.disabled])).toEqual([['Image',false],['Video',false],['Web page',false]]);
  scene.push(webScreen('w3'));
  expect(webLimitReached(scene)).toBe(true);
- expect(contentOptions('image',scene)[1]!.disabled).toBe(true);
- expect(contentOptions('web',scene)[1]!.disabled).toBe(false);
+ expect([web('image',scene),web('video',scene),web('web',scene)]).toEqual([true,true,false]);
+ expect(duplicateLimitReached(scene.at(-1)!,scene)).toBe(true);
 });
 it('commits an empty URL as none and keeps text that fails the URL rule',()=>{
  expect(parseWebUrl('')).toEqual({ok:true,url:null});

@@ -11,9 +11,16 @@ fn prop(id: &str, asset_id: Value) -> Value {
 }
 #[test]
 fn props_with_and_without_a_model_round_trip() {
-    let value = scene(vec![prop("walls", json!("scene_a")), prop("walls_2", json!("scene_a")), prop("empty", Value::Null)]);
+    let value = scene(vec![
+        prop("walls", json!("scene_a")),
+        prop("walls_2", json!("scene_a")),
+        prop("empty", Value::Null),
+    ]);
     let parsed = validate_value::<SceneView>(&value).unwrap();
-    assert_eq!(serde_json::to_value(&parsed).unwrap()["entities"][3]["source"], json!({"kind":"asset","assetId":null}));
+    assert_eq!(
+        serde_json::to_value(&parsed).unwrap()["entities"][3]["source"],
+        json!({"kind":"asset","assetId":null})
+    );
     assert!(validate_value::<SceneView>(&scene(vec![json!({"id":"x","name":"Prop","visible":true,"transform":{"position":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"kind":"mesh","source":{"kind":"asset"}})])).is_err());
 }
 #[test]

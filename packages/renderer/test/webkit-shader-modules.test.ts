@@ -27,6 +27,15 @@ describe('WebKit shader module reuse (R9b)', () => {
         expect(used.map(module => (module as { code: string }).code)).toEqual(['vertex', 'fragment', 'vertex', 'fragment']);
         expect(made).toHaveLength(6);
     });
+    it('keeps the WGSL when the caller reuses and clears its module descriptor (three.js r187)', () => {
+        const { device, used } = fakeDevice();
+        freshModulePerPipeline(device);
+        const descriptor = { code: 'vertex', label: 'vertex_quad' };
+        const vertex = device.createShaderModule(descriptor);
+        descriptor.code = '';
+        device.createRenderPipeline({ vertex: { module: vertex } });
+        expect((used[0] as { code: string }).code).toBe('vertex');
+    });
     it('restores the shared modules', () => {
         const { device, used } = fakeDevice();
         const restore = freshModulePerPipeline(device);

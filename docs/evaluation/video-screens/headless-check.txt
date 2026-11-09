@@ -1,0 +1,93 @@
+gpu {"webgpu":{"vendor":"google","architecture":"swiftshader","description":"","device":true},"webgl2":{"renderer":"ANGLE (Mesa, Vulkan 1.4.318 (llvmpipe (LLVM 20.1.2 256 bits) (0x00000000)), llvmpipe)"}}
+PASS video_vp9opus webgl2: loads without a warning []
+PASS video_vp9opus webgl2: backend webgl2 "webgl2"
+PASS video_vp9opus webgl2: paused at 250 ms is red (videoSettled: settled) {"at":[960,540],"actual":[255,24,0,255],"reference":[255,24,0],"nominal":"red"}
+PASS video_vp9opus webgl2: paused at 750 ms is green (videoSettled: settled) {"at":[960,540],"actual":[0,216,0,255],"reference":[0,216,0],"nominal":"green"}
+PASS video_vp9opus webgl2: paused at 1250 ms is blue (videoSettled: settled) {"at":[960,540],"actual":[0,15,255,255],"reference":[0,15,255],"nominal":"blue"}
+PASS video_vp9opus webgl2: direct path (page capture) at 1250 ms is blue {"at":[480,270],"actual":[0,15,255,255],"reference":[0,15,255],"nominal":"blue"}
+PASS video_vp9opus webgl2: paused at 1750 ms is white (videoSettled: settled) {"at":[960,540],"actual":[255,255,255,255],"reference":[255,255,255],"nominal":"white"}
+PASS video_vp9opus webgl2: loop true, 2250 ms is red {"at":[960,540],"actual":[255,24,0,255],"reference":[255,24,0],"nominal":"red"}
+PASS video_vp9opus webgl2: loop false, 2250 ms is white {"at":[960,540],"actual":[255,255,255,255],"reference":[255,255,255],"nominal":"white"}
+PASS video_vp9opus webgl2: loop false, a playing entry at 2250 ms stays white (the end) {"at":[960,540],"actual":[255,255,255,255],"reference":[255,255,255],"nominal":"white"}
+PASS video_vp9opus webgl2: a paused entry keeps blue for 1 s of frames ["blue","blue","blue"]
+PASS video_vp9opus webgl2: a playing entry follows the session position and moves {"seen":[{"before":142,"after":852,"got":"red"},{"before":1112,"after":1972,"got":"green"},{"before":2235,"after":3129,"got":"red","judged":false},{"before":3389,"after":4254,"got":"blue"},{"before":4519,"after":5534,"got":"red","judged":false},{"before":5800,"after":6861,"got":"blue"}],"warnings":[]}
+PASS video_vp9opus webgl2: after pauseVideos, the next frames play the video again {"seen":[{"before":152,"after":1419,"got":"red"},{"before":1677,"after":2510,"got":"blue"},{"before":2774,"after":3673,"got":"red"},{"before":3937,"after":4824,"got":"white"},{"before":5094,"after":6003,"got":"green"},{"before":6279,"after":7377,"got":"white","judged":false}],"warnings":[]}
+PASS video_h264aac webgl2: loads without a warning []
+PASS video_h264aac webgl2: backend webgl2 "webgl2"
+PASS video_h264aac webgl2: paused at 250 ms is red (videoSettled: settled) {"at":[960,540],"actual":[255,24,0,255],"reference":[255,24,0],"nominal":"red"}
+PASS video_h264aac webgl2: paused at 750 ms is green (videoSettled: settled) {"at":[960,540],"actual":[0,216,0,255],"reference":[0,216,0],"nominal":"green"}
+PASS video_h264aac webgl2: paused at 1250 ms is blue (videoSettled: settled) {"at":[960,540],"actual":[0,15,255,255],"reference":[0,15,255],"nominal":"blue"}
+PASS video_h264aac webgl2: direct path (page capture) at 1250 ms is blue {"at":[480,270],"actual":[0,15,255,255],"reference":[0,15,255],"nominal":"blue"}
+PASS video_h264aac webgl2: paused at 1750 ms is white (videoSettled: settled) {"at":[960,540],"actual":[255,255,255,255],"reference":[255,255,255],"nominal":"white"}
+PASS video_h264aac webgl2: loop true, 2250 ms is red {"at":[960,540],"actual":[255,24,0,255],"reference":[255,24,0],"nominal":"red"}
+PASS video_h264aac webgl2: loop false, 2250 ms is white {"at":[960,540],"actual":[255,255,255,255],"reference":[255,255,255],"nominal":"white"}
+PASS video_h264aac webgl2: loop false, a playing entry at 2250 ms stays white (the end) {"at":[960,540],"actual":[255,255,255,255],"reference":[255,255,255],"nominal":"white"}
+PASS video_h264aac webgl2: a paused entry keeps blue for 1 s of frames ["blue","blue","blue"]
+PASS video_h264aac webgl2: a playing entry follows the session position and moves {"seen":[{"before":182,"after":1123,"got":"red"},{"before":1380,"after":2428,"got":"blue"},{"before":2689,"after":3730,"got":"green"},{"before":3990,"after":5091,"got":"white"},{"before":5352,"after":6484,"got":"green"},{"before":6746,"after":7748,"got":"green"}],"warnings":[]}
+PASS video_h264aac webgl2: after pauseVideos, the next frames play the video again {"seen":[{"before":415,"after":2581,"got":"red"},{"before":2846,"after":3979,"got":"green"},{"before":4242,"after":5274,"got":"white","judged":false},{"before":5539,"after":6612,"got":"blue"},{"before":6882,"after":7810,"got":"green"},{"before":8079,"after":8970,"got":"white","judged":false}],"warnings":[]}
+PASS hevc and vp9 webgl2: backend webgl2 "webgl2"
+PASS hevc and vp9 webgl2: HEVC gives the codec warning (R15) [{"code":"UNAVAILABLE","message":"Asset load failed: Video codec not supported: HEVC","ids":["video_hevc"]}]
+PASS hevc and vp9 webgl2: no other warning [{"code":"UNAVAILABLE","message":"Asset load failed: Video codec not supported: HEVC","ids":["video_hevc"]}]
+PASS hevc and vp9 webgl2: the VP9 screen draws red {"at":[1395,540],"actual":[255,24,0,255]}
+PASS hevc and vp9 webgl2: the HEVC screen draws nothing (alpha 0) {"at":[525,540],"actual":[0,0,0,0]}
+PASS vp9 alpha direct webgl2: loads without a warning []
+PASS vp9 alpha direct webgl2: backend webgl2 "webgl2"
+PASS vp9 alpha direct webgl2 screenshot PNG: left half has alpha 0 (within 2/255) [0,0,0,0]
+PASS vp9 alpha direct webgl2 screenshot PNG: right half has alpha 255 (within 2/255) and is red {"right":[255,24,0,255],"reference":[255,24,0,255]}
+PASS vp9 alpha direct webgl2 screenshot PNG: outside the quad has alpha 0 [0,0,0,0]
+PASS vp9 alpha direct webgl2 page capture: left half has alpha 0 (within 2/255) [0,0,0,0]
+PASS vp9 alpha direct webgl2 page capture: right half has alpha 255 (within 2/255) and is red {"right":[255,24,0,255],"reference":[255,24,0,255]}
+PASS vp9 alpha direct webgl2 page capture: outside the quad has alpha 0 [0,0,0,0]
+PASS vp9 alpha fxaa webgl2: loads without a warning []
+PASS vp9 alpha fxaa webgl2: backend webgl2 "webgl2"
+PASS vp9 alpha fxaa webgl2 screenshot PNG: left half has alpha 0 (within 2/255) [0,0,0,0]
+PASS vp9 alpha fxaa webgl2 screenshot PNG: right half has alpha 255 (within 2/255) and is red {"right":[255,24,0,255],"reference":[255,24,0,255]}
+PASS vp9 alpha fxaa webgl2 screenshot PNG: outside the quad has alpha 0 [0,0,0,0]
+PASS vp9 alpha fxaa webgl2 page capture: left half has alpha 0 (within 2/255) [0,0,0,0]
+PASS vp9 alpha fxaa webgl2 page capture: right half has alpha 255 (within 2/255) and is red {"right":[255,24,0,255],"reference":[255,24,0,255]}
+PASS vp9 alpha fxaa webgl2 page capture: outside the quad has alpha 0 [0,0,0,0]
+PASS video_vp9opus webgpu: loads without a warning []
+PASS video_vp9opus webgpu: backend webgpu "webgpu"
+PASS video_vp9opus webgpu: paused at 250 ms is red (videoSettled: settled) {"at":[960,540],"actual":[255,24,0,255],"reference":[255,24,0],"nominal":"red"}
+PASS video_vp9opus webgpu: paused at 750 ms is green (videoSettled: settled) {"at":[960,540],"actual":[0,216,0,255],"reference":[0,216,0],"nominal":"green"}
+PASS video_vp9opus webgpu: paused at 1250 ms is blue (videoSettled: settled) {"at":[960,540],"actual":[0,15,255,255],"reference":[0,15,255],"nominal":"blue"}
+PASS video_vp9opus webgpu: paused at 1750 ms is white (videoSettled: settled) {"at":[960,540],"actual":[255,255,255,255],"reference":[255,255,255],"nominal":"white"}
+PASS video_vp9opus webgpu: loop true, 2250 ms is red {"at":[960,540],"actual":[255,24,0,255],"reference":[255,24,0],"nominal":"red"}
+PASS video_vp9opus webgpu: loop false, 2250 ms is white {"at":[960,540],"actual":[255,255,255,255],"reference":[255,255,255],"nominal":"white"}
+PASS video_vp9opus webgpu: loop false, a playing entry at 2250 ms stays white (the end) {"at":[960,540],"actual":[255,255,255,255],"reference":[255,255,255],"nominal":"white"}
+PASS video_vp9opus webgpu: a paused entry keeps blue for 1 s of frames ["blue","blue","blue"]
+PASS video_vp9opus webgpu: a playing entry follows the session position and moves {"seen":[{"before":2889,"after":3857,"got":"green"},{"before":4257,"after":5218,"got":"white","judged":false},{"before":5654,"after":6691,"got":"white"},{"before":7130,"after":8089,"got":"green"},{"before":8741,"after":9960,"got":"green"},{"before":10383,"after":11668,"got":"red","judged":false}],"warnings":[]}
+PASS video_vp9opus webgpu: after pauseVideos, the next frames play the video again {"seen":[{"before":2787,"after":4018,"got":"green"},{"before":4449,"after":5701,"got":"white","judged":false},{"before":6130,"after":7136,"got":"white","judged":false},{"before":7554,"after":8768,"got":"white"},{"before":9191,"after":10432,"got":"blue"},{"before":10837,"after":11832,"got":"green"}],"warnings":[]}
+PASS video_h264aac webgpu: loads without a warning []
+PASS video_h264aac webgpu: backend webgpu "webgpu"
+PASS video_h264aac webgpu: paused at 250 ms is red (videoSettled: settled) {"at":[960,540],"actual":[255,24,0,255],"reference":[255,24,0],"nominal":"red"}
+PASS video_h264aac webgpu: paused at 750 ms is green (videoSettled: settled) {"at":[960,540],"actual":[0,216,0,255],"reference":[0,216,0],"nominal":"green"}
+PASS video_h264aac webgpu: paused at 1250 ms is blue (videoSettled: settled) {"at":[960,540],"actual":[0,15,255,255],"reference":[0,15,255],"nominal":"blue"}
+PASS video_h264aac webgpu: paused at 1750 ms is white (videoSettled: settled) {"at":[960,540],"actual":[255,255,255,255],"reference":[255,255,255],"nominal":"white"}
+PASS video_h264aac webgpu: loop true, 2250 ms is red {"at":[960,540],"actual":[255,24,0,255],"reference":[255,24,0],"nominal":"red"}
+PASS video_h264aac webgpu: loop false, 2250 ms is white {"at":[960,540],"actual":[255,255,255,255],"reference":[255,255,255],"nominal":"white"}
+PASS video_h264aac webgpu: loop false, a playing entry at 2250 ms stays white (the end) {"at":[960,540],"actual":[255,255,255,255],"reference":[255,255,255],"nominal":"white"}
+PASS video_h264aac webgpu: a paused entry keeps blue for 1 s of frames ["blue","blue","blue"]
+PASS video_h264aac webgpu: a playing entry follows the session position and moves {"seen":[{"before":4921,"after":6121,"got":"green"},{"before":6611,"after":7662,"got":"red"},{"before":8089,"after":9138,"got":"white","judged":false},{"before":9576,"after":10563,"got":"white"},{"before":11003,"after":11994,"got":"green"},{"before":12442,"after":13633,"got":"red","judged":false}],"warnings":[]}
+PASS video_h264aac webgpu: after pauseVideos, the next frames play the video again {"seen":[{"before":2579,"after":3730,"got":"red","judged":false},{"before":4162,"after":5162,"got":"white","judged":false},{"before":5591,"after":6573,"got":"blue"},{"before":7002,"after":8047,"got":"green"},{"before":8683,"after":9688,"got":"green"},{"before":10099,"after":11340,"got":"red","judged":false}],"warnings":[]}
+PASS hevc and vp9 webgpu: backend webgpu "webgpu"
+PASS hevc and vp9 webgpu: HEVC gives the codec warning (R15) [{"code":"UNAVAILABLE","message":"Asset load failed: Video codec not supported: HEVC","ids":["video_hevc"]}]
+PASS hevc and vp9 webgpu: no other warning [{"code":"UNAVAILABLE","message":"Asset load failed: Video codec not supported: HEVC","ids":["video_hevc"]}]
+PASS hevc and vp9 webgpu: the VP9 screen draws red {"at":[1395,540],"actual":[255,24,0,255]}
+PASS hevc and vp9 webgpu: the HEVC screen draws nothing (alpha 0) {"at":[525,540],"actual":[0,0,0,0]}
+PASS vp9 alpha direct webgpu: loads without a warning []
+PASS vp9 alpha direct webgpu: backend webgpu "webgpu"
+PASS vp9 alpha direct webgpu screenshot PNG: left half has alpha 0 (within 2/255) [0,0,0,0]
+PASS vp9 alpha direct webgpu screenshot PNG: right half has alpha 255 (within 2/255) and is red {"right":[255,24,0,255],"reference":[255,24,0,255]}
+PASS vp9 alpha direct webgpu screenshot PNG: outside the quad has alpha 0 [0,0,0,0]
+UNKNOWN vp9 alpha direct webgpu page capture the WebGPU page capture on the software adapter is one flat color
+PASS vp9 alpha fxaa webgpu: loads without a warning []
+PASS vp9 alpha fxaa webgpu: backend webgpu "webgpu"
+PASS vp9 alpha fxaa webgpu screenshot PNG: left half has alpha 0 (within 2/255) [0,0,0,0]
+PASS vp9 alpha fxaa webgpu screenshot PNG: right half has alpha 255 (within 2/255) and is red {"right":[255,24,0,255],"reference":[255,24,0,255]}
+PASS vp9 alpha fxaa webgpu screenshot PNG: outside the quad has alpha 0 [0,0,0,0]
+UNKNOWN vp9 alpha fxaa webgpu page capture the WebGPU page capture on the software adapter is one flat color
+PASS autoplay no-user-gesture-required, audio on (OBS page) webgl2: plays without a warning []
+UNKNOWN autoplay document-user-activation-required, audio on (OBS page) webgl2: play() blocked the harness gives the page user activation (page.evaluate), so the policy does not block; warnings []
+PASS autoplay document-user-activation-required, audio off (preview) webgl2: plays without a warning []
+88 pass, 0 fail, 3 unknown

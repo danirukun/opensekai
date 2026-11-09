@@ -101,7 +101,9 @@ export type SceneEntity = (EntityBase & {
     };
 });
 export interface WebScreen { url: string | null; width: number; height: number; onTop: boolean; }
-export type ScreenContent = { kind: "image"; assetId: Id | null } | ({ kind: "web" } & WebScreen);
+export interface ScreenVideo { assetId: Id | null; autoPlay: boolean; loop: boolean; volume: number; }
+export type ScreenContent = { kind: "image"; assetId: Id | null } | ({ kind: "web" } & WebScreen) | ({ kind: "video" } & ScreenVideo);
+export interface ScreenPlayback { entityId: Id; playing: boolean; positionMs: number; }
 export interface LightShadow { enabled: boolean; intensity: number; soft: boolean; bias: number; normalBias: number; }
 export interface LightCone { angleDegrees: number; penumbra: number; }
 export interface LightSettings { type: "directional" | "point" | "spot" | "ambient"; color: string; intensity: number; range: number; affectCharacters: boolean; affectProps: boolean; affectEnvironment: boolean; shadow: LightShadow; cone?: LightCone; volumetric?: boolean; }
@@ -136,10 +138,13 @@ type ExistingPatchOp = {
     entityId: Id;
     visible: boolean;
 };
-export type LivePatchOp = {kind:'setTrackingSmoothing';entityId:Id;smoothing:TrackingSmoothing}|{kind:'calibrateTracking';entityId:Id}|{kind:'fitBlendShapeRanges';entityId:Id;neutral:Partial<Record<ArkitName,number>>}|{kind:'setTrackingCalibration';entityId:Id;calibration:TrackingCalibration|null}|{kind:'setTrackingMapping';entityId:Id;mapping:TrackingMapping}| {kind:'setAvatarIdle';entityId:Id;idleAnimation:AvatarIdle}|{kind:'createEntity';entity:SceneEntity}|{kind:'setCameraLens';entityId:Id;lens:Extract<SceneEntity,{kind:'camera'}>['lens']}|{kind:'setAvatarTracking';entityId:Id;tracking:AvatarTracking}|{kind:'setTrackingConfig';entityId:Id;config:TrackingConfig}|{kind:'setAvatarModel';entityId:Id;assetId:Id|null}|{kind:'setEnvironmentModel';entityId:Id;assetId:Id|null}|{kind:'setMeshModel';entityId:Id;assetId:Id|null}|{kind:'setScreenImage';entityId:Id;assetId:Id|null}|{kind:'setScreenWeb';entityId:Id;web:WebScreen}|{kind:'setEnvironmentReflections';entityId:Id;reflectionsIntensity:number}|{kind:'setLight';entityId:Id;light:LightSettings}|{kind:'setHaze';entityId:Id;haze:HazeSettings}|{kind:'setFpsCounter';entityId:Id;fpsCounter:FpsCounterSettings}|{kind:'setVmcSender';entityId:Id;vmcSender:VmcSenderSettings}|{kind:'setCameraRenderEnvironment';entityId:Id;renderEnvironment:boolean}|{kind:'setCameraAntiAliasing';entityId:Id;antiAliasing:CameraAntiAliasing}|{kind:'setCameraNavigation';entityId:Id;navigation:CameraNavigation}|{kind:'setAvatarExpression';entityId:Id;name:string;settings:ExpressionSettings|null}|{kind:'setHiddenMeshes';entityId:Id;hiddenMeshes:string[]};
+export type LivePatchOp = {kind:'setTrackingSmoothing';entityId:Id;smoothing:TrackingSmoothing}|{kind:'calibrateTracking';entityId:Id}|{kind:'fitBlendShapeRanges';entityId:Id;neutral:Partial<Record<ArkitName,number>>}|{kind:'setTrackingCalibration';entityId:Id;calibration:TrackingCalibration|null}|{kind:'setTrackingMapping';entityId:Id;mapping:TrackingMapping}| {kind:'setAvatarIdle';entityId:Id;idleAnimation:AvatarIdle}|{kind:'createEntity';entity:SceneEntity}|{kind:'setCameraLens';entityId:Id;lens:Extract<SceneEntity,{kind:'camera'}>['lens']}|{kind:'setAvatarTracking';entityId:Id;tracking:AvatarTracking}|{kind:'setTrackingConfig';entityId:Id;config:TrackingConfig}|{kind:'setAvatarModel';entityId:Id;assetId:Id|null}|{kind:'setEnvironmentModel';entityId:Id;assetId:Id|null}|{kind:'setMeshModel';entityId:Id;assetId:Id|null}|{kind:'setScreenImage';entityId:Id;assetId:Id|null}|{kind:'setScreenWeb';entityId:Id;web:WebScreen}|{kind:'setScreenVideo';entityId:Id;video:ScreenVideo}|{kind:'setEnvironmentReflections';entityId:Id;reflectionsIntensity:number}|{kind:'setLight';entityId:Id;light:LightSettings}|{kind:'setHaze';entityId:Id;haze:HazeSettings}|{kind:'setFpsCounter';entityId:Id;fpsCounter:FpsCounterSettings}|{kind:'setVmcSender';entityId:Id;vmcSender:VmcSenderSettings}|{kind:'setCameraRenderEnvironment';entityId:Id;renderEnvironment:boolean}|{kind:'setCameraAntiAliasing';entityId:Id;antiAliasing:CameraAntiAliasing}|{kind:'setCameraNavigation';entityId:Id;navigation:CameraNavigation}|{kind:'setAvatarExpression';entityId:Id;name:string;settings:ExpressionSettings|null}|{kind:'setHiddenMeshes';entityId:Id;hiddenMeshes:string[]};
 export type AssetManagementPatchOp = {kind:'renameEntity';entityId:Id;name:string}|{kind:'removeEntity';entityId:Id};
 export type OutputPatchOp = {kind:'setOutputFormat';outputId:Id;width:number;height:number;fps:OutputFrameLimit;renderScale:OutputRenderScale};
-export type PatchOp = ExistingPatchOp | LivePatchOp | AssetManagementPatchOp | OutputPatchOp;
+// B29 R10: a runtime operation. The session never commits it.
+export type ScreenVideoAction = 'play' | 'pause' | 'restart';
+export type RuntimePatchOp = {kind:'controlScreenVideo';entityId:Id;action:ScreenVideoAction};
+export type PatchOp = ExistingPatchOp | LivePatchOp | AssetManagementPatchOp | OutputPatchOp | RuntimePatchOp;
 export interface ScenePatch {
     sceneId: Id;
     expectedRevision: number;
@@ -149,7 +154,7 @@ export interface AssetCatalog { description: string | null; tags: string[]; }
 export interface AssetCredits { title: string | null; author: string | null; license: string | null; sourceUrl: string | null; }
 export interface AssetRecord {
     id: Id;
-    format: "glb" | "vrm" | "png" | "jpeg" | "webp" | "gif";
+    format: "glb" | "vrm" | "png" | "jpeg" | "webp" | "gif" | "mp4" | "webm";
     sha256: string;
     bytes: number;
     sourceUrl: string | null;
@@ -163,9 +168,13 @@ export interface AssetRecord {
     rig?: AvatarRig;
     meshes?: AssetMesh[];
     image?: AssetImage;
+    video?: AssetVideo;
 }
 export interface AssetImage { width: number; height: number; frames: number; }
-export interface AssetSummary { id: Id; kind: "avatar" | "scene" | "image" | "fixture"; name: string; credits?: AssetCredits; catalog?: AssetCatalog; }
+export type VideoCodec = "h264" | "hevc" | "vp8" | "vp9" | "av1";
+export type VideoAudioCodec = "aac" | "mp3" | "opus" | "vorbis";
+export interface AssetVideo { width: number; height: number; durationMs: number; videoCodec: VideoCodec; audioCodec: VideoAudioCodec | null; alpha: boolean; }
+export interface AssetSummary { id: Id; kind: "avatar" | "scene" | "image" | "video" | "fixture"; name: string; credits?: AssetCredits; catalog?: AssetCatalog; }
 export interface AssetList { assets: AssetSummary[]; next: Id | null; }
 export interface ConnectionDescriptor {
     schemaVersion: 1;
@@ -187,6 +196,7 @@ export interface RuntimeFrame {
     avatarPoses?: AvatarPose[];
     trackingStatus?: TrackingStatus[];
     blueprintRevision?: number;
+    screenPlayback?: ScreenPlayback[];
 }
 export interface FrameApplied {
     outputId: Id;

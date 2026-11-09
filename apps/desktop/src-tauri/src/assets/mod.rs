@@ -1,21 +1,24 @@
 mod image;
 mod registry;
 mod scene_import;
+mod video;
 mod vrm;
 pub use image::{parse_image, ImageHeader};
 pub use registry::{
     prepare_scene, read_located, resolve_asset, stage_avatar, stage_image, stage_scene,
-    AssetRegistry, ImportResult, PreparedScene, StagedAsset,
+    stage_video, AssetRegistry, ImportResult, PreparedScene, StagedAsset,
 };
 pub use scene_import::{pack_scene, Limits, PackedScene};
+pub use video::{parse_video, VideoHeader};
 
 use opensekai_contracts::{invalid, AppError};
 use serde_json::Value;
 
-// Extensions that three.js 0.180 GLTFLoader handles without an extra decoder in this renderer.
+// Extensions that three.js 0.187 GLTFLoader handles without an extra decoder in this renderer.
 const SUPPORTED_REQUIRED: &[&str] = &[
     "KHR_materials_anisotropy",
     "KHR_materials_clearcoat",
+    "KHR_materials_diffuse_roughness",
     "KHR_materials_dispersion",
     "KHR_materials_emissive_strength",
     "KHR_materials_ior",
