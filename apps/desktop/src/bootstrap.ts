@@ -101,7 +101,7 @@ export async function bootstrapDesktop(canvas: HTMLCanvasElement, editorOptions?
   let playback: PlaybackState = new Map();
   const playbackListeners = new Set<(state: PlaybackState) => void>();
   const off = preview.onFrame(frame => {
-   const next = playbackState(frame);
+   const next = playbackState(frame, records);
    if (!samePlayback(playback, next)) { playback = next; for (const listener of playbackListeners) listener(next); }
    pump.offer(frame);
   });

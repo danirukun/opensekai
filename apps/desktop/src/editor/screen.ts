@@ -1,4 +1,4 @@
-import { LIMITS, isImageRecord, isVideoRecord, isVideoScreen, type AssetRecord, type Id, type RuntimeFrame, type SceneEntity, type ScreenVideo, type VideoAudioCodec, type VideoCodec } from '@opensekai/contracts';
+import { LIMITS, isImageRecord, isVideoRecord, isVideoScreen, type AssetRecord, type Id, type RuntimeFrame, type SceneEntity, type ScreenVideo, type ScreenVideoAction, type VideoAudioCodec, type VideoCodec } from '@opensekai/contracts';
 import { IMPORT_SCENE } from './environment';
 import type { SliderRange } from './slider';
 // The Screen Image select (B28 R19): only image records, a missing image, and the import row.
@@ -24,11 +24,20 @@ export const videoContentDisabled = (entity: SceneEntity, entities: readonly Sce
 export const screenVideo = (entity: SceneEntity): ScreenVideo => entity.kind === 'screen' && entity.content.kind === 'video'
     ? { assetId: entity.content.assetId, autoPlay: entity.content.autoPlay, loop: entity.content.loop, volume: entity.content.volume }
     : { ...VIDEO_DEFAULTS };
-// The playing value of each screen in the latest frame. A screen without an entry is not in the map (the button shows Play).
-export type PlaybackState = ReadonlyMap<Id, boolean>;
-export const playbackState = (frame: Pick<RuntimeFrame, 'screenPlayback'>): PlaybackState => new Map((frame.screenPlayback ?? []).map(entry => [entry.entityId, entry.playing]));
-export const samePlayback = (a: PlaybackState, b: PlaybackState): boolean => a.size === b.size && [...a].every(([id, playing]) => b.get(id) === playing);
-export const playLabel = (state: PlaybackState, entityId: Id): 'Play' | 'Pause' => state.get(entityId) === true ? 'Pause' : 'Play';
+// The play state of each screen in the latest frame. A screen without an entry is not in the map (the button shows Play).
+// A playing entry past the end of a video without Loop is ended: the video holds its last frame, so the button shows Play and restarts it.
+export type PlayState = 'playing' | 'paused' | 'ended';
+export type PlaybackState = ReadonlyMap<Id, PlayState>;
+export const playbackState = (frame: Pick<RuntimeFrame, 'screenPlayback'> & { scene?: Pick<RuntimeFrame['scene'], 'entities'> }, assets: readonly AssetRecord[] = []): PlaybackState => new Map((frame.screenPlayback ?? []).map(entry => {
+    const entity = frame.scene?.entities.find(candidate => candidate.id === entry.entityId);
+    const content = entity?.kind === 'screen' && entity.content.kind === 'video' ? entity.content : null;
+    const durationMs = assets.find(asset => asset.id === content?.assetId)?.video?.durationMs;
+    const ended = entry.playing && content !== null && !content.loop && durationMs !== undefined && entry.positionMs >= durationMs - 17;
+    return [entry.entityId, ended ? 'ended' : entry.playing ? 'playing' : 'paused'];
+}));
+export const samePlayback = (a: PlaybackState, b: PlaybackState): boolean => a.size === b.size && [...a].every(([id, state]) => b.get(id) === state);
+export const playLabel = (state: PlaybackState, entityId: Id): 'Play' | 'Pause' => state.get(entityId) === 'playing' ? 'Pause' : 'Play';
+export const playAction = (state: PlaybackState, entityId: Id): ScreenVideoAction => state.get(entityId) === 'playing' ? 'pause' : state.get(entityId) === 'ended' ? 'restart' : 'play';
 const VIDEO_CODEC_LABELS: Record<VideoCodec, string> = { h264: 'H.264', hevc: 'HEVC', vp8: 'VP8', vp9: 'VP9', av1: 'AV1' };
 const AUDIO_CODEC_LABELS: Record<VideoAudioCodec, string> = { aac: 'AAC', mp3: 'MP3', opus: 'Opus', vorbis: 'Vorbis' };
 // The format column of the Assets list: a video record adds its video codec and its audio codec, when it has one (B29 R19).

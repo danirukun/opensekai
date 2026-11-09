@@ -8,7 +8,7 @@
  import {stageLabel} from '../editor/load-status';
  import {sourceAction} from '../editor/environment';
  import {VOLUME_RANGE,videoSourceOptions} from '../editor/screen';
- let {marks=NO_MARKS,video,assets,status=null,importing=false,error=null,disabled=false,sourceDisabled=false,playLabel='Play',onchange,onlive,onliveend,oncontrol,onimport}:{marks?:ResetMarks;video:ScreenVideo;assets:readonly AssetRecord[];status?:AssetLoadStatus|null;importing?:boolean;error?:string|null;disabled?:boolean;sourceDisabled?:boolean;playLabel?:'Play'|'Pause';onchange:(video:ScreenVideo)=>Promise<{ok:boolean}|undefined>|void;onlive?:(video:ScreenVideo)=>void;onliveend?:()=>void;oncontrol:(action:ScreenVideoAction)=>void;onimport:()=>void}=$props();
+ let {marks=NO_MARKS,video,assets,status=null,importing=false,error=null,disabled=false,sourceDisabled=false,playLabel='Play',playAction='play',onchange,onlive,onliveend,oncontrol,onimport}:{marks?:ResetMarks;video:ScreenVideo;assets:readonly AssetRecord[];status?:AssetLoadStatus|null;importing?:boolean;error?:string|null;disabled?:boolean;sourceDisabled?:boolean;playLabel?:'Play'|'Pause';playAction?:ScreenVideoAction;onchange:(video:ScreenVideo)=>Promise<{ok:boolean}|undefined>|void;onlive?:(video:ScreenVideo)=>void;onliveend?:()=>void;oncontrol:(action:ScreenVideoAction)=>void;onimport:()=>void}=$props();
  let reset=$state(0);
  function change(value:string){const action=sourceAction(value);reset++;if(action.kind==='import')onimport();else void onchange({...video,assetId:action.assetId});}
  // A failed change puts the box back to the scene value.
@@ -23,7 +23,7 @@
  <div class="resettable"><label class="visibility-control"><input type="checkbox" checked={video.autoPlay} {disabled} onchange={event=>{void toggle(event.currentTarget,'autoPlay');}}/>Auto Play</label>{#if marks.changed.has('autoPlay')}<ResetMark label="Auto Play" disabled={marks.disabled||disabled} onreset={()=>{void onchange({...video,autoPlay:defaults.autoPlay===true});}}/>{/if}</div>
  <div class="resettable"><label class="visibility-control"><input type="checkbox" checked={video.loop} {disabled} onchange={event=>{void toggle(event.currentTarget,'loop');}}/>Loop</label>{#if marks.changed.has('loop')}<ResetMark label="Loop" disabled={marks.disabled||disabled} onreset={()=>{void onchange({...video,loop:defaults.loop!==false});}}/>{/if}</div>
  <div class="resettable"><SliderField label="Volume" value={video.volume} range={VOLUME_RANGE} {disabled} onlive={volume=>onlive?.({...video,volume})} onend={onliveend} oncommit={volume=>{void onchange({...video,volume});}}/>{#if marks.changed.has('volume')}<ResetMark label="Volume" disabled={marks.disabled||disabled} onreset={()=>{void onchange({...video,volume:Number(defaults.volume??1)});}}/>{/if}</div>
- <div class="playback"><Button variant="secondary" disabled={disabled||video.assetId===null} onclick={()=>oncontrol(playLabel==='Pause'?'pause':'play')}>{playLabel}</Button><Button variant="ghost" disabled={disabled||video.assetId===null} onclick={()=>oncontrol('restart')}>Restart</Button></div>
+ <div class="playback"><Button variant="secondary" disabled={disabled||video.assetId===null} onclick={()=>oncontrol(playAction)}>{playLabel}</Button><Button variant="ghost" disabled={disabled||video.assetId===null} onclick={()=>oncontrol('restart')}>Restart</Button></div>
 </div>
 <style>
  .screen-video{display:grid;gap:8px}

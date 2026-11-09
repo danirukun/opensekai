@@ -5,7 +5,7 @@ import {sceneSourceOptions} from '../src/editor/environment';
 import {changedFields,defaultsFor,resetFieldIds} from '../src/editor/property-defaults';
 import {sectionsFor} from '../src/editor/inspector-sections';
 import {createEditorModel} from '../src/editor/model';
-import {VIDEO_DEFAULTS,assetFormatLabel,duplicateLimitReached,imageSourceOptions,playLabel,playbackState,samePlayback,screenVideo,videoContentDisabled,videoScreenLimitReached,videoSourceOptions} from '../src/editor/screen';
+import {VIDEO_DEFAULTS,assetFormatLabel,duplicateLimitReached,imageSourceOptions,playAction,playLabel,playbackState,samePlayback,screenVideo,videoContentDisabled,videoScreenLimitReached,videoSourceOptions} from '../src/editor/screen';
 const sha='a'.repeat(64);
 const base={sha256:sha,bytes:1,sourceUrl:null,licenseLabel:'User supplied',importerVersion:1,expressions:[]};
 const image:AssetRecord={...base,id:'image_logo',format:'png',name:'Logo',image:{width:4,height:3,frames:1}};
@@ -70,6 +70,16 @@ it('takes the Play or Pause label from the latest frame entry and shows Play wit
  expect(samePlayback(state,playbackState({screenPlayback:[{entityId:'b',playing:false,positionMs:99},{entityId:'a',playing:true,positionMs:500}]}))).toBe(true);
  expect(samePlayback(state,playbackState({screenPlayback:[{entityId:'a',playing:false,positionMs:10},{entityId:'b',playing:false,positionMs:0}]}))).toBe(false);
  expect(samePlayback(state,playbackState({screenPlayback:[{entityId:'a',playing:true,positionMs:10}]}))).toBe(false);
+});
+it('shows Play and restarts a playing video without Loop after its end (owner QA on #264)',()=>{
+ const scene={entities:[videoScreen('once',{assetId:'video_clip',loop:false}),videoScreen('looped',{assetId:'video_clip',loop:true})]};
+ const at=(positionMs:number)=>playbackState({scene,screenPlayback:[{entityId:'once',playing:true,positionMs},{entityId:'looped',playing:true,positionMs}]},[clip]);
+ expect([playLabel(at(5000),'once'),playAction(at(5000),'once')]).toEqual(['Pause','pause']);
+ expect([playLabel(at(12000),'once'),playAction(at(12000),'once')]).toEqual(['Play','restart']);
+ expect([playLabel(at(12000),'looped'),playAction(at(12000),'looped')]).toEqual(['Pause','pause']);
+ expect(playAction(playbackState({screenPlayback:[{entityId:'once',playing:false,positionMs:0}]}),'once')).toBe('play');
+ // Without the record the duration is unknown, so the entry stays playing.
+ expect(playLabel(playbackState({scene,screenPlayback:[{entityId:'once',playing:true,positionMs:99999}]}),'once')).toBe('Pause');
 });
 it('shows the format, the video codec, and the audio codec of a video record in the Assets list (R19)',()=>{
  expect([assetFormatLabel(clip),assetFormatLabel(silent),assetFormatLabel(image)]).toEqual(['MP4 · H.264 · AAC','WEBM · VP9','PNG']);
