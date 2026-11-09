@@ -4,11 +4,11 @@ export type MaterialProfile = 'mtoon' | 'unlit' | 'pbr';
 export type MaterialReportEntry = {index: number; name: string; profile: MaterialProfile; unsupported: string[]};
 export type MaterialReport = {materials: MaterialReportEntry[]; asset: string[]};
 
-/** Material extensions that the pinned three 0.180.0 GLTFLoader and three-vrm 3.5.5 read. */
+/** Material extensions that the pinned three 0.187.0 GLTFLoader and three-vrm 3.5.5 read. */
 export const MATERIAL_EXTENSIONS: ReadonlySet<string> = new Set([
-    'KHR_materials_anisotropy', 'KHR_materials_clearcoat', 'KHR_materials_dispersion', 'KHR_materials_emissive_strength',
-    'KHR_materials_ior', 'KHR_materials_iridescence', 'KHR_materials_sheen', 'KHR_materials_specular',
-    'KHR_materials_transmission', 'KHR_materials_unlit', 'KHR_materials_volume', 'EXT_materials_bump',
+    'KHR_materials_anisotropy', 'KHR_materials_clearcoat', 'KHR_materials_diffuse_roughness', 'KHR_materials_dispersion',
+    'KHR_materials_emissive_strength', 'KHR_materials_ior', 'KHR_materials_iridescence', 'KHR_materials_sheen',
+    'KHR_materials_specular', 'KHR_materials_transmission', 'KHR_materials_unlit', 'KHR_materials_volume', 'EXT_materials_bump',
     'VRMC_materials_mtoon', 'VRMC_materials_hdr_emissiveMultiplier',
 ]);
 /** Texture extensions that need a decoder this renderer does not give. */

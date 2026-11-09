@@ -10,29 +10,29 @@
     "tauri": "tauri"
   },
   "dependencies": {
-    "@lucide/svelte": "1.50.0",
-    "@mediapipe/tasks-vision": "1.0.1",
+    "@lucide/svelte": "1.70.0",
+    "@mediapipe/tasks-vision": "1.2.2",
     "@opensekai/browser-client": "workspace:*",
     "@opensekai/contracts": "workspace:*",
     "@opensekai/renderer": "workspace:*",
     "@opensekai/session": "workspace:*",
     "@oshi-connect/ui": "file:../../.local/ui",
-    "@tauri-apps/api": "2.12.1",
+    "@tauri-apps/api": "2.12.4",
     "rete": "2.0.6",
     "rete-area-plugin": "2.3.2",
     "rete-connection-plugin": "2.0.5",
     "rete-render-utils": "2.0.3",
     "rete-svelte-plugin": "2.1.2",
-    "sass": "1.93.2",
+    "sass": "1.108.1",
     "stats.js": "^0.17.0",
-    "svelte": "5.57.1"
+    "svelte": "5.57.3"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "7.3.1",
-    "@tailwindcss/vite": "4.3.3",
-    "@tauri-apps/cli": "2.12.1",
+    "@tailwindcss/vite": "4.3.5",
+    "@tauri-apps/cli": "2.12.4",
     "@types/stats.js": "^0.17.4",
-    "svelte-check": "4.7.6",
-    "tailwindcss": "4.3.3"
+    "svelte-check": "4.7.8",
+    "tailwindcss": "4.3.5"
   }
 }
