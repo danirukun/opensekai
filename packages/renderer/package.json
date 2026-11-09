@@ -10,7 +10,7 @@
   "dependencies": {
     "@opensekai/contracts": "workspace:*",
     "@opensekai/browser-client": "workspace:*",
-    "three": "0.180.0",
+    "three": "0.187.0",
     "@pixiv/three-vrm": "3.5.5"
   }
 }

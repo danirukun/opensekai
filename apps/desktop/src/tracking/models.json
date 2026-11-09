@@ -1,6 +1,6 @@
 {
   "package": "@mediapipe/tasks-vision",
-  "version": "1.0.1",
+  "version": "1.2.2",
   "models": [
     {
       "file": "face_landmarker.task",
@@ -27,33 +27,23 @@
   "wasm": [
     {
       "file": "vision_wasm_internal.js",
-      "bytes": 323377,
-      "sha256": "e170ee67dd4e16c1a6fcd8840a206687e5a59b22c20e4a902bc445b095454d73"
+      "bytes": 334128,
+      "sha256": "f2b9c17131ea79716ec6bf07b117a087b2749a6f8a1e2f1f2e77a9382092db5b"
     },
     {
       "file": "vision_wasm_internal.wasm",
-      "bytes": 11756954,
-      "sha256": "8da277a733926eacd0474b8704b36742d6ec3231c57a860c5b889dff8f1df886"
+      "bytes": 14603354,
+      "sha256": "f5bd25147ac89d506074293ce2675969b10e827180db95a0d9689c2ed80764ab"
     },
     {
       "file": "vision_wasm_module_internal.js",
-      "bytes": 323415,
-      "sha256": "da8934057f147b622e82cfb4c0dbd85461c598e268588b5a8ba9ca963a8ff82d"
+      "bytes": 334166,
+      "sha256": "72fba0ac8a4034ce9d63f68389df1dead52069409ea621688eedf97f01d4362f"
     },
     {
       "file": "vision_wasm_module_internal.wasm",
-      "bytes": 11756972,
-      "sha256": "2dabd8e23c60984628beb7bb338764c81a08e6837145273f59578684b5d53c1b"
-    },
-    {
-      "file": "vision_wasm_nosimd_internal.js",
-      "bytes": 323180,
-      "sha256": "e81d715a3d42cc3373602eb2f7aff795d164934db680e32496b65dab537f9658"
-    },
-    {
-      "file": "vision_wasm_nosimd_internal.wasm",
-      "bytes": 10960242,
-      "sha256": "a28483cd42e74e855bf5ebdb6b40d9b66a5b49e35e95020bc97669e6822a3192"
+      "bytes": 14603372,
+      "sha256": "b8927a2eebfe80dd98a426a210a9e820c8215168c06f3bcf5d4d09080f623db5"
     }
   ]
 }

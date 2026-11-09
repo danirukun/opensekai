@@ -6,8 +6,5 @@ allowBuilds:
   esbuild: true
   rete: false
   '@parcel/watcher': false
-minimumReleaseAgeExclude:
-  - '@lucide/svelte@1.50.0'
-  - '@modelcontextprotocol/client@2.3.0'
-  - '@modelcontextprotocol/core@2.3.0'
-  - '@modelcontextprotocol/server@2.3.0'
+patchedDependencies:
+  '@pixiv/three-vrm@3.5.5': patches/@pixiv__three-vrm@3.5.5.patch

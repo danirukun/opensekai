@@ -221,7 +221,7 @@ it('scales the room reflections and the room fill of environment copies by the r
         // Build the environment light of the copy with a context that records what it adds.
         const added = { radiance: [] as Share[], irradiance: [] as Share[], clearcoat: [] as Share[] };
         const record = (list: Share[]) => ({ addAssign: (node: Share) => list.push(node) });
-        const builder = { material: copy, context: { radiance: record(added.radiance), iblIrradiance: record(added.irradiance), lightingModel: { clearcoatRadiance: record(added.clearcoat) } } } as unknown as NodeBuilder;
+        const builder = { material: copy, renderer: {}, context: { radiance: record(added.radiance), iblIrradiance: record(added.irradiance), lightingModel: { clearcoatRadiance: record(added.clearcoat) } } } as unknown as NodeBuilder;
         const environment = copy.setupEnvironment(builder)!;
         (environment as unknown as { setup(builder: NodeBuilder): void }).setup(builder);
         expect([added.radiance.length, added.irradiance.length, added.clearcoat.length]).toEqual([1, 1, 1]);

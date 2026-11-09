@@ -19,7 +19,8 @@ export function freshModulePerPipeline(device: PipelineDevice): () => void {
     const renew = (descriptor: Descriptor): Descriptor => ({ ...descriptor, vertex: fresh(descriptor.vertex), ...(descriptor.fragment ? { fragment: fresh(descriptor.fragment) } : {}) });
     device.createShaderModule = function (descriptor) {
         const module = original.createShaderModule.call(this, descriptor);
-        sources.set(module, descriptor);
+        // A copy: three.js r187 reuses one descriptor object and clears its code after the call.
+        sources.set(module, { code: descriptor.code, label: descriptor.label });
         return module;
     };
     device.createRenderPipeline = function (descriptor) { return original.createRenderPipeline.call(this, renew(descriptor)); };

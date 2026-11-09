@@ -133,7 +133,7 @@ export async function renderScreenshot({ renderer, backend, scene, camera, show,
             camera.layers.set(HAZE_LAYER);
             try { renderer.setRenderTarget(hazeTarget); await renderer.renderAsync(scene, camera); }
             finally { camera.layers.mask = mask; }
-            color = hazeComposite(color, blur as unknown as typeof color, haze.intensity as unknown as typeof color) as unknown as typeof color;
+            color = hazeComposite(color, blur as unknown as typeof color, haze.intensity) as unknown as typeof color;
         }
         // The same display transform as the canvas output; FXAA then works on display-referred color, as in post-chain.ts.
         renderer.setRenderTarget(colorTarget);
