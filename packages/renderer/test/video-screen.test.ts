@@ -123,7 +123,7 @@ function fakeElement({ fail, code, playRejects = false }: { fail?: boolean; code
     };
     return el;
 }
-const source = (codec = 'h264' as const, alpha = false): VideoSource => ({ url: 'blob:x', header: { format: 'mp4', codec, codecString: 'avc1.42C00A', audioCodec: null, alpha, width: 64, height: 36 }, dispose: vi.fn() });
+const source = (codec: VideoSource['header']['codec'] = 'h264', alpha = false): VideoSource => ({ url: 'blob:x', header: { format: 'mp4', codec, codecString: 'avc1.42C00A', audioCodec: null, alpha, width: 64, height: 36 }, dispose: vi.fn() });
 const element = (el: ReturnType<typeof fakeElement>) => () => el as never;
 it('sets up one element for each screen with the R13 attributes and the R16 audio flag for each instance', async () => {
     for (const audio of [true, false]) {
@@ -142,6 +142,10 @@ it('names the codec for a decode or source error and gives the other message for
     await expect(openScreenVideo(source(), { audio: false, loop: true, volume: 1, upload: 'element', element: element(fakeElement({ fail: true, code: 2 })) })).rejects.toMatchObject({ message: VIDEO_LOAD_FAILED });
     const silent = fakeElement(); Object.defineProperty(silent, 'src', { set() {}, get: () => '' });
     await expect(openScreenVideo(source(), { audio: false, loop: true, volume: 1, upload: 'element', timeoutMs: 5, element: element(silent) })).rejects.toMatchObject({ message: VIDEO_LOAD_FAILED });
+    // macOS WebKit reads the AV1 WebM metadata, then decodes no frame and gives no error.
+    const metadataOnly = Object.assign(fakeElement(), { readyState: 0 });
+    Object.defineProperty(metadataOnly, 'src', { set() { queueMicrotask(() => { metadataOnly.readyState = 1; metadataOnly.emit('loadedmetadata'); }); }, get: () => '' });
+    await expect(openScreenVideo(source('av1'), { audio: false, loop: true, volume: 1, upload: 'element', timeoutMs: 5, element: element(metadataOnly) })).rejects.toMatchObject({ message: 'Video codec not supported: AV1' });
     // An error after loadeddata is reported to the renderer.
     const late = fakeElement();
     const player = await openScreenVideo(source('h264'), { audio: false, loop: true, volume: 1, upload: 'element', element: element(late) });

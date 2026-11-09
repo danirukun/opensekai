@@ -45,13 +45,22 @@ Raw output: [editor-check.txt](video-screens/editor-check.txt) (30/30). It cover
 
 ## Codec support table
 
-| File | Linux headless Chromium | Editor window (WebKit) | OBS (CEF) |
+| File | Linux headless Chromium | Editor window (WebKit, macOS 27.2, M3 Pro) | OBS 33.0.1 (CEF, macOS 27.2) |
 | --- | --- | --- | --- |
-| `h264-aac.mp4`, `h264-late-moov.mp4`, `h264-turned.mp4` | Plays | Unknown | Unknown |
-| `hevc.mp4` | `Video codec not supported: HEVC` | Unknown | Unknown |
-| `av1.mp4`, `av1.webm`, `vp8.webm` | Not drawn in the headless check | Unknown | Unknown |
-| `vp9-opus.webm`, `vp9-alpha.webm` | Plays | Unknown | Unknown |
+| `h264-aac.mp4`, `h264-late-moov.mp4`, `h264-turned.mp4` | Plays | Plays | Plays |
+| `hevc.mp4` | `Video codec not supported: HEVC` | Plays | Plays |
+| `av1.mp4` | Not drawn in the headless check | `Video codec not supported: AV1` | Plays |
+| `av1.webm` | Not drawn in the headless check | `Video codec not supported: AV1` after the 10 s limit | Plays |
+| `vp8.webm` | Not drawn in the headless check | Plays | Plays |
+| `vp9-opus.webm` | Plays | Plays | Plays |
+| `vp9-alpha.webm` | Plays | Plays, opaque (no alpha) | Plays, with alpha |
+
+For `av1.webm`, macOS WebKit answers `decodingInfo` `supported: true` and `canPlayType` `probably`. The element reads the metadata, decodes no frame, and sends no `error` event. At commit `9700b1f` this gave `Video failed to load`. Now a timeout after the metadata gives the codec message (implementation record, R15). The running Editor showed `Asset load failed: Video codec not supported: AV1` on `preview_main` about 10 s after the screen was made, and H.264 and VP9 on the same screen loaded with no warning.
+
+## macOS local QA (PR #264)
+
+Commit `9700b1f`, macOS 27.2, Apple M3 Pro, OBS 33.0.1, WebGPU in the Editor preview and in the OBS page, the dev binary with `OPENSEKAI_EVALUATION=1`. These items passed: the Editor window plays a `blob:` URL; the import of all 9 files; OBS playback of all 9 files; the OBS page keeps playing while the Editor is minimized for 30 s; OBS audio with "Control audio via OBS" for `vp9-opus.webm` and `h264-aac.mp4`, and Volume 0.5 lowers the level by 6.0 dB; `vp9-alpha.webm` over a magenta OBS source shows the magenta in the transparent half; Play, Pause, Restart, Loop off, Save As, and Open; upright and unmirrored orientation and the nominal colors on a real GPU. Screen captures that show both views at one instant show the Editor about 46 to 73 ms ahead of the OBS preview. This number includes the OBS compositor and preview latency.
 
 ## Not proven
 
-The Editor window (WebKit) and a `blob:` URL, OBS (CEF) playback, sync between OBS and the preview, a minimized Editor window, OBS audio and Volume, WebM alpha over an OBS background, Save As and Open on macOS, decode cost on a real GPU, HEVC alpha, the benchmark subset (see the benchmark gate in the contract), and Windows. An old build does not open a show with a video screen.
+Sync between the OBS page and the preview within one frame (the macOS measurement includes the OBS preview latency), Editor window silence (no listening check), decode cost on a real GPU, HEVC alpha, the benchmark subset (see the benchmark gate in the contract), and Windows. An old build does not open a show with a video screen.

@@ -12,6 +12,7 @@ export interface VideoHeader extends VideoInfo { width: number; height: number }
 export const VIDEO_LOAD_FAILED = "Video failed to load";
 export const VIDEO_PLAYBACK_BLOCKED = "Video playback blocked";
 export const VIDEO_LOAD_TIMEOUT_MS = 10_000;
+const HAVE_METADATA = 1;
 /** The session clock step (1/60 s). */
 export const FRAME_MS = 1000 / 60;
 /** The drift limit of a playing entry (R14). */
@@ -351,7 +352,7 @@ export interface ScreenVideoPlayer {
     settled(): Promise<void>;
     dispose(): void;
 }
-type VideoElement = Pick<HTMLVideoElement, "playsInline" | "preload" | "loop" | "muted" | "volume" | "src" | "currentTime" | "duration" | "paused" | "seeking" | "error" | "videoWidth" | "videoHeight" | "play" | "pause" | "addEventListener" | "removeEventListener" | "removeAttribute" | "load"> & Partial<Pick<HTMLVideoElement, "requestVideoFrameCallback" | "cancelVideoFrameCallback">>;
+type VideoElement = Pick<HTMLVideoElement, "playsInline" | "preload" | "loop" | "muted" | "volume" | "src" | "currentTime" | "duration" | "paused" | "seeking" | "error" | "readyState" | "videoWidth" | "videoHeight" | "play" | "pause" | "addEventListener" | "removeEventListener" | "removeAttribute" | "load"> & Partial<Pick<HTMLVideoElement, "requestVideoFrameCallback" | "cancelVideoFrameCallback">>;
 export interface PlayerOptions { audio: boolean; loop: boolean; volume: number; upload: VideoUpload; timeoutMs?: number; element?: () => VideoElement; bitmap?: (source: VideoElement) => Promise<ImageBitmap> }
 
 const elementMessage = (element: VideoElement, codec: VideoCodec) => {
@@ -359,7 +360,10 @@ const elementMessage = (element: VideoElement, codec: VideoCodec) => {
     return code === 3 || code === 4 ? videoCodecMessage(codec) : VIDEO_LOAD_FAILED;
 };
 
-/** One element for one screen (R13). It resolves at `loadeddata` and fails at an element error or after 10 s. */
+/**
+ * One element for one screen (R13). It resolves at `loadeddata` and fails at an element error or after 10 s.
+ * macOS WebKit reads the metadata of an AV1 WebM, then decodes no frame and sends no error, so a timeout after the metadata names the codec (R15).
+ */
 export async function openScreenVideo(source: VideoSource, options: PlayerOptions): Promise<ScreenVideoPlayer> {
     const element = options.element?.() ?? document.createElement("video");
     element.playsInline = true;
@@ -371,7 +375,7 @@ export async function openScreenVideo(source: VideoSource, options: PlayerOption
     const release = () => { for (const off of detach.splice(0)) off(); element.pause(); element.removeAttribute("src"); element.load(); };
     try {
         await new Promise<void>((resolve, reject) => {
-            const timer = setTimeout(() => reject(failure("TIMEOUT", VIDEO_LOAD_FAILED)), options.timeoutMs ?? VIDEO_LOAD_TIMEOUT_MS);
+            const timer = setTimeout(() => reject(element.readyState >= HAVE_METADATA ? failure("UNSUPPORTED", videoCodecMessage(source.header.codec)) : failure("TIMEOUT", VIDEO_LOAD_FAILED)), options.timeoutMs ?? VIDEO_LOAD_TIMEOUT_MS);
             listen("loadeddata", () => { clearTimeout(timer); resolve(); });
             listen("error", () => { clearTimeout(timer); reject(failure("UNSUPPORTED", elementMessage(element, source.header.codec))); });
             element.src = source.url;
