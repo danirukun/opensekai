@@ -246,6 +246,7 @@ export function createEditorViewport(canvas: HTMLCanvasElement, camera: Perspect
         sync(next:EditorViewportState) {if(gesture && (next.selectedId!==gesture.id || !next.scene || !next.enabled || next.tool!==state.tool))stop();if(next.scene)owned(next.scene.revision);state=next;navigation?.allowedChanged();refresh();},
         cancel,
         frameRevision(revision:number) {owned(revision);},
+        selectedId() {return state.selectedId;},
         frame(scene:SceneView) {owned(scene.revision);navigation?.frame(scene);},
         frozen(id:Id) {return gesture?.id===id || settle?.id===id || navigation?.transform(id)!=null;},
         // The persistent draft of the dragged entity, then its committed transform until the frame catches up (B12 R6).

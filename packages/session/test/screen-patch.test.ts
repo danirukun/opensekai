@@ -24,3 +24,34 @@ it('rejects a screen over the limit', () => {
     expect(s.applyPatch(patch(0, many)).ok).toBe(true);
     expect(s.applyPatch(patch(1, [{ kind: 'createEntity', entity: screen('over') }])).ok).toBe(false);
 });
+// B30 R3: web content on a screen.
+const web = (url: string | null = 'https://example.com/') => ({ url, width: 1280, height: 720, onTop: false });
+const webScreen = (id: string): SceneEntity => ({ ...screen(id), content: { kind: 'web', ...web() } } as SceneEntity);
+it('changes a screen from image to web content and back', () => {
+    const s = createSession(makeSmokeScene(), 'screen-test');
+    expect(s.applyPatch(patch(0, [{ kind: 'createEntity', entity: screen('chat') }, { kind: 'setScreenImage', entityId: 'chat', assetId: 'image_a' }])).ok).toBe(true);
+    expect(s.applyPatch(patch(1, [{ kind: 'setScreenWeb', entityId: 'chat', web: { ...web('https://example.com/chat'), onTop: true } }])).ok).toBe(true);
+    expect(content(s, 'chat')).toEqual({ kind: 'web', url: 'https://example.com/chat', width: 1280, height: 720, onTop: true });
+    expect(s.applyPatch(patch(2, [{ kind: 'setScreenWeb', entityId: 'chat', web: web(null) }])).ok).toBe(true);
+    expect(content(s, 'chat')).toEqual({ kind: 'web', url: null, width: 1280, height: 720, onTop: false });
+    expect(s.applyPatch(patch(3, [{ kind: 'setScreenImage', entityId: 'chat', assetId: null }])).ok).toBe(true);
+    expect(content(s, 'chat')).toEqual({ kind: 'image', assetId: null });
+});
+it('rejects setScreenWeb on another kind, an unknown entity, or an invalid URL', () => {
+    const s = createSession(makeSmokeScene(), 'screen-test');
+    expect(s.applyPatch(patch(0, [{ kind: 'createEntity', entity: screen('chat') }])).ok).toBe(true);
+    const before = s.inspect();
+    expect(s.applyPatch(patch(1, [{ kind: 'setScreenWeb', entityId: 'performer', web: web() }]))).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+    expect(s.applyPatch(patch(1, [{ kind: 'setScreenWeb', entityId: 'nobody', web: web() }]))).toMatchObject({ ok: false, error: { code: 'NOT_FOUND' } });
+    for (const url of ['http://example.com/', 'https://192.168.0.10/', 'https://localhost/']) expect(s.applyPatch(patch(1, [{ kind: 'setScreenWeb', entityId: 'chat', web: web(url) }]))).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+    expect(s.inspect()).toEqual(before);
+});
+it('rejects a fifth web screen by setScreenWeb and by createEntity', () => {
+    const s = createSession(makeSmokeScene(), 'screen-test');
+    expect(s.applyPatch(patch(0, [...Array.from({ length: LIMITS.webScreens }, (_, i) => ({ kind: 'createEntity', entity: webScreen(`w${i}`) })), { kind: 'createEntity', entity: screen('logo') }])).ok).toBe(true);
+    const before = s.inspect();
+    expect(s.applyPatch(patch(1, [{ kind: 'setScreenWeb', entityId: 'logo', web: web() }]))).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+    expect(s.applyPatch(patch(1, [{ kind: 'createEntity', entity: webScreen('w_dup') }]))).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+    expect(s.inspect()).toEqual(before);
+    expect(s.applyPatch(patch(1, [{ kind: 'setScreenWeb', entityId: 'w0', web: web('https://example.com/other') }])).ok).toBe(true);
+});

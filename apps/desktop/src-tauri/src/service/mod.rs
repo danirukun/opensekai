@@ -634,6 +634,7 @@ pub async fn start_service_with(
             "/evidence/{id}/{filename}",
             get(evidence).options(asset_preflight),
         )
+        .layer(axum::middleware::map_response(deny_framing))
         .with_state(shared.clone());
     let mut shutdown = shared.stop.subscribe();
     let server = tokio::spawn(async move {
@@ -649,6 +650,20 @@ pub async fn start_service_with(
         shared,
         server: Some(server),
     })
+}
+/// No page may frame a host route (B30 R12): a web screen frame that navigates to this origin
+/// would be same-origin with the OBS page.
+async fn deny_framing(mut response: axum::response::Response) -> axum::response::Response {
+    let headers = response.headers_mut();
+    headers.insert(
+        axum::http::header::X_FRAME_OPTIONS,
+        axum::http::HeaderValue::from_static("DENY"),
+    );
+    headers.insert(
+        axum::http::header::CONTENT_SECURITY_POLICY,
+        axum::http::HeaderValue::from_static("frame-ancestors 'none'"),
+    );
+    response
 }
 impl ServicePorts {
     pub fn now_ms(&self) -> u64 {

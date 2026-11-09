@@ -16,7 +16,7 @@ The parity row MED-03 says: "Later; web pages need a separate capture design." T
 - A renderer draws with three.js into one canvas. There are two renderer instances: the OBS page (`apps/output`, `output_main`) and `preview_main` in the Editor window. The scene pane preview, the editor viewport, and `cameraScreenshot` use `preview_main`.
 - Both canvases use `alpha: true` and clear to alpha 0. The OBS page body is transparent. OBS composites the page with its alpha.
 - DOM layers over a canvas already exist: the FPS counter (`fps-counter.ts`), the guide overlay, and the load overlay. None of them is in a screenshot.
-- The Editor window CSP (`tauri.conf.json`) is `default-src 'self'` with no `frame-src`. So an `<iframe>` to a remote page is blocked now. The OBS page is served by the host with no CSP.
+- The Editor window CSP (`tauri.conf.json`) is `default-src 'self'` with no `frame-src`. So an `<iframe>` to a remote page is blocked now. The OBS page is served by the host with no CSP. Tauri sends this CSP only as a header on its `tauri:` protocol, so a macOS dev build (document from the Vite dev server) has no Editor CSP at all.
 - The OBS page reads its connection descriptor from the URL hash, removes the hash, and keeps the descriptor in its own `localStorage`. The page origin is `http://127.0.0.1:<port>`.
 - The Editor window has Tauri IPC and the editor commands (native dialogs, file writes). Its capability has no `remote` URL entry.
 - three 0.180 has `CSS3DRenderer` (`three/addons/renderers/CSS3DRenderer.js`). It places DOM elements with CSS `matrix3d` from the same camera that the canvas uses.

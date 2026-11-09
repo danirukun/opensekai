@@ -1,4 +1,4 @@
-import { LIMITS, isImageRecord, isVideoRecord, isVideoScreen, type AssetRecord, type Id, type RuntimeFrame, type SceneEntity, type ScreenVideo, type VideoAudioCodec, type VideoCodec } from '@opensekai/contracts';
+import { LIMITS, isImageRecord, isVideoRecord, isVideoScreen, isWebScreenUrl, type AssetRecord, type Id, type RuntimeFrame, type SceneEntity, type ScreenVideo, type VideoAudioCodec, type VideoCodec, type WebScreen } from '@opensekai/contracts';
 import { IMPORT_SCENE } from './environment';
 import type { SliderRange } from './slider';
 // The Screen Image select (B28 R19): only image records, a missing image, and the import row.
@@ -16,7 +16,7 @@ export function videoSourceOptions(assetId: string | null, assets: readonly Asse
 // A screen that gets video content starts with these values (B29 R19). The reset defaults use them too.
 export const VIDEO_DEFAULTS: Readonly<ScreenVideo> = Object.freeze({ assetId: null, autoPlay: false, loop: true, volume: 1 });
 export const VOLUME_RANGE: SliderRange = { min: 0, max: 1, step: 0.01, curve: 'linear' };
-export const CONTENT_OPTIONS = [{ value: 'image', label: 'Image' }, { value: 'video', label: 'Video' }];
+export const CONTENT_OPTIONS: readonly { value: ScreenContentKind; label: string }[] = [{ value: 'image', label: 'Image' }, { value: 'video', label: 'Video' }, { value: 'web', label: 'Web page' }];
 export const videoScreenLimitReached = (entities: readonly SceneEntity[]): boolean => entities.filter(isVideoScreen).length >= LIMITS.videoScreens;
 // Content Video is disabled at the video screen limit, unless this screen already has video content (B29 R19).
 export const videoContentDisabled = (entity: SceneEntity, entities: readonly SceneEntity[]): boolean => !isVideoScreen(entity) && videoScreenLimitReached(entities);
@@ -37,5 +37,29 @@ export function assetFormatLabel(asset: AssetRecord): string {
     if (!asset.video) return format;
     return [format, VIDEO_CODEC_LABELS[asset.video.videoCodec], asset.video.audioCodec ? AUDIO_CODEC_LABELS[asset.video.audioCodec] : null].filter(Boolean).join(' · ');
 }
-// Duplicate copies the content, so a video screen cannot be copied at the video screen limit (B29 R19).
-export const duplicateLimitReached = (entity: SceneEntity, entities: readonly SceneEntity[]): boolean => isVideoScreen(entity) && videoScreenLimitReached(entities);
+// Duplicate copies the content, so a video or web screen cannot be copied at its screen limit (B29 R19, B30 R13).
+export const duplicateLimitReached = (entity: SceneEntity, entities: readonly SceneEntity[]): boolean => (isVideoScreen(entity) && videoScreenLimitReached(entities)) || (entity.kind === 'screen' && entity.content.kind === 'web' && webLimitReached(entities));
+// The Screen Content select and the Web page fields (B29 R19, B30 R13).
+export type ScreenContentKind = 'image' | 'video' | 'web';
+export const DEFAULT_WEB_SCREEN: WebScreen = { url: null, width: 1280, height: 720, onTop: false };
+export const webLimitReached = (entities: readonly SceneEntity[]) => entities.filter(entity => entity.kind === 'screen' && entity.content.kind === 'web').length >= LIMITS.webScreens;
+// Video and Web page are disabled at their screen limit, unless this screen already has that content.
+export function contentOptions(kind: ScreenContentKind, entities: readonly SceneEntity[]) {
+    const full = { image: false, video: videoScreenLimitReached(entities), web: webLimitReached(entities) };
+    return CONTENT_OPTIONS.map(option => ({ ...option, disabled: option.value !== kind && full[option.value] }));
+}
+// An empty field commits no URL. Text that fails the URL rule does not commit. Space around the text is not part of the URL.
+export function parseWebUrl(text: string): { ok: true; url: string | null } | { ok: false } {
+    const value = text.trim();
+    if (value === '') return { ok: true, url: null };
+    return isWebScreenUrl(value) ? { ok: true, url: value } : { ok: false };
+}
+const SIZE = { width: [64, 3840], height: [64, 2160] } as const;
+// A size outside the range clamps; text that is not a number keeps the stored value.
+// A number input bound with bind:value gives a number, or null when it is empty.
+export function clampWebSize(axis: 'width' | 'height', input: string | number | null, current: number): number {
+    const text = input === null ? '' : String(input), value = Number(text);
+    if (text.trim() === '' || !Number.isFinite(value)) return current;
+    const [min, max] = SIZE[axis];
+    return Math.min(max, Math.max(min, Math.round(value)));
+}

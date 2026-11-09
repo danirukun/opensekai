@@ -14,7 +14,7 @@ async function start() {
     const client = await connectClient(descriptor);
     let renderer;
     try {
-        renderer = await createRenderer({ canvas: document.querySelector<HTMLCanvasElement>("#output")!, outputId: descriptor.outputId, mode: new URLSearchParams(location.search).get("backend") === "webgl2" ? "force-webgl2" : "auto", resources: client, diagnostics: new URLSearchParams(location.search).get("diagnostics") === "1", quality: qualityProfileFromQuery(new URLSearchParams(location.search).get("quality")),
+        renderer = await createRenderer({ canvas: document.querySelector<HTMLCanvasElement>("#output")!, outputId: descriptor.outputId, mode: new URLSearchParams(location.search).get("backend") === "webgl2" ? "force-webgl2" : "auto", resources: client, diagnostics: new URLSearchParams(location.search).get("diagnostics") === "1", quality: qualityProfileFromQuery(new URLSearchParams(location.search).get("quality")), webLayers: { back: document.querySelector<HTMLDivElement>("#web-back")!, front: document.querySelector<HTMLDivElement>("#web-front")!, interactive: true },
             // Only the OBS page plays video sound (B29 R16).
             audio: true });
     }

@@ -1,5 +1,5 @@
-import { ExpressionNameSchema,ExpressionSettingsSchema,TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,FitNeutralSchema,TrackingSmoothingSchema,TrackingMappingSchema,EntityNameSchema,ShowSceneSchema,IdSchema,CameraAntiAliasingSchema,CameraNavigationSchema,LightSettingsSchema,HazeSettingsSchema,FpsCounterSettingsSchema,VmcSenderSettingsSchema,ReflectionsIntensitySchema,PatchOpSchema,ScreenVideoSchema } from '@opensekai/contracts';
-import type { ExpressionSettings, AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing, TrackingMapping, ArkitName, CameraAntiAliasing, CameraNavigation, CameraScreenshotResult, LightSettings, HazeSettings, FpsCounterSettings, VmcSenderSettings, ScreenVideo, ScreenVideoAction } from '@opensekai/contracts';
+import { ExpressionNameSchema,ExpressionSettingsSchema,TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,FitNeutralSchema,TrackingSmoothingSchema,TrackingMappingSchema,EntityNameSchema,ShowSceneSchema,IdSchema,CameraAntiAliasingSchema,CameraNavigationSchema,LightSettingsSchema,HazeSettingsSchema,FpsCounterSettingsSchema,VmcSenderSettingsSchema,ReflectionsIntensitySchema,PatchOpSchema,ScreenVideoSchema,WebScreenSchema } from '@opensekai/contracts';
+import type { ExpressionSettings, AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing, TrackingMapping, ArkitName, CameraAntiAliasing, CameraNavigation, CameraScreenshotResult, LightSettings, HazeSettings, FpsCounterSettings, VmcSenderSettings, ScreenVideo, ScreenVideoAction, WebScreen } from '@opensekai/contracts';
 import {makeEntityCopy} from './asset-management';
 type CameraLens=Extract<SceneEntity,{kind:'camera'}>['lens'];
 export interface EditorView {
@@ -126,6 +126,10 @@ export function createEditorModel(api: AppApi) {
   setScreenImage(entityId:Id,assetId:Id|null,expectedRevision?:number):Promise<Reply<{revision:number}>> {
    const parsed=IdSchema.nullable().safeParse(assetId);if(!ofKind(entityId,'screen')||!parsed.success)return invalid();
    return patch({kind:'setScreenImage',entityId,assetId:parsed.data},expectedRevision);
+  },
+  setScreenWeb(entityId:Id,web:WebScreen,expectedRevision?:number):Promise<Reply<{revision:number}>> {
+   const parsed=WebScreenSchema.safeParse(web);if(!ofKind(entityId,'screen')||!parsed.success)return invalid();
+   return patch({kind:'setScreenWeb',entityId,web:parsed.data},expectedRevision);
   },
   setScreenVideo(entityId:Id,video:ScreenVideo,expectedRevision?:number,live=false):Promise<Reply<{revision:number}>> {
    const parsed=ScreenVideoSchema.safeParse(video);if(!ofKind(entityId,'screen')||!parsed.success)return invalid();
