@@ -69,7 +69,7 @@ R10. The renderer reports no load status, no load warning, and no failure for a 
 R11. `cameraScreenshot` and evaluation captures draw the canvas only. With `onTop: false` the screen area is alpha 0 in the PNG. With `onTop: true` the PNG does not show the page. The instance does not try to copy page pixels.
 
 R12. Security rules for each iframe, in each instance:
-- The renderer builds the iframe only from a `url` that passes `isWebScreenUrl` again. A failing value gives no iframe and no quad.
+- The renderer builds the iframe only from a `url` that passes `isWebScreenUrl` again, and whose parsed `href` also passes it (the parser percent-encodes some characters, so the `href` can be over 2048 characters). A failing value gives no iframe and no quad, and the renderer does not throw.
 - The renderer never reads or writes the iframe document, never sends a message to it, and ignores each `message` event from it.
 - The Editor window CSP (`tauri.conf.json`) adds `frame-src https:`. No other CSP directive changes.
 - The OBS page is on the host service origin (`http://127.0.0.1:<port>`) and keeps the bearer descriptor in its `localStorage`. A sandbox without `allow-top-navigation` still lets a frame navigate itself, or get a redirect, to `http://127.0.0.1:<port>/`. Such a frame is same-origin with the OBS page and can read the token. So `apps/output/index.html` gets `<meta http-equiv="Content-Security-Policy" content="frame-src https:">`, which applies to each navigation and redirect of a frame. No other directive is in it.

@@ -1,0 +1,122 @@
+PASS straight webgl2: backend webgl2 "webgl2"
+PASS straight webgl2: no frame warning []
+PASS straight webgl2 canvas: hole RGBA 0 inside corner 0 {"at":[579,326],"actual":[0,0,0,0],"expected":[0,0,0,0]}
+PASS straight webgl2 canvas: hole RGBA 0 inside corner 1 {"at":[1341,326],"actual":[0,0,0,0],"expected":[0,0,0,0]}
+PASS straight webgl2 canvas: hole RGBA 0 inside corner 2 {"at":[1341,754],"actual":[0,0,0,0],"expected":[0,0,0,0]}
+PASS straight webgl2 canvas: hole RGBA 0 inside corner 3 {"at":[579,754],"actual":[0,0,0,0],"expected":[0,0,0,0]}
+PASS straight webgl2 canvas: hole RGBA 0 at the center {"at":[960,540],"actual":[0,0,0,0],"expected":[0,0,0,0]}
+PASS straight webgl2 canvas: wall outside the hole is opaque {"at":[553,311],"actual":[82,159,191,255],"expected":[null,null,null,255]}
+PASS straight webgl2 page: red inside corner 0 {"at":[289,163],"actual":[255,0,0,255],"expected":[255,0,0,255]}
+PASS straight webgl2 page: red inside corner 1 {"at":[671,163],"actual":[255,0,0,255],"expected":[255,0,0,255]}
+PASS straight webgl2 page: red inside corner 2 {"at":[671,377],"actual":[255,0,0,255],"expected":[255,0,0,255]}
+PASS straight webgl2 page: red inside corner 3 {"at":[289,377],"actual":[255,0,0,255],"expected":[255,0,0,255]}
+PASS straight webgl2 page: wall outside the page is not red {"at":[276,155],"actual":[82,159,191,255],"expected":[null,null,null,255]}
+PASS straight webgl2 page: each 50 % red crossing within 1 px of the projected edge (20 points) {"gaps":[-0.56,-0.56,-0.56,-0.56,-0.56,-0.13,-0.13,-0.13,-0.13,-0.13,-0.56,-0.56,-0.56,-0.56,-0.56,-0.13,-0.13,-0.13,-0.13,-0.13],"worst":0.56}
+PASS straight webgl2: no page error []
+PASS yaw 30 webgl2: backend webgl2 "webgl2"
+PASS yaw 30 webgl2: no frame warning []
+PASS yaw 30 webgl2 canvas: hole RGBA 0 inside corner 0 {"at":[572,289],"actual":[0,0,0,0],"expected":[0,0,0,0]}
+PASS yaw 30 webgl2 canvas: hole RGBA 0 inside corner 1 {"at":[1246,354],"actual":[0,0,0,0],"expected":[0,0,0,0]}
+PASS yaw 30 webgl2 canvas: hole RGBA 0 inside corner 2 {"at":[1246,726],"actual":[0,0,0,0],"expected":[0,0,0,0]}
+PASS yaw 30 webgl2 canvas: hole RGBA 0 inside corner 3 {"at":[572,791],"actual":[0,0,0,0],"expected":[0,0,0,0]}
+PASS yaw 30 webgl2 canvas: hole RGBA 0 at the center {"at":[909,540],"actual":[0,0,0,0],"expected":[0,0,0,0]}
+PASS yaw 30 webgl2 canvas: wall outside the hole is opaque {"at":[548,271],"actual":[82,159,191,255],"expected":[null,null,null,255]}
+PASS yaw 30 webgl2 page: red inside corner 0 {"at":[286,144],"actual":[255,0,0,255],"expected":[255,0,0,255]}
+PASS yaw 30 webgl2 page: red inside corner 1 {"at":[623,177],"actual":[255,0,0,255],"expected":[255,0,0,255]}
+PASS yaw 30 webgl2 page: red inside corner 2 {"at":[623,363],"actual":[255,0,0,255],"expected":[255,0,0,255]}
+PASS yaw 30 webgl2 page: red inside corner 3 {"at":[286,396],"actual":[255,0,0,255],"expected":[255,0,0,255]}
+PASS yaw 30 webgl2 page: wall outside the page is not red {"at":[274,135],"actual":[82,159,191,255],"expected":[null,null,null,255]}
+PASS yaw 30 webgl2 page: each 50 % red crossing within 1 px of the projected edge (20 points) {"gaps":[-0.56,-0.57,-0.13,-0.36,-0.59,-0.56,-0.56,-0.56,-0.56,-0.56,-0.59,-0.36,-0.13,-0.57,-0.56,-0.37,-0.37,-0.37,-0.37,-0.37],"worst":0.59}
+PASS yaw 30 webgl2: no page error []
+PASS pitch 20 webgl2: backend webgl2 "webgl2"
+PASS pitch 20 webgl2: no frame warning []
+PASS pitch 20 webgl2 canvas: hole RGBA 0 inside corner 0 {"at":[556,326],"actual":[0,0,0,0],"expected":[0,0,0,0]}
+PASS pitch 20 webgl2 canvas: hole RGBA 0 inside corner 1 {"at":[1364,326],"actual":[0,0,0,0],"expected":[0,0,0,0]}
+PASS pitch 20 webgl2 canvas: hole RGBA 0 inside corner 2 {"at":[1320,730],"actual":[0,0,0,0],"expected":[0,0,0,0]}
+PASS pitch 20 webgl2 canvas: hole RGBA 0 inside corner 3 {"at":[600,730],"actual":[0,0,0,0],"expected":[0,0,0,0]}
+PASS pitch 20 webgl2 canvas: hole RGBA 0 at the center {"at":[960,528],"actual":[0,0,0,0],"expected":[0,0,0,0]}
+PASS pitch 20 webgl2 canvas: wall outside the hole is opaque {"at":[529,313],"actual":[82,159,191,255],"expected":[null,null,null,255]}
+PASS pitch 20 webgl2 page: red inside corner 0 {"at":[278,163],"actual":[255,0,0,255],"expected":[255,0,0,255]}
+PASS pitch 20 webgl2 page: red inside corner 1 {"at":[682,163],"actual":[255,0,0,255],"expected":[255,0,0,255]}
+PASS pitch 20 webgl2 page: red inside corner 2 {"at":[660,365],"actual":[255,0,0,255],"expected":[255,0,0,255]}
+PASS pitch 20 webgl2 page: red inside corner 3 {"at":[300,365],"actual":[255,0,0,255],"expected":[255,0,0,255]}
+PASS pitch 20 webgl2 page: wall outside the page is not red {"at":[264,156],"actual":[82,159,191,255],"expected":[null,null,null,255]}
+PASS pitch 20 webgl2 page: each 50 % red crossing within 1 px of the projected edge (20 points) {"gaps":[-0.37,-0.37,-0.37,-0.37,-0.37,-0.61,-0.12,-0.77,-0.37,-0.13,-0.58,-0.58,-0.58,-0.58,-0.58,-0.13,-0.37,-0.75,-0.13,-0.61],"worst":0.77}
+PASS pitch 20 webgl2: no page error []
+PASS 16:9 output in a 4:3 box webgl2: backend webgl2 "webgl2"
+PASS 16:9 output in a 4:3 box webgl2: no frame warning []
+PASS 16:9 output in a 4:3 box webgl2 canvas: hole RGBA 0 inside corner 0 {"at":[579,326],"actual":[0,0,0,0],"expected":[0,0,0,0]}
+PASS 16:9 output in a 4:3 box webgl2 canvas: hole RGBA 0 inside corner 1 {"at":[1341,326],"actual":[0,0,0,0],"expected":[0,0,0,0]}
+PASS 16:9 output in a 4:3 box webgl2 canvas: hole RGBA 0 inside corner 2 {"at":[1341,754],"actual":[0,0,0,0],"expected":[0,0,0,0]}
+PASS 16:9 output in a 4:3 box webgl2 canvas: hole RGBA 0 inside corner 3 {"at":[579,754],"actual":[0,0,0,0],"expected":[0,0,0,0]}
+PASS 16:9 output in a 4:3 box webgl2 canvas: hole RGBA 0 at the center {"at":[960,540],"actual":[0,0,0,0],"expected":[0,0,0,0]}
+PASS 16:9 output in a 4:3 box webgl2 canvas: wall outside the hole is opaque {"at":[551,310],"actual":[82,159,191,255],"expected":[null,null,null,255]}
+PASS 16:9 output in a 4:3 box webgl2 page: red inside corner 0 {"at":[241,181],"actual":[255,0,0,255],"expected":[255,0,0,255]}
+PASS 16:9 output in a 4:3 box webgl2 page: red inside corner 1 {"at":[559,181],"actual":[255,0,0,255],"expected":[255,0,0,255]}
+PASS 16:9 output in a 4:3 box webgl2 page: red inside corner 2 {"at":[559,419],"actual":[255,0,0,255],"expected":[255,0,0,255]}
+PASS 16:9 output in a 4:3 box webgl2 page: red inside corner 3 {"at":[241,419],"actual":[255,0,0,255],"expected":[255,0,0,255]}
+PASS 16:9 output in a 4:3 box webgl2 page: wall outside the page is not red {"at":[229,172],"actual":[82,159,191,255],"expected":[null,null,null,255]}
+PASS 16:9 output in a 4:3 box webgl2 page: each 50 % red crossing within 1 px of the projected edge (20 points) {"gaps":[-0.53,-0.53,-0.53,-0.53,-0.53,0.11,0.11,0.11,0.11,0.11,-0.53,-0.53,-0.53,-0.53,-0.53,0.11,0.11,0.11,0.11,0.11],"worst":0.53}
+PASS 16:9 output in a 4:3 box webgl2: no page error []
+PASS 960 x 540 output webgl2: backend webgl2 "webgl2"
+PASS 960 x 540 output webgl2: no frame warning []
+PASS 960 x 540 output webgl2 canvas: hole RGBA 0 inside corner 0 {"at":[289,163],"actual":[0,0,0,0],"expected":[0,0,0,0]}
+PASS 960 x 540 output webgl2 canvas: hole RGBA 0 inside corner 1 {"at":[671,163],"actual":[0,0,0,0],"expected":[0,0,0,0]}
+PASS 960 x 540 output webgl2 canvas: hole RGBA 0 inside corner 2 {"at":[671,377],"actual":[0,0,0,0],"expected":[0,0,0,0]}
+PASS 960 x 540 output webgl2 canvas: hole RGBA 0 inside corner 3 {"at":[289,377],"actual":[0,0,0,0],"expected":[0,0,0,0]}
+PASS 960 x 540 output webgl2 canvas: hole RGBA 0 at the center {"at":[480,270],"actual":[0,0,0,0],"expected":[0,0,0,0]}
+PASS 960 x 540 output webgl2 canvas: wall outside the hole is opaque {"at":[276,155],"actual":[82,159,191,255],"expected":[null,null,null,255]}
+PASS 960 x 540 output webgl2 page: red inside corner 0 {"at":[289,163],"actual":[255,0,0,255],"expected":[255,0,0,255]}
+PASS 960 x 540 output webgl2 page: red inside corner 1 {"at":[671,163],"actual":[255,0,0,255],"expected":[255,0,0,255]}
+PASS 960 x 540 output webgl2 page: red inside corner 2 {"at":[671,377],"actual":[255,0,0,255],"expected":[255,0,0,255]}
+PASS 960 x 540 output webgl2 page: red inside corner 3 {"at":[289,377],"actual":[255,0,0,255],"expected":[255,0,0,255]}
+PASS 960 x 540 output webgl2 page: wall outside the page is not red {"at":[276,155],"actual":[82,159,191,255],"expected":[null,null,null,255]}
+PASS 960 x 540 output webgl2 page: each 50 % red crossing within 1 px of the projected edge (20 points) {"gaps":[-0.52,-0.52,-0.52,-0.52,-0.52,-0.13,-0.13,-0.13,-0.13,-0.13,-0.52,-0.52,-0.52,-0.52,-0.52,-0.13,-0.13,-0.13,-0.13,-0.13],"worst":0.52}
+PASS 960 x 540 output webgl2: no page error []
+PASS occlusion webgl2 page: the box in front covers the page (not red) {"at":[480,270],"actual":[82,159,191,255],"expected":[null,null,null,255]}
+PASS occlusion webgl2 page: the front box pixel is not page red [82,159,191]
+PASS occlusion webgl2 page: the box behind does not show (red) {"at":[610,270],"actual":[255,0,0,255],"expected":[255,0,0,255]}
+PASS on top webgl2 page: the page covers the box in front (red) {"at":[480,270],"actual":[255,0,0,255],"expected":[255,0,0,255]}
+PASS on top webgl2 canvas: the canvas still draws the box (no hole) {"at":[960,540],"actual":[82,159,191,255],"expected":[null,null,null,255]}
+PASS transparent light onTop false webgl2 page: the square is red {"at":[480,270],"actual":[255,0,0,255],"expected":[255,0,0,255]}
+PASS transparent light onTop false webgl2 page: outside the square has alpha 0 {"at":[345,194],"actual":[0,0,0,0],"expected":[null,null,null,0]}
+PASS transparent light onTop true webgl2 page: the square is red {"at":[480,270],"actual":[255,0,0,255],"expected":[255,0,0,255]}
+PASS transparent light onTop true webgl2 page: outside the square has alpha 0 {"at":[345,194],"actual":[0,0,0,0],"expected":[null,null,null,0]}
+PASS transparent light over a box webgl2 page: the box shows outside the square {"at":[345,194],"actual":[82,159,191,255],"expected":[null,null,null,255]}
+PASS transparent light over a box webgl2 page: the pixel outside the square is the box, not page red or white [82,159,191]
+PASS transparent light over a box webgl2 page: the square is red {"at":[480,270],"actual":[255,0,0,255],"expected":[255,0,0,255]}
+PASS transparent dark onTop false webgl2 page: the square is red {"at":[480,270],"actual":[255,0,0,255],"expected":[255,0,0,255]}
+RECORD transparent dark onTop false webgl2 page: outside the square with color-scheme dark [18,18,18,255]
+PASS transparent dark onTop true webgl2 page: the square is red {"at":[480,270],"actual":[255,0,0,255],"expected":[255,0,0,255]}
+RECORD transparent dark onTop true webgl2 page: outside the square with color-scheme dark [18,18,18,255]
+RECORD transparent dark over a box webgl2 page: outside the square with color-scheme dark [18,18,18,255]
+PASS transparent dark over a box webgl2 page: the square is red {"at":[480,270],"actual":[255,0,0,255],"expected":[255,0,0,255]}
+PASS two screens webgl2 page: the overlap shows the nearer (yellow) page {"at":[492,270],"actual":[255,255,0,255],"expected":[255,255,0,255]}
+PASS two screens webgl2 page: the far page shows outside the overlap (blue) {"at":[312,270],"actual":[0,0,255,255],"expected":[0,0,255,255]}
+PASS fxaa webgl2 canvas: hole RGBA 0 inside corner 0 {"at":[579,326],"actual":[0,0,0,0],"expected":[0,0,0,0]}
+PASS fxaa webgl2 canvas: hole RGBA 0 inside corner 1 {"at":[1341,326],"actual":[0,0,0,0],"expected":[0,0,0,0]}
+PASS fxaa webgl2 canvas: hole RGBA 0 inside corner 2 {"at":[1341,754],"actual":[0,0,0,0],"expected":[0,0,0,0]}
+PASS fxaa webgl2 canvas: hole RGBA 0 inside corner 3 {"at":[579,754],"actual":[0,0,0,0],"expected":[0,0,0,0]}
+PASS fxaa webgl2 canvas: wall outside is opaque {"at":[553,311],"actual":[82,159,191,255],"expected":[null,null,null,255]}
+PASS fxaa webgl2: no frame warning []
+PASS haze webgl2 canvas: hole RGBA 0 inside corner 0 {"at":[579,326],"actual":[0,0,0,0],"expected":[0,0,0,0]}
+PASS haze webgl2 canvas: hole RGBA 0 inside corner 1 {"at":[1341,326],"actual":[0,0,0,0],"expected":[0,0,0,0]}
+PASS haze webgl2 canvas: hole RGBA 0 inside corner 2 {"at":[1341,754],"actual":[0,0,0,0],"expected":[0,0,0,0]}
+PASS haze webgl2 canvas: hole RGBA 0 inside corner 3 {"at":[579,754],"actual":[0,0,0,0],"expected":[0,0,0,0]}
+PASS haze webgl2 canvas: wall outside is opaque {"at":[553,311],"actual":[82,159,191,255],"expected":[null,null,null,255]}
+PASS haze webgl2: no frame warning []
+PASS frame barrier: no frame request reached the host origin []
+PASS frame barrier: no frame is on the host origin ["chrome-error://chromewebdata/","chrome-error://chromewebdata/","https://screen.test.invalid/storage"]
+PASS frame barrier: the storage page cannot read the OBS page storage "blocked"
+PASS frame barrier: each iframe has the sandbox, the referrer policy, autoplay, and pointer events [{"sandbox":"allow-scripts allow-same-origin allow-forms","referrerpolicy":"no-referrer","allow":"autoplay","pointer":"auto"},{"sandbox":"allow-scripts allow-same-origin allow-forms","referrerpolicy":"no-referrer","allow":"autoplay","pointer":"auto"},{"sandbox":"allow-scripts allow-same-origin allow-forms","referrerpolicy":"no-referrer","allow":"autoplay","pointer":"auto"}]
+PASS OBS page: the canvas takes no pointer events "none"
+PASS OBS page: the meta CSP is frame-src https: only "frame-src https:"
+PASS frame lifecycle: a width change keeps the same iframe and sets its CSS width {"same":true,"width":"640px"}
+PASS frame lifecycle: a URL change replaces the iframe {"same":false,"src":"https://screen.test.invalid/blue","count":1}
+PASS frame lifecycle: onTop true moves the iframe to the front layer {"front":true,"back":false}
+PASS frame lifecycle: a hidden screen keeps its iframe with visibility hidden {"visibility":"hidden","count":1}
+PASS frame lifecycle: a null URL removes the iframe 0
+PASS frame lifecycle: no page error []
+PASS camera through the screen: the iframe shows in front, hides at the plane and behind the camera [[3,"visible"],[1,"visible"],[0.3,"visible"],[0.05,"visible"],[0.005,"hidden"],[-0.5,"hidden"],[-2,"hidden"]]
+PASS camera through the screen: no page error and frames continue {"errors":[],"revision":7}
+118 pass, 0 fail, 0 unknown

@@ -62,3 +62,13 @@ it('keeps the projection in the scaled CSS world', async () => {
         expect([b.x / b.z, b.y / b.z]).toEqual([expect.closeTo(a.x / a.z, 9), expect.closeTo(a.y / a.z, 9)]);
     }
 });
+// Review finding: the parser percent-encodes `"` in a query, so a 2048-character URL can parse to a longer href.
+it('skips a URL whose parsed href is over the length limit, and keeps one that fits', () => {
+    const base = 'https://example.com/?q="';
+    const long = base + 'a'.repeat(2048 - base.length);
+    expect(long).toHaveLength(2048);
+    expect(new URL(long).href.length).toBeGreaterThan(2048);
+    expect(webScreenPlan({ entities: [web('long', { url: long })] })).toEqual([]);
+    const fits = 'https://example.com/?q="' + 'a'.repeat(100);
+    expect(webScreenPlan({ entities: [web('fits', { url: fits })] })[0]?.href).toBe(new URL(fits).href);
+});

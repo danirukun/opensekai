@@ -8,11 +8,19 @@ export interface WebLayers { back: HTMLElement; front: HTMLElement; interactive:
 /** One web screen that a renderer instance shows (B30 E). `href` is the parsed URL; a screen without a valid URL has no entry. */
 export interface WebScreenPlan { entityId: Id; href: string; width: number; height: number; onTop: boolean; visible: boolean }
 
-/** The web screens of a scene, in scene order. A null URL or a URL that fails the rule gives no entry (R6, R12). */
+// The parsed href can be longer than the stored URL (the parser percent-encodes some characters), so both must pass the rule.
+const frameHref = (url: string | null) => {
+    if (url === null || !isWebScreenUrl(url)) return null;
+    const href = new URL(url).href;
+    return isWebScreenUrl(href) ? href : null;
+};
+/** The web screens of a scene, in scene order. A null URL, or a URL or parsed href that fails the rule, gives no entry (R6, R12). */
 export const webScreenPlan = (scene: Pick<SceneView, "entities">): WebScreenPlan[] =>
-    scene.entities.flatMap(entity => entity.kind === "screen" && entity.content.kind === "web" && entity.content.url !== null && isWebScreenUrl(entity.content.url)
-        ? [{ entityId: entity.id, href: new URL(entity.content.url).href, width: entity.content.width, height: entity.content.height, onTop: entity.content.onTop, visible: entity.visible }]
-        : []).slice(0, LIMITS.webScreens);
+    scene.entities.flatMap(entity => {
+        if (entity.kind !== "screen" || entity.content.kind !== "web") return [];
+        const href = frameHref(entity.content.url);
+        return href ? [{ entityId: entity.id, href, width: entity.content.width, height: entity.content.height, onTop: entity.content.onTop, visible: entity.visible }] : [];
+    }).slice(0, LIMITS.webScreens);
 
 /** The quad width for a 1 m high page (R7, R8). */
 export const webQuadWidth = (content: { width: number; height: number }) => content.width / content.height;
@@ -126,8 +134,6 @@ export function createWebLayers(layers: WebLayers) {
     const build = (plan: WebScreenPlan): Frame => {
         const element = layers.back.ownerDocument.createElement("iframe");
         const { attributes, style } = frameAttributes(plan, layers.interactive);
-        // The renderer checks the URL again before it builds a frame (R12).
-        if (!isWebScreenUrl(plan.href)) throw new Error("Invalid web screen URL");
         for (const [name, value] of Object.entries(attributes)) element.setAttribute(name, value);
         const object = new CSS3DObject(element);
         applyStyle(element, style);
@@ -138,6 +144,8 @@ export function createWebLayers(layers: WebLayers) {
         const wanted = new Set(plans.map(plan => plan.entityId));
         for (const id of [...frames.keys()]) if (!wanted.has(id)) remove(id);
         for (const plan of plans) {
+            // The renderer checks the URL again before it builds a frame (R12). A failing plan gives no frame and never throws.
+            if (!isWebScreenUrl(plan.href)) { remove(plan.entityId); continue; }
             let frame = frames.get(plan.entityId);
             // A URL change loads the page again; a size change keeps the page (R6).
             if (frame && frame.plan.href !== plan.href) { remove(plan.entityId); frame = undefined; }

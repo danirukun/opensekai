@@ -18,12 +18,12 @@ This check proves the URL rule, the scene and patch rules, the session operation
 | Save As and Open keep a web screen (R16) | `show` `round_trip_keeps_a_web_screen` | Pass |
 | Each host route (`/renderer/`, a missing file, `/assets`, `/diagnostics`, `/evidence`, `/ws`) answers with `x-frame-options: DENY` and `content-security-policy: frame-ancestors 'none'` (R12) | `service_integration` `service_routes_deny_framing` | Pass |
 | MCP over real stdio: the description, `createEntity` with a web screen, `setScreenWeb`, and a refused loopback URL (R15) | `apps/mcp/test/screen.integration.test.ts` | Pass |
-| Renderer unit tests: the plan (null, failing, hidden, layer, limit), the near-plane check, the iframe attributes in each mode, the hole and pick materials, the quad size, and the projection in the scaled CSS world (R6 to R8) | `packages/renderer/test/web-screen.test.ts` | Pass |
+| Renderer unit tests: the plan (null, failing, a parsed href over 2048 characters, hidden, layer, limit), the near-plane check, the iframe attributes in each mode, the hole and pick materials, the quad size, and the projection in the scaled CSS world (R6 to R8) | `packages/renderer/test/web-screen.test.ts` | Pass |
 | Editor unit tests: the Content options at the limit, the URL parse, the size clamp (also a number from a bound input), and the reset values (R13) | `apps/desktop/test/screen.test.ts` | Pass |
 
 ## Output (headless Chromium, OBS page)
 
-`web-screens/headless-check.mjs` runs the built OBS page with a stand-in host and a real session ([WebGL 2 output](web-screens/headless-check-webgl2.txt), [WebGPU output](web-screens/headless-check-webgpu.txt)). Each test page comes from Playwright `route` on `https://screen.test.invalid/`.
+`web-screens/headless-check.mjs` runs the built OBS page with a stand-in host and a real session ([WebGL 2 output](web-screens/headless-check-webgl2.txt): 118 pass, 0 fail, 0 unknown; [WebGPU output](web-screens/headless-check-webgpu.txt): 31 pass, 0 fail, 85 unknown). Each test page comes from Playwright `route` on `https://screen.test.invalid/`.
 
 ### Operation 3.1 spike: go
 
@@ -48,7 +48,7 @@ The first run found a defect: with two cross-origin pages in one layer, headless
 | Transparent page body with a red square: alpha 0 outside the square in both modes; with `onTop: true` the box behind shows through | Pass ([page](web-screens/transparent-light-over-a-box-page-webgl2.png)) |
 | The same page with `color-scheme: dark` | Recorded: the area outside the square is opaque RGB (18, 18, 18) in both modes. Chromium paints an opaque backdrop for a page whose color scheme differs from the embedder ([page](web-screens/transparent-dark-true-page-webgl2.png)). |
 | Two overlapping `onTop: false` screens: the nearer page shows in the overlap | Pass ([page](web-screens/two-screens-page-webgl2.png)) |
-| FXAA, and a visible haze: the hole keeps RGBA 0 3 px inside each corner (canvas capture) | Pass in the idle run; unknown in the final run, where the capture took longer than the 2 s handler limit while a parallel build ran |
+| FXAA, and a visible haze: the hole keeps RGBA 0 3 px inside each corner (canvas capture) | Pass. A run during a parallel Rust build gave unknown here: the capture took longer than the 2 s handler limit. |
 | Frame barrier: a page that navigates itself to the host origin and a page that answers with a 302 to it load an error page; no frame request reaches the host; a page cannot read the OBS page storage; each iframe has the sandbox, `no-referrer`, and `allow="autoplay"`; the canvas takes no pointer events; the meta CSP is `frame-src https:` only | Pass |
 | A URL change replaces the iframe; a width change keeps it; `onTop` moves it to the front layer; a hidden screen keeps it with `visibility: hidden`; a null URL removes it | Pass |
 | A camera that moves through the screen plane: the iframe shows in front and hides at the plane and behind; no error | Pass |

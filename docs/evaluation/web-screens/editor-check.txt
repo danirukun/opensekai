@@ -1,19 +1,19 @@
 PASS R14: Add Screen still makes image content {"kind":"image","assetId":null}
 PASS R13: the Content select has Image and Web page ["Image","Web page"]
-PASS R13: Web page sends setScreenWeb with no URL, 1280 x 720, onTop false [{"kind":"setScreenWeb","entityId":"55b23326-a2ca-4758-a976-b74909440214","web":{"url":null,"width":1280,"height":720,"onTop":false}}]
+PASS R13: Web page sends setScreenWeb with no URL, 1280 x 720, onTop false [{"kind":"setScreenWeb","entityId":"21e762a1-548c-4950-9f64-95f055456782","web":{"url":null,"width":1280,"height":720,"onTop":false}}]
 PASS R13: the Web page fields are URL, Width, Height, and On top ["URL","Width","Height","On top"]
 PASS R9: a web screen without a URL has no iframe 
 PASS R13: a URL that fails the rule does not commit and shows Enter an https URL {"sent":[],"value":"http://example.com/"}
-PASS R13: a valid URL commits setScreenWeb with the other values unchanged [{"kind":"setScreenWeb","entityId":"55b23326-a2ca-4758-a976-b74909440214","web":{"url":"https://screen.test.invalid/red","width":1280,"height":720,"onTop":false}}]
+PASS R13: a valid URL commits setScreenWeb with the other values unchanged [{"kind":"setScreenWeb","entityId":"21e762a1-548c-4950-9f64-95f055456782","web":{"url":"https://screen.test.invalid/red","width":1280,"height":720,"onTop":false}}]
 PASS R13: the message goes after a valid commit 
 PASS R5, R6: the scene pane iframe is in the back layer with no allow, tabindex -1, and no pointer events {"sandbox":"allow-scripts allow-same-origin allow-forms","allow":null,"tabindex":"-1","pointer":"none","referrer":"no-referrer","layer":0,"order":["web-layer","preview","web-layer","preview-guides","fps-counter-host","camera-frame"]}
 PASS R5: the layers are behind and in front of canvas#preview ["web-layer","preview","web-layer","preview-guides","fps-counter-host","camera-frame"]
-PASS R13: a width above 3840 clamps and commits 3840 [{"kind":"setScreenWeb","entityId":"55b23326-a2ca-4758-a976-b74909440214","web":{"url":"https://screen.test.invalid/red","width":3840,"height":720,"onTop":false}}]
+PASS R13: a width above 3840 clamps and commits 3840 [{"kind":"setScreenWeb","entityId":"21e762a1-548c-4950-9f64-95f055456782","web":{"url":"https://screen.test.invalid/red","width":3840,"height":720,"onTop":false}}]
 PASS R7, R13: On top sends onTop true; the selected page is in the front layer at opacity 0.4 {"content":{"url":"https://screen.test.invalid/red","width":3840,"height":720,"onTop":true,"kind":"web"},"top":{"layer":1,"opacity":"0.4"}}
 PASS R13: reset marks show for Content, URL, Width, and On top ["Reset Content","Reset URL","Reset Width","Reset On top"]
 PASS R11: the camera screenshot has alpha 0 at the screen center [0,0,0,0]
 PASS R11: the camera screenshot has the wall (alpha 255) outside the screen [82,160,191,255]
-PASS R13: the Content reset sends setScreenImage with null [{"kind":"setScreenImage","entityId":"55b23326-a2ca-4758-a976-b74909440214","assetId":null}]
+PASS R13: the Content reset sends setScreenImage with null [{"kind":"setScreenImage","entityId":"21e762a1-548c-4950-9f64-95f055456782","assetId":null}]
 PASS R13: Web page is disabled on an image screen at the web screen limit true
 PASS R13: Web page stays enabled on a web screen at the limit false
 PASS R13: Duplicate is disabled for a web screen at the web screen limit 1
