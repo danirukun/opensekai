@@ -70,7 +70,7 @@ it('makes one object URL from the bytes and gives one message for each other fai
     const urls = { createObjectURL: vi.fn((_: Blob) => 'blob:one'), revokeObjectURL: vi.fn() };
     const bytes = file('vp8.webm');
     const ok = () => media(() => true);
-    for (const read of [() => Promise.reject(new Error('404')), async () => new Uint8Array([1, 2, 3]).buffer, async () => readFileSync(new URL('expected.json', root)).buffer as ArrayBuffer])
+    for (const read of [() => Promise.reject(new Error('404')), async () => new Uint8Array([1, 2, 3]).buffer, async () => file('expected.json').buffer as ArrayBuffer])
         await expect(loadVideoSource(read, ok, urls)).rejects.toMatchObject({ message: VIDEO_LOAD_FAILED });
     await expect(loadVideoSource(async () => bytes.slice().buffer, () => media(() => false), urls)).rejects.toMatchObject({ message: 'Video codec not supported: VP8' });
     expect(urls.createObjectURL).not.toHaveBeenCalled();
