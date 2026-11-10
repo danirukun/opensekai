@@ -15,14 +15,14 @@ export type BodyPart=typeof BODY_PARTS[number];
 export interface AvatarBodyTracking {movementIntensity:number;trackedParts:BodyPart[]}
 export const DEFAULT_AVATAR_BODY_TRACKING:Readonly<AvatarBodyTracking>=Object.freeze({movementIntensity:1,trackedParts:Object.freeze([...BODY_PARTS]) as unknown as BodyPart[]});
 const PART_BONES:Record<string,BodyPart>=Object.fromEntries([
- ...['neck','head','leftEye','rightEye','jaw'].map(bone=>[bone,'head']),
+ ...['neck','head'].map(bone=>[bone,'head']),
  ...['hips','spine','chest','upperChest'].map(bone=>[bone,'body']),
  ...(['left','right'] as const).flatMap(side=>[
   ...['Shoulder','UpperArm','LowerArm','Hand'].map(bone=>[side+bone,side+'Arm']),
   ...['UpperLeg','LowerLeg','Foot','Toes'].map(bone=>[side+bone,side+'Leg']),
  ]),
 ]);
-/** The part of a humanoid bone; null for a name that is not a humanoid bone. */
+/** The part of a humanoid bone. Null for the eye and jaw bones, which follow the face and belong to no part, and for a name that is not a humanoid bone. */
 export const bodyPartOf=(bone:string):BodyPart|null=>Object.hasOwn(PART_BONES,bone)?PART_BONES[bone]!:/^left(Thumb|Index|Middle|Ring|Little)(Metacarpal|Proximal|Intermediate|Distal)$/.test(bone)&&HUMANOID_BONES.includes(bone)?'leftFingers':/^right(Thumb|Index|Middle|Ring|Little)(Metacarpal|Proximal|Intermediate|Distal)$/.test(bone)&&HUMANOID_BONES.includes(bone)?'rightFingers':null;
 /** The stored form: no group for the default, and the parts in the `BODY_PARTS` order without duplicates. */
 export function normalizeBodyTracking(body:AvatarBodyTracking|undefined):AvatarBodyTracking|undefined {

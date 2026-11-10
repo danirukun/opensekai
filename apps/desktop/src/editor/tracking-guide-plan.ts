@@ -100,7 +100,7 @@ export function planCancel(scene:SceneView,snapshot:GuideSnapshot,_fitSent:boole
  const tracking:AvatarTracking={bodySourceId:keep(was.bodySourceId),faceSourceId:keep(was.faceSourceId)};
  const fingers=keep(was.fingersSourceId);
  if(fingers)tracking.fingersSourceId=fingers;
- if(was.body)tracking.body=structuredClone(was.body);
+ if(was.body)tracking.body={movementIntensity:was.body.movementIntensity,trackedParts:[...was.body.trackedParts]};
  operations.push({kind:'setAvatarTracking',entityId:snapshot.avatarId,tracking});
  if(!snapshot.created&&sourceThere)operations.push({kind:'setTrackingMapping',entityId:snapshot.sourceId,mapping:structuredClone<TrackingMapping>(snapshot.mapping??DEFAULT_TRACKING_MAPPING)});
  return operations;

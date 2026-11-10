@@ -28,6 +28,17 @@ it('keeps the body group when a source select changes (R8)',()=>{
  expect(withSource({...ids,body},'body','vmc-b')).toEqual({...ids,bodySourceId:'vmc-b',body});
  expect(withSource({...ids,body},'fingers','')).toEqual({bodySourceId:'vmc',faceSourceId:'phone',body});
 });
+it('works on a state proxy, which structuredClone rejects (R8)',()=>{
+ // The Inspector gives the tracking of a Svelte state proxy. A Proxy has the same limit in Node.
+ const proxied=<T extends object>(value:T):T=>new Proxy(value,{get:(target,key,receiver)=>{const item=Reflect.get(target,key,receiver);return typeof item==='object'&&item!==null?proxied(item):item;}});
+ const tracking=proxied<AvatarTracking>({...ids,body:{movementIntensity:1.5,trackedParts:['head','body']}});
+ expect(()=>structuredClone(tracking)).toThrow();
+ expect(withBodyPart(tracking,'leftLeg',true)).toEqual({...ids,body:{movementIntensity:1.5,trackedParts:['head','body','leftLeg']}});
+ expect(withBodyTracking(tracking,{movementIntensity:0.5})).toEqual({...ids,body:{movementIntensity:0.5,trackedParts:['head','body']}});
+ expect(withSource(tracking,'fingers','')).toEqual({bodySourceId:'vmc',faceSourceId:'phone',body:{movementIntensity:1.5,trackedParts:['head','body']}});
+ expect(withBodyPart(proxied<AvatarTracking>({bodySourceId:null,faceSourceId:null}),'head',false)).toEqual({bodySourceId:null,faceSourceId:null,body:{movementIntensity:1,trackedParts:BODY_PARTS.filter(part=>part!=='head')}});
+ for(const result of [withBodyPart(tracking,'leftLeg',true),withSource(tracking,'body','x')])expect(()=>structuredClone(result)).not.toThrow();
+});
 it('marks only the changed field for a reset (R8)',()=>{
  const avatar=makeAuthoringEntity('character','a',[]);if(avatar.kind!=='avatar')throw new Error('kind');
  expect(valuesFor(avatar)).toMatchObject({bodyMovementIntensity:1,trackedParts:[...BODY_PARTS]});

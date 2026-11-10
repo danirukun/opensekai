@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { AvatarTrackingSchema, BODY_PARTS, DEFAULT_AVATAR_BODY_TRACKING, FINGER_BONES, HUMANOID_BONES, bodyPartOf, normalizeBodyTracking, type BodyPart } from "../src/index";
 describe("body tracking", () => {
-    it("gives each humanoid bone one part", () => {
+    it("gives each humanoid bone one part, and no part to the eye and jaw bones", () => {
         const count = Object.fromEntries(BODY_PARTS.map(part => [part, 0])) as Record<BodyPart, number>;
-        for (const bone of HUMANOID_BONES) { const part = bodyPartOf(bone); expect(part, bone).not.toBeNull(); count[part!]++; }
-        expect(count).toEqual({ head: 5, body: 4, leftArm: 4, rightArm: 4, leftFingers: 15, rightFingers: 15, leftLeg: 4, rightLeg: 4 });
+        const face = ["leftEye", "rightEye", "jaw"];
+        for (const bone of HUMANOID_BONES) { const part = bodyPartOf(bone); if (face.includes(bone)) expect(part, bone).toBeNull(); else { expect(part, bone).not.toBeNull(); count[part!]++; } }
+        expect(count).toEqual({ head: 2, body: 4, leftArm: 4, rightArm: 4, leftFingers: 15, rightFingers: 15, leftLeg: 4, rightLeg: 4 });
         expect(HUMANOID_BONES).toHaveLength(55);
         for (const bone of FINGER_BONES) expect(bodyPartOf(bone)).toBe(bone.startsWith("left") ? "leftFingers" : "rightFingers");
-        expect([bodyPartOf("hips"), bodyPartOf("jaw"), bodyPartOf("leftHand"), bodyPartOf("rightToes"), bodyPartOf("rightShoulder")]).toEqual(["body", "head", "leftArm", "rightLeg", "rightArm"]);
+        expect([bodyPartOf("hips"), bodyPartOf("neck"), bodyPartOf("leftHand"), bodyPartOf("rightToes"), bodyPartOf("rightShoulder")]).toEqual(["body", "head", "leftArm", "rightLeg", "rightArm"]);
         for (const name of ["tail", "", "constructor", "leftThumbTip", "toString"]) expect(bodyPartOf(name), name).toBeNull();
     });
     it("is optional on the avatar tracking and checks the intensity and the parts", () => {

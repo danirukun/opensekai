@@ -178,3 +178,34 @@ Run 2, about 2 m from the camera (head to hips in view), with a continuous lean 
 ### Not checked
 
 A VMC application of another vendor, the SelfReflect and iFacialMocap paths of the guide, the Inspector values after an open, and Windows.
+
+## Fixes after the macOS check (2026-11-10)
+
+Made in the Linux cloud container after the macOS comment on the pull request. None of these fixes is checked on macOS yet.
+
+| macOS defect | Action |
+| --- | --- |
+| 1. The checkboxes and the intensity number box send no patch | Fixed. `withBodyTracking` and `withSource` called `structuredClone` on the tracking, which is a Svelte state proxy in the editor. They make plain copies now. A unit test gives the helpers a `Proxy`, which `structuredClone` rejects in the same way |
+| 2. A slider drag sends no patch | Fixed. The slider keeps the last value of the drag and sends one patch on release |
+| 3. A source select sends no patch when the character has the group | Fixed with defect 1 |
+| 4. With Body off or an intensity that is not 1, the head does not get the torso lean | Fixed. The neck (or the head without a neck) takes the difference of the normalized spine, chest, and upper chest rotations, so the head keeps its direction (R6). Unit tests with mock samples only |
+| 5. Head off stops the eye bones | Fixed. The eye and jaw bones follow the face and belong to no part (R2) |
+| 6. Rust accepts `"body": null` and TypeScript does not | Not changed. Rust reads each `Option` field this way, and the session, which stores the scene, takes only the TypeScript form |
+| 7. At a desk the intensity and the Body and arm parts have no effect with MediaPipe | Not changed. The MediaPipe retarget code sends no torso bone without the hips in view, and it is not part of this change. See the open question on the pull request about Body Movement Intensity |
+
+Headless Chromium check of the fix (the real `Inspector`, with the view held in Svelte component state as in `EditorApp`; a scratch page, not in the repository):
+
+```
+initial: revision 0, 0 patches
+after a click on Left Leg: revision 1, trackedParts without leftLeg, box not checked
+after 0.5 in the number box: revision 2, movementIntensity 0.5
+during the slider drag: revision 2 (no patch)
+after the slider drag: revision 3, movementIntensity 1.86, the box shows 1.86
+after Fingers source = camera: revision 4, fingersSourceId camera, the body group stays
+after Fingers source = None: revision 5, no fingersSourceId, the body group stays
+console errors: one 404 for a file that the scratch page does not have
+```
+
+The same check with the helper file of commit `3050ca7` stops after the first click: the number box sends no patch, and the page reports "Failed to execute 'structuredClone' on 'Window': #<Object> could not be cloned". Thus the check shows the defect on the old code.
+
+`pnpm check`: pass, 0 errors. `pnpm test:unit`: 2002 passed, 1 skipped (231 files). The Rust code did not change after the macOS run.

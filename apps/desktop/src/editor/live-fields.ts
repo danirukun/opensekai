@@ -20,15 +20,17 @@ export function sourceOptions(entities:readonly SceneEntity[],channel:SourceChan
 // One select changes one slot; the other two keep their IDs, and the body group stays. An empty finger slot is left out.
 export function withSource(tracking:AvatarTracking|undefined,channel:SourceChannel,value:string):AvatarTracking {
  const next={bodySourceId:tracking?.bodySourceId??null,faceSourceId:tracking?.faceSourceId??null,fingersSourceId:tracking?.fingersSourceId??null,[slot[channel]]:value||null};
- const {fingersSourceId,...rest}=next;return {...rest,...(fingersSourceId?{fingersSourceId}:{}),...(tracking?.body?{body:structuredClone(tracking.body)}:{})};
+ const {fingersSourceId,...rest}=next;return {...rest,...(fingersSourceId?{fingersSourceId}:{}),...(tracking?.body?{body:plainBody(tracking.body)}:{})};
 }
+// Plain copies: the tracking can be a Svelte state proxy, which structuredClone rejects.
+const plainBody=(body:AvatarBodyTracking):AvatarBodyTracking=>({movementIntensity:body.movementIntensity,trackedParts:[...body.trackedParts]});
 export const bodyPartOptions:readonly {value:BodyPart;label:string}[]=[{value:'head',label:'Head'},{value:'body',label:'Body'},{value:'leftArm',label:'Left Arm'},{value:'rightArm',label:'Right Arm'},{value:'leftFingers',label:'Left Fingers'},{value:'rightFingers',label:'Right Fingers'},{value:'leftLeg',label:'Left Leg'},{value:'rightLeg',label:'Right Leg'}];
 // The body group that the Inspector shows: the default for a character without one (TRK-05 slice 2 R8).
 export const bodyTrackingOf=(tracking:AvatarTracking|undefined):AvatarBodyTracking=>tracking?.body??DEFAULT_AVATAR_BODY_TRACKING;
 // The tracking with a changed body group; the source IDs stay. The default group is left out, as the scene stores it.
 export function withBodyTracking(tracking:AvatarTracking|undefined,change:Partial<AvatarBodyTracking>):AvatarTracking {
- const {body:_body,...ids}=structuredClone(tracking??{bodySourceId:null,faceSourceId:null});
- const body=normalizeBodyTracking({...bodyTrackingOf(tracking),...change});
+ const ids:AvatarTracking={bodySourceId:tracking?.bodySourceId??null,faceSourceId:tracking?.faceSourceId??null,...(tracking?.fingersSourceId?{fingersSourceId:tracking.fingersSourceId}:{})};
+ const body=normalizeBodyTracking({...plainBody(bodyTrackingOf(tracking)),...change});
  return body?{...ids,body}:ids;
 }
 export const withBodyPart=(tracking:AvatarTracking|undefined,part:BodyPart,tracked:boolean):AvatarTracking=>

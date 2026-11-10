@@ -9,6 +9,6 @@ export function makeEntityCopy(entity:SceneEntity,id:string,entities:readonly Sc
  if(copy.kind==='tracking'){copy.config.enabled=false;copy.generation=0;}
  // A copy of a sender does not send until the operator starts it (B21 R2).
  if(copy.kind==='vmcSender')copy.vmcSender.enabled=false;
- if(copy.kind==='avatar'){copy.tracking={bodySourceId:null,faceSourceId:null,...(copy.tracking?.body?{body:copy.tracking.body}:{})};copy.transform=nextAvatarTransform(entities,entity.transform.scale);}
+ if(copy.kind==='avatar'){copy.tracking={bodySourceId:null,faceSourceId:null,...(copy.tracking?.body?{body:{movementIntensity:copy.tracking.body.movementIntensity,trackedParts:[...copy.tracking.body.trackedParts]}}:{})};copy.transform=nextAvatarTransform(entities,entity.transform.scale);}
  return copy;
 }

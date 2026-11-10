@@ -6,6 +6,7 @@ import { createSession } from '../src/session';
 const RAD = Math.PI / 180;
 const about = (axis: 0 | 1 | 2, degrees: number): Quat => { const q: Quat = [0, 0, 0, Math.cos(degrees * RAD / 2)]; q[axis] = Math.sin(degrees * RAD / 2); return q; };
 const [qx, qy, qz] = [(d: number) => about(0, d), (d: number) => about(1, d), (d: number) => about(2, d)];
+const mul = (a: Quat, b: Quat): Quat => { const [ax, ay, az, aw] = a, [bx, by, bz, bw] = b; return [ax * bw + aw * bx + ay * bz - az * by, ay * bw + aw * by + az * bx - ax * bz, az * bw + aw * bz + ax * by - ay * bx, aw * bw - ax * bx - ay * by - az * bz]; };
 const expectSame = (a: Quat, b: Quat) => { const sign = a.reduce((sum, value, i) => sum + value * b[i]!, 0) < 0 ? -1 : 1; a.forEach((value, i) => expect(value * sign).toBeCloseTo(b[i]!, 6)); };
 const bone = (rotation: Quat, extra: Partial<TrackingBone> = {}): TrackingBone => ({ rotation, space: 'normalized', ...extra });
 const transform = { position: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] };
@@ -51,8 +52,8 @@ describe('tracked body parts', () => {
  it('drops the bones of a part that is not tracked, from each source, and keeps the others (R5)', () => {
   const plain = pose(ids);
   const cases: [BodyPart, string[]][] = [
-   ['head', ['neck', 'head', 'leftEye']], ['body', ['hips', 'spine', 'chest', 'upperChest']],
-   ['leftArm', ['leftShoulder', 'leftUpperArm', 'leftHand']], ['rightArm', ['rightUpperArm']],
+   ['head', ['neck', 'head']], ['leftArm', ['leftShoulder', 'leftUpperArm', 'leftHand']],
+   ['rightArm', ['rightUpperArm']],
    ['leftFingers', ['leftIndexProximal']], ['rightFingers', ['rightIndexProximal', 'rightThumbDistal']],
    ['leftLeg', ['leftUpperLeg']], ['rightLeg', ['rightFoot']],
   ];
@@ -63,13 +64,27 @@ describe('tracked body parts', () => {
    expect(result.expressions, part).toEqual(plain.expressions);
   }
  });
+ it('drops the torso bones with Body off, and the head keeps its direction (R5, R6)', () => {
+  const plain = pose(ids), result = pose({ ...ids, body: without('body') });
+  for (const name of ['hips', 'spine', 'chest', 'upperChest']) expect(result.bones[name], name).toBeUndefined();
+  // The neck takes the torso rotation above the hips: spine, then chest, then upper chest.
+  expectSame(result.bones.neck!.rotation, mul(mul(mul(qx(10), qz(30)), qx(-40)), plain.bones.neck!.rotation));
+  for (const [name, value] of Object.entries(plain.bones)) if (!['hips', 'spine', 'chest', 'upperChest', 'neck'].includes(name)) expect(result.bones[name], name).toEqual(value);
+  expect(result.expressions).toEqual(plain.expressions);
+ });
+ it('keeps the eye and jaw bones with Head off: they follow the face (R2)', () => {
+  const result = pose({ ...ids, body: without('head') });
+  expect(result.bones.leftEye).toEqual(pose(ids).bones.leftEye);
+  expect(applyBodyTracking([['jaw', bone(qx(9))], ['rightEye', bone(qx(3))], ['head', bone(qy(7))]], without('head')).map(([name]) => name)).toEqual(['jaw', 'rightEye']);
+ });
  it('drops the root motion only when the body part is not tracked (R5)', () => {
   expect(pose({ ...ids, body: without('body') }).root).toBeUndefined();
   expect(pose({ ...ids, body: without('head', 'leftLeg', 'rightLeg') }).root).toEqual(pose(ids).root);
  });
  it('keeps the face expressions when no part is tracked (R5)', () => {
   const result = pose({ ...ids, body: { movementIntensity: 1, trackedParts: [] } });
-  expect(result.bones).toEqual({});
+  // Only the eye bone of the face source stays: it belongs to no part.
+  expect(Object.keys(result.bones)).toEqual(['leftEye']);
   expect(result.expressions).toEqual({ jawOpen: 0.5, eyeBlinkLeft: 1 });
  });
 });
@@ -82,12 +97,24 @@ describe('body movement intensity', () => {
   expectSame(twice.bones.hips!.rotation, qy(40)); expectSame(twice.bones.chest!.rotation, qz(60)); expectSame(twice.bones.upperChest!.rotation, qx(-80));
   for (const name of ['hips', 'spine', 'chest', 'upperChest']) expectSame(none.bones[name]!.rotation, [0, 0, 0, 1]);
   for (const result of [half, twice, none]) {
-   for (const [name, value] of Object.entries(plain.bones)) if (!['hips', 'spine', 'chest', 'upperChest'].includes(name)) expect(result.bones[name], name).toEqual(value);
+   for (const [name, value] of Object.entries(plain.bones)) if (!['hips', 'spine', 'chest', 'upperChest', 'neck'].includes(name)) expect(result.bones[name], name).toEqual(value);
    expect(result.bones.hips!.position).toEqual([0, 0.9, 0]);
    expect(result.bones.hips!.weight).toBe(plain.bones.hips!.weight);
    expect(result.root).toEqual(plain.root);
    expect(result.expressions).toEqual(plain.expressions);
   }
+ });
+ it('keeps the direction of the head when the torso scales: the first head bone takes the difference (R6)', () => {
+  const plain = pose(ids), before = mul(mul(qx(10), qz(30)), qx(-40));
+  const world = (p: typeof plain) => mul(mul(mul(mul(p.bones.spine!.rotation, p.bones.chest!.rotation), p.bones.upperChest!.rotation), p.bones.neck!.rotation), p.bones.head!.rotation);
+  for (const intensity of [0, 0.5, 2]) expectSame(world(pose({ ...ids, body: all(intensity) })), mul(mul(before, plain.bones.neck!.rotation), plain.bones.head!.rotation));
+  // Without a neck, the head takes it. A raw head and a head that is not tracked do not change.
+  const entries = (space: TrackingBone['space']): [string, TrackingBone][] => [['chest', bone(qz(30))], ['head', { rotation: qy(7), space }]];
+  expectSame(applyBodyTracking(entries('normalized'), all(0))[1]![1].rotation, mul(qz(30), qy(7)));
+  expectSame(applyBodyTracking(entries('raw'), all(0))[1]![1].rotation, qy(7));
+  expect(applyBodyTracking(entries('normalized'), { movementIntensity: 0, trackedParts: ['body'] }).map(([name]) => name)).toEqual(['chest']);
+  // The hips are below the torso chain: a dropped hips rotation does not turn the head.
+  expectSame(applyBodyTracking([['hips', bone(qy(90))], ['head', bone(qy(7))]], without('body'))[0]![1].rotation, qy(7));
  });
  it('does not scale a raw bone: its rotation is absolute, not a delta from the rest pose (R6)', () => {
   const raw: TrackingBone = { rotation: qy(20), space: 'raw' };

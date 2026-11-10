@@ -19,14 +19,25 @@ export function applyPositionRule(sample:TrackingSample,rule:VmcPositionRule):Tr
 // The bones that a character takes from its sources (TRK-05 slice 2 R5, R6): a part that is not tracked sends no bone,
 // and the normalized rotations of the body part scale about the identity. Positions and weights stay.
 // A raw bone is an absolute rotation that the renderer blends from the rest pose, so a scale about the identity would move it off the rest pose; it stays as sent.
+// A normalized head is relative to the torso above the hips. When that torso is scaled or dropped, the first head bone
+// takes the difference, so the head keeps its direction (the same rule as the MediaPipe head with another body source).
+const TORSO=['spine','chest','upperChest'] as const;
+const torsoRotation=(entries:[string,TrackingBone][]):Quat=>TORSO.reduce<Quat>((total,name)=>{const bone=entries.find(([key])=>key===name)?.[1];return bone?.space==='normalized'?multiplyQuaternion(total,bone.rotation):total;},[0,0,0,1]);
 export function applyBodyTracking(entries:[string,TrackingBone][],body:AvatarBodyTracking|undefined):[string,TrackingBone][] {
  if(!body)return entries;
  const tracked=new Set<string>(body.trackedParts);
- return entries.flatMap(([name,bone]):[string,TrackingBone][]=>{
+ const result=entries.flatMap(([name,bone]):[string,TrackingBone][]=>{
   const part=bodyPartOf(name);
   if(part&&!tracked.has(part))return [];
   return [[name,part==='body'&&bone.space==='normalized'&&body.movementIntensity!==1?{...bone,rotation:scaleRotation(bone.rotation,body.movementIntensity)}:bone]];
  });
+ const before=torsoRotation(entries),after=torsoRotation(result);
+ if(before.every((value,index)=>value===after[index]))return result;
+ const first=['neck','head'].map(name=>result.findIndex(([key,bone])=>key===name&&bone.space==='normalized')).find(index=>index>=0);
+ if(first===undefined)return result;
+ const [name,bone]=result[first]!,[x,y,z,w]=after;
+ result[first]=[name,{...bone,rotation:multiplyQuaternion(multiplyQuaternion([-x,-y,-z,w],before),bone.rotation)}];
+ return result;
 }
 export function createTrackingComposer(){
  const samples=new Map<string,TrackingSample>(),statuses=new Map<string,TrackingStatus>();
