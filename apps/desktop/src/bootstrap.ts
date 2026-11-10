@@ -84,13 +84,20 @@ export async function bootstrapDesktop(canvas: HTMLCanvasElement, editorOptions?
   const renderer = await createRenderer({ canvas, outputId: 'preview_main', mode: info.rendererMode,
    resources: preview, diagnostics: false, quality: QUALITY_PROFILES.preview_v1,
    editor: info.operator.capabilities.includes('edit') ? editorOptions : undefined,
-   webLayers: webLayers ? { ...webLayers, interactive: false } : undefined });
+   webLayers: webLayers ? { ...webLayers, interactive: false } : undefined,
+   // B31 R14: preview_main closes its capture sockets when its pump stops (pauseVideos) and opens them on the next frame.
+   capture: { onStatus: listener => preview.onCaptureStatus(listener), open: (streamId, handlers) => preview.openCapture(streamId, handlers) } });
+  const previewEpoch = crypto.randomUUID();
+  let decoderReported = false;
   const fpsCounter = counterHost ? createFpsCounterOverlay({ host: counterHost, canvas }) : null;
   const pump = createPreviewPump<RuntimeFrame>(async frame => {
    const measuring = previewProbe?.begin() ?? false;
    try {
     const applied = await renderer.applyFrame(frame);
-    if (!stopped) { fpsCounter?.frameApplied(frame.scene); preview.sendApplied(applied); }
+    if (!stopped) {
+     fpsCounter?.frameApplied(frame.scene); preview.sendApplied(applied);
+     if (!decoderReported) { const report = renderer.decoderReport(previewEpoch); if (report) { decoderReported = true; preview.sendDiagnostics?.(report); } }
+    }
    } finally {
     if (measuring) previewProbe?.end();
    }
