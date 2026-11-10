@@ -81,8 +81,10 @@ export function createAvatarBinding(vrm: VRM) {
             const target=name==='chest' && !vrm.humanoid.getNormalizedBoneNode('chest')
                 && pose?.bones.spine?.space!=='normalized' ? 'spine' : name;
             const baseline=normalized[target as VRMHumanBoneName];
-            const rotation=new Quaternion().fromArray(baseline?.rotation ?? [0,0,0,1]).slerp(new Quaternion().fromArray(bone.rotation),weight).toArray();
-            const position=bone.position ? new Vector3().fromArray(baseline?.position ?? [0,0,0]).lerp(new Vector3().fromArray(bone.position),weight).toArray() : baseline?.position;
+            // A normalized tracking value has the VRM 1 axes, as a base bone has (VRM 0 tracking axes R2).
+            const [x,y,z,w]=bone.rotation;
+            const rotation=new Quaternion().fromArray(baseline?.rotation ?? [0,0,0,1]).slerp(new Quaternion(x*sign,y,z*sign,w),weight).toArray();
+            const position=bone.position ? new Vector3().fromArray(baseline?.position ?? [0,0,0]).lerp(new Vector3(bone.position[0]*sign,bone.position[1],bone.position[2]*sign),weight).toArray() : baseline?.position;
             normalized[target as VRMHumanBoneName]={rotation,...(position ? {position} : {})};
         }
         resolveChest(normalized);

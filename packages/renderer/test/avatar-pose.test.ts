@@ -158,7 +158,7 @@ function orientedArmFixture(version:'0'|'1') {
  VRMUtils.rotateVRM0(vrm);
  return {...base,vrm,binding:createAvatarBinding(vrm)};
 }
-it('keeps canonical idle hands below shoulders on VRM0 and VRM1 without changing tracking axes',()=>{
+it('keeps canonical idle and normalized tracking hands below shoulders on VRM0 and VRM1, and raw tracking in rig axes',()=>{
  const left=new Quaternion().setFromAxisAngle(new Vector3(0,0,1),-.9),right=new Quaternion().setFromAxisAngle(new Vector3(0,0,1),.9);
  for(const version of ['0','1'] as const){
   const a=orientedArmFixture(version);const baseBones={leftUpperArm:{rotation:left.toArray(),space:'normalized' as const},rightUpperArm:{rotation:right.toArray(),space:'normalized' as const}};
@@ -166,17 +166,23 @@ it('keeps canonical idle hands below shoulders on VRM0 and VRM1 without changing
   for(const side of ['left','right'] as const)expect(a.bones[`${side}Hand`].node.getWorldPosition(new Vector3()).y).toBeLessThan(a.bones[`${side}UpperArm`].node.getWorldPosition(new Vector3()).y);
   const tracking=new Quaternion().setFromAxisAngle(new Vector3(0,0,1),.4);
   a.binding.apply({avatarId:'a',baseBones,bones:{leftUpperArm:{rotation:tracking.toArray(),space:'normalized'}},expressions:{}});
-  expect(a.bones.leftUpperArm.node.quaternion.angleTo(tracking)).toBeLessThan(1e-7);
+  const sign=version==='0'?-1:1;
+  expect(a.bones.leftUpperArm.node.quaternion.angleTo(new Quaternion(tracking.x*sign,tracking.y,tracking.z*sign,tracking.w))).toBeLessThan(1e-7);
+  // Arms down in the normalized space, with no base bones: the hands are below the shoulders for each VRM version.
+  a.binding.apply({avatarId:'a',bones:{leftUpperArm:{rotation:left.toArray(),space:'normalized'},rightUpperArm:{rotation:right.toArray(),space:'normalized'}},expressions:{}});
+  for(const side of ['left','right'] as const)expect(a.bones[`${side}Hand`].node.getWorldPosition(new Vector3()).y).toBeLessThan(a.bones[`${side}UpperArm`].node.getWorldPosition(new Vector3()).y);
   a.binding.apply({avatarId:'a',baseBones,bones:{leftUpperArm:{rotation:tracking.toArray(),space:'raw'}},expressions:{}});
   expect(a.bones.leftUpperArm.node.quaternion.angleTo(tracking)).toBeLessThan(1e-7);
  }
 });
-it('adapts canonical baseline X/Z quaternion and position components only for VRM0',()=>{
+it('adapts canonical baseline and normalized tracking X/Z quaternion and position components only for VRM0',()=>{
  for(const version of ['0','1'] as const){
   const a=orientedArmFixture(version),q=new Quaternion().setFromAxisAngle(new Vector3(1,2,3).normalize(),.5);
   const set=vi.spyOn(a.vrm.humanoid,'setNormalizedPose');
   a.binding.apply({avatarId:'a',baseBones:{hips:{rotation:q.toArray(),position:[1,2,3],space:'normalized'}},bones:{},expressions:{}});
   const sign=version==='0'?-1:1;
+  expect(set).toHaveBeenLastCalledWith({hips:{rotation:[q.x*sign,q.y,q.z*sign,q.w],position:[sign,2,3*sign]}});
+  a.binding.apply({avatarId:'a',bones:{hips:{rotation:q.toArray(),position:[1,2,3],space:'normalized'}},expressions:{}});
   expect(set).toHaveBeenLastCalledWith({hips:{rotation:[q.x*sign,q.y,q.z*sign,q.w],position:[sign,2,3*sign]}});
  }
 });
