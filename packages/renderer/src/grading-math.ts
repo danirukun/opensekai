@@ -50,8 +50,10 @@ export function vibrance(color: Rgb, adjustment: number): Rgb {
     return map(color, x => Math.max(0, x + (peak - x) * amount));
 }
 
+/** The least base of the contrast power: `pow(0, 0)` has no defined value in a shader. */
+export const CONTRAST_FLOOR = 1e-6;
 export const contrast = (color: Rgb, amount: number): Rgb =>
-    map(color, x => CONTRAST_PIVOT * Math.pow(Math.max(x, 0) / CONTRAST_PIVOT, 1 + amount));
+    map(color, x => CONTRAST_PIVOT * Math.pow(Math.max(x / CONTRAST_PIVOT, CONTRAST_FLOOR), 1 + amount));
 
 const srgbToLinear = (x: number) => (x <= 0.04045 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4));
 /** `#rrggbb` (sRGB) as a linear color, as three.js `Color.set` gives it. */
@@ -63,7 +65,8 @@ export function gradeColor(color: Rgb, grading: CameraGrading): Rgb {
     const mapped = toneMap(grading.toneMapping, color, Math.pow(2, grading.exposure));
     const bright = map(mapped, x => x * (1 + grading.brightness));
     const vivid = vibrance(contrast(bright, grading.contrast), grading.vibrance);
-    return [Math.max(0, vivid[0] * tint[0]), Math.max(0, vivid[1] * tint[1]), Math.max(0, vivid[2] * tint[2])];
+    // Display-referred color from 0 to 1: a brighter color times a partial alpha is not a valid premultiplied pixel.
+    return [clamp01(vivid[0] * tint[0]), clamp01(vivid[1] * tint[1]), clamp01(vivid[2] * tint[2])];
 }
 
 /** R10 for a premultiplied pixel: a pixel without coverage stays `0, 0, 0, 0`. */

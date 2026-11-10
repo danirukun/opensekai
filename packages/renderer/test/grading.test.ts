@@ -15,7 +15,8 @@ const sample: Rgb = [0.08, 0.34, 0.5];
 describe('grading reference', () => {
     it('changes no color at the defaults', () => {
         close(gradeColor(sample, DEFAULT_CAMERA_GRADING), sample, 12);
-        close(gradeColor([1.7, 0, 0.18], DEFAULT_CAMERA_GRADING), [1.7, 0, 0.18], 12);
+        // A channel of 0 takes the contrast floor: 0.18 · 10⁻⁶, far below one step of 8-bit color.
+        close(gradeColor([0.7, 0, 0.18], DEFAULT_CAMERA_GRADING), [0.7, 0, 0.18], 6);
     });
     it('reads exposure in stops', () => {
         close(gradeColor(sample, graded({ exposure: 1 })), sample.map(x => x * 2));
@@ -32,6 +33,9 @@ describe('grading reference', () => {
         close(less, [0.18 * Math.SQRT1_2, 0.18, 0.18 * Math.SQRT2]);
         close(contrast([0.09, 0.5, 2], -1), [CONTRAST_PIVOT, CONTRAST_PIVOT, CONTRAST_PIVOT]);
         close(contrast([-0.2, 0, 0], 0.5), [0, 0, 0]);
+        // A zero channel at contrast -1 has the power 0: the result is the pivot, not NaN.
+        close(contrast([1, 0, 0], -1), [CONTRAST_PIVOT, CONTRAST_PIVOT, CONTRAST_PIVOT]);
+        close(gradeColor([1, 0, 0], graded({ contrast: -1 })), [CONTRAST_PIVOT, CONTRAST_PIVOT, CONTRAST_PIVOT]);
     });
     it('leaves a gray unchanged under vibrance and removes the saturation at -1', () => {
         close(vibrance([0.4, 0.4, 0.4], 1), [0.4, 0.4, 0.4]);
@@ -64,6 +68,13 @@ describe('grading reference', () => {
         const tint = tintLinear('#808080');
         const expected = vibrance(contrast(neutral(sample, 2).map(x => x * 1.2) as unknown as Rgb, 0.3), -0.4).map((x, i) => x * tint[i]);
         close(gradeColor(sample, grading), expected, 12);
+    });
+    it('gives a color from 0 to 1, so a graded edge pixel has no channel above its alpha', () => {
+        close(gradeColor([0.8, 0.5, 0.1], graded({ exposure: 4 })), [1, 1, 1]);
+        close(gradeColor([0.8, 0.5, 0.1], graded({ brightness: 1 })), [1, 1, 0.2]);
+        const edge = gradePixel([0.4, 0.25, 0.05, 0.5], graded({ exposure: 2 }));
+        for (const channel of edge.slice(0, 3)) expect(channel).toBeLessThanOrEqual(edge[3]);
+        close(edge, [0.5, 0.5, 0.2, 0.5]);
     });
     it('grades the color of a premultiplied pixel and keeps its alpha', () => {
         const pixel = gradePixel([0.2, 0.1, 0.05, 0.5], graded({ exposure: 1 }));

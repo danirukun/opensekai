@@ -143,7 +143,7 @@ export async function renderScreenshot({ renderer, backend, scene, camera, show,
             const grade = createGrading();
             grade.update(grading);
             if (grading.bloom.intensity > 0) {
-                const bloom = grade.bloom(color);
+                const bloom = grade.bloom(color, { width, height });
                 glow = bloom;
                 color = bloomComposite(color, bloom) as unknown as typeof color;
             }

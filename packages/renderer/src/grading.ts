@@ -2,7 +2,7 @@ import { Color, type Node, type UniformNode } from "three/webgpu";
 import { acesFilmicToneMapping, max, neutralToneMapping, select, uniform, vec3, vec4, vibrance } from "three/tsl";
 import { bloom as bloomNode } from "three/addons/tsl/display/BloomNode.js";
 import type { CameraGrading, CameraToneMapping } from "@opensekai/contracts";
-import { ALPHA_EPSILON, CONTRAST_PIVOT } from "./grading-math";
+import { ALPHA_EPSILON, CONTRAST_FLOOR, CONTRAST_PIVOT } from "./grading-math";
 
 type Vec4 = Node<"vec4">;
 type Vec3 = Node<"vec3">;
@@ -37,9 +37,10 @@ export const gradeNode = (color: Vec4, mode: CameraToneMapping, u: GradingUnifor
     // The curves change their input in place, so each gets its own variable.
     const mapped = (curve ? curve((vec3(straight) as unknown as { toVar(): Vec3 }).toVar(), u.exposure) : straight.mul(u.exposure)) as unknown as Vec3;
     const bright = max(mapped.mul(u.brightness.add(1)), 0) as unknown as Vec3;
-    const contrasted = bright.div(CONTRAST_PIVOT).pow(u.contrast.add(1)).mul(CONTRAST_PIVOT) as unknown as Vec3;
+    const contrasted = max(bright.div(CONTRAST_PIVOT), CONTRAST_FLOOR).pow(u.contrast.add(1)).mul(CONTRAST_PIVOT) as unknown as Vec3;
     const vivid = (vibrance as unknown as (color: Vec3, amount: Float) => Vec3)(contrasted, u.vibrance);
-    const graded = max(vivid.mul(u.tint), 0);
+    // From 0 to 1, so that the color times a partial alpha stays a valid premultiplied pixel.
+    const graded = vivid.mul(u.tint).saturate();
     return select(covered, vec4(graded.mul(color.a), color.a), vec4(0)) as unknown as Vec4;
 };
 
@@ -48,8 +49,11 @@ export interface Grading {
     /** Sets the uniforms from the camera group; no recompile (R11). */
     update(grading: CameraGrading): void;
     grade(color: Vec4, mode: CameraToneMapping): Vec4;
-    /** A bloom node of `color` with the strength, radius, and threshold of the group. The caller disposes it. */
-    bloom(color: Vec4): Vec4 & { dispose(): void };
+    /**
+     * A bloom node of `color` with the strength, radius, and threshold of the group. The caller disposes it.
+     * three.js sizes the bloom targets from the drawing buffer; `size` fixes them for an offscreen target of another size.
+     */
+    bloom(color: Vec4, size?: { width: number; height: number }): Vec4 & { dispose(): void };
 }
 
 export function createGrading(): Grading {
@@ -70,6 +74,10 @@ export function createGrading(): Grading {
             uniforms.bloomRadius.value = grading.bloom.radius;
         },
         grade: (color, mode) => gradeNode(color, mode, uniforms),
-        bloom: color => bloomNode(color as never, uniforms.bloomIntensity as never, uniforms.bloomRadius as never, uniforms.bloomThreshold as never) as unknown as Vec4 & { dispose(): void },
+        bloom(color, size) {
+            const node = bloomNode(color as never, uniforms.bloomIntensity as never, uniforms.bloomRadius as never, uniforms.bloomThreshold as never);
+            if (size) { const setSize = node.setSize.bind(node); node.setSize = () => setSize(size.width, size.height); }
+            return node as unknown as Vec4 & { dispose(): void };
+        },
     };
 }
