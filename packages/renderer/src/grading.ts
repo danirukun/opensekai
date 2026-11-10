@@ -1,5 +1,5 @@
 import { Color, type Node, type UniformNode } from "three/webgpu";
-import { acesFilmicToneMapping, max, neutralToneMapping, select, uniform, vec3, vec4, vibrance } from "three/tsl";
+import { Fn, acesFilmicToneMapping, luminance, max, neutralToneMapping, select, uniform, vec3, vec4, vibrance } from "three/tsl";
 import { bloom as bloomNode } from "three/addons/tsl/display/BloomNode.js";
 import type { CameraGrading, CameraToneMapping } from "@opensekai/contracts";
 import { ALPHA_EPSILON, CONTRAST_FLOOR, CONTRAST_PIVOT } from "./grading-math";
@@ -17,6 +17,15 @@ export const bloomComposite = (scene: Vec4, bloom: Vec4): Vec4 => {
     const coverage = max(bloom.r, max(bloom.g, bloom.b)).saturate();
     return vec4(scene.rgb.add(bloom.rgb), scene.a.add(scene.a.oneMinus().mul(coverage))) as unknown as Vec4;
 };
+
+/**
+ * The bloom input of R9: the pixel times the part of its luminance that is above the threshold. The three.js high pass
+ * gives the full pixel above the threshold, so a surface at the clip level (a toon face) is added to itself one more time.
+ */
+export const bloomInput = Fn(({ input, threshold }: { input: Vec4; threshold: Float }) => {
+    const level = luminance(input.rgb as never) as unknown as Float;
+    return input.mul(max(level.sub(threshold), 0).div(max(level, ALPHA_EPSILON)));
+});
 
 export interface GradingUniforms {
     readonly exposure: UniformNode<"float">;
@@ -76,6 +85,7 @@ export function createGrading(): Grading {
         grade: (color, mode) => gradeNode(color, mode, uniforms),
         bloom(color, size) {
             const node = bloomNode(color as never, uniforms.bloomIntensity as never, uniforms.bloomRadius as never, uniforms.bloomThreshold as never);
+            (node as unknown as { highPassFn: unknown }).highPassFn = bloomInput;
             if (size) { const setSize = node.setSize.bind(node); node.setSize = () => setSize(size.width, size.height); }
             return node as unknown as Vec4 & { dispose(): void };
         },

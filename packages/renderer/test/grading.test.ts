@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { DEFAULT_CAMERA_GRADING, QUALITY_PROFILES, makeSmokeFrame, type CameraGrading, type RuntimeFrame } from '@opensekai/contracts';
-const ports = vi.hoisted(() => ({ chain: { render: vi.fn(), dispose: vi.fn() } }));
+const ports = vi.hoisted(() => ({ chain: { render: vi.fn(), dispose: vi.fn() }, shot: vi.fn() }));
 vi.mock('../src/backend', () => ({ initializeBackend: async () => ({ backend: 'webgl2', renderer: { shadowMap: { enabled: false }, info: { memory: { geometries: 0, textures: 0 } }, setSize: vi.fn(), renderAsync: vi.fn(), compileAsync: vi.fn(), dispose: vi.fn() } }) }));
 vi.mock('../src/environment-light', async original => ({ ...await original<typeof import('../src/environment-light')>(), roomEnvironmentMap: () => () => ({ texture: null, dispose() {} }) }));
+vi.mock('../src/screenshot', async original => ({ ...await original<typeof import('../src/screenshot')>(), renderScreenshot: ports.shot }));
 vi.mock('../src/post-chain', async original => ({ ...await original<typeof import('../src/post-chain')>(), createPostChain: () => ports.chain }));
 import { createRenderer } from '../src/renderer';
 import { chainKey, needsChain } from '../src/post-chain';
-import { CONTRAST_PIVOT, acesFilmic, bloomCompositePixel, contrast, gradeColor, gradePixel, neutral, tintLinear, vibrance, type Rgb } from '../src/grading-math';
+import { CONTRAST_PIVOT, acesFilmic, bloomCompositePixel, bloomInputPixel, contrast, gradeColor, gradePixel, neutral, tintLinear, vibrance, type Rgb } from '../src/grading-math';
 
 const graded = (change: Partial<CameraGrading>): CameraGrading => ({ ...DEFAULT_CAMERA_GRADING, ...change });
 const close = (actual: readonly number[], expected: readonly number[], digits = 6) => actual.forEach((value, index) => expect(value).toBeCloseTo(expected[index], digits));
@@ -82,6 +83,17 @@ describe('grading reference', () => {
         expect(gradePixel([0, 0, 0, 0], graded({ exposure: 4, toneMapping: 'neutral' }))).toEqual([0, 0, 0, 0]);
         expect(gradePixel([0.3, 0.3, 0.3, 0], graded({ brightness: 1 }))).toEqual([0, 0, 0, 0]);
     });
+    it('takes only the luminance above the threshold into the bloom', () => {
+        const white: Rgb = [1, 1, 1];
+        close(bloomInputPixel(white, 0), white);
+        close(bloomInputPixel(white, 0.76), [0.24, 0.24, 0.24]);
+        close(bloomInputPixel(white, 1), [0, 0, 0]);
+        close(bloomInputPixel([4, 4, 4], 1), [3, 3, 3]);
+        close(bloomInputPixel([0.5, 0.5, 0.5], 0.8), [0, 0, 0]);
+        close(bloomInputPixel([0, 0, 0], 0), [0, 0, 0]);
+        // The color stays: a red light at luminance 0.4252 with the threshold 0.2126 gives half of itself.
+        close(bloomInputPixel([2, 0, 0], 0.2126), [1, 0, 0]);
+    });
     it('turns the brightest bloom channel into coverage', () => {
         close(bloomCompositePixel([0, 0, 0, 0], [0.1, 0.4, 0.2]), [0.1, 0.4, 0.2, 0.4]);
         close(bloomCompositePixel([0.2, 0.2, 0.2, 0.5], [0.1, 0.4, 0.2]), [0.3, 0.6, 0.4, 0.7]);
@@ -129,6 +141,21 @@ describe('renderer', () => {
         const grading = graded({ exposure: 1, bloom: { intensity: 1, threshold: 0.76, radius: 0.4 } });
         await renderer.applyFrame(frame(grading));
         expect(ports.chain.render.mock.lastCall![4]).toEqual(grading);
+        renderer.dispose();
+    });
+    it('gives the grading of the screenshot camera to the screenshot (R12)', async () => {
+        ports.shot.mockReset().mockResolvedValue(new Uint8Array([1]));
+        const renderer = await createRenderer({ canvas: { width: 0, height: 0 } as HTMLCanvasElement, outputId: 'output_main', mode: 'force-webgl2', resources: { readAsset: vi.fn() }, diagnostics: false, quality: QUALITY_PROFILES.production_v1 });
+        const grading = graded({ exposure: 1 });
+        const shown = frame(grading);
+        const output = shown.scene.outputs.find(o => o.id === 'output_main')!.cameraId;
+        const other = shown.scene.entities.find(e => e.kind === 'camera' && e.id !== output)!.id;
+        await renderer.applyFrame(shown);
+        await renderer.screenshot(output, shown.scene.revision);
+        expect(ports.shot.mock.lastCall![0].grading).toEqual(grading);
+        // Another camera gives its own grading, not the grading of the output camera.
+        await renderer.screenshot(other, shown.scene.revision);
+        expect(ports.shot.mock.lastCall![0].grading).toEqual(graded({ toneMapping: 'aces' }));
         renderer.dispose();
     });
 });

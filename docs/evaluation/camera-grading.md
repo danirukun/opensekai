@@ -265,3 +265,30 @@ The difference between bloom off and on is smaller than the difference between t
 ### Not checked
 
 The Tint color picker, the gizmo of the editor in a graded preview, a web page Screen with a grading, a release build, the "SRGB Off" blending method of OBS, WebGL 2 on macOS, and Windows.
+
+## Fixes after the macOS check (2026-11-10)
+
+Made in the Linux cloud container after the macOS comment on the pull request. None of these changes is checked on macOS yet.
+
+| macOS defect | Action |
+| --- | --- |
+| 1. The glow is a dark veil over a light OBS background | Not changed in code. The cause is the default OBS blending of a premultiplied sRGB source, and the haze and each anti-aliased edge have the same effect. Recorded as a known limit in the analysis and as Approximate in the parity line. The "SRGB Off" blending method of the Browser Source is the candidate setting and needs a check on macOS |
+| 2. Bloom 1 / 0.76 removes the face of an MToon character | Fixed. The bloom input is now the pixel times the part of its luminance above the threshold (R9), not the full pixel. A face at luminance 1 with the threshold 0.76 gives 0.24 of its light to the bloom, not all of it. The defaults and the slider ranges did not change |
+| 3. Vibrance above about 0.5 makes strong colors primary colors | Not changed. This is the three.js `vibrance` function. Owner decision: keep it, halve the range, or use another formula |
+| 4. No unit test that the renderer gives the grading to the screenshot | Fixed: a test in `packages/renderer/test/grading.test.ts`. The Structure section of the contract no longer names two files that did not change |
+| 5. The editor gizmo gets the grade in the preview; a web page Screen gets no grading; the haze failure flag also follows a grade failure | The parity line now says that a web page Screen gets no grading. The gizmo and the haze flag are not changed: the gizmo has the same path with FXAA and haze, and the flag is older than this change |
+
+Render check of the new bloom input (the same scratch page and adapters as above; `near` is a pixel 240 pixels to the right of the centre, outside the box):
+
+```
+webgl2 bloom                 canvas partial 1202460 opaque 83640 clear 787500 corner [0, 0, 0, 0] centre [143, 255, 255, 255] near [117, 212, 255, 24]
+webgl2 bloom-threshold-0.2   canvas partial 853560 opaque 83640 clear 1136400 corner [0, 0, 0, 0] centre [106, 203, 242, 255] near [96, 223, 255, 8]
+webgl2 bloom-high-threshold  canvas partial 820 opaque 83640 clear 1989140 corner [0, 0, 0, 0] centre [81, 157, 188, 255] near [0, 0, 0, 0]
+webgpu bloom                 screenshot partial 1202460 opaque 83640 clear 787500 corner [0, 0, 0, 0] centre [143, 255, 255, 255] near [117, 212, 255, 24]
+webgpu bloom-threshold-0.2   screenshot partial 853560 opaque 83640 clear 1136400 corner [0, 0, 0, 0] centre [106, 203, 242, 255] near [96, 223, 255, 8]
+webgpu bloom-high-threshold  screenshot partial 820 opaque 83640 clear 1989140 corner [0, 0, 0, 0] centre [81, 157, 188, 255] near [0, 0, 0, 0]
+```
+
+With the threshold 0 the image is equal to the image before this change. The box has a luminance of about 0.295, so the threshold 0.2 must give (0.295 − 0.2) / 0.295 = 0.32 of the glow: the glow alpha at `near` goes from 24 to 8 (0.33). No toon character was available in this container, so the look of defect 2 after the fix is not seen yet.
+
+`pnpm check`: pass, 0 errors. `pnpm test:unit`: 2009 passed, 1 skipped (231 files). The Rust code did not change after the macOS run.

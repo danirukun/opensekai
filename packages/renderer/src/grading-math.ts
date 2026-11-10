@@ -77,6 +77,17 @@ export function gradePixel(pixel: Rgba, grading: CameraGrading): Rgba {
     return [graded[0] * a, graded[1] * a, graded[2] * a, a];
 }
 
+const LUMA: Rgb = [0.2126, 0.7152, 0.0722];
+/**
+ * R9: the part of a pixel that goes into the bloom. Only the luminance above the threshold counts, so a pixel just above
+ * the threshold adds a little light and the result has no step at the threshold.
+ */
+export function bloomInputPixel(color: Rgb, threshold: number): Rgb {
+    const luminance = color[0] * LUMA[0] + color[1] * LUMA[1] + color[2] * LUMA[2];
+    const factor = Math.max(luminance - threshold, 0) / Math.max(luminance, ALPHA_EPSILON);
+    return [color[0] * factor, color[1] * factor, color[2] * factor];
+}
+
 /** R9: the bloom adds light, and its brightest channel becomes coverage. `bloom` already has the strength applied. */
 export function bloomCompositePixel(scene: Rgba, bloom: Rgb): Rgba {
     const coverage = clamp01(Math.max(bloom[0], bloom[1], bloom[2]));

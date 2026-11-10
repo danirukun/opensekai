@@ -12,7 +12,7 @@ R5. The patch operation `{ kind: 'setCameraGrading', entityId, grading }` sets t
 R6. `isNeutralGrading` is true for a missing group and for a group that changes no pixel: tone mapping `none`, exposure, brightness, contrast, and vibrance 0, tint white, and bloom intensity 0. The bloom threshold and radius do not count.
 R7. With a neutral grading, no FXAA, and no haze, the renderer draws directly and holds no chain, as before this slice.
 R8. With a grading that is not neutral, the chain is: scene pass, haze composite (when on), bloom composite (when the bloom intensity is above 0), grade, output color transform, FXAA (when on).
-R9. Bloom composite: `rgb = scene.rgb + bloom.rgb`, `alpha = a + (1 − a) · saturate(max(bloom.r, bloom.g, bloom.b))`. The bloom input is the color after the haze composite. Bloom strength, radius, and threshold are the group values.
+R9. Bloom composite: `rgb = scene.rgb + bloom.rgb`, `alpha = a + (1 − a) · saturate(max(bloom.r, bloom.g, bloom.b))`. The bloom input is the color after the haze composite, times the part of its luminance that is above the threshold: `input · max(L − threshold, 0) / max(L, 10⁻⁴)`. A pixel just above the threshold adds a little light, and a pixel at the threshold adds none. Bloom strength, radius, and threshold are the group values.
 R10. Grade, on the color without alpha premultiplication (a pixel with alpha 0 stays `0, 0, 0, 0`): multiply by 2^exposure; apply the tone mapping curve (`none`: no curve; `aces`: three.js `acesFilmicToneMapping`; `neutral`: three.js `neutralToneMapping`); multiply by 1 + brightness; contrast `0.18 · max(c / 0.18, 10⁻⁶)^(1 + contrast)`; three.js `vibrance(c, vibrance)`; multiply by the tint in the working color space; clamp from 0 to 1; premultiply again. The clamp keeps each channel at or below the alpha, so an edge pixel stays a valid premultiplied pixel. The floor keeps the power defined for a channel of 0.
 R11. A change of a number of the group (exposure, brightness, contrast, vibrance, tint, bloom values above 0) does not build the chain again. The chain key has the anti-aliasing mode, the haze flag, and `gradingChainKey`: `off` for a neutral group, otherwise the tone mapping mode and `bloom` or `clear`.
 R12. `camera_screenshot` and Take Screenshot apply the grading of the screenshot camera with the same grade and bloom functions as the output. The bloom targets of a screenshot have the screenshot size (1920 × 1080), not the canvas size.
@@ -37,8 +37,8 @@ Add the contracts first in TypeScript and Rust with shared vectors. Then the ses
 
 - `packages/contracts/src/grading.ts` (new), `schema.ts`, `types.ts`, `index.ts`; `packages/contracts/test/grading.test.ts` (new).
 - `crates/contracts/src/lib.rs`; `crates/contracts/tests/grading.rs` (new); `fixtures/protocol/validation-vectors.json`.
-- `packages/session/src/scene-ops.ts`; `packages/session/test/grading-patch.test.ts` (new). `packages/assist/src/compile-kit.ts` (the scene copy of the operation).
-- `packages/renderer/src/grading.ts` (new), `grading-math.ts` (new), `post-chain.ts`, `renderer.ts`, `screenshot.ts`; `packages/renderer/test/grading.test.ts` (new), `quality.test.ts`.
+- `packages/session/src/scene-ops.ts`; `packages/session/test/grading-patch.test.ts` (new).
+- `packages/renderer/src/grading.ts` (new), `grading-math.ts` (new), `post-chain.ts`, `renderer.ts`, `screenshot.ts`; `packages/renderer/test/grading.test.ts` (new).
 - `apps/desktop/src/components/CameraGradingFields.svelte` (new), `Inspector.svelte`, `editor/model.ts`, `editor/inspector-sections.ts`, `editor/property-defaults.ts`, `editor/slider.ts`, `editor/live-fields.ts`; desktop tests.
 - `ARCHITECTURE.md` (renderer row), `docs/warudo-parity.md`, `docs/evaluation/camera-grading.md` (new).
 

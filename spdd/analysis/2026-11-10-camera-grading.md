@@ -32,6 +32,9 @@ Date: 2026-11-10. Scope: #54 CAM-06, slice 1 (tone mapping, exposure, brightness
 - **Screenshots use the same function** for the grading, so a screenshot and the output agree.
 - **A CPU reference of the color math** (`grading-math.ts`) gives a unit-testable definition, and the headless render check compares GPU pixels with it.
 
+- **The bloom takes only the luminance above the threshold** (changed after the macOS check). The three.js high pass gives the full pixel above the threshold. A toon face is at the clip level, so the full face was added to itself and the eyes were not visible. The input is now the pixel times `max(L − threshold, 0) / L`, as the Unity bloom threshold does, so the Bonnie scene values (threshold 0.76) give a soft glow.
+- **Known limit: a glow over a light OBS background is darker than the background** (from the macOS check). OBS blends a Browser Source in linear light by default, and it reads the premultiplied sRGB values of a partial-alpha pixel as linear values. Each partial-alpha pixel then becomes darker over a light background: the glow, the haze, and an anti-aliased edge. A premultiplied 8-bit sRGB image cannot hold an additive light, so the coverage rule cannot remove this. The OBS blending method "SRGB Off" of the source is the candidate setting; it is not checked. Bloom is Approximate over a light background until that check.
+
 ## Effects
 
 - An operator can set exposure, a tone mapping curve, brightness, contrast, vibrance, tint, and bloom for each camera, in the Inspector, with MCP `scene_patch`, and in the show.
