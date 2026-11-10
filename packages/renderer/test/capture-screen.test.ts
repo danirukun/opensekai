@@ -22,19 +22,23 @@ it("starts at a key frame and drops to the next key frame when the decode queue 
     expect(gate.accept(false, 34)).toBe(true);
     expect(gate.accept(false, 35)).toBe(false);
     expect(gate.accept(true, 0)).toBe(true);
-    // The decoder holds 5 chunks: a queue of 9 decodes, 10 drops to the next key frame.
-    gate.output(5);
+    // The first outputs measure the hold: the largest of them, 5. A queue of 9 decodes; 10 drops to the next key frame.
+    gate.output(3); gate.output(5); gate.output(4); gate.output(5); gate.output(5); gate.output(4); gate.output(5); gate.output(5);
     expect(gate.accept(false, 9)).toBe(true);
     expect(gate.accept(false, 10)).toBe(false);
     expect(gate.accept(true, 10)).toBe(false);
     expect(gate.accept(false, 0)).toBe(false);
     expect(gate.accept(true, 2)).toBe(true);
-    // A decoder without a hold: the R14 limit of 4.
+    // After 8 outputs the depth stays: a slow decoder does not raise the limit.
+    for (let i = 0; i < 4; i++) gate.output(20);
+    expect(gate.accept(false, 10)).toBe(false);
+    // A new config measures again; a decoder without a hold gets the R14 limit of 4.
+    gate.reset();
+    expect(gate.accept(false, 0)).toBe(false);
+    expect(gate.accept(true, 0)).toBe(true);
     gate.output(0);
     expect(gate.accept(false, 4)).toBe(true);
     expect(gate.accept(false, 5)).toBe(false);
-    gate.reset();
-    expect(gate.accept(false, 0)).toBe(false);
 });
 it("retries 3 times for one content value, then fails; a value that leaves starts again", () => {
     const retries = createRetries();

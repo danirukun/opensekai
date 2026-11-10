@@ -211,10 +211,11 @@ async function socketCase(backend) {
             if (rgb[3] > 250) { const name = nearest(rgb); if (seen[seen.length - 1] !== name) seen.push(name); }
             await wait(300);
         }
-        // The first four changes are the four colors, each one after the one before it. Later samples can skip a color when
-        // a software screenshot is slow, so only the first loop is checked.
-        const first = seen.slice(0, 4);
-        const forward = first.length === 4 && first.every((name, i) => i === 0 || COLORS.indexOf(name) === (COLORS.indexOf(first[i - 1]) + 1) % 4);
+        // Four changes in a row are the four colors, each one after the one before it. The first draw of the screen compiles
+        // its shader, which on llvmpipe can block the page for about 2 s; the R14 gate then drops to the next key frame, so
+        // the first loop can skip a color. A slow screenshot can also skip one. So the check needs one forward run of four.
+        const step = (a, b) => COLORS.indexOf(b) === (COLORS.indexOf(a) + 1) % 4;
+        const forward = seen.some((_, i) => i + 3 < seen.length && step(seen[i], seen[i + 1]) && step(seen[i + 1], seen[i + 2]) && step(seen[i + 2], seen[i + 3]));
         check(`${label}: the screen shows the four colors in order`, forward, {seen, sampleMs: samples});
         await h.call('start');
         const slow = connections.find(c => c.streamId === streams.slow);

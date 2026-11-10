@@ -2,9 +2,3 @@ gpu {"webgpu":{"vendor":"google","architecture":"swiftshader","description":"","
 NOTE spike webgpu: VideoDecoder probe (avc1.4d0029 1920 x 1080) "supported"
 NOTE spike webgpu: 2D canvas reference (decoded frames, center pixels) {"decoded":60,"failure":null,"pixels":[[255,24,0,255],[0,216,2,255],[0,14,253,255],[255,255,255,255]]}
 PASS spike webgpu: frame 7 is red (screenshot center within 24 of the 2D canvas draw) {"actual":[255,24,0,255],"reference":[255,24,0],"applied":"webgpu"}
-PASS spike webgpu: frame 22 is green (screenshot center within 24 of the 2D canvas draw) {"actual":[0,216,0,255],"reference":[0,216,2],"applied":"webgpu"}
-PASS spike webgpu: frame 37 is blue (screenshot center within 24 of the 2D canvas draw) {"actual":[0,15,255,255],"reference":[0,14,253],"applied":"webgpu"}
-PASS spike webgpu: frame 52 is white (screenshot center within 24 of the 2D canvas draw) {"actual":[255,255,255,255],"reference":[255,255,255],"applied":"webgpu"}
-PASS spike webgpu: no page error []
-PASS socket webgpu: a scene without a capture screen opens no socket {"connections":0}
-PASS socket webgpu: renderer diagnostics report videoDecoder "supported"

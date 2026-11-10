@@ -63,14 +63,17 @@ export function createNewestFrame<T extends { close(): void }>() {
 }
 /** The most chunks that a decoder may hold before its first output (one key frame interval of a 30 fps stream). */
 export const MAX_DECODER_DEPTH = 30;
+/** The outputs after a configure that measure the pipeline depth of the decoder. */
+export const DEPTH_OUTPUTS = 8;
 /**
  * R14: the chunk gate. A decoder holds some chunks before it gives a frame (its pipeline depth: Chromium's software H.264
- * decoder holds 5). The depth is the decodeQueueSize at the latest output, and MAX_DECODER_DEPTH before the first output.
- * When the queue is more than MAX_DECODE_QUEUE above the depth, each chunk drops (also a key frame), and after that only
- * a key frame starts the decode again. A new stream or config also waits for a key frame.
+ * decoder holds 5). The depth is the largest decodeQueueSize at the first DEPTH_OUTPUTS outputs after a configure, and
+ * MAX_DECODER_DEPTH before the first output. When the queue is more than MAX_DECODE_QUEUE above the depth, each chunk
+ * drops (also a key frame), and after that only a key frame starts the decode again. A new stream or config also waits
+ * for a key frame.
  */
 export function createChunkGate() {
-    let needKey = true, depth = MAX_DECODER_DEPTH;
+    let needKey = true, depth = MAX_DECODER_DEPTH, measured = 0;
     return {
         accept(key: boolean, decodeQueueSize: number): boolean {
             if (decodeQueueSize > MAX_DECODE_QUEUE + depth) { needKey = true; return false; }
@@ -79,8 +82,13 @@ export function createChunkGate() {
             return true;
         },
         /** The decoder gave a frame with this many chunks still queued. */
-        output(decodeQueueSize: number) { depth = Math.min(MAX_DECODER_DEPTH, decodeQueueSize); },
-        reset() { needKey = true; depth = MAX_DECODER_DEPTH; },
+        output(decodeQueueSize: number) {
+            if (measured >= DEPTH_OUTPUTS) return;
+            depth = measured === 0 ? decodeQueueSize : Math.max(depth, decodeQueueSize);
+            depth = Math.min(MAX_DECODER_DEPTH, depth);
+            measured++;
+        },
+        reset() { needKey = true; depth = MAX_DECODER_DEPTH; measured = 0; },
     };
 }
 /** R14: the decoder error count of each content value. The fourth error fails the screen. */
