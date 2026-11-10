@@ -2,6 +2,7 @@ import {DEFAULT_TRACKING_MAPPING,DEFAULT_TRACKING_SMOOTHING,defaultTrackingConfi
 import {makeAuthoringEntity} from './authoring';
 import {VMC_SENDER} from './vmc-sender';
 import {DEFAULT_WEB_SCREEN,VIDEO_DEFAULTS} from './screen';
+import {GRADING_FIELD_IDS,gradingValues} from './grading';
 import {AMBIENT_LIGHT,DIRECTIONAL_LIGHT,FPS_COUNTER,HAZE,POINT_LIGHT,SPOT_LIGHT,hazeTransform} from './lights';
 // The reset defaults of the Inspector fields (B17 R1–R4). Each value comes from the add defaults, so a reset and an add cannot differ.
 export type EntityDefaults=Readonly<Record<string,unknown>>;
@@ -20,7 +21,7 @@ function configValues(config:Extract<SceneEntity,{kind:'tracking'}>['config']):R
 // The current value of each field as the Inspector shows it: a missing optional field takes its fallback (R2).
 export function valuesFor(entity:SceneEntity):Record<string,unknown> {
  const base=entity.kind==='tracking'||entity.kind==='vmcSender'?{}:{visible:entity.visible,...entity.transform};
- if(entity.kind==='camera')return {...base,renderEnvironment:entity.renderEnvironment!==false,antiAliasing:entity.antiAliasing??'none',fovDegrees:entity.lens.fovDegrees,near:entity.lens.near,far:entity.lens.far,controlMode:entity.navigation?.mode??'none',sensitivity:entity.navigation&&entity.navigation.mode!=='none'?entity.navigation.sensitivity:undefined};
+ if(entity.kind==='camera')return {...base,renderEnvironment:entity.renderEnvironment!==false,antiAliasing:entity.antiAliasing??'none',...gradingValues(entity.grading),fovDegrees:entity.lens.fovDegrees,near:entity.lens.near,far:entity.lens.far,controlMode:entity.navigation?.mode??'none',sensitivity:entity.navigation&&entity.navigation.mode!=='none'?entity.navigation.sensitivity:undefined};
  if(entity.kind==='light')return {...base,...lightValues(entity.light)};
  if(entity.kind==='haze')return {...base,...entity.haze};
  if(entity.kind==='fpsCounter')return {...base,...entity.fpsCounter};
@@ -33,7 +34,7 @@ export function valuesFor(entity:SceneEntity):Record<string,unknown> {
 }
 export function defaultsFor(entity:SceneEntity):EntityDefaults {
  const base=entity.kind==='tracking'||entity.kind==='vmcSender'?{}:{visible:true,...transform(entity)};
- if(entity.kind==='camera'){const added=camera();return {...base,renderEnvironment:true,antiAliasing:'none',...added.lens,controlMode:added.navigation?.mode,sensitivity:added.navigation&&added.navigation.mode!=='none'?added.navigation.sensitivity:undefined};}
+ if(entity.kind==='camera'){const added=camera();return {...base,renderEnvironment:true,antiAliasing:'none',...gradingValues(),...added.lens,controlMode:added.navigation?.mode,sensitivity:added.navigation&&added.navigation.mode!=='none'?added.navigation.sensitivity:undefined};}
  if(entity.kind==='light')return {...base,...lightValues(LIGHTS[entity.light.type])};
  if(entity.kind==='haze')return {...base,...HAZE};
  if(entity.kind==='fpsCounter')return {...base,...FPS_COUNTER};
@@ -48,7 +49,7 @@ export function defaultsFor(entity:SceneEntity):EntityDefaults {
 // The reset fields that the Inspector shows for this entity and its light type (R3). The fields of R4 never appear.
 export function resetFieldIds(entity:SceneEntity):string[] {
  const base=entity.kind==='tracking'?[]:['visible','position','rotation','scale'];
- if(entity.kind==='camera')return [...base,'renderEnvironment','antiAliasing','fovDegrees','near','far','controlMode',...(entity.navigation&&entity.navigation.mode!=='none'?['sensitivity']:[])];
+ if(entity.kind==='camera')return [...base,'renderEnvironment','antiAliasing',...GRADING_FIELD_IDS,'fovDegrees','near','far','controlMode',...(entity.navigation&&entity.navigation.mode!=='none'?['sensitivity']:[])];
  if(entity.kind==='light'){
   const {type,shadow}=entity.light,placed=type==='point'||type==='spot';
   return [...base,'color','intensity',...(placed?['range']:[]),...(type==='spot'?['angleDegrees','penumbra']:[]),...(placed?['volumetric']:[]),'affectCharacters','affectProps','affectEnvironment',...(type!=='ambient'?['shadow']:[]),...(type!=='ambient'&&shadow.enabled?['shadowIntensity','soft','bias','normalBias']:[])];

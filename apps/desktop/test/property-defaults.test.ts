@@ -1,8 +1,9 @@
 import {expect,it} from 'vitest';
-import {DEFAULT_TRACKING_SMOOTHING,type SceneEntity} from '@opensekai/contracts';
+import {DEFAULT_CAMERA_GRADING,DEFAULT_TRACKING_SMOOTHING,type SceneEntity} from '@opensekai/contracts';
 import {makeAuthoringEntity} from '../src/editor/authoring';
 import type {AddKind} from '../src/editor/live-fields';
 import {changedFields,defaultsFor,resetFieldIds,sameValue,valuesFor} from '../src/editor/property-defaults';
+import {GRADING_FIELD_IDS,withGradingValue} from '../src/editor/grading';
 
 const KINDS:AddKind[]=['camera','character','environment','directionalLight','pointLight','spotLight','ambientLight','haze','vmc','ifacialmocap','mediapipe'];
 const add=(kind:AddKind)=>makeAuthoringEntity(kind,`id_${kind}`,[]);
@@ -27,7 +28,7 @@ it('takes a light default from its current type (R1)',()=>{
 it('lists the reset fields of each kind and light type, and none of R4 (R3, R4)',()=>{
  const ids=(kind:AddKind)=>resetFieldIds(add(kind));
  const base=['visible','position','rotation','scale'];
- expect(ids('camera')).toEqual([...base,'renderEnvironment','antiAliasing','fovDegrees','near','far','controlMode','sensitivity']);
+ expect(ids('camera')).toEqual([...base,'renderEnvironment','antiAliasing','toneMapping','exposure','brightness','contrast','vibrance','tint','bloomIntensity','bloomThreshold','bloomRadius','fovDegrees','near','far','controlMode','sensitivity']);
  expect(ids('directionalLight')).toEqual([...base,'color','intensity','affectCharacters','affectProps','affectEnvironment','shadow']);
  expect(ids('pointLight')).toEqual([...base,'color','intensity','range','volumetric','affectCharacters','affectProps','affectEnvironment','shadow']);
  expect(ids('spotLight')).toEqual([...base,'color','intensity','range','angleDegrees','penumbra','volumetric','affectCharacters','affectProps','affectEnvironment','shadow']);
@@ -70,6 +71,13 @@ it('treats a missing optional field as its fallback (R2)',()=>{
  const camera=add('camera'),environment=add('environment'),source=add('vmc');
  if(camera.kind!=='camera'||environment.kind!=='environment'||source.kind!=='tracking')throw new Error('kinds');
  expect(valuesFor({...camera,renderEnvironment:undefined,antiAliasing:undefined})).toMatchObject({renderEnvironment:true,antiAliasing:'none'});
+ // A camera without a grading shows the defaults, and a changed group marks only its changed fields (CAM-06 R15).
+ expect(valuesFor(camera)).toMatchObject({toneMapping:'none',exposure:0,tint:'#ffffff',bloomIntensity:0,bloomThreshold:0.8,bloomRadius:0.4});
+ const gradedCamera={...camera,grading:{...DEFAULT_CAMERA_GRADING,exposure:1,bloom:{...DEFAULT_CAMERA_GRADING.bloom,radius:0.9}}};
+ expect([...changedFields(gradedCamera)].filter(id=>GRADING_FIELD_IDS.includes(id as never))).toEqual(['exposure','bloomRadius']);
+ expect(withGradingValue(gradedCamera.grading,'bloomIntensity',2)).toEqual({...gradedCamera.grading,bloom:{intensity:2,threshold:0.8,radius:0.9}});
+ expect(withGradingValue(DEFAULT_CAMERA_GRADING,'toneMapping','aces')).toEqual({...DEFAULT_CAMERA_GRADING,toneMapping:'aces'});
+ expect(Object.isFrozen(withGradingValue(DEFAULT_CAMERA_GRADING,'exposure',1).bloom)).toBe(false);
  expect(changedFields(atOrigin({...environment,reflectionsIntensity:undefined})).size).toBe(0);
  expect(changedFields({...source,smoothing:undefined,mapping:undefined}).size).toBe(0);
  expect(changedFields({...source,smoothing:{...DEFAULT_TRACKING_SMOOTHING,beta:2}})).toEqual(new Set(['beta']));

@@ -86,6 +86,22 @@ strings!(FixtureId { SmokeV1=>"smoke_v1" });
 strings!(ProfileId { WebgpuSmokeV1=>"webgpu_smoke_v1", Webgl2SmokeV1=>"webgl2_smoke_v1" });
 strings!(QualityProfileId { PreviewV1=>"preview_v1", ProductionV1=>"production_v1", PerformanceV1=>"performance_v1" });
 strings!(CameraAntiAliasing { None=>"none", Fxaa=>"fxaa" });
+// Camera color grading, tone mapping, and bloom (CAM-06 slice 1).
+strings!(CameraToneMapping { None=>"none", Aces=>"aces", Neutral=>"neutral" });
+object!(CameraBloom {
+    intensity: f64,
+    threshold: f64,
+    radius: f64
+});
+object!(CameraGrading {
+    tone_mapping: CameraToneMapping,
+    exposure: f64,
+    brightness: f64,
+    contrast: f64,
+    vibrance: f64,
+    tint: String,
+    bloom: CameraBloom
+});
 strings!(LightType { Directional=>"directional", Point=>"point", Spot=>"spot", Ambient=>"ambient" });
 strings!(MimeType { ImagePng=>"image/png" });
 object!(AppError {code:ErrorCode,message:String,ids:Vec<Id>});
@@ -256,6 +272,21 @@ impl Validate for LightSettings {
             self.volumetric != Some(true)
                 || matches!(self.light_type, LightType::Point | LightType::Spot),
             "only point and spot lights scatter in haze",
+        )
+    }
+}
+impl Validate for CameraGrading {
+    fn validate(&self) -> Result<(), AppError> {
+        require(
+            within(self.exposure, -4., 4.)
+                && within(self.brightness, -1., 1.)
+                && within(self.contrast, -1., 1.)
+                && within(self.vibrance, -1., 1.)
+                && light_color_ok(&self.tint)
+                && within(self.bloom.intensity, 0., 4.)
+                && within(self.bloom.threshold, 0., 4.)
+                && within(self.bloom.radius, 0., 1.),
+            "invalid camera grading",
         )
     }
 }
@@ -527,6 +558,8 @@ pub enum SceneEntity {
         )]
         anti_aliasing: Option<CameraAntiAliasing>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
+        grading: Option<CameraGrading>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         navigation: Option<CameraNavigation>,
     },
 }
@@ -733,6 +766,11 @@ pub enum PatchOp {
         entity_id: Id,
         #[serde(rename = "antiAliasing")]
         anti_aliasing: CameraAntiAliasing,
+    },
+    SetCameraGrading {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+        grading: Option<CameraGrading>,
     },
     SetCameraNavigation {
         #[serde(rename = "entityId")]
@@ -2573,6 +2611,10 @@ pub fn validate_patch_ops(ops: &[PatchOp], max: usize) -> Result<(), AppError> {
             PatchOp::CreateEntity { entity } => entity.validate()?,
             PatchOp::SetCameraLens { lens, .. } => lens.validate()?,
             PatchOp::SetCameraNavigation { navigation, .. } => navigation.validate()?,
+            PatchOp::SetCameraGrading {
+                grading: Some(grading),
+                ..
+            } => grading.validate()?,
             PatchOp::SetLight { light, .. } => light.validate()?,
             PatchOp::SetHaze { haze, .. } => haze.validate()?,
             PatchOp::SetFpsCounter { fps_counter, .. } => fps_counter.validate()?,
@@ -3375,10 +3417,16 @@ impl Validate for SceneEntity {
             }
         }
         if let Self::Camera {
-            lens, navigation, ..
+            lens,
+            navigation,
+            grading,
+            ..
         } = self
         {
             lens.validate()?;
+            if let Some(grading) = grading {
+                grading.validate()?;
+            }
             if let Some(navigation) = navigation {
                 navigation.validate()?;
             }

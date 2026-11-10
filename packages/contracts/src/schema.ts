@@ -8,6 +8,7 @@ import { DeviceKindListSchema, DeviceUpdateSchema } from './devices';
 import { IntegrationsSetParamsSchema, YouTubeInputSchema, YouTubeStatusSchema } from './youtube';
 import { ScalarValueSchema } from './blueprint-values';
 import { z } from "zod";
+import { CameraGradingSchema } from './grading';
 import { CameraAntiAliasingSchema, QualityProfileIdSchema, OUTPUT_FRAME_LIMITS, OUTPUT_RENDER_SCALES, isOutputSize, isDefaultOutputFormat } from './quality';
 import { AvatarRigSchema, VmcPosesEnvelopeSchema, VmcSenderSettingsSchema, VmcSenderStatusSchema } from './vmc-sender';
 import { AssetExpressionsSchema, AvatarExpressionsSchema, ExpressionNameSchema, ExpressionSettingsSchema, ExpressionStateSchema, ARKIT_NAMES } from './expressions';
@@ -228,6 +229,7 @@ export const SceneEntitySchema = z.discriminatedUnion("kind", [
         lens: LensSchema,
         renderEnvironment: z.boolean().optional(),
         antiAliasing: CameraAntiAliasingSchema.optional(),
+        grading: CameraGradingSchema.optional(),
         navigation: CameraNavigationSchema.optional()
     })
 ]);
@@ -300,6 +302,7 @@ export const PatchOpSchema = z.discriminatedUnion("kind", [
     z.strictObject({kind:z.literal('setAvatarExpression'),entityId:IdSchema,name:ExpressionNameSchema,settings:ExpressionSettingsSchema.nullable()}),
     z.strictObject({kind:z.literal('setCameraRenderEnvironment'),entityId:IdSchema,renderEnvironment:z.boolean()}),
     z.strictObject({kind:z.literal('setCameraAntiAliasing'),entityId:IdSchema,antiAliasing:CameraAntiAliasingSchema}),
+    z.strictObject({kind:z.literal('setCameraGrading'),entityId:IdSchema,grading:CameraGradingSchema.nullable()}),
     z.strictObject({kind:z.literal('setCameraNavigation'),entityId:IdSchema,navigation:CameraNavigationSchema}),
     z.strictObject({kind:z.literal('setTrackingConfig'),entityId:IdSchema,config:TrackingConfigSchema}),
     z.strictObject({kind:z.literal('calibrateTracking'),entityId:IdSchema}),

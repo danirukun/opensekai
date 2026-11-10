@@ -41,5 +41,10 @@ export const SLIDERS={
  hazeIntensity:{min:0,max:4,step:0.01,curve:'linear'},
  drift:{min:0,max:2,step:0.01,curve:'linear'},
  fpsCounterSize:{min:8,max:128,step:1,curve:'linear'},
+ exposure:{min:-4,max:4,step:0.01,curve:'linear'},
+ grade:{min:-1,max:1,step:0.01,curve:'linear'},
+ bloomIntensity:{min:0,max:4,step:0.01,curve:'linear',sliderMax:2},
+ bloomThreshold:{min:0,max:4,step:0.01,curve:'linear',sliderMax:1.5},
+ bloomRadius:{min:0,max:1,step:0.01,curve:'linear'},
 } as const satisfies Record<string,SliderRange>;
 export const lightIntensitySlider=(type:LightSettings['type']):SliderRange=>({min:0,max:1000,step:0.01,curve:'cubic',sliderMax:type==='directional'?10:type==='ambient'?2:100});

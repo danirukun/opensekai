@@ -45,6 +45,7 @@ export function initialTrackingDraft(config:TrackingConfig){return {config:{...c
 
 export function cameraOptions(entities:readonly SceneEntity[]){return entities.filter(entity=>entity.kind==='camera').map(entity=>({value:entity.id,label:entity.name}));}
 
+export const toneMappingOptions=[{value:'none',label:'None'},{value:'aces',label:'ACES'},{value:'neutral',label:'Neutral'}];
 export const antiAliasingOptions=[{value:'none',label:'None'},{value:'fxaa',label:'FXAA'}];
 export const qualityOptions=[{value:'production_v1',label:'Production'},{value:'performance_v1',label:'Performance'},{value:'preview_v1',label:'Preview'}];
 // A rejected change leaves the scene value as it was, so Svelte does not reset the box; put the scene value back.
