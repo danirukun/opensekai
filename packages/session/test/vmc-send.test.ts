@@ -38,16 +38,29 @@ it('keeps raw tracking values: from rest without base bones, from the base value
  const heldBase = vmcSendPose(pose({ baseBones: { leftUpperArm: { rotation: yaw(10), space: 'normalized' } }, bones: { leftUpperArm: { rotation: yaw(40), space: 'raw', weight: 0 } } }), rig());
  sameRotation(heldBase.bones.leftUpperArm!.rotation, yaw(10));
 });
-it('applies the VRM 0 sign to base bones and offsets, not to tracking values', () => {
+it('applies the VRM 0 sign to base bones, offsets, and normalized tracking values, not to raw values', () => {
  const q: Quat = [0.1, 0.2, 0.3, Math.sqrt(1 - 0.14)];
  const signed: Quat = [-0.1, 0.2, -0.3, q[3]];
  const base = vmcSendPose(pose({ baseBones: { head: { rotation: q, space: 'normalized' }, hips: { rotation: [0, 0, 0, 1], space: 'normalized', position: [0.1, 0, 0.2] } } }), rig({ metaVersion: '0' }));
  sameRotation(base.bones.head!.rotation, signed);
  close(base.bones.hips!.position, [-0.1, 1, -0.2]);
- const tracked = vmcSendPose(pose({ bones: { head: { rotation: q, space: 'normalized' } } }), rig({ metaVersion: '0' }));
- sameRotation(tracked.bones.head!.rotation, q);
+ const tracked = vmcSendPose(pose({ bones: { head: { rotation: q, space: 'normalized' }, hips: { rotation: [0, 0, 0, 1], space: 'normalized', position: [0.1, 0, 0.2] } } }), rig({ metaVersion: '0' }));
+ sameRotation(tracked.bones.head!.rotation, signed);
+ close(tracked.bones.hips!.position, [-0.1, 1, -0.2]);
+ const trackedV1 = vmcSendPose(pose({ bones: { head: { rotation: q, space: 'normalized' } } }), rig({ metaVersion: '1' }));
+ sameRotation(trackedV1.bones.head!.rotation, q);
+ const raw = vmcSendPose(pose({ bones: { head: { rotation: q, space: 'raw' } } }), rig({ metaVersion: '0' }));
+ sameRotation(raw.bones.head!.rotation, q);
  const offset = vmcSendPose(pose({ boneOffsets: { head: q } }), rig({ metaVersion: '0' }));
  sameRotation(offset.bones.head!.rotation, signed);
+});
+it('sends the same rotation for a normalized tracking value and for the same base value, for each VRM version', () => {
+ const down: Quat = [0, 0, -Math.SQRT1_2, Math.SQRT1_2];
+ for (const metaVersion of ['0', '1'] as const) {
+  const base = vmcSendPose(pose({ baseBones: { leftUpperArm: { rotation: down, space: 'normalized' } } }), rig({ metaVersion }));
+  const tracked = vmcSendPose(pose({ bones: { leftUpperArm: { rotation: down, space: 'normalized' } } }), rig({ metaVersion }));
+  sameRotation(tracked.bones.leftUpperArm!.rotation, base.bones.leftUpperArm!.rotation);
+ }
 });
 it('multiplies offsets on the left of the normalized and the raw value', () => {
  const sent = vmcSendPose(pose({ bones: { head: { rotation: pitch(30), space: 'normalized' }, leftUpperArm: { rotation: pitch(15), space: 'raw' } }, boneOffsets: { head: yaw(90), leftUpperArm: yaw(45) } }), rig());
