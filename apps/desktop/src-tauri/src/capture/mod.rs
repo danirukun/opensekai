@@ -8,6 +8,8 @@ pub mod fixture;
 #[cfg(target_os = "macos")]
 mod macos;
 pub mod plan;
+// macOS uses the real adapter; the stub stays for the unit tests there.
+#[cfg(any(not(target_os = "macos"), test))]
 mod stub;
 pub mod transport;
 use adapter::*;
