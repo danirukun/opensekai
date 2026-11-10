@@ -1,0 +1,221 @@
+{
+  "normalize": [
+    {
+      "name": "plain text stays",
+      "input": "Built-in Retina Display",
+      "max": 128,
+      "output": "Built-in Retina Display"
+    },
+    {
+      "name": "control characters become spaces",
+      "input": "Chat\tOverlay\nWindow",
+      "max": 512,
+      "output": "Chat Overlay Window"
+    },
+    {
+      "name": "C1 control character",
+      "input": "AB",
+      "max": 512,
+      "output": "A B"
+    },
+    {
+      "name": "space runs collapse",
+      "input": "A    B",
+      "max": 512,
+      "output": "A B"
+    },
+    {
+      "name": "trim both ends",
+      "input": "  \t Title \r\n",
+      "max": 512,
+      "output": "Title"
+    },
+    {
+      "name": "non-ASCII stays",
+      "input": "配信 — Café ✨",
+      "max": 512,
+      "output": "配信 — Café ✨"
+    },
+    {
+      "name": "cut counts code points",
+      "input": "😀😀😀😀",
+      "max": 3,
+      "output": "😀😀😀"
+    },
+    {
+      "name": "cut then trim",
+      "input": "ab cd",
+      "max": 3,
+      "output": "ab"
+    },
+    {
+      "name": "only spaces become empty",
+      "input": " \u0000 ",
+      "max": 512,
+      "output": ""
+    }
+  ],
+  "valid": [
+    {
+      "name": "display",
+      "source": {
+        "kind": "display",
+        "name": "Built-in Retina Display",
+        "ordinal": 0
+      }
+    },
+    {
+      "name": "display ordinal 7",
+      "source": {
+        "kind": "display",
+        "name": "DELL U2720Q",
+        "ordinal": 7
+      }
+    },
+    {
+      "name": "window",
+      "source": {
+        "kind": "window",
+        "app": "com.example.chat",
+        "title": "Chat — Stream"
+      }
+    },
+    {
+      "name": "window with empty title",
+      "source": {
+        "kind": "window",
+        "app": "com.example.chat",
+        "title": ""
+      }
+    },
+    {
+      "name": "name of 128 code points",
+      "source": {
+        "kind": "display",
+        "name": "ああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああ",
+        "ordinal": 0
+      }
+    },
+    {
+      "name": "title of 512 code points",
+      "source": {
+        "kind": "window",
+        "app": "com.example.chat",
+        "title": "tttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt"
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "name": "empty display name",
+      "source": {
+        "kind": "display",
+        "name": "",
+        "ordinal": 0
+      }
+    },
+    {
+      "name": "name of 129 code points",
+      "source": {
+        "kind": "display",
+        "name": "あああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああ",
+        "ordinal": 0
+      }
+    },
+    {
+      "name": "ordinal 8",
+      "source": {
+        "kind": "display",
+        "name": "Display",
+        "ordinal": 8
+      }
+    },
+    {
+      "name": "negative ordinal",
+      "source": {
+        "kind": "display",
+        "name": "Display",
+        "ordinal": -1
+      }
+    },
+    {
+      "name": "fractional ordinal",
+      "source": {
+        "kind": "display",
+        "name": "Display",
+        "ordinal": 0.5
+      }
+    },
+    {
+      "name": "name not normalized",
+      "source": {
+        "kind": "display",
+        "name": " Display",
+        "ordinal": 0
+      }
+    },
+    {
+      "name": "title with a tab",
+      "source": {
+        "kind": "window",
+        "app": "com.example.chat",
+        "title": "a\tb"
+      }
+    },
+    {
+      "name": "title with two spaces",
+      "source": {
+        "kind": "window",
+        "app": "com.example.chat",
+        "title": "a  b"
+      }
+    },
+    {
+      "name": "empty app",
+      "source": {
+        "kind": "window",
+        "app": "",
+        "title": "Chat"
+      }
+    },
+    {
+      "name": "extra field",
+      "source": {
+        "kind": "window",
+        "app": "com.example.chat",
+        "title": "Chat",
+        "pid": 42
+      }
+    },
+    {
+      "name": "window without title",
+      "source": {
+        "kind": "window",
+        "app": "com.example.chat"
+      }
+    },
+    {
+      "name": "unknown kind",
+      "source": {
+        "kind": "application",
+        "app": "com.example.chat"
+      }
+    },
+    {
+      "name": "title of 513 code points",
+      "source": {
+        "kind": "window",
+        "app": "com.example.chat",
+        "title": "ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt"
+      }
+    },
+    {
+      "name": "app of 256 code points",
+      "source": {
+        "kind": "window",
+        "app": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "title": "Chat"
+      }
+    }
+  ]
+}

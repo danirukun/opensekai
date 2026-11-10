@@ -32,7 +32,7 @@ pub const MAX_IMAGE_SIDE: u32 = 8192;
 pub const MAX_IMAGE_AREA: u64 = 33_554_432;
 pub const MAX_IMAGE_FRAMES: u32 = 4096;
 pub const MAX_IMAGE_BYTES: u64 = 64 * 1024 * 1024;
-macro_rules! object { ($name:ident { $($field:ident : $ty:ty),* $(,)? }) => {#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)] #[serde(rename_all="camelCase", deny_unknown_fields)] pub struct $name {$(pub $field: $ty),*}} }
+macro_rules! object { ($name:ident { $($(#[$meta:meta])* $field:ident : $ty:ty),* $(,)? }) => {#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)] #[serde(rename_all="camelCase", deny_unknown_fields)] pub struct $name {$($(#[$meta])* pub $field: $ty),*}} }
 macro_rules! strings { ($name:ident { $($variant:ident => $wire:literal),* $(,)? }) => {#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)] pub enum $name {$(#[serde(rename=$wire)] $variant),*}} }
 mod tracking;
 pub use tracking::*;
@@ -42,6 +42,8 @@ mod vmc_sender;
 pub use vmc_sender::*;
 mod youtube;
 pub use youtube::*;
+mod capture;
+pub use capture::*;
 strings!(Backend { Webgpu=>"webgpu", Webgl2=>"webgl2" });
 strings!(Capability { Read=>"read", Edit=>"edit", Capture=>"capture", Benchmark=>"benchmark" });
 strings!(Role { Publisher=>"publisher", Operator=>"operator", Renderer=>"renderer" });
@@ -334,6 +336,12 @@ pub enum ScreenContent {
         looped: bool,
         volume: f64,
     },
+    /// B31 R2: a live capture of one display or one window.
+    Capture {
+        target: CaptureTarget,
+        source: Option<CaptureSource>,
+        cursor: bool,
+    },
 }
 /// The page settings of a web screen (B30 R1); `setScreenWeb` carries them.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -371,6 +379,7 @@ impl Validate for ScreenContent {
             Self::Video { volume, .. } => {
                 require(screen_volume_ok(*volume), "invalid screen volume")
             }
+            Self::Capture { target, source, .. } => capture_ok(target, source.as_ref()),
         }
     }
 }
@@ -587,6 +596,15 @@ impl SceneEntity {
             }
         )
     }
+    pub fn is_capture_screen(&self) -> bool {
+        matches!(
+            self,
+            Self::Screen {
+                content: ScreenContent::Capture { .. },
+                ..
+            }
+        )
+    }
     pub fn transform(&self) -> &Transform {
         match self {
             Self::Mesh { transform, .. }
@@ -711,6 +729,11 @@ pub enum PatchOp {
         #[serde(rename = "entityId")]
         entity_id: Id,
         video: ScreenVideo,
+    },
+    SetScreenCapture {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+        capture: ScreenCapture,
     },
     /// Runtime only (B29 R10): the session never commits it.
     ControlScreenVideo {
@@ -1181,9 +1204,17 @@ object!(RendererDiagnostics {
     asset_cache_entries: u64,
     active_render_job: bool,
     queued_frames: u64,
-    queued_captures: u64
+    queued_captures: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    video_decoder: Option<VideoDecoderSupport>
 });
-object!(OutputStatus {output_id:Id,connected:bool,last_frame:Option<FrameApplied>});
+object!(OutputStatus {
+    output_id: Id,
+    connected: bool,
+    last_frame: Option<FrameApplied>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    video_decoder: Option<VideoDecoderSupport>
+});
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AppStatus {
@@ -1204,6 +1235,8 @@ pub struct AppStatus {
     pub vmc_senders: Option<Vec<VmcSenderStatus>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub youtube: Option<YouTubeStatus>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub captures: Option<Vec<CaptureStatusEntry>>,
 }
 object!(CaptureParams {
     output_id: Id,
@@ -2326,6 +2359,11 @@ pub enum WireMessage {
         tick: u64,
         poses: Vec<VmcSendPose>,
     },
+    /// The host state of each capture screen, from the host to renderers only (B31 R9).
+    CaptureStatus {
+        revision: u64,
+        screens: Vec<CaptureScreenStatus>,
+    },
     Ping {
         #[serde(rename = "requestId")]
         request_id: Id,
@@ -2500,6 +2538,14 @@ impl Validate for SceneView {
                 <= MAX_WEB_SCREENS,
             "too many web screens",
         )?;
+        require(
+            self.entities
+                .iter()
+                .filter(|e| e.is_capture_screen())
+                .count()
+                <= MAX_CAPTURE_SCREENS,
+            "too many capture screens",
+        )?;
         let senders: Vec<_> = self
             .entities
             .iter()
@@ -2626,6 +2672,7 @@ pub fn validate_patch_ops(ops: &[PatchOp], max: usize) -> Result<(), AppError> {
             PatchOp::SetHaze { haze, .. } => haze.validate()?,
             PatchOp::SetFpsCounter { fps_counter, .. } => fps_counter.validate()?,
             PatchOp::SetScreenWeb { web, .. } => web.validate()?,
+            PatchOp::SetScreenCapture { capture, .. } => capture.validate()?,
             PatchOp::SetVmcSender { vmc_sender, .. } => vmc_sender.validate()?,
             PatchOp::SetOutputFormat {
                 width,
@@ -2791,6 +2838,9 @@ impl Validate for AppStatus {
         }
         if let Some(youtube) = &self.youtube {
             youtube.validate()?;
+        }
+        if let Some(captures) = &self.captures {
+            validate_capture_entries(captures)?;
         }
         if let Some(addresses) = &self.local_addresses {
             require(
@@ -3136,6 +3186,10 @@ pub fn parse_wire(bytes: &[u8]) -> Result<WireMessage, AppError> {
         WireMessage::VmcPoses { tick, poses, .. } => {
             require(*tick <= 9_007_199_254_740_991, "unsafe VMC tick")?;
             validate_vmc_poses(poses)?;
+        }
+        WireMessage::CaptureStatus { revision, screens } => {
+            require(*revision <= 9_007_199_254_740_991, "unsafe revision")?;
+            validate_capture_screens(screens)?;
         }
         _ => {}
     }

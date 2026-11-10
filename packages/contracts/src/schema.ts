@@ -14,6 +14,7 @@ import { AvatarRigSchema, VmcPosesEnvelopeSchema, VmcSenderSettingsSchema, VmcSe
 import { AssetExpressionsSchema, AvatarExpressionsSchema, ExpressionNameSchema, ExpressionSettingsSchema, ExpressionStateSchema, ARKIT_NAMES } from './expressions';
 import { AssetMeshesSchema, HiddenMeshesSchema, MeshListSchema } from './meshes';
 import { isWebScreenUrl } from './web-url';
+import { CAPTURE_STATES, CAPTURE_TEXT_LIMITS, captureTextLength, normalizeCaptureText } from './capture';
 import type { AppApi, Capability, Reply, ValidatedCall } from "./types";
 export const LIMITS = {
     jsonBytes: 262144,
@@ -36,7 +37,8 @@ export const LIMITS = {
     vmcSenders: 4,
     screens: 16,
     webScreens: 4,
-    videoScreens: 4
+    videoScreens: 4,
+    captureScreens: 2
 } as const;
 export const IdSchema = z.string().min(1).max(256);
 const n = z.number().finite(), u = n.int().nonnegative().max(Number.MAX_SAFE_INTEGER);
@@ -171,11 +173,21 @@ export const WebScreenSchema = z.strictObject({
     onTop: z.boolean()
 });
 export const ScreenVideoSchema = z.strictObject({ assetId: IdSchema.nullable(), autoPlay: z.boolean(), loop: z.boolean(), volume: n.min(0).max(1) });
+// B31 R2: a capture source is a description that the host matches to a display or a window. Each string is normalized.
+const captureText = (min: number, max: number) => z.string().refine(value => value === normalizeCaptureText(value, max) && captureTextLength(value) >= min && captureTextLength(value) <= max, 'Invalid capture text');
+export const CaptureSourceSchema = z.discriminatedUnion("kind", [
+    z.strictObject({ kind: z.literal("display"), name: captureText(1, CAPTURE_TEXT_LIMITS.name), ordinal: n.int().min(0).max(7) }),
+    z.strictObject({ kind: z.literal("window"), app: captureText(1, CAPTURE_TEXT_LIMITS.app), title: captureText(0, CAPTURE_TEXT_LIMITS.title) })
+]);
+export const ScreenCaptureSchema = z.strictObject({ target: z.enum(["display", "window"]), source: CaptureSourceSchema.nullable(), cursor: z.boolean() })
+    .refine(capture => capture.source === null || capture.source.kind === capture.target, 'The source kind must match the target');
 export const ScreenContentSchema = z.discriminatedUnion("kind", [
     z.strictObject({ kind: z.literal("image"), assetId: IdSchema.nullable() }),
     WebScreenSchema.extend({ kind: z.literal("web") }),
-    ScreenVideoSchema.extend({ kind: z.literal("video") })
+    ScreenVideoSchema.extend({ kind: z.literal("video") }),
+    z.strictObject({ kind: z.literal("capture"), target: z.enum(["display", "window"]), source: CaptureSourceSchema.nullable(), cursor: z.boolean() })
 ]);
+export const isCaptureScreen = (entity: { kind: string; content?: { kind: string } }): boolean => entity.kind === 'screen' && entity.content?.kind === 'capture';
 export const isVideoScreen = (entity: { kind: string; content?: { kind: string } }): boolean => entity.kind === 'screen' && entity.content?.kind === 'video';
 export const SceneEntitySchema = z.discriminatedUnion("kind", [
     EntityBaseSchema.extend({
@@ -257,6 +269,7 @@ export const SceneViewSchema = z.strictObject({
  if(s.entities.filter(e=>e.kind==='fpsCounter').length>LIMITS.fpsCounters)return false;
  if(s.entities.filter(e=>e.kind==='screen').length>LIMITS.screens||s.entities.filter(isVideoScreen).length>LIMITS.videoScreens)return false;
  if(s.entities.filter(e=>e.kind==='screen'&&e.content.kind==='web').length>LIMITS.webScreens)return false;
+ if(s.entities.filter(isCaptureScreen).length>LIMITS.captureScreens||!s.entities.every(e=>e.kind!=='screen'||e.content.kind!=='capture'||e.content.source===null||e.content.source.kind===e.content.target))return false;
  const senders=s.entities.filter(e=>e.kind==='vmcSender');
  if(senders.length>LIMITS.vmcSenders||!senders.every(e=>e.vmcSender.avatarId===null||s.entities.some(a=>a.id===e.vmcSender.avatarId&&a.kind==='avatar')))return false;
  if(!s.entities.every(e=>{if(e.kind!=='camera'||e.navigation?.mode!=='orbitCharacter')return true;const target=e.navigation.targetId;return target===null||s.entities.some(a=>a.id===target&&a.kind==='avatar');}))return false;
@@ -290,6 +303,7 @@ export const PatchOpSchema = z.discriminatedUnion("kind", [
     z.strictObject({kind:z.literal('setScreenImage'),entityId:IdSchema,assetId:IdSchema.nullable()}),
     z.strictObject({kind:z.literal('setScreenWeb'),entityId:IdSchema,web:WebScreenSchema}),
     z.strictObject({kind:z.literal('setScreenVideo'),entityId:IdSchema,video:ScreenVideoSchema}),
+    z.strictObject({kind:z.literal('setScreenCapture'),entityId:IdSchema,capture:ScreenCaptureSchema}),
     // Runtime only (B29 R10): the session applies it after the commit and never saves it.
     z.strictObject({kind:z.literal('controlScreenVideo'),entityId:IdSchema,action:z.enum(['play','pause','restart'])}),
     z.strictObject({kind:z.literal('setEnvironmentReflections'),entityId:IdSchema,reflectionsIntensity:ReflectionsIntensitySchema}),
@@ -460,11 +474,24 @@ export const FrameAppliedSchema = z.strictObject({
     qualityProfile: QualityProfileIdSchema.optional()
 });
 const diagnosticCount = u.max(1_000_000);
+export const VideoDecoderSupportSchema = z.enum(['supported', 'unsupported', 'missing']);
+export const CaptureStateSchema = z.enum(CAPTURE_STATES);
+const uniqueEntities = (values: { entityId: string }[]) => new Set(values.map(value => value.entityId)).size === values.length;
+// B31 R9: host state of each capture screen, sent to renderers in its own wire message. Frame does not change.
+export const CaptureStreamIdSchema = z.string().regex(/^[0-9a-f]{32}$/);
+export const CaptureScreenStatusSchema = z.strictObject({ entityId: IdSchema, streamId: CaptureStreamIdSchema.nullable(), state: CaptureStateSchema, width: u.max(1920), height: u.max(1920) });
+export const CaptureStatusSchema = z.strictObject({
+    kind: z.literal('captureStatus'),
+    revision: u,
+    screens: z.array(CaptureScreenStatusSchema).max(LIMITS.screens).refine(uniqueEntities).refine(values => values.filter(value => value.streamId !== null).length <= LIMITS.captureScreens)
+});
 export const RendererDiagnosticsSchema = z.strictObject({
  sessionId: IdSchema, outputId: IdSchema, rendererEpoch: IdSchema,
  sequence: u, revision: u, backend: BackendSchema,
  geometries: diagnosticCount, textures: diagnosticCount, liveMaterials: diagnosticCount,
  assetCacheEntries: diagnosticCount, activeRenderJob: z.boolean(), queuedFrames: diagnosticCount, queuedCaptures: diagnosticCount,
+ // B31 R14: whether this renderer has VideoDecoder and decodes avc1.4d0029 at 1920 x 1080.
+ videoDecoder: VideoDecoderSupportSchema.optional(),
 });
 export const DiagnosticsEnvelopeSchema = z.strictObject({ kind: z.literal("diagnostics"), diagnostics: RendererDiagnosticsSchema });
 export const AppStatusSchema = z.strictObject({
@@ -473,6 +500,7 @@ export const AppStatusSchema = z.strictObject({
     trackingStatus:z.array(TrackingStatusSchema).max(4).refine(values=>new Set(values.map(value=>value.sourceId)).size===values.length).optional(),
     vmcSenders: z.array(VmcSenderStatusSchema).max(LIMITS.vmcSenders).refine(values=>new Set(values.map(value=>value.entityId)).size===values.length).optional(),
     youtube: YouTubeStatusSchema.optional(),
+    captures: z.array(z.strictObject({ entityId: IdSchema, state: CaptureStateSchema })).max(LIMITS.screens).refine(uniqueEntities).optional(),
     schemaVersion: z.literal(1),
     sessionId: IdSchema,
     ready: z.boolean(),
@@ -482,7 +510,8 @@ export const AppStatusSchema = z.strictObject({
     outputs: z.array(z.strictObject({
         outputId: IdSchema,
         connected: z.boolean(),
-        lastFrame: FrameAppliedSchema.nullable()
+        lastFrame: FrameAppliedSchema.nullable(),
+        videoDecoder: VideoDecoderSupportSchema.optional()
     }))
 });
 export const CaptureParamsSchema = z.strictObject({
@@ -811,6 +840,7 @@ export const WireMessageSchema = z.union([
     ScreenshotRequestSchema,
     ScreenshotReplySchema,
     VmcPosesEnvelopeSchema,
+    CaptureStatusSchema,
     PingPongSchema
 ]);
 export type WireMessage = z.infer<typeof WireMessageSchema>;

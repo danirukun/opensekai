@@ -295,7 +295,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             }
             // A screen is never read as a mesh: an image screen and a video screen each have their own load kind (B28 R13,
             // B29 R15), so a video is never read as an image either.
-            const assetId = entity.kind === "avatar" || entity.kind === "environment" ? entity.assetId : entity.kind === "screen" ? (entity.content.kind === "web" ? null : entity.content.assetId) : entity.source.kind === "asset" ? entity.source.assetId : null;
+            const assetId = entity.kind === "avatar" || entity.kind === "environment" ? entity.assetId : entity.kind === "screen" ? (entity.content.kind === "web" || entity.content.kind === "capture" ? null : entity.content.assetId) : entity.source.kind === "asset" ? entity.source.assetId : null;
             const videoContent = entity.kind === "screen" && entity.content.kind === "video" ? entity.content : null;
             const request: LoadRequest | null = assetId === null ? null : videoContent ? { kind: "video", assetId, retryKey: JSON.stringify(videoContent) } : { kind: entity.kind === "avatar" ? "avatar" : entity.kind === "environment" ? "environment" : entity.kind === "screen" ? "screen" : "mesh", assetId };
             let value = objects.get(entity.id);

@@ -75,6 +75,7 @@ export function applyOperations(scene: SceneView, operations: ScenePatch["operat
                  case 'setScreenImage':if(entity.kind!=='screen')return failure('INVALID_INPUT','Entity is not a screen',[entity.id]);entity.content={kind:'image',assetId:operation.assetId};break;
                  case 'setScreenWeb':if(entity.kind!=='screen')return failure('INVALID_INPUT','Entity is not a screen',[entity.id]);entity.content={kind:'web',...structuredClone(operation.web)};break;
                  case 'setScreenVideo':if(entity.kind!=='screen')return failure('INVALID_INPUT','Entity is not a screen',[entity.id]);entity.content={kind:'video',...structuredClone(operation.video)};break;
+                 case 'setScreenCapture':if(entity.kind!=='screen')return failure('INVALID_INPUT','Entity is not a screen',[entity.id]);entity.content={kind:'capture',...structuredClone(operation.capture)};break;
                  case 'setEnvironmentReflections':if(entity.kind!=='environment')return failure('INVALID_INPUT','Entity is not an environment',[entity.id]);entity.reflectionsIntensity=operation.reflectionsIntensity;break;
                  case 'setLight':if(entity.kind!=='light')return failure('INVALID_INPUT','Entity is not a light',[entity.id]);entity.light=structuredClone(operation.light);break;
                  case 'setHaze':if(entity.kind!=='haze')return failure('INVALID_INPUT','Entity is not a haze',[entity.id]);entity.haze=structuredClone(operation.haze);break;

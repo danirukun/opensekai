@@ -312,6 +312,10 @@ impl Shared {
                         .acks
                         .get(id)
                         .and_then(|q| q.back().map(|(f, _)| f.clone())),
+                    video_decoder: inner
+                        .diagnostics
+                        .get(id)
+                        .and_then(|(d, _)| d.video_decoder.clone()),
                 })
                 .collect();
             let current = inner.renderers.contains_key("output_main")
@@ -327,6 +331,7 @@ impl Shared {
                         })
                 });
             return Reply::success(json!(AppStatus {
+                captures: None,
                 schema_version: 1,
                 session_id: self.session.clone(),
                 ready: inner.publisher.is_some() && current,
