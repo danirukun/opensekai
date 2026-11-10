@@ -1,4 +1,4 @@
-import {TrackingUpdateSchema,canonicalArkitName,type ArkitName,type TrackingProbe,type TrackingUpdate,type TrackingSample,type VmcPositionRule,type TrackingStatus,type TrackingBone,type AvatarPose,type SceneView,type SceneEntity,DEFAULT_TRACKING_SMOOTHING,FINGER_BONES,type Quat,type Reply} from '@opensekai/contracts';
+import {TrackingUpdateSchema,canonicalArkitName,type ArkitName,type TrackingProbe,type TrackingUpdate,type TrackingSample,type VmcPositionRule,type TrackingStatus,type TrackingBone,type AvatarPose,type SceneView,type SceneEntity,DEFAULT_TRACKING_SMOOTHING,FINGER_BONES,type Quat,type Reply,bodyPartOf,type AvatarBodyTracking} from '@opensekai/contracts';
 import {applyCalibration} from './tracking-calibration';
 import {applyMapping,scaleRotation} from './tracking-mapping';
 import {evaluateAvatarIdle} from './idle';
@@ -15,6 +15,29 @@ export function applyPositionRule(sample:TrackingSample,rule:VmcPositionRule):Tr
  if(rule==='all')return sample;
  const bones=Object.fromEntries(Object.entries(sample.bones).map(([name,bone])=>{const {position,...rest}=bone;return [name,rule==='hipsOnly'&&name==='hips'&&position?{...rest,position:[...position]as typeof position}:rest];}));
  return {...sample,bones,...(sample.root?{root:{position:[0,0,0],rotation:[...sample.root.rotation]as Quat}}:{})};
+}
+// The bones that a character takes from its sources (TRK-05 slice 2 R5, R6): a part that is not tracked sends no bone,
+// and the normalized rotations of the body part scale about the identity. Positions and weights stay.
+// A raw bone is an absolute rotation that the renderer blends from the rest pose, so a scale about the identity would move it off the rest pose; it stays as sent.
+// A normalized head is relative to the torso above the hips. When that torso is scaled or dropped, the first head bone
+// takes the difference, so the head keeps its direction (the same rule as the MediaPipe head with another body source).
+const TORSO=['spine','chest','upperChest'] as const;
+const torsoRotation=(entries:[string,TrackingBone][]):Quat=>TORSO.reduce<Quat>((total,name)=>{const bone=entries.find(([key])=>key===name)?.[1];return bone?.space==='normalized'?multiplyQuaternion(total,bone.rotation):total;},[0,0,0,1]);
+export function applyBodyTracking(entries:[string,TrackingBone][],body:AvatarBodyTracking|undefined):[string,TrackingBone][] {
+ if(!body)return entries;
+ const tracked=new Set<string>(body.trackedParts);
+ const result=entries.flatMap(([name,bone]):[string,TrackingBone][]=>{
+  const part=bodyPartOf(name);
+  if(part&&!tracked.has(part))return [];
+  return [[name,part==='body'&&bone.space==='normalized'&&body.movementIntensity!==1?{...bone,rotation:scaleRotation(bone.rotation,body.movementIntensity)}:bone]];
+ });
+ const before=torsoRotation(entries),after=torsoRotation(result);
+ if(before.every((value,index)=>value===after[index]))return result;
+ const first=['neck','head'].map(name=>result.findIndex(([key,bone])=>key===name&&bone.space==='normalized')).find(index=>index>=0);
+ if(first===undefined)return result;
+ const [name,bone]=result[first]!,[x,y,z,w]=after;
+ result[first]=[name,{...bone,rotation:multiplyQuaternion(multiplyQuaternion([-x,-y,-z,w],before),bone.rotation)}];
+ return result;
 }
 export function createTrackingComposer(){
  const samples=new Map<string,TrackingSample>(),statuses=new Map<string,TrackingStatus>();
@@ -87,8 +110,9 @@ export function createTrackingComposer(){
     boneEntries.push([name,{...resolved,weight:face.weight}]);}
    const fingers=input(entity.tracking?.fingersSourceId);
    if(fingers)for(const[name,bone]of Object.entries(fingers.sample.bones)){if(!fingerBones.has(name))continue;const index=boneEntries.findIndex(([key])=>key===name);if(index>=0)boneEntries.splice(index,1);boneEntries.push([name,{...copy(bone),weight:fingers.weight}]);}
-   const pose:AvatarPose={avatarId:entity.id,...(baseBones?{baseBones}:{}),bones:Object.fromEntries(boneEntries),expressions:Object.fromEntries(face?Object.entries(face.sample.expressions).map(([name,value])=>[name,value*face.weight]):[])};
-   if(body?.sample.root)pose.root={position:body.sample.root.position.map(value=>value*body.weight)as[number,number,number],rotation:scaleRotation(body.sample.root.rotation,body.weight)};
+   const bodyTracking=entity.tracking?.body;
+   const pose:AvatarPose={avatarId:entity.id,...(baseBones?{baseBones}:{}),bones:Object.fromEntries(applyBodyTracking(boneEntries,bodyTracking)),expressions:Object.fromEntries(face?Object.entries(face.sample.expressions).map(([name,value])=>[name,value*face.weight]):[])};
+   if(body?.sample.root&&(!bodyTracking||bodyTracking.trackedParts.includes('body')))pose.root={position:body.sample.root.position.map(value=>value*body.weight)as[number,number,number],rotation:scaleRotation(body.sample.root.rotation,body.weight)};
    avatarPoses.push(pose);
   }
   const trackingStatus=scene.entities.filter(e=>e.kind==='tracking').map(source=>{

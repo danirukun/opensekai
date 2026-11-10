@@ -9,7 +9,28 @@ export interface TrackingSmoothing {enabled:boolean;minCutoff:number;beta:number
 export const DEFAULT_TRACKING_SMOOTHING:Readonly<TrackingSmoothing>=Object.freeze({enabled:true,minCutoff:5,beta:.5,derivativeCutoff:1});
 export interface AvatarIdle {kind:'builtin';enabled:boolean}
 export interface IdleBone {rotation:Quat;space:'normalized';position?:Vec3}
-export interface AvatarTracking {bodySourceId:Id|null;faceSourceId:Id|null;fingersSourceId?:Id|null}
+// The parts of a character that tracking can drive (TRK-05 slice 2). The order is the stored order of `trackedParts`.
+export const BODY_PARTS=['head','body','leftArm','rightArm','leftFingers','rightFingers','leftLeg','rightLeg'] as const;
+export type BodyPart=typeof BODY_PARTS[number];
+export interface AvatarBodyTracking {movementIntensity:number;trackedParts:BodyPart[]}
+export const DEFAULT_AVATAR_BODY_TRACKING:Readonly<AvatarBodyTracking>=Object.freeze({movementIntensity:1,trackedParts:Object.freeze([...BODY_PARTS]) as unknown as BodyPart[]});
+const PART_BONES:Record<string,BodyPart>=Object.fromEntries([
+ ...['neck','head'].map(bone=>[bone,'head']),
+ ...['hips','spine','chest','upperChest'].map(bone=>[bone,'body']),
+ ...(['left','right'] as const).flatMap(side=>[
+  ...['Shoulder','UpperArm','LowerArm','Hand'].map(bone=>[side+bone,side+'Arm']),
+  ...['UpperLeg','LowerLeg','Foot','Toes'].map(bone=>[side+bone,side+'Leg']),
+ ]),
+]);
+/** The part of a humanoid bone. Null for the eye and jaw bones, which follow the face and belong to no part, and for a name that is not a humanoid bone. */
+export const bodyPartOf=(bone:string):BodyPart|null=>Object.hasOwn(PART_BONES,bone)?PART_BONES[bone]!:/^left(Thumb|Index|Middle|Ring|Little)(Metacarpal|Proximal|Intermediate|Distal)$/.test(bone)&&HUMANOID_BONES.includes(bone)?'leftFingers':/^right(Thumb|Index|Middle|Ring|Little)(Metacarpal|Proximal|Intermediate|Distal)$/.test(bone)&&HUMANOID_BONES.includes(bone)?'rightFingers':null;
+/** The stored form: no group for the default, and the parts in the `BODY_PARTS` order without duplicates. */
+export function normalizeBodyTracking(body:AvatarBodyTracking|undefined):AvatarBodyTracking|undefined {
+ if(!body)return undefined;
+ const trackedParts=BODY_PARTS.filter(part=>body.trackedParts.includes(part));
+ return body.movementIntensity===1&&trackedParts.length===BODY_PARTS.length?undefined:{movementIntensity:body.movementIntensity,trackedParts};
+}
+export interface AvatarTracking {bodySourceId:Id|null;faceSourceId:Id|null;fingersSourceId?:Id|null;body?:AvatarBodyTracking}
 export const CALIBRATION_BONES=['hips','spine','chest','upperChest','neck','head'] as const;
 export type CalibrationBone=typeof CALIBRATION_BONES[number];
 export interface TrackingCalibration {bones:Partial<Record<CalibrationBone,{rotation:Quat;space:'raw'|'normalized'}>>}
@@ -34,7 +55,8 @@ export const TrackingConfigSchema=z.discriminatedUnion('kind',[
  z.strictObject({kind:z.literal('mediapipe'),enabled:z.boolean(),deviceId:z.string().max(512),face:z.boolean(),upperBody:z.boolean(),hands:z.boolean(),mirror:z.boolean()}).refine(c=>!c.enabled||c.face||c.upperBody||c.hands)
 ]);
 export const AvatarIdleSchema=z.strictObject({kind:z.literal('builtin'),enabled:z.boolean()});
-export const AvatarTrackingSchema=z.strictObject({bodySourceId:id.nullable(),faceSourceId:id.nullable(),fingersSourceId:id.nullable().optional()});
+export const AvatarBodyTrackingSchema=z.strictObject({movementIntensity:n.min(0).max(2),trackedParts:z.array(z.enum(BODY_PARTS)).max(BODY_PARTS.length).refine(v=>new Set(v).size===v.length)});
+export const AvatarTrackingSchema=z.strictObject({bodySourceId:id.nullable(),faceSourceId:id.nullable(),fingersSourceId:id.nullable().optional(),body:AvatarBodyTrackingSchema.optional()});
 const calibrationBone=z.strictObject({rotation:quat,space:z.enum(['raw','normalized'])});
 export const TrackingCalibrationSchema=z.strictObject({bones:z.partialRecord(z.enum(CALIBRATION_BONES),calibrationBone).refine(v=>{const size=Object.keys(v).length;return size>=1&&size<=6;})});
 export const BlendShapeRangeSchema=z.strictObject({inputMin:n.min(0).max(1),inputMax:n.min(0).max(1),outputMin:n.min(0).max(1),outputMax:n.min(0).max(1)}).refine(r=>r.inputMin<r.inputMax&&r.outputMin<=r.outputMax);

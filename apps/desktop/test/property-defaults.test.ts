@@ -35,7 +35,7 @@ it('lists the reset fields of each kind and light type, and none of R4 (R3, R4)'
  expect(ids('ambientLight')).toEqual([...base,'color','intensity','affectCharacters','affectProps','affectEnvironment']);
  expect(ids('haze')).toEqual([...base,'density','smoke','intensity','drift']);
  expect(ids('environment')).toEqual([...base,'reflectionsIntensity']);
- expect(ids('character')).toEqual([...base,'idleAnimation']);
+ expect(ids('character')).toEqual([...base,'idleAnimation','bodyMovementIntensity','trackedParts']);
  const tracking=['smoothing','minCutoff','beta','derivativeCutoff','headIntensity','headOffsetX','headOffsetY','headOffsetZ','eyeIntensity','blendShapeSensitivity','linkedBlink'];
  expect(ids('vmc')).toEqual(['bindAddress','port','address',...tracking]);
  expect(ids('ifacialmocap')).toEqual(['bindAddress','port','address',...tracking]);
