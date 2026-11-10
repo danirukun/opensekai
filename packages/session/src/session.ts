@@ -8,12 +8,12 @@ import { createDeviceInput } from './devices';
 import { applyEffects, applyOperations } from './scene-ops';
 import { captureCalibration } from './tracking-calibration';
 import { fitRanges, mergeFit } from './blend-shape-fit';
-import { isBoneOffsetEffect, isCharacterLayerEffect, isDebugEffect, isExpressionEffect, isOverrideEffect, isSceneEffect } from './blueprint';
+import { isBoneOffsetEffect, isCharacterLayerEffect, isDebugEffect, isExpressionEffect, isOrbitEffect, isOverrideEffect, isSceneEffect } from './blueprint';
 import { createDebugLog } from './debug-log';
 import { composeBoneOffsets, EMPTY_BONE_OFFSETS, writeBoneOffset, type BoneOffsets } from './bone-offsets';
 import { advanceExpressions, composeExpressions, dropExpressionFades, EMPTY_EXPRESSIONS, expressionOwners, expressionView, reconcileExpressions, setExpression, type ExpressionStates } from './expressions';
 import { applyOverrides, dropOverrides, EMPTY_OVERRIDES, evaluatedEntity, takeIdle, type OverrideLayer } from './overrides';
-import { advanceTweens, dropGraphTweens, dropTweens, EMPTY_TWEENS, transitionStart, tweenOwners, tweening, writeTransitioned, type PropertyLayers, type TransitionEnd, type TweenLayer } from './tweens';
+import { advanceTweens, dropGraphTweens, dropTweens, EMPTY_TWEENS, transitionStart, tweenOwners, tweening, writeOrbit, writeTransitioned, type PropertyLayers, type TransitionEnd, type TweenLayer } from './tweens';
 import { advanceBlendShapes, blendShapeOwners, composeBlendShapes, dropGraphBlendShapes, EMPTY_BLEND_SHAPES, setBlendShape, type BlendShapeStates } from './blend-shapes';
 import { vmcPosesFor, withSendersStopped } from './vmc-send';
 import { dropGraphLookAts, EMPTY_LOOK_AT, lookAtOwners, sceneLookup, setLookAt, stepLookAt, type LookAtStates } from './look-at';
@@ -147,9 +147,11 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             const logic = ownerKey(run.graphId);
             // Only a wired On Transition End records an end, so an old graph never meets the end limits.
             const wired = new Set(store.active(run.graphId)?.connections.flatMap(wire => wire.sourcePort === 'transitionEnd' ? [wire.sourceNodeId] : []));
-            for (const effect of run.effects.filter(isOverrideEffect)) {
-                const end = effect.kind === 'setProperty' && effect.nodeId !== undefined && logic !== null && wired.has(effect.nodeId) ? { graphId: run.graphId, nodeId: effect.nodeId, logic } : undefined;
-                const written = writeTransitioned(nextLayers, scene, effect, run.graphId, nowMs, startMs, end);
+            for (const effect of run.effects) {
+                if (!isOverrideEffect(effect) && !isOrbitEffect(effect)) continue;
+                const nodeId = effect.kind === 'setProperty' || effect.kind === 'orbitCamera' ? effect.nodeId : undefined;
+                const end = nodeId !== undefined && logic !== null && wired.has(nodeId) ? { graphId: run.graphId, nodeId, logic } : undefined;
+                const written = isOrbitEffect(effect) ? writeOrbit(nextLayers, scene, effect, run.graphId, nowMs, startMs, end) : writeTransitioned(nextLayers, scene, effect, run.graphId, nowMs, startMs, end);
                 if (!written.ok) return written.error;
                 nextLayers = written.data;
             }

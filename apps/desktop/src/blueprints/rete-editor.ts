@@ -34,13 +34,18 @@ class GraphNode extends ClassicPreset.Node {
  // The latest Debug Value text and the session time it changed (slice F R14).
  debug: DebugText | null = null;
  setInput: InlineEdit;
- // The value that Use current value writes to `value`, or null when the button is disabled.
- current: () => ScalarValue | null;
- constructor(data: BlueprintNode, setInput: InlineEdit, current: (node: GraphNode) => ScalarValue | null) {
+ // Writes several inline inputs as one edit (one undo step).
+ setInputs: (values: Record<string, ScalarValue>) => void;
+ // The values that Use current value writes, by input port, or null when the button is disabled.
+ current: () => Record<string, ScalarValue> | null;
+ // The button values at the last redraw for a scene change.
+ shownCurrent = '';
+ constructor(data: BlueprintNode, setInput: InlineEdit, setInputs: (values: Record<string, ScalarValue>) => void, current: (node: GraphNode) => Record<string, ScalarValue> | null) {
   super(BLUEPRINT_LABELS[data.type]);
   this.id = data.id;
   this.data = data;
   this.setInput = setInput;
+  this.setInputs = setInputs;
   this.current = () => current(this);
   this.syncPorts();
  }
@@ -69,6 +74,8 @@ export interface ReteBlueprintEditor {
  show(graph: BlueprintGraph): Promise<void>;
  select(nodeId: string | null): void;
  setEditable(editable: boolean): void;
+ // Redraws the nodes with Use current value after a scene change, so the button state follows the scene.
+ refreshCurrent(): void;
  // Debug Value text by node ID; a node without an entry shows none.
  setDebugValues(values: ReadonlyMap<string, DebugText>): void;
  zoomToFit(): Promise<void>;
@@ -87,8 +94,8 @@ export interface ReteBlueprintHandlers {
  onWireDrop?(from: { nodeId: string; port: string; side: 'input' | 'output' }, client: { x: number; y: number }): void;
  onCommentSelect?(ids: string[]): void;
  onCommentOpen?(id: string): void;
- // The committed scene value for Use current value on a Set Asset Property node.
- currentValue?(node: BlueprintNode, wired: boolean): ScalarValue | null;
+ // The committed scene values for Use current value (Set Asset Property, Camera Orbit Character), by input port.
+ currentValue?(node: BlueprintNode, wired: ReadonlySet<string>): Record<string, ScalarValue> | null;
 }
 
 export async function mountReteBlueprint(container: HTMLElement, initial: BlueprintGraph, handlers: ReteBlueprintHandlers, options: { render?: boolean; inspect?: (area: AreaPlugin<Schemes, AreaExtra>) => void; views?: BlueprintViews } = {}): Promise<ReteBlueprintEditor> {
@@ -180,14 +187,17 @@ export async function mountReteBlueprint(container: HTMLElement, initial: Bluepr
  };
  const place = (id: string, position: BlueprintNode['position']) => ownNode(id, () => area.translate(id, position));
  // An inline edit changes the canvas copy first, so the echo of the session needs no redraw.
- const setInput = (nodeId: string): InlineEdit => (port, value) => {
+ const setInputs = (nodeId: string) => (values: Record<string, ScalarValue | null>) => {
   const node = editor.getNode(nodeId) as GraphNode | undefined;
-  if (destroyed || !node || !editable) return;
-  node.data = withInlineInput(node.data, port, value);
-  track(graph => ({ ...graph, nodes: graph.nodes.map(item => item.id === nodeId ? withInlineInput(item, port, value) : item) }));
+  const entries = Object.entries(values);
+  if (destroyed || !node || !editable || entries.length === 0) return;
+  const apply = (item: BlueprintNode) => entries.reduce((next, [port, value]) => withInlineInput(next, port, value), item);
+  node.data = apply(node.data);
+  track(graph => ({ ...graph, nodes: graph.nodes.map(item => item.id === nodeId ? apply(item) : item) }));
   void area.update('node', nodeId);
-  handlers.onOps([{ kind: 'setNodeInput', graphId, nodeId, port, value }]);
+  handlers.onOps(entries.map(([port, value]) => ({ kind: 'setNodeInput', graphId, nodeId, port, value })));
  };
+ const setInput = (nodeId: string): InlineEdit => (port, value) => setInputs(nodeId)({ [port]: value });
  // Only the input of the added or removed wire changes; the node redraws when that input gains its first wire or loses its last.
  const countWire = (nodeId: string, port: string, change: 1 | -1) => {
   const node = editor.getNode(nodeId) as GraphNode | undefined;
@@ -197,7 +207,7 @@ export async function mountReteBlueprint(container: HTMLElement, initial: Bluepr
   if (count === 0 || (count === 1 && change === 1)) void area.update('node', nodeId);
  };
  const addNode = (data: BlueprintNode) => ownNode(data.id, async () => {
-  const node = new GraphNode(data, setInput(data.id), item => handlers.currentValue?.(item.data, item.wired.has('value')) ?? null);
+  const node = new GraphNode(data, setInput(data.id), setInputs(data.id), item => handlers.currentValue?.(item.data, new Set(item.wired.keys())) ?? null);
   node.editable = editable;
   node.debug = debugValues.get(data.id) ?? null;
   await editor.addNode(node);
@@ -292,6 +302,16 @@ export async function mountReteBlueprint(container: HTMLElement, initial: Bluepr
    if (next === editable) return;
    editable = next;
    for (const node of editor.getNodes() as GraphNode[]) { node.editable = next; void area.update('node', node.id); }
+  },
+  refreshCurrent() {
+   // Only a node whose button values change is drawn again, so a scene change does not disturb an inline edit.
+   for (const node of editor.getNodes() as GraphNode[]) {
+    if (node.data.type !== 'property.set' && node.data.type !== 'camera.orbitCharacter') continue;
+    const shown = JSON.stringify(node.current());
+    if (shown === node.shownCurrent) continue;
+    node.shownCurrent = shown;
+    void area.update('node', node.id);
+   }
   },
   setDebugValues(next) {
    debugValues = next;

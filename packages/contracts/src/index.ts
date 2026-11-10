@@ -28,3 +28,4 @@ export * from './fingerprint';
 export * from './proposal';
 export * from './materials';
 export * from './web-url';
+export * from './camera-orbit';

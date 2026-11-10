@@ -1,4 +1,5 @@
 import type { OverrideWrite } from './overrides';
+import type { OrbitWrite } from './tweens';
 import type { ExpressionEffect } from './expressions';
 import type { BoneOffsetEffect } from './bone-offsets';
 import type { BlendShapeEffect } from './blend-shapes';
@@ -14,13 +15,14 @@ export type SceneEffect =
  | { kind: 'setMeshesVisible'; entityId: Id; names: string[]; visible: boolean }
  | { kind: 'selectCamera'; outputId: Id; cameraId: Id };
 export type CharacterLayerEffect = BlendShapeEffect | LookAtEffect;
-export type BlueprintEffect = SceneEffect | OverrideWrite | ExpressionEffect | BoneOffsetEffect | CharacterLayerEffect | DebugEffect;
+export type BlueprintEffect = SceneEffect | OverrideWrite | OrbitWrite | ExpressionEffect | BoneOffsetEffect | CharacterLayerEffect | DebugEffect;
 export const isOverrideEffect = (effect: BlueprintEffect): effect is OverrideWrite => effect.kind === 'setProperty' || effect.kind === 'moveEntity';
+export const isOrbitEffect = (effect: BlueprintEffect): effect is OrbitWrite => effect.kind === 'orbitCamera';
 export const isExpressionEffect = (effect: BlueprintEffect): effect is ExpressionEffect => effect.kind === 'setExpression' || effect.kind === 'toggleExpression';
 export const isBoneOffsetEffect = (effect: BlueprintEffect): effect is BoneOffsetEffect => effect.kind === 'offsetBone';
 export const isCharacterLayerEffect = (effect: BlueprintEffect): effect is CharacterLayerEffect => effect.kind === 'setBlendShape' || effect.kind === 'lookAt';
 export const isDebugEffect = (effect: BlueprintEffect): effect is DebugEffect => DEBUG_EFFECT_KINDS.has(effect.kind);
-export const isSceneEffect = (effect: BlueprintEffect): effect is SceneEffect => !isOverrideEffect(effect) && !isExpressionEffect(effect) && !isBoneOffsetEffect(effect) && !isCharacterLayerEffect(effect) && !isDebugEffect(effect);
+export const isSceneEffect = (effect: BlueprintEffect): effect is SceneEffect => !isOverrideEffect(effect) && !isOrbitEffect(effect) && !isExpressionEffect(effect) && !isBoneOffsetEffect(effect) && !isCharacterLayerEffect(effect) && !isDebugEffect(effect);
 export interface CompiledBlueprint { graph: BlueprintGraph; nodes: Map<Id, BlueprintNode>; ports: Map<Id, PortShape>; dataIn: Map<string, BlueprintConnection>; flowNext: Map<string, BlueprintConnection> }
 export interface PendingDelay { nodeId: Id; dueMs: number }
 export interface FlowBudget { visits: number; effects: number }
@@ -84,8 +86,8 @@ export function compileBlueprint(input: unknown): Reply<CompiledBlueprint> {
   if (type === 'flow') {
    if (flowNext.has(key(source.id, connection.sourcePort))) return fail('Blueprint flow output has multiple connections', [source.id]);
    flowNext.set(key(source.id, connection.sourcePort), connection);
-   // The exit of Delay and Debounce and the On Transition End of Set Asset Property run in a later run, so they are not an immediate cycle.
-   if (source.type !== 'flow.delay' && source.type !== 'flow.debounce' && !(source.type === 'property.set' && connection.sourcePort === 'transitionEnd')) push(flowEdges, source.id, target.id);
+   // The exit of Delay and Debounce and the On Transition End of Set Asset Property and Camera Orbit Character run in a later run, so they are not an immediate cycle.
+   if (source.type !== 'flow.delay' && source.type !== 'flow.debounce' && !((source.type === 'property.set' || source.type === 'camera.orbitCharacter') && connection.sourcePort === 'transitionEnd')) push(flowEdges, source.id, target.id);
   } else {
    if (dataIn.has(key(target.id, connection.targetPort))) return fail('Blueprint input has multiple connections', [target.id]);
    dataIn.set(key(target.id, connection.targetPort), connection);

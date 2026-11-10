@@ -1,0 +1,20 @@
+PASS camera_wide is in Orbit Character mode {"ok":true,"data":{"revision":1}}
+PASS the four orbit graphs load 
+PASS fixture_vrm0_arkit loads on the OBS page []
+PASS backend is webgl2 "webgl2"
+PASS Yaw 0: the run succeeds and the camera is on the expected side {"reply":{"ok":true,"data":{"revision":1}},"position":[0,1.6820259908672468,2.1665770566268576]}
+PASS Yaw 0: the character shows in the frame {"fraction":0.09151475694444444,"minX":152,"maxX":456}
+PASS Yaw 90: the run succeeds and the camera is on the expected side {"reply":{"ok":true,"data":{"revision":2}},"position":[2.1665770566268576,1.6820259908672468,1.3266458287520876e-16]}
+PASS Yaw 90: the character shows in the frame {"fraction":0.05115451388888889,"minX":289,"maxX":355}
+PASS Yaw 180: the run succeeds and the camera is on the expected side {"reply":{"ok":true,"data":{"revision":3}},"position":[2.653291657504175e-16,1.6820259908672468,-2.1665770566268576]}
+PASS Yaw 180: the character shows in the frame {"fraction":0.09266493055555555,"minX":149,"maxX":459}
+PASS Yaw 270: the run succeeds and the camera is on the expected side {"reply":{"ok":true,"data":{"revision":4}},"position":[-2.1665770566268576,1.6820259908672468,-3.9799374862562627e-16]}
+PASS Yaw 270: the character shows in the frame {"fraction":0.04948350694444444,"minX":285,"maxX":350}
+PASS frames at Yaw 0 and Yaw 90 differ 0.0931
+PASS frames at Yaw 0 and Yaw 180 differ 0.0884
+PASS frames at Yaw 0 and Yaw 270 differ 0.0943
+PASS frames at Yaw 90 and Yaw 180 differ 0.1028
+PASS frames at Yaw 90 and Yaw 270 differ 0.0563
+PASS frames at Yaw 180 and Yaw 270 differ 0.0922
+PASS no page error []
+19/19 passed
