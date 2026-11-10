@@ -217,7 +217,8 @@ struct State {
     revision: u64,
     plan: CapturePlan,
     streams: Vec<Stream>,
-    published: Vec<CaptureScreenStatus>,
+    /// `None` until the first scene, so a scene without capture screens sends one empty list.
+    published: Option<Vec<CaptureScreenStatus>>,
     next_subscriber: u64,
     access_requested: bool,
 }
@@ -312,7 +313,7 @@ impl CaptureManager {
         {
             let mut state = lock(&self.shared.state);
             state.revision = scene.revision;
-            if state.screens == screens {
+            if state.screens == screens && state.published.is_some() {
                 return;
             }
             state.screens = screens;
@@ -329,12 +330,12 @@ impl CaptureManager {
     pub fn is_allowed(&self, source: &CaptureSource) -> bool {
         lock(&self.shared.state).allowed.contains(source)
     }
-    /// The status for a renderer that just authenticated; `None` when no capture screen exists.
+    /// The status for a renderer that just authenticated (R9), one time; `None` before the first scene.
     pub fn current_status(&self) -> Option<WireMessage> {
         let state = lock(&self.shared.state);
-        (!state.published.is_empty()).then(|| WireMessage::CaptureStatus {
+        state.published.as_ref().map(|screens| WireMessage::CaptureStatus {
             revision: state.revision,
-            screens: state.published.clone(),
+            screens: screens.clone(),
         })
     }
     /// `app_status.captures`: states without names or titles.
@@ -342,6 +343,7 @@ impl CaptureManager {
         lock(&self.shared.state)
             .published
             .iter()
+            .flatten()
             .map(|s| CaptureStatusEntry {
                 entity_id: s.entity_id.clone(),
                 state: s.state.clone(),
@@ -740,10 +742,10 @@ impl ManagerShared {
         let message = {
             let mut state = lock(&self.state);
             let screens = Self::statuses(&state);
-            if screens == state.published {
+            if state.published.as_ref() == Some(&screens) {
                 return;
             }
-            state.published = screens.clone();
+            state.published = Some(screens.clone());
             WireMessage::CaptureStatus {
                 revision: state.revision,
                 screens,

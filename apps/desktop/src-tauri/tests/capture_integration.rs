@@ -210,15 +210,32 @@ async fn a_source_that_is_not_allowed_shows_not_allowed_and_starts_no_capture() 
 }
 
 #[tokio::test]
-async fn a_scene_without_capture_screens_sends_no_status_and_the_source_list_works() {
+async fn a_scene_without_capture_screens_sends_one_empty_status_and_the_source_list_works() {
     let mut s = setup().await;
+    // R9: one empty list, then nothing for later revisions without a capture screen.
     publish(&mut s, 1, scene(1, vec![])).await;
+    let mut kinds = vec![];
+    for _ in 0..2 {
+        let message = next_non_clock(&mut s.renderer).await;
+        if message["kind"] == "captureStatus" {
+            assert_eq!(message["screens"], json!([]));
+        }
+        kinds.push(message["kind"].as_str().unwrap().to_owned());
+    }
+    kinds.sort();
+    assert_eq!(kinds, ["captureStatus", "frame"]);
+    publish(&mut s, 2, scene(2, vec![])).await;
     assert_eq!(next_non_clock(&mut s.renderer).await["kind"], "frame");
     assert!(
         tokio::time::timeout(Duration::from_millis(300), next_non_clock(&mut s.renderer))
             .await
             .is_err()
     );
+    // A renderer that connects later gets the current (empty) status one time after its auth.
+    let late = s.service.renderer_descriptor("output_late").unwrap();
+    let mut late = auth(&s.service, &late).await;
+    let first = status_where(&mut late, |_| true).await;
+    assert_eq!(first["screens"], json!([]));
     assert!(app_status(&s).await.get("captures").is_none());
     let list = s.service.ports().capture_source_list().await;
     assert_eq!(list.error, None);

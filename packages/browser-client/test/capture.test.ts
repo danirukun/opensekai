@@ -20,7 +20,7 @@ it("parses captureConfig and rejects other text", () => {
     for (const bad of [{ ...config, kind: "captureStatus" }, { ...config, codec: "vp09.00.10.08" }, { ...config, codedWidth: 3840 }, { ...config, description: "" }, { ...config, description: "%%%=" }, { ...config, extra: 1 }]) expect(parseCaptureConfig(JSON.stringify(bad))).toBeNull();
     expect(parseCaptureConfig("not json")).toBeNull();
 });
-class FakeSocket extends EventTarget { binaryType = "blob"; sent: string[] = []; closed = false; constructor(public url: string) { super(); } send(text: string) { this.sent.push(text); } close() { this.closed = true; } }
+class FakeSocket extends EventTarget { binaryType = "blob"; sent: string[] = []; closed = false; url: string; constructor(url: string) { super(); this.url = url; } send(text: string) { this.sent.push(text); } close() { this.closed = true; } }
 const descriptor: ConnectionDescriptor = { schemaVersion: 1, sessionId: "session", httpOrigin: "http://127.0.0.1:4100/", wsUrl: "ws://127.0.0.1:4100/ws", role: "renderer", token: "secret-token", capabilities: ["read"], outputId: "output_main" };
 it("sends captureAuth first, keeps the token out of the URL, and closes on a chunk before the config", () => {
     let socket!: FakeSocket;

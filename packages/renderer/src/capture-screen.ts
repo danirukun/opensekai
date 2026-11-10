@@ -187,7 +187,6 @@ function openStream(streamId: string, host: CaptureHost, env: CaptureEnv, upload
         if (message) events.closed(); else events.error();
     };
     const feed = (chunk: CaptureChunk) => {
-        (globalThis as any).__dbg = ((globalThis as any).__dbg ?? []); (globalThis as any).__dbg.push(['in', chunk.timestampUs, chunk.key, decoder?.state, decoder?.decodeQueueSize, configuring]);
         if (!decoder || decoder.state !== "configured" || !gate.accept(chunk.key, decoder.decodeQueueSize)) return;
         try { decoder.decode(new env.EncodedVideoChunk({ type: chunk.key ? "key" : "delta", timestamp: chunk.timestampUs, data: chunk.data })); }
         catch { fail(null); }
@@ -201,7 +200,7 @@ function openStream(streamId: string, host: CaptureHost, env: CaptureEnv, upload
         if (closed || current !== generation) return;
         if (!supported) { fail(CAPTURE_CODEC_UNSUPPORTED); return; }
         try {
-            decoder ??= new Decoder({ output: frame => { (globalThis as any).__dbg = ((globalThis as any).__dbg ?? []); (globalThis as any).__dbg.push(['out', frame.timestamp]); if (closed) frame.close(); else newest.offer(frame); }, error: () => fail(null) });
+            decoder ??= new Decoder({ output: frame => { if (closed) frame.close(); else newest.offer(frame); }, error: () => fail(null) });
             if (decoder.state === "configured") decoder.reset();
             decoder.configure(decoderConfig(config));
         } catch { fail(null); return; }

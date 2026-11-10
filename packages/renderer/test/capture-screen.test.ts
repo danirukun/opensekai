@@ -67,7 +67,7 @@ const fakes = (decoder?: { supported?: boolean }) => {
     let clock = 0, listener: ((s: CaptureStatus) => void) | undefined;
     const opened: { streamId: string; handlers: CaptureHandlers; closed: boolean }[] = [];
     const decoders: { init: { error(e: unknown): void; output(f: unknown): void }; closed: boolean }[] = [];
-    class Decoder { state = "unconfigured"; decodeQueueSize = 0; constructor(public init: never) { decoders.push(this as never); } configure() { this.state = "configured"; } decode() {} reset() {} close() { this.state = "closed"; (this as unknown as { closed: boolean }).closed = true; } static async isConfigSupported() { return { supported: decoder?.supported ?? true }; } }
+    class Decoder { state = "unconfigured"; decodeQueueSize = 0; init: never; constructor(init: never) { this.init = init; decoders.push(this as never); } configure() { this.state = "configured"; } decode() {} reset() {} close() { this.state = "closed"; (this as unknown as { closed: boolean }).closed = true; } static async isConfigSupported() { return { supported: decoder?.supported ?? true }; } }
     const env: CaptureEnv = { VideoDecoder: decoder ? Decoder as never : undefined, EncodedVideoChunk: class {} as never, createImageBitmap: async () => ({}) as never, now: () => clock };
     const host = { onStatus(next: (s: CaptureStatus) => void) { listener = next; return () => { listener = undefined; }; }, open(streamId: string, handlers: CaptureHandlers) { const entry = { streamId, handlers, closed: false }; opened.push(entry); return { close() { if (entry.closed) return; entry.closed = true; handlers.closed(1000); } }; } };
     return { env, host, opened, decoders, send: (s: CaptureStatus) => listener?.(s), tick: (ms: number) => { clock += ms; } };
@@ -140,4 +140,14 @@ it("reports the VideoDecoder probe", async () => {
     expect(await probeVideoDecoder({})).toBe("missing");
     expect(await probeVideoDecoder({ VideoDecoder: { isConfigSupported: async () => ({ supported: true }) } as never })).toBe("supported");
     expect(await probeVideoDecoder({ VideoDecoder: { isConfigSupported: async () => ({ supported: false }) } as never })).toBe("unsupported");
+});
+it("puts the screen entity ID in each Capture warning, for the Inspector (B31 R15)", () => {
+    const f = fakes({});
+    const captures = createCaptureScreens({ host: f.host, upload: "frame", env: f.env });
+    f.send(status([["a", null, "notAllowed"], ["b", S1, "paused"], ["c", null, "notFound"]]));
+    const views = captures.apply([screen("a"), screen("b"), screen("c")]);
+    expect(views.get("a")?.warning).toEqual({ code: "UNAVAILABLE", message: "Capture: Choose the source again", ids: ["a"] });
+    expect(views.get("b")?.warning).toEqual({ code: "UNAVAILABLE", message: "Capture: Source hidden", ids: ["b"] });
+    expect(views.get("c")?.warning).toEqual({ code: "UNAVAILABLE", message: "Capture: Source not found", ids: ["c"] });
+    captures.dispose();
 });
