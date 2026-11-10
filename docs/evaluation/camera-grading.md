@@ -171,3 +171,97 @@ Reviewer: Claude Opus (a different model from the implementer), on the diff, the
 | The screenshot bloom took its target size from the canvas, so a screenshot from a 960 × 540 preview had another glow than the output | Fixed: the screenshot bloom has the screenshot size. Checked with `preview_v1` |
 | A graded edge pixel could get a channel above its alpha (for example exposure on a pixel with alpha 0.5) | Fixed: the graded color is clamped from 0 to 1 before it is premultiplied. R10 changed. Unit test added |
 | Rust accepts `setCameraGrading` without the `grading` field as a removal; TypeScript rejects it | Not changed. Rust reads each `Option` field this way (the same as `assetId`), and the session, which applies the operation, rejects it |
+
+## macOS local acceptance (2026-11-10)
+
+Checked on the owner's Mac by a local review agent, on commit `e08bc09`. This section records only what was seen on this machine. Each item that was not seen has the status "not checked" or "unknown".
+
+- Machine: MacBook Pro (Mac15,6), Apple M3 Pro, 36 GB, macOS 27.2 (26B123), on battery power, low power mode off.
+- OBS 33.0.1 (obs-websocket 5.7.6, browser source Chrome 150), 1920 × 1080 at 60. The app output was one Browser Source in an isolated scene, with the default blending method. No stream and no recording.
+- App: `pnpm dev:desktop` (debug build) with `OPENSEKAI_EVALUATION=1`. rustc 1.93.1, Node 26.13.0, pnpm 12.8.1.
+- Backend: WebGPU for the editor preview (`preview_v1`) and for the OBS source (`production_v1`), from `app_status`.
+- Fixtures: character `fixture_vrm0_arkit` (sha256 `7b7c689e…`, VRM 0, MToon). Stage: the library asset "OpenSekai Test Stage" `scene_6eb17002…`. This is not the manifest revision `fbeb8623…`.
+- Scene: the start scene (one directional light, intensity 3) with the character and the stage.
+
+### Commands
+
+| Command | macOS result | Difference from the pull request text |
+| --- | --- | --- |
+| `pnpm i` | Pass. `pnpm-lock.yaml` did not change | — |
+| `pnpm build` | Pass, after the one-time step `prepare-tracking.ts --download` | The cloud run did not run it |
+| `pnpm check` | Pass: 10 packages and `tsconfig.scripts.json`; svelte-check 0 errors, 0 warnings | The text says 9 packages |
+| `pnpm test:unit` | 2007 passed, 1 skipped (231 files) | None |
+| `pnpm test:integration` | 77 passed, 0 failed, 4 skipped (36 files passed, 2 skipped) | Cloud: 73 passed, 4 failed. The 4 `prepare-tracking` tests pass here |
+| `cargo fmt --all -- --check` | Clean, exit code 0 | The text says that files differ as on the base. No file differs here |
+| `cargo clippy --workspace --all-targets` | 0 warnings | None |
+| `cargo test --workspace --no-fail-fast` | 461 passed, 0 failed, 2 ignored | Cloud (rustc 1.97.0): 459 passed. The cause of the 2 more tests is unknown |
+
+The baseline table in `docs/testing.md` (2026-10-15: 671 unit, 23 integration, 206 Rust tests) is older than `main`. No count is below it.
+
+### Steps of the pull request
+
+| Step | Result | What was seen |
+| --- | --- | --- |
+| 1. Tone Mapping ACES and Neutral; move Exposure, Brightness, Contrast, Vibrance, Tint | Pass | The Inspector select and a mouse drag of each slider changed the preview and the OBS source during the drag. OBS captures in the middle of the Exposure drag show exposure 4 and then a negative exposure. In 46 s of drags, the OBS output had 60 frames each second, 0 frame gaps above 50 ms, and a maximum gap of 45 ms. Ten passes of Exposure through 0 with Tone Mapping None (the chain is built again there) gave a maximum gap of 30 ms. Tint was set in its text field. The Tint color picker was not operated |
+| 2. Bloom Intensity 1, Threshold 0.76, over dark, light, and checker | Fail over a light background | See "Bloom in OBS" |
+| 3. Reset marks | Pass | 9 marks showed. After the 9 resets, the group was the default group and 0 pixels outside the character differed from the first OBS capture |
+| 4. Take Screenshot with a grading | Pass | Taken in the Inspector with ACES, exposure 0.3, bloom 1 / 0.76 / 0.4. The PNG is 1920 × 1080 from the half-resolution preview. The face and hoodie pixels are equal to the OBS source. The glow alpha along two lines is equal within 1 of 255, and the glow box is equal within 1 pixel |
+| 5. Save, close, open; minimize | Pass | The saved `.osekai` file and the opened show have the same group on the camera. With the editor minimized, the OBS output drew 1198 frames in 20 s, the preview drew 0, and OBS captures changed |
+| 6. OBS frame time, `production_v1` | Recorded, with limits | See "Timing" |
+
+### WebGPU canvas
+
+Pass. The preview canvas and the OBS page both use WebGPU, and both show each grading. The stress through `scene_patch` gave no stall: 117 changes between a neutral and a graded group at 10 Hz (maximum frame gap 25 ms), 60 changes between bloom off and on at 5 Hz (38 ms, one frame of 9.8 ms CPU), and 633 number changes at 60 Hz (29 ms).
+
+### Bloom in OBS
+
+Method. The stage was hidden, so the character was over the transparent background. The OBS scene had a color source `#101010`, a color source `#f2f2f2`, or a checker image below the app source. Values are 8-bit sRGB from OBS captures.
+
+- **Far area.** The four corners and the left and right edges stay `0, 0, 0, 0`. The glow of bloom 1 / 0.76 / 0.4 covers x from 452 to 1465 and the full height. No pixel has a color channel above its alpha, with each curve and with FXAA.
+- **Box edge.** None seen. In the area with alpha below 24, the largest step between neighbor pixels is 3 of 255. The alpha image times 12 shows round contours.
+- **Bright fringe.** None seen on the dark hoodie and trousers edge. The added brightness falls smoothly with the distance from the edge (14, 15, 11, 9, 7, 6, 6, 5 of 255 at 1 to 8 pixels).
+- **Light background: the glow is a dark veil.** Near the head, the source pixel is a white glow with alpha 23 of 255 (`23, 22, 22, 23`). Over `#f2f2f2`, OBS shows 234, not 243. Over `#101010` it shows 30. The values agree with a blend in linear light on the premultiplied sRGB values, which is the default blending method of an OBS scene item. Around the hand and the head, the eye sees a gray shadow, not a glow ([head](camera-grading/macos-obs-bloom-head-dark-light-checker-off.jpg), [edge](camera-grading/macos-obs-bloom-edge-dark-light-off.jpg)). The result is the same with None, ACES, Neutral, and exposure −2. The "SRGB Off" blending method of OBS was not checked. The haze has the same effect ([haze](camera-grading/macos-obs-haze-bloom.jpg)).
+- **Strength.** With the start light (intensity 3), the skin and the white hair of this character are at the clip level. Bloom 1 / 0.76, the values of step 2, remove the face: the eyes and the glasses are not visible. Bloom 0.3 still washes the face, and 0.1 is a light wash ([weaker](camera-grading/macos-obs-bloom-weaker.jpg)). With light intensity 1 nothing is above the threshold and no glow shows. With the stage, bloom 1 / 0.76 after step 1 fills the full frame ([stage](camera-grading/macos-obs-step2-stage-dark-light-checker.jpg)).
+
+### Curves on the MToon character
+
+OBS source pixels (R, G, B), start light, no other grading ([image](camera-grading/macos-obs-tonemap-none-aces-neutral.jpg)).
+
+| Point | None | ACES | Neutral |
+| --- | --- | --- | --- |
+| Skin | 255, 255, 247 | 232, 228, 225 | 245, 230, 218 |
+| Hair (white) | 255, 255, 255 | 227, 227, 227 | 241, 241, 241 |
+| Hoodie (dark) | 58, 58, 58 | 43, 43, 43 | 27, 27, 27 |
+| Green cove | 0, 255, 103 | 161, 232, 150 | 51, 245, 103 |
+| Chart tan patch | 182, 138, 120 | 194, 154, 135 | 175, 127, 107 |
+| Chart white patch | 255, 255, 255 | 244, 244, 243 | 251, 251, 250 |
+
+ACES makes the skin gray and makes strong colors pale. Neutral keeps the hues and makes dark cloth much darker (58 to 27). These are the properties of the two three.js curves. The owner must decide if they are acceptable without an exposure change.
+
+### Limits of the values
+
+- Contrast −1: each opaque pixel is `118, 118, 118`. There is no black, white, or invalid patch, but the picture has no content. This agrees with R10.
+- Exposure 4 and −4, alone and with contrast −1 and with ACES: no invalid patch. For 10 gradings, the counts of clear, partial, and opaque pixels are equal (61,992 / 2,641 / 2,008,967).
+- Vibrance 0.77 makes strong colors primary colors: the tan patch becomes `232, 12, 0` ([image](camera-grading/macos-obs-neutral-vibrance-tint.jpg)).
+
+### FXAA and haze with bloom
+
+- FXAA with bloom 0.3: the output is a valid premultiplied image, and the screenshot agrees with the OBS source (1 % difference in the count of partial pixels, glow box within 3 pixels).
+- Haze (density 1, one volumetric spot light) with bloom 0.3, and with ACES: both draw, and the status has no warning.
+
+### Timing
+
+Conditions: debug build, battery power, 20 s warm-up and one window of 60 s for each state. This is not a result under the benchmark contract (three runs of 120 s, release build). The preview drew only in the first state, because another application covered the editor in the others. App timing is the CPU time that the renderer of the OBS page reports. OBS timing is from `GetStats`.
+
+| State | OBS average frame render time (median) | OBS render-skipped frames | App CPU time, p50 / p95 | App frames each second | App GPU time |
+| --- | --- | --- | --- | --- | --- |
+| No grading | 0.370 ms | 0 of 3673 | 3.7 / 4.2 ms | 59.98 | unknown |
+| Bloom 0.3, threshold 0.76, radius 0.4 | 0.384 ms | 0 of 3667 | 4.1 / 4.7 ms | 59.96 | unknown |
+| ACES, exposure 0.3, bloom 1, radius 1 | 0.400 ms | 0 of 3665 | 4.1 / 4.8 ms | 59.96 | unknown |
+| No grading, second time | 0.414 ms | 0 of 3667 | 4.3 / 4.8 ms | 59.95 | unknown |
+
+The difference between bloom off and on is smaller than the difference between the two runs without a grading. The GPU cost is unknown: the renderer reports no GPU time. A first set of runs is not used, because the screen locked during it.
+
+### Not checked
+
+The Tint color picker, the gizmo of the editor in a graded preview, a web page Screen with a grading, a release build, the "SRGB Off" blending method of OBS, WebGL 2 on macOS, and Windows.
