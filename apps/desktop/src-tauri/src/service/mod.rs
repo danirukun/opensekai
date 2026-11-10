@@ -1230,6 +1230,17 @@ async fn capture_loop(mut socket: WebSocket, shared: &Arc<Shared>) {
         Ok(subscription) => subscription,
         Err(code) => return close_with(socket, code).await,
     };
+    // The `/ws` connection can close between the check and the subscription. The service removes
+    // it from `renderers` and closes its subscriptions under the same `inner` lock, so this second
+    // check after the subscription leaves no window (R13).
+    let still_open = lock(&shared.inner)
+        .renderers
+        .get(&auth.output_id)
+        .is_some_and(|c| c.id == renderer);
+    if !still_open {
+        drop(subscription);
+        return close_with(socket, transport::CLOSE_UNAUTHORIZED).await;
+    }
     let (mut sink, mut stream) = socket.split();
     loop {
         let item = tokio::select! {

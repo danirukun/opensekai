@@ -124,6 +124,50 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
+/// An adapter call that waits until the manager state lock is released. A macOS `request_key`
+/// encodes a frame and `stop` waits for the encoder, so neither runs under the lock that each
+/// socket task takes to pop its next message (R13).
+enum Deferred {
+    Stop(Arc<dyn StreamControl>),
+    Key(Arc<dyn StreamControl>),
+}
+thread_local! {
+    static DEFERRED: std::cell::RefCell<Vec<Deferred>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+fn defer(action: Deferred) {
+    DEFERRED.with(|d| d.borrow_mut().push(action));
+}
+fn run_deferred() {
+    for action in DEFERRED.with(|d| std::mem::take(&mut *d.borrow_mut())) {
+        match action {
+            Deferred::Stop(control) => control.stop(),
+            Deferred::Key(control) => control.request_key(),
+        }
+    }
+}
+/// The manager state lock. On drop it releases the lock first, then runs the deferred adapter
+/// calls of this thread.
+struct StateGuard<'a>(Option<MutexGuard<'a, State>>);
+impl std::ops::Deref for StateGuard<'_> {
+    type Target = State;
+    fn deref(&self) -> &State {
+        self.0.as_ref().expect("state guard")
+    }
+}
+impl std::ops::DerefMut for StateGuard<'_> {
+    fn deref_mut(&mut self) -> &mut State {
+        self.0.as_mut().expect("state guard")
+    }
+}
+impl Drop for StateGuard<'_> {
+    fn drop(&mut self) {
+        self.0.take();
+        run_deferred();
+    }
+}
+fn lock_state(mutex: &Mutex<State>) -> StateGuard<'_> {
+    StateGuard(Some(lock(mutex)))
+}
 fn stream_id() -> String {
     format!("{:032x}", rand::random::<u128>())
 }
@@ -191,7 +235,7 @@ impl Stream {
         self.generation += 1;
         self.starting = false;
         if let Some(control) = self.control.take() {
-            control.stop();
+            defer(Deferred::Stop(control));
         }
         if let Some(pump) = self.pump.take() {
             pump.abort();
@@ -206,7 +250,7 @@ impl Stream {
     fn request_key(&mut self) {
         if let Some(control) = &self.control {
             if self.throttle.try_request(Instant::now()) {
-                control.request_key();
+                defer(Deferred::Key(control.clone()));
             }
         }
     }
@@ -291,7 +335,7 @@ impl CaptureManager {
                     _ = stop.wait_for(|stop| *stop) => break,
                 }
             }
-            let mut state = lock(&shared.state);
+            let mut state = lock_state(&shared.state);
             for stream in &mut state.streams {
                 stream.halt();
             }
@@ -313,7 +357,7 @@ impl CaptureManager {
             })
             .collect();
         {
-            let mut state = lock(&self.shared.state);
+            let mut state = lock_state(&self.shared.state);
             state.revision = scene.revision;
             if state.screens == screens && state.published.is_some() {
                 return;
@@ -325,16 +369,16 @@ impl CaptureManager {
     /// R5: only the editor-only command calls this.
     pub fn allow(&self, source: CaptureSource) -> Result<(), AppError> {
         source.validate()?;
-        lock(&self.shared.state).allowed.allow(source);
+        lock_state(&self.shared.state).allowed.allow(source);
         self.shared.replan();
         Ok(())
     }
     pub fn is_allowed(&self, source: &CaptureSource) -> bool {
-        lock(&self.shared.state).allowed.contains(source)
+        lock_state(&self.shared.state).allowed.contains(source)
     }
     /// The status for a renderer that just authenticated (R9), one time; `None` before the first scene.
     pub fn current_status(&self) -> Option<WireMessage> {
-        let state = lock(&self.shared.state);
+        let state = lock_state(&self.shared.state);
         state
             .published
             .as_ref()
@@ -345,7 +389,7 @@ impl CaptureManager {
     }
     /// `app_status.captures`: states without names or titles.
     pub fn entries(&self) -> Vec<CaptureStatusEntry> {
-        lock(&self.shared.state)
+        lock_state(&self.shared.state)
             .published
             .iter()
             .flatten()
@@ -361,7 +405,7 @@ impl CaptureManager {
         tokio::task::spawn_blocking(move || {
             let adapter = lock(&shared.adapter).clone();
             let first = {
-                let mut state = lock(&shared.state);
+                let mut state = lock_state(&shared.state);
                 !std::mem::replace(&mut state.access_requested, true)
             };
             if first {
@@ -403,7 +447,7 @@ impl CaptureManager {
     }
     /// Closes each subscription of a `/ws` renderer connection that closed.
     pub fn renderer_closed(&self, renderer: &str) {
-        let mut state = lock(&self.shared.state);
+        let mut state = lock_state(&self.shared.state);
         for stream in &mut state.streams {
             let ids: Vec<_> = stream
                 .subscribers
@@ -423,7 +467,7 @@ impl CaptureManager {
         }
     }
     pub fn shutdown(&self) {
-        let mut state = lock(&self.shared.state);
+        let mut state = lock_state(&self.shared.state);
         for stream in &mut state.streams {
             stream.halt();
         }
@@ -433,7 +477,7 @@ impl ManagerShared {
     fn replan(self: &Arc<Self>) {
         let mut starts = Vec::new();
         {
-            let mut state = lock(&self.state);
+            let mut state = lock_state(&self.state);
             let scene = SceneView {
                 schema_version: 1,
                 scene_id: String::new(),
@@ -522,14 +566,14 @@ impl ManagerShared {
         result: Result<StreamHandle, CaptureError>,
     ) {
         {
-            let mut state = lock(&self.state);
+            let mut state = lock_state(&self.state);
             let Some(stream) = state
                 .streams
                 .iter_mut()
                 .find(|s| s.id == id && s.generation == generation)
             else {
                 if let Ok(handle) = result {
-                    handle.control.stop();
+                    defer(Deferred::Stop(handle.control));
                 }
                 return;
             };
@@ -563,7 +607,7 @@ impl ManagerShared {
         loop {
             let event = events.recv().await;
             let changed = {
-                let mut state = lock(&self.state);
+                let mut state = lock_state(&self.state);
                 let Some(stream) = state
                     .streams
                     .iter_mut()
@@ -620,6 +664,9 @@ impl ManagerShared {
                         }
                     }
                     None => {
+                        // The cached key frame is no longer followed by every chunk, so a new
+                        // subscriber waits for the next key frame after it.
+                        stream.key_is_latest = false;
                         for s in stream.subscribers.values_mut() {
                             s.queue.skip_to_key();
                         }
@@ -658,7 +705,7 @@ impl ManagerShared {
         let mut starts = Vec::new();
         let mut changed = false;
         {
-            let mut state = lock(&self.state);
+            let mut state = lock_state(&self.state);
             for stream in &mut state.streams {
                 let running = stream.control.is_some() || stream.starting;
                 if running
@@ -709,7 +756,7 @@ impl ManagerShared {
                 return;
             }
             let start = {
-                let mut state = lock(&shared.state);
+                let mut state = lock_state(&shared.state);
                 let Some(stream) = state.streams.iter_mut().find(|s| {
                     s.id == id
                         && s.generation == generation
@@ -754,7 +801,7 @@ impl ManagerShared {
     /// Sends `captureStatus` to the renderers when a value changed (R9).
     fn publish(&self) {
         let message = {
-            let mut state = lock(&self.state);
+            let mut state = lock_state(&self.state);
             let screens = Self::statuses(&state);
             if state.published.as_ref() == Some(&screens) {
                 return;
@@ -777,7 +824,7 @@ impl ManagerShared {
     ) -> Result<(u64, Arc<Signal>), u16> {
         let mut start = None;
         let result = {
-            let mut state = lock(&self.state);
+            let mut state = lock_state(&self.state);
             let total: usize = state.streams.iter().map(|s| s.subscribers.len()).sum();
             let id = state.next_subscriber;
             let stream = state
@@ -785,21 +832,23 @@ impl ManagerShared {
                 .iter_mut()
                 .find(|s| s.id == stream_id && subscribable(&s.state))
                 .ok_or(transport::CLOSE_UNKNOWN_STREAM)?;
-            // A second subscription of one renderer connection replaces the first.
+            // A second subscription of one renderer connection replaces the first. The limits
+            // count without the replaced one, and a refused subscription replaces nothing.
             let replaced: Vec<_> = stream
                 .subscribers
                 .iter()
                 .filter(|(_, s)| s.renderer == renderer)
                 .map(|(id, _)| *id)
                 .collect();
+            if stream.subscribers.len() - replaced.len() >= MAX_STREAM_SUBSCRIBERS
+                || total - replaced.len() >= MAX_SUBSCRIBERS
+            {
+                return Err(transport::CLOSE_LIMIT);
+            }
             for old in &replaced {
                 if let Some(s) = stream.subscribers.remove(old) {
                     s.signal.close();
                 }
-            }
-            let total = total - replaced.len();
-            if stream.subscribers.len() >= MAX_STREAM_SUBSCRIBERS || total >= MAX_SUBSCRIBERS {
-                return Err(transport::CLOSE_LIMIT);
             }
             let signal = Arc::new(Signal::default());
             let queue = SubscriberQueue::starting(
@@ -832,7 +881,7 @@ impl ManagerShared {
         Ok(result)
     }
     fn pop(&self, stream_id: &str, id: u64) -> Option<Outgoing> {
-        let mut state = lock(&self.state);
+        let mut state = lock_state(&self.state);
         state
             .streams
             .iter_mut()
@@ -843,7 +892,7 @@ impl ManagerShared {
             .pop()
     }
     fn unsubscribe(&self, stream_id: &str, id: u64) {
-        let mut state = lock(&self.state);
+        let mut state = lock_state(&self.state);
         if let Some(stream) = state.streams.iter_mut().find(|s| s.id == stream_id) {
             if stream.subscribers.remove(&id).is_some() && stream.subscribers.is_empty() {
                 stream.alone_since = Instant::now();
@@ -956,5 +1005,136 @@ mod tests {
         assert_eq!(config.scaled(1000, 501), (1000, 500));
         assert_eq!(config.scaled(5120, 1440), (1920, 540));
         assert_eq!(config.scaled(801, 3000), (288, 1080));
+    }
+    // Review fixes: the deferred adapter calls, the oversized chunk, and the 4429 order (R13).
+    struct Probe {
+        shared: std::sync::Weak<ManagerShared>,
+        calls: Mutex<Vec<(&'static str, bool)>>,
+    }
+    impl Probe {
+        fn record(&self, call: &'static str) {
+            let free = self
+                .shared
+                .upgrade()
+                .is_some_and(|shared| shared.state.try_lock().is_ok());
+            lock(&self.calls).push((call, free));
+        }
+    }
+    impl StreamControl for Probe {
+        fn request_key(&self) {
+            self.record("key");
+        }
+        fn stop(&self) {
+            self.record("stop");
+        }
+    }
+    fn live_stream(manager: &CaptureManager, id: &str) -> Arc<Probe> {
+        let probe = Arc::new(Probe {
+            shared: Arc::downgrade(&manager.shared),
+            calls: Mutex::new(vec![]),
+        });
+        let mut stream = Stream::new(
+            StreamKey {
+                source: CaptureSource::Display {
+                    name: "Fixture display".into(),
+                    ordinal: 0,
+                },
+                cursor: true,
+            },
+            vec!["screen".into()],
+        );
+        stream.id = id.into();
+        stream.state = CaptureState::Live;
+        stream.control = Some(probe.clone());
+        lock_state(&manager.shared.state).streams.push(stream);
+        probe
+    }
+    fn manager() -> CaptureManager {
+        CaptureManager::new(Arc::new(stub::StubAdapter))
+    }
+    #[test]
+    fn adapter_calls_run_after_the_state_lock_is_released() {
+        let manager = manager();
+        let probe = live_stream(&manager, &"a".repeat(32));
+        {
+            let mut state = lock_state(&manager.shared.state);
+            state.streams[0].request_key();
+            state.streams[0].halt();
+            assert!(lock(&probe.calls).is_empty());
+        }
+        assert_eq!(*lock(&probe.calls), vec![("key", true), ("stop", true)]);
+    }
+    #[test]
+    fn an_oversized_chunk_makes_a_new_subscriber_wait_for_the_next_key_frame() {
+        let mut stream = Stream::new(
+            StreamKey {
+                source: CaptureSource::Display {
+                    name: "Fixture display".into(),
+                    ordinal: 0,
+                },
+                cursor: true,
+            },
+            vec![],
+        );
+        let key = |key, size| {
+            Some(StreamEvent::Chunk(EncodedChunk {
+                key,
+                timestamp_us: 0,
+                data: vec![0; size],
+            }))
+        };
+        ManagerShared::handle(&mut stream, key(true, 16));
+        assert!(stream.key_is_latest);
+        ManagerShared::handle(&mut stream, key(false, transport::MAX_CHUNK_MESSAGE_BYTES));
+        assert!(!stream.key_is_latest);
+        assert!(stream.key_frame.is_some());
+        run_deferred();
+    }
+    #[test]
+    fn a_refused_subscription_keeps_the_subscription_it_would_replace() {
+        let manager = manager();
+        let stream = "b".repeat(32);
+        live_stream(&manager, &stream);
+        let mut kept: Vec<_> = (0..MAX_STREAM_SUBSCRIBERS)
+            .map(|n| manager.subscribe(&stream, &format!("r{n}")).unwrap())
+            .collect();
+        // The stream is full: a second subscription of r0 replaces r0 and is accepted.
+        let replacement = manager.subscribe(&stream, "r0").unwrap();
+        assert!(kept[0].signal.closed.load(Ordering::SeqCst));
+        kept[0] = replacement;
+        // Fill the host limit with other streams, then a new renderer is refused with 4429.
+        let other = "c".repeat(32);
+        live_stream(&manager, &other);
+        let more: Vec<_> = (0..MAX_SUBSCRIBERS - MAX_STREAM_SUBSCRIBERS)
+            .map(|n| manager.subscribe(&other, &format!("o{n}")).unwrap())
+            .collect();
+        assert_eq!(
+            manager.subscribe(&other, "new").err(),
+            Some(transport::CLOSE_LIMIT)
+        );
+        // At the host limit, a replacement still counts without the one it replaces.
+        assert!(manager.subscribe(&other, "o0").is_ok());
+        assert!(kept.iter().all(|s| !s.signal.closed.load(Ordering::SeqCst)));
+        drop(more);
+    }
+    #[test]
+    fn a_refused_subscription_over_the_stream_limit_replaces_nothing() {
+        let manager = manager();
+        let stream = "d".repeat(32);
+        live_stream(&manager, &stream);
+        let kept: Vec<_> = (0..MAX_STREAM_SUBSCRIBERS)
+            .map(|n| manager.subscribe(&stream, &format!("r{n}")).unwrap())
+            .collect();
+        assert_eq!(
+            manager.subscribe(&stream, "r9").err(),
+            Some(transport::CLOSE_LIMIT)
+        );
+        assert!(kept.iter().all(|s| !s.signal.closed.load(Ordering::SeqCst)));
+        assert_eq!(
+            lock_state(&manager.shared.state).streams[0]
+                .subscribers
+                .len(),
+            4
+        );
     }
 }

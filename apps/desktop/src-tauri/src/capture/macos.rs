@@ -80,8 +80,11 @@ impl MacAdapter {
         }
     }
 }
-/// `SCShareableContent` for on-screen windows, waited for on this (blocking) thread.
-fn shareable_content() -> Result<Shared<Retained<SCShareableContent>>, CaptureError> {
+/// `SCShareableContent`, waited for on this (blocking) thread. `on_screen_only` false also lists
+/// the applications that have no on-screen window.
+fn shareable_content(
+    on_screen_only: bool,
+) -> Result<Shared<Retained<SCShareableContent>>, CaptureError> {
     if !CGPreflightScreenCaptureAccess() {
         return Err(CaptureError::PermissionNeeded);
     }
@@ -100,7 +103,9 @@ fn shareable_content() -> Result<Shared<Retained<SCShareableContent>>, CaptureEr
     );
     unsafe {
         SCShareableContent::getShareableContentExcludingDesktopWindows_onScreenWindowsOnly_completionHandler(
-            true, true, &block,
+            true,
+            on_screen_only,
+            &block,
         );
     }
     match receiver.recv_timeout(CONTENT_TIMEOUT) {
@@ -170,7 +175,7 @@ impl CaptureAdapter for MacAdapter {
         }
     }
     fn inventory(&self) -> Result<Inventory, CaptureError> {
-        let content = shareable_content()?;
+        let content = shareable_content(true)?;
         let names = display_names();
         let displays = sorted_displays(&content.0)
             .into_iter()
@@ -223,7 +228,9 @@ impl CaptureAdapter for MacAdapter {
         target: PlatformTarget,
         config: StreamConfig,
     ) -> Result<StreamHandle, CaptureError> {
-        let content = shareable_content()?;
+        // A display capture reads every application, so the OpenSekai application is excluded
+        // also while it has no on-screen window (a minimized Editor window).
+        let content = shareable_content(!matches!(target, PlatformTarget::Display(_)))?;
         let (filter, window) = match target {
             PlatformTarget::Display(id) => {
                 let display = unsafe { content.0.displays() }
@@ -286,6 +293,7 @@ impl CaptureAdapter for MacAdapter {
             force_key: AtomicBool::new(true),
             window,
             description: Mutex::new(Vec::new()),
+            pending: Mutex::new(std::collections::VecDeque::new()),
         });
         let output = CaptureOutput::new(inner.clone());
         let delegate = ProtocolObject::from_ref(&*output);
@@ -314,10 +322,17 @@ impl CaptureAdapter for MacAdapter {
             }
         });
         unsafe { stream.startCaptureWithCompletionHandler(Some(&block)) };
-        match started.recv_timeout(CONTENT_TIMEOUT) {
-            Ok(true) => {}
-            _ if !CGPreflightScreenCaptureAccess() => return Err(CaptureError::PermissionNeeded),
-            _ => return Err(CaptureError::Failed("start".into())),
+        let started = started.recv_timeout(CONTENT_TIMEOUT);
+        if started != Ok(true) {
+            // A late start after the timeout must not leave a running capture: stop it, and drop
+            // each later sample. `Inner::drop` releases an encoder that a late sample made.
+            inner.stopped.store(true, Ordering::SeqCst);
+            unsafe { stream.stopCaptureWithCompletionHandler(None) };
+            return Err(if CGPreflightScreenCaptureAccess() {
+                CaptureError::Failed("start".into())
+            } else {
+                CaptureError::PermissionNeeded
+            });
         }
         let control = Arc::new(Control {
             inner: inner.clone(),
@@ -327,6 +342,7 @@ impl CaptureAdapter for MacAdapter {
             config: Mutex::new(Shared(stream_config)),
             limits: config,
             size: Mutex::new((width, height)),
+            released: AtomicBool::new(false),
         });
         let repeat = control.clone();
         std::thread::Builder::new()
@@ -363,13 +379,57 @@ struct Inner {
     /// its own lock: VideoToolbox can call the output callback inside `encode_frame`, while the
     /// encoder lock is held.
     description: Mutex<Vec<u8>>,
+    /// Config and state events that the full channel did not take yet, in order. They are never
+    /// dropped: each later send and the repeat thread retry them first, and no chunk goes out
+    /// while one waits, so a config always comes before the chunks of its size (R10).
+    pending: Mutex<std::collections::VecDeque<StreamEvent>>,
 }
 impl Inner {
-    fn send(&self, event: StreamEvent) {
-        if self.events.try_send(event).is_err() {
-            // A full channel drops this event; the next chunk is a key frame (adapter.rs).
+    /// Sends the waiting events in order. Returns true when none waits.
+    fn flush(&self, pending: &mut std::collections::VecDeque<StreamEvent>) -> bool {
+        while let Some(event) = pending.pop_front() {
+            match self.events.try_send(event) {
+                Ok(()) => {}
+                Err(mpsc::error::TrySendError::Full(event)) => {
+                    pending.push_front(event);
+                    return false;
+                }
+                // The manager stopped reading: nothing will read the rest.
+                Err(mpsc::error::TrySendError::Closed(_)) => pending.clear(),
+            }
+        }
+        true
+    }
+    /// A config or state event: it waits for room instead of a drop.
+    fn send_control(&self, event: StreamEvent) {
+        let mut pending = lock(&self.pending);
+        // A pause and a resume that both still wait cancel out.
+        let cancels = matches!(
+            (pending.back(), &event),
+            (Some(StreamEvent::Paused), StreamEvent::Resumed)
+                | (Some(StreamEvent::Resumed), StreamEvent::Paused)
+        );
+        if cancels {
+            pending.pop_back();
+        } else {
+            pending.push_back(event);
+        }
+        self.flush(&mut pending);
+    }
+    /// A chunk. A full channel, or an event that still waits, drops it; the next chunk is a key
+    /// frame (adapter.rs).
+    fn send_chunk(&self, chunk: EncodedChunk) {
+        let mut pending = lock(&self.pending);
+        if !self.flush(&mut pending) || self.events.try_send(StreamEvent::Chunk(chunk)).is_err() {
             self.force_key.store(true, Ordering::SeqCst);
         }
+    }
+    fn has_pending(&self) -> bool {
+        !lock(&self.pending).is_empty()
+    }
+    fn retry_pending(&self) {
+        let mut pending = lock(&self.pending);
+        self.flush(&mut pending);
     }
     /// One frame from ScreenCaptureKit.
     fn on_sample(&self, sample: &CMSampleBuffer) {
@@ -380,13 +440,14 @@ impl Inner {
         if status == Some(SCFrameStatus::Blank) || status == Some(SCFrameStatus::Suspended) {
             // A minimized, hidden, or off-screen window (R11): nothing new to draw.
             if !self.paused.swap(true, Ordering::SeqCst) {
-                self.send(StreamEvent::Paused);
+                self.send_control(StreamEvent::Paused);
             }
             return;
         }
         if status == Some(SCFrameStatus::Stopped) {
-            self.stopped.store(true, Ordering::SeqCst);
-            self.send(StreamEvent::Ended);
+            if !self.stopped.swap(true, Ordering::SeqCst) {
+                self.send_control(StreamEvent::Ended);
+            }
             return;
         }
         if status != Some(SCFrameStatus::Complete) {
@@ -394,7 +455,7 @@ impl Inner {
             return;
         }
         if self.paused.swap(false, Ordering::SeqCst) {
-            self.send(StreamEvent::Resumed);
+            self.send_control(StreamEvent::Resumed);
         }
         let Some(image) = (unsafe { sample.image_buffer() }) else {
             return;
@@ -425,7 +486,7 @@ impl Inner {
                     self.force_key.store(true, Ordering::SeqCst);
                 }
                 None => {
-                    self.send(StreamEvent::Failed("encoder".into()));
+                    self.send_control(StreamEvent::Failed("encoder".into()));
                     return;
                 }
             }
@@ -519,7 +580,7 @@ impl Inner {
             let mut last = lock(&self.description);
             if *last != description {
                 *last = description.clone();
-                self.send(StreamEvent::Config(DecoderConfig {
+                self.send_control(StreamEvent::Config(DecoderConfig {
                     codec,
                     description,
                     coded_width: size.0,
@@ -539,11 +600,25 @@ impl Inner {
             return;
         }
         // VideoToolbox gives AVCC with 4-byte lengths, as WebCodecs expects with a description.
-        self.send(StreamEvent::Chunk(EncodedChunk {
+        self.send_chunk(EncodedChunk {
             key: is_key(sample),
             timestamp_us: timestamp,
             data: bytes,
-        }));
+        });
+    }
+}
+impl Drop for Inner {
+    /// The last owner of the stream state invalidates the encoder session, so no output callback
+    /// runs with a `refcon` to freed memory, also when `Control::stop` never ran (a failed start
+    /// with a late sample).
+    fn drop(&mut self) {
+        let encoder = self
+            .encoder
+            .get_mut()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some(session) = encoder.session.take() {
+            unsafe { session.0.invalidate() };
+        }
     }
 }
 /// The VideoToolbox output callback. `refcon` is the `Inner` of the stream, which the session
@@ -637,6 +712,9 @@ struct Control {
     config: Mutex<Shared<Retained<SCStreamConfiguration>>>,
     limits: StreamConfig,
     size: Mutex<(u32, u32)>,
+    /// `stop` released the stream and the encoder. This is separate from `Inner::stopped`, which
+    /// only says that no more events go out: a closed window or a stream error sets that one first.
+    released: AtomicBool,
 }
 impl StreamControl for Control {
     fn request_key(&self) {
@@ -645,9 +723,10 @@ impl StreamControl for Control {
         self.inner.encode(&mut encoder);
     }
     fn stop(&self) {
-        if self.inner.stopped.swap(true, Ordering::SeqCst) {
+        if self.released.swap(true, Ordering::SeqCst) {
             return;
         }
+        self.inner.stopped.store(true, Ordering::SeqCst);
         unsafe { self.stream.0.stopCaptureWithCompletionHandler(None) };
         let mut encoder = lock(&self.inner.encoder);
         if let Some(session) = encoder.session.take() {
@@ -666,9 +745,14 @@ impl Control {
     /// give a window stream a new size when its window was resized (R11).
     fn repeat_loop(self: Arc<Self>) {
         let mut last_size_check = Instant::now();
-        while !self.inner.stopped.load(Ordering::SeqCst) {
+        // After a stop, the thread stays until the waiting events (for example `Ended`) are out.
+        while !self.released.load(Ordering::SeqCst)
+            && (!self.inner.stopped.load(Ordering::SeqCst) || self.inner.has_pending())
+        {
             std::thread::sleep(Duration::from_millis(100));
-            if self.inner.paused.load(Ordering::SeqCst) {
+            self.inner.retry_pending();
+            if self.inner.paused.load(Ordering::SeqCst) || self.inner.stopped.load(Ordering::SeqCst)
+            {
                 continue;
             }
             {
@@ -688,7 +772,7 @@ impl Control {
     }
     fn follow_window_size(&self) {
         let Some(id) = self.inner.window else { return };
-        let Ok(content) = shareable_content() else {
+        let Ok(content) = shareable_content(true) else {
             return;
         };
         let Some(window) = unsafe { content.0.windows() }
@@ -753,7 +837,7 @@ define_class!(
                 return;
             }
             // A window stream stops when its window closes (R11); another stop is a failure.
-            inner.send(if inner.window.is_some() {
+            inner.send_control(if inner.window.is_some() {
                 StreamEvent::Ended
             } else {
                 StreamEvent::Failed("stream stopped".into())

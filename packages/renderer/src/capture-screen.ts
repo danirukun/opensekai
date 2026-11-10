@@ -133,6 +133,10 @@ interface Stream {
     texture: Texture | null; width: number; height: number;
     /** A permanent failure of this stream (the codec check). */
     failure: string | null;
+    /** Whether the texture holds a frame decoded after the last hide, so an old image of a hidden window never shows. */
+    fresh: boolean;
+    /** The host state left live: the next draw waits for a new frame. */
+    hide(): void;
     upload(): void;
     close(): void;
 }
@@ -142,8 +146,10 @@ function openStream(streamId: string, host: CaptureHost, env: CaptureEnv, upload
     const gate = createChunkGate();
     let decoder: Decoder | null = null, configuring = false, generation = 0, closed = false, waiting: CaptureChunk[] = [];
     let bitmap: ImageBitmap | null = null, held: VideoFrame | null = null, busy = false;
+    let connection: { close(): void } | null = null;
     const stream: Stream = {
-        texture: null, width: 0, height: 0, failure: null,
+        texture: null, width: 0, height: 0, failure: null, fresh: false,
+        hide() { stream.fresh = false; },
         upload() {
             if (closed || busy || !newest.pending) return;
             const frame = newest.take()!;
@@ -163,6 +169,7 @@ function openStream(streamId: string, host: CaptureHost, env: CaptureEnv, upload
                 }
                 if (upload === "frame") (stream.texture as VideoFrameTexture).setFrame(image as VideoFrame);
                 else { stream.texture.image = image; stream.texture.needsUpdate = true; }
+                stream.fresh = true;
             };
             if (upload === "frame") {
                 install(frame);
@@ -185,7 +192,7 @@ function openStream(streamId: string, host: CaptureHost, env: CaptureEnv, upload
             if (closed) return;
             closed = true;
             generation++;
-            connection.close();
+            connection?.close();
             if (decoder && decoder.state !== "closed") decoder.close();
             newest.clear();
             waiting = [];
@@ -198,6 +205,7 @@ function openStream(streamId: string, host: CaptureHost, env: CaptureEnv, upload
         if (closed) return;
         stream.failure = message;
         stream.close();
+        // closed is already set, so this runs once; the caller sees the error after openStream returns.
         if (message) events.closed(); else events.error();
     };
     const feed = (chunk: CaptureChunk) => {
@@ -221,7 +229,10 @@ function openStream(streamId: string, host: CaptureHost, env: CaptureEnv, upload
         configuring = false;
         for (const chunk of waiting.splice(0)) feed(chunk);
     };
-    const connection = host.open(streamId, {
+    // A throw from open (an invalid descriptor, a blocked socket) or a close inside it is a stream error for this
+    // screen only; it never rejects the frame. It reports after open returns, when the caller holds the stream.
+    try {
+    connection = host.open(streamId, {
         config(config) { void configure(config); },
         chunk(chunk) {
             if (!configuring) { feed(chunk); return; }
@@ -229,8 +240,9 @@ function openStream(streamId: string, host: CaptureHost, env: CaptureEnv, upload
             if (waiting.length < CONFIGURING_CHUNKS) waiting.push(chunk);
             else { waiting = []; gate.reset(); }
         },
-        closed() { if (!closed) { stream.close(); events.closed(); } },
+        closed() { if (!closed) { stream.close(); queueMicrotask(() => events.closed()); } },
     });
+    } catch { queueMicrotask(() => fail(null)); }
     return stream;
 }
 
@@ -270,7 +282,8 @@ export function createCaptureScreens(options: { host?: CaptureHost; upload: Capt
             if (plans.length === 0) { for (const id of [...streams.keys()]) close(id); retries.prune(new Set()); return views; }
             retries.prune(new Set(plans.map(plan => plan.key)));
             const rendererFailure = (plan: CaptureScreenPlan): string | null =>
-                !env.VideoDecoder ? CAPTURE_NOT_IN_VIEW : retries.failed(plan.key) ? CAPTURE_FAILED : plan.streamId !== null && plan.state !== null && SOCKET_STATES.has(plan.state) ? codecFailures.get(plan.streamId) ?? null : null;
+                // A host state without a socket (notAllowed, notFound, ...) keeps its own message, so the Inspector shows Allow (R15).
+                plan.state === null || !SOCKET_STATES.has(plan.state) ? null : !env.VideoDecoder ? CAPTURE_NOT_IN_VIEW : retries.failed(plan.key) ? CAPTURE_FAILED : plan.streamId !== null ? codecFailures.get(plan.streamId) ?? null : null;
             const wanted = options.host ? wantedStreams(plans, plan => rendererFailure(plan) !== null) : new Set<string>();
             for (const id of [...streams.keys()]) if (!wanted.has(id)) close(id);
             for (const id of [...codecFailures.keys()]) if (!plans.some(plan => plan.streamId === id)) codecFailures.delete(id);
@@ -295,12 +308,15 @@ export function createCaptureScreens(options: { host?: CaptureHost; upload: Capt
                 streams.set(id, stream);
             }
             for (const stream of streams.values()) { stream.keys = []; stream.upload(); }
+            // A stream that no screen draws live waits for a new frame, so the old image of a hidden window never shows.
+            const liveStreams = new Set(plans.flatMap(plan => plan.state === "live" && plan.streamId !== null ? [plan.streamId] : []));
             for (const plan of plans) {
                 const stream = plan.streamId !== null ? streams.get(plan.streamId) : undefined;
                 if (stream) stream.keys.push(plan.key);
+                if (stream && !liveStreams.has(plan.streamId!)) stream.hide();
                 const failureText = rendererFailure(plan);
                 const message = captureMessage(plan.state, failureText);
-                const texture = plan.state === "live" && !failureText && stream?.texture && stream.texture.image ? stream.texture : null;
+                const texture = plan.state === "live" && !failureText && stream?.texture && stream.fresh && stream.texture.image ? stream.texture : null;
                 const aspect = stream && stream.width > 0 ? stream.width / stream.height : plan.width > 0 && plan.height > 0 ? plan.width / plan.height : 16 / 9;
                 views.set(plan.entityId, { entityId: plan.entityId, texture, aspect, warning: message ? { code: warningCode(message), message: captureWarning(message), ids: [plan.entityId] } : null });
             }

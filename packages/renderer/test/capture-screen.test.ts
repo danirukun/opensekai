@@ -164,3 +164,21 @@ it("puts the screen entity ID in each Capture warning, for the Inspector (B31 R1
     expect(views.get("c")?.warning).toEqual({ code: "UNAVAILABLE", message: "Capture: Source not found", ids: ["c"] });
     captures.dispose();
 });
+it("treats a throw from the socket open as an error of that screen, not of the frame (review fix)", async () => {
+    const f = fakes({});
+    const host = { ...f.host, open() { throw new Error("blocked"); } };
+    const captures = createCaptureScreens({ host, upload: "frame", env: f.env });
+    f.send(status([["a", S1, "live"]]));
+    expect(() => captures.apply([screen("a")])).not.toThrow();
+    await Promise.resolve();
+    expect(captures.sockets()).toEqual([]);
+    captures.dispose();
+});
+it("keeps the host message of a state without a socket when the view has no VideoDecoder (review fix, R15)", () => {
+    const g = fakes();
+    const none = createCaptureScreens({ host: g.host, upload: "frame", env: g.env });
+    g.send(status([["a", null, "notAllowed"], ["b", S1, "live"]]));
+    const views = none.apply([screen("a"), screen("b")]);
+    expect(views.get("a")?.warning?.message).toBe("Capture: Choose the source again");
+    expect(views.get("b")?.warning?.message).toBe(captureWarning(CAPTURE_NOT_IN_VIEW));
+});
