@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import SessionWorker from '@opensekai/session/worker?worker';
-import { connectClient } from '@opensekai/browser-client';
+import { connectClient, type RendererClient } from '@opensekai/browser-client';
 import type { EditorOptions, EditorHandle, AssetLoadStatus } from '@opensekai/renderer';
 import { createFpsCounterOverlay, createRenderer } from '@opensekai/renderer';
 import { makeSmokeScene, AssetRecordSchema, ConnectionDescriptorSchema, TrackingUpdateSchema, QUALITY_PROFILES } from '@opensekai/contracts';
@@ -28,7 +28,7 @@ export async function bootstrapDesktop(canvas: HTMLCanvasElement, editorOptions?
 }> {
  const info = await invoke<NativeBootstrap>('bootstrap_session');
  let worker: Worker | undefined;
- const clients: BrowserClient[] = [];
+ const clients: RendererClient[] = [];
  let closePreview = () => {};
  let stopRecords = () => {};
  let stopped = false;
