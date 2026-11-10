@@ -77,7 +77,8 @@ Checked on the owner's Mac by a local review agent, on commit `3050ca7`. This se
 - Machine: MacBook Pro (Mac15,6), Apple M3 Pro, 36 GB, macOS 27.2 (26B123). OBS 33.0.1 (obs-websocket 5.7.6), one Browser Source in an isolated scene, no stream.
 - App: `pnpm dev:desktop` (debug build) with `OPENSEKAI_EVALUATION=1`. rustc 1.93.1, Node 26.13.0, pnpm 12.8.1. Backend WebGPU, preview `preview_v1`, OBS source `production_v1`.
 - Fixtures: character `fixture_vrm0_arkit` (sha256 `7b7c689e…`), Idle animation on. Stage: the library asset "OpenSekai Test Stage" `scene_6eb17002…`, hidden for the captures.
-- Tracker: no webcam result. The camera request of the development build failed with `NotAllowedError` (no camera permission for a build that the agent session starts), also after a Start click in the Inspector. No VMC application was on this Mac. The body source was a scripted VMC peer: OSC over UDP at 60 Hz with a root that moves 0.4 m to each side, a torso lean, a head turn, bent arms, a lifted leg, closed fingers, eye bones, and the `Blink` and `A` values.
+- Tracker, first session: no webcam result. The camera request of the development build failed with `NotAllowedError` when this session started the build. No VMC application was on this Mac. The body source was a scripted VMC peer: OSC over UDP at 60 Hz with a root that moves 0.4 m to each side, a torso lean, a head turn, bent arms, a lifted leg, closed fingers, eye bones, and the `Blink` and `A` values.
+- Tracker, second session: the FaceTime camera with MediaPipe (face and upper body, hands off, mirror on), with the build started from Terminal, which has the camera permission. See "Webcam check".
 
 ### Commands
 
@@ -102,7 +103,7 @@ The 4 failures of the first run have two causes.
 | --- | --- | --- |
 | 1. Left Leg and Right Leg off in the Inspector | Fail in the Inspector. Pass through `scene_patch` | A click on the Left Leg checkbox shows it as off, but the revision does not change and the character has no `body` group. With the same group set through MCP, the legs take the idle pose and the other parts follow the VMC peer in the OBS source |
 | 2. Body off | Fail in the Inspector. Pass through `scene_patch` | The torso takes the idle pose and the root stops: the centre of the character in the OBS source moves from x 827 to 1127 with Body on and stays at 956.8 with Body off. The arms and the head follow |
-| 3. Body Movement Intensity 0, 1, 2 with MediaPipe | Not checked | No camera permission. In the Inspector, a slider drag and a typed value send no patch |
+| 3. Body Movement Intensity 0, 1, 2 with MediaPipe | Pass through `scene_patch`, with the hips in view of the camera. No effect at a desk. Fail in the Inspector | With the hips in view, the torso roll is 0° at intensity 0, 18° to 21° at 1, and 41° at 2. At a desk the source sends no torso bone, so the intensity changes nothing. In the Inspector, a slider drag and a typed value send no patch. See "Webcam check" |
 | 4. Head off | Fail in the Inspector. Pass through `scene_patch` | The head takes the idle pose, and the blink and the mouth still follow ([image](tracked-body-parts/macos-obs-head-off-face.jpg)). The eye bones also stop, because they are in the Head part |
 | 5. Save, close, open; VMC Sender | Pass for the show. Partly checked for the sender | The saved `.osekai` file and the opened show have the group, with the parts in the fixed order. The VMC Sender sends the filtered pose for Head off (head, neck, and eye bones at 0°, blend values still sent) and Left Fingers off (left finger bones at 0°, right at 50°). With a full-body VMC source the sender sends nothing; see "Other findings" |
 
@@ -139,6 +140,35 @@ Read from the Warudo handbook and from the files of the Warudo installation in t
 
 - **VMC Sender with a full-body VMC source (not caused by this change).** When the body source of the character is a VMC receiver that gets the full pose of the peer, the sender of that character goes to `waiting` and sends no datagram. It sends with the body slot empty, with one tracked part, and with all parts but the fingers (24 bones). It stops with the fingers of one hand added. The build of `claude/cam06-camera-grading`, which does not have this change, gives the same result. The cause was not found.
 
+### Webcam check (MediaPipe, second session)
+
+The owner did the movements in front of the FaceTime camera. Spoken cues gave the timing. The group was set through `scene_patch`, because the Inspector controls send no patch. Calibrate (`calibrateTracking`) ran first, with the owner upright. The values are from the VMC Sender output of the character (about 54 samples each second): the roll is the rotation about the forward axis of hips × spine × chest × upper chest, and the range is the 95th minus the 5th percentile in a phase of 8 s to 12 s. MediaPipe inference was 26 ms.
+
+Run 1, at a desk (the camera sees the head and the shoulders):
+
+- The torso roll range is 0.8° (the idle animation) at intensity 1, 0, and 2. The upper arms do not move when the owner waves. The lean of the owner shows only in the head (28° of roll).
+- Cause: `apps/desktop/src/tracking/retarget.ts` makes the chest bone and the arm bones only when the pose has the two shoulders and the two hips. At a desk the hips are not in view, so the source sends the head and the face only. The source never sends hips, spine, or upper chest, so the intensity can scale the chest only.
+
+Run 2, about 2 m from the camera (head to hips in view), with a continuous lean to the left and to the right:
+
+| Phase | Torso roll range | Head roll range, in the world | Other |
+| --- | --- | --- | --- |
+| Intensity 1 | 17.6° | 31.2° | — |
+| Intensity 0 | 0.0° | 13.3° | — |
+| Intensity 2 | 40.6° | 41.0° | — |
+| Intensity 1, second time | 21.0° | 21.2° | — |
+| Body off | 0.8° (idle) | 9.9° | The arms follow |
+| Head off | 23.0° | 23.0° (the head has no rotation of its own) | 8 blend values move |
+| All parts, hands waved | — | — | Upper arm range: left 105°, right 99° |
+| Left Arm off | — | — | Left upper arm 0° (idle), right 68° |
+| Right Arm off | — | — | Left upper arm 104°, right 0° (idle) |
+
+- The lean is zero at intensity 0. At 2 it is 2.1 times the mean of the two phases at 1 (40.6° against 19.3°). The lean of the owner was not the same in each phase (17.6° and 21.0° at intensity 1).
+- With intensity 0 and with Body off, the head of the character does not get the lean of the torso: the head roll in the world goes from 31° to 13° and 10°. The source sends the head relative to the chest, and the composer does not put the chest rotation back when the chest is scaled or dropped. At intensity 2 the head roll in the world also grows (41°).
+- A part that is off takes the idle pose and the other parts follow, as with the VMC peer.
+- One OBS capture for each phase is in [the image](tracked-body-parts/macos-obs-webcam-phases.jpg) (intensity 1, 0, 2, Body off, Head off, all parts, Left Arm off, Right Arm off). In the lean phases the captures show the two arms of the character above its head. The pose of the owner's arms in those phases was not recorded, so this is not a result.
+- In development mode, the first MediaPipe use in a new worktree makes Vite load the app again, and the scene is lost. The scene was made again after that.
+
 ### Not checked
 
-MediaPipe with a webcam (steps 1 to 4 with a normalized source, the intensity at 0, 1, and 2 after Calibrate), a VMC application of another vendor, the SelfReflect and iFacialMocap paths of the guide, the Inspector values after an open, and Windows.
+A VMC application of another vendor, the SelfReflect and iFacialMocap paths of the guide, the Inspector values after an open, and Windows.
