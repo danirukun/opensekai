@@ -131,9 +131,9 @@ Result. The first change writes the full group (R15). A value out of range sends
 | `pnpm check` | 9 packages and `tsconfig.scripts.json`: pass. svelte-check: 0 errors, 0 warnings |
 | `pnpm test:unit` | 2006 passed, 1 skipped (231 files). Base `a78b27a`: 1976 passed, 1 skipped (228 files) |
 | `pnpm test:integration` | 73 passed, 4 failed, 4 skipped. The 4 failures are in `scripts/prepare-tracking.test.ts`: the MediaPipe model files are not in `artifacts/models`, because this container cannot reach their download host. They do not use code that this change touches |
-| `cargo test -p opensekai-contracts --no-fail-fast` (rustc 1.97.0) | CARGO_CONTRACTS |
-| `cargo test --workspace --no-fail-fast` (rustc 1.97.0) | CARGO_WORKSPACE |
-| `cargo clippy --workspace --all-targets` (rustc 1.97.0) | CARGO_CLIPPY |
+| `cargo test -p opensekai-contracts --no-fail-fast` (rustc 1.97.0) | 120 passed, 0 failed |
+| `cargo test --workspace --no-fail-fast` (rustc 1.97.0) | 459 passed, 0 failed, 2 ignored. The desktop crate needs the output and desktop bundles; they were built without the tracking model step |
+| `cargo clippy --workspace --all-targets` (rustc 1.97.0) | Clean, 0 warnings |
 | `cargo fmt --all -- --check` | The same files differ as on the base; `crates/contracts/tests/grading.rs` is clean |
 
 ## Local acceptance (owner, macOS)
