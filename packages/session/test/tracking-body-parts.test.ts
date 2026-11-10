@@ -89,6 +89,12 @@ describe('body movement intensity', () => {
    expect(result.expressions).toEqual(plain.expressions);
   }
  });
+ it('does not scale a raw bone: its rotation is absolute, not a delta from the rest pose (R6)', () => {
+  const raw: TrackingBone = { rotation: qy(20), space: 'raw' };
+  for (const intensity of [0, 0.5, 2]) expect(applyBodyTracking([['hips', raw], ['spine', bone(qx(10))]], all(intensity))[0]![1]).toBe(raw);
+  expectSame(applyBodyTracking([['hips', raw], ['spine', bone(qx(10))]], all(2))[1]![1].rotation, qx(20));
+  expect(applyBodyTracking([['hips', raw]], { movementIntensity: 2, trackedParts: [] })).toEqual([]);
+ });
  it('does not copy or change the entries without a group', () => {
   const entries: [string, TrackingBone][] = [['hips', bone(qy(20))]];
   expect(applyBodyTracking(entries, undefined)).toBe(entries);

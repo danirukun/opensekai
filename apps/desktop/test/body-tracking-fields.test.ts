@@ -35,6 +35,8 @@ it('marks only the changed field for a reset (R8)',()=>{
  expect(changed({bodySourceId:null,faceSourceId:null})).toEqual([]);
  expect(changed({bodySourceId:null,faceSourceId:null,body:{movementIntensity:0.5,trackedParts:[...BODY_PARTS]}})).toEqual(['bodyMovementIntensity']);
  expect(changed({bodySourceId:null,faceSourceId:null,body:{movementIntensity:1,trackedParts:['head']}})).toEqual(['trackedParts']);
+ // An opened show can hold the parts in another order; the same parts are not a change.
+ expect(changed({bodySourceId:null,faceSourceId:null,body:{movementIntensity:1,trackedParts:[...BODY_PARTS].reverse()}})).toEqual([]);
 });
 it('keeps the body group on a duplicate and on a guide cancel (R9)',()=>{
  const scene=makeSmokeScene() as SceneView;

@@ -13,7 +13,7 @@ This container was not the usual cloud environment. It could not download rustc 
 - Without the group, and with all 8 parts at intensity 1, the pose is equal (R7).
 - For each of the 8 parts in turn, a part that is off drops exactly the bones of that part, from each source that sent them, and the expressions stay (R5).
 - `body` off drops the root. Other parts off keep it. With no part on, `bones` is empty and the expressions stay (R5).
-- Intensity 0.5, 2, and 0 give half, double, and zero angles on hips, spine, chest, and upper chest (for example hips 20° about Y becomes 10°, 40°, and 0°). The other bones, the hips position, the weights, the root, and the expressions do not change (R6).
+- Intensity 0.5, 2, and 0 give half, double, and zero angles on hips, spine, chest, and upper chest (for example hips 20° about Y becomes 10°, 40°, and 0°). The other bones, the hips position, the weights, the root, and the expressions do not change (R6). A bone in the raw space keeps its rotation at each intensity.
 - `setAvatarTracking` stores the parts in the fixed order and stores no group for the default; an intensity of 3 and a duplicate part are rejected with `INVALID_INPUT` and no change (R4).
 
 ## Editor controls (headless Chromium)
@@ -44,10 +44,11 @@ Result. Each change sends one `setAvatarTracking` patch that keeps the source ID
 | Command | Result |
 | --- | --- |
 | `pnpm check` | 9 packages and `tsconfig.scripts.json`: pass. svelte-check: 0 errors, 0 warnings |
-| `pnpm test:unit` | 1997 passed, 1 skipped (231 files). Base `a78b27a`: 1976 passed, 1 skipped (228 files) |
+| `pnpm test:unit` | 1998 passed, 1 skipped (231 files). Base `a78b27a`: 1976 passed, 1 skipped (228 files) |
 | `pnpm test:integration` | 73 passed, 4 failed, 4 skipped. The 4 failures are in `scripts/prepare-tracking.test.ts`: the MediaPipe model files are not in `artifacts/models`, because this container cannot reach their download host. The base gives the same 4 failures here |
 | `cargo test -p opensekai-contracts --no-fail-fast` (rustc 1.97.0) | 120 passed, 0 failed |
-| `cargo test --workspace`, `cargo clippy` | Not run on this branch in this container; see the pull request |
+| `cargo test --workspace --no-fail-fast` (rustc 1.97.0) | 458 passed, 1 failed, 2 ignored in the full run: `due_clocks_progress_under_sustained_control_without_credit_accumulation` (`clock_integration.rs`, a timing test) failed one time on this 2-core container. It passed in 3 runs of `cargo test -p opensekai-desktop --test clock_integration` (5 passed each). It does not use code that this change touches. The desktop crate needs the output and desktop bundles; they were built without the tracking model step |
+| `cargo clippy --workspace --all-targets` (rustc 1.97.0) | Clean, 0 warnings |
 
 One unit test failed one time in a run that shared the CPU with a Rust build: `apps/desktop/test/hidden-cameras.test.ts`, "hides matches, saves only valid patterns, and restores the defaults". It passed in the next 3 runs and in the full run above. It does not use code that this change touches.
 
@@ -58,3 +59,13 @@ One unit test failed one time in a run that shared the CPU with a Rust build: `a
 3. Set Body Movement Intensity to 0, 1, and 2 while you lean left and right. The lean of the character is zero, equal, and about double. Calibrate first for a webcam source.
 4. Turn Head off. The head bones take the idle pose, and the face blend shapes still follow.
 5. Save, close, and open the show. The settings are on the character. A VMC Sender on that character sends the filtered pose.
+
+## Review
+
+Reviewer: Claude Opus (a different model from the implementer), on the diff, the contract, and the issue.
+
+| Finding | Action |
+| --- | --- |
+| The intensity scaled raw VMC bones about the identity. The renderer blends a raw bone from the rest pose of the model, so intensity 0 moved a torso with a rest rotation off its rest pose | Fixed: only bones in the normalized space scale. R6 changed. Unit test added. Intensity for a VMC body is a later slice |
+| A show that is opened or replaced keeps a `body` group that is not in the normal form, and the reset mark then showed a change for the same parts in another order | Fixed for the reset mark: it compares the parts in the fixed order. The stored form of an opened show is not changed; the composer does not depend on the order |
+| Look-at and bone offsets from Blueprints still act on a head that is not tracked | Not changed. They are Blueprint layers, not tracking, and R5 covers the bones that the sources send |

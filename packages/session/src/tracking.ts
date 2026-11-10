@@ -17,14 +17,15 @@ export function applyPositionRule(sample:TrackingSample,rule:VmcPositionRule):Tr
  return {...sample,bones,...(sample.root?{root:{position:[0,0,0],rotation:[...sample.root.rotation]as Quat}}:{})};
 }
 // The bones that a character takes from its sources (TRK-05 slice 2 R5, R6): a part that is not tracked sends no bone,
-// and the rotations of the body part scale about the identity. Positions and weights stay.
+// and the normalized rotations of the body part scale about the identity. Positions and weights stay.
+// A raw bone is an absolute rotation that the renderer blends from the rest pose, so a scale about the identity would move it off the rest pose; it stays as sent.
 export function applyBodyTracking(entries:[string,TrackingBone][],body:AvatarBodyTracking|undefined):[string,TrackingBone][] {
  if(!body)return entries;
  const tracked=new Set<string>(body.trackedParts);
  return entries.flatMap(([name,bone]):[string,TrackingBone][]=>{
   const part=bodyPartOf(name);
   if(part&&!tracked.has(part))return [];
-  return [[name,part==='body'&&body.movementIntensity!==1?{...bone,rotation:scaleRotation(bone.rotation,body.movementIntensity)}:bone]];
+  return [[name,part==='body'&&bone.space==='normalized'&&body.movementIntensity!==1?{...bone,rotation:scaleRotation(bone.rotation,body.movementIntensity)}:bone]];
  });
 }
 export function createTrackingComposer(){
