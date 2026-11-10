@@ -4,3 +4,7 @@ NOTE spike webgpu: 2D canvas reference (decoded frames, center pixels) {"decoded
 PASS spike webgpu: frame 7 is red (screenshot center within 24 of the 2D canvas draw) {"actual":[255,24,0,255],"reference":[255,24,0],"applied":"webgpu"}
 PASS spike webgpu: frame 22 is green (screenshot center within 24 of the 2D canvas draw) {"actual":[0,216,0,255],"reference":[0,216,2],"applied":"webgpu"}
 PASS spike webgpu: frame 37 is blue (screenshot center within 24 of the 2D canvas draw) {"actual":[0,15,255,255],"reference":[0,14,253],"applied":"webgpu"}
+PASS spike webgpu: frame 52 is white (screenshot center within 24 of the 2D canvas draw) {"actual":[255,255,255,255],"reference":[255,255,255],"applied":"webgpu"}
+PASS spike webgpu: no page error []
+PASS socket webgpu: a scene without a capture screen opens no socket {"connections":0}
+PASS socket webgpu: renderer diagnostics report videoDecoder "supported"
