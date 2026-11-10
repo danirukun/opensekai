@@ -384,7 +384,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         try {
             // three.js 0.180: on WebGPU a shadow first set up during a draw stays empty, so compile first; on WebGL 2 this compile leaves the shadow empty.
             if (lightsRebuilt && sceneLights.shadows() && backend === "webgpu") await renderer.compileAsync(scene, camera);
-            await postChain.render(scene, camera, cameraEntity.antiAliasing, hazeDrawn);
+            await postChain.render(scene, camera, cameraEntity.antiAliasing, hazeDrawn, cameraEntity.grading ?? null);
             if (hazeDrawn && pipelineFailed) hazeFailed = true;
             if (marker) {
                 marker.update(frame, cameraEntity.id, width, height);
@@ -441,7 +441,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             }
             // The haze draws in the screenshot as in the output (B13 R10).
             const shotHaze = haze && !hazeFailed && frame.scene.entities.some(x => x.kind === "haze" && x.visible) ? haze : null;
-            const png = await renderScreenshot({ renderer, backend, scene, camera: shotCamera, show, antiAliasing: entity.antiAliasing ?? "none", msaaSamples: quality.msaaSamples, haze: shotHaze });
+            const png = await renderScreenshot({ renderer, backend, scene, camera: shotCamera, show, antiAliasing: entity.antiAliasing ?? "none", msaaSamples: quality.msaaSamples, haze: shotHaze, grading: entity.grading ?? null });
             if (disposed) throw failure("CANCELLED", "Renderer disposed");
             if (png.byteLength > LIMITS.screenshotPngBytes) throw failure("INVALID_INPUT", "Screenshot PNG exceeds 8 MiB");
             return { sessionId: frame.sessionId, revision: expectedRevision, cameraId, width: SCREENSHOT_WIDTH, height: SCREENSHOT_HEIGHT, png };

@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import { makeSmokeScene, type AppApi, type Reply,defaultTrackingConfig,type SceneEntity } from '@opensekai/contracts';
+import { DEFAULT_CAMERA_GRADING, makeSmokeScene, type AppApi, type Reply,defaultTrackingConfig,type SceneEntity } from '@opensekai/contracts';
 import { createSession } from '@opensekai/session';
 import { createEditorModel } from '../src/editor/model';
 import { makeAuthoringEntity } from '../src/editor/authoring';
@@ -240,6 +240,19 @@ it('sets an environment model and a camera Render Environment flag through patch
  expect(session.inspect().entities.find(e => e.id === camera.id)).toMatchObject({ renderEnvironment: false });
  expect((await model.setEnvironmentModel('performer', 'scene_a')).ok).toBe(false);
  expect((await model.setCameraRenderEnvironment('stage', true)).ok).toBe(false);
+});
+it('sets and removes a camera grading through a patch and rejects other kinds and values out of range', async () => {
+ const { model, session, api } = fixture();
+ await model.load();
+ const grading = { ...DEFAULT_CAMERA_GRADING, toneMapping: 'aces' as const, exposure: 0.5 };
+ expect((await model.setCameraGrading('camera_wide', grading, model.read().scene!.revision)).ok).toBe(true);
+ expect(session.inspect().entities.find(e => e.id === 'camera_wide')).toMatchObject({ grading });
+ expect((await model.setCameraGrading('camera_wide', null, model.read().scene!.revision)).ok).toBe(true);
+ expect(session.inspect().entities.find(e => e.id === 'camera_wide')).not.toHaveProperty('grading');
+ const calls = vi.mocked(api.scenePatch).mock.calls.length;
+ expect(await model.setCameraGrading('performer', grading)).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+ expect(await model.setCameraGrading('camera_wide', { ...grading, exposure: 9 })).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+ expect(vi.mocked(api.scenePatch).mock.calls.length).toBe(calls);
 });
 it('sets a camera anti-aliasing mode through a patch and rejects other kinds and unknown modes', async () => {
  const { model, session, api } = fixture();
