@@ -7,7 +7,7 @@ const MAX_STATE_BYTES=4096;
 const section=(id:string,label:string):InspectorSection=>({id,label});
 const transform=section('transform','Transform');
 export function sectionsFor(entity:SceneEntity,options:{expressions:boolean;meshes?:boolean}):InspectorSection[] {
- if(entity.kind==='camera')return [transform,section('rendering','Rendering'),section('lens','Lens'),section('control','Control'),section('screenshot','Screenshot')];
+ if(entity.kind==='camera')return [transform,section('rendering','Rendering'),section('grading','Grading'),section('lens','Lens'),section('control','Control'),section('screenshot','Screenshot')];
  if(entity.kind==='light')return [transform,section('light','Light'),section('affect','Affect'),...(entity.light.type!=='ambient'?[section('shadow','Shadow')]:[])];
  if(entity.kind==='haze')return [transform,section('haze','Haze')];
  if(entity.kind==='fpsCounter')return [section('fpsCounter','FPS Counter')];

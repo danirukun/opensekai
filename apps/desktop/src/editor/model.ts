@@ -1,5 +1,5 @@
-import { ExpressionNameSchema,ExpressionSettingsSchema,TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,FitNeutralSchema,TrackingSmoothingSchema,TrackingMappingSchema,EntityNameSchema,ShowSceneSchema,IdSchema,CameraAntiAliasingSchema,CameraNavigationSchema,LightSettingsSchema,HazeSettingsSchema,FpsCounterSettingsSchema,VmcSenderSettingsSchema,ReflectionsIntensitySchema,PatchOpSchema,ScreenVideoSchema,WebScreenSchema } from '@opensekai/contracts';
-import type { ExpressionSettings, AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing, TrackingMapping, ArkitName, CameraAntiAliasing, CameraNavigation, CameraScreenshotResult, LightSettings, HazeSettings, FpsCounterSettings, VmcSenderSettings, ScreenVideo, ScreenVideoAction, WebScreen } from '@opensekai/contracts';
+import { ExpressionNameSchema,ExpressionSettingsSchema,TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,FitNeutralSchema,TrackingSmoothingSchema,TrackingMappingSchema,EntityNameSchema,ShowSceneSchema,IdSchema,CameraAntiAliasingSchema,CameraGradingSchema,CameraNavigationSchema,LightSettingsSchema,HazeSettingsSchema,FpsCounterSettingsSchema,VmcSenderSettingsSchema,ReflectionsIntensitySchema,PatchOpSchema,ScreenVideoSchema,WebScreenSchema } from '@opensekai/contracts';
+import type { ExpressionSettings, AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing, TrackingMapping, ArkitName, CameraAntiAliasing, CameraGrading, CameraNavigation, CameraScreenshotResult, LightSettings, HazeSettings, FpsCounterSettings, VmcSenderSettings, ScreenVideo, ScreenVideoAction, WebScreen } from '@opensekai/contracts';
 import {makeEntityCopy} from './asset-management';
 type CameraLens=Extract<SceneEntity,{kind:'camera'}>['lens'];
 export interface EditorView {
@@ -171,6 +171,10 @@ export function createEditorModel(api: AppApi) {
   setCameraAntiAliasing(entityId:Id,antiAliasing:CameraAntiAliasing,expectedRevision?:number):Promise<Reply<{revision:number}>> {
    const parsed=CameraAntiAliasingSchema.safeParse(antiAliasing);if(!ofKind(entityId,'camera')||!parsed.success)return invalid();
    return patch({kind:'setCameraAntiAliasing',entityId,antiAliasing:parsed.data},expectedRevision);
+  },
+  setCameraGrading(entityId:Id,grading:CameraGrading|null,expectedRevision?:number,live=false):Promise<Reply<{revision:number}>> {
+   const parsed=CameraGradingSchema.nullable().safeParse(grading);if(!ofKind(entityId,'camera')||!parsed.success)return invalid();
+   return patch({kind:'setCameraGrading',entityId,grading:parsed.data},expectedRevision,live);
   },
   setCameraNavigation(entityId:Id,navigation:CameraNavigation,expectedRevision?:number,live=false):Promise<Reply<{revision:number}>> {
    const parsed=CameraNavigationSchema.safeParse(navigation);if(!ofKind(entityId,'camera')||!parsed.success)return invalid();

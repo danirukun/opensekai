@@ -3,7 +3,8 @@ import { renderOutput, texture, uniform } from "three/tsl";
 import { fxaa } from "three/addons/tsl/display/FXAANode.js";
 import { gaussianBlur } from "three/addons/tsl/display/GaussianBlurNode.js";
 import { HAZE_BLUR, HAZE_LAYER, HAZE_RESOLUTION, hazeComposite, type Haze } from "./haze";
-import type { Backend, CameraAntiAliasing } from "@opensekai/contracts";
+import { isNeutralGrading, type Backend, type CameraAntiAliasing, type CameraGrading } from "@opensekai/contracts";
+import { bloomComposite, createGrading } from "./grading";
 
 export const SCREENSHOT_WIDTH = 1920;
 export const SCREENSHOT_HEIGHT = 1080;
@@ -106,10 +107,12 @@ export interface ScreenshotRender {
     msaaSamples: number;
     /** A visible haze draws as in the output: its own pass with the screenshot depth, blurred and added (B13 R10). */
     haze?: Haze | null;
+    /** The grading of the screenshot camera, applied as in the output (CAM-06 R12). */
+    grading?: CameraGrading | null;
 }
 
 /** Renders one 1920 × 1080 frame to offscreen targets with a transparent clear, reads it once, and returns the PNG. The canvas is not drawn. */
-export async function renderScreenshot({ renderer, backend, scene, camera, show, antiAliasing, msaaSamples, haze = null }: ScreenshotRender): Promise<Uint8Array> {
+export async function renderScreenshot({ renderer, backend, scene, camera, show, antiAliasing, msaaSamples, haze = null, grading = null }: ScreenshotRender): Promise<Uint8Array> {
     const width = SCREENSHOT_WIDTH, height = SCREENSHOT_HEIGHT;
     const sceneTarget = new RenderTarget(width, height, { type: HalfFloatType, samples: msaaSamples, depthBuffer: true });
     if (haze) sceneTarget.depthTexture = new DepthTexture(width, height);
@@ -119,6 +122,7 @@ export async function renderScreenshot({ renderer, backend, scene, camera, show,
     const fxaaTarget = antiAliasing === "fxaa" ? new RenderTarget(width, height, { type: UnsignedByteType, depthBuffer: false }) : null;
     const materials: NodeMaterial[] = [];
     const quad = (node: NodeMaterial["fragmentNode"]) => { const material = new NodeMaterial(); material.fragmentNode = node; materials.push(material); return new QuadMesh(material); };
+    let glow: { dispose(): void } | null = null;
     const saved = scene.children.map(child => [child, child.visible] as const);
     const previousTarget = renderer.getRenderTarget();
     try {
@@ -135,6 +139,16 @@ export async function renderScreenshot({ renderer, backend, scene, camera, show,
             finally { camera.layers.mask = mask; }
             color = hazeComposite(color, blur as unknown as typeof color, haze.intensity) as unknown as typeof color;
         }
+        if (grading && !isNeutralGrading(grading)) {
+            const grade = createGrading();
+            grade.update(grading);
+            if (grading.bloom.intensity > 0) {
+                const bloom = grade.bloom(color, { width, height });
+                glow = bloom;
+                color = bloomComposite(color, bloom) as unknown as typeof color;
+            }
+            color = grade.grade(color, grading.toneMapping) as unknown as typeof color;
+        }
         // The same display transform as the canvas output; FXAA then works on display-referred color, as in post-chain.ts.
         renderer.setRenderTarget(colorTarget);
         await quad(renderOutput(color, renderer.toneMapping, renderer.outputColorSpace)).renderAsync(renderer);
@@ -149,6 +163,6 @@ export async function renderScreenshot({ renderer, backend, scene, camera, show,
         renderer.setRenderTarget(previousTarget);
         for (const [child, visible] of saved) child.visible = visible;
         for (const material of materials) material.dispose();
-        sceneTarget.dispose(); colorTarget.dispose(); fxaaTarget?.dispose(); hazeTarget?.dispose(); blur?.dispose();
+        sceneTarget.dispose(); colorTarget.dispose(); fxaaTarget?.dispose(); hazeTarget?.dispose(); blur?.dispose(); glow?.dispose();
     }
 }

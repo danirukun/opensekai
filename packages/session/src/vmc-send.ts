@@ -37,8 +37,10 @@ export function vmcSendPose(pose: AvatarPose | undefined, rig: AvatarRig): Omit<
   const weight = bone.weight ?? 1;
   const target = name === 'chest' && !has('chest') && pose?.bones.spine?.space !== 'normalized' ? 'spine' : name;
   const baseline = normalized[target];
-  const position = bone.position ? lerp(baseline?.position ?? [0, 0, 0], bone.position, weight) : baseline?.position;
-  normalized[target] = { rotation: slerpQuat(baseline?.rotation ?? IDENTITY, bone.rotation, weight), ...(position ? { position } : {}) };
+  // A normalized tracking value has the VRM 1 axes, as a base bone has (VRM 0 tracking axes R3).
+  const tracked: Vec3 | undefined = bone.position && [bone.position[0] * sign, bone.position[1], bone.position[2] * sign];
+  const position = tracked ? lerp(baseline?.position ?? [0, 0, 0], tracked, weight) : baseline?.position;
+  normalized[target] = { rotation: slerpQuat(baseline?.rotation ?? IDENTITY, signed(bone.rotation), weight), ...(position ? { position } : {}) };
  }
  resolveChest(normalized);
  // Spine before chest, so a chestless rig composes them as `resolveChest` does.

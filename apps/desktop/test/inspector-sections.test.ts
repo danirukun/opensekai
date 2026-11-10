@@ -5,7 +5,7 @@ import {currentSection,indexShows,isCollapsed,parseSectionState,sectionsFor,setC
 const ids=(kind:Parameters<typeof makeAuthoringEntity>[0],expressions=false)=>sectionsFor(makeAuthoringEntity(kind,'id',[]),{expressions}).map(section=>section.label);
 
 it('lists the sections of each kind in field order (R11)',()=>{
- expect(ids('camera')).toEqual(['Transform','Rendering','Lens','Control','Screenshot']);
+ expect(ids('camera')).toEqual(['Transform','Rendering','Grading','Lens','Control','Screenshot']);
  expect(ids('pointLight')).toEqual(['Transform','Light','Affect','Shadow']);
  expect(ids('ambientLight')).toEqual(['Transform','Light','Affect']);
  expect(ids('haze')).toEqual(['Transform','Haze']);
