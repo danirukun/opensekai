@@ -22,6 +22,8 @@ import { renderScreenshot, SCREENSHOT_HEIGHT, SCREENSHOT_WIDTH } from "./screens
 import { createScreenImagePool, createScreenMesh, loadScreenImage } from "./screen";
 import { createWebLayers, createWebQuad, webQuadWidth, webScreenPlan, type WebLayers } from "./web-screen";
 import { loadVideoSource, openScreenVideo, type ScreenVideoPlayer, type VideoSource } from "./video-screen";
+import { createCaptureScreens, probeVideoDecoder, type CaptureHost } from "./capture-screen";
+import type { VideoDecoderSupport } from "@opensekai/contracts";
 export interface RendererHandle {
     editor?: EditorHandle;
     applyFrame(frame: RuntimeFrame): Promise<FrameApplied>;
@@ -31,8 +33,17 @@ export interface RendererHandle {
     diagnostics?(rendererEpoch: string): RendererDiagnostics | null;
     onLoadStatus(listener: (entries: AssetLoadStatus[]) => void): () => void;
     dismissLoad(entityId: string): void;
-    /** Pauses each video element; the next applied frame seeks and plays them again (B29 R14, the preview pump stop). */
+    /**
+     * Pauses each video element and closes each capture socket; the next applied frame seeks and plays the videos again
+     * and opens the sockets again (B29 R14, B31 R14: the preview pump stop).
+     */
     pauseVideos(): void;
+    /** B31 R14: whether this view has VideoDecoder and decodes avc1.4d0029 at 1920 x 1080; null until the check ends. */
+    videoDecoder(): VideoDecoderSupport | null;
+    /** One diagnostics snapshot also without the diagnostics option, for the one decoder report at start (B31 R14); null until the check ends. */
+    decoderReport(rendererEpoch: string): RendererDiagnostics | null;
+    /** Test only: the capture stream IDs with an open socket. */
+    captureSockets(): string[];
     /** Test only: resolves when the last seek or play of the screen's video has a new frame in its texture (B29 R14). */
     videoSettled(entityId: Id): Promise<void>;
     dispose(): void;
@@ -49,6 +60,8 @@ export interface RendererOptions {
     webLayers?: WebLayers;
     /** Only the OBS page plays video sound (B29 R16). Without it, each video element is muted. */
     audio?: boolean;
+    /** The capture status and the capture route of the renderer client (B31 R14). Without it, a capture screen draws nothing. */
+    capture?: CaptureHost;
 }
 // The output render scale multiplies the quality profile scale; the canvas CSS size does not change (B22 R5).
 export const drawingBufferSize = (output: Pick<OutputSpec, "width" | "height" | "renderScale">, quality: Pick<QualityProfile, "resolutionScale">) => {
@@ -81,6 +94,10 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     // one asset keep their own positions; the URL is revoked when no screen holds it.
     const videos = createScreenImagePool<VideoSource>(id => loadVideoSource(() => options.resources.readAsset(id)));
     const audio = options.audio === true;
+    // One socket and one decoder for each capture stream (B31 R14). WebGL 2 uploads the VideoFrame; WebGPU an ImageBitmap.
+    const captures = createCaptureScreens({ host: options.capture, upload: backend === "webgpu" ? "bitmap" : "frame" });
+    let decoderSupport: VideoDecoderSupport | null = null;
+    void probeVideoDecoder().then(value => { decoderSupport = value; });
     const environmentLight = createEnvironmentLight(roomEnvironmentMap(renderer));
     type Ready = { root: Object3D; video?: ScreenVideoPlayer; avatar?: ReturnType<typeof createAvatarBinding>; meshes?: ReadonlyMap<string, Object3D>; assetId?: string; assetDispose?: () => void; instanceDispose?: () => void; materials?: InstanceMaterials; lit: number; warnings: AppError[]; dispose(): void };
     const loadListeners = new Set<(entries: AssetLoadStatus[]) => void>();
@@ -177,6 +194,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         editor?.dispose();
         webLayers?.dispose();
         for (const value of objects.values()) releaseObject(value);
+        captures.dispose();
         objects.clear();
         jobs.dispose();
         assets.dispose();
@@ -231,6 +249,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         const reflections = frame.scene.entities.find((x): x is Extract<SceneEntity, { kind: "environment" }> => x.kind === "environment")?.reflectionsIntensity ?? 1;
         const needed = new Map<string, LoadRequest>();
         const webPlans = webScreenPlan(frame.scene);
+        const captureViews = captures.apply(frame.scene.entities);
         for (const entity of frame.scene.entities) {
             if (entity.kind === "tracking" || entity.kind === "fpsCounter" || entity.kind === "vmcSender") continue;
             if (entity.kind === "camera") {
@@ -286,6 +305,28 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
                 if (value?.signature !== signature) {
                     if (value) releaseObject(value);
                     const quad = createWebQuad(aspect, hole);
+                    value = { signature, root: quad.root, owned: false, instanceDispose: quad.dispose };
+                    scene.add(value.root);
+                    objects.set(entity.id, value);
+                }
+                if (!editor?.frozen(entity.id)) place(value.root, entity);
+                continue;
+            }
+            // A capture screen has no asset and no load job (B31 R14). It draws the newest decoded frame of its stream while
+            // the host state is live; otherwise the editor keeps an undrawn quad as the pick and gizmo target (R16).
+            if (entity.kind === "screen" && entity.content.kind === "capture") {
+                const view = captureViews.get(entity.id);
+                if (view?.warning) warnings.push(view.warning);
+                let value = objects.get(entity.id);
+                const aspect = view?.aspect ?? 16 / 9, texture = view?.texture ?? null;
+                if (!texture && !editor) {
+                    if (value) { releaseObject(value); objects.delete(entity.id); }
+                    continue;
+                }
+                const signature = `capture:${aspect}:${texture?.uuid ?? "pick"}`;
+                if (value?.signature !== signature) {
+                    if (value) releaseObject(value);
+                    const quad = texture ? createScreenMesh({ texture, width: aspect, height: 1, alpha: false }) : createWebQuad(aspect, false);
                     value = { signature, root: quad.root, owned: false, instanceDispose: quad.dispose };
                     scene.add(value.root);
                     objects.set(entity.id, value);
@@ -449,11 +490,17 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     };
     return { screenshot, ...(editor ? { editor: { sync: editor.sync, cancel: editor.cancel } } : {}), diagnostics(rendererEpoch) {
         if (!options.diagnostics || !displayed || disposed) return null;
-        return {sessionId: displayed.sessionId, outputId: displayed.outputId, rendererEpoch, sequence: displayed.sequence, revision: displayed.revision, backend, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, liveMaterials: countLiveMaterials(marker ? [scene,marker.scene] : [scene]), assetCacheEntries: assets.size(), ...queue.snapshot()};
+        return {sessionId: displayed.sessionId, outputId: displayed.outputId, rendererEpoch, sequence: displayed.sequence, revision: displayed.revision, backend, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, liveMaterials: countLiveMaterials(marker ? [scene,marker.scene] : [scene]), assetCacheEntries: assets.size(), ...queue.snapshot(), ...(decoderSupport ? { videoDecoder: decoderSupport } : {})};
     },
     onLoadStatus(listener) { loadListeners.add(listener); listener(jobs.status()); return () => { loadListeners.delete(listener); }; },
     dismissLoad(entityId) { jobs.dismiss(entityId); },
-    pauseVideos() { for (const value of objects.values()) value.video?.pause(); },
+    pauseVideos() { for (const value of objects.values()) value.video?.pause(); captures.pause(); },
+    videoDecoder: () => decoderSupport,
+    decoderReport(rendererEpoch) {
+        if (!displayed || disposed || decoderSupport === null) return null;
+        return {sessionId: displayed.sessionId, outputId: displayed.outputId, rendererEpoch, sequence: displayed.sequence, revision: displayed.revision, backend, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, liveMaterials: countLiveMaterials(marker ? [scene,marker.scene] : [scene]), assetCacheEntries: assets.size(), ...queue.snapshot(), videoDecoder: decoderSupport};
+    },
+    captureSockets: () => captures.sockets(),
     videoSettled(entityId) { const player = objects.get(entityId)?.video; return player ? player.settled() : Promise.reject(failure("NOT_FOUND", "Video not loaded", [entityId])); },
     applyFrame(raw) { const frame = RuntimeFrameSchema.parse(raw); const selected = selectFrame(accepted, frame); if (!selected.ok)
             return Promise.reject(failure(selected.error.code, selected.error.message)); accepted = frame; return queue.enqueue("frame", () => submit(frame)); }, capture() { return queue.enqueue("capture", async () => { policy.reserve(performance.now()); if (!displayed || !displayFrame)

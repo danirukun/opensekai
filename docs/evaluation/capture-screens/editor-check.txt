@@ -1,0 +1,29 @@
+commit base 23b6ea7 + working tree; backend: headless Chromium, editor flow only (no capture)
+PASS R17: Content has Display and Window after Video and Web page ["Image","Video","Web page","Display","Window"]
+PASS R17: Display sends setScreenCapture with target display, no source, and the cursor on [{"kind":"setScreenCapture","entityId":"03cdb25c-fa80-4967-8693-e61108454b43","capture":{"target":"display","source":null,"cursor":true}}]
+PASS R17: the source list loads when Content changes 3
+PASS R17: Source lists the displays only, after Choose display… ["Choose display…","Built-in Retina Display","DELL U2720Q"]
+PASS R17: the fields are Source and Show Cursor ["Source","Show Cursor"]
+PASS R17: the source list loads when the select opens {"before":3,"after":4}
+PASS R5, R17: capture_source_allow comes before the patch ["capture_source_allow","scenePatch setScreenCapture"]
+PASS R17: the patch has the chosen source [{"kind":"setScreenCapture","entityId":"03cdb25c-fa80-4967-8693-e61108454b43","capture":{"target":"display","source":{"kind":"display","name":"DELL U2720Q","ordinal":0},"cursor":true}}]
+PASS R17: Show Cursor sends cursor false with the source unchanged [{"kind":"setScreenCapture","entityId":"03cdb25c-fa80-4967-8693-e61108454b43","capture":{"target":"display","source":{"kind":"display","name":"DELL U2720Q","ordinal":0},"cursor":false}}]
+PASS R17: Window sends target window with no source [{"kind":"setScreenCapture","entityId":"03cdb25c-fa80-4967-8693-e61108454b43","capture":{"target":"window","source":null,"cursor":true}}]
+PASS R17: Source lists the windows only, after Choose window… ["Choose window…","Chat — Chat — Stream"]
+PASS R17, R20: a saved source in the state notAllowed shows its description and Allow "Source Choose window…Chat — Chat — Stream    com.example.chat — Chat — Stream Allow Show Cursor"
+PASS R17: Allow calls capture_source_allow with the saved source and sends no patch ["capture_source_allow"]
+PASS R17: after the allow, the host state is live and Allow goes 
+PASS R15: the Inspector shows the preview_main message "Source Choose window…Chat — Chat — Stream  Source hidden   Show Cursor"
+PASS R17: a saved source that is not in the list shows its description with Source not found {"options":["Choose window…","Chat — Chat — Stream","com.example.notes — Set list"],"text":"Source Choose window…Chat — Chat — Streamcom.example.notes — Set list  Source not found   Show Cursor"}
+PASS R17: a list error shows under the select with Open Settings "Source Choose window…com.example.notes — Set list  Screen Recording permission needed  Open Settings  Show Cursor"
+PASS R17: Open Settings calls open_capture_settings ["open_capture_settings"]
+PASS R17: the unsupported error shows without Open Settings 
+PASS R17: reset marks show for Content and Show Cursor ["Reset Content","Reset Show Cursor"]
+PASS R17: the Show Cursor reset sends cursor true [{"kind":"setScreenCapture","entityId":"03cdb25c-fa80-4967-8693-e61108454b43","capture":{"target":"window","source":{"kind":"window","app":"com.example.chat","title":"Chat — Stream"},"cursor":true}}]
+PASS R17: the Content reset sends setScreenImage with null [{"kind":"setScreenImage","entityId":"03cdb25c-fa80-4967-8693-e61108454b43","assetId":null}]
+PASS R17: Display and Window are disabled on an image screen at the capture limit [true,true]
+PASS R17: Display and Window stay enabled on a capture screen at the limit [false,false]
+PASS R17: Duplicate is disabled for a capture screen at the limit 1
+PASS R17: Duplicate stays enabled for an image screen at the capture limit 1
+PASS no page error []
+27 of 27 pass

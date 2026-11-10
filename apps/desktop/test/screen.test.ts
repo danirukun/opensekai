@@ -51,7 +51,7 @@ const webScreen=(id:string,content:Partial<typeof DEFAULT_WEB_SCREEN>={}):SceneE
 const web=(kind:'image'|'video'|'web',scene:SceneEntity[])=>contentOptions(kind,scene).find(o=>o.value==='web')!.disabled;
 it('disables Web page at the web screen limit, unless the screen already shows a page',()=>{
  const scene:SceneEntity[]=[...makeSmokeScene().entities,webScreen('w0'),webScreen('w1'),webScreen('w2')];
- expect(contentOptions('image',scene).map(o=>[o.label,o.disabled])).toEqual([['Image',false],['Video',false],['Web page',false]]);
+ expect(contentOptions('image',scene).map(o=>[o.label,o.disabled])).toEqual([['Image',false],['Video',false],['Web page',false],['Display',false],['Window',false]]);
  scene.push(webScreen('w3'));
  expect(webLimitReached(scene)).toBe(true);
  expect([web('image',scene),web('video',scene),web('web',scene)]).toEqual([true,true,false]);

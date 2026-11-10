@@ -246,6 +246,24 @@ impl DesktopState {
             .ok_or_else(|| error(ErrorCode::Unavailable, "Session unavailable"))?;
         ports.import_video(path).await
     }
+    fn service_ports(&self) -> Option<ServicePorts> {
+        self.ports.lock().unwrap_or_else(|e| e.into_inner()).clone()
+    }
+    pub async fn capture_source_list(&self) -> Result<crate::capture::SourceList, AppError> {
+        let ports = self
+            .service_ports()
+            .ok_or_else(|| error(ErrorCode::Unavailable, "Session unavailable"))?;
+        Ok(ports.capture_source_list().await)
+    }
+    pub async fn capture_source_allow(
+        &self,
+        source: opensekai_contracts::CaptureSource,
+    ) -> Result<(), AppError> {
+        let ports = self
+            .service_ports()
+            .ok_or_else(|| error(ErrorCode::Unavailable, "Session unavailable"))?;
+        ports.capture_source_allow(source)
+    }
     pub async fn wait_ready(&self) -> Result<NativeBootstrap, AppError> {
         let mut receiver = self.ready.subscribe();
         tokio::time::timeout(Duration::from_secs(5), async {

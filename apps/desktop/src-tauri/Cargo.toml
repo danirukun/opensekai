@@ -8,6 +8,15 @@ rust-version.workspace = true
 name = "opensekai_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+# B31 R12: the test capture adapter. Only tests enable it:
+# cargo test -p opensekai-desktop --features capture-fixture --test capture_integration
+capture-fixture = []
+
+[[test]]
+name = "capture_integration"
+required-features = ["capture-fixture"]
+
 [build-dependencies]
 tauri-build.workspace = true
 

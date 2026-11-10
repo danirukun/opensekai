@@ -1,6 +1,7 @@
 pub mod assets;
 pub mod blueprint_file;
 mod bootstrap;
+pub mod capture;
 pub mod evaluation;
 pub mod input;
 mod local_file;
@@ -162,6 +163,54 @@ async fn import_video(
     let result = state.import_video(local_path(path)?).await?;
     announce_record(&window, &result.record);
     Ok(Some(result))
+}
+/// The displays and windows that the operator can choose (B31 R6). Only the Editor window gets the
+/// list; window titles and display names never go to MCP or a log.
+#[tauri::command]
+async fn capture_source_list(
+    window: tauri::WebviewWindow,
+    state: tauri::State<'_, Arc<DesktopState>>,
+) -> Result<crate::capture::SourceList, AppError> {
+    require_window_label(window.label(), "main")?;
+    state.capture_source_list().await
+}
+/// Allows a capture source for this app run (B31 R5): the operator chose it in the Inspector or
+/// clicked Allow on a saved source.
+#[tauri::command]
+async fn capture_source_allow(
+    window: tauri::WebviewWindow,
+    state: tauri::State<'_, Arc<DesktopState>>,
+    source: opensekai_contracts::CaptureSource,
+) -> Result<(), AppError> {
+    require_window_label(window.label(), "main")?;
+    state.capture_source_allow(source).await
+}
+/// Opens the Screen Recording page of System Settings (B31 R17).
+#[tauri::command]
+fn open_capture_settings(window: tauri::WebviewWindow) -> Result<(), AppError> {
+    require_window_label(window.label(), "main")?;
+    let unavailable = || AppError {
+        code: ErrorCode::Unavailable,
+        message: "Settings unavailable".into(),
+        ids: vec![],
+    };
+    #[cfg(target_os = "macos")]
+    {
+        use tauri_plugin_opener::OpenerExt;
+        window
+            .app_handle()
+            .opener()
+            .open_url(
+                "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
+                None::<&str>,
+            )
+            .map_err(|_| unavailable())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = window;
+        Err(unavailable())
+    }
 }
 fn local_path(path: tauri_plugin_dialog::FilePath) -> Result<PathBuf, AppError> {
     path.into_path().map_err(|_| AppError {
@@ -540,6 +589,9 @@ pub fn run() {
             import_scene,
             import_image,
             import_video,
+            capture_source_list,
+            capture_source_allow,
+            open_capture_settings,
             save_show,
             save_show_as,
             open_show,
@@ -607,6 +659,9 @@ mod command_boundary_tests {
             "allow-import-scene",
             "allow-import-image",
             "allow-import-video",
+            "allow-capture-source-list",
+            "allow-capture-source-allow",
+            "allow-open-capture-settings",
             "allow-save-show",
             "allow-save-show-as",
             "allow-open-show",

@@ -28,7 +28,7 @@ export function valuesFor(entity:SceneEntity):Record<string,unknown> {
  if(entity.kind==='fpsCounter')return {...base,...entity.fpsCounter};
  if(entity.kind==='vmcSender')return {address:entity.vmcSender.address,port:entity.vmcSender.port};
  if(entity.kind==='environment')return {...base,reflectionsIntensity:entity.reflectionsIntensity??1};
- if(entity.kind==='screen')return entity.content.kind==='video'?{...base,content:'video',video:entity.content.assetId,autoPlay:entity.content.autoPlay,loop:entity.content.loop,volume:entity.content.volume}:entity.content.kind==='web'?{...base,content:'web',url:entity.content.url,width:entity.content.width,height:entity.content.height,onTop:entity.content.onTop}:{...base,content:'image',image:entity.content.assetId};
+ if(entity.kind==='screen')return entity.content.kind==='video'?{...base,content:'video',video:entity.content.assetId,autoPlay:entity.content.autoPlay,loop:entity.content.loop,volume:entity.content.volume}:entity.content.kind==='web'?{...base,content:'web',url:entity.content.url,width:entity.content.width,height:entity.content.height,onTop:entity.content.onTop}:entity.content.kind==='capture'?{...base,content:entity.content.target,cursor:entity.content.cursor}:{...base,content:'image',image:entity.content.assetId};
  if(entity.kind==='avatar'){const body=bodyTrackingOf(entity.tracking);return {...base,idleAnimation:entity.idleAnimation?.enabled??false,bodyMovementIntensity:body.movementIntensity,trackedParts:BODY_PARTS.filter(part=>body.trackedParts.includes(part))};}
  if(entity.kind==='tracking')return {...configValues(entity.config),...smoothingValues(entity.smoothing),...mappingValues(entity.mapping)};
  return base;
@@ -42,7 +42,7 @@ export function defaultsFor(entity:SceneEntity):EntityDefaults {
  if(entity.kind==='vmcSender')return {...VMC_SENDER};
  if(entity.kind==='environment')return {...base,reflectionsIntensity:1};
  // The Add menu makes image content; the video and web values are the start values of a change to Video or Web page (B29 R19, B30 R13).
- if(entity.kind==='screen'){const added=makeAuthoringEntity('screen','screen_default',[]);return {...base,content:added.kind==='screen'?added.content.kind:'image',image:added.kind==='screen'&&added.content.kind==='image'?added.content.assetId:null,video:VIDEO_DEFAULTS.assetId,autoPlay:VIDEO_DEFAULTS.autoPlay,loop:VIDEO_DEFAULTS.loop,volume:VIDEO_DEFAULTS.volume,...DEFAULT_WEB_SCREEN};}
+ if(entity.kind==='screen'){const added=makeAuthoringEntity('screen','screen_default',[]);return {...base,content:added.kind==='screen'?added.content.kind:'image',image:added.kind==='screen'&&added.content.kind==='image'?added.content.assetId:null,video:VIDEO_DEFAULTS.assetId,autoPlay:VIDEO_DEFAULTS.autoPlay,loop:VIDEO_DEFAULTS.loop,volume:VIDEO_DEFAULTS.volume,...DEFAULT_WEB_SCREEN,cursor:true};}
  if(entity.kind==='avatar'){const added=makeAuthoringEntity('character','avatar_default',[]);return {...base,idleAnimation:added.kind==='avatar'&&added.idleAnimation?.enabled,bodyMovementIntensity:DEFAULT_AVATAR_BODY_TRACKING.movementIntensity,trackedParts:[...DEFAULT_AVATAR_BODY_TRACKING.trackedParts]};}
  if(entity.kind==='tracking')return {...configValues(defaultTrackingConfig(entity.config.kind)),...smoothingValues(),...mappingValues()};
  return base;
@@ -61,7 +61,7 @@ export function resetFieldIds(entity:SceneEntity):string[] {
  // A sender has no Transform or Visible field. Its character default depends on the scene, so it has no reset (B21 R5).
  if(entity.kind==='vmcSender')return ['address','port'];
  if(entity.kind==='environment')return [...base,'reflectionsIntensity'];
- if(entity.kind==='screen')return [...base,'content',...(entity.content.kind==='video'?['video','autoPlay','loop','volume']:entity.content.kind==='web'?['url','width','height','onTop']:['image'])];
+ if(entity.kind==='screen')return [...base,'content',...(entity.content.kind==='video'?['video','autoPlay','loop','volume']:entity.content.kind==='web'?['url','width','height','onTop']:entity.content.kind==='capture'?['cursor']:['image'])];
  if(entity.kind==='avatar')return [...base,'idleAnimation','bodyMovementIntensity','trackedParts'];
  if(entity.kind==='tracking')return [...(entity.config.kind==='mediapipe'?['face','upperBody','hands','mirror']:['bindAddress','port','address']),'smoothing','minCutoff','beta','derivativeCutoff','headIntensity','headOffsetX','headOffsetY','headOffsetZ','eyeIntensity','blendShapeSensitivity','linkedBlink'];
  return base;

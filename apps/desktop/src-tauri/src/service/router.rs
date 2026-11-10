@@ -312,10 +312,7 @@ impl Shared {
                         .acks
                         .get(id)
                         .and_then(|q| q.back().map(|(f, _)| f.clone())),
-                    video_decoder: inner
-                        .diagnostics
-                        .get(id)
-                        .and_then(|(d, _)| d.video_decoder.clone()),
+                    video_decoder: inner.decoders.get(id).cloned(),
                 })
                 .collect();
             let current = inner.renderers.contains_key("output_main")
@@ -330,8 +327,9 @@ impl Shared {
                                 && self.now_ms().saturating_sub(*received_at_ms) <= 500
                         })
                 });
+            let captures = self.capture.entries();
             return Reply::success(json!(AppStatus {
-                captures: None,
+                captures: (!captures.is_empty()).then_some(captures),
                 schema_version: 1,
                 session_id: self.session.clone(),
                 ready: inner.publisher.is_some() && current,

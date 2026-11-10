@@ -1,5 +1,5 @@
-import { ExpressionNameSchema,ExpressionSettingsSchema,TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,FitNeutralSchema,TrackingSmoothingSchema,TrackingMappingSchema,EntityNameSchema,ShowSceneSchema,IdSchema,CameraAntiAliasingSchema,CameraGradingSchema,CameraNavigationSchema,LightSettingsSchema,HazeSettingsSchema,FpsCounterSettingsSchema,VmcSenderSettingsSchema,ReflectionsIntensitySchema,PatchOpSchema,ScreenVideoSchema,WebScreenSchema } from '@opensekai/contracts';
-import type { ExpressionSettings, AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing, TrackingMapping, ArkitName, CameraAntiAliasing, CameraGrading, CameraNavigation, CameraScreenshotResult, LightSettings, HazeSettings, FpsCounterSettings, VmcSenderSettings, ScreenVideo, ScreenVideoAction, WebScreen } from '@opensekai/contracts';
+import { ExpressionNameSchema,ExpressionSettingsSchema,TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,FitNeutralSchema,TrackingSmoothingSchema,TrackingMappingSchema,EntityNameSchema,ShowSceneSchema,IdSchema,CameraAntiAliasingSchema,CameraGradingSchema,CameraNavigationSchema,LightSettingsSchema,HazeSettingsSchema,FpsCounterSettingsSchema,VmcSenderSettingsSchema,ReflectionsIntensitySchema,PatchOpSchema,ScreenVideoSchema,WebScreenSchema,ScreenCaptureSchema } from '@opensekai/contracts';
+import type { ExpressionSettings, AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing, TrackingMapping, ArkitName, CameraAntiAliasing, CameraGrading, CameraNavigation, CameraScreenshotResult, LightSettings, HazeSettings, FpsCounterSettings, VmcSenderSettings, ScreenVideo, ScreenVideoAction, WebScreen, ScreenCapture } from '@opensekai/contracts';
 import {makeEntityCopy} from './asset-management';
 type CameraLens=Extract<SceneEntity,{kind:'camera'}>['lens'];
 export interface EditorView {
@@ -134,6 +134,11 @@ export function createEditorModel(api: AppApi) {
   setScreenVideo(entityId:Id,video:ScreenVideo,expectedRevision?:number,live=false):Promise<Reply<{revision:number}>> {
    const parsed=ScreenVideoSchema.safeParse(video);if(!ofKind(entityId,'screen')||!parsed.success)return invalid();
    return patch({kind:'setScreenVideo',entityId,video:parsed.data},expectedRevision,live);
+  },
+  // B31 R3, R17: the Display or Window content of a screen. The Inspector allows a chosen source before it sends this.
+  setScreenCapture(entityId:Id,capture:ScreenCapture,expectedRevision?:number):Promise<Reply<{revision:number}>> {
+   const parsed=ScreenCaptureSchema.safeParse(capture);if(!ofKind(entityId,'screen')||!parsed.success)return invalid();
+   return patch({kind:'setScreenCapture',entityId,capture:parsed.data},expectedRevision);
   },
   // A control-only patch never commits: the session ignores its expected revision and replies with the current one (B29 R10).
   controlScreenVideo(entityId:Id,action:ScreenVideoAction):Promise<Reply<{revision:number}>> {
