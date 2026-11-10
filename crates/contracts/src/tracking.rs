@@ -52,6 +52,37 @@ pub struct AvatarTracking {
     pub face_source_id: Option<Id>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fingers_source_id: Option<Id>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub body: Option<AvatarBodyTracking>,
+}
+// The parts of a character that tracking can drive (TRK-05 slice 2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BodyPart {
+    Head,
+    Body,
+    LeftArm,
+    RightArm,
+    LeftFingers,
+    RightFingers,
+    LeftLeg,
+    RightLeg,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AvatarBodyTracking {
+    pub movement_intensity: f64,
+    pub tracked_parts: Vec<BodyPart>,
+}
+impl AvatarBodyTracking {
+    /// The intensity is 0 to 2, and the list has at most 8 parts with no duplicate.
+    pub fn is_valid(&self) -> bool {
+        let unique: std::collections::HashSet<_> = self.tracked_parts.iter().collect();
+        self.movement_intensity.is_finite()
+            && (0. ..=2.).contains(&self.movement_intensity)
+            && self.tracked_parts.len() <= 8
+            && unique.len() == self.tracked_parts.len()
+    }
 }
 pub const CALIBRATION_BONES: [&str; 6] = ["hips", "spine", "chest", "upperChest", "neck", "head"];
 object!(CalibrationNeutral {

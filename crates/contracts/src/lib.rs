@@ -2504,6 +2504,9 @@ impl Validate for SceneView {
                 tracking: Some(t), ..
             } = e
             {
+                if let Some(body) = &t.body {
+                    require(body.is_valid(), "invalid body tracking")?;
+                }
                 for id in [&t.body_source_id, &t.face_source_id, &t.fingers_source_id]
                     .into_iter()
                     .flatten()
@@ -2571,6 +2574,10 @@ pub fn validate_patch_ops(ops: &[PatchOp], max: usize) -> Result<(), AppError> {
             )?,
             PatchOp::SetTransform { transform, .. } => transform.validate()?,
             PatchOp::CreateEntity { entity } => entity.validate()?,
+            PatchOp::SetAvatarTracking { tracking, .. } => require(
+                tracking.body.as_ref().is_none_or(|body| body.is_valid()),
+                "invalid body tracking",
+            )?,
             PatchOp::SetCameraLens { lens, .. } => lens.validate()?,
             PatchOp::SetCameraNavigation { navigation, .. } => navigation.validate()?,
             PatchOp::SetLight { light, .. } => light.validate()?,
@@ -3428,6 +3435,16 @@ impl Validate for SceneEntity {
         } = self
         {
             require(mesh_names_ok(hidden), "invalid hidden meshes")?;
+        }
+        if let Self::Avatar {
+            tracking: Some(tracking),
+            ..
+        } = self
+        {
+            require(
+                tracking.body.as_ref().is_none_or(|body| body.is_valid()),
+                "invalid body tracking",
+            )?;
         }
         Ok(())
     }

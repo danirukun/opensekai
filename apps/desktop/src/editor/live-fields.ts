@@ -1,5 +1,5 @@
-import {ARKIT_NAMES,DEFAULT_TRACKING_MAPPING,LensSchema,TrackingConfigSchema,TrackingMappingSchema} from '@opensekai/contracts';
-import type {SceneEntity,TrackingConfig,AvatarIdle,AvatarTracking,TrackingStatus,TrackingSmoothing,TrackingMapping,Reply} from '@opensekai/contracts';
+import {ARKIT_NAMES,BODY_PARTS,DEFAULT_AVATAR_BODY_TRACKING,normalizeBodyTracking,DEFAULT_TRACKING_MAPPING,LensSchema,TrackingConfigSchema,TrackingMappingSchema} from '@opensekai/contracts';
+import type {SceneEntity,TrackingConfig,AvatarIdle,AvatarTracking,AvatarBodyTracking,BodyPart,TrackingStatus,TrackingSmoothing,TrackingMapping,Reply} from '@opensekai/contracts';
 export type CameraLens=Extract<SceneEntity,{kind:'camera'}>['lens'];
 export type AddKind='camera'|'character'|'environment'|'prop'|'screen'|'directionalLight'|'pointLight'|'spotLight'|'ambientLight'|'haze'|'fpsCounter'|'vmcSender'|TrackingConfig['kind'];
 export type Commit<T>=(id:string,value:T,revision:number)=>Promise<unknown>;
@@ -17,11 +17,22 @@ export function sourceOptions(entities:readonly SceneEntity[],channel:SourceChan
  const used=new Set(avatars.filter(avatar=>avatar.id!==avatarId).flatMap(avatar=>[avatar.tracking?.bodySourceId,avatar.tracking?.faceSourceId,avatar.tracking?.fingersSourceId]));
  return [{value:'',label:'None',disabled:false},...entities.filter(entity=>entity.kind==='tracking'&&(channel==='face'||entity.config.kind!=='ifacialmocap')).map(entity=>({value:entity.id,label:entity.name,disabled:entity.id!==own&&used.has(entity.id)}))];
 }
-// One select changes one slot; the other two keep their IDs. An empty finger slot is left out.
+// One select changes one slot; the other two keep their IDs, and the body group stays. An empty finger slot is left out.
 export function withSource(tracking:AvatarTracking|undefined,channel:SourceChannel,value:string):AvatarTracking {
  const next={bodySourceId:tracking?.bodySourceId??null,faceSourceId:tracking?.faceSourceId??null,fingersSourceId:tracking?.fingersSourceId??null,[slot[channel]]:value||null};
- const {fingersSourceId,...rest}=next;return fingersSourceId?{...rest,fingersSourceId}:rest;
+ const {fingersSourceId,...rest}=next;return {...rest,...(fingersSourceId?{fingersSourceId}:{}),...(tracking?.body?{body:structuredClone(tracking.body)}:{})};
 }
+export const bodyPartOptions:readonly {value:BodyPart;label:string}[]=[{value:'head',label:'Head'},{value:'body',label:'Body'},{value:'leftArm',label:'Left Arm'},{value:'rightArm',label:'Right Arm'},{value:'leftFingers',label:'Left Fingers'},{value:'rightFingers',label:'Right Fingers'},{value:'leftLeg',label:'Left Leg'},{value:'rightLeg',label:'Right Leg'}];
+// The body group that the Inspector shows: the default for a character without one (TRK-05 slice 2 R8).
+export const bodyTrackingOf=(tracking:AvatarTracking|undefined):AvatarBodyTracking=>tracking?.body??DEFAULT_AVATAR_BODY_TRACKING;
+// The tracking with a changed body group; the source IDs stay. The default group is left out, as the scene stores it.
+export function withBodyTracking(tracking:AvatarTracking|undefined,change:Partial<AvatarBodyTracking>):AvatarTracking {
+ const {body:_body,...ids}=structuredClone(tracking??{bodySourceId:null,faceSourceId:null});
+ const body=normalizeBodyTracking({...bodyTrackingOf(tracking),...change});
+ return body?{...ids,body}:ids;
+}
+export const withBodyPart=(tracking:AvatarTracking|undefined,part:BodyPart,tracked:boolean):AvatarTracking=>
+ withBodyTracking(tracking,{trackedParts:BODY_PARTS.filter(item=>item===part?tracked:bodyTrackingOf(tracking).trackedParts.includes(item))});
 export type RangeDraft={inputMin:string;inputMax:string;outputMin:string;outputMax:string};
 export interface MappingDraft {headIntensity:string;headOffset:[string,string,string];eyeIntensity:string;blendShapeSensitivity:string;linkedBlink:boolean;useEyeBones:boolean;blendShapes:Record<string,RangeDraft>}
 const DEFAULT_RANGE={inputMin:0,inputMax:1,outputMin:0,outputMax:1};

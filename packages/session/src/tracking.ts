@@ -1,4 +1,4 @@
-import {TrackingUpdateSchema,canonicalArkitName,type ArkitName,type TrackingProbe,type TrackingUpdate,type TrackingSample,type VmcPositionRule,type TrackingStatus,type TrackingBone,type AvatarPose,type SceneView,type SceneEntity,DEFAULT_TRACKING_SMOOTHING,FINGER_BONES,type Quat,type Reply} from '@opensekai/contracts';
+import {TrackingUpdateSchema,canonicalArkitName,type ArkitName,type TrackingProbe,type TrackingUpdate,type TrackingSample,type VmcPositionRule,type TrackingStatus,type TrackingBone,type AvatarPose,type SceneView,type SceneEntity,DEFAULT_TRACKING_SMOOTHING,FINGER_BONES,type Quat,type Reply,bodyPartOf,type AvatarBodyTracking} from '@opensekai/contracts';
 import {applyCalibration} from './tracking-calibration';
 import {applyMapping,scaleRotation} from './tracking-mapping';
 import {evaluateAvatarIdle} from './idle';
@@ -15,6 +15,17 @@ export function applyPositionRule(sample:TrackingSample,rule:VmcPositionRule):Tr
  if(rule==='all')return sample;
  const bones=Object.fromEntries(Object.entries(sample.bones).map(([name,bone])=>{const {position,...rest}=bone;return [name,rule==='hipsOnly'&&name==='hips'&&position?{...rest,position:[...position]as typeof position}:rest];}));
  return {...sample,bones,...(sample.root?{root:{position:[0,0,0],rotation:[...sample.root.rotation]as Quat}}:{})};
+}
+// The bones that a character takes from its sources (TRK-05 slice 2 R5, R6): a part that is not tracked sends no bone,
+// and the rotations of the body part scale about the identity. Positions and weights stay.
+export function applyBodyTracking(entries:[string,TrackingBone][],body:AvatarBodyTracking|undefined):[string,TrackingBone][] {
+ if(!body)return entries;
+ const tracked=new Set<string>(body.trackedParts);
+ return entries.flatMap(([name,bone]):[string,TrackingBone][]=>{
+  const part=bodyPartOf(name);
+  if(part&&!tracked.has(part))return [];
+  return [[name,part==='body'&&body.movementIntensity!==1?{...bone,rotation:scaleRotation(bone.rotation,body.movementIntensity)}:bone]];
+ });
 }
 export function createTrackingComposer(){
  const samples=new Map<string,TrackingSample>(),statuses=new Map<string,TrackingStatus>();
@@ -87,8 +98,9 @@ export function createTrackingComposer(){
     boneEntries.push([name,{...resolved,weight:face.weight}]);}
    const fingers=input(entity.tracking?.fingersSourceId);
    if(fingers)for(const[name,bone]of Object.entries(fingers.sample.bones)){if(!fingerBones.has(name))continue;const index=boneEntries.findIndex(([key])=>key===name);if(index>=0)boneEntries.splice(index,1);boneEntries.push([name,{...copy(bone),weight:fingers.weight}]);}
-   const pose:AvatarPose={avatarId:entity.id,...(baseBones?{baseBones}:{}),bones:Object.fromEntries(boneEntries),expressions:Object.fromEntries(face?Object.entries(face.sample.expressions).map(([name,value])=>[name,value*face.weight]):[])};
-   if(body?.sample.root)pose.root={position:body.sample.root.position.map(value=>value*body.weight)as[number,number,number],rotation:scaleRotation(body.sample.root.rotation,body.weight)};
+   const bodyTracking=entity.tracking?.body;
+   const pose:AvatarPose={avatarId:entity.id,...(baseBones?{baseBones}:{}),bones:Object.fromEntries(applyBodyTracking(boneEntries,bodyTracking)),expressions:Object.fromEntries(face?Object.entries(face.sample.expressions).map(([name,value])=>[name,value*face.weight]):[])};
+   if(body?.sample.root&&(!bodyTracking||bodyTracking.trackedParts.includes('body')))pose.root={position:body.sample.root.position.map(value=>value*body.weight)as[number,number,number],rotation:scaleRotation(body.sample.root.rotation,body.weight)};
    avatarPoses.push(pose);
   }
   const trackingStatus=scene.entities.filter(e=>e.kind==='tracking').map(source=>{

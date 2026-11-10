@@ -1,4 +1,4 @@
-import { SceneViewSchema, setMeshesVisible, toggleMeshes, type AvatarTracking, type PatchOp, type ErrorCode, type Id, type Reply, type ScenePatch, type SceneView } from "@opensekai/contracts";
+import { SceneViewSchema, normalizeBodyTracking, setMeshesVisible, toggleMeshes, type AvatarTracking, type PatchOp, type ErrorCode, type Id, type Reply, type ScenePatch, type SceneView } from "@opensekai/contracts";
 import type { SceneEffect } from "./blueprint";
 import { delta, followers, shifted } from "./camera-follow";
 
@@ -24,9 +24,11 @@ const newShare = (before: SceneView, after: SceneView): Id[] | null => {
 };
 
 // A missing finger slot and a null finger slot are the same. The scene keeps the missing form, as Rust writes it.
+// The body group is stored in its normal form: none for the default, and the parts in the fixed order (TRK-05 slice 2 R4).
 const withoutNullFingers = (tracking: AvatarTracking): AvatarTracking => {
- const { fingersSourceId, ...rest } = structuredClone(tracking);
- return fingersSourceId ? { ...rest, fingersSourceId } : rest;
+ const { fingersSourceId, body: group, ...rest } = structuredClone(tracking);
+ const body = normalizeBodyTracking(group);
+ return { ...rest, ...(fingersSourceId ? { fingersSourceId } : {}), ...(body ? { body } : {}) };
 };
 
 export function applyOperations(scene: SceneView, operations: ScenePatch["operations"], generation: number): Reply<SceneView> {
