@@ -14,16 +14,25 @@ it("keeps only the newest frame and closes each older one at once (B31 R14)", ()
     newest.offer(frame(4, closed)); newest.clear();
     expect(closed).toEqual([1, 2, 4]);
 });
-it("starts at a key frame and drops to the next key frame when the decode queue is above 4", () => {
+it("starts at a key frame and drops to the next key frame when the decode queue is more than 4 above the decoder depth", () => {
     const gate = createChunkGate();
     expect(gate.accept(false, 0)).toBe(false);
     expect(gate.accept(true, 0)).toBe(true);
-    expect(gate.accept(false, 4)).toBe(true);
-    expect(gate.accept(false, 5)).toBe(false);
-    expect(gate.accept(true, 5)).toBe(false);
+    // Before the first output the decoder may hold one key frame interval (the depth is 30).
+    expect(gate.accept(false, 34)).toBe(true);
+    expect(gate.accept(false, 35)).toBe(false);
+    expect(gate.accept(true, 0)).toBe(true);
+    // The decoder holds 5 chunks: a queue of 9 decodes, 10 drops to the next key frame.
+    gate.output(5);
+    expect(gate.accept(false, 9)).toBe(true);
+    expect(gate.accept(false, 10)).toBe(false);
+    expect(gate.accept(true, 10)).toBe(false);
     expect(gate.accept(false, 0)).toBe(false);
     expect(gate.accept(true, 2)).toBe(true);
-    expect(gate.accept(false, 2)).toBe(true);
+    // A decoder without a hold: the R14 limit of 4.
+    gate.output(0);
+    expect(gate.accept(false, 4)).toBe(true);
+    expect(gate.accept(false, 5)).toBe(false);
     gate.reset();
     expect(gate.accept(false, 0)).toBe(false);
 });

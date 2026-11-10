@@ -181,8 +181,14 @@ mod tests {
             match_source(&d("Built-in Retina Display", 0), &inv),
             Some(PlatformTarget::Display(1))
         );
-        assert_eq!(match_source(&d("DELL U2720Q", 0), &inv), Some(PlatformTarget::Display(2)));
-        assert_eq!(match_source(&d("DELL U2720Q", 1), &inv), Some(PlatformTarget::Display(3)));
+        assert_eq!(
+            match_source(&d("DELL U2720Q", 0), &inv),
+            Some(PlatformTarget::Display(2))
+        );
+        assert_eq!(
+            match_source(&d("DELL U2720Q", 1), &inv),
+            Some(PlatformTarget::Display(3))
+        );
         assert_eq!(match_source(&d("DELL U2720Q", 2), &inv), None);
         assert_eq!(match_source(&d("LG UltraFine", 0), &inv), None);
     }
@@ -209,14 +215,23 @@ mod tests {
     }
     #[test]
     fn two_windows_of_one_app_without_the_title_do_not_match() {
-        assert_eq!(match_source(&w("com.example.chat", "Old title"), &inventory()), None);
+        assert_eq!(
+            match_source(&w("com.example.chat", "Old title"), &inventory()),
+            None
+        );
     }
     #[test]
     fn no_match_for_an_unknown_app_or_a_small_window() {
         let mut inv = inventory();
-        assert_eq!(match_source(&w("com.example.other", "Stopwatch"), &inv), None);
+        assert_eq!(
+            match_source(&w("com.example.other", "Stopwatch"), &inv),
+            None
+        );
         inv.windows[2].width = 31;
-        assert_eq!(match_source(&w("com.example.timer", "Stopwatch"), &inv), None);
+        assert_eq!(
+            match_source(&w("com.example.timer", "Stopwatch"), &inv),
+            None
+        );
     }
     fn transform() -> Transform {
         Transform {
@@ -265,7 +280,10 @@ mod tests {
             &allowed(std::slice::from_ref(&main)),
         );
         assert_eq!(plan.streams.len(), 1);
-        assert_eq!(plan.streams[0].screens, vec!["a".to_string(), "b".to_string()]);
+        assert_eq!(
+            plan.streams[0].screens,
+            vec!["a".to_string(), "b".to_string()]
+        );
     }
     #[test]
     fn two_cursor_values_make_two_streams() {
@@ -283,7 +301,12 @@ mod tests {
     #[test]
     fn a_source_that_is_not_allowed_gets_no_stream() {
         let plan = capture_plan(
-            &scene(vec![screen("a", true, Some(d("Built-in Retina Display", 0)), true)]),
+            &scene(vec![screen(
+                "a",
+                true,
+                Some(d("Built-in Retina Display", 0)),
+                true,
+            )]),
             &AllowedSources::default(),
         );
         assert!(plan.streams.is_empty());
@@ -335,7 +358,10 @@ mod tests {
             windows: vec![window(1, " com.example.chat ", "Chat\n\nOverlay  ")],
         };
         let other = Inventory {
-            windows: vec![window(1, "com.example.chat", "Chat Overlay"), window(2, "com.example.chat", "Other")],
+            windows: vec![
+                window(1, "com.example.chat", "Chat Overlay"),
+                window(2, "com.example.chat", "Other"),
+            ],
             ..inv.clone()
         };
         assert_eq!(

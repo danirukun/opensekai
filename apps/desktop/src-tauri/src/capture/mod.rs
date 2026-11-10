@@ -13,8 +13,8 @@ pub mod transport;
 use adapter::*;
 use allow::AllowedSources;
 use opensekai_contracts::{
-    AppError, CaptureScreenStatus, CaptureSource, CaptureState, CaptureStatusEntry, ErrorCode,
-    Id, SceneEntity, SceneView, ScreenContent, Validate, WireMessage,
+    AppError, CaptureScreenStatus, CaptureSource, CaptureState, CaptureStatusEntry, ErrorCode, Id,
+    SceneEntity, SceneView, ScreenContent, Validate, WireMessage,
 };
 use plan::{capture_plan, match_source, CapturePlan, StreamKey};
 use serde::Serialize;
@@ -120,7 +120,9 @@ fn subscribable(state: &CaptureState) -> bool {
     )
 }
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
-    mutex.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+    mutex
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 fn stream_id() -> String {
     format!("{:032x}", rand::random::<u128>())
@@ -333,10 +335,13 @@ impl CaptureManager {
     /// The status for a renderer that just authenticated (R9), one time; `None` before the first scene.
     pub fn current_status(&self) -> Option<WireMessage> {
         let state = lock(&self.shared.state);
-        state.published.as_ref().map(|screens| WireMessage::CaptureStatus {
-            revision: state.revision,
-            screens: screens.clone(),
-        })
+        state
+            .published
+            .as_ref()
+            .map(|screens| WireMessage::CaptureStatus {
+                revision: state.revision,
+                screens: screens.clone(),
+            })
     }
     /// `app_status.captures`: states without names or titles.
     pub fn entries(&self) -> Vec<CaptureStatusEntry> {
@@ -510,7 +515,12 @@ impl ManagerShared {
             shared.started(&id, generation, result);
         });
     }
-    fn started(self: &Arc<Self>, id: &str, generation: u64, result: Result<StreamHandle, CaptureError>) {
+    fn started(
+        self: &Arc<Self>,
+        id: &str,
+        generation: u64,
+        result: Result<StreamHandle, CaptureError>,
+    ) {
         {
             let mut state = lock(&self.state);
             let Some(stream) = state
@@ -604,7 +614,8 @@ impl ManagerShared {
                         }
                         stream.key_is_latest = chunk.key;
                         for s in stream.subscribers.values_mut() {
-                            need_key |= s.queue.push_chunk(chunk.key, message.clone()) == Pushed::Overflow;
+                            need_key |=
+                                s.queue.push_chunk(chunk.key, message.clone()) == Pushed::Overflow;
                             s.signal.notify.notify_one();
                         }
                     }
@@ -686,7 +697,10 @@ impl ManagerShared {
             let adapter = lock(&shared.adapter).clone();
             let source = key.source.clone();
             let found = tokio::task::spawn_blocking(move || {
-                adapter.inventory().ok().and_then(|i| match_source(&source, &i))
+                adapter
+                    .inventory()
+                    .ok()
+                    .and_then(|i| match_source(&source, &i))
             })
             .await
             .ok()
@@ -756,7 +770,11 @@ impl ManagerShared {
             sink(message);
         }
     }
-    fn subscribe(self: &Arc<Self>, stream_id: &str, renderer: &str) -> Result<(u64, Arc<Signal>), u16> {
+    fn subscribe(
+        self: &Arc<Self>,
+        stream_id: &str,
+        renderer: &str,
+    ) -> Result<(u64, Arc<Signal>), u16> {
         let mut start = None;
         let result = {
             let mut state = lock(&self.state);
@@ -847,13 +865,44 @@ mod tests {
     fn inventory() -> Inventory {
         Inventory {
             displays: vec![
-                DisplayInfo { id: 1, name: "DELL U2720Q".into(), width: 3840, height: 2160 },
-                DisplayInfo { id: 2, name: "DELL U2720Q".into(), width: 3840, height: 2160 },
+                DisplayInfo {
+                    id: 1,
+                    name: "DELL U2720Q".into(),
+                    width: 3840,
+                    height: 2160,
+                },
+                DisplayInfo {
+                    id: 2,
+                    name: "DELL U2720Q".into(),
+                    width: 3840,
+                    height: 2160,
+                },
             ],
             windows: vec![
-                WindowInfo { id: 3, app: "com.example.chat".into(), app_name: "Chat".into(), title: "Stream\tChat".into(), width: 400, height: 600 },
-                WindowInfo { id: 4, app: "com.example.tiny".into(), app_name: "Tiny".into(), title: "Dot".into(), width: 16, height: 16 },
-                WindowInfo { id: 5, app: "com.example.notitle".into(), app_name: "No Title".into(), title: "".into(), width: 400, height: 600 },
+                WindowInfo {
+                    id: 3,
+                    app: "com.example.chat".into(),
+                    app_name: "Chat".into(),
+                    title: "Stream\tChat".into(),
+                    width: 400,
+                    height: 600,
+                },
+                WindowInfo {
+                    id: 4,
+                    app: "com.example.tiny".into(),
+                    app_name: "Tiny".into(),
+                    title: "Dot".into(),
+                    width: 16,
+                    height: 16,
+                },
+                WindowInfo {
+                    id: 5,
+                    app: "com.example.notitle".into(),
+                    app_name: "No Title".into(),
+                    title: "".into(),
+                    width: 400,
+                    height: 600,
+                },
             ],
         }
     }
@@ -861,21 +910,42 @@ mod tests {
     fn the_source_list_labels_ordinals_and_windows() {
         let entries = source_entries(&inventory());
         let labels: Vec<_> = entries.iter().map(|e| e.label.as_str()).collect();
-        assert_eq!(labels, ["DELL U2720Q", "DELL U2720Q (2)", "Chat — Stream Chat", "No Title"]);
+        assert_eq!(
+            labels,
+            [
+                "DELL U2720Q",
+                "DELL U2720Q (2)",
+                "Chat — Stream Chat",
+                "No Title"
+            ]
+        );
         assert_eq!(
             entries[1].source,
-            CaptureSource::Display { name: "DELL U2720Q".into(), ordinal: 1 }
+            CaptureSource::Display {
+                name: "DELL U2720Q".into(),
+                ordinal: 1
+            }
         );
         assert_eq!(
             entries[2].source,
-            CaptureSource::Window { app: "com.example.chat".into(), title: "Stream Chat".into() }
+            CaptureSource::Window {
+                app: "com.example.chat".into(),
+                title: "Stream Chat".into()
+            }
         );
     }
     #[test]
     fn the_source_list_has_at_most_64_windows() {
         let mut inv = inventory();
         inv.windows = (0..70)
-            .map(|n| WindowInfo { id: n, app: "a".into(), app_name: "A".into(), title: format!("{n}"), width: 100, height: 100 })
+            .map(|n| WindowInfo {
+                id: n,
+                app: "a".into(),
+                app_name: "A".into(),
+                title: format!("{n}"),
+                width: 100,
+                height: 100,
+            })
             .collect();
         assert_eq!(source_entries(&inv).len(), 2 + MAX_LISTED_WINDOWS);
     }

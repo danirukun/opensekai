@@ -1,0 +1,6 @@
+gpu {"webgpu":{"vendor":"google","architecture":"swiftshader","description":"","device":true},"webgl2":{"renderer":"ANGLE (Mesa, Vulkan 1.4.318 (llvmpipe (LLVM 20.1.2 256 bits) (0x00000000)), llvmpipe)"}}
+NOTE spike webgpu: VideoDecoder probe (avc1.4d0029 1920 x 1080) "supported"
+NOTE spike webgpu: 2D canvas reference (decoded frames, center pixels) {"decoded":60,"failure":null,"pixels":[[255,24,0,255],[0,216,2,255],[0,14,253,255],[255,255,255,255]]}
+PASS spike webgpu: frame 7 is red (screenshot center within 24 of the 2D canvas draw) {"actual":[255,24,0,255],"reference":[255,24,0],"applied":"webgpu"}
+PASS spike webgpu: frame 22 is green (screenshot center within 24 of the 2D canvas draw) {"actual":[0,216,0,255],"reference":[0,216,2],"applied":"webgpu"}
+PASS spike webgpu: frame 37 is blue (screenshot center within 24 of the 2D canvas draw) {"actual":[0,15,255,255],"reference":[0,14,253],"applied":"webgpu"}

@@ -75,7 +75,9 @@ impl SubscriberQueue {
     ) -> Self {
         let mut queue = Self::default();
         if let Some(config) = config {
-            queue.items.push_back(Outgoing::Config(config_message(config)));
+            queue
+                .items
+                .push_back(Outgoing::Config(config_message(config)));
         }
         match key {
             Some(key) => {
@@ -93,7 +95,8 @@ impl SubscriberQueue {
             .count()
     }
     pub fn push_config(&mut self, config: &DecoderConfig) {
-        self.items.push_back(Outgoing::Config(config_message(config)));
+        self.items
+            .push_back(Outgoing::Config(config_message(config)));
         // The first chunk after a size change is a key frame.
         self.waiting_key = true;
     }

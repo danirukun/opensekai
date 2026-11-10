@@ -61,20 +61,26 @@ export function createNewestFrame<T extends { close(): void }>() {
         get pending() { return newest !== null; },
     };
 }
+/** The most chunks that a decoder may hold before its first output (one key frame interval of a 30 fps stream). */
+export const MAX_DECODER_DEPTH = 30;
 /**
- * R14: the chunk gate. Above MAX_DECODE_QUEUE queued decodes, each chunk drops (also a key frame), and after that only a
- * key frame starts the decode again. A new stream or config also waits for a key frame.
+ * R14: the chunk gate. A decoder holds some chunks before it gives a frame (its pipeline depth: Chromium's software H.264
+ * decoder holds 5). The depth is the decodeQueueSize at the latest output, and MAX_DECODER_DEPTH before the first output.
+ * When the queue is more than MAX_DECODE_QUEUE above the depth, each chunk drops (also a key frame), and after that only
+ * a key frame starts the decode again. A new stream or config also waits for a key frame.
  */
 export function createChunkGate() {
-    let needKey = true;
+    let needKey = true, depth = MAX_DECODER_DEPTH;
     return {
         accept(key: boolean, decodeQueueSize: number): boolean {
-            if (decodeQueueSize > MAX_DECODE_QUEUE) { needKey = true; return false; }
+            if (decodeQueueSize > MAX_DECODE_QUEUE + depth) { needKey = true; return false; }
             if (needKey && !key) return false;
             needKey = false;
             return true;
         },
-        reset() { needKey = true; },
+        /** The decoder gave a frame with this many chunks still queued. */
+        output(decodeQueueSize: number) { depth = Math.min(MAX_DECODER_DEPTH, decodeQueueSize); },
+        reset() { needKey = true; depth = MAX_DECODER_DEPTH; },
     };
 }
 /** R14: the decoder error count of each content value. The fourth error fails the screen. */
@@ -200,7 +206,7 @@ function openStream(streamId: string, host: CaptureHost, env: CaptureEnv, upload
         if (closed || current !== generation) return;
         if (!supported) { fail(CAPTURE_CODEC_UNSUPPORTED); return; }
         try {
-            decoder ??= new Decoder({ output: frame => { if (closed) frame.close(); else newest.offer(frame); }, error: () => fail(null) });
+            decoder ??= new Decoder({ output: frame => { if (decoder) gate.output(decoder.decodeQueueSize); if (closed) frame.close(); else newest.offer(frame); }, error: () => fail(null) });
             if (decoder.state === "configured") decoder.reset();
             decoder.configure(decoderConfig(config));
         } catch { fail(null); return; }

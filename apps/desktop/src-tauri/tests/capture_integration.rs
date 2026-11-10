@@ -53,7 +53,8 @@ async fn send(s: &mut Socket, v: Value) {
 }
 async fn next_non_clock(s: &mut Socket) -> Value {
     loop {
-        let m = tokio::time::timeout(Duration::from_secs(3), s.next())
+        // Longer than the 5 s idle delay of R8.
+        let m = tokio::time::timeout(Duration::from_secs(10), s.next())
             .await
             .unwrap()
             .unwrap()
@@ -128,9 +129,9 @@ async fn capture_message(s: &mut Socket) -> Message {
 struct Setup {
     _dir: tempfile::TempDir,
     service: ServiceHandle,
-    publisher: Socket,
+    /// Frames to send; a task owns the socket and reads each clock, so the host keeps it open.
+    publisher: tokio::sync::mpsc::UnboundedSender<SceneView>,
     renderer: Socket,
-    pd: ConnectionDescriptor,
     rd: ConnectionDescriptor,
 }
 async fn setup() -> Setup {
@@ -147,7 +148,32 @@ async fn setup() -> Setup {
         .ports()
         .set_capture_adapter(Arc::new(FixtureAdapter::load()));
     let pd = service.publisher_descriptor();
-    let publisher = auth(&service, &pd).await;
+    let mut socket = auth(&service, &pd).await;
+    let (publisher, mut scenes) = tokio::sync::mpsc::unbounded_channel::<SceneView>();
+    let session = pd.session_id.clone();
+    // Answers each clock with a frame of the current scene, so the publisher keeps its clock credit.
+    tokio::spawn(async move {
+        let (mut sequence, mut current) = (0u64, None::<SceneView>);
+        loop {
+            // A new scene or a clock sends one frame.
+            let due = tokio::select! {
+                scene = scenes.recv() => match scene {
+                    Some(scene) => { current = Some(scene); true }
+                    None => break,
+                },
+                message = socket.next() => match message {
+                    Some(Ok(Message::Text(text))) => text.contains("\"clock\""),
+                    Some(Ok(_)) => false,
+                    _ => break,
+                },
+            };
+            let Some(scene) = &current else { continue };
+            if due {
+                sequence += 1;
+                send(&mut socket, json!({"kind":"frame","frame":{"schemaVersion":1,"sessionId":session,"sequence":sequence,"tick":sequence,"elapsedMs":16,"scene":scene}})).await;
+            }
+        }
+    });
     let rd = service.renderer_descriptor("output_main").unwrap();
     let renderer = auth(&service, &rd).await;
     Setup {
@@ -155,17 +181,13 @@ async fn setup() -> Setup {
         service,
         publisher,
         renderer,
-        pd,
+
         rd,
     }
 }
-async fn publish(s: &mut Setup, sequence: u64, scene: SceneView) {
-    let session = s.pd.session_id.clone();
-    send(
-        &mut s.publisher,
-        json!({"kind":"frame","frame":{"schemaVersion":1,"sessionId":session,"sequence":sequence,"tick":sequence,"elapsedMs":16,"scene":scene}}),
-    )
-    .await;
+/// Sends the scene in a new frame now and with each later clock.
+async fn publish(s: &mut Setup, _sequence: u64, scene: SceneView) {
+    s.publisher.send(scene).unwrap();
 }
 async fn app_status(s: &Setup) -> Value {
     let od = s.service.operator_descriptor();
@@ -193,7 +215,10 @@ async fn a_source_that_is_not_allowed_shows_not_allowed_and_starts_no_capture() 
         json!([{"entityId":"desk","streamId":null,"state":"notAllowed","width":0,"height":0}])
     );
     let app = app_status(&s).await;
-    assert_eq!(app["captures"], json!([{"entityId":"desk","state":"notAllowed"}]));
+    assert_eq!(
+        app["captures"],
+        json!([{"entityId":"desk","state":"notAllowed"}])
+    );
     // The status names no source.
     assert!(!app.to_string().contains(FIXTURE_DISPLAY));
     assert!(!status.to_string().contains(FIXTURE_DISPLAY));
@@ -262,7 +287,10 @@ async fn capture_route_streams_auth_limits_and_closes() {
     let config: Value = serde_json::from_str(&config).unwrap();
     assert_eq!(config["kind"], "captureConfig");
     assert_eq!(config["codec"], "avc1.4d400d");
-    assert_eq!((config["codedWidth"].clone(), config["codedHeight"].clone()), (json!(320), json!(180)));
+    assert_eq!(
+        (config["codedWidth"].clone(), config["codedHeight"].clone()),
+        (json!(320), json!(180))
+    );
     let mut timestamps = Vec::new();
     let mut keys = Vec::new();
     while timestamps.len() < 75 {
@@ -279,8 +307,17 @@ async fn capture_route_streams_auth_limits_and_closes() {
     assert!(keys[0], "the first chunk is a key frame");
     assert!(timestamps.windows(2).all(|w| w[1] > w[0]));
     // After the start, a key frame comes each 30 chunks of the 60-chunk loop.
-    let later: Vec<_> = keys.iter().enumerate().skip(1).filter(|(_, k)| **k).map(|(i, _)| i).collect();
-    assert!(later.len() >= 2 && later.windows(2).all(|w| w[1] - w[0] == 30), "{later:?}");
+    let later: Vec<_> = keys
+        .iter()
+        .enumerate()
+        .skip(1)
+        .filter(|(_, k)| **k)
+        .map(|(i, _)| i)
+        .collect();
+    assert!(
+        later.len() >= 2 && later.windows(2).all(|w| w[1] - w[0] == 30),
+        "{later:?}"
+    );
     assert!(timestamps.last().unwrap() - timestamps[later[0]] >= 2_000_000 - 2 * 33_334);
 
     // A bad Origin is refused at the upgrade.
@@ -310,7 +347,9 @@ async fn capture_route_streams_auth_limits_and_closes() {
         json!({"kind":"captureAuth","token":token,"outputId":"output_main","streamId":stream,"pad":"x".repeat(600)}),
     )
     .await;
-    assert!(close_code(&mut oversized).await.is_some_and(|code| code != 4429));
+    assert!(close_code(&mut oversized)
+        .await
+        .is_some_and(|code| code != 4429));
 
     // Four subscribers on one stream; a fifth closes with 4429. Each needs its own renderer connection.
     let mut renderers = Vec::new();
@@ -340,7 +379,10 @@ async fn capture_route_streams_auth_limits_and_closes() {
     assert!(received >= 20, "{received}");
     // A second subscription of one renderer connection replaces the first.
     let mut again = subscribe(&rd, &token, "output_main", &stream).await;
-    assert!(matches!(capture_message(&mut again).await, Message::Text(_)));
+    assert!(matches!(
+        capture_message(&mut again).await,
+        Message::Text(_)
+    ));
     loop {
         match capture_message(&mut reader).await {
             Message::Close(_) => break,

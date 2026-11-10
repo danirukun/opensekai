@@ -1216,10 +1216,9 @@ async fn capture_loop(mut socket: WebSocket, shared: &Arc<Shared>) {
     // A renderer token, with an open `/ws` renderer connection of the same output.
     let renderer = {
         let inner = lock(&shared.inner);
-        (auth.kind == "captureAuth"
-            && inner.tickets.get(&auth.output_id) == Some(&auth.token))
-        .then(|| inner.renderers.get(&auth.output_id).map(|c| c.id.clone()))
-        .flatten()
+        (auth.kind == "captureAuth" && inner.tickets.get(&auth.output_id) == Some(&auth.token))
+            .then(|| inner.renderers.get(&auth.output_id).map(|c| c.id.clone()))
+            .flatten()
     };
     let Some(renderer) = renderer else {
         return close_with(socket, transport::CLOSE_UNAUTHORIZED).await;

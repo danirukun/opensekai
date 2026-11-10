@@ -25,9 +25,10 @@ pub struct FixtureAdapter {
 }
 impl FixtureAdapter {
     pub fn load() -> Self {
-        let index: serde_json::Value =
-            serde_json::from_str(include_str!("../../../../../fixtures/capture/h264-main.json"))
-                .expect("capture fixture index");
+        let index: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../../fixtures/capture/h264-main.json"
+        ))
+        .expect("capture fixture index");
         let bytes: &[u8] = include_bytes!("../../../../../fixtures/capture/h264-main.bin");
         let chunks = index["chunks"]
             .as_array()

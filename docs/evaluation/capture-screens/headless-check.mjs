@@ -53,9 +53,11 @@ const vite = await createServer({
 await vite.listen();
 
 // The stub /capture route: captureAuth first, then captureConfig, then one binary message for each chunk. The first hex
-// digit of the stream ID picks the case: 1 slow loop (100 ms a frame), 2 loop (33 ms), 3 a size change after 1 s,
+// digit of the stream ID picks the case: 1 slow loop (200 ms a frame), 2 loop (33 ms), 3 a size change on the test's command,
 // e a chunk that the decoder cannot decode.
 const connections = [];
+// The test sets this after it measures the first size; the stub then switches at the next loop start.
+let resizeNow = false;
 const configText = fixture => JSON.stringify({kind: 'captureConfig', codec: fixture.index.codec, description: fixture.index.description, codedWidth: fixture.index.codedWidth, codedHeight: fixture.index.codedHeight});
 const wss = new WebSocketServer({port: WS_PORT, host: '127.0.0.1', path: '/capture'});
 wss.on('connection', (socket, request) => {
@@ -75,12 +77,12 @@ wss.on('connection', (socket, request) => {
         timer = setInterval(() => {
             if (socket.readyState !== 1) return;
             if (kind === 'e') { send({key: true, timestampUs: ++index * 33_333, data: new Uint8Array([0, 0, 0, 4, 0x65, 0xff, 0x13, 0x37])}); return; }
-            if (kind === '3' && !switched && Date.now() - record.openedAt > 1000 && index === 0) { switched = true; fixture = square; base += 3_000_000; socket.send(configText(square)); }
+            if (kind === '3' && !switched && resizeNow && index === 0) { switched = true; fixture = square; base += 3_000_000; socket.send(configText(square)); }
             const chunk = fixture.chunks[index];
             send({key: chunk.key, timestampUs: base + loop * 2_000_000 + chunk.timestampUs, data: chunk.data});
             index++;
             if (index === fixture.chunks.length) { index = 0; loop++; }
-        }, kind === '1' ? 100 : 33);
+        }, kind === '1' ? 200 : 33);
     });
 });
 
@@ -193,19 +195,28 @@ async function socketCase(backend) {
         const diagnostics = await h.call('diagnostics');
         check(`${label}: renderer diagnostics report videoDecoder`, diagnostics?.videoDecoder === 'supported', diagnostics?.videoDecoder);
 
-        // Four colors in order (100 ms a frame, so 1.5 s for each color).
+        // Four colors in order (200 ms a frame, so 3 s for each color). A software 1080p screenshot takes up to about 1 s of
+        // the page main thread, so the samples are 1.2 s apart: back-to-back screenshots starve the decoder output.
+        // The frame pump runs each 100 ms here: a software 1080p WebGPU draw each 16 ms leaves the main thread no time for
+        // the decoder output callbacks.
+        await h.call('start', 100);
         await h.call('setScene', makeScene([capture('desk')], 2));
         await h.call('setStatus', [entry('desk', streams.slow)]);
         await h.frames(5);
-        const seen = [];
-        const until = Date.now() + 9000;
+        const seen = [], samples = [], started = Date.now();
+        const until = Date.now() + 26000;
         while (Date.now() < until) {
             const rgb = pixel(await h.shot(), center);
+            samples.push(Date.now() - started);
             if (rgb[3] > 250) { const name = nearest(rgb); if (seen[seen.length - 1] !== name) seen.push(name); }
-            await wait(100);
+            await wait(300);
         }
-        const forward = seen.every((name, i) => i === 0 || COLORS.indexOf(name) === (COLORS.indexOf(seen[i - 1]) + 1) % 4);
-        check(`${label}: the screen shows the four colors in order`, forward && COLORS.every(c => seen.includes(c)), seen);
+        // The first four changes are the four colors, each one after the one before it. Later samples can skip a color when
+        // a software screenshot is slow, so only the first loop is checked.
+        const first = seen.slice(0, 4);
+        const forward = first.length === 4 && first.every((name, i) => i === 0 || COLORS.indexOf(name) === (COLORS.indexOf(first[i - 1]) + 1) % 4);
+        check(`${label}: the screen shows the four colors in order`, forward, {seen, sampleMs: samples});
+        await h.call('start');
         const slow = connections.find(c => c.streamId === streams.slow);
         check(`${label}: captureAuth is the first message and the URL has no token`, slow?.auth?.kind === 'captureAuth' && slow.url === '/capture', {url: slow?.url, auth: slow?.auth && {...slow.auth, token: '(redacted)'}});
 
@@ -235,7 +246,9 @@ async function socketCase(backend) {
         await h.call('setStatus', [entry('desk', streams.resize)]);
         await h.frames(10); await wait(500);
         const before = extent(await h.shot(), center);
-        await wait(2200);
+        resizeNow = true;
+        await wait(3500);
+        await h.frames(5);
         const after = extent(await h.shot(), center);
         const ratio = size => size.width / size.height;
         check(`${label}: a second captureConfig with a new size changes the quad aspect (16:9 to 1:1)`, Math.abs(ratio(before) - 16 / 9) < 0.03 && Math.abs(ratio(after) - 1) < 0.03, {before, after});

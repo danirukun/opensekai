@@ -39,7 +39,8 @@ async fn recv(socket: &mut Socket) -> Value {
         loop {
             let text = socket.next().await.unwrap().unwrap().into_text().unwrap();
             let value: Value = serde_json::from_str(&text).unwrap();
-            if value["kind"] != "clock" {
+            // The clock and the capture status (B31 R9) are host state that these tests skip.
+            if value["kind"] != "clock" && value["kind"] != "captureStatus" {
                 return value;
             }
         }
@@ -68,7 +69,7 @@ async fn closed(socket: &mut Socket) {
             let next = socket.next().await;
             if let Some(Ok(Message::Text(text))) = &next {
                 let value: Value = serde_json::from_str(text).unwrap();
-                if value["kind"] == "clock" {
+                if value["kind"] == "clock" || value["kind"] == "captureStatus" {
                     continue;
                 }
             }
@@ -1315,7 +1316,9 @@ mod screenshots {
             while let Some(Ok(message)) = shot.renderer.next().await {
                 if let Message::Text(text) = message {
                     let value: Value = serde_json::from_str(&text).unwrap();
-                    assert_eq!(value["kind"], "frame", "unexpected message {value}");
+                    if value["kind"] != "captureStatus" {
+                        assert_eq!(value["kind"], "frame", "unexpected message {value}");
+                    }
                 }
             }
         })
