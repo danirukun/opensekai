@@ -30,27 +30,16 @@ export type DiscordMessage = {
   }>;
 };
 
-const pad = (value: number): string => String(value).padStart(2, '0');
+export type Tag = { name: string; sha: string };
 
-export const releaseVersion = (date: Date): ReleaseVersion => {
-  if (Number.isNaN(date.getTime())) throw new Error('Release time is not a valid date');
-  const year = date.getUTCFullYear();
-  const month = date.getUTCMonth() + 1;
-  const day = date.getUTCDate();
-  const hour = date.getUTCHours();
-  const minute = date.getUTCMinutes();
-  const version = `${year}.${month * 100 + day}.${hour * 100 + minute}`;
-  return {
-    version,
-    tag: `v${version}`,
-    title: `${year}-${pad(month)}-${pad(day)} ${pad(hour)}:${pad(minute)} UTC`,
-    bundleVersion: `${year}${pad(month)}${pad(day)}${pad(hour)}${pad(minute)}`,
-    pubDate: date.toISOString().replace(/\.\d{3}Z$/, 'Z'),
-  };
-};
+const pad = (value: number, width = 2): string => String(value).padStart(width, '0');
+
+const VERSION = /^v?(\d+)\.(\d+)\.(\d+)$/;
+
+export const isVersion = (value: string): boolean => VERSION.test(value);
 
 const versionParts = (value: string): [number, number, number] => {
-  const match = /^v?(\d+)\.(\d+)\.(\d+)$/.exec(value);
+  const match = VERSION.exec(value);
   if (!match) throw new Error(`Not a release version: ${value}`);
   return [Number(match[1]), Number(match[2]), Number(match[3])];
 };
@@ -60,6 +49,53 @@ export const compareVersions = (a: string, b: string): number => {
   const right = versionParts(b);
   return left.map((part, index) => Math.sign(part - right[index])).find(sign => sign !== 0) ?? 0;
 };
+
+const withVersion = (
+  { title, pubDate }: Pick<ReleaseVersion, 'title' | 'pubDate'>,
+  [year, monthDay, time]: [number, number, number],
+): ReleaseVersion => {
+  const version = `${year}.${monthDay}.${time}`;
+  return { version, tag: `v${version}`, title, bundleVersion: `${year}${pad(monthDay, 4)}${pad(time, 4)}`, pubDate };
+};
+
+export const releaseVersion = (date: Date): ReleaseVersion => {
+  if (Number.isNaN(date.getTime())) throw new Error('Release time is not a valid date');
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth() + 1;
+  const day = date.getUTCDate();
+  const hour = date.getUTCHours();
+  const minute = date.getUTCMinutes();
+  const title = `${year}-${pad(month)}-${pad(day)} ${pad(hour)}:${pad(minute)} UTC`;
+  const pubDate = date.toISOString().replace(/\.\d{3}Z$/, 'Z');
+  return withVersion({ title, pubDate }, [year, month * 100 + day, hour * 100 + minute]);
+};
+
+// Tags that are not versions are ignored. Merges in one UTC minute take the next free minutes.
+// A rerun of an old commit still ends below the latest release and stops.
+export const planRelease = (date: Date, sha: string, tags: Tag[]): ReleaseVersion => {
+  const versions = tags.filter(tag => isVersion(tag.name));
+  const released = versions.find(tag => tag.sha === sha);
+  if (released) throw new Error(`Commit ${sha} is already released as ${released.name}`);
+  const taken = new Set(versions.map(tag => versionParts(tag.name).join('.')));
+  const free = (release: ReleaseVersion): ReleaseVersion => {
+    if (!taken.has(release.version)) return release;
+    const [year, monthDay, time] = versionParts(release.version);
+    return free(withVersion(release, [year, monthDay, time + 1]));
+  };
+  const planned = free(releaseVersion(date));
+  const latest = versions.map(tag => tag.name).sort(compareVersions).at(-1);
+  if (latest && compareVersions(planned.version, latest) <= 0) {
+    throw new Error(`Version ${planned.version} is older than the latest release ${latest}`);
+  }
+  return planned;
+};
+
+export const parseTags = (text: string): Tag[] =>
+  text
+    .split('\n')
+    .map(line => line.trim().split(/\s+/))
+    .filter(parts => parts.length === 2)
+    .map(([name, sha]) => ({ name, sha }));
 
 export const updaterManifest = (input: {
   version: string;
@@ -87,6 +123,25 @@ export const truncate = (text: string, limit: number): string => {
   return `${kept}…`;
 };
 
+const isItem = (line: string): boolean => line.startsWith('* ');
+
+// GitHub lists the changes oldest first. Drop the oldest items, not the newest, to fit the limit.
+export const fitNotes = (notes: string, limit: number): string => {
+  if (notes.length <= limit) return notes;
+  const lines = notes.split('\n');
+  const first = lines.findIndex(isItem);
+  if (first < 0) return truncate(notes, limit);
+  const end = lines.findIndex((line, index) => index > first && !isItem(line));
+  const last = end < 0 ? lines.length : end;
+  const head = lines.slice(0, first);
+  const items = lines.slice(first, last);
+  const tail = lines.slice(last);
+  const fitted = items
+    .map((_, dropped) => [...head, `* …and ${dropped + 1} earlier changes`, ...items.slice(dropped + 1), ...tail].join('\n'))
+    .find(text => text.length <= limit);
+  return fitted ?? truncate(notes, limit);
+};
+
 export const discordMessage = (input: {
   version: string;
   releaseUrl: string;
@@ -101,7 +156,7 @@ export const discordMessage = (input: {
       {
         title: `OpenSekai ${input.version}`,
         url: input.releaseUrl,
-        ...(notes ? { description: truncate(notes, DESCRIPTION_LIMIT) } : {}),
+        ...(notes ? { description: fitNotes(notes, DESCRIPTION_LIMIT) } : {}),
         color: 0x7c5cff,
         fields: [{ name: 'macOS (Apple Silicon)', value: input.downloadUrl }],
         timestamp: input.timestamp,
@@ -118,29 +173,12 @@ const required = (values: Record<string, string | undefined>, name: string): str
 
 const run = async (argv: string[]): Promise<string> => {
   const [command, ...rest] = argv;
-  if (command === 'version') {
-    const [time] = rest;
-    if (!time) throw new Error('Usage: release.ts version <commit time>');
-    const result = releaseVersion(new Date(time));
-    return [
-      `version=${result.version}`,
-      `tag=${result.tag}`,
-      `title=${result.title}`,
-      `bundle_version=${result.bundleVersion}`,
-      `pub_date=${result.pubDate}`,
-    ].join('\n');
-  }
-  if (command === 'newer') {
-    const [candidate, latest = ''] = rest;
-    if (!candidate) throw new Error('Usage: release.ts newer <version> [latest tag]');
-    if (latest && compareVersions(candidate, latest) <= 0) {
-      throw new Error(`Version ${candidate} is not newer than the latest release ${latest}`);
-    }
-    return `${candidate} is newer than ${latest || 'no release'}`;
-  }
   const { values } = parseArgs({
     args: rest,
     options: {
+      time: { type: 'string' },
+      sha: { type: 'string' },
+      'tags-file': { type: 'string' },
       version: { type: 'string' },
       'pub-date': { type: 'string' },
       'notes-file': { type: 'string' },
@@ -150,6 +188,20 @@ const run = async (argv: string[]): Promise<string> => {
       'download-url': { type: 'string' },
     },
   });
+  if (command === 'version') {
+    const time = new Date(required(values, 'time'));
+    const tagsFile = values['tags-file'];
+    const result = tagsFile
+      ? planRelease(time, required(values, 'sha'), parseTags(await readFile(tagsFile, 'utf8')))
+      : releaseVersion(time);
+    return [
+      `version=${result.version}`,
+      `tag=${result.tag}`,
+      `title=${result.title}`,
+      `bundle_version=${result.bundleVersion}`,
+      `pub_date=${result.pubDate}`,
+    ].join('\n');
+  }
   const notes = await readFile(required(values, 'notes-file'), 'utf8');
   if (command === 'manifest') {
     const manifest = updaterManifest({

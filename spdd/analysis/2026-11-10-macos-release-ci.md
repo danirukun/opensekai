@@ -26,7 +26,8 @@ Date: 2026-11-10. Scope: the first release slice. It adds CI and distribution. I
 
 - An ad-hoc signature changes with each build. macOS can ask for the camera permission again after each update. The updater slice must check this.
 - macOS 15 removed the Control-click Open path for an app without Developer ID. A tester opens the first download from System Settings › Privacy & Security › Open Anyway.
-- Two merges in the same UTC minute give the same version. The second release stops with a clear error, and the next merge releases both changes.
+- Two merges in the same UTC minute give the same version. The second release takes the next free minute (`.2319` after `.2318`), so its version does not show its exact commit minute. Its title keeps the commit time.
+- The first release lists each merged pull request. The Discord message keeps the newest items and counts the dropped older items.
 - The concurrency group keeps one pending run. When merges come faster than builds, the pending run of an older merge is cancelled, and the newest merge releases its changes.
 - If the updater private key is lost, shipped clients cannot accept a new release.
 - `OSHI_UI_TOKEN` is a personal token. It stops when it expires or when the owner loses access to the UI kit.

@@ -59,32 +59,16 @@ jobs:
 
       - name: Version
         id: version
-        run: node scripts/release.ts version "$(git show -s --format=%cI HEAD)" | tee -a "$GITHUB_OUTPUT"
-
-      - name: Check that the release is new
-        if: env.PUBLISH == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.version.outputs.version }}
-          TAG: ${{ steps.version.outputs.tag }}
         run: |
-          # Print the field of an API object, or nothing on 404. Any other error fails the assignment.
-          lookup() {
-            local out
-            if out=$(gh api "$1" --jq "$2" 2>&1); then printf '%s' "$out"; return 0; fi
-            grep -q 'HTTP 404' <<<"$out" && return 0
-            echo "$1: $out" >&2
-            return 1
-          }
-          repo="repos/$GITHUB_REPOSITORY"
-          tag_ref=$(lookup "$repo/git/ref/tags/$TAG" .ref)
-          release_id=$(lookup "$repo/releases/tags/$TAG" .id)
-          if [[ -n $tag_ref || -n $release_id ]]; then
-            echo "::error::Tag or release $TAG exists. Two merges in one UTC minute get one version; the next merge releases both."
-            exit 1
+          args=(version --time "$(git show -s --format=%cI HEAD)")
+          if [[ $PUBLISH == true ]]; then
+            gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/v" --paginate \
+              --jq '.[] | "\(.ref | ltrimstr("refs/tags/")) \(.object.sha)"' > "$RUNNER_TEMP/tags.txt"
+            args+=(--sha "$BUILD_SHA" --tags-file "$RUNNER_TEMP/tags.txt")
           fi
-          latest=$(lookup "$repo/releases/latest" .tag_name)
-          node scripts/release.ts newer "$VERSION" "$latest"
+          node scripts/release.ts "${args[@]}" | tee -a "$GITHUB_OUTPUT"
 
       - name: Rust toolchain
         run: |

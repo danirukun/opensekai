@@ -9,6 +9,9 @@ import {
   DESCRIPTION_LIMIT,
   compareVersions,
   discordMessage,
+  fitNotes,
+  parseTags,
+  planRelease,
   releaseVersion,
   truncate,
   updaterManifest,
@@ -54,6 +57,68 @@ test('orders versions by number, across days, months, and years', () => {
   }
   expect(compareVersions('v2026.1110.2318', '2026.1110.2318')).toBe(0);
   expect(() => compareVersions('2026.1110', '2026.1110.1')).toThrow('Not a release version');
+});
+
+test('plans the release against the existing tags', () => {
+  const time = new Date('2026-11-10T23:18:42Z');
+  expect(planRelease(time, 'c3', []).version).toBe('2026.1110.2318');
+  expect(planRelease(time, 'c3', [{ name: 'nightly', sha: 'c0' }]).version).toBe('2026.1110.2318');
+  expect(planRelease(time, 'c3', [{ name: 'v2026.1110.2317', sha: 'c2' }]).version).toBe('2026.1110.2318');
+  expect(() => planRelease(time, 'c3', [{ name: 'v2026.1110.2319', sha: 'c4' }])).toThrow(
+    'older than the latest release v2026.1110.2319',
+  );
+  expect(() => planRelease(time, 'c2', [{ name: 'v2026.1110.2317', sha: 'c2' }])).toThrow(
+    'already released as v2026.1110.2317',
+  );
+});
+
+test('moves a merge in the same UTC minute to the next minute', () => {
+  const time = new Date('2026-11-10T23:59:42Z');
+  const first = planRelease(time, 'c3', [{ name: 'v2026.1110.2359', sha: 'c2' }]);
+  expect(first).toEqual({
+    version: '2026.1110.2360',
+    tag: 'v2026.1110.2360',
+    title: '2026-11-10 23:59 UTC',
+    bundleVersion: '202611102360',
+    pubDate: '2026-11-10T23:59:42Z',
+  });
+  const second = planRelease(time, 'c4', [
+    { name: 'v2026.1110.2359', sha: 'c2' },
+    { name: 'v2026.1110.2360', sha: 'c3' },
+  ]);
+  expect(second.version).toBe('2026.1110.2361');
+  expect(compareVersions(releaseVersion(new Date('2026-11-11T00:00:00Z')).version, second.version)).toBe(1);
+});
+
+test('stops a rerun of an older commit from the same minute as an earlier release', () => {
+  const tags = [
+    { name: 'v2026.1110.2318', sha: 'a' },
+    { name: 'v2026.1110.2330', sha: 'c' },
+  ];
+  expect(() => planRelease(new Date('2026-11-10T23:18:30Z'), 'b', tags)).toThrow(
+    'Version 2026.1110.2319 is older than the latest release v2026.1110.2330',
+  );
+});
+
+test('reads the tag list that the workflow writes', () => {
+  expect(parseTags('v2026.1110.2318 abc\n\nnightly def\n')).toEqual([
+    { name: 'v2026.1110.2318', sha: 'abc' },
+    { name: 'nightly', sha: 'def' },
+  ]);
+});
+
+test('drops the oldest changes first when the notes are too long', () => {
+  const items = Array.from({ length: 60 }, (_, index) => `* Change ${index + 1} by @someone in #${index + 1}`);
+  const notes = ["## What's Changed", ...items, '', '## New Contributors', '* @someone made a first contribution', '', '**Full Changelog**: v1...v2'].join('\n');
+  const fitted = fitNotes(notes, 1000);
+  expect(fitted.length).toBeLessThanOrEqual(1000);
+  expect(fitted.startsWith("## What's Changed\n* …and ")).toBe(true);
+  expect(fitted).toContain('* Change 60 by');
+  expect(fitted).not.toContain('* Change 1 by');
+  expect(fitted.endsWith('**Full Changelog**: v1...v2')).toBe(true);
+  expect(fitted).toContain('* @someone made a first contribution');
+  expect(fitNotes('short', 1000)).toBe('short');
+  expect(fitNotes('x'.repeat(2000), 1000)).toHaveLength(1000);
 });
 
 test('writes the Tauri static updater manifest', () => {
@@ -103,6 +168,10 @@ test('makes one Discord embed that mentions nobody', () => {
   });
   expect(discordMessage({ ...input, notes: '  \n' }).embeds[0]).not.toHaveProperty('description');
   expect(discordMessage({ ...input, notes: 'x'.repeat(5000) }).embeds[0].description).toHaveLength(DESCRIPTION_LIMIT);
+  const longList = Array.from({ length: 200 }, (_, index) => `* Change ${index + 1} by @someone in #${index + 1}`).join('\n');
+  const description = discordMessage({ ...input, notes: longList }).embeds[0].description ?? '';
+  expect(description.length).toBeLessThanOrEqual(DESCRIPTION_LIMIT);
+  expect(description).toContain('* Change 200 by');
 });
 
 test('the command line writes the outputs that the workflow reads', async () => {
@@ -114,7 +183,7 @@ test('the command line writes the outputs that the workflow reads', async () => 
   await writeFile(notes, '* Change\n');
   await writeFile(signature, 'c2ln\n');
 
-  const version = await run(process.execPath, [script, 'version', '2026-11-10T23:18:42Z']);
+  const version = await run(process.execPath, [script, 'version', '--time', '2026-11-10T23:18:42Z']);
   expect(version.stdout.trim().split('\n')).toEqual([
     'version=2026.1110.2318',
     'tag=v2026.1110.2318',
@@ -122,6 +191,15 @@ test('the command line writes the outputs that the workflow reads', async () => 
     'bundle_version=202611102318',
     'pub_date=2026-11-10T23:18:42Z',
   ]);
+  const tags = join(directory, 'tags.txt');
+  await writeFile(tags, 'v2026.1110.2318 c2\nnightly c0\n');
+  const planned = await run(process.execPath, [
+    script, 'version', '--time', '2026-11-10T23:18:59Z', '--sha', 'c3', '--tags-file', tags,
+  ]);
+  expect(planned.stdout).toContain('version=2026.1110.2319\n');
+  await expect(
+    run(process.execPath, [script, 'version', '--time', '2026-11-10T23:18:59Z', '--sha', 'c2', '--tags-file', tags]),
+  ).rejects.toThrow('already released');
 
   const manifest = await run(process.execPath, [
     script, 'manifest', '--version', '2026.1110.2318', '--pub-date', '2026-11-10T23:18:42Z',
@@ -138,10 +216,4 @@ test('the command line writes the outputs that the workflow reads', async () => 
   ]);
   expect(discord.stdout.trim().split('\n')).toHaveLength(1);
   expect(JSON.parse(discord.stdout).embeds[0].description).toBe('* Change');
-
-  await expect(run(process.execPath, [script, 'newer', '2026.1110.2318', 'v2026.1110.2318'])).rejects.toThrow(
-    'is not newer',
-  );
-  await expect(run(process.execPath, [script, 'newer', '2026.1110.2319', 'v2026.1110.2318'])).resolves.toBeTruthy();
-  await expect(run(process.execPath, [script, 'newer', '2026.1110.2318', ''])).resolves.toBeTruthy();
 });
