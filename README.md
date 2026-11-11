@@ -132,6 +132,8 @@ The design follows these rules:
 
 To make the macOS release app, run `pnpm build:mac`.
 
+Each merge to `main` publishes an Apple Silicon build on the [releases page](https://github.com/danirukun/opensekai/releases). The build has no Developer ID signature. The first time you open it, macOS stops it: open System Settings › Privacy & Security and click Open Anyway. See [the release contract](spdd/prompt/2026-11-10-macos-release-ci.md).
+
 In a Linux cloud container, run `bash scripts/cloud-setup.sh` to do the setup and the build. See [Cloud agent intake](docs/agent-intake.md).
 
 ## Checks
@@ -187,4 +189,4 @@ This repository owns OpenSekai code, specs, and evidence. The Oshi Connect ai-na
 
 ## License
 
-Open-source release is the intent. No project license is selected yet. Select one before distribution. Asset and dependency licenses are separate, and the UI kit has no license yet. See [Dependencies and licenses](docs/dependencies.md).
+OpenSekai is licensed under the [GNU General Public License version 3](LICENSE). The Oshi Connect UI kit, which the app bundles, uses the same license. Asset and dependency licenses are separate. See [Dependencies and licenses](docs/dependencies.md).
