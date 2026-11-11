@@ -169,6 +169,8 @@ The [benchmark contract](../../evaluation/benchmark-contract.md) defines evidenc
 
 The VCheki experience showed that image readback, encoding, and IPC can dominate output cost. Use it as a risk, not as a timing estimate for this renderer. The initial OBS renderer sends state and loads assets; it does not receive a per-frame image stream. Diagnostic screenshots are bounded exceptions.
 
+A capture screen (MED-04 slice 1, [capture screens contract](../../../spdd/prompt/2026-11-09-capture-screens.md) R1) is the second bounded exception. The host captures one display or one window with a platform adapter, encodes H.264 one time, and sends the encoded chunks to each renderer on its own loopback WebSocket route, `/capture`. The stream exists only while the scene has a visible capture screen whose source the operator allowed in the Editor window and the host found. It carries H.264 chunks only, never raw pixels, JPEG, or PNG. It never uses `/ws` or Tauri IPC. It has at most 2 sources, each at most 1920 × 1080 and 30 frames a second. Each renderer decodes with WebCodecs. Bounded queues drop to the next key frame under load, so the stream cannot delay scene state or calls. A scene without a capture screen opens no capture and no socket.
+
 Gate the exact production path before investing in broad parity. If browser output, shader compatibility, or app background timing fails, record the result and revise the failing boundary. Native output may become a later adapter. It is not assumed to be available from a Tauri texture today.
 
 ## Persistence and recovery

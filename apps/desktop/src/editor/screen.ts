@@ -1,4 +1,4 @@
-import { LIMITS, isImageRecord, isVideoRecord, isVideoScreen, isWebScreenUrl, type AssetRecord, type Id, type RuntimeFrame, type SceneEntity, type ScreenVideo, type VideoAudioCodec, type VideoCodec, type WebScreen } from '@opensekai/contracts';
+import { LIMITS, isCaptureScreen, isImageRecord, isVideoRecord, isVideoScreen, isWebScreenUrl, type AssetRecord, type Id, type RuntimeFrame, type SceneEntity, type ScreenVideo, type VideoAudioCodec, type VideoCodec, type WebScreen } from '@opensekai/contracts';
 import { IMPORT_SCENE } from './environment';
 import type { SliderRange } from './slider';
 // The Screen Image select (B28 R19): only image records, a missing image, and the import row.
@@ -16,7 +16,7 @@ export function videoSourceOptions(assetId: string | null, assets: readonly Asse
 // A screen that gets video content starts with these values (B29 R19). The reset defaults use them too.
 export const VIDEO_DEFAULTS: Readonly<ScreenVideo> = Object.freeze({ assetId: null, autoPlay: false, loop: true, volume: 1 });
 export const VOLUME_RANGE: SliderRange = { min: 0, max: 1, step: 0.01, curve: 'linear' };
-export const CONTENT_OPTIONS: readonly { value: ScreenContentKind; label: string }[] = [{ value: 'image', label: 'Image' }, { value: 'video', label: 'Video' }, { value: 'web', label: 'Web page' }];
+export const CONTENT_OPTIONS: readonly { value: ScreenContentKind; label: string }[] = [{ value: 'image', label: 'Image' }, { value: 'video', label: 'Video' }, { value: 'web', label: 'Web page' }, { value: 'display', label: 'Display' }, { value: 'window', label: 'Window' }];
 export const videoScreenLimitReached = (entities: readonly SceneEntity[]): boolean => entities.filter(isVideoScreen).length >= LIMITS.videoScreens;
 // Content Video is disabled at the video screen limit, unless this screen already has video content (B29 R19).
 export const videoContentDisabled = (entity: SceneEntity, entities: readonly SceneEntity[]): boolean => !isVideoScreen(entity) && videoScreenLimitReached(entities);
@@ -38,14 +38,19 @@ export function assetFormatLabel(asset: AssetRecord): string {
     return [format, VIDEO_CODEC_LABELS[asset.video.videoCodec], asset.video.audioCodec ? AUDIO_CODEC_LABELS[asset.video.audioCodec] : null].filter(Boolean).join(' · ');
 }
 // Duplicate copies the content, so a video or web screen cannot be copied at its screen limit (B29 R19, B30 R13).
-export const duplicateLimitReached = (entity: SceneEntity, entities: readonly SceneEntity[]): boolean => (isVideoScreen(entity) && videoScreenLimitReached(entities)) || (entity.kind === 'screen' && entity.content.kind === 'web' && webLimitReached(entities));
+export const duplicateLimitReached = (entity: SceneEntity, entities: readonly SceneEntity[]): boolean => (isVideoScreen(entity) && videoScreenLimitReached(entities)) || (entity.kind === 'screen' && entity.content.kind === 'web' && webLimitReached(entities)) || (isCaptureScreen(entity) && captureLimitReached(entities));
 // The Screen Content select and the Web page fields (B29 R19, B30 R13).
-export type ScreenContentKind = 'image' | 'video' | 'web';
+// B31 R17: capture content shows as Display or Window, from its target.
+export type ScreenContentKind = 'image' | 'video' | 'web' | 'display' | 'window';
+export const contentKind = (content: Extract<SceneEntity, { kind: 'screen' }>['content']): ScreenContentKind => content.kind === 'capture' ? content.target : content.kind;
+export const captureLimitReached = (entities: readonly SceneEntity[]) => entities.filter(isCaptureScreen).length >= LIMITS.captureScreens;
 export const DEFAULT_WEB_SCREEN: WebScreen = { url: null, width: 1280, height: 720, onTop: false };
 export const webLimitReached = (entities: readonly SceneEntity[]) => entities.filter(entity => entity.kind === 'screen' && entity.content.kind === 'web').length >= LIMITS.webScreens;
 // Video and Web page are disabled at their screen limit, unless this screen already has that content.
+// Display and Window share the capture limit, so a capture screen can change between them (B31 R17).
 export function contentOptions(kind: ScreenContentKind, entities: readonly SceneEntity[]) {
-    const full = { image: false, video: videoScreenLimitReached(entities), web: webLimitReached(entities) };
+    const capture = kind !== 'display' && kind !== 'window' && captureLimitReached(entities);
+    const full = { image: false, video: videoScreenLimitReached(entities), web: webLimitReached(entities), display: capture, window: capture };
     return CONTENT_OPTIONS.map(option => ({ ...option, disabled: option.value !== kind && full[option.value] }));
 }
 // An empty field commits no URL. Text that fails the URL rule does not commit. Space around the text is not part of the URL.

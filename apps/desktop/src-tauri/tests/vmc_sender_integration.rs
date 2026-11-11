@@ -346,7 +346,8 @@ async fn next_non_clock(s: &mut Socket) -> Value {
             .unwrap()
             .unwrap();
         let v: Value = serde_json::from_str(&m.into_text().unwrap()).unwrap();
-        if v["kind"] != "clock" {
+        // The capture status (B31 R9) is host state that these tests skip.
+        if v["kind"] != "clock" && v["kind"] != "captureStatus" {
             return v;
         }
     }

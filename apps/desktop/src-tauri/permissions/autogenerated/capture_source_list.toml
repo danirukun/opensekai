@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-capture-source-list"
+description = "Enables the capture_source_list command without any pre-configured scope."
+commands.allow = ["capture_source_list"]
+
+[[permission]]
+identifier = "deny-capture-source-list"
+description = "Denies the capture_source_list command without any pre-configured scope."
+commands.deny = ["capture_source_list"]

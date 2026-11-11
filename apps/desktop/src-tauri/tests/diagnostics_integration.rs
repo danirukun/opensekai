@@ -30,8 +30,22 @@ async fn send(socket: &mut Socket, value: Value) {
         .await
         .unwrap();
 }
+/// The next message that is not the host capture status (B31 R9), which these tests do not read.
+async fn next_message(
+    socket: &mut Socket,
+) -> Option<Result<Message, tokio_tungstenite::tungstenite::Error>> {
+    loop {
+        let message = socket.next().await;
+        if let Some(Ok(Message::Text(text))) = &message {
+            if text.contains("\"kind\":\"captureStatus\"") {
+                continue;
+            }
+        }
+        return message;
+    }
+}
 async fn recv(socket: &mut Socket) -> Value {
-    let text = tokio::time::timeout(Duration::from_secs(3), socket.next())
+    let text = tokio::time::timeout(Duration::from_secs(3), next_message(socket))
         .await
         .unwrap()
         .unwrap()
@@ -274,7 +288,7 @@ async fn diagnostics_refuses_nonrenderer_and_scope_mismatch_but_keeps_disabled_o
         };
         send(&mut renderer, bad).await;
         assert!(matches!(
-            tokio::time::timeout(Duration::from_secs(1), renderer.next())
+            tokio::time::timeout(Duration::from_secs(1), next_message(&mut renderer))
                 .await
                 .unwrap(),
             None | Some(Err(_)) | Some(Ok(Message::Close(_)))

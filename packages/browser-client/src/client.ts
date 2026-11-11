@@ -1,6 +1,14 @@
 import { ConnectionDescriptorSchema, CaptureBytesSchema, RuntimeFrameSchema, VmcPosesEnvelopeSchema, FrameAppliedSchema, RendererDiagnosticsSchema, ResultSchemas, LIMITS, validateCall, requiredCapability, replySchema, parseWire } from "@opensekai/contracts";
 import type { AppApi, AppError, BrowserClient, CameraScreenshotParams, CaptureBytes, CaptureParams, ConnectionDescriptor, ScreenshotBytes, FrameApplied, PublisherClient, Reply, RuntimeFrame, ValidatedCall, WireMessage, TrackingUpdate, InputUpdate } from "@opensekai/contracts";
 import { reconnectDelay } from "./reconnect";
+import { openCaptureSocket, type CaptureConnection, type CaptureHandlers } from "./capture";
+import type { CaptureStatus } from "@opensekai/contracts";
+/** A renderer client with the capture status stream and the capture route (B31 R9, R13). */
+export interface RendererClient extends BrowserClient {
+    /** The latest captureStatus of the host, now and on each change. */
+    onCaptureStatus(listener: (status: CaptureStatus) => void): () => void;
+    openCapture(streamId: string, handlers: CaptureHandlers): CaptureConnection;
+}
 type Socket = Pick<WebSocket, "send" | "close" | "addEventListener" | "removeEventListener" | "bufferedAmount">;
 export interface ClientPorts {
     socket(url: string): Socket;
@@ -37,6 +45,8 @@ export function connectWithPorts(raw: ConnectionDescriptor, ports: ClientPorts =
             :clock.tracking!==undefined?listener(clock.elapsedMs,clock.tracking)
             :listener(clock.elapsedMs);
         const frames = new Set<(f: RuntimeFrame) => void>();
+        const captureListeners = new Set<(status: CaptureStatus) => void>();
+        let captureStatus: CaptureStatus | undefined;
         let capture: ((p: CaptureParams) => Promise<Reply<CaptureBytes>>) | undefined;
         let screenshot: ((p: CameraScreenshotParams) => Promise<Reply<ScreenshotBytes>>) | undefined;
         let callListener: ((c: ValidatedCall & {
@@ -121,6 +131,7 @@ export function connectWithPorts(raw: ConnectionDescriptor, ports: ClientPorts =
             socket?.close();
             failPending();
             frames.clear();
+            captureListeners.clear();
             clocks.clear();
             pendingClock = undefined;
             latest = undefined;
@@ -205,8 +216,14 @@ export function connectWithPorts(raw: ConnectionDescriptor, ports: ClientPorts =
             for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
             return bytes;
         };
-        const browser: BrowserClient = {
+        const browser: RendererClient = {
             api,
+            onCaptureStatus(listener) {
+                captureListeners.add(listener);
+                if (captureStatus) listener(captureStatus);
+                return () => { captureListeners.delete(listener); };
+            },
+            openCapture(streamId, handlers) { return openCaptureSocket(descriptor, streamId, handlers); },
             onFrame(listener) {
                 frames.add(listener);
                 if (latest)
@@ -356,6 +373,13 @@ export function connectWithPorts(raw: ConnectionDescriptor, ports: ClientPorts =
                 latest = message.frame;
                 for (const listener of frames)
                     listener(message.frame);
+                return;
+            }
+            // B31 R9: host to renderers only. It never goes to the publisher or an operator.
+            if (message.kind === "captureStatus") {
+                if (descriptor.role !== "renderer") { disconnect(); return; }
+                captureStatus = message;
+                for (const listener of captureListeners) listener(message);
                 return;
             }
             if (message.kind === "reply") {
@@ -533,10 +557,10 @@ function toBase64(bytes: Uint8Array): string {
         chunks.push(String.fromCharCode(...bytes.subarray(offset, offset + 0x8000)));
     return btoa(chunks.join(""));
 }
-export async function connectClient(descriptor: ConnectionDescriptor): Promise<BrowserClient> {
+export async function connectClient(descriptor: ConnectionDescriptor): Promise<RendererClient> {
     if (descriptor.role === "publisher")
         throw new Error("Publisher descriptor requires connectPublisher");
-    return await connectWithPorts(descriptor) as BrowserClient;
+    return await connectWithPorts(descriptor) as RendererClient;
 }
 export async function connectPublisher(descriptor: ConnectionDescriptor): Promise<PublisherClient> {
     if (descriptor.role !== "publisher")

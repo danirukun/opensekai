@@ -55,3 +55,27 @@ it('rejects a fifth web screen by setScreenWeb and by createEntity', () => {
     expect(s.inspect()).toEqual(before);
     expect(s.applyPatch(patch(1, [{ kind: 'setScreenWeb', entityId: 'w0', web: web('https://example.com/other') }])).ok).toBe(true);
 });
+// B31 R2, R3: capture content on a screen and the capture screen limit by each path.
+const captureValue = { target: 'display', source: { kind: 'display', name: 'Built-in Retina Display', ordinal: 0 }, cursor: true } as const;
+const captureScreen = (id: string): SceneEntity => ({ ...screen(id), content: { kind: 'capture', ...captureValue } } as SceneEntity);
+it('sets capture content, replaces it with image, video, and web content, and rejects another kind', () => {
+    const s = createSession(makeSmokeScene(), 'screen-test');
+    expect(s.applyPatch(patch(0, [{ kind: 'createEntity', entity: screen('desk') }])).ok).toBe(true);
+    expect(s.applyPatch(patch(1, [{ kind: 'setScreenCapture', entityId: 'desk', capture: captureValue }])).ok).toBe(true);
+    expect(content(s, 'desk')).toEqual({ kind: 'capture', ...captureValue });
+    expect(s.applyPatch(patch(2, [{ kind: 'setScreenWeb', entityId: 'desk', web: web() }])).ok).toBe(true);
+    expect(content(s, 'desk').kind).toBe('web');
+    expect(s.applyPatch(patch(3, [{ kind: 'setScreenCapture', entityId: 'desk', capture: { ...captureValue, target: 'window', source: null } }])).ok).toBe(true);
+    expect(s.applyPatch(patch(4, [{ kind: 'setScreenImage', entityId: 'desk', assetId: null }])).ok).toBe(true);
+    expect(content(s, 'desk')).toEqual({ kind: 'image', assetId: null });
+    expect(s.applyPatch(patch(5, [{ kind: 'setScreenCapture', entityId: 'performer', capture: captureValue }]))).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+    expect(s.applyPatch(patch(5, [{ kind: 'setScreenCapture', entityId: 'nobody', capture: captureValue }]))).toMatchObject({ ok: false, error: { code: 'NOT_FOUND' } });
+    expect(s.applyPatch(patch(5, [{ kind: 'setScreenCapture', entityId: 'desk', capture: { ...captureValue, target: 'window' } }]))).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+});
+it('rejects a third capture screen by setScreenCapture and by createEntity', () => {
+    const s = createSession(makeSmokeScene(), 'screen-test');
+    expect(s.applyPatch(patch(0, [{ kind: 'createEntity', entity: captureScreen('c0') }, { kind: 'createEntity', entity: captureScreen('c1') }, { kind: 'createEntity', entity: screen('logo') }])).ok).toBe(true);
+    expect(s.applyPatch(patch(1, [{ kind: 'setScreenCapture', entityId: 'logo', capture: captureValue }]))).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+    expect(s.applyPatch(patch(1, [{ kind: 'createEntity', entity: captureScreen('c2') }]))).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+    expect(s.applyPatch(patch(1, [{ kind: 'setScreenCapture', entityId: 'c0', capture: { ...captureValue, cursor: false } }])).ok).toBe(true);
+});

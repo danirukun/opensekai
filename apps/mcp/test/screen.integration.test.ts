@@ -45,3 +45,26 @@ it('creates a web screen, sets its URL, and refuses a local URL through scene_pa
   expect(await find()).toMatchObject({ content: { url: 'https://example.com/chat' } });
  } finally { await client.close(); }
 }, 15000);
+
+// B31 R19: a capture screen goes through the same scene_patch route. The host state notAllowed of a source
+// that the operator did not allow is proved at the host boundary (apps/desktop/src-tauri/tests/capture_integration.rs),
+// because this fixture has no Rust host.
+it('creates a capture screen, sets its source, and refuses a third through scene_patch', async () => {
+ const transport = new StdioClientTransport({ command: process.execPath, args: ['--import', 'tsx', 'apps/mcp/test/session-fixture.ts'], stderr: 'pipe' });
+ const client = new Client({ name: 'opensekai-test', version: '0.1.0' });
+ await client.connect(transport);
+ const call = async (name: string, args: Record<string, unknown>) => (await client.callTool({ name, arguments: args })).structuredContent as { ok: boolean; data?: any; error?: any };
+ const patch = (expectedRevision: number, operations: unknown[]) => call('scene_patch', { sceneId: 'scene_smoke', expectedRevision, operations });
+ const screen = (id: string) => ({ id, name: 'Screen', visible: true, transform: { position: [0, 1, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] }, kind: 'screen', content: { kind: 'capture', target: 'display', source: null, cursor: true } });
+ const source = { kind: 'window', app: 'com.example.chat', title: 'Chat' };
+ try {
+  const tools = (await client.listTools()).tools;
+  expect(tools.find(tool => tool.name === 'scene_patch')?.description).toMatch(/setScreenCapture.*at most 2 capture screens.*Choose the source again/s);
+  expect(tools.find(tool => tool.name === 'app_status')?.description).toMatch(/captures.*notAllowed/s);
+  expect(await patch(0, [{ kind: 'createEntity', entity: screen('desk') }, { kind: 'setScreenCapture', entityId: 'desk', capture: { target: 'window', source, cursor: false } }])).toMatchObject({ ok: true, data: { revision: 1 } });
+  const found = (await call('scene_inspect', { sceneId: 'scene_smoke' })).data.entities.find((e: { id: string }) => e.id === 'desk');
+  expect(found).toMatchObject({ kind: 'screen', content: { kind: 'capture', target: 'window', source, cursor: false } });
+  expect((await client.callTool({ name: 'scene_patch', arguments: { sceneId: 'scene_smoke', expectedRevision: 1, operations: [{ kind: 'setScreenCapture', entityId: 'desk', capture: { target: 'display', source, cursor: true } }] } })).isError).toBe(true);
+  expect(await patch(1, [{ kind: 'createEntity', entity: screen('c1') }, { kind: 'createEntity', entity: screen('c2') }])).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+ } finally { await client.close(); }
+}, 15000);
