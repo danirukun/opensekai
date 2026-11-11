@@ -5,6 +5,8 @@
 # Exit code 3: the UI kit source is not reachable.
 # Private fixtures need OPENSEKAI_FIXTURES_S3_ENDPOINT, _ACCESS_KEY_ID and _SECRET_ACCESS_KEY.
 # Without them, setup skips the private fixtures and continues.
+# OPENSEKAI_RELEASE_BUILD=1 (the release workflow) stops after the install and the tracking models:
+# no Playwright, no pnpm build, no fixtures, and no GPU probe.
 set -euo pipefail
 
 readonly NODE_VERSION=26.10.0
@@ -169,9 +171,14 @@ else
     warn "UI kit snapshot records $(snapshot_commit), expected $expected_ui"
 fi
 
+release=false
+[[ ${OPENSEKAI_RELEASE_BUILD:-} == 1 ]] && release=true
+
 # e. Workspace and the Playwright browser for headless render checks
 pnpm install --frozen-lockfile
-if $cloud; then
+if $release; then
+  log "release build: skip the Playwright browser"
+elif $cloud; then
   pnpm exec playwright install --with-deps chromium >/dev/null
 else
   pnpm exec playwright install chromium >/dev/null
@@ -179,6 +186,11 @@ fi
 
 # f. Build. The build reads the tracking models from a cache; fill it first.
 pnpm exec tsx scripts/prepare-tracking.ts --download >/dev/null
+if $release; then
+  printf 'cloud-setup: done (release build): node %s, pnpm %s, %s, UI kit %s\n' \
+    "$(node -v)" "$(pnpm -v)" "$(rustc --version 2>/dev/null || echo 'rustc missing')" "$(snapshot_commit)"
+  exit 0
+fi
 pnpm build
 
 # g. Test fixtures in fixtures/local. A failed download does not stop setup.
