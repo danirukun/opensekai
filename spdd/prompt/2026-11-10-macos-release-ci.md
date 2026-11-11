@@ -4,8 +4,8 @@ Date: 2026-11-10. Scope: the first release slice (CI and distribution). Analysis
 
 ## R — Requirements
 
-R1. Each push to `main` starts one release run. A manual run (`workflow_dispatch`) on `main` with `publish: true` also releases. Runs share the concurrency group `release` and do not cancel a run in progress.
-R2. A pull request that changes `.github/workflows/release.yml`, `scripts/release.ts`, or `scripts/cloud-setup.sh` starts a dry run. A manual run without `publish: true`, or on another branch, is also a dry run. A pull request from a fork does not run.
+R1. Each push to `main` starts one release run. A manual run (`workflow_dispatch`) on `main` with `publish: true` also releases. Release runs share the concurrency group `release` and do not cancel a run in progress.
+R2. A pull request that changes `.github/workflows/release.yml`, `scripts/release.ts`, `scripts/cloud-setup.sh`, or `apps/desktop/src-tauri/tauri.conf.json` starts a dry run. A manual run without `publish: true`, or on another branch, is also a dry run. Dry runs use one concurrency group for each ref, and a new dry run cancels the older one. A pull request from a fork does not run.
 R3. The version comes from the committer time of the built commit in UTC: `YYYY.MDD.HHMM`, each part an integer with no leading zero (10 November 2026 23:18 is `2026.1110.2318`; 5 January 2027 09:04 is `2027.105.904`). The tag is `v<version>`. The release title is `YYYY-MM-DD HH:MM UTC`. `CFBundleVersion` is `YYYYMMDDHHMM`.
 R4. A release run stops before it publishes when the version is not higher than the version of the latest release, or when the tag exists.
 R5. The build runs on `macos-15` (arm64) with the toolchain of `.node-version` and `rust-toolchain.toml`. It clones the UI kit with `OSHI_UI_TOKEN` through `scripts/cloud-setup.sh`. With `OPENSEKAI_RELEASE_BUILD=1` that script skips Playwright, `pnpm build`, the fixtures, and the GPU probe.
@@ -15,7 +15,7 @@ R8. Signature gate: `minisign` checks the `.app.tar.gz` with the `.sig` and the 
 R9. Release assets: `OpenSekai-<version>-macos-arm64.zip` (the `.app`, made with `ditto`), `OpenSekai-<version>-macos-arm64.app.tar.gz`, its `.sig`, and `latest.json`.
 R10. `latest.json` has the Tauri static format: `version`, `notes`, `pub_date` (the commit time, RFC 3339), and `platforms["darwin-aarch64"] = { signature, url }`. `signature` is the text of the `.sig` file. `url` is the release download URL of the `.app.tar.gz`.
 R11. The notes come from the GitHub `generate-notes` API for the tag and the commit. The release body, `latest.json`, and the Discord message use the same notes. The release is marked as latest.
-R12. After a published release, the workflow posts one message to channel `1540662723095035934` (guild `1463985737174093844`) with `DISCORD_BOT_TOKEN`. The message has one embed: the title `OpenSekai <version>`, the release URL, the notes as the description (at most 4096 characters; a longer text ends with `…`), a field with the zip URL, and the commit time. The message mentions nobody.
+R12. Before it posts, the workflow reads the channel with the bot token and stops when the channel is not in guild `1463985737174093844`. After a published release, the workflow posts one message to channel `1540662723095035934` (guild `1463985737174093844`) with `DISCORD_BOT_TOKEN`. The message has one embed: the title `OpenSekai <version>`, the release URL, the notes as the description (at most 4096 characters; a longer text ends with `…`), a field with the zip URL, and the commit time. The message mentions nobody.
 R13. A dry run does R3 to R10 without the publish checks of R4. It uploads the zip and the updater files as a workflow artifact, prints the Discord message, and reads the channel with the bot token to check the token. It does not create a tag, a release, or a message.
 
 ## E — Entities

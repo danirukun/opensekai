@@ -1,0 +1,224 @@
+name: Release
+
+# Contract: spdd/prompt/2026-11-10-macos-release-ci.md
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - scripts/release.ts
+      - scripts/cloud-setup.sh
+      - apps/desktop/src-tauri/tauri.conf.json
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish a release (main only)
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.publish) && 'release' || format('release-dry-run-{0}', github.ref) }}
+  cancel-in-progress: ${{ !(github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.publish)) }}
+
+permissions:
+  contents: write
+
+env:
+  DISCORD_GUILD_ID: '1463985737174093844'
+  DISCORD_CHANNEL_ID: '1540662723095035934'
+
+jobs:
+  build:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: macos-15
+    timeout-minutes: 90
+    env:
+      PUBLISH: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.publish == true) }}
+      BUILD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
+      HOMEBREW_NO_AUTO_UPDATE: '1'
+      HOMEBREW_NO_INSTALL_CLEANUP: '1'
+    outputs:
+      publish: ${{ env.PUBLISH }}
+      version: ${{ steps.version.outputs.version }}
+      discord_payload: ${{ steps.notes.outputs.discord_payload }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.BUILD_SHA }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+
+      - name: Version
+        id: version
+        run: node scripts/release.ts version "$(git show -s --format=%cI HEAD)" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Check that the release is new
+        if: env.PUBLISH == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::Release $TAG exists. Two merges in one UTC minute get one version; the next merge releases both."
+            exit 1
+          fi
+          latest=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName 2>/dev/null || true)
+          node scripts/release.ts newer "$VERSION" "$latest"
+
+      - name: Rust toolchain
+        run: |
+          channel=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)
+          rustup toolchain install "$channel" --profile minimal
+          rustc --version
+
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cache/opensekai/oshi-connect-ui
+            artifacts/models
+          key: release-deps-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('docs/dependencies.md', 'apps/desktop/src/tracking/models.json') }}
+
+      - name: Set up the workspace
+        env:
+          OSHI_UI_TOKEN: ${{ secrets.OSHI_UI_TOKEN }}
+          OPENSEKAI_RELEASE_BUILD: '1'
+        run: bash scripts/cloud-setup.sh
+
+      - name: Build the app
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          BUNDLE_VERSION: ${{ steps.version.outputs.bundle_version }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          CARGO_PROFILE_RELEASE_STRIP: none
+        run: |
+          config="$RUNNER_TEMP/release-config.json"
+          jq -n --arg version "$VERSION" --arg bundle "$BUNDLE_VERSION" '{
+            version: $version,
+            bundle: { createUpdaterArtifacts: true, macOS: { bundleVersion: $bundle, signingIdentity: "-" } }
+          }' > "$config"
+          cat "$config"
+          pnpm build
+          pnpm --filter @opensekai/desktop tauri build --bundles app --config "$config"
+
+      - name: Collect the assets
+        id: assets
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          bundle=target/release/bundle/macos
+          name="OpenSekai-$VERSION-macos-arm64"
+          dir="$RUNNER_TEMP/release"
+          mkdir -p "$dir"
+          codesign --verify --deep --strict --verbose=2 "$bundle/OpenSekai.app"
+          codesign -dv "$bundle/OpenSekai.app" 2>&1 | grep -E '^(Identifier|Signature)='
+          ditto -c -k --sequesterRsrc --keepParent "$bundle/OpenSekai.app" "$dir/$name.zip"
+          cp "$bundle/OpenSekai.app.tar.gz" "$dir/$name.app.tar.gz"
+          cp "$bundle/OpenSekai.app.tar.gz.sig" "$dir/$name.app.tar.gz.sig"
+          ls -l "$dir"
+          { echo "dir=$dir"; echo "name=$name"; } >> "$GITHUB_OUTPUT"
+
+      - name: Check the updater signature against the committed public key
+        env:
+          DIR: ${{ steps.assets.outputs.dir }}
+          NAME: ${{ steps.assets.outputs.name }}
+        run: |
+          brew install minisign
+          jq -r .plugins.updater.pubkey apps/desktop/src-tauri/tauri.conf.json | base64 --decode > "$RUNNER_TEMP/updater.pub"
+          base64 --decode < "$DIR/$NAME.app.tar.gz.sig" > "$RUNNER_TEMP/updater.minisig"
+          minisign -V -p "$RUNNER_TEMP/updater.pub" -m "$DIR/$NAME.app.tar.gz" -x "$RUNNER_TEMP/updater.minisig"
+
+      - name: Release notes, updater manifest, and Discord message
+        id: notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+          PUB_DATE: ${{ steps.version.outputs.pub_date }}
+          DIR: ${{ steps.assets.outputs.dir }}
+          NAME: ${{ steps.assets.outputs.name }}
+        run: |
+          download="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG"
+          gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
+            -f tag_name="$TAG" -f target_commitish="$BUILD_SHA" --jq .body > "$DIR/notes.md"
+          cat "$DIR/notes.md"
+          node scripts/release.ts manifest --version "$VERSION" --pub-date "$PUB_DATE" \
+            --notes-file "$DIR/notes.md" --signature-file "$DIR/$NAME.app.tar.gz.sig" \
+            --url "$download/$NAME.app.tar.gz" > "$DIR/latest.json"
+          cat "$DIR/latest.json"
+          payload=$(node scripts/release.ts discord --version "$VERSION" --pub-date "$PUB_DATE" \
+            --notes-file "$DIR/notes.md" --release-url "https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG" \
+            --download-url "$download/$NAME.zip")
+          echo "discord_payload=$payload" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the dry run build
+        if: env.PUBLISH != 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ steps.assets.outputs.name }}
+          path: ${{ steps.assets.outputs.dir }}
+          retention-days: 7
+
+      - name: Publish the release
+        if: env.PUBLISH == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          TITLE: ${{ steps.version.outputs.title }}
+          DIR: ${{ steps.assets.outputs.dir }}
+          NAME: ${{ steps.assets.outputs.name }}
+        run: |
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$BUILD_SHA" \
+            --title "$TITLE" --notes-file "$DIR/notes.md" --latest \
+            "$DIR/$NAME.zip" "$DIR/$NAME.app.tar.gz" "$DIR/$NAME.app.tar.gz.sig" "$DIR/latest.json"
+
+  notify:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PUBLISH: ${{ needs.build.outputs.publish }}
+      PAYLOAD: ${{ needs.build.outputs.discord_payload }}
+      DISCORD_USER_AGENT: 'User-Agent: DiscordBot (https://github.com/danirukun/opensekai, 1)'
+    steps:
+      - name: Check the Discord channel
+        env:
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+        run: |
+          if ! curl --fail-with-body -sS -o channel.json \
+            -H "Authorization: Bot $DISCORD_BOT_TOKEN" -H "$DISCORD_USER_AGENT" \
+            "https://discord.com/api/v10/channels/$DISCORD_CHANNEL_ID"; then
+            cat channel.json
+            exit 1
+          fi
+          guild=$(jq -r .guild_id channel.json)
+          if [[ $guild != "$DISCORD_GUILD_ID" ]]; then
+            echo "::error::Channel $DISCORD_CHANNEL_ID is in guild $guild, expected $DISCORD_GUILD_ID"
+            exit 1
+          fi
+          jq '{id, name, guild_id}' channel.json
+
+      - name: Print the message
+        run: jq . <<<"$PAYLOAD"
+
+      - name: Post the release
+        if: env.PUBLISH == 'true'
+        env:
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+        run: |
+          if ! curl --fail-with-body -sS -o message.json -X POST \
+            -H "Authorization: Bot $DISCORD_BOT_TOKEN" -H "$DISCORD_USER_AGENT" \
+            -H 'Content-Type: application/json' --data "$PAYLOAD" \
+            "https://discord.com/api/v10/channels/$DISCORD_CHANNEL_ID/messages"; then
+            cat message.json
+            exit 1
+          fi
+          jq '{id, channel_id}' message.json
