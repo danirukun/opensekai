@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { eulerFromQuaternion, makeSmokeScene, quaternionFromEuler, type AssetRecord, type Quat, type SceneView } from '@opensekai/contracts';
 import { EMPTY_OVERRIDES, applyOverrides, takeIdle } from '../src/overrides';
-import { advanceTweens, dropTweens, EMPTY_TWEENS, MAX_TWEENS, sampleTween, startTween, tweening, writeTransitioned, type PropertyLayers, type Transition } from '../src/tweens';
+import { advanceTweens, dropTweens, EMPTY_TWEENS, MAX_TWEENS, sampleTween, startTween, tweening, writeTransitioned, type PropertyLayers, type PropertyTween, type Transition } from '../src/tweens';
 import { advanceBlendShapes, composeBlendShapes, EMPTY_BLEND_SHAPES, setBlendShape } from '../src/blend-shapes';
 import { EMPTY_LOOK_AT, lookRotation, MAX_PITCH, MAX_YAW, sceneLookup, setLookAt, stepLookAt, type LookAtStates } from '../src/look-at';
 import { quatToEuler } from '../src/bone-offsets';
@@ -33,19 +33,19 @@ it('eases a number from the current value and writes the exact target at the end
 
 it('clamps an overshoot ease to the property range and keeps scale positive', () => {
  const back = ok(writeTransitioned(EMPTY, scene, { kind: 'setProperty', entityId: 'camera_wide', property: 'fovDegrees', value: 178, transition: { seconds: 1, easing: 'OutBack' } }, 'g', 0));
- expect(sampleTween([...back.tweens.values()][0]!, 800).value).toBe(179);
+ expect(sampleTween([...back.tweens.values()][0]! as PropertyTween, 800).value).toBe(179);
  const shrink = ok(writeTransitioned(EMPTY, scene, { kind: 'setProperty', entityId: 'reference', property: 'scale', value: [0.01, 0.01, 0.01], transition: { seconds: 1, easing: 'InBack' } }, 'g', 0));
- const sample = sampleTween([...shrink.tweens.values()][0]!, 990).value as number[];
+ const sample = sampleTween([...shrink.tweens.values()][0]! as PropertyTween, 990).value as number[];
  expect(Math.min(...sample)).toBeGreaterThan(0);
 });
 
 it('lerps Vector3 values and slerps rotation on the shortest path, not by Euler angles', () => {
  const position = ok(writeTransitioned(EMPTY, scene, { kind: 'setProperty', entityId: 'reference', property: 'position', value: [2.9, 0.7, -4], transition: linear(2) }, 'g', 0));
- const [x, , z] = sampleTween([...position.tweens.values()][0]!, 500).value as number[];
+ const [x, , z] = sampleTween([...position.tweens.values()][0]! as PropertyTween, 500).value as number[];
  expect(x).toBeCloseTo(1.4); expect(z).toBeCloseTo(-1);
  const turned: SceneView = { ...scene, entities: scene.entities.map(e => e.id === 'reference' ? { ...e, transform: { ...e.transform, rotation: quaternionFromEuler([0, 170, 0]) } } : e) };
  const rotation = ok(writeTransitioned(EMPTY, turned, { kind: 'setProperty', entityId: 'reference', property: 'rotation', value: [0, -170, 0], transition: linear(1) }, 'g', 0));
- const tween = [...rotation.tweens.values()][0]!;
+ const tween = [...rotation.tweens.values()][0]! as PropertyTween;
  // The short way passes through 180 degrees; an Euler lerp would pass through 0.
  const [, yaw] = sampleTween(tween, 500).value as number[];
  expect(Math.abs(Math.abs(yaw!) - 180)).toBeLessThan(1e-6);

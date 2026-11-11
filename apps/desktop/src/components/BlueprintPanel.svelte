@@ -10,7 +10,7 @@
  import { deleteOps, disconnectOps } from '../blueprints/selection-ops';
  import { freeSpot } from '../blueprints/placement';
  import { availableTemplates, templatesEnabled } from '../blueprints/templates';
- import { currentPropertyValue } from '../blueprints/current-value';
+ import { currentInputValues } from '../blueprints/current-value';
  import { shortcutFor } from '../blueprints/keys';
  import { copyNodes, duplicateAnchor, pasteOps, type BlueprintClipboard } from '../blueprints/clipboard';
  import { formatLayout, formatOps } from '../blueprints/layout';
@@ -196,7 +196,7 @@
   if (!target) return;
   try {
    const { mountReteBlueprint } = await import('../blueprints/rete-editor');
-   const mounted = await mountReteBlueprint(canvas, target, { onSelect: picked => { nodeId = picked; }, onOps: ops => { act(ops); }, onContextMenu: openMenu, onWireDrop: openDrop, onCommentSelect: ids => { commentIds = ids; }, onCommentOpen: id => { void openComment(id); }, currentValue: (node, wired) => currentPropertyValue(node, wired, scene) }, { views: { node: BlueprintNodeView, socket: BlueprintSocketView, connection: BlueprintConnectionView } });
+   const mounted = await mountReteBlueprint(canvas, target, { onSelect: picked => { nodeId = picked; }, onOps: ops => { act(ops); }, onContextMenu: openMenu, onWireDrop: openDrop, onCommentSelect: ids => { commentIds = ids; }, onCommentOpen: id => { void openComment(id); }, currentValue: (node, wired) => currentInputValues(node, wired, scene) }, { views: { node: BlueprintNodeView, socket: BlueprintSocketView, connection: BlueprintConnectionView } });
    if (mine !== generation) { mounted.destroy(); return; }
    editor = mounted;
    mounted.setEditable(!disabled);
@@ -365,6 +365,7 @@
   finally { busy = false; }
  }
  $effect(() => { editor?.setEditable(!disabled); });
+ $effect(() => { if (scene) editor?.refreshCurrent(); });
  onMount(() => {
   clipboard = memory.clipboard.current;
   const off = sync.subscribe(update);

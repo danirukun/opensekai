@@ -135,6 +135,8 @@ export function applyEffects(scene: SceneView, effects: SceneEffect[]): Reply<Sc
    if (!output) return failure('NOT_FOUND', 'Output not found', [effect.outputId]);
    if (!next.entities.some(entity => entity.id === effect.cameraId && entity.kind === 'camera')) return failure('NOT_FOUND', 'Camera not found', [effect.cameraId]);
    output.cameraId = effect.cameraId;
+   // A cut of the main output also moves the editor viewport, as every editor selection path does (B32 R11).
+   if (output.id === 'output_main') for (const preview of next.outputs) if (preview.id === 'preview_main') preview.cameraId = effect.cameraId;
    continue;
   }
   const entity = next.entities.find(item => item.id === effect.entityId);

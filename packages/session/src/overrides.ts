@@ -1,8 +1,10 @@
 import { rotateByQuaternion, writeProperty, type Id, type PropertyKey, type PropertyValue, type Reply, type SceneEntity, type ScenePatch, type SceneView, type Vec3 } from '@opensekai/contracts';
-import { delta, shifted } from './camera-follow';
+import { delta, followers, shifted } from './camera-follow';
 import type { Transition } from './tweens';
 
-export interface OverrideEntry { value: PropertyValue; lastWriteMs: number; graphIds: readonly Id[] }
+// `followRelative` marks a camera position in persistent coordinates (Camera Orbit Character, B32 R4): the follow offset of
+// its Orbit Character target goes on top of it, as for a camera without a position override.
+export interface OverrideEntry { value: PropertyValue; lastWriteMs: number; graphIds: readonly Id[]; followRelative?: true }
 export type OverrideLayer = ReadonlyMap<Id, ReadonlyMap<PropertyKey, OverrideEntry>>;
 export type OverrideWrite =
  // `nodeId` is the Set Asset Property node of the write; its On Transition End runs after the write.
@@ -33,16 +35,21 @@ export const applyOverrides = (scene: SceneView, layer: OverrideLayer): SceneVie
  layer.size === 0 ? scene : { ...scene, entities: scene.entities.map(entity => followed(scene, layer, layer.has(entity.id) ? overriddenEntity(scene, layer, entity.id)! : entity)) };
 // An Orbit Character camera follows the position override of its target (R6a): it moves by the override's offset from the
 // persistent target. The idle commit moves the persistent camera by the same offset, so the evaluated camera does not jump.
+// A camera position override skips the follow, unless it is follow-relative.
 function followed(scene: SceneView, layer: OverrideLayer, entity: SceneEntity): SceneEntity {
- if (entity.kind !== 'camera' || entity.navigation?.mode !== 'orbitCharacter' || layer.get(entity.id)?.has('position')) return entity;
- const targetId = entity.navigation.targetId;
+ const own = layer.get(entity.id)?.get('position');
+ if (entity.kind !== 'camera' || entity.navigation?.mode !== 'orbitCharacter' || (own && !own.followRelative)) return entity;
+ const offset = followOffset(scene, layer, entity.navigation.targetId);
+ return offset ? { ...entity, transform: { ...entity.transform, position: shifted(entity.transform.position, offset) } } : entity;
+}
+// The position override of a character minus its persistent position, or null when it has no position override.
+export function followOffset(scene: SceneView, layer: OverrideLayer, targetId: Id | null): Vec3 | null {
  const override = targetId ? layer.get(targetId)?.get('position') : undefined;
  const target = override && scene.entities.find(item => item.id === targetId);
- if (!override || !target) return entity;
- return { ...entity, transform: { ...entity.transform, position: shifted(entity.transform.position, delta(target.transform.position, override.value as Vec3)) } };
+ return override && target ? delta(target.transform.position, override.value as Vec3) : null;
 }
 
-export function writeOverride(layer: OverrideLayer, scene: SceneView, write: OverrideWrite, graphId: Id, nowMs: number): Reply<OverrideLayer> {
+export function writeOverride(layer: OverrideLayer, scene: SceneView, write: OverrideWrite, graphId: Id, nowMs: number, relative = false): Reply<OverrideLayer> {
  const entity = overriddenEntity(scene, layer, write.entityId);
  if (!entity) return { ok: false, error: { code: 'NOT_FOUND', message: 'Entity not found', ids: [write.entityId] } };
  let property: PropertyKey, value: PropertyValue;
@@ -57,20 +64,31 @@ export function writeOverride(layer: OverrideLayer, scene: SceneView, write: Ove
  const checked = writeProperty(entity, property, value);
  if (!checked.ok) return checked;
  // A write that does not change the value keeps the last write time, so On Update graphs can stop.
- if (JSON.stringify(checked.data) === JSON.stringify(entity)) return { ok: true, data: layer };
  const own = layer.get(write.entityId), previous = own?.get(property);
+ // A Move Entity delta keeps the coordinates of the position that it moves, so a follow-relative position stays follow-relative.
+ const followRelative = relative || (write.kind === 'moveEntity' && previous?.followRelative === true);
+ if (JSON.stringify(checked.data) === JSON.stringify(entity) && Boolean(previous?.followRelative) === followRelative) return { ok: true, data: layer };
  if (!previous && size(layer) >= MAX_OVERRIDES) return fail('Override limit reached', [write.entityId]);
  const graphIds = previous?.graphIds.includes(graphId) ? previous.graphIds : [...(previous?.graphIds ?? []), graphId];
  const next = new Map(layer);
- next.set(write.entityId, new Map(own).set(property, { value: structuredClone(value), lastWriteMs: nowMs, graphIds }));
+ next.set(write.entityId, new Map(own).set(property, { value: structuredClone(value), lastWriteMs: nowMs, graphIds, ...(followRelative ? { followRelative: true as const } : {}) }));
  return { ok: true, data: next };
 }
 
 // `busy` keeps an override from committing, for example while a transition writes it.
 export function takeIdle(scene: SceneView, layer: OverrideLayer, nowMs: number, busy: (entityId: Id, property: PropertyKey) => boolean = () => false): { operations: Operation[]; graphIds: Id[]; remaining: OverrideLayer } {
  const operations: Operation[] = [], graphIds = new Set<Id>(), remaining = new Map<Id, ReadonlyMap<PropertyKey, OverrideEntry>>();
- for (const [entityId, entries] of layer) {
-  const idle = new Map([...entries].filter(([key, entry]) => nowMs - entry.lastWriteMs >= COMMIT_IDLE_MS && !busy(entityId, key)));
+ const idleOf = new Map([...layer].map(([entityId, entries]) => [entityId, new Map([...entries].filter(([key, entry]) => nowMs - entry.lastWriteMs >= COMMIT_IDLE_MS && !busy(entityId, key)))]));
+ // A character position that commits moves the persistent character, so a follow-relative camera position moves with it.
+ const moved = new Map<Id, Vec3>();
+ for (const [entityId, idle] of idleOf) {
+  const offset = idle.has('position') ? followOffset(scene, layer, entityId) : null;
+  if (offset) for (const cameraId of followers(scene, entityId)) moved.set(cameraId, offset);
+ }
+ for (const [entityId, own] of layer) {
+  const offset = moved.get(entityId), position = own.get('position');
+  const entries = offset && position?.followRelative ? new Map(own).set('position', { ...position, value: shifted(position.value as Vec3, offset) }) : own;
+  const idle = new Map([...idleOf.get(entityId)!.keys()].map(key => [key, entries.get(key)!]));
   const pending = new Map([...entries].filter(([key]) => !idle.has(key)));
   if (pending.size) remaining.set(entityId, pending);
   if (!idle.size) continue;
@@ -95,6 +113,8 @@ export const touchedProperties = (operation: Operation): [Id, readonly PropertyK
   case 'setCameraRenderEnvironment': return [operation.entityId, ['renderEnvironment']];
   case 'setLight': return [operation.entityId, ['intensity']];
   case 'setHaze': return [operation.entityId, ['hazeDensity']];
+  // A Control Mode, Focus Character, or pivot change ends a Blueprint orbit of the camera (B32 R7).
+  case 'setCameraNavigation': return [operation.entityId, ['position', 'rotation']];
   case 'removeEntity': return [operation.entityId, 'all'];
   default: return null;
  }

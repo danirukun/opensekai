@@ -2,7 +2,7 @@ import { expect, it } from 'vitest';
 import { makeSmokeScene, type SceneEntity } from '@opensekai/contracts';
 import { boneOptions } from '../src/blueprints/fields';
 import { availableTemplates, cameraSway, templateAvatar, templateCamera, templatesEnabled, upperBodyRotation } from '../src/blueprints/templates';
-import { currentPropertyValue } from '../src/blueprints/current-value';
+import { currentInputValues, currentPropertyValue } from '../src/blueprints/current-value';
 
 const twoAvatars = () => {
  const scene = makeSmokeScene();
@@ -62,4 +62,19 @@ it('reads the committed value for Use current value, and is disabled for a wire,
  expect(currentPropertyValue(set('position'), true, scene)).toBeNull();
  expect(currentPropertyValue(set('position', 'gone'), false, scene)).toBeNull();
  expect(currentPropertyValue(set('position'), false, null)).toBeNull();
+});
+
+it('reads the orbit of the node camera for Use current value, and is disabled for a camera that cannot orbit (B32 R9)', () => {
+ const scene = makeSmokeScene();
+ const orbit = (cameraId = 'camera_wide') => ({ id: 'n', version: 1 as const, type: 'camera.orbitCharacter' as const, settings: { cameraId }, position: { x: 0, y: 0 } }) as Parameters<typeof currentInputValues>[0];
+ // camera_wide is at (0, 1.2, 3); the pivot is the performer root (0, 0, 0) plus (0, 1.3, 0).
+ scene.entities = scene.entities.map(entity => entity.id === 'camera_wide' && entity.kind === 'camera' ? { ...entity, navigation: { mode: 'orbitCharacter', sensitivity: 1, targetId: 'performer', pivotOffset: [0, 1.3, 0] } } : entity);
+ expect(currentInputValues(orbit(), new Set(), scene)).toEqual({ yaw: 0, pitch: -1.9, distance: 3 });
+ expect(currentInputValues(orbit(), new Set(['pitch']), scene)).toEqual({ yaw: 0, distance: 3 });
+ expect(currentInputValues(orbit(), new Set(['yaw', 'pitch', 'distance']), scene)).toBeNull();
+ expect(currentInputValues(orbit('camera_close'), new Set(), scene)).toBeNull();
+ expect(currentInputValues(orbit('gone'), new Set(), scene)).toBeNull();
+ expect(currentInputValues(orbit(), new Set(), null)).toBeNull();
+ const set = { id: 's', version: 1 as const, type: 'property.set' as const, settings: { entityId: 'camera_wide', property: 'fovDegrees' }, position: { x: 0, y: 0 } } as Parameters<typeof currentInputValues>[0];
+ expect(currentInputValues(set, new Set(), scene)).toEqual({ value: currentPropertyValue(set, false, scene) });
 });

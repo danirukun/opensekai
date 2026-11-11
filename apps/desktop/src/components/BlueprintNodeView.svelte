@@ -6,15 +6,17 @@
  import { parseScalar, vectorParts } from '../blueprints/fields';
 
  type Port = { socket: unknown; label?: string; index?: number };
- export let data: { id: string; label: string; selected?: boolean; data?: BlueprintNode; wired?: ReadonlyMap<string, number>; editable?: boolean; debug?: { text: string; time: string } | null; setInput?: (port: string, value: ScalarValue | null) => void; current?: () => ScalarValue | null; inputs: Record<string, Port | undefined>; outputs: Record<string, Port | undefined> };
+ export let data: { id: string; label: string; selected?: boolean; data?: BlueprintNode; wired?: ReadonlyMap<string, number>; editable?: boolean; debug?: { text: string; time: string } | null; setInput?: (port: string, value: ScalarValue | null) => void; setInputs?: (values: Record<string, ScalarValue>) => void; current?: () => Record<string, ScalarValue> | null; inputs: Record<string, Port | undefined>; outputs: Record<string, Port | undefined> };
  export let emit: (props: unknown) => void;
 
+ const ORBIT_LABELS = { yaw: 'Yaw (°)', pitch: 'Pitch (°)', distance: 'Distance (m)' } as const;
  const sorted = (ports: Record<string, Port | undefined>) =>
   Object.entries(ports).filter((entry): entry is [string, Port] => entry[1] !== undefined).sort(([, a], [, b]) => (a.index ?? 0) - (b.index ?? 0));
  // Flow ports read from their chevron, so only data ports and branch names keep a label.
  const label = (name: string) => {
   if (name === 'flow' || name === 'exit') return '';
   if (name === 'transitionEnd') return 'On Transition End';
+  if (data.data?.type === 'camera.orbitCharacter' && name in ORBIT_LABELS) return ORBIT_LABELS[name as keyof typeof ORBIT_LABELS];
   // A Switch On Number case port shows the value it matches.
   const match = /^case(\d+)$/.exec(name);
   if (match && data.data?.type === 'flow.switch') return `= ${data.data.settings.cases[Number(match[1])]}`;
@@ -83,8 +85,8 @@
    {/each}
   </div>
  </div>
- {#if data.data?.type === 'property.set' && editors.value}
-  <div class="bp-node-action" use:own><Button variant="ghost" size="sm" disabled={!editable || data.current?.() == null} onclick={() => { const value = data.current?.(); if (editable && value != null) data.setInput?.('value', value); }}>Use current value</Button></div>
+ {#if (data.data?.type === 'property.set' && editors.value) || data.data?.type === 'camera.orbitCharacter'}
+  <div class="bp-node-action" use:own><Button variant="ghost" size="sm" disabled={!editable || data.current?.() == null} onclick={() => { const values = data.current?.(); if (editable && values) data.setInputs?.(values); }}>Use current value</Button></div>
  {/if}
  {#if debug}<div class="bp-node-debug"><span>{debug.text}</span><time>{debug.time}</time></div>{/if}
 </div>

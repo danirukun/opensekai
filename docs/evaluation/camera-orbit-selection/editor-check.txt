@@ -1,0 +1,10 @@
+PASS the camera is in Orbit Character mode and the graph loads {"placed":{"ok":true,"data":{"revision":1}},"loaded":true}
+PASS R1: the node shows Yaw (°), Pitch (°), and Distance (m) ["Yaw (°)","Pitch (°)","Distance (m)"]
+PASS R1: the node shows the On Transition End output ["On Transition End"]
+PASS R9: Use current value sends one edit with three setNodeInput operations [{"kind":"setNodeInput","graphId":"orbit","nodeId":"orbit","port":"yaw","value":0},{"kind":"setNodeInput","graphId":"orbit","nodeId":"orbit","port":"pitch","value"…
+PASS R9: the inline values show the current Yaw, Pitch, and Distance {"previous":[45,10,2.5],"now":[0,-1.9,3],"expected":[0,-1.9,3],"committed":[0,1.2,3]}
+PASS R9: one undo step restores the three previous values {"previous":[45,10,2.5],"restored":[45,10,2.5]}
+PASS R9: the button is disabled when the camera is not in Orbit Character mode 
+PASS R11: Switch Camera on output_main sets output_main and preview_main in one revision {"added":true,"ran":{"ok":true,"data":{"revision":4}},"revision":3,"after":4,"outputs":[["output_main","camera_second"],["preview_main","camera_second"…
+PASS no page error []
+9/9 passed

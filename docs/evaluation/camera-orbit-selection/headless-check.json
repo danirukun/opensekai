@@ -1,0 +1,66 @@
+{
+ "backend": "webgl2",
+ "fixture": "fixture_vrm0_arkit",
+ "frames": [
+  {
+   "yaw": 0,
+   "run": true,
+   "cameraPosition": [
+    0,
+    1.682,
+    2.167
+   ],
+   "opaqueFraction": 0.0915,
+   "opaqueColumns": [
+    152,
+    456
+   ],
+   "file": "docs/evaluation/camera-orbit-selection/orbit-yaw-0.png"
+  },
+  {
+   "yaw": 90,
+   "run": true,
+   "cameraPosition": [
+    2.167,
+    1.682,
+    0
+   ],
+   "opaqueFraction": 0.0512,
+   "opaqueColumns": [
+    289,
+    355
+   ],
+   "file": "docs/evaluation/camera-orbit-selection/orbit-yaw-90.png"
+  },
+  {
+   "yaw": 180,
+   "run": true,
+   "cameraPosition": [
+    0,
+    1.682,
+    -2.167
+   ],
+   "opaqueFraction": 0.0927,
+   "opaqueColumns": [
+    149,
+    459
+   ],
+   "file": "docs/evaluation/camera-orbit-selection/orbit-yaw-180.png"
+  },
+  {
+   "yaw": 270,
+   "run": true,
+   "cameraPosition": [
+    -2.167,
+    1.682,
+    0
+   ],
+   "opaqueFraction": 0.0495,
+   "opaqueColumns": [
+    285,
+    350
+   ],
+   "file": "docs/evaluation/camera-orbit-selection/orbit-yaw-270.png"
+  }
+ ]
+}
