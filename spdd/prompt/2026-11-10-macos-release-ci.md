@@ -7,9 +7,9 @@ Date: 2026-11-10. Scope: the first release slice (CI and distribution). Analysis
 R1. Each push to `main` starts one release run. A manual run (`workflow_dispatch`) on `main` with `publish: true` also releases. Release runs share the concurrency group `release` and do not cancel a run in progress.
 R2. A pull request that changes `.github/workflows/release.yml`, `scripts/release.ts`, `scripts/cloud-setup.sh`, or `apps/desktop/src-tauri/tauri.conf.json` starts a dry run. A manual run without `publish: true`, or on another branch, is also a dry run. Dry runs use one concurrency group for each ref, and a new dry run cancels the older one. A pull request from a fork does not run.
 R3. The version comes from the committer time of the built commit in UTC: `YYYY.MDD.HHMM`, each part an integer with no leading zero (10 November 2026 23:18 is `2026.1110.2318`; 5 January 2027 09:04 is `2027.105.904`). The tag is `v<version>`. The release title is `YYYY-MM-DD HH:MM UTC`. `CFBundleVersion` is `YYYYMMDDHHMM`.
-R4. A release run stops before it publishes when the version is not higher than the version of the latest release, or when the tag exists.
-R5. The build runs on `macos-15` (arm64) with the toolchain of `.node-version` and `rust-toolchain.toml`. It clones the UI kit with `OSHI_UI_TOKEN` through `scripts/cloud-setup.sh`. With `OPENSEKAI_RELEASE_BUILD=1` that script skips Playwright, `pnpm build`, the fixtures, and the GPU probe.
-R6. Tauri builds the `app` bundle with these overrides only: `version`, `bundle.macOS.bundleVersion`, `bundle.macOS.signingIdentity: "-"`, and `bundle.createUpdaterArtifacts: true`. The updater key comes from `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. No version change is committed.
+R4. A release run stops before it publishes when the version is not higher than the version of the latest release, or when the tag or a release with the tag exists. A GitHub API error other than 404 also stops it.
+R5. The build runs on `macos-15` (arm64) with the toolchain of `.node-version` and `rust-toolchain.toml`. One step clones the UI kit with `OSHI_UI_TOKEN` into `~/.cache/opensekai/oshi-connect-ui`. Then `scripts/cloud-setup.sh` runs without the token, checks out the pinned commit, and builds the kit. With `OPENSEKAI_RELEASE_BUILD=1` that script skips Playwright, `pnpm build`, the fixtures, and the GPU probe. The workflow runs `pnpm build` in its own step.
+R6. Tauri builds the `app` bundle with these overrides only: `version`, `build.beforeBuildCommand: null` (the frontend is already built), `bundle.macOS.bundleVersion`, `bundle.macOS.signingIdentity: "-"`, and `bundle.createUpdaterArtifacts: true`. The updater key comes from `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, only in the Tauri build step. No version change is committed.
 R7. `apps/desktop/src-tauri/tauri.conf.json` has `plugins.updater.pubkey` (key ID `4DEF778BB1ECFDFF`) and `plugins.updater.endpoints` with `https://github.com/danirukun/opensekai/releases/latest/download/latest.json`.
 R8. Signature gate: `minisign` checks the `.app.tar.gz` with the `.sig` and the public key of R7. A failed check stops the run before it publishes.
 R9. Release assets: `OpenSekai-<version>-macos-arm64.zip` (the `.app`, made with `ditto`), `OpenSekai-<version>-macos-arm64.app.tar.gz`, its `.sig`, and `latest.json`.
@@ -50,6 +50,8 @@ Write the pure functions and their tests first. Then the setup flag, the config 
 - Pin each action by its commit SHA.
 - The workflow token has `contents: write` only.
 - Secrets go only to the steps that use them. No step prints a secret.
+- Run steps use `bash` with `pipefail`.
+- No cache holds the UI kit. The UI kit is private, this repository is public, and a fork pull request can restore the caches of `main`. Only `artifacts/models` (public files) is cached.
 - Integration tests for `scripts/release.ts` (the project of `scripts/*.test.ts`). No mock of the unit under test.
 
 ## S — Safeguards

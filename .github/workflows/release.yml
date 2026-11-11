@@ -24,6 +24,10 @@ concurrency:
 permissions:
   contents: write
 
+defaults:
+  run:
+    shell: bash
+
 env:
   DISCORD_GUILD_ID: '1463985737174093844'
   DISCORD_CHANNEL_ID: '1540662723095035934'
@@ -64,11 +68,22 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
           TAG: ${{ steps.version.outputs.tag }}
         run: |
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "::error::Release $TAG exists. Two merges in one UTC minute get one version; the next merge releases both."
+          # Print the field of an API object, or nothing on 404. Any other error fails the assignment.
+          lookup() {
+            local out
+            if out=$(gh api "$1" --jq "$2" 2>&1); then printf '%s' "$out"; return 0; fi
+            grep -q 'HTTP 404' <<<"$out" && return 0
+            echo "$1: $out" >&2
+            return 1
+          }
+          repo="repos/$GITHUB_REPOSITORY"
+          tag_ref=$(lookup "$repo/git/ref/tags/$TAG" .ref)
+          release_id=$(lookup "$repo/releases/tags/$TAG" .id)
+          if [[ -n $tag_ref || -n $release_id ]]; then
+            echo "::error::Tag or release $TAG exists. Two merges in one UTC minute get one version; the next merge releases both."
             exit 1
           fi
-          latest=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName 2>/dev/null || true)
+          latest=$(lookup "$repo/releases/latest" .tag_name)
           node scripts/release.ts newer "$VERSION" "$latest"
 
       - name: Rust toolchain
@@ -79,18 +94,30 @@ jobs:
 
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
 
+      # The UI kit is private and this repository is public: a fork pull request can restore
+      # caches of main, so the UI kit clone must never be in a cache.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            ~/.cache/opensekai/oshi-connect-ui
-            artifacts/models
-          key: release-deps-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('docs/dependencies.md', 'apps/desktop/src/tracking/models.json') }}
+          path: artifacts/models
+          key: tracking-models-${{ hashFiles('apps/desktop/src/tracking/models.json') }}
+
+      - name: Clone the UI kit
+        env:
+          OSHI_UI_TOKEN: ${{ secrets.OSHI_UI_TOKEN }}
+          GIT_TERMINAL_PROMPT: '0'
+        run: |
+          target="$HOME/.cache/opensekai/oshi-connect-ui"
+          mkdir -p "$(dirname "$target")"
+          git clone --quiet "https://x-access-token:${OSHI_UI_TOKEN}@github.com/oshi-connect/oshi-connect-ui" "$target"
+          git -C "$target" remote set-url origin https://github.com/oshi-connect/oshi-connect-ui
 
       - name: Set up the workspace
         env:
-          OSHI_UI_TOKEN: ${{ secrets.OSHI_UI_TOKEN }}
           OPENSEKAI_RELEASE_BUILD: '1'
         run: bash scripts/cloud-setup.sh
+
+      - name: Build the frontend
+        run: pnpm build
 
       - name: Build the app
         env:
@@ -103,10 +130,10 @@ jobs:
           config="$RUNNER_TEMP/release-config.json"
           jq -n --arg version "$VERSION" --arg bundle "$BUNDLE_VERSION" '{
             version: $version,
+            build: { beforeBuildCommand: null },
             bundle: { createUpdaterArtifacts: true, macOS: { bundleVersion: $bundle, signingIdentity: "-" } }
           }' > "$config"
           cat "$config"
-          pnpm build
           pnpm --filter @opensekai/desktop tauri build --bundles app --config "$config"
 
       - name: Collect the assets
