@@ -34,14 +34,20 @@ async fn send(socket: &mut Socket, value: Value) {
         .unwrap();
 }
 async fn recv(socket: &mut Socket) -> Value {
-    let text = tokio::time::timeout(Duration::from_secs(3), socket.next())
-        .await
-        .unwrap()
-        .unwrap()
-        .unwrap()
-        .into_text()
-        .unwrap();
-    serde_json::from_str(&text).unwrap()
+    loop {
+        let text = tokio::time::timeout(Duration::from_secs(3), socket.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap()
+            .into_text()
+            .unwrap();
+        let value: Value = serde_json::from_str(&text).unwrap();
+        // The capture status (B31 R9) is host state that these tests skip.
+        if value["kind"] != "captureStatus" {
+            return value;
+        }
+    }
 }
 async fn auth(descriptor: &ConnectionDescriptor) -> Socket {
     let (mut socket, _) = connect_async(&descriptor.ws_url).await.unwrap();

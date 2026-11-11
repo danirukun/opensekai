@@ -8,6 +8,15 @@ rust-version.workspace = true
 name = "opensekai_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+# B31 R12: the test capture adapter. Only tests enable it:
+# cargo test -p opensekai-desktop --features capture-fixture --test capture_integration
+capture-fixture = []
+
+[[test]]
+name = "capture_integration"
+required-features = ["capture-fixture"]
+
 [build-dependencies]
 tauri-build.workspace = true
 
@@ -37,6 +46,20 @@ tauri-plugin-dialog = "=2.8.1"
 tauri-plugin-global-shortcut = "=2.4.0"
 tauri-plugin-opener = "=2.7.2"
 if-addrs = "=0.15.0"
+
+# B31 R11: the macOS capture adapter (ScreenCaptureKit and VideoToolbox), at exact versions.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "=0.6.4"
+block2 = "=0.6.2"
+dispatch2 = "=0.3.1"
+objc2-foundation = "=0.3.2"
+objc2-app-kit = "=0.3.2"
+objc2-core-foundation = "=0.3.2"
+objc2-core-graphics = "=0.3.2"
+objc2-core-media = "=0.3.2"
+objc2-core-video = "=0.3.2"
+objc2-video-toolbox = "=0.3.2"
+objc2-screen-capture-kit = "=0.3.2"
 
 # Gamepad and MIDI adapters (BP-06). Linux has stubs, so its build needs no udev or ALSA headers.
 [target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]

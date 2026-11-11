@@ -1,0 +1,189 @@
+{
+ "codec": "avc1.4d400d",
+ "description": "AU1ADf/hABZnTUAN2QPH7ARAAAADAEAAAA8jxQqSAQAFaOvDyyA=",
+ "codedWidth": 240,
+ "codedHeight": 240,
+ "frameRate": 30,
+ "chunks": [
+  {
+   "offset": 0,
+   "length": 677,
+   "key": true,
+   "timestampUs": 0
+  },
+  {
+   "offset": 677,
+   "length": 17,
+   "key": false,
+   "timestampUs": 33333
+  },
+  {
+   "offset": 694,
+   "length": 20,
+   "key": false,
+   "timestampUs": 66667
+  },
+  {
+   "offset": 714,
+   "length": 21,
+   "key": false,
+   "timestampUs": 100000
+  },
+  {
+   "offset": 735,
+   "length": 21,
+   "key": false,
+   "timestampUs": 133333
+  },
+  {
+   "offset": 756,
+   "length": 21,
+   "key": false,
+   "timestampUs": 166667
+  },
+  {
+   "offset": 777,
+   "length": 21,
+   "key": false,
+   "timestampUs": 200000
+  },
+  {
+   "offset": 798,
+   "length": 21,
+   "key": false,
+   "timestampUs": 233333
+  },
+  {
+   "offset": 819,
+   "length": 21,
+   "key": false,
+   "timestampUs": 266667
+  },
+  {
+   "offset": 840,
+   "length": 21,
+   "key": false,
+   "timestampUs": 300000
+  },
+  {
+   "offset": 861,
+   "length": 21,
+   "key": false,
+   "timestampUs": 333333
+  },
+  {
+   "offset": 882,
+   "length": 21,
+   "key": false,
+   "timestampUs": 366667
+  },
+  {
+   "offset": 903,
+   "length": 21,
+   "key": false,
+   "timestampUs": 400000
+  },
+  {
+   "offset": 924,
+   "length": 21,
+   "key": false,
+   "timestampUs": 433333
+  },
+  {
+   "offset": 945,
+   "length": 21,
+   "key": false,
+   "timestampUs": 466667
+  },
+  {
+   "offset": 966,
+   "length": 21,
+   "key": false,
+   "timestampUs": 500000
+  },
+  {
+   "offset": 987,
+   "length": 21,
+   "key": false,
+   "timestampUs": 533333
+  },
+  {
+   "offset": 1008,
+   "length": 21,
+   "key": false,
+   "timestampUs": 566667
+  },
+  {
+   "offset": 1029,
+   "length": 21,
+   "key": false,
+   "timestampUs": 600000
+  },
+  {
+   "offset": 1050,
+   "length": 21,
+   "key": false,
+   "timestampUs": 633333
+  },
+  {
+   "offset": 1071,
+   "length": 21,
+   "key": false,
+   "timestampUs": 666667
+  },
+  {
+   "offset": 1092,
+   "length": 21,
+   "key": false,
+   "timestampUs": 700000
+  },
+  {
+   "offset": 1113,
+   "length": 21,
+   "key": false,
+   "timestampUs": 733333
+  },
+  {
+   "offset": 1134,
+   "length": 21,
+   "key": false,
+   "timestampUs": 766667
+  },
+  {
+   "offset": 1155,
+   "length": 21,
+   "key": false,
+   "timestampUs": 800000
+  },
+  {
+   "offset": 1176,
+   "length": 21,
+   "key": false,
+   "timestampUs": 833333
+  },
+  {
+   "offset": 1197,
+   "length": 21,
+   "key": false,
+   "timestampUs": 866667
+  },
+  {
+   "offset": 1218,
+   "length": 21,
+   "key": false,
+   "timestampUs": 900000
+  },
+  {
+   "offset": 1239,
+   "length": 21,
+   "key": false,
+   "timestampUs": 933333
+  },
+  {
+   "offset": 1260,
+   "length": 21,
+   "key": false,
+   "timestampUs": 966667
+  }
+ ]
+}

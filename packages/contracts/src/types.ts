@@ -11,6 +11,7 @@ import type { AvatarRig, VmcPosesEnvelope, VmcSenderSettings, VmcSenderStatus } 
 import type { AssetMesh, MeshList } from './meshes';
 import type { ArkitName, AssetExpression, ExpressionSettings, ExpressionState } from './expressions';
 import type { IntegrationsSetParams, YouTubeStatus } from './youtube';
+import type { CaptureState } from './capture';
 export type Id = string;
 export type Vec3 = [
     number,
@@ -104,7 +105,9 @@ export type SceneEntity = (EntityBase & {
 });
 export interface WebScreen { url: string | null; width: number; height: number; onTop: boolean; }
 export interface ScreenVideo { assetId: Id | null; autoPlay: boolean; loop: boolean; volume: number; }
-export type ScreenContent = { kind: "image"; assetId: Id | null } | ({ kind: "web" } & WebScreen) | ({ kind: "video" } & ScreenVideo);
+export type CaptureSource = { kind: "display"; name: string; ordinal: number } | { kind: "window"; app: string; title: string };
+export interface ScreenCapture { target: "display" | "window"; source: CaptureSource | null; cursor: boolean; }
+export type ScreenContent = { kind: "image"; assetId: Id | null } | ({ kind: "web" } & WebScreen) | ({ kind: "video" } & ScreenVideo) | ({ kind: "capture" } & ScreenCapture);
 export interface ScreenPlayback { entityId: Id; playing: boolean; positionMs: number; }
 export interface LightShadow { enabled: boolean; intensity: number; soft: boolean; bias: number; normalBias: number; }
 export interface LightCone { angleDegrees: number; penumbra: number; }
@@ -140,7 +143,7 @@ type ExistingPatchOp = {
     entityId: Id;
     visible: boolean;
 };
-export type LivePatchOp = {kind:'setTrackingSmoothing';entityId:Id;smoothing:TrackingSmoothing}|{kind:'calibrateTracking';entityId:Id}|{kind:'fitBlendShapeRanges';entityId:Id;neutral:Partial<Record<ArkitName,number>>}|{kind:'setTrackingCalibration';entityId:Id;calibration:TrackingCalibration|null}|{kind:'setTrackingMapping';entityId:Id;mapping:TrackingMapping}| {kind:'setAvatarIdle';entityId:Id;idleAnimation:AvatarIdle}|{kind:'createEntity';entity:SceneEntity}|{kind:'setCameraLens';entityId:Id;lens:Extract<SceneEntity,{kind:'camera'}>['lens']}|{kind:'setAvatarTracking';entityId:Id;tracking:AvatarTracking}|{kind:'setTrackingConfig';entityId:Id;config:TrackingConfig}|{kind:'setAvatarModel';entityId:Id;assetId:Id|null}|{kind:'setEnvironmentModel';entityId:Id;assetId:Id|null}|{kind:'setMeshModel';entityId:Id;assetId:Id|null}|{kind:'setScreenImage';entityId:Id;assetId:Id|null}|{kind:'setScreenWeb';entityId:Id;web:WebScreen}|{kind:'setScreenVideo';entityId:Id;video:ScreenVideo}|{kind:'setEnvironmentReflections';entityId:Id;reflectionsIntensity:number}|{kind:'setLight';entityId:Id;light:LightSettings}|{kind:'setHaze';entityId:Id;haze:HazeSettings}|{kind:'setFpsCounter';entityId:Id;fpsCounter:FpsCounterSettings}|{kind:'setVmcSender';entityId:Id;vmcSender:VmcSenderSettings}|{kind:'setCameraRenderEnvironment';entityId:Id;renderEnvironment:boolean}|{kind:'setCameraAntiAliasing';entityId:Id;antiAliasing:CameraAntiAliasing}|{kind:'setCameraGrading';entityId:Id;grading:CameraGrading|null}|{kind:'setCameraNavigation';entityId:Id;navigation:CameraNavigation}|{kind:'setAvatarExpression';entityId:Id;name:string;settings:ExpressionSettings|null}|{kind:'setHiddenMeshes';entityId:Id;hiddenMeshes:string[]};
+export type LivePatchOp = {kind:'setTrackingSmoothing';entityId:Id;smoothing:TrackingSmoothing}|{kind:'calibrateTracking';entityId:Id}|{kind:'fitBlendShapeRanges';entityId:Id;neutral:Partial<Record<ArkitName,number>>}|{kind:'setTrackingCalibration';entityId:Id;calibration:TrackingCalibration|null}|{kind:'setTrackingMapping';entityId:Id;mapping:TrackingMapping}| {kind:'setAvatarIdle';entityId:Id;idleAnimation:AvatarIdle}|{kind:'createEntity';entity:SceneEntity}|{kind:'setCameraLens';entityId:Id;lens:Extract<SceneEntity,{kind:'camera'}>['lens']}|{kind:'setAvatarTracking';entityId:Id;tracking:AvatarTracking}|{kind:'setTrackingConfig';entityId:Id;config:TrackingConfig}|{kind:'setAvatarModel';entityId:Id;assetId:Id|null}|{kind:'setEnvironmentModel';entityId:Id;assetId:Id|null}|{kind:'setMeshModel';entityId:Id;assetId:Id|null}|{kind:'setScreenImage';entityId:Id;assetId:Id|null}|{kind:'setScreenWeb';entityId:Id;web:WebScreen}|{kind:'setScreenVideo';entityId:Id;video:ScreenVideo}|{kind:'setScreenCapture';entityId:Id;capture:ScreenCapture}|{kind:'setEnvironmentReflections';entityId:Id;reflectionsIntensity:number}|{kind:'setLight';entityId:Id;light:LightSettings}|{kind:'setHaze';entityId:Id;haze:HazeSettings}|{kind:'setFpsCounter';entityId:Id;fpsCounter:FpsCounterSettings}|{kind:'setVmcSender';entityId:Id;vmcSender:VmcSenderSettings}|{kind:'setCameraRenderEnvironment';entityId:Id;renderEnvironment:boolean}|{kind:'setCameraAntiAliasing';entityId:Id;antiAliasing:CameraAntiAliasing}|{kind:'setCameraGrading';entityId:Id;grading:CameraGrading|null}|{kind:'setCameraNavigation';entityId:Id;navigation:CameraNavigation}|{kind:'setAvatarExpression';entityId:Id;name:string;settings:ExpressionSettings|null}|{kind:'setHiddenMeshes';entityId:Id;hiddenMeshes:string[]};
 export type AssetManagementPatchOp = {kind:'renameEntity';entityId:Id;name:string}|{kind:'removeEntity';entityId:Id};
 export type OutputPatchOp = {kind:'setOutputFormat';outputId:Id;width:number;height:number;fps:OutputFrameLimit;renderScale:OutputRenderScale};
 // B29 R10: a runtime operation. The session never commits it.
@@ -217,13 +220,18 @@ export interface RendererDiagnostics {
  sessionId: Id; outputId: Id; rendererEpoch: Id; sequence: number; revision: number; backend: Backend;
  geometries: number; textures: number; liveMaterials: number; assetCacheEntries: number;
  activeRenderJob: boolean; queuedFrames: number; queuedCaptures: number;
+ videoDecoder?: VideoDecoderSupport;
 }
+export type VideoDecoderSupport = 'supported' | 'unsupported' | 'missing';
+export interface CaptureScreenStatus { entityId: Id; streamId: string | null; state: CaptureState; width: number; height: number; }
+export interface CaptureStatus { kind: 'captureStatus'; revision: number; screens: CaptureScreenStatus[]; }
 export interface AppStatus {
     blueprintRevision?: number;
     localAddresses?: string[];
     trackingStatus?: TrackingStatus[];
     vmcSenders?: VmcSenderStatus[];
     youtube?: YouTubeStatus;
+    captures?: { entityId: Id; state: CaptureState }[];
     schemaVersion: 1;
     sessionId: Id;
     ready: boolean;
@@ -234,6 +242,7 @@ export interface AppStatus {
         outputId: Id;
         connected: boolean;
         lastFrame: FrameApplied | null;
+        videoDecoder?: VideoDecoderSupport;
     }[];
 }
 export interface CaptureParams {

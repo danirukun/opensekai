@@ -16,7 +16,9 @@ async function start() {
     try {
         renderer = await createRenderer({ canvas: document.querySelector<HTMLCanvasElement>("#output")!, outputId: descriptor.outputId, mode: new URLSearchParams(location.search).get("backend") === "webgl2" ? "force-webgl2" : "auto", resources: client, diagnostics: new URLSearchParams(location.search).get("diagnostics") === "1", quality: qualityProfileFromQuery(new URLSearchParams(location.search).get("quality")), webLayers: { back: document.querySelector<HTMLDivElement>("#web-back")!, front: document.querySelector<HTMLDivElement>("#web-front")!, interactive: true },
             // Only the OBS page plays video sound (B29 R16).
-            audio: true });
+            audio: true,
+            // B31 R14: the OBS page keeps its capture sockets for the Editor state; only the page close stops them.
+            capture: { onStatus: listener => client.onCaptureStatus(listener), open: (streamId, handlers) => client.openCapture(streamId, handlers) } });
     }
     catch (error) {
         client.close();
@@ -27,12 +29,18 @@ async function start() {
     const sample = createDiagnosticsSampler();
     const epoch = crypto.randomUUID();
     const diagnostics = new URLSearchParams(location.search).get("diagnostics") === "1";
+    // B31 R14: one decoder report at start, also without ?diagnostics=1, so app_status shows the OBS VideoDecoder result.
+    let decoderReported = false;
     const apply = (frame: RuntimeFrame) => {
         // The pacer sees only the draw; a failure after it does not move the last-applied time back.
         const drawn = handle.applyFrame(frame);
         const done = drawn.then(applied => {
             fpsCounter.frameApplied(frame.scene);
             client.sendApplied(applied);
+            if (!decoderReported) {
+                const report = handle.decoderReport(epoch);
+                if (report) { decoderReported = true; client.sendDiagnostics?.(report); }
+            }
             if (diagnostics && sample(performance.now())) {
                 const snapshot = handle.diagnostics?.(epoch);
                 if (snapshot) client.sendDiagnostics?.(snapshot);

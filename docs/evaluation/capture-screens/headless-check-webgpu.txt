@@ -1,0 +1,22 @@
+gpu {"webgpu":{"vendor":"google","architecture":"swiftshader","description":"","device":true},"webgl2":{"renderer":"ANGLE (Mesa, Vulkan 1.4.318 (llvmpipe (LLVM 20.1.2 256 bits) (0x00000000)), llvmpipe)"}}
+NOTE spike webgpu: VideoDecoder probe (avc1.4d0029 1920 x 1080) "supported"
+NOTE spike webgpu: 2D canvas reference (decoded frames, center pixels) {"decoded":60,"failure":null,"pixels":[[255,24,0,255],[0,216,2,255],[0,14,253,255],[255,255,255,255]]}
+PASS spike webgpu: frame 7 is red (screenshot center within 24 of the 2D canvas draw) {"actual":[255,24,0,255],"reference":[255,24,0],"applied":"webgpu"}
+PASS spike webgpu: frame 22 is green (screenshot center within 24 of the 2D canvas draw) {"actual":[0,216,0,255],"reference":[0,216,2],"applied":"webgpu"}
+PASS spike webgpu: frame 37 is blue (screenshot center within 24 of the 2D canvas draw) {"actual":[0,15,255,255],"reference":[0,14,253],"applied":"webgpu"}
+PASS spike webgpu: frame 52 is white (screenshot center within 24 of the 2D canvas draw) {"actual":[255,255,255,255],"reference":[255,255,255],"applied":"webgpu"}
+PASS spike webgpu: no page error []
+PASS socket webgpu: a scene without a capture screen opens no socket {"connections":0}
+PASS socket webgpu: renderer diagnostics report videoDecoder "supported"
+PASS socket webgpu: the screen shows the four colors in order {"seen":["red","green","blue","white","red","green","blue"],"sampleMs":[1603,4226,6438,8288,10063,11962,13370,15128,16854,19033,20419,21738,23957,26225]}
+PASS socket webgpu: captureAuth is the first message and the URL has no token {"url":"/capture","auth":{"kind":"captureAuth","token":"(redacted)","outputId":"output_main","streamId":"11111111111111111111111111111111"}}
+PASS socket webgpu: two screens on one stream use one socket and both draw {"connections":1,"sockets":["22222222222222222222222222222222"],"left":[0,15,255,255],"right":[0,15,255,255]}
+PASS socket webgpu: the slow stream socket closed when no screen uses it {"open":0}
+PASS socket webgpu: a paused screen draws nothing and warns Source hidden {"left":[0,0,0,0],"warnings":[{"code":"UNAVAILABLE","message":"Capture: Source hidden","ids":["left"]}]}
+PASS socket webgpu: the paused screen keeps the socket {"open":1}
+PASS socket webgpu: hidden screens close the socket {"open":0}
+PASS socket webgpu: a second captureConfig with a new size changes the quad aspect (16:9 to 1:1) {"before":{"width":772,"height":434},"after":{"width":434,"height":434}}
+PASS socket webgpu: the stream starts with a key frame true
+PASS socket webgpu: a decoder error retries 3 times after 1 s, then Capture failed {"connections":4,"gaps":[1014,1010,1013],"warning":{"code":"UNAVAILABLE","message":"Capture: Capture failed","ids":["desk"]}}
+PASS socket webgpu: no page error []
+SUMMARY 18/18 pass, 0 unknown

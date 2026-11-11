@@ -29,3 +29,4 @@ export * from './proposal';
 export * from './materials';
 export * from './web-url';
 export * from './camera-orbit';
+export * from './capture';

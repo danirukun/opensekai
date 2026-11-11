@@ -80,6 +80,7 @@ struct Shared {
     clock: Instant,
     tracking: crate::tracking::TrackingManager,
     vmc_senders: crate::vmc_sender::VmcSenderManager,
+    capture: crate::capture::CaptureManager,
     inner: Mutex<Inner>,
     input: Mutex<crate::input::InputQueue>,
     keystrokes: Mutex<Arc<dyn crate::input::KeystrokeRegistrar>>,
@@ -107,6 +108,8 @@ struct Inner {
     latest: Option<RuntimeFrame>,
     acks: HashMap<String, VecDeque<(FrameApplied, u64)>>,
     diagnostics: HashMap<String, (RendererDiagnostics, u64)>,
+    /// The `videoDecoder` report of each renderer (B31 R14), kept outside evaluation mode too.
+    decoders: HashMap<String, VideoDecoderSupport>,
     frames: VecDeque<RuntimeFrame>,
     pending: HashMap<String, Pending>,
     handler: Option<RpcHandler>,
@@ -476,7 +479,9 @@ impl Shared {
             inner.renderers.remove(&output);
             inner.acks.remove(&output);
             inner.diagnostics.remove(&output);
+            inner.decoders.remove(&output);
         }
+        self.capture.renderer_closed(id);
         let ids: Vec<_> = inner
             .pending
             .iter()
@@ -491,6 +496,15 @@ impl Shared {
             }
         }
         lost_publisher
+    }
+    /// `captureStatus` goes to each renderer through its control queue, never to the publisher
+    /// or an operator (B31 R9).
+    fn send_capture_status(&self, message: &WireMessage) {
+        let value = json!(message);
+        let renderers: Vec<_> = lock(&self.inner).renderers.values().cloned().collect();
+        for renderer in renderers {
+            let _ = Self::send(&renderer, value.clone());
+        }
     }
     fn send(connection: &Connection, value: Value) -> Result<(), AppError> {
         if value.to_string().len() > MAX_MESSAGE_BYTES {
@@ -599,6 +613,7 @@ pub async fn start_service_with(
         clock,
         tracking: crate::tracking::TrackingManager::new(clock),
         vmc_senders: crate::vmc_sender::VmcSenderManager::new(),
+        capture: crate::capture::CaptureManager::default(),
         inner: Mutex::new(Inner::default()),
         input: Mutex::default(),
         keystrokes: Mutex::new(Arc::new(crate::input::NoKeystrokes)),
@@ -621,8 +636,16 @@ pub async fn start_service_with(
         screenshot_clock: Mutex::new(Arc::new(chrono::Utc::now)),
         screenshot_folder,
     });
+    let weak = Arc::downgrade(&shared);
+    shared.capture.set_sink(Arc::new(move |message| {
+        if let Some(shared) = weak.upgrade() {
+            shared.send_capture_status(&message);
+        }
+    }));
+    shared.capture.run(shared.stop.subscribe());
     let router = Router::new()
         .route("/ws", get(upgrade))
+        .route("/capture", get(capture_upgrade))
         .route(
             "/diagnostics/{id}",
             get(diagnostics_snapshot).options(asset_preflight),
@@ -911,6 +934,20 @@ impl ServicePorts {
     pub async fn route_scene_call(&self, call: Call) -> Reply<Value> {
         self.shared.route_scene_call(call, "native").await
     }
+    /// The editor source list (B31 R6). Only the editor-only Tauri command calls it.
+    pub async fn capture_source_list(&self) -> crate::capture::SourceList {
+        self.shared.capture.source_list().await
+    }
+    /// Allows a capture source for this app run (B31 R5). Only the editor-only Tauri command
+    /// calls it; an opened show, `sceneReplace`, and `scenePatch` never do.
+    pub fn capture_source_allow(&self, source: CaptureSource) -> Result<(), AppError> {
+        self.shared.capture.allow(source)
+    }
+    /// Tests replace the platform adapter with the fixture adapter.
+    #[doc(hidden)]
+    pub fn set_capture_adapter(&self, adapter: Arc<dyn crate::capture::adapter::CaptureAdapter>) {
+        self.shared.capture.set_adapter(adapter);
+    }
 }
 impl ServiceHandle {
     pub fn ports(&self) -> ServicePorts {
@@ -1123,6 +1160,109 @@ async fn upgrade(
         .on_upgrade(move |socket| socket_connection(socket, shared))
         .into_response()
 }
+/// The capture stream route (B31 R13). It carries H.264 chunks only, never raw pixels, JPEG, or PNG.
+async fn capture_upgrade(
+    State(shared): State<Arc<Shared>>,
+    headers: HeaderMap,
+    ws: WebSocketUpgrade,
+) -> Response {
+    if !headers_allowed(&headers, &shared) || *shared.stop.borrow() {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    // Only the first message is read; a larger one closes the socket.
+    ws.max_message_size(64 * 1024)
+        .max_frame_size(64 * 1024)
+        .on_upgrade(move |socket| capture_connection(socket, shared))
+        .into_response()
+}
+async fn close_with(mut socket: WebSocket, code: u16) {
+    let _ = socket
+        .send(Message::Close(Some(axum::extract::ws::CloseFrame {
+            code,
+            reason: "".into(),
+        })))
+        .await;
+}
+async fn capture_connection(socket: WebSocket, shared: Arc<Shared>) {
+    lock(&shared.inner).active += 1;
+    capture_loop(socket, &shared).await;
+    lock(&shared.inner).active -= 1;
+    shared.connections.notify_one();
+}
+async fn capture_loop(mut socket: WebSocket, shared: &Arc<Shared>) {
+    use crate::capture::transport::{self, Outgoing};
+    let mut shutdown = shared.stop.subscribe();
+    let first = tokio::select! {
+        message = tokio::time::timeout(Duration::from_secs(2), socket.recv()) => message,
+        _ = shutdown.changed() => return,
+    };
+    let Ok(Some(Ok(Message::Text(text)))) = first else {
+        return close_with(socket, transport::CLOSE_UNAUTHORIZED).await;
+    };
+    if text.len() > transport::MAX_AUTH_BYTES {
+        return close_with(socket, 1009).await;
+    }
+    #[derive(serde::Deserialize)]
+    #[serde(rename_all = "camelCase", deny_unknown_fields)]
+    struct CaptureAuth {
+        kind: String,
+        token: String,
+        output_id: String,
+        stream_id: String,
+    }
+    let Ok(auth) = serde_json::from_str::<CaptureAuth>(&text) else {
+        return close_with(socket, transport::CLOSE_UNAUTHORIZED).await;
+    };
+    // A renderer token, with an open `/ws` renderer connection of the same output.
+    let renderer = {
+        let inner = lock(&shared.inner);
+        (auth.kind == "captureAuth" && inner.tickets.get(&auth.output_id) == Some(&auth.token))
+            .then(|| inner.renderers.get(&auth.output_id).map(|c| c.id.clone()))
+            .flatten()
+    };
+    let Some(renderer) = renderer else {
+        return close_with(socket, transport::CLOSE_UNAUTHORIZED).await;
+    };
+    if !is_capture_stream_id(&auth.stream_id) {
+        return close_with(socket, transport::CLOSE_UNKNOWN_STREAM).await;
+    }
+    let subscription = match shared.capture.subscribe(&auth.stream_id, &renderer) {
+        Ok(subscription) => subscription,
+        Err(code) => return close_with(socket, code).await,
+    };
+    // The `/ws` connection can close between the check and the subscription. The service removes
+    // it from `renderers` and closes its subscriptions under the same `inner` lock, so this second
+    // check after the subscription leaves no window (R13).
+    let still_open = lock(&shared.inner)
+        .renderers
+        .get(&auth.output_id)
+        .is_some_and(|c| c.id == renderer);
+    if !still_open {
+        drop(subscription);
+        return close_with(socket, transport::CLOSE_UNAUTHORIZED).await;
+    }
+    let (mut sink, mut stream) = socket.split();
+    loop {
+        let item = tokio::select! {
+            item = subscription.next() => item,
+            _ = shutdown.changed() => None,
+            // The renderer sends nothing after the auth message; a message or a close ends it.
+            _ = stream.next() => None,
+        };
+        let Some(item) = item else { break };
+        let message = match item {
+            Outgoing::Config(text) => Message::Text(text.into()),
+            Outgoing::Chunk(bytes) => Message::Binary(bytes.as_ref().clone().into()),
+        };
+        // A write that stays blocked for 5 s closes the subscriber (R13).
+        match tokio::time::timeout(Duration::from_secs(5), sink.send(message)).await {
+            Ok(Ok(())) => {}
+            _ => break,
+        }
+    }
+    drop(subscription);
+    let _ = tokio::time::timeout(Duration::from_millis(200), sink.close()).await;
+}
 async fn renderer_index(State(shared): State<Arc<Shared>>, headers: HeaderMap) -> Response {
     static_file(shared, &headers, "index.html").await
 }
@@ -1298,6 +1438,12 @@ async fn connection_loop(mut socket: WebSocket, shared: &Arc<Shared>) {
         let shared = shared.clone();
         tokio::spawn(async move { shared.relearn_keystrokes().await });
     }
+    if role == Role::Renderer {
+        // The current capture status, after the auth reply (B31 R9).
+        if let Some(status) = shared.capture.current_status() {
+            let _ = Shared::send(&connection, json!(status));
+        }
+    }
     let capabilities = shared
         .descriptor(role.clone(), token, output_id.clone())
         .capabilities;
@@ -1386,6 +1532,7 @@ async fn connection_loop(mut socket: WebSocket, shared: &Arc<Shared>) {
                         }
                         }
                         shared.tracking.reconcile(&scene).await;
+                        shared.capture.apply_scene(&scene);
                         if shared.vmc_senders.is_new_revision(&scene) {
                             let records = lock(&shared.registry).records();
                             shared.vmc_senders.reconcile(&scene, &records, || {
@@ -1443,6 +1590,12 @@ async fn connection_loop(mut socket: WebSocket, shared: &Arc<Shared>) {
                         }
                     },
                     WireMessage::Diagnostics { diagnostics } if role == Role::Renderer => {
+                        if let Some(support) = &diagnostics.video_decoder {
+                            let mut inner = lock(&shared.inner);
+                            if diagnostics.session_id == shared.session && output_id.as_deref() == Some(&diagnostics.output_id) && inner.renderers.get(&diagnostics.output_id).is_some_and(|current| current.id == connection.id) {
+                                inner.decoders.insert(diagnostics.output_id.clone(), support.clone());
+                            }
+                        }
                         if !shared.evaluation { continue; }
                         let mut inner=lock(&shared.inner);
                         if diagnostics.session_id != shared.session || output_id.as_deref() != Some(&diagnostics.output_id) || inner.renderers.get(&diagnostics.output_id).is_none_or(|current|current.id != connection.id) { break; }
