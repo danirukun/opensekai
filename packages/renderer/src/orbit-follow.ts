@@ -13,6 +13,13 @@ export function followOffset(evaluated: SceneView | null, follow: Follow): Vec3 
     return target ? sub(target.transform.position, follow.base) : [0, 0, 0];
 }
 export const shiftTransform = (transform: Transform, offset: Vec3): Transform => ({ ...transform, position: add(transform.position, offset) });
+// The camera transform that a gesture starts from, in persistent coordinates. While a Blueprint moves the camera, the
+// evaluated camera is not the scene value, and the gesture starts where the camera shows (the evaluated position minus
+// the follow offset), not at the scene value from before the move (B32 R7). Without such a move it is the scene value.
+export function persistentCamera(evaluated: SceneView | null, follow: Follow, camera: Transform, saved: Transform): Transform {
+    if (near(camera.position, saved.position) && near(camera.rotation, saved.rotation)) return saved;
+    return { ...camera, position: sub(camera.position, followOffset(evaluated, follow)) };
+}
 // The target move of a scene change that moved only the target and the camera together, as the Blueprint idle commit
 // does. Any other change to the camera returns null, and the other edit wins (R8).
 export function followShift(persistent: SceneView, follow: Follow, committed: Transform): Vec3 | null {

@@ -25,7 +25,7 @@ The Editor check found one defect, which this slice fixes: the button state of U
 
 ## Owner QA finding (2026-11-11)
 
-The owner's macOS QA of 7744d47 found that a viewport drag that stops an orbit move made the camera jump back to its transform before the move. The cause: an Orbit Character gesture with a Focus Character started from the saved camera, not from the camera that the Blueprint orbit showed. The gesture now starts from the shown camera minus the follow offset. `packages/renderer/test/viewport-orbit-start.test.ts` fails on the old code and passes now. After the fix: `pnpm check` pass, `pnpm test:unit` 237 files and 2067 tests pass, and `pnpm test:integration` 38 files and 81 tests pass. A check of the drag on macOS is still to do.
+The owner's macOS QA of 7744d47 found that a viewport drag that stops an orbit move made the camera jump back to its transform before the move. The cause: an Orbit Character gesture with a Focus Character started from the saved camera, not from the camera that the Blueprint orbit showed. The gesture now starts from the shown camera minus the follow offset. `packages/renderer/test/viewport-orbit-start.test.ts` fails on the old code and passes now. After the fix: `pnpm check` pass, `pnpm test:unit` 237 files and 2067 tests pass, and `pnpm test:integration` 38 files and 81 tests pass. The macOS check of the drag is in [macOS local check](#macos-local-check). It found that this first fix made a drag without a move drift, and it changed the fix.
 
 ## Gaps
 
@@ -37,3 +37,21 @@ These need the owner on macOS with `pnpm dev:desktop` and OBS connected (contrac
 4. The pivot candidate: one orbit of the same character in Warudo and in OpenSekai, compared side by side.
 
 Windows is not checked.
+
+## macOS local check
+
+Date: 2026-11-11. Commit 7744d47 for the checks, then the fix below. macOS 27.2 (Apple M3 Pro), OBS 33.0.1, `pnpm dev:desktop`, backend webgpu, quality `production_v1`. Scene: the Catboy VRM0 (the `fixture_vrm0_arkit` hash), the OpenSekai Test Stage as a prop, and three cameras. The input was synthetic mouse and key events.
+
+| Gap | Result |
+| --- | --- |
+| 1. Free Look and Orbit Character | The controls work at the contract rates (20.0° for a 100 px right drag, 1.97 m for W in 1 s, 90° for a 300 px orbit drag, wheel zoom). The feel needs the owner |
+| 1. OBS follows a gesture at about 10 Hz | Pass: 19 revisions in 1.90 s, and the OBS frame revision was the same or 1 behind |
+| 1. Tab and Ctrl+Tab in the macOS WebView | Pass: both directions through three cameras, with wrap, on both outputs |
+| 1. A camera cut in OBS and continued motion while the editor is minimized | Pass: the chain and a Switch Camera cut showed in OBS; `output_main` gave 59.5 frames for each second minimized and 60.1 shown |
+| 2. The chain in the preview and in OBS, and a drag that stops it | Pass, with one defect, which this slice fixes (below) |
+| 3. A Switch Camera hotkey on `output_main` | Pass: Ctrl+Alt+F9 and Ctrl+Alt+F10 each changed both outputs in one revision, and the preview and OBS showed the same camera |
+| 4. The pivot candidate | Not checked. It needs the owner |
+
+The defect: a viewport drag that stopped a move started from the scene value of the camera, which is the transform from before the move. The camera jumped back (from about Yaw −40 to Yaw −93 in the check). The first fix (af3e118) started each gesture from the evaluated camera minus the follow offset. On macOS that made a drag without a move drift: two 100 px drags changed the Pitch from 10.0 to 10.22 and 10.87 and the Distance from 2.50 to 2.537 and 2.493, because the evaluated root of the idle character was up to 3 cm from its scene position. The gesture now starts from the evaluated camera only when it is not the scene value (`persistentCamera` in `orbit-follow.ts`, with a unit test). After the fix, a 10 px drag during the first move left the camera at Yaw −31.1, Pitch 6.9, Distance 2.50, and the second node did not run. A drag without a move is unchanged: 100 px gave 30.0° two times at Pitch 10.0 and Distance 2.50. The full chain still ends at Yaw 90, Pitch 10, Distance 2.5.
+
+A known limit of the fix: the evaluated root of an idle character moves a few centimeters from its scene position, and the session does not add this motion to the camera. A gesture that stops a move can thus start up to that distance from the place that the camera shows.

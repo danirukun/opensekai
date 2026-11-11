@@ -1,7 +1,7 @@
 import type { CameraNavigation, Id, PatchOp, Reply, SceneEntity, SceneView, Transform, Vec3 } from '@opensekai/contracts';
 import { NAVIGATION, freeLookFromTransform, freeLookStep, freeLookTurn, orbitDrag, orbitFromTransform, orbitPan, orbitPivot, orbitZoom, transformFromFreeLook, transformFromOrbit, type FreeLookState, type OrbitState } from './camera-navigation';
 import { createNavigationCommitter, type NavigationCommitter, type NavigationDraft } from './navigation-commits';
-import { add, followOffset, followShift, shiftTransform, type Follow } from './orbit-follow';
+import { add, followOffset, followShift, persistentCamera, shiftTransform, type Follow } from './orbit-follow';
 
 export interface NavigationEdit { sceneId: Id; expectedRevision: number; operations: PatchOp[] }
 export interface NavigationHost {
@@ -70,8 +70,9 @@ export function createViewportNavigation(host: NavigationHost) {
             committed = savedCamera.transform;
             // The drag starts where the camera shows, without the follow offset: a Blueprint orbit can hold the camera
             // away from its saved transform, and a start from the saved transform would jump back (B32 R7).
-            const shown = shiftTransform(camera.transform, followOffset(scene, follow).map(value => -value) as Vec3);
-            start = { kind: 'orbit', state: orbitFromTransform(shown, orbitPivot(target.transform.position, mode.pivotOffset)), panned: false };
+            // Without such a hold it starts from the saved transform: the evaluated root of an idle character moves a little,
+            // and the session does not add that motion to the camera.
+            start = { kind: 'orbit', state: orbitFromTransform(persistentCamera(scene, follow, camera.transform, committed), orbitPivot(target.transform.position, mode.pivotOffset)), panned: false };
         } else start = { kind: 'orbit', state: orbitFromTransform(camera.transform, orbitPivot(null, mode.pivotOffset)), panned: false };
         const cameraId = camera.id, sceneId = scene.sceneId;
         const committer = createNavigationCommitter(scene.revision, {
