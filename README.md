@@ -189,4 +189,4 @@ This repository owns OpenSekai code, specs, and evidence. The Oshi Connect ai-na
 
 ## License
 
-Open-source release is the intent. No project license is selected yet. Select one before distribution. Asset and dependency licenses are separate, and the UI kit has no license yet. See [Dependencies and licenses](docs/dependencies.md).
+OpenSekai is licensed under the [GNU General Public License version 3](LICENSE). The Oshi Connect UI kit, which the app bundles, uses the same license. Asset and dependency licenses are separate. See [Dependencies and licenses](docs/dependencies.md).

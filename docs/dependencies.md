@@ -26,7 +26,7 @@ Metadata sources: https://registry.npmjs.org/<package>/<version> and https://cra
 | futures-util | 0.3.34 | 1.71 |
 | tempfile | 3.27.0 | 1.63 |
 
-The UI dependency is a generated local dist snapshot. Expected source commit: 25d5144d2ffaeed84d596c482a0e5424c1d9ea9e. Run OPENSEKAI_UI_SOURCE=/path/to/oshi-connect-ui node scripts/bootstrap-ui.ts before install in each worktree. The adapter does not build or modify its source. Snapshot hash and observed source commit are recorded in .local/ui-snapshot.json. The hash does not prove a clean source checkout. The UI kit has no observed license field or license file. Public distribution requires a licensing decision and a reproducible public package route.
+The UI dependency is a generated local dist snapshot. Expected source commit: 25d5144d2ffaeed84d596c482a0e5424c1d9ea9e. Run OPENSEKAI_UI_SOURCE=/path/to/oshi-connect-ui node scripts/bootstrap-ui.ts before install in each worktree. The adapter does not build or modify its source. Snapshot hash and observed source commit are recorded in .local/ui-snapshot.json. The hash does not prove a clean source checkout. The UI kit uses the GNU GPL version 3, the same license as OpenSekai (owner decision, 2026-11-11). The release build clones it from the private `oshi-connect/oshi-connect-ui` repository and bundles the compiled kit. The UI kit repository must contain the GPLv3 license file and the matching `license` field in its `package.json`. A reproducible public package route is still open.
 
 Only esbuild is approved for dependency lifecycle builds. The UI snapshot has no scripts. Generated output lives in apps/desktop/src-tauri/resources/output and is mapped to output in Tauri resources. Native code resolves this from the app resource directory.
 
