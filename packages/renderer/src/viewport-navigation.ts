@@ -68,7 +68,10 @@ export function createViewportNavigation(host: NavigationHost) {
             if (!savedCamera || !target) return null;
             follow = { cameraId: camera.id, targetId: mode.targetId, base: [...target.transform.position] };
             committed = savedCamera.transform;
-            start = { kind: 'orbit', state: orbitFromTransform(committed, orbitPivot(target.transform.position, mode.pivotOffset)), panned: false };
+            // The drag starts where the camera shows, without the follow offset: a Blueprint orbit can hold the camera
+            // away from its saved transform, and a start from the saved transform would jump back (B32 R7).
+            const shown = shiftTransform(camera.transform, followOffset(scene, follow).map(value => -value) as Vec3);
+            start = { kind: 'orbit', state: orbitFromTransform(shown, orbitPivot(target.transform.position, mode.pivotOffset)), panned: false };
         } else start = { kind: 'orbit', state: orbitFromTransform(camera.transform, orbitPivot(null, mode.pivotOffset)), panned: false };
         const cameraId = camera.id, sceneId = scene.sceneId;
         const committer = createNavigationCommitter(scene.revision, {

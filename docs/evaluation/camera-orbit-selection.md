@@ -23,6 +23,10 @@ The functional render is a check of the angle convention only. It says nothing a
 
 The Editor check found one defect, which this slice fixes: the button state of Use current value did not follow a scene change until the node was drawn again. The panel now draws a node with the button again when a scene change changes its button values. The same harness also showed that the Editor reloads the scene only when the status revision changes, so the harness status gives the live revision.
 
+## Owner QA finding (2026-11-11)
+
+The owner's macOS QA of 7744d47 found that a viewport drag that stops an orbit move made the camera jump back to its transform before the move. The cause: an Orbit Character gesture with a Focus Character started from the saved camera, not from the camera that the Blueprint orbit showed. The gesture now starts from the shown camera minus the follow offset. `packages/renderer/test/viewport-orbit-start.test.ts` fails on the old code and passes now. After the fix: `pnpm check` pass, `pnpm test:unit` 237 files and 2067 tests pass, and `pnpm test:integration` 38 files and 81 tests pass. A check of the drag on macOS is still to do.
+
 ## Gaps
 
 These need the owner on macOS with `pnpm dev:desktop` and OBS connected (contract R14):
