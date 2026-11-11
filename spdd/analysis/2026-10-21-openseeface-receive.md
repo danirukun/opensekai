@@ -78,3 +78,17 @@ The 14 features, in order: EyeLeft, EyeRight, EyebrowSteepnessLeft, EyebrowUpDow
 - **Garbage input.** Any sender on the port can send bytes. Mitigation: the length rule, at most 4 records, finite values, a unit-length quaternion check, and the existing invalid packet counter.
 - **Self-calibration noise.** The first 10 to 15 s after the tracker starts can move the face at random. This is tracker behavior, not a defect. No UI copy is added for it.
 - **Version drift.** A future OpenSeeFace can change the record. The length rule rejects a different size; the parity line names the source commit that the tests use.
+
+## Implementation findings (2026-10-25)
+
+Source commit: OpenSeeFace `master` at `50c09741897010faad721a218b2bbe14ecad6251` (`tracker.py`, `facetracker.py`, `Unity/OpenSee.cs`, `Unity/OpenSeeIKTarget.cs`). The VSeeFace driver `OpenSeeVRMDriver.cs` is not in the public repository. The conversion below comes from the tracker source and the solvePnP check, not from VSeeFace.
+
+**Axis conversion.** `tracker.py` solves the head pose with `cv2.solvePnP` on the contour points of its own face model. The model has +X at the performer's right (point 0 is the right jaw), +Y up (the chin is at −Y), and +Z out of the face (each pupil is in front of its eyeball center). The landmarks are (row, column), not (x, y): `landmarks()` puts the row first, and `estimate_depth` gives that pair to solvePnP. The quaternion is `matrix_to_quaternion(rmat)` (Mike Day's form), which is the quaternion of the transpose of `rmat`, in the order x, y, z, w. The neutral `rmat` is `Rx(180°)·Rz(90°)`; this agrees with the Unity offsets in `OpenSee.cs` (`x + 180`, `z − 90`) and the default `Euler(0, 0, −90)` in `OpenSeeIKTarget.cs`. The OpenSekai normalized head frame has +X at the avatar's left, +Y up, and +Z forward (the frame of the MediaPipe retargeter). The result is one closed form:
+
+`head = √½ · (w + z, w − z, x + y, x − y)` (as x, y, z, w), from the packet quaternion (x, y, z, w).
+
+A face that looks straight at the camera gives identity. `docs/evaluation/openseeface-receive/axis-check.py` projects the tracker model for a known pose, swaps each point to (row, column), solves it with OpenCV 5.0.0, and applies the form: the matrix error is below 1e-7 for identity, a 30° turn to the left, a 20° pitch up, a 15° tilt to the left, and a mixed pose. The Rust unit tests check the same four poses through a port of `matrix_to_quaternion`.
+
+**Principal point.** The tracker camera matrix puts the principal point at (width/2, height/2), but the swapped landmarks put the row first. On a 4:3 image the neutral pose reads about 9.5° away from identity in the check. On a square image the error is zero. This is a constant offset of the tracker; **Calibrate** removes it. The decoder does not add a hidden correction.
+
+**Failed fit.** When solvePnP fails, the tracker sends the record with the success byte at 0 and a zero quaternion. A zero quaternion is outside 0.5..2, so the quaternion length check applies only to a usable record (success byte not 0). The finite-value check applies to each record. The contract R5 records this.

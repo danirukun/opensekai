@@ -21,6 +21,15 @@ pub enum TrackingConfig {
         #[serde(rename = "phoneAddress")]
         phone_address: Option<String>,
     },
+    #[serde(rename = "openseeface")]
+    OpenSeeFace {
+        enabled: bool,
+        #[serde(rename = "bindAddress")]
+        bind_address: String,
+        port: u16,
+        #[serde(rename = "senderAddress")]
+        sender_address: Option<String>,
+    },
     Mediapipe {
         enabled: bool,
         #[serde(rename = "deviceId")]
@@ -328,6 +337,12 @@ pub fn humanoid_bone(name: &str) -> bool {
             })
         })
 }
+impl TrackingConfig {
+    /// iFacialMocap and OpenSeeFace give a head and a face only, so an avatar uses them only in the face slot.
+    pub fn face_only(&self) -> bool {
+        matches!(self, Self::IFacialMocap { .. } | Self::OpenSeeFace { .. })
+    }
+}
 impl Validate for TrackingConfig {
     fn validate(&self) -> Result<(), AppError> {
         match self {
@@ -341,6 +356,12 @@ impl Validate for TrackingConfig {
                 bind_address,
                 port,
                 phone_address: sender_address,
+                ..
+            }
+            | Self::OpenSeeFace {
+                bind_address,
+                port,
+                sender_address,
                 ..
             } => {
                 require(
