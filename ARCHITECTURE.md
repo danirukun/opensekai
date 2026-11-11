@@ -37,7 +37,8 @@ flowchart LR
 | `apps/output` | The OBS Browser Source page, served by the host at `/renderer/`. Its layers, from the back: `#web-back`, the canvas, `#web-front`, `#overlay`. |
 | `apps/mcp` | MCP stdio server. Each tool maps to one call in the same API as the editor (`tools.ts`). The thin tools (`assist-tools.ts`: `scene_summary`, `look_up`, `ask`, and one tool for each intent) read the scene, the stored Blueprints, and the assets, compile one intent with `@opensekai/assist`, and apply it with `proposalApply`. The process keeps one reference table. |
 | `crates/evaluation`, `tools/evaluation` | Capture and benchmark run records, and the Blueprint node audit check against the node catalog. |
-| `scripts/` | UI kit snapshot, output bundle, tracking model download, test fixture download, glTF validation, GPU probe, Warudo sceneshare list, unpack, and inventory, and a Warudo scene to show mapping for the visual benchmark (research only, not an import path). |
+| `scripts/` | UI kit snapshot, output bundle, tracking model download, test fixture download, glTF validation, GPU probe, release version, updater manifest, and Discord message (`release.ts`), Warudo sceneshare list, unpack, and inventory, and a Warudo scene to show mapping for the visual benchmark (research only, not an import path). |
+| `.github/workflows/` | `release.yml`: the macOS build and release on each merge to `main` (see Release path). |
 | `fixtures/` | Smoke scene and assets, protocol vectors, Blueprint fixtures. `cloud/manifest.json` lists the test fixtures that `scripts/prepare-fixtures.ts` downloads (public URLs and the private R2 bucket `opensekai-fixtures`) into ignored `local/`. `scripts/test-stage` builds the test stage fixture with Blender. |
 | `spdd/`, `docs/` | Analysis, REASONS contracts, design specs, plans, evaluation evidence, parity. |
 
@@ -106,6 +107,10 @@ The OBS page draws with `alpha: true`, a clear color with alpha 0, and `scene.ba
 ## Extension sandbox
 
 Guest code runs in QuickJS (`packages/extensions`). The only bridge is the frozen `opensekai` global: strings go in, the host parses them with zod, and the manifest capabilities decide each call. A fault disables the extension and releases its registrations and its VM. Each extension has its own WASM instance and its own `WebAssembly.Memory` with a fixed maximum (64 MiB by default); that maximum is the hard memory bound. The QuickJS time limit is soft, and the worker watchdog is the hard time bound (see the [gate analysis](spdd/analysis/2026-10-16-extension-sandbox-gate.md)). Guest plugins must not ship before the gate passes on macOS.
+
+## Release path
+
+Each push to `main` runs `.github/workflows/release.yml` on an Apple Silicon runner. `scripts/cloud-setup.sh` (with `OPENSEKAI_RELEASE_BUILD=1`) clones the UI kit with `OSHI_UI_TOKEN` and installs the workspace. Then Tauri builds the `app` bundle with an ad-hoc code signature, the version `YYYY.MDD.HHMM` from the UTC commit time (`scripts/release.ts`), and the updater archive signed with `TAURI_SIGNING_PRIVATE_KEY`. Trust check: `minisign` checks the archive against `plugins.updater.pubkey` in `tauri.conf.json` before anything is published. The GitHub release gets the zip, the archive, its `.sig`, and `latest.json` (the Tauri static updater manifest at `releases/latest/download/latest.json`, the `plugins.updater` endpoint). A second job reads the Discord channel with `DISCORD_BOT_TOKEN`, checks its guild, and posts the release notes. A pull request that changes the release files runs the same build as a dry run: no tag, no release, no post. The app does not register the updater plugin yet, so no running client reads `latest.json`.
 
 ## Persistence
 

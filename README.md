@@ -132,6 +132,8 @@ The design follows these rules:
 
 To make the macOS release app, run `pnpm build:mac`.
 
+Each merge to `main` publishes an Apple Silicon build on the [releases page](https://github.com/danirukun/opensekai/releases). The build has no Developer ID signature. The first time you open it, macOS stops it: open System Settings › Privacy & Security and click Open Anyway. See [the release contract](spdd/prompt/2026-11-10-macos-release-ci.md).
+
 In a Linux cloud container, run `bash scripts/cloud-setup.sh` to do the setup and the build. See [Cloud agent intake](docs/agent-intake.md).
 
 ## Checks
