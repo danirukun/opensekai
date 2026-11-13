@@ -85,6 +85,7 @@ import { createEditorMemory } from './blueprints/editor-memory';
   if(next){event.preventDefault();setTool(next);}else if(event.key==='Escape'&&dragging){session?.editor?.cancel();dragging=false;}
  }
  const warnings=$derived(collectWarnings(status));
+ const footerStatus=$derived(showError??importError?.message??trackingError??transformError??error??view.error??(view.scene?'Session connected':'Starting…'));
  function select(id:string|null){if(importError&&importError.entityId!==id)importError=null;liveTransform?.cancel();liveField?.cancel();transformError=null;draft=null;if(model&&model.read().selectedId!==id){if(id)model.select(id);else model.clearSelection();}}
  async function add(kind:AddKind,revision:number){if(!model||!view.scene)return;const entity=makeAuthoringEntity(kind,crypto.randomUUID(),model.read().scene!.entities);const reply=await model.createEntity(entity,revision);if(reply.ok)select(entity.id);}
  async function chooseModel(entityId:string){
@@ -232,7 +233,7 @@ import { createEditorMemory } from './blueprints/editor-memory';
    {:else if panel==='settings'}<SettingsPanel {api} youtube={status?.youtube} disabled={!canEdit} onchange={youtube=>{if(status)status={...status,youtube};}}/>
    {:else}<AssetList {assets} {warnings}/>{/if}
   </div>
-  <footer><span>{showError??importError?.message??trackingError??transformError??error??view.error??(view.scene?'Session connected':'Starting…')}</span><span>{canEdit ? (tool==='translate'?'Move':tool==='rotate'?'Rotate':'Scale'):'Read only'}</span></footer>
+  <footer><span class={{ 'status-positive': footerStatus==='Session connected' }}>{footerStatus}</span><span>{canEdit ? (tool==='translate'?'Move':tool==='rotate'?'Rotate':'Scale'):'Read only'}</span></footer>
  </div>
 </main>
 <ToastRegion/>

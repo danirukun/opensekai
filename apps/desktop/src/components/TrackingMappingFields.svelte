@@ -47,11 +47,11 @@
  .pair,.offset{display:grid;gap:8px}.pair{grid-template-columns:1fr 1fr}.offset{grid-template-columns:1fr 1fr 1fr}
  .pair :global(input),.offset :global(input),.row :global(input){min-width:0;width:100%}
  .option{display:flex;gap:8px;align-items:center;font-size:12px}
- summary{font-size:12px;color:#78717f;cursor:pointer;padding:4px 0}
+ summary{font-size:12px;color:var(--ds-color-text-muted);cursor:pointer;padding:4px 0}
  .rows{display:grid;gap:4px;padding-top:6px}
  .row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) 28px;gap:4px;align-items:center;font-size:11px}
  .row [role=rowheader]{grid-column:1/-1;color:#4f4a59;padding-top:4px}
- .row.head{color:#85818f}
+ .row.head{color:var(--ds-color-text-muted)}
  .row span{min-width:0}
  .hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
  p[role=alert]{margin:0;font-size:12px}

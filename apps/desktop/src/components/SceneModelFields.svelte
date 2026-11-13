@@ -26,6 +26,6 @@
 </div>
 <style>
  .scene-model-source{display:grid;gap:8px}
- .source-status{display:grid;gap:4px;font-size:11px;color:#85818f;margin:0}.source-status.failed{color:#b14050}progress{width:100%;height:5px;accent-color:#8571ac}
- .credits{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:0;font-size:12px}.credits dt{color:#85818f}.credits dd{margin:0;overflow-wrap:anywhere}
+ .source-status{display:grid;gap:4px;font-size:11px;color:var(--ds-color-text-muted);margin:0}.source-status.failed{color:#b14050}progress{width:100%;height:5px;accent-color:#8571ac}
+ .credits{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:0;font-size:12px}.credits dt{color:var(--ds-color-text-muted)}.credits dd{margin:0;overflow-wrap:anywhere}
 </style>
