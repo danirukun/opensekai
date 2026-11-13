@@ -191,7 +191,7 @@ The adapter loads AppleCVA only when a FaceKit source is enabled for the first t
 1. `dlopen` the absolute path. `dlsym` the four functions. A failure gives `unavailable`.
 2. Call `CopySemantics`. The `blendshape_names` list must be equal to the 51 names above, in that order. A difference gives `unavailable`.
 3. Call `Create` with the spike options. A result other than 0 gives `unavailable`.
-4. At run time, a face entry that has pose or blend shapes with an unexpected shape (not 51 `float32` values, not a 3x3 rotation) stops the session and gives `unavailable`. A face entry with no pose and no blend shapes is a lost face, not a failure.
+4. At run time, a face entry that has pose or blend shapes with an unexpected shape (not 51 `float32` values, not a 3x3 rotation) stops the session and gives `unavailable`. A face entry with no pose and no blend shapes is a lost face, not a failure. If `Process` returns a non-zero status for 30 frames in sequence, the session stops with `unavailable` and "Unexpected FaceKit output", and the camera stops. A zero status sets the count to 0.
 
 `GetAPIVersion` is read and written to the host log at each session start. It is not a gate: the spike has only one value (42), and the name check is the stronger test. It is not a new field in `TrackingStatus`. The verification record gives the value.
 

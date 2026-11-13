@@ -151,6 +151,24 @@ pub fn head_rotation(rotation: &[[f32; 3]; 3]) -> Quat {
     q.map(|v| v / norm)
 }
 
+/// The run ends with "Unexpected FaceKit output" after this many non-zero `Process` results in sequence.
+pub const PROCESS_FAILURE_LIMIT: u32 = 30;
+
+/// Counts non-zero `Process` results in sequence. A zero result resets the count.
+#[derive(Debug, Default)]
+pub struct ProcessFailures(u32);
+impl ProcessFailures {
+    /// Records one `Process` result. True only at the result that reaches the limit.
+    pub fn record(&mut self, status: i32) -> bool {
+        self.0 = if status == 0 {
+            0
+        } else {
+            self.0.saturating_add(1)
+        };
+        self.0 == PROCESS_FAILURE_LIMIT
+    }
+}
+
 /// The normalized head bone and the ARKit expressions, clamped to 0..1. `None` when a value is not finite.
 pub fn sample_parts(frame: &FaceFrame) -> Option<(TrackingBone, BTreeMap<String, f64>)> {
     let rotation = head_rotation(&frame.rotation);
@@ -320,6 +338,18 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn process_failures_end_the_run_at_the_limit() {
+        let mut failures = ProcessFailures::default();
+        assert!((1..PROCESS_FAILURE_LIMIT).all(|_| !failures.record(-1)));
+        assert!(failures.record(-1));
+        let mut failures = ProcessFailures::default();
+        assert!((1..PROCESS_FAILURE_LIMIT).all(|_| !failures.record(7)));
+        assert!(!failures.record(0));
+        assert!((1..PROCESS_FAILURE_LIMIT).all(|_| !failures.record(7)));
+        assert!(failures.record(7));
     }
 
     #[test]

@@ -26,7 +26,7 @@ The design owns the behaviour and the measured facts. This contract gives the re
 
 11. All Apple code is behind `FaceAdapter`. macOS has the real adapter in Rust with the `objc2` crates and `block2`. Each other platform has a stub that reports `unavailable` and an empty camera list. The build does not link AppleCVA and does not bundle an Apple file.
 12. Start order: `dlopen` by absolute path and `dlsym` of four functions; `CopySemantics` name list equal to the 51 names in order; camera authorization; `Create` with the spike options; camera with the default format, `420f`, late frames discarded. The API version goes to the host log.
-13. A face entry with a pose or blend shapes of an unexpected shape stops the session with `unavailable`. A face entry with no pose and no blend shapes, or no face entry, is a lost face.
+13. A face entry with a pose or blend shapes of an unexpected shape stops the session with `unavailable`. A face entry with no pose and no blend shapes, or no face entry, is a lost face. If `Process` returns a non-zero status for 30 frames in sequence, the session stops with `unavailable` and "Unexpected FaceKit output", and the camera stops. A zero status sets the count to 0.
 
 ### Output
 

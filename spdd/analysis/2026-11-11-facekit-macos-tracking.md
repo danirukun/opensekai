@@ -43,6 +43,7 @@ The design lists the owner's decisions and the 15 calls of the designer. The own
 - **Run token.** Each start gets a new token. The manager ignores an event with an old token. Reason: finding 6 and the "no stale output" criterion.
 - **Failure is sticky.** A source that failed starts again only when its generation or config changes (stop and start, or a camera change). An unrelated scene edit does not open the camera again. The conflict of a second enabled source is not a failure in this sense: each reconcile decides it again, so the second source gets the session when the holder stops.
 - **Start order.** Library and name check, camera authorization, `Create`, camera. A Mac where FaceKit is broken shows `unavailable` and never shows the camera prompt.
+- **`Process` failures.** If `Process` returns a non-zero status for 30 frames in sequence, the session stops with `unavailable` and "Unexpected FaceKit output", and the camera stops. A zero status sets the count to 0. The limit is the constant `PROCESS_FAILURE_LIMIT`. Reason: finding 8; without this rule, a source stays `waiting` with the camera on when each call fails.
 - **`tongueOut` is optional.** If `tongue_out` is in neither `raw_data.animation` nor `smooth_data.animation`, the sample has no `tongueOut` value.
 - **Commands.** `facekit_camera_list` and `open_camera_settings`, both for the main window only.
 - **Development override.** `OPENSEKAI_FACEKIT_LIBRARY` replaces the library path only in a debug build. A release build does not read it.

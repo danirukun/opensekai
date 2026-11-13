@@ -15,7 +15,7 @@
 // copied out of a result. The log gets only the API version.
 #![allow(non_snake_case)]
 use super::adapter::*;
-use super::mapping::{face_frame, names_match, BadShape};
+use super::mapping::{face_frame, names_match, BadShape, ProcessFailures};
 use crate::tracking::lock;
 use block2::RcBlock;
 use dispatch2::{DispatchQoS, DispatchQueue, DispatchRetained, GlobalQueueIdentifier};
@@ -353,6 +353,7 @@ struct Frames {
     tracker: Mutex<Option<Tracker>>,
     stopped: AtomicBool,
     first_pts: Mutex<Option<f64>>,
+    failures: Mutex<ProcessFailures>,
 }
 impl Frames {
     fn on_sample(&self, sample: &CMSampleBuffer) {
@@ -419,18 +420,26 @@ impl Frames {
                 ),
             ])
         };
-        let tracker = lock(&self.tracker);
-        let Some(tracker) = tracker.as_ref() else {
-            return;
+        let status = {
+            let tracker = lock(&self.tracker);
+            let Some(tracker) = tracker.as_ref() else {
+                return;
+            };
+            // SAFETY: the tracker stays alive while its lock is held, and the input dictionary
+            // lives for the call. FaceKit retains what it keeps.
+            unsafe {
+                (self.process)(
+                    CFRetained::as_ptr(&tracker.0).as_ptr().cast(),
+                    cf_dictionary(&input),
+                )
+            }
         };
-        // SAFETY: the tracker stays alive while its lock is held, and the input dictionary lives
-        // for the call. FaceKit retains what it keeps.
-        unsafe {
-            (self.process)(
-                CFRetained::as_ptr(&tracker.0).as_ptr().cast(),
-                cf_dictionary(&input),
-            )
-        };
+        // A changed private API can fail each call; the run then ends and releases the camera.
+        if lock(&self.failures).record(status) {
+            if let Some(run) = self.run.upgrade() {
+                run.fail(FaceEvent::Unavailable(UNEXPECTED.into()));
+            }
+        }
     }
 }
 
@@ -693,6 +702,7 @@ fn open_camera(
         tracker: Mutex::new(Some(tracker)),
         stopped: AtomicBool::new(false),
         first_pts: Mutex::new(None),
+        failures: Mutex::default(),
     });
     let delegate = FrameOutput::new(frames.clone());
     // SAFETY: a supported pixel format (420f), and a serial queue for the delegate.
