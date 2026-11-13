@@ -112,7 +112,7 @@ fn route_source(id: &str, name: &str, config: &TrackingConfig) -> Option<Result<
             port,
             sender_address,
         ),
-        TrackingConfig::Mediapipe { .. } => return None,
+        TrackingConfig::Mediapipe { .. } | TrackingConfig::FaceKit { .. } => return None,
     };
     if !enabled {
         return None;
@@ -181,7 +181,11 @@ impl TrackingManager {
                     generation,
                     config,
                     ..
-                } if !matches!(config, TrackingConfig::Mediapipe { .. }) => {
+                } if !matches!(
+                    config,
+                    TrackingConfig::Mediapipe { .. } | TrackingConfig::FaceKit { .. }
+                ) =>
+                {
                     Some((id.clone(), name.clone(), *generation, config.clone()))
                 }
                 _ => None,

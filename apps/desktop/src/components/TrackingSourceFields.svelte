@@ -22,7 +22,7 @@
  // A reset sends the scene config with one field at its default and discards the unsaved text of the form (B17 R7).
  function reset(id:string){
   const value=marks.defaults[id];
-  const next=config.kind==='mediapipe'?{...config,[id]:value===true}:id==='address'?{...config,[addressKey(config)]:value}:{...config,[id]:value};
+  const next=config.kind==='mediapipe'?{...config,[id]:value===true}:config.kind==='facekit'?config:id==='address'?{...config,[addressKey(config)]:value}:{...config,[id]:value};
   void oncommit?.(entityId,next as TrackingConfig,revision);
  }
  function apply(){const parsed=parseTrackingConfig(draft.config,draft);invalid=!parsed;if(parsed)void oncommit?.(entityId,parsed,revision);}
