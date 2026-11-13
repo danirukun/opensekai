@@ -318,16 +318,23 @@ pub(crate) mod tests {
     };
     use std::time::Instant;
 
+    /// `log` gets "start <camera>" for each start and "drop <camera>" for each run drop, in order.
     #[derive(Default)]
     pub(crate) struct FakeAdapter {
         starts: Mutex<Vec<(String, FaceSink)>>,
         drops: Arc<AtomicUsize>,
+        log: Arc<Mutex<Vec<String>>>,
     }
-    struct FakeRun(Arc<AtomicUsize>);
+    struct FakeRun {
+        device_id: String,
+        drops: Arc<AtomicUsize>,
+        log: Arc<Mutex<Vec<String>>>,
+    }
     impl FaceRun for FakeRun {}
     impl Drop for FakeRun {
         fn drop(&mut self) {
-            self.0.fetch_add(1, Ordering::SeqCst);
+            self.drops.fetch_add(1, Ordering::SeqCst);
+            lock(&self.log).push(format!("drop {}", self.device_id));
         }
     }
     impl FaceAdapter for FakeAdapter {
@@ -336,7 +343,12 @@ pub(crate) mod tests {
         }
         fn start(&self, device_id: &str, sink: FaceSink) -> Box<dyn FaceRun> {
             self.starts.lock().unwrap().push((device_id.into(), sink));
-            Box::new(FakeRun(self.drops.clone()))
+            lock(&self.log).push(format!("start {device_id}"));
+            Box::new(FakeRun {
+                device_id: device_id.into(),
+                drops: self.drops.clone(),
+                log: self.log.clone(),
+            })
         }
     }
     impl FakeAdapter {
@@ -345,6 +357,9 @@ pub(crate) mod tests {
         }
         pub(crate) fn drops(&self) -> usize {
             self.drops.load(Ordering::SeqCst)
+        }
+        fn log(&self) -> Vec<String> {
+            lock(&self.log).clone()
         }
         fn device(&self, n: usize) -> String {
             self.starts.lock().unwrap()[n].0.clone()
@@ -519,6 +534,37 @@ pub(crate) mod tests {
             assert_eq!(fake.starts(), 1);
             assert_eq!(status(&manager, "a").state, state);
         }
+    }
+
+    #[test]
+    fn face_after_a_terminal_event_is_not_published() {
+        let (fake, manager) = setup();
+        manager.reconcile(&scene(1, &[A]));
+        fake.send(0, face(5.));
+        fake.send(0, FaceEvent::CameraFailed("Camera stopped".into()));
+        fake.send(0, face(6.));
+        fake.send(0, FaceEvent::NoFace);
+        let update = manager.snapshot(0.);
+        assert!(update.samples.is_empty());
+        let s = &update.statuses[0];
+        assert_eq!(s.state, TrackingState::Error);
+        assert_eq!(s.error.as_deref(), Some("Camera stopped"));
+        assert_eq!((s.packets, s.invalid_packets), (1, 0));
+        assert_eq!(s.inference_ms, Some(5.));
+    }
+
+    #[test]
+    fn the_old_run_drops_before_the_next_start() {
+        let (fake, manager) = setup();
+        manager.reconcile(&scene(1, &[A]));
+        manager.reconcile(&scene(2, &[("a", "A", 1, true, "cam-2")]));
+        assert_eq!(fake.log(), ["start cam-1", "drop cam-1", "start cam-2"]);
+        manager.reconcile(&scene(3, &[("a", "A", 1, false, "cam-2")]));
+        manager.reconcile(&scene(4, &[("a", "A", 1, false, "cam-2")]));
+        assert_eq!(
+            fake.log(),
+            ["start cam-1", "drop cam-1", "start cam-2", "drop cam-2"]
+        );
     }
 
     #[test]

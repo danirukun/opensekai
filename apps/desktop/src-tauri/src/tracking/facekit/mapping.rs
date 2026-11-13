@@ -352,6 +352,40 @@ mod tests {
         assert!(failures.record(7));
     }
 
+    // A trace of -1 or 0 takes the X, Y, or Z branch of the conversion, not the W branch.
+    #[test]
+    fn half_turns_use_the_axis_branches() {
+        // As delivered: the converted matrix with rows 2 and 3 negated again.
+        let delivered = |m: [[f32; 3]; 3]| [m[0], m[1].map(|v| -v), m[2].map(|v| -v)];
+        let h = std::f64::consts::FRAC_1_SQRT_2;
+        let cases: [([[f32; 3]; 3], Quat); 5] = [
+            (
+                [[1., 0., 0.], [0., -1., 0.], [0., 0., -1.]],
+                [1., 0., 0., 0.],
+            ),
+            (
+                [[-1., 0., 0.], [0., 1., 0.], [0., 0., -1.]],
+                [0., 1., 0., 0.],
+            ),
+            (
+                [[-1., 0., 0.], [0., -1., 0.], [0., 0., 1.]],
+                [0., 0., 1., 0.],
+            ),
+            // 180° about (1, 1, 0) / √2: the off-diagonal terms of the Y branch.
+            ([[0., 1., 0.], [1., 0., 0.], [0., 0., -1.]], [h, h, 0., 0.]),
+            // 120° about (1, 1, 1) / √3: trace 0, the Z branch with each term.
+            (
+                [[0., 0., 1.], [1., 0., 0.], [0., 1., 0.]],
+                [0.5, 0.5, 0.5, 0.5],
+            ),
+        ];
+        for (matrix, want) in cases {
+            let q = head_rotation(&delivered(matrix));
+            let dot: f64 = q.iter().zip(want).map(|(a, b)| a * b).sum();
+            assert!((dot.abs() - 1.).abs() < 1e-6, "{matrix:?} gave {q:?}");
+        }
+    }
+
     #[test]
     fn camera_neutral_is_identity() {
         let q = head_rotation(&[[1., 0., 0.], [0., -1., 0.], [0., 0., -1.]]);
