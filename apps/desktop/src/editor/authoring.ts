@@ -46,7 +46,9 @@ export function addLimitReached(kind:AddKind,entities:readonly SceneEntity[]):bo
  if(kind==='fpsCounter')return fpsCounterLimitReached(entities);
  if(kind==='vmcSender')return vmcSenderLimitReached(entities);
  if(kind==='screen')return screenLimitReached(entities);
- return false;
+ if(kind==='prop')return false;
+ // Every tracking kind counts in the scene limit of 4 tracking entities.
+ return entities.filter(entity=>entity.kind==='tracking').length>=4;
 }
 // A scene holds at most 16 screens (B28 R8).
 export const screenLimitReached=(entities:readonly SceneEntity[])=>entities.filter(entity=>entity.kind==='screen').length>=LIMITS.screens;

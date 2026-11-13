@@ -33,3 +33,9 @@ it('lists newly authored cameras and current names without smoke fixtures or oth
  expect(cameraOptions(entities)).toEqual([{value:'camera_main',label:'Camera'},{value:'custom-camera',label:'Stage left'}]);
  entities[2].name='Stage right';expect(cameraOptions(entities).at(-1)?.label).toBe('Stage right');expect(cameraOptions([])).toEqual([]);
 });
+it('keeps a FaceKit config as it is and gives it empty address drafts',()=>{
+ const config={kind:'facekit',enabled:true,deviceId:'camera'} as const;
+ expect(parseTrackingConfig(config,{bindAddress:'',port:'',address:''})).toEqual(config);
+ const draft=initialTrackingDraft(config);
+ expect([draft.bindAddress,draft.port,draft.address]).toEqual(['','','']);
+});

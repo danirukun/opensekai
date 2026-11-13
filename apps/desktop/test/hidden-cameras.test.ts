@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {checkPatterns,matchLabels,visibleCameras,loadHiddenCameras,saveHiddenCameras,fitDevices,createHiddenCameras,DEFAULT_HIDDEN_CAMERAS,HIDDEN_CAMERAS_KEY,matchRequest,type WorkerPort} from '../src/tracking/hidden-cameras';
+import {cameraOptions,checkPatterns,matchLabels,visibleCameras,loadHiddenCameras,saveHiddenCameras,fitDevices,createHiddenCameras,DEFAULT_HIDDEN_CAMERAS,HIDDEN_CAMERAS_KEY,matchRequest,type WorkerPort} from '../src/tracking/hidden-cameras';
 
 const memory=(value:string|null=null)=>{const data=new Map<string,string>();if(value!==null)data.set(HIDDEN_CAMERAS_KEY,value);return {data,getItem:(key:string)=>data.get(key)??null,setItem:(key:string,next:string)=>{data.set(key,next);}};};
 const broken={getItem:()=>{throw new Error('denied');},setItem:()=>{throw new Error('denied');}};
@@ -22,6 +22,13 @@ describe('hidden camera patterns',()=>{
   const devices=[{deviceId:'a',label:'VSeeFace'},{deviceId:'b',label:'Real'},{deviceId:'c',label:'VMC'}];
   expect(visibleCameras(devices,['a','c'],'')).toEqual([devices[1]]);
   expect(visibleCameras(devices,['a','c'],'c')).toEqual([devices[1],devices[2]]);
+ });
+ it('keeps the saved camera in the options',()=>{
+  const devices=[{deviceId:'a',label:'FaceTime HD Camera'},{deviceId:'b',label:'OBS Virtual Camera'}];
+  expect(cameraOptions(devices,['b'],'')).toEqual([{value:'',label:'Default camera'},{value:'a',label:'FaceTime HD Camera'}]);
+  expect(cameraOptions(devices,['b'],'b').map(o=>o.value)).toEqual(['','a','b']);
+  expect(cameraOptions(devices,[],'gone').at(-1)).toEqual({value:'gone',label:'Unavailable camera'});
+  expect(cameraOptions([],[],'gone')).toEqual([{value:'',label:'Default camera'},{value:'gone',label:'Unavailable camera'}]);
  });
 });
 

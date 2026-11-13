@@ -30,6 +30,12 @@ export const matchLabels=(patterns:readonly string[],labels:readonly string[]):b
 export function matchRequest({text,labels}:MatchRequest):MatchReply{const {patterns,invalidLine}=checkPatterns(text);return {hidden:matchLabels(patterns,labels),patterns,invalidLine};}
 // The selected device stays visible, so a pattern never makes a saved camera look unavailable.
 export const visibleCameras=(devices:readonly CameraDevice[],hidden:readonly string[],selectedId:string):CameraDevice[]=>devices.filter(device=>device.deviceId===selectedId||!hidden.includes(device.deviceId));
+// The Camera select of a webcam tracker: the system default, the visible devices, and a saved device that is not in the list.
+export const cameraOptions=(devices:readonly CameraDevice[],hidden:readonly string[],selectedId:string):{value:string;label:string}[]=>[
+ {value:'',label:'Default camera'},
+ ...visibleCameras(devices.filter(device=>device.deviceId!==''),hidden,selectedId).map(device=>({value:device.deviceId,label:device.label||'Camera'})),
+ ...(selectedId&&!devices.some(device=>device.deviceId===selectedId)?[{value:selectedId,label:'Unavailable camera'}]:[]),
+];
 
 // Stored values keep the entries that pass the size checks here; the Worker checks compile and empty match again.
 export function loadHiddenCameras(storage:Storage|null):string[]{
