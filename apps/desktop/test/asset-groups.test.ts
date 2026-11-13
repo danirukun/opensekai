@@ -3,7 +3,7 @@ import type {SceneEntity} from '@opensekai/contracts';
 import {makeAuthoringEntity} from '../src/editor/authoring';
 import {groupEntities} from '../src/editor/asset-groups';
 const camera=(id:string)=>makeAuthoringEntity('camera',id,[]);
-const tracking=(kind:'vmc'|'ifacialmocap'|'openseeface'|'mediapipe',id:string)=>makeAuthoringEntity(kind,id,[]);
+const tracking=(kind:'vmc'|'ifacialmocap'|'openseeface'|'mediapipe'|'facekit',id:string)=>makeAuthoringEntity(kind,id,[]);
 it('groups stable asset types and preserves scene order inside each group',()=>{
  const base=camera('base');
  const avatar={...base,id:'avatar',kind:'avatar',assetId:'avatar_asset'} as SceneEntity;
@@ -29,4 +29,7 @@ it('puts an FPS counter in the Overlays group after the trackers (B19 R6)',()=>{
 it('puts VMC senders in their own group after the VMC receivers (B21 R5)',()=>{
  const sender=makeAuthoringEntity('vmcSender','out',[]);
  expect(groupEntities([sender,tracking('ifacialmocap','i'),tracking('vmc','v')]).map(group=>[group.key,group.label])).toEqual([['vmc','VMC Receivers'],['vmcSender','VMC Senders'],['ifacialmocap','iFacialMocap Receivers']]);
+});
+it('puts a FaceKit tracker in its own group after the MediaPipe trackers',()=>{
+ expect(groupEntities([tracking('facekit','f'),tracking('mediapipe','mp')]).map(group=>[group.key,group.label,group.entities.map(entity=>entity.id)])).toEqual([['mediapipe','MediaPipe Trackers',['mp']],['facekit','FaceKit Trackers',['f']]]);
 });

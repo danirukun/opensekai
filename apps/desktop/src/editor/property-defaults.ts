@@ -64,7 +64,7 @@ export function resetFieldIds(entity:SceneEntity):string[] {
  if(entity.kind==='environment')return [...base,'reflectionsIntensity'];
  if(entity.kind==='screen')return [...base,'content',...(entity.content.kind==='video'?['video','autoPlay','loop','volume']:entity.content.kind==='web'?['url','width','height','onTop']:entity.content.kind==='capture'?['cursor']:['image'])];
  if(entity.kind==='avatar')return [...base,'idleAnimation','bodyMovementIntensity','trackedParts'];
- if(entity.kind==='tracking')return [...(entity.config.kind==='mediapipe'?['face','upperBody','hands','mirror']:['bindAddress','port','address']),'smoothing','minCutoff','beta','derivativeCutoff','headIntensity','headOffsetX','headOffsetY','headOffsetZ','eyeIntensity','blendShapeSensitivity','linkedBlink'];
+ if(entity.kind==='tracking')return [...(entity.config.kind==='mediapipe'?['face','upperBody','hands','mirror']:entity.config.kind==='facekit'?[]:['bindAddress','port','address']),'smoothing','minCutoff','beta','derivativeCutoff','headIntensity','headOffsetX','headOffsetY','headOffsetZ','eyeIntensity','blendShapeSensitivity','linkedBlink'];
  return base;
 }
 const COLOR=/^#[0-9a-f]{6}$/i;
