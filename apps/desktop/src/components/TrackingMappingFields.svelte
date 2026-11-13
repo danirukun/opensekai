@@ -50,7 +50,7 @@
  summary{font-size:12px;color:var(--ds-color-text-muted);cursor:pointer;padding:4px 0}
  .rows{display:grid;gap:4px;padding-top:6px}
  .row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) 28px;gap:4px;align-items:center;font-size:11px}
- .row [role=rowheader]{grid-column:1/-1;color:#4f4a59;padding-top:4px}
+ .row [role=rowheader]{grid-column:1/-1;color:var(--ds-color-text);padding-top:4px}
  .row.head{color:var(--ds-color-text-muted)}
  .row span{min-width:0}
  .hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}

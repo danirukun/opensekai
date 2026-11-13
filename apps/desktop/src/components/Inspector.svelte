@@ -150,4 +150,4 @@
  {/if}
  {#if view.error}<p role="alert">{view.error==='CONFLICT'?'Scene changed. Review values and retry.':view.error}</p>{/if}
 </section>
-<style>.screenshot-actions{display:flex;flex-wrap:wrap;gap:8px}.screenshot-file{margin:6px 0 0;font-size:12px;color:#6b6575;overflow-wrap:anywhere}.field-stack{display:grid;gap:10px}</style>
+<style>.screenshot-actions{display:flex;flex-wrap:wrap;gap:8px}.screenshot-file{margin:6px 0 0;font-size:12px;color:var(--ds-color-text-muted);overflow-wrap:anywhere}.field-stack{display:grid;gap:10px}</style>

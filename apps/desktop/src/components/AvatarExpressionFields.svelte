@@ -77,7 +77,7 @@
 <style>
  .row{display:flex;align-items:center;gap:8px;min-height:26px}
  .toggle{display:flex;flex:1 1 auto;align-items:center;gap:6px;min-width:0;font-size:12px;color:#423c4b}
- .toggle input{flex:none;accent-color:#8571ac}
+ .toggle input{flex:none;accent-color:var(--ds-color-accent)}
  .name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
  .disclose{flex:none;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;padding:0;border:0;border-radius:4px;background:transparent;color:var(--ds-color-text-muted);cursor:pointer}
  .disclose :global(svg){transition:transform .15s}

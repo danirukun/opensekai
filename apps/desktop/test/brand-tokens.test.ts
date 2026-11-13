@@ -44,7 +44,19 @@ it('defines the brand colors and the neutral scale as tokens', () => {
   expect(token('--ds-color-text-muted')).toBe('#66636f');
   expect(token('--ds-color-selection')).toBe('color-mix(in srgb, var(--ds-color-cyan) 40%, transparent)');
   expect(token('--ds-color-on-selection')).toBe('var(--ds-color-navy)');
+  expect(token('--ds-color-hover')).toBe('var(--ds-color-border)');
+  expect(token('--ds-color-focus')).toBe('var(--ds-color-navy)');
+  expect(token('--ds-color-accent')).toBe('var(--ds-color-cyan)');
+  expect(token('--ds-color-rail-icon')).toBe('var(--ds-color-text-muted)');
+  expect(token('--ds-color-primary')).toBe('var(--ds-color-navy)');
+  expect(token('--ds-color-on-primary')).toBe('var(--ds-color-surface)');
 });
+
+const resolved = (name: string): string => {
+  const value = token(name);
+  const ref = value.match(/^var\((--ds-color-[\w-]+)\)$/);
+  return ref ? token(ref[1]) : value;
+};
 
 it('keeps lilac defined and unused', () => {
   expect(css.includes('var(--ds-color-lilac)')).toBe(false);
@@ -73,4 +85,22 @@ it('meets WCAG AA for body text on the neutral, lime, and selection surfaces', (
 
 it('paints positive status with lime and primary text', () => {
   expect(css).toContain('.status-positive{background:var(--ds-color-lime);color:var(--ds-color-text)}');
+});
+
+it('uses white text on navy primary buttons and a navy focus ring', () => {
+  const onPrimary = parseHex(resolved('--ds-color-on-primary'));
+  const primary = parseHex(resolved('--ds-color-primary'));
+  const focus = parseHex(resolved('--ds-color-focus'));
+  expect(contrastRatio(onPrimary, primary)).toBeGreaterThanOrEqual(BODY);
+  expect(contrastRatio(text, primary)).toBeLessThan(BODY);
+  for (const surface of Object.values(surfaces)) {
+    expect(contrastRatio(focus, surface)).toBeGreaterThanOrEqual(3);
+  }
+});
+
+it('does not keep the old purple control colors', () => {
+  const sources = [css, ...svelteFiles(join(root, 'src')).map(file => readFileSync(file, 'utf8'))].join('\n').toLowerCase();
+  for (const hex of ['#9b95aa', '#6e619f', '#8571ac', '#e8e1f1', '#a18bbe', '#7965ae']) {
+    expect(sources.includes(hex), hex).toBe(false);
+  }
 });

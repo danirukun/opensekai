@@ -15,7 +15,9 @@ export const contrastRatio = (foreground: Rgb, background: Rgb): number => {
 };
 
 export const parseHex = (hex: string): Rgb => {
-  const value = Number.parseInt(hex.slice(1), 16);
+  const body = hex.slice(1);
+  const full = body.length === 3 ? body.split('').map(channel => channel + channel).join('') : body;
+  const value = Number.parseInt(full, 16);
   return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
 };
 

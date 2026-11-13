@@ -28,5 +28,5 @@
 <style>
  .screen-video{display:grid;gap:8px}
  .playback{display:flex;flex-wrap:wrap;gap:8px}
- .source-status{display:grid;gap:4px;font-size:11px;color:var(--ds-color-text-muted);margin:0}.source-status.failed{color:#b14050}progress{width:100%;height:5px;accent-color:#8571ac}
+ .source-status{display:grid;gap:4px;font-size:11px;color:var(--ds-color-text-muted);margin:0}.source-status.failed{color:#b14050}progress{width:100%;height:5px;accent-color:var(--ds-color-accent)}
 </style>
