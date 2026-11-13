@@ -17,14 +17,14 @@ Issue #260 asks two questions: is private-API dependence acceptable for the inte
 - **Host.** MacBook Pro Mac15,6 (Apple M3 Pro), macOS 27.2 (26B123).
 - **Framework.** AppleCVA 1003.0.4 at `/System/Library/PrivateFrameworks/AppleCVA.framework/Versions/A/AppleCVA` (in the dyld shared cache). `CVAFaceTrackingGetAPIVersion` returned 42.
 - **Camera.** Built-in FaceTime HD Camera, default format, 1920x1080, `420f` output.
-- **Tool.** An Objective-C command-line tool, written from exported symbol names and key strings only. It is now `tools/facekit-probe/facekit_probe.m`. The committed probe removes the `--recognition` option and the `has_faceprint` field of the spike, always sets `use_recognition` to false, and adds the `raw_tongue` field. The runs below used the spike. The tool was ad hoc signed with the camera entitlement. One variant was signed with the hardened runtime.
+- **Tool.** An Objective-C command-line tool, written from exported symbol names and key strings only. It is now `tools/facekit-probe/facekit_probe.m`. The committed probe removes the `--recognition` option and the `has_faceprint` field of the spike, always sets `use_recognition` to false, and adds the `raw_tongue` field. Its structure print shows only the keys and the class name of each value, and no values. The runs below used the spike. The tool was ad hoc signed with the camera entitlement. One variant was signed with the hardened runtime.
 - **Start.** From Terminal.app through `.command` files. The owner was in front of the camera.
 
 ## Method
 
-- One first run of 8 s.
-- One guided run of 70 s. A voice told the performer 17 movements, 4 s each. The performer moved 2.5 to 3.5 s after each prompt.
-- Nine variant runs of 5 s, each with one change: `use_recognition` false, fitting off, both, hardened runtime, 640 pixels width, focal length 300, focal length 600, the FaceKit face detector, and `force_cpu`.
+- The first run was 8 s.
+- The guided run was 70 s. A voice told the performer 17 movements, 4 s each. The performer moved 2.5 to 3.5 s after each prompt.
+- Nine variant runs were 5 s each. Each variant had one change: `use_recognition` false, fitting off, both, hardened runtime, 640 pixels width, focal length 300, focal length 600, the FaceKit face detector, and `force_cpu`.
 - Each run recorded one JSON line for each callback. The recordings are not committed.
 
 ## Results
@@ -54,7 +54,7 @@ These come from the one guided run. They are inferred, not verified on an avatar
 
 - The neutral rotation is near `diag(1, -1, -1)`. With rows 2 and 3 negated, the matrix gives: a turn to the performer's left is +Y (+32°), to the right is -Y (-40°); chin down is +X (+15°); a tilt to the right shoulder is +Z (+22°), to the left shoulder is -Z (-20°). The chin-up prompt gave no clear row. These signs are the VRM 1 normalized head axes when the performer's left is the avatar's left.
 - `eyeBlink_L` follows the performer's left eye (0.84 to 0.88 with the right eye at 0.25).
-- Maximum values in the guided recording: `mouthSmile_L` 0.76 and `mouthSmile_R` 0.77 (`raw_data`), `tongue_out` 1.0 (`smooth_data`), `jawOpen` 0.64 (`raw_data`) with a wide-open jaw.
+- Maximum values in the guided recording: `mouthSmile_L` 0.76 and `mouthSmile_R` 0.77 (`raw_data`), `tongue_out` 1.0 (`smooth_data`), `jawOpen` 0.64 (`raw_data`) with a wide-open jaw. These measured maximum values are different from the peaks in the design, "Facts from the spike" (`mouthSmile_L/R` +0.6, `tongue_out` 0.87, `jawOpen` 0.43 to 0.63).
 - Neutral offsets: `browDown_L` and `browDown_R` 0.22 to 0.43, `eyeSquint_L` and `eyeSquint_R` 0.11 to 0.25, `mouthShrugLower` about 0.1, `jawOpen` 0.02.
 
 Rotation rows. The label is the movement that the row shows, not the prompt of that moment.
@@ -78,7 +78,7 @@ Rotation rows. The label is the movement that the row shows, not the prompt of t
 
 `fixtures/tracking/facekit-frames.json` holds one frame for each of 10 guided movements: `neutral`, `head_left`, `head_right`, `head_down`, `tilt_left`, `tilt_right`, `jaw_open`, `blink_left`, `smile`, and `tongue`. The `source` object names the host, the OS, AppleCVA, the API version, and the camera.
 
-- **Rule.** For each movement, the rows with a face at 1.5 s or more after the start of that movement. The row in the middle of them by time. Each number is rounded to 4 decimals.
+- **Rule.** For each movement, the tool took the rows that have a face and start 1.5 s or more after the start of that movement. From these rows, the fixture keeps the row that is in the middle by time. Each number is rounded to 4 decimals.
 - **Fields.** `rotation` is `raw_data.pose.rotation`. `blendshapes` is the 51 `raw_data.animation.blendshapes` values in the FaceKit order. `tongueOut` is `smooth_data.animation.tongue_out`, because the guided recording did not keep the `raw_data` value.
 
 ### Fixture rows and the lag
@@ -89,10 +89,10 @@ Measured values against the `neutral` row. Rotation: the delivered matrix with r
 
 | Row | Against `neutral` | What the row shows |
 | --- | --- | --- |
-| `head_left` | [-2.1, +11.2, -2.0] | The start of the turn to the left. The full turn is +32° on Y. |
-| `head_right` | [+0.8, -10.1, -1.3] | The middle of the turn from left to right. The full turn is -39° on Y. |
-| `tilt_left` | [+13.2, +2.5, -0.6] | The chin down of the prompt before. No tilt. |
-| `jaw_open` | `jawOpen` 0.0541 against 0.0185 (+0.036) | A closed jaw. The jaw opened in the next phase. |
+| `head_left` | [-2.1, +11.2, -2.0] | The row shows the start of the turn to the left. The full turn is +32° on Y. |
+| `head_right` | [+0.8, -10.1, -1.3] | The row shows the middle of the turn from left to right. The full turn is -39° on Y. |
+| `tilt_left` | [+13.2, +2.5, -0.6] | The row shows the chin down of the prompt before. It shows no tilt. |
+| `jaw_open` | `jawOpen` 0.0541 against 0.0185 (+0.036) | The row shows a closed jaw. The jaw opened in the next phase. |
 
 The other rows show their movement: `head_down` +13.8° on X, `tilt_right` +18.3° on Z, `smile` `mouthSmile_L` 0.7432 against 0, `tongue` `tongueOut` 1.0, `blink_left` `eyeBlink_L` 0.8811 against `eyeBlink_R` 0.2913.
 

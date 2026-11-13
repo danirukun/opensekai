@@ -56,7 +56,7 @@ Exit codes: 0 done, 2 camera permission denied, 3 FaceKit unavailable, 4 camera 
 
 ## Output
 
-The terminal shows the API version, the create options, the 51 blend shape names, the structure of the first result, a line every 0.5 s, and a summary (frame rate, callback latency, `Process` duration, CPU, callback thread).
+The terminal shows the API version, the create options, the 51 blend shape names, the structure of the first result (the keys and the class name of each value, no values), a line every 0.5 s, and a summary (frame rate, callback latency, `Process` duration, CPU, callback thread).
 
 Each line of the `--out` file has these fields:
 
@@ -73,7 +73,7 @@ Each line of the `--out` file has these fields:
 | `raw_bs`, `raw_rot`, `raw_tongue` | `raw_data`: 51 blend shapes, rotation, `tongue_out`. |
 | `has_identity` | True when the face entry has the `identity_coefficients` key. |
 
-The tool never reads or prints the values of `identity_coefficients`, `face_id`, or `debug`. The structure print shows "(not read)" for these keys. The tool stores no camera frame.
+The tool never reads or prints the values of `identity_coefficients`, `face_id`, or `debug`. The structure print shows "(not read)" for these keys, and it prints no value of another key. The tool stores no camera frame.
 
 ## Recordings
 

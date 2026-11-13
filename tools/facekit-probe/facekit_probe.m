@@ -30,26 +30,23 @@ static NSSet<NSString *> *private_keys(void) {
   return [NSSet setWithArray:@[@"identity_coefficients", @"face_id", @"debug"]];
 }
 
+// Prints the keys and the class name of each value, never a value (no face geometry, no gaze).
 static void describe(id obj, int depth, int max) {
   NSString *pad = [@"" stringByPaddingToLength:depth * 2 withString:@" " startingAtIndex:0];
+  const char *type = obj ? class_getName([obj class]) : "nil";
   if ([obj isKindOfClass:NSDictionary.class]) {
-    printf("{\n");
+    printf("%s {\n", type);
     for (id k in [[obj allKeys] sortedArrayUsingSelector:@selector(compare:)]) {
       printf("%s  %s: ", pad.UTF8String, [[k description] UTF8String]);
       if ([private_keys() containsObject:k]) printf("(not read)\n");
       else if (depth < max) describe(obj[k], depth + 1, max); else printf("...\n");
     }
     printf("%s}\n", pad.UTF8String);
-  } else if ([obj isKindOfClass:NSArray.class]) {
-    NSArray *a = obj;
-    printf("array[%lu]", (unsigned long)a.count);
-    if (a.count && depth < max) { printf(" first= "); describe(a[0], depth + 1, max); } else printf("\n");
-  } else if ([obj isKindOfClass:NSData.class]) {
-    printf("data[%lu bytes]\n", (unsigned long)[obj length]);
-  } else if ([obj isKindOfClass:NSNumber.class] || [obj isKindOfClass:NSString.class]) {
-    printf("%s\n", [[obj description] UTF8String]);
+  } else if ([obj isKindOfClass:NSArray.class] && [obj count] && depth < max) {
+    printf("%s of ", type);
+    describe([obj firstObject], depth + 1, max);
   } else {
-    printf("<%s>\n", obj ? class_getName([obj class]) : "nil");
+    printf("%s\n", type);
   }
 }
 
