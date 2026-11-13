@@ -80,7 +80,31 @@ Rotation rows. The label is the movement that the row shows, not the prompt of t
 
 - **Rule.** For each movement, the rows with a face at 1.5 s or more after the start of that movement. The row in the middle of them by time. Each number is rounded to 4 decimals.
 - **Fields.** `rotation` is `raw_data.pose.rotation`. `blendshapes` is the 51 `raw_data.animation.blendshapes` values in the FaceKit order. `tongueOut` is `smooth_data.animation.tongue_out`, because the guided recording did not keep the `raw_data` value.
-- **Lag.** The performer moved late, so some frames show only part of a movement or the movement of the prompt before. Against `neutral`, the `head_left` frame is +11° on Y and `head_right` is -10° on Y; the `tilt_left` frame shows the chin down of the prompt before (+13° on X, -0.5° on Z); the `jaw_open` frame has `jawOpen` 0.05. The `head_down`, `tilt_right`, `blink_left`, `smile`, and `tongue` frames show their movement.
+
+### Fixture rows and the lag
+
+The performer moved 2.5 to 3.5 s after each prompt. The middle row of the window from +1.5 s to the end of the phase is at about +2.8 s. Thus the `head_left`, `head_right`, `tilt_left`, and `jaw_open` rows show the transition, not the pose.
+
+Measured values against the `neutral` row. Rotation: the delivered matrix with rows 2 and 3 negated, as a rotation vector in degrees (X Y Z).
+
+| Row | Against `neutral` | What the row shows |
+| --- | --- | --- |
+| `head_left` | [-2.1, +11.2, -2.0] | The start of the turn to the left. The full turn is +32° on Y. |
+| `head_right` | [+0.8, -10.1, -1.3] | The middle of the turn from left to right. The full turn is -39° on Y. |
+| `tilt_left` | [+13.2, +2.5, -0.6] | The chin down of the prompt before. No tilt. |
+| `jaw_open` | `jawOpen` 0.0541 against 0.0185 (+0.036) | A closed jaw. The jaw opened in the next phase. |
+
+The other rows show their movement: `head_down` +13.8° on X, `tilt_right` +18.3° on Z, `smile` `mouthSmile_L` 0.7432 against 0, `tongue` `tongueOut` 1.0, `blink_left` `eyeBlink_L` 0.8811 against `eyeBlink_R` 0.2913.
+
+Lag evidence from the guided recording, read in steps of 0.5 s. Times are after the prompt.
+
+- `head_left` (prompt at 5.2 s): Y stays near -2° until +2.3 s. Y is +8.6° at +2.8 s, +20.6° at +3.4 s, and +32° from +4.4 s. Y passes half of its final value between +2.8 and +3.4 s.
+- `head_right` (prompt at 9.4 s): Y stays at +31° until +1.7 s. Y is -14.0° at +2.8 s, -28.9° at +3.3 s, and -39° from +4.4 s.
+- `head_down` (prompt at 17.8 s): X stays at -12° to -14° until +1.7 s. X is +9.6° at +2.2 s and +13.1° at +2.7 s.
+- `tilt_left` (prompt at 22.0 s): X stays at +13° (chin down) until +2.6 s. Z is -5.3° at +3.2 s, -15.3° at +3.7 s, and -20.3° at +4.2 s, in the `tilt_right` phase.
+- `jaw_open` (prompt at 34.5 s): `jawOpen` stays at 0.06 or less until +3.0 s. It is 0.51 at +4.0 s, in the `blink_left` phase.
+
+The recording was in a temporary directory, and it was deleted after the fixture was made. Thus nobody can take the rows again with a different window. The turn and tilt signs come from the five rows of the design, Appendix B (also in "Conventions" above), not from the fixture.
 
 ## Unknown
 
