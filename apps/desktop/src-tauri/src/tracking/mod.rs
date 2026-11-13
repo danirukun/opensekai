@@ -89,7 +89,9 @@ pub struct TrackingManager {
     clock: Instant,
     inputs: Arc<Mutex<Inputs>>,
     lifecycle: AsyncMutex<Lifecycle>,
-    facekit: FaceKitManager,
+    /// Behind an `Arc`: its reconcile and shutdown run on the blocking pool (a run's drop waits for
+    /// the camera to stop), never on a tokio worker thread.
+    facekit: Arc<FaceKitManager>,
 }
 fn route_source(id: &str, name: &str, config: &TrackingConfig) -> Option<Result<RouteSource, ()>> {
     let (kind, enabled, bind_address, port, address) = match config {
@@ -155,8 +157,12 @@ impl TrackingManager {
             clock,
             inputs: Arc::new(Mutex::new(Inputs::default())),
             lifecycle: AsyncMutex::new(Lifecycle::default()),
-            facekit: FaceKitManager::new(clock, adapter),
+            facekit: Arc::new(FaceKitManager::new(clock, adapter)),
         }
+    }
+    async fn facekit_blocking(&self, work: impl FnOnce(&FaceKitManager) + Send + 'static) {
+        let facekit = self.facekit.clone();
+        let _ = tokio::task::spawn_blocking(move || work(&facekit)).await;
     }
     pub fn face_cameras(&self) -> Vec<CameraInfo> {
         self.facekit.cameras()
@@ -188,7 +194,28 @@ impl TrackingManager {
             return;
         }
         life.revision = Some(scene.revision);
-        self.facekit.reconcile(scene);
+        let faces = SceneView {
+            schema_version: scene.schema_version,
+            scene_id: scene.scene_id.clone(),
+            revision: scene.revision,
+            outputs: vec![],
+            entities: scene
+                .entities
+                .iter()
+                .filter(|e| {
+                    matches!(
+                        e,
+                        SceneEntity::Tracking {
+                            config: TrackingConfig::FaceKit { .. },
+                            ..
+                        }
+                    )
+                })
+                .cloned()
+                .collect(),
+        };
+        self.facekit_blocking(move |facekit| facekit.reconcile(&faces))
+            .await;
         let desired: Vec<_> = scene
             .entities
             .iter()
@@ -399,7 +426,7 @@ impl TrackingManager {
     pub async fn shutdown(&self) {
         let mut life = self.lifecycle.lock().await;
         life.stopped = true;
-        self.facekit.shutdown();
+        self.facekit_blocking(FaceKitManager::shutdown).await;
         life.sources.clear();
         for (_, socket) in std::mem::take(&mut life.endpoints) {
             socket.close().await;

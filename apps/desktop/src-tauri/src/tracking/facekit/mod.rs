@@ -1,10 +1,16 @@
 //! Native macOS FaceKit face tracking (TRK-24 B33). One session at most: the holder source
 //! owns the camera run, and its events reach the status through a sink with a run token.
 pub mod adapter;
+#[cfg(target_os = "macos")]
+mod macos;
 pub mod mapping;
+// macOS uses the real adapter; the stub stays for the unit tests there.
+#[cfg(any(not(target_os = "macos"), test))]
 mod stub;
 use super::{aged, count, lock};
 use adapter::*;
+#[cfg(target_os = "macos")]
+pub use macos::{probe, probe_at, FaceKitProbe, MacFaceAdapter};
 use opensekai_contracts::*;
 use std::{
     collections::BTreeMap,
@@ -12,9 +18,16 @@ use std::{
     time::Instant,
 };
 
-/// The FaceKit adapter of this platform.
+/// The FaceKit adapter of this platform. A mobile build keeps the stub.
 pub fn platform_adapter() -> Arc<dyn FaceAdapter> {
-    Arc::new(stub::StubFaceAdapter)
+    #[cfg(target_os = "macos")]
+    {
+        Arc::new(MacFaceAdapter::new())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Arc::new(stub::StubFaceAdapter)
+    }
 }
 struct Source {
     generation: u64,
