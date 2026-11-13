@@ -57,6 +57,8 @@ const CAMERA_CANNOT_START: &str = "Camera cannot start";
 const CAMERA_STOPPED: &str = "Camera stopped";
 /// How often the start thread reads the cancel flag while the permission prompt is open.
 const PERMISSION_POLL: Duration = Duration::from_millis(50);
+/// `kCGImagePropertyOrientationUp`. The ImageIO binding is not a dependency, so the value is here.
+const ORIENTATION_UP: u32 = 1;
 const RTLD_NOW: c_int = 2;
 const RTLD_LOCAL: c_int = 4;
 
@@ -446,13 +448,16 @@ impl Frames {
 /// The `DetectedFacesArray` of Appendix A: empty, or the first Vision face.
 fn detected_faces(image: &CVPixelBuffer) -> Retained<NSArray<AnyObject>> {
     let empty = NSArray::new;
-    // SAFETY: a valid pixel buffer and empty options (orientation Up).
-    let handler = unsafe {
-        VNImageRequestHandler::initWithCVPixelBuffer_options(
+    let options = NSDictionary::<NSString, AnyObject>::new();
+    // SAFETY: `initWithCVPixelBuffer:orientation:options:` with a valid pixel buffer, the EXIF
+    // orientation Up as a `uint32_t`, and empty options.
+    let handler: Retained<VNImageRequestHandler> = unsafe {
+        msg_send![
             VNImageRequestHandler::alloc(),
-            image,
-            &NSDictionary::new(),
-        )
+            initWithCVPixelBuffer: image,
+            orientation: ORIENTATION_UP,
+            options: &*options
+        ]
     };
     // SAFETY: a new request with its default settings.
     let request = unsafe { VNDetectFaceRectanglesRequest::new() };
@@ -519,6 +524,8 @@ fn read_face(result: &AnyObject) -> Result<Option<FaceFrame>, BadShape> {
         return Ok(None);
     };
     let face = face.downcast_ref::<NSDictionary>().ok_or(BadShape)?;
+    // A `raw_data` that is not a dictionary reads as absent, so the entry is a lost face and not a
+    // failure, as an entry without pose and blend shapes is (R13). Only the leaf shapes stop a run.
     let raw = get_dictionary(face, "raw_data");
     let rotation = raw
         .as_deref()
@@ -769,8 +776,10 @@ fn start_run(run: &Arc<Run>, device_id: &str, path: &str) -> Result<(), Failure>
     if run.cancelled() {
         return Ok(());
     }
-    let live = open_camera(run, device_id, &api, tracker)?;
+    // Held before `open_camera` registers the observers: a stop that an observer asks for waits
+    // here, so the capture stops and the tracker is released before its `CameraFailed` goes out.
     let mut slot = lock(&run.live);
+    let live = open_camera(run, device_id, &api, tracker)?;
     // A run-time stop that came during the start sends its own event.
     if run.cancelled() || run.failing.load(Ordering::SeqCst) {
         return Ok(());
@@ -884,5 +893,70 @@ impl Drop for MacFaceRun {
             }
         }
         self.run.stop_live();
+    }
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod tests {
+    use super::*;
+    use objc2_core_video::CVPixelBufferCreate;
+
+    fn result(face: &AnyObject) -> Retained<NSDictionary<NSString, AnyObject>> {
+        let faces = NSArray::from_slice(&[face]);
+        dictionary(&[("tracked_faces", any(&*faces))])
+    }
+
+    #[test]
+    fn read_face_copies_the_pose_and_the_blend_shapes() {
+        let values: Vec<f32> = (0..51).map(|i| i as f32 / 100.).collect();
+        let bytes: Vec<u8> = values.iter().flat_map(|v| v.to_ne_bytes()).collect();
+        let blendshapes = NSData::with_bytes(&bytes);
+        let tongue = NSNumber::new_f64(0.75);
+        let rotation = matrix([[1., 0., 0.], [0., -0.5, 0.25], [0., -0.25, -0.5]]);
+        let pose = dictionary(&[("rotation", any(&*rotation))]);
+        let animation = dictionary(&[
+            ("blendshapes", any(&*blendshapes)),
+            ("tongue_out", any(&*tongue)),
+        ]);
+        let raw = dictionary(&[("pose", any(&*pose)), ("animation", any(&*animation))]);
+        let face = dictionary(&[("raw_data", any(&*raw))]);
+        let frame = read_face(any(&*result(any(&*face)))).unwrap().unwrap();
+        assert_eq!(
+            frame.rotation,
+            [[1., 0., 0.], [0., -0.5, 0.25], [0., -0.25, -0.5]]
+        );
+        assert_eq!(frame.blendshapes.to_vec(), values);
+        assert_eq!(frame.tongue_out, Some(0.75));
+    }
+
+    #[test]
+    fn read_face_wrong_containers() {
+        let text = NSString::from_str("x");
+        let face = dictionary(&[("raw_data", any(&*text))]);
+        assert_eq!(read_face(any(&*result(any(&*face)))), Ok(None));
+        let faces = dictionary(&[("tracked_faces", any(&*text))]);
+        assert_eq!(read_face(any(&*faces)), Err(BadShape));
+        assert_eq!(read_face(any(&*text)), Err(BadShape));
+    }
+
+    // Vision runs on a blank buffer; no camera opens.
+    #[test]
+    fn blank_frame_has_no_detected_face() {
+        let mut out: *mut CVPixelBuffer = ptr::null_mut();
+        // SAFETY: the default allocator, a supported pixel format, and a valid out pointer.
+        let status = unsafe {
+            CVPixelBufferCreate(
+                None,
+                64,
+                64,
+                kCVPixelFormatType_420YpCbCr8BiPlanarFullRange,
+                None,
+                NonNull::from(&mut out),
+            )
+        };
+        assert_eq!(status, 0);
+        // SAFETY: `CVPixelBufferCreate` follows the Create rule.
+        let buffer = unsafe { CFRetained::from_raw(NonNull::new(out).unwrap()) };
+        assert_eq!(detected_faces(&buffer).count(), 0);
     }
 }
