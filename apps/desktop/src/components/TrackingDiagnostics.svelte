@@ -19,6 +19,6 @@
 <dl>{#each rows as [term,value]}<dt>{term}</dt><dd>{value}</dd>{/each}</dl>
 <style>
  dl{display:grid;grid-template-columns:max-content 1fr;gap:6px 16px;margin:0;font-size:12px}
- dt{color:#85818f}
- dd{margin:0;font-variant-numeric:tabular-nums;color:#4f4a59}
+ dt{color:var(--ds-color-text-muted)}
+ dd{margin:0;font-variant-numeric:tabular-nums;color:var(--ds-color-text)}
 </style>

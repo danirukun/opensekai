@@ -77,9 +77,9 @@
 <style>
  .row{display:flex;align-items:center;gap:8px;min-height:26px}
  .toggle{display:flex;flex:1 1 auto;align-items:center;gap:6px;min-width:0;font-size:12px;color:#423c4b}
- .toggle input{flex:none;accent-color:#8571ac}
+ .toggle input{flex:none;accent-color:var(--ds-color-accent)}
  .name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
- .disclose{flex:none;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;padding:0;border:0;border-radius:4px;background:transparent;color:#78717f;cursor:pointer}
+ .disclose{flex:none;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;padding:0;border:0;border-radius:4px;background:transparent;color:var(--ds-color-text-muted);cursor:pointer}
  .disclose :global(svg){transition:transform .15s}
  .disclose[aria-expanded='true'] :global(svg){transform:rotate(90deg)}
  fieldset{border:0;margin:4px 0 8px;padding:0 0 0 22px;display:flex;flex-direction:column;gap:6px;min-width:0}
