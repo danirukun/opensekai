@@ -3,6 +3,7 @@ pub mod facekit;
 pub mod osc_out;
 mod parser;
 use endpoints::{endpoint_routes, Endpoint, RouteSource, SourceKind};
+use facekit::{adapter::*, FaceKitManager};
 use opensekai_contracts::*;
 use parser::Decoder;
 use std::{
@@ -23,6 +24,15 @@ const HANDSHAKE_QUIET: Duration = Duration::from_millis(500);
 const MAX_COUNT: u64 = 9_007_199_254_740_991;
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
     m.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+/// `receiving` becomes `stale` when the last sample is older than 500 ms. The sample stays.
+fn aged(mut s: TrackingStatus, now_ms: f64) -> TrackingStatus {
+    if s.state == TrackingState::Receiving
+        && s.last_received_at_ms.is_some_and(|t| now_ms - t > 500.)
+    {
+        s.state = TrackingState::Stale;
+    }
+    s
 }
 /// The next time the handshake is due after a send (R6): 2000 ms after the last send, and
 /// 500 ms after the last received packet. `None` before the first send (due at once).
@@ -79,6 +89,7 @@ pub struct TrackingManager {
     clock: Instant,
     inputs: Arc<Mutex<Inputs>>,
     lifecycle: AsyncMutex<Lifecycle>,
+    facekit: FaceKitManager,
 }
 fn route_source(id: &str, name: &str, config: &TrackingConfig) -> Option<Result<RouteSource, ()>> {
     let (kind, enabled, bind_address, port, address) = match config {
@@ -137,31 +148,36 @@ fn route_source(id: &str, name: &str, config: &TrackingConfig) -> Option<Result<
 }
 impl TrackingManager {
     pub fn new(clock: Instant) -> Self {
+        Self::with_face_adapter(clock, facekit::platform_adapter())
+    }
+    pub fn with_face_adapter(clock: Instant, adapter: Arc<dyn FaceAdapter>) -> Self {
         Self {
             clock,
             inputs: Arc::new(Mutex::new(Inputs::default())),
             lifecycle: AsyncMutex::new(Lifecycle::default()),
+            facekit: FaceKitManager::new(clock, adapter),
         }
     }
+    pub fn face_cameras(&self) -> Vec<CameraInfo> {
+        self.facekit.cameras()
+    }
     pub fn snapshot(&self) -> TrackingUpdate {
-        let inputs = lock(&self.inputs);
         let now = self.clock.elapsed().as_secs_f64() * 1000.;
-        TrackingUpdate {
-            samples: inputs.samples.values().cloned().collect(),
-            statuses: inputs
-                .statuses
-                .values()
-                .cloned()
-                .map(|mut s| {
-                    if s.state == TrackingState::Receiving
-                        && s.last_received_at_ms.is_some_and(|t| now - t > 500.)
-                    {
-                        s.state = TrackingState::Stale;
-                    }
-                    s
-                })
-                .collect(),
-        }
+        let mut update = {
+            let inputs = lock(&self.inputs);
+            TrackingUpdate {
+                samples: inputs.samples.values().cloned().collect(),
+                statuses: inputs
+                    .statuses
+                    .values()
+                    .map(|s| aged(s.clone(), now))
+                    .collect(),
+            }
+        };
+        let face = self.facekit.snapshot(now);
+        update.samples.extend(face.samples);
+        update.statuses.extend(face.statuses);
+        update
     }
     /// Reconciles the receivers from the endpoint plan (R8-R10) once for each accepted revision,
     /// so a failed bind retries on the next revision and not on each frame. A source that keeps
@@ -172,6 +188,7 @@ impl TrackingManager {
             return;
         }
         life.revision = Some(scene.revision);
+        self.facekit.reconcile(scene);
         let desired: Vec<_> = scene
             .entities
             .iter()
@@ -382,6 +399,7 @@ impl TrackingManager {
     pub async fn shutdown(&self) {
         let mut life = self.lifecycle.lock().await;
         life.stopped = true;
+        self.facekit.shutdown();
         life.sources.clear();
         for (_, socket) in std::mem::take(&mut life.endpoints) {
             socket.close().await;
@@ -742,6 +760,49 @@ mod status_tests {
         assert_eq!(status.unmatched_packets, Some(5));
         assert_eq!(status.state, TrackingState::Waiting);
         manager.shutdown().await;
+    }
+    #[tokio::test]
+    async fn facekit_update_is_in_the_snapshot() {
+        use facekit::tests::{face, tracking, FakeAdapter};
+        let fake = Arc::new(FakeAdapter::default());
+        let manager = TrackingManager::with_face_adapter(Instant::now(), fake.clone());
+        let vmc = TrackingConfig::Vmc {
+            enabled: false,
+            bind_address: "127.0.0.1".into(),
+            port: 39539,
+            sender_address: None,
+            positions: None,
+        };
+        let face_config = TrackingConfig::FaceKit {
+            enabled: true,
+            device_id: "cam-1".into(),
+        };
+        let scene = SceneView {
+            schema_version: 1,
+            scene_id: "s".into(),
+            revision: 1,
+            outputs: vec![],
+            entities: vec![
+                tracking("vmc", "Body", 1, vmc),
+                tracking("face", "Face", 1, face_config),
+            ],
+        };
+        manager.reconcile(&scene).await;
+        assert_eq!(fake.starts(), 1);
+        fake.send(0, face(5.));
+        let update = manager.snapshot();
+        let mut ids: Vec<_> = update
+            .statuses
+            .iter()
+            .map(|s| s.source_id.as_str())
+            .collect();
+        ids.sort();
+        assert_eq!(ids, ["face", "vmc"]);
+        assert_eq!(update.samples.len(), 1);
+        assert_eq!(update.samples[0].source_id, "face");
+        manager.shutdown().await;
+        assert_eq!(fake.drops(), 1);
+        assert!(manager.snapshot().statuses.is_empty());
     }
 }
 #[cfg(test)]
