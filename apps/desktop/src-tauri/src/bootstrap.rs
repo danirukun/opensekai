@@ -264,6 +264,14 @@ impl DesktopState {
             .ok_or_else(|| error(ErrorCode::Unavailable, "Session unavailable"))?;
         ports.capture_source_allow(source)
     }
+    pub async fn facekit_camera_list(
+        &self,
+    ) -> Result<Vec<crate::tracking::facekit::adapter::CameraInfo>, AppError> {
+        let ports = self
+            .service_ports()
+            .ok_or_else(|| error(ErrorCode::Unavailable, "Session unavailable"))?;
+        ports.facekit_camera_list().await
+    }
     pub async fn wait_ready(&self) -> Result<NativeBootstrap, AppError> {
         let mut receiver = self.ready.subscribe();
         tokio::time::timeout(Duration::from_secs(5), async {

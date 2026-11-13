@@ -185,10 +185,35 @@ async fn capture_source_allow(
     require_window_label(window.label(), "main")?;
     state.capture_source_allow(source).await
 }
+/// The cameras that a FaceKit tracker can use (B33). Only the Editor window gets the list; MCP
+/// has no camera list.
+#[tauri::command]
+async fn facekit_camera_list(
+    window: tauri::WebviewWindow,
+    state: tauri::State<'_, Arc<DesktopState>>,
+) -> Result<Vec<crate::tracking::facekit::adapter::CameraInfo>, AppError> {
+    require_window_label(window.label(), "main")?;
+    state.facekit_camera_list().await
+}
 /// Opens the Screen Recording page of System Settings (B31 R17).
 #[tauri::command]
 fn open_capture_settings(window: tauri::WebviewWindow) -> Result<(), AppError> {
     require_window_label(window.label(), "main")?;
+    open_privacy_settings(
+        &window,
+        "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
+    )
+}
+/// Opens the Camera page of System Settings (B33).
+#[tauri::command]
+fn open_camera_settings(window: tauri::WebviewWindow) -> Result<(), AppError> {
+    require_window_label(window.label(), "main")?;
+    open_privacy_settings(
+        &window,
+        "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera",
+    )
+}
+fn open_privacy_settings(window: &tauri::WebviewWindow, url: &str) -> Result<(), AppError> {
     let unavailable = || AppError {
         code: ErrorCode::Unavailable,
         message: "Settings unavailable".into(),
@@ -200,15 +225,12 @@ fn open_capture_settings(window: tauri::WebviewWindow) -> Result<(), AppError> {
         window
             .app_handle()
             .opener()
-            .open_url(
-                "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
-                None::<&str>,
-            )
+            .open_url(url, None::<&str>)
             .map_err(|_| unavailable())
     }
     #[cfg(not(target_os = "macos"))]
     {
-        let _ = window;
+        let _ = (window, url);
         Err(unavailable())
     }
 }
@@ -592,6 +614,8 @@ pub fn run() {
             capture_source_list,
             capture_source_allow,
             open_capture_settings,
+            facekit_camera_list,
+            open_camera_settings,
             save_show,
             save_show_as,
             open_show,
@@ -662,6 +686,8 @@ mod command_boundary_tests {
             "allow-capture-source-list",
             "allow-capture-source-allow",
             "allow-open-capture-settings",
+            "allow-facekit-camera-list",
+            "allow-open-camera-settings",
             "allow-save-show",
             "allow-save-show-as",
             "allow-open-show",
