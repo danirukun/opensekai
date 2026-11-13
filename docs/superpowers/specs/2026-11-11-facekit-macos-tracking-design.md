@@ -179,7 +179,7 @@ Where the spike is:
 
 - A FaceKit session lives in the Rust host, beside the UDP receiver. The session is separate from the scene source: the session owns the camera, Vision, and the FaceKit tracker, and the source reads face 0 from it.
 - At most one session runs. If a scene has two enabled FaceKit sources, the source that holds the session keeps it. If no source holds it, the first in scene order gets it. The other source gets `error` with the name of the holder. This is the rule of the UDP endpoint conflict.
-- The session follows the reconcile pattern of `TrackingManager`: one reconcile for each scene revision, a new session when the generation or config of the source changes, and a retry after a failure only on a later revision.
+- The session follows the reconcile pattern of `TrackingManager`: one reconcile for each scene revision, a new session when the generation or config of the source changes, and a retry after a failure only on a later revision. A camera start or stop does not block the publisher frame loop: one FaceKit worker applies the latest revision, in order.
 - The scene limit of 4 tracking entities includes FaceKit sources. The FaceKit sample and status go in the same `TrackingUpdate` in the clock message.
 - The platform boundary is an adapter trait with a macOS implementation and a stub, as in `capture/`. The stub reports `unavailable`. All Apple-specific code is behind this adapter.
 - The macOS implementation is Rust with the `objc2` crates and `block2`. There is no Swift or Objective-C source file.

@@ -78,11 +78,26 @@ impl Socket {
         }
     }
 }
+/// The latest work for the FaceKit worker. A newer value replaces one the worker did not take.
+#[derive(Clone)]
+enum FaceWork {
+    Idle,
+    /// The FaceKit sources of one accepted revision.
+    Scene(SceneView),
+    Stop,
+}
+/// The FaceKit worker task. It applies the FaceKit part of each revision in order, so the
+/// publisher frame loop never waits for a camera to start or stop.
+struct FaceWorker {
+    work: watch::Sender<FaceWork>,
+    task: JoinHandle<()>,
+}
 #[derive(Default)]
 struct Lifecycle {
     revision: Option<u64>,
     sources: BTreeMap<String, Source>,
     endpoints: BTreeMap<Endpoint, Socket>,
+    face_worker: Option<FaceWorker>,
     stopped: bool,
 }
 pub struct TrackingManager {
@@ -92,6 +107,31 @@ pub struct TrackingManager {
     /// Behind an `Arc`: its reconcile and shutdown run on the blocking pool (a run's drop waits for
     /// the camera to stop), never on a tokio worker thread.
     facekit: Arc<FaceKitManager>,
+}
+async fn facekit_blocking(
+    facekit: &Arc<FaceKitManager>,
+    work: impl FnOnce(&FaceKitManager) + Send + 'static,
+) {
+    let facekit = facekit.clone();
+    if let Err(error) = tokio::task::spawn_blocking(move || work(&facekit)).await {
+        eprintln!("OpenSekai FaceKit task failed: {error}");
+    }
+}
+/// Takes only the latest scene: a scene that a newer one replaced is skipped. One reconcile runs
+/// at a time, so the old camera stops before the next one opens.
+async fn face_worker(facekit: Arc<FaceKitManager>, mut work: watch::Receiver<FaceWork>) {
+    while work.changed().await.is_ok() {
+        let next = work.borrow_and_update().clone();
+        match next {
+            FaceWork::Idle => {}
+            FaceWork::Scene(scene) => {
+                facekit_blocking(&facekit, move |f| f.reconcile(&scene)).await
+            }
+            FaceWork::Stop => return,
+        }
+    }
+    // The tracking manager was dropped without a shutdown.
+    facekit_blocking(&facekit, FaceKitManager::shutdown).await;
 }
 fn route_source(id: &str, name: &str, config: &TrackingConfig) -> Option<Result<RouteSource, ()>> {
     let (kind, enabled, bind_address, port, address) = match config {
@@ -160,10 +200,6 @@ impl TrackingManager {
             facekit: Arc::new(FaceKitManager::new(clock, adapter)),
         }
     }
-    async fn facekit_blocking(&self, work: impl FnOnce(&FaceKitManager) + Send + 'static) {
-        let facekit = self.facekit.clone();
-        let _ = tokio::task::spawn_blocking(move || work(&facekit)).await;
-    }
     pub fn face_cameras(&self) -> Vec<CameraInfo> {
         self.facekit.cameras()
     }
@@ -214,8 +250,15 @@ impl TrackingManager {
                 .cloned()
                 .collect(),
         };
-        self.facekit_blocking(move |facekit| facekit.reconcile(&faces))
-            .await;
+        let facekit = self.facekit.clone();
+        life.face_worker
+            .get_or_insert_with(|| {
+                let (work, receiver) = watch::channel(FaceWork::Idle);
+                let task = tokio::spawn(face_worker(facekit, receiver));
+                FaceWorker { work, task }
+            })
+            .work
+            .send_replace(FaceWork::Scene(faces));
         let desired: Vec<_> = scene
             .entities
             .iter()
@@ -426,7 +469,14 @@ impl TrackingManager {
     pub async fn shutdown(&self) {
         let mut life = self.lifecycle.lock().await;
         life.stopped = true;
-        self.facekit_blocking(FaceKitManager::shutdown).await;
+        // The worker ends its current reconcile, and the shutdown then releases the camera.
+        if let Some(worker) = life.face_worker.take() {
+            worker.work.send_replace(FaceWork::Stop);
+            if let Err(error) = worker.task.await {
+                eprintln!("OpenSekai FaceKit worker failed: {error}");
+            }
+        }
+        facekit_blocking(&self.facekit, FaceKitManager::shutdown).await;
         life.sources.clear();
         for (_, socket) in std::mem::take(&mut life.endpoints) {
             socket.close().await;
@@ -815,7 +865,7 @@ mod status_tests {
             ],
         };
         manager.reconcile(&scene).await;
-        assert_eq!(fake.starts(), 1);
+        assert!(wait_until(|| fake.starts() == 1).await);
         fake.send(0, face(5.));
         let update = manager.snapshot();
         let mut ids: Vec<_> = update
@@ -831,6 +881,114 @@ mod status_tests {
         assert_eq!(fake.drops(), 1);
         assert!(manager.snapshot().statuses.is_empty());
     }
+}
+#[cfg(test)]
+mod face_worker_tests {
+    use super::*;
+    use facekit::tests::tracking;
+    const SLOW: Duration = Duration::from_millis(500);
+    const FAST: Duration = Duration::from_millis(50);
+    /// Each start and each stop takes 500 ms, like a slow camera. The log gets "start <camera>"
+    /// when a start begins and "stopped <camera>" when a stop ends, so the camera of a run is on
+    /// from its "start" entry to its "stopped" entry.
+    #[derive(Default)]
+    struct SlowAdapter {
+        log: Arc<Mutex<Vec<String>>>,
+    }
+    struct SlowRun(String, Arc<Mutex<Vec<String>>>);
+    impl FaceRun for SlowRun {}
+    impl Drop for SlowRun {
+        fn drop(&mut self) {
+            std::thread::sleep(SLOW);
+            lock(&self.1).push(format!("stopped {}", self.0));
+        }
+    }
+    impl FaceAdapter for SlowAdapter {
+        fn cameras(&self) -> Vec<CameraInfo> {
+            vec![]
+        }
+        fn start(&self, device_id: &str, _: FaceSink) -> Box<dyn FaceRun> {
+            lock(&self.log).push(format!("start {device_id}"));
+            std::thread::sleep(SLOW);
+            Box::new(SlowRun(device_id.into(), self.log.clone()))
+        }
+    }
+    fn face_scene(revision: u64, device_id: &str) -> SceneView {
+        let config = TrackingConfig::FaceKit {
+            enabled: true,
+            device_id: device_id.into(),
+        };
+        SceneView {
+            schema_version: 1,
+            scene_id: "s".into(),
+            revision,
+            outputs: vec![],
+            entities: vec![tracking("face", "Face", revision, config)],
+        }
+    }
+    fn setup() -> (Arc<Mutex<Vec<String>>>, TrackingManager) {
+        let adapter = Arc::new(SlowAdapter::default());
+        let log = adapter.log.clone();
+        (
+            log,
+            TrackingManager::with_face_adapter(Instant::now(), adapter),
+        )
+    }
+    async fn timed_reconcile(manager: &TrackingManager, scene: &SceneView) -> Duration {
+        let started = Instant::now();
+        manager.reconcile(scene).await;
+        started.elapsed()
+    }
+    #[tokio::test(flavor = "multi_thread")]
+    async fn reconcile_does_not_wait_for_a_slow_camera() {
+        let (log, manager) = setup();
+        assert!(timed_reconcile(&manager, &face_scene(1, "cam-1")).await < FAST);
+        assert!(wait_until(|| lock(&log).len() == 1).await);
+        // The worker is in the start of cam-1; the next revision must not wait for it.
+        assert!(timed_reconcile(&manager, &face_scene(2, "cam-2")).await < FAST);
+        assert!(wait_until(|| lock(&log).len() == 3).await);
+        assert_eq!(*lock(&log), ["start cam-1", "stopped cam-1", "start cam-2"]);
+        let status = manager.snapshot().statuses;
+        assert_eq!(status.len(), 1);
+        assert_eq!(status[0].generation, 2);
+        assert_eq!(status[0].state, TrackingState::Waiting);
+        // The shutdown waits for the camera to stop.
+        let started = Instant::now();
+        manager.shutdown().await;
+        assert!(started.elapsed() >= SLOW);
+        assert_eq!(lock(&log).last().map(String::as_str), Some("stopped cam-2"));
+    }
+    #[tokio::test(flavor = "multi_thread")]
+    async fn quick_scenes_give_one_ordered_stop_then_start() {
+        let (log, manager) = setup();
+        manager.reconcile(&face_scene(1, "cam-1")).await;
+        assert!(wait_until(|| lock(&log).len() == 1).await);
+        // Both arrive while the start of cam-1 is in progress; cam-2 is replaced before it starts.
+        manager.reconcile(&face_scene(2, "cam-2")).await;
+        manager.reconcile(&face_scene(3, "cam-3")).await;
+        assert!(wait_until(|| lock(&log).len() == 3).await);
+        manager.shutdown().await;
+        assert_eq!(
+            *lock(&log),
+            [
+                "start cam-1",
+                "stopped cam-1",
+                "start cam-3",
+                "stopped cam-3"
+            ]
+        );
+    }
+}
+/// Polls `done` for at most 5 s. The FaceKit worker applies a scene after `reconcile` returns.
+#[cfg(test)]
+async fn wait_until(done: impl Fn() -> bool) -> bool {
+    for _ in 0..500 {
+        if done() {
+            return true;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    done()
 }
 #[cfg(test)]
 mod handshake_tests {
