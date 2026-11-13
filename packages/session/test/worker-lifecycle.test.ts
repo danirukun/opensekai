@@ -51,10 +51,10 @@ it("keeps persistent mutations across native pulses without replay", async () =>
  await host.handle({kind:"stop"});
 });
 
-function trackedScene(kind:'vmc'|'mediapipe'){
+function trackedScene(kind:'vmc'|'mediapipe'|'facekit'){
  const scene=makeSmokeScene();const config=defaultTrackingConfig(kind);config.enabled=true;
  scene.entities.push({id:'source',name:'Source',kind:'tracking',generation:1,visible:true,transform:{position:[0,0,0],rotation:[0,0,0,1],scale:[1,1,1]},config} as SceneEntity);
- const avatar=scene.entities.find(e=>e.kind==='avatar')!;if(avatar.kind==='avatar')avatar.tracking={bodySourceId:'source',faceSourceId:null};return scene;
+ const avatar=scene.entities.find(e=>e.kind==='avatar')!;if(avatar.kind==='avatar')avatar.tracking=kind==='facekit'?{bodySourceId:null,faceSourceId:'source'}:{bodySourceId:'source',faceSourceId:null};return scene;
 }
 const trackingSample={sourceId:'source',generation:1,receivedAtMs:10000,bones:{},expressions:{jawOpen:.8}};
 it('keeps native receipt time after subtracting session clock origin',async()=>{
@@ -63,6 +63,16 @@ it('keeps native receipt time after subtracting session clock origin',async()=>{
  expect(f.publishFrame.mock.calls[0]?.[0]).toMatchObject({elapsedMs:0,avatarPoses:[{avatarId:'performer',expressions:{jawOpen:.8}}]});
  expect(post).toHaveBeenCalledWith({kind:'clockSync',elapsedMs:10000});
  f.pulse(10625);expect(f.publishFrame.mock.calls[1]?.[0]?.avatarPoses[0].expressions.jawOpen).toBeCloseTo(.4);await host.handle({kind:'stop'});
+});
+it('accepts host FaceKit data and refuses local FaceKit data',async()=>{
+ const f=fixture(),host=createWorkerHost({connect:async()=>f.client});await host.handle({descriptor,scene:trackedScene('facekit')});
+ await host.handle({kind:'tracking',update:{samples:[trackingSample],statuses:[]}});
+ f.pulse(10000);expect(f.publishFrame.mock.calls[0]?.[0]?.avatarPoses[0].expressions).toEqual({});
+ f.pulse(10001,{samples:[trackingSample],statuses:[]});
+ expect(f.publishFrame.mock.calls[1]?.[0]?.avatarPoses[0].expressions.jawOpen).toBe(.8);
+ await host.handle({kind:'tracking',update:{samples:[{...trackingSample,receivedAtMs:10001,expressions:{jawOpen:.2}}],statuses:[]}});
+ f.pulse(10002);expect(f.publishFrame.mock.calls[2]?.[0]?.avatarPoses[0].expressions.jawOpen).toBe(.8);
+ await host.handle({kind:'stop'});
 });
 it('accepts only current local MediaPipe data and ignores native MediaPipe status',async()=>{
  const f=fixture(),host=createWorkerHost({connect:async()=>f.client});await host.handle({descriptor,scene:trackedScene('mediapipe')});

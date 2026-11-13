@@ -1,10 +1,11 @@
-import {TrackingUpdateSchema,canonicalArkitName,type ArkitName,type TrackingProbe,type TrackingUpdate,type TrackingSample,type VmcPositionRule,type TrackingStatus,type TrackingBone,type AvatarPose,type SceneView,type SceneEntity,DEFAULT_TRACKING_SMOOTHING,FINGER_BONES,type Quat,type Reply,bodyPartOf,type AvatarBodyTracking} from '@opensekai/contracts';
+import {TrackingUpdateSchema,canonicalArkitName,type ArkitName,type TrackingProbe,type TrackingUpdate,type TrackingSample,type VmcPositionRule,type TrackingStatus,type TrackingBone,type AvatarPose,type SceneView,type SceneEntity,DEFAULT_TRACKING_SMOOTHING,FINGER_BONES,type Quat,type Reply,bodyPartOf,type AvatarBodyTracking,FAILED_TRACKING_STATES} from '@opensekai/contracts';
 import {applyCalibration} from './tracking-calibration';
 import {applyMapping,scaleRotation} from './tracking-mapping';
 import {evaluateAvatarIdle} from './idle';
 import {createTrackingSampleFilter} from './tracking-filter';
 const faceBones=new Set(['head','neck','leftEye','rightEye','jaw']),fingerBones=new Set(FINGER_BONES);
 const copy=<T>(value:T):T=>structuredClone(value);
+const failed=(state:TrackingStatus['state'])=>(FAILED_TRACKING_STATES as readonly string[]).includes(state);
 function multiplyQuaternion(a:Quat,b:Quat):Quat {
  const [ax,ay,az,aw]=a,[bx,by,bz,bw]=b;
  const q:Quat=[ax*bw+aw*bx+ay*bz-az*by,ay*bw+aw*by+az*bx-ax*bz,az*bw+aw*bz+ax*by-ay*bx,aw*bw-ax*bx-ay*by-az*bz];
@@ -66,7 +67,7 @@ export function createTrackingComposer(){
   reconcile(scene);
   for(const sample of parsed.data.samples){const source=scene.entities.find(e=>e.kind==='tracking'&&e.id===sample.sourceId);if(source?.kind!=='tracking'||!source.config.enabled||source.generation!==sample.generation)continue;
    const previous=samples.get(sample.sourceId);if(previous&&previous.receivedAtMs>=sample.receivedAtMs)continue;const filtered=filterSample(source,sample);samples.set(sample.sourceId,filtered);rawSamples.set(sample.sourceId,copy(sample));recordPeaks(filtered);}
-  for(const status of parsed.data.statuses){const source=scene.entities.find(e=>e.kind==='tracking'&&e.id===status.sourceId);if(source?.kind!=='tracking'||source.generation!==status.generation)continue;statuses.set(status.sourceId,copy(status));if(status.state==='error'||status.state==='stopped')dropSample(status.sourceId);}
+  for(const status of parsed.data.statuses){const source=scene.entities.find(e=>e.kind==='tracking'&&e.id===status.sourceId);if(source?.kind!=='tracking'||source.generation!==status.generation)continue;statuses.set(status.sourceId,copy(status));if(failed(status.state)||status.state==='stopped')dropSample(status.sourceId);}
   return{ok:true,data:null};
  },
  // The smoothed sample that `evaluate` uses, before the stale fade. Null when it is older than 500 ms at nowMs.
@@ -119,8 +120,8 @@ export function createTrackingComposer(){
    const previous=statuses.get(source.id),sample=samples.get(source.id);
    const status:TrackingStatus=previous&&previous.generation===source.generation?copy(previous):{sourceId:source.id,generation:source.generation,state:'waiting',packets:0,invalidPackets:0,lastReceivedAtMs:null,error:null};
    if(!source.config.enabled){status.state='stopped';status.lastReceivedAtMs=null;status.error=null;}
-   else if(status.state!=='error'&&sample&&sample.generation===source.generation){status.state=nowMs-sample.receivedAtMs>500?'stale':'receiving';status.lastReceivedAtMs=sample.receivedAtMs;}
-   else if(status.state!=='error')status.state='waiting';
+   else if(!failed(status.state)&&sample&&sample.generation===source.generation){status.state=nowMs-sample.receivedAtMs>500?'stale':'receiving';status.lastReceivedAtMs=sample.receivedAtMs;}
+   else if(!failed(status.state))status.state='waiting';
    return status;
   });
   return {avatarPoses,trackingStatus};
