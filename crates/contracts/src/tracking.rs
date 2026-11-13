@@ -398,7 +398,7 @@ impl Validate for TrackingConfig {
             )?,
             Self::FaceKit { device_id, .. } => require(
                 device_id.encode_utf16().count() <= 512,
-                "invalid webcam config",
+                "invalid facekit config",
             )?,
         }
         Ok(())
