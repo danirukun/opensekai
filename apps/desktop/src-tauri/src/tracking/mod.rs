@@ -1,4 +1,5 @@
 mod endpoints;
+pub mod facekit;
 pub mod osc_out;
 mod parser;
 use endpoints::{endpoint_routes, Endpoint, RouteSource, SourceKind};
