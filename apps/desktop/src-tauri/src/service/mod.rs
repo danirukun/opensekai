@@ -951,7 +951,10 @@ impl ServicePorts {
         let shared = self.shared.clone();
         tokio::task::spawn_blocking(move || shared.tracking.face_cameras())
             .await
-            .map_err(|_| err(ErrorCode::Unavailable, "Camera list unavailable"))
+            .map_err(|error| {
+                eprintln!("OpenSekai camera list task failed: {error}");
+                err(ErrorCode::Unavailable, "Camera list unavailable")
+            })
     }
     /// Tests replace the platform adapter with the fixture adapter.
     #[doc(hidden)]
