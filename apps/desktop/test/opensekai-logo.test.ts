@@ -23,3 +23,17 @@ it('uses the same cube and sparkle paths for the rail mark, in one colour', () =
   expect(mark).toContain('fill="currentColor"');
   expect(mark).not.toMatch(/#[0-9a-fA-F]{3,8}/);
 });
+
+it('puts the rail mark first and opens the Assets tab from it', () => {
+  const app = readFileSync(join(root, 'EditorApp.svelte'), 'utf8');
+  const rail = app.slice(app.indexOf('class="editor-rail"'), app.indexOf('class="editor-content"'));
+  const markAt = rail.indexOf('<OpenSekaiMark/>');
+  const boxAt = rail.indexOf('<Box');
+  const resourcesAt = rail.indexOf('title="Resources"');
+  expect(markAt).toBeGreaterThan(-1);
+  expect(markAt).toBeLessThan(boxAt);
+  expect(markAt).toBeLessThan(resourcesAt);
+  const logoButton = rail.slice(0, boxAt);
+  expect(logoButton).toContain("panel==='assets'");
+  expect(logoButton).not.toContain('resources');
+});
