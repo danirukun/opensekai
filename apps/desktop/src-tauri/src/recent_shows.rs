@@ -113,7 +113,8 @@ impl RecentShows {
     }
 }
 
-/// Reads the show at `index`. A file that is missing or not a valid show leaves the list.
+/// Reads the show at `index`. A file that is missing or not a valid show leaves the list. The
+/// list order changes only when the editor commits the open.
 pub fn open_entry(list: &RecentShows, index: usize) -> Result<(PathBuf, Value), AppError> {
     let path = list.path_at(index).ok_or_else(|| AppError {
         code: ErrorCode::InvalidInput,
@@ -121,10 +122,7 @@ pub fn open_entry(list: &RecentShows, index: usize) -> Result<(PathBuf, Value), 
         ids: vec![],
     })?;
     match crate::show::read_show(&path) {
-        Ok(document) => {
-            list.touch(path.clone());
-            Ok((path, document))
-        }
+        Ok(document) => Ok((path, document)),
         Err(error) => {
             list.remove(&path);
             Err(error)
@@ -209,6 +207,30 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let list = RecentShows::load(settings_path(dir.path()));
         list.touch(dir.path().join("gone.osekai"));
+        assert!(open_entry(&list, 0).is_err());
+        assert!(list.entries().is_empty());
+    }
+
+    #[test]
+    fn open_entry_reads_without_reordering() {
+        let dir = tempfile::tempdir().unwrap();
+        let list = RecentShows::load(settings_path(dir.path()));
+        let a = dir.path().join("a.osekai");
+        std::fs::write(&a, include_str!("../resources/templates/stage-lights.osekai")).unwrap();
+        list.touch(a.clone());
+        list.touch(dir.path().join("b.osekai"));
+        let (path, _) = open_entry(&list, 1).unwrap();
+        assert_eq!(path, a);
+        assert_eq!(names(&list), ["b", "a"]);
+    }
+
+    #[test]
+    fn open_invalid_entry_removes_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let list = RecentShows::load(settings_path(dir.path()));
+        let bad = dir.path().join("bad.osekai");
+        std::fs::write(&bad, b"{}").unwrap();
+        list.touch(bad);
         assert!(open_entry(&list, 0).is_err());
         assert!(list.entries().is_empty());
     }

@@ -51,6 +51,7 @@ fn main() {
             "open_show",
             "recent_show_list",
             "open_recent_show",
+            "commit_show_open",
             "show_template_list",
             "open_show_template",
             "set_show_dirty",

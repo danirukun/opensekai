@@ -26,6 +26,7 @@
     "allow-open-show",
     "allow-recent-show-list",
     "allow-open-recent-show",
+    "allow-commit-show-open",
     "allow-show-template-list",
     "allow-open-show-template",
     "allow-set-show-dirty",

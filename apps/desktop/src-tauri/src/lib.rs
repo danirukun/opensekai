@@ -314,12 +314,25 @@ async fn open_show(window: tauri::WebviewWindow) -> Result<Option<serde_json::Va
         };
         let path = local_path(path)?;
         let document = show::read_show(&path)?;
-        app.state::<show::ShowFile>().set_path(path.clone());
-        app.state::<recent_shows::RecentShows>().touch(path);
+        app.state::<show::ShowFile>().stage_open(Some(path));
         Ok(Some(document))
     })
     .await
     .map_err(chooser_unavailable)?
+}
+/// The editor calls this after it replaced the scene with the last opened show. Only then does
+/// that file become the Save target and move to the top of the recent list.
+#[tauri::command]
+fn commit_show_open(
+    window: tauri::WebviewWindow,
+    file: tauri::State<'_, show::ShowFile>,
+    recent: tauri::State<'_, recent_shows::RecentShows>,
+) -> Result<(), AppError> {
+    require_window_label(window.label(), "main")?;
+    if let Some(path) = file.commit_open() {
+        recent.touch(path);
+    }
+    Ok(())
 }
 #[tauri::command]
 fn show_template_list(
@@ -328,7 +341,7 @@ fn show_template_list(
     require_window_label(window.label(), "main")?;
     Ok(templates::TEMPLATES.to_vec())
 }
-/// Loads a bundled template as a new show. It forgets the current file, so Save asks for one.
+/// Loads a bundled template as a new show. Its commit forgets the current file, so Save asks for one.
 #[tauri::command]
 async fn open_show_template(
     window: tauri::WebviewWindow,
@@ -344,7 +357,7 @@ async fn open_show_template(
     let path = templates::template_path(&resources, &id)?;
     tauri::async_runtime::spawn_blocking(move || {
         let document = show::read_show(&path)?;
-        app.state::<show::ShowFile>().clear_path();
+        app.state::<show::ShowFile>().stage_open(None);
         Ok(document)
     })
     .await
@@ -369,7 +382,7 @@ async fn open_recent_show(
     tauri::async_runtime::spawn_blocking(move || {
         let (path, document) =
             recent_shows::open_entry(&app.state::<recent_shows::RecentShows>(), index)?;
-        app.state::<show::ShowFile>().set_path(path);
+        app.state::<show::ShowFile>().stage_open(Some(path));
         Ok(document)
     })
     .await
@@ -684,6 +697,7 @@ pub fn run() {
             open_show,
             recent_show_list,
             open_recent_show,
+            commit_show_open,
             show_template_list,
             open_show_template,
             set_show_dirty,
@@ -760,6 +774,7 @@ mod command_boundary_tests {
             "allow-open-show",
             "allow-recent-show-list",
             "allow-open-recent-show",
+            "allow-commit-show-open",
             "allow-show-template-list",
             "allow-open-show-template",
             "allow-set-show-dirty",

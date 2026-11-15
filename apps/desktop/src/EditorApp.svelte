@@ -190,7 +190,7 @@ import { createEditorMemory } from './blueprints/editor-memory';
     if(broken&&!broken.result.ok)showError=`${broken.graph.name}: ${broken.result.error.message}`;
     if(sync){const applied=sync.edit([{kind:'replaceAll',graphs:document.blueprints}]);await sync.idle();if(applied.ok)memory.history.clear();if((!applied.ok||sync.issue())&&!showError)showError='Blueprints were not applied';}
    });
-   if(reply.ok){savedMark={name:showName,revision:reply.data.revision,blueprintRevision:sync?.revision()};startEnded=true;}
+   if(reply.ok){await invoke('commit_show_open');savedMark={name:showName,revision:reply.data.revision,blueprintRevision:sync?.revision()};startEnded=true;}
    if(!reply.ok){showError=reply.error.message;return false;}
    return true;
   }catch(cause){showError=showFailure(cause);return false;}
