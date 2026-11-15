@@ -49,6 +49,8 @@ fn main() {
             "save_show",
             "save_show_as",
             "open_show",
+            "recent_show_list",
+            "open_recent_show",
             "set_show_dirty",
             "import_blueprint_file",
             "export_blueprint_file",

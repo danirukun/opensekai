@@ -5,6 +5,7 @@ pub mod capture;
 pub mod evaluation;
 pub mod input;
 mod local_file;
+mod recent_shows;
 pub mod screenshots;
 pub mod service;
 mod show;
@@ -273,6 +274,7 @@ async fn save_show_as(
         let path = local_path(path)?;
         show::write_show(&path, &document)?;
         app.state::<show::ShowFile>().set_path(path.clone());
+        app.state::<recent_shows::RecentShows>().touch(path.clone());
         Ok(Some(path.to_string_lossy().into_owned()))
     })
     .await
@@ -289,8 +291,10 @@ async fn save_show(
     let Some(path) = show_file.path() else {
         return save_show_as(window, document).await;
     };
+    let app = window.app_handle().clone();
     tauri::async_runtime::spawn_blocking(move || {
         show::write_show(&path, &document)?;
+        app.state::<recent_shows::RecentShows>().touch(path.clone());
         Ok(Some(path.to_string_lossy().into_owned()))
     })
     .await
@@ -309,8 +313,34 @@ async fn open_show(window: tauri::WebviewWindow) -> Result<Option<serde_json::Va
         };
         let path = local_path(path)?;
         let document = show::read_show(&path)?;
-        app.state::<show::ShowFile>().set_path(path);
+        app.state::<show::ShowFile>().set_path(path.clone());
+        app.state::<recent_shows::RecentShows>().touch(path);
         Ok(Some(document))
+    })
+    .await
+    .map_err(chooser_unavailable)?
+}
+#[tauri::command]
+fn recent_show_list(
+    window: tauri::WebviewWindow,
+    recent: tauri::State<'_, recent_shows::RecentShows>,
+) -> Result<Vec<recent_shows::RecentShow>, AppError> {
+    require_window_label(window.label(), "main")?;
+    Ok(recent.entries())
+}
+/// Opens a recent show by its index in the list, so the window never sends a path.
+#[tauri::command]
+async fn open_recent_show(
+    window: tauri::WebviewWindow,
+    index: usize,
+) -> Result<serde_json::Value, AppError> {
+    require_window_label(window.label(), "main")?;
+    let app = window.app_handle().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let (path, document) =
+            recent_shows::open_entry(&app.state::<recent_shows::RecentShows>(), index)?;
+        app.state::<show::ShowFile>().set_path(path);
+        Ok(document)
     })
     .await
     .map_err(chooser_unavailable)?
@@ -563,6 +593,9 @@ pub fn run() {
             install_menu(app.handle())?;
             let data = app.path().app_local_data_dir()?;
             std::fs::create_dir_all(&data)?;
+            app.manage(recent_shows::RecentShows::load(
+                recent_shows::settings_path(&data),
+            ));
             let output_root = output_resource_dir(app.handle())?;
             let asset_manifest = std::env::var_os("OPENSEKAI_FIXTURE_MANIFEST").map(PathBuf::from);
             startup.set_keystrokes(Arc::new(input::GlobalKeystrokes::new(app.handle().clone())));
@@ -619,6 +652,8 @@ pub fn run() {
             save_show,
             save_show_as,
             open_show,
+            recent_show_list,
+            open_recent_show,
             set_show_dirty,
             import_blueprint_file,
             export_blueprint_file
