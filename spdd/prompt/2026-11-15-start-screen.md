@@ -75,4 +75,4 @@ Use Svelte 5, `@oshi-connect/ui`, `@lucide/svelte`, and Tauri v2. Keep platform 
 
 ## Status
 
-Implementation in progress on branch `start-screen`.
+Implemented on branch `start-screen` (commits `67c2a9a`..`3670acf`). The live macOS check of R1–R9 passed; see [the start screen check](../../docs/evaluation/start-screen.md). Not verified: a release build, Windows, and keyboard-only navigation.
