@@ -29,6 +29,6 @@
  .slider-field :global(.slider-number){display:contents}
  .slider-field :global(.slider-number label){grid-column:1/-1;grid-row:1}
  .slider-field :global(.slider-number input){grid-column:2;grid-row:2;padding:5px 8px;min-width:0}
- .slider-track{grid-column:1;grid-row:2;width:100%;min-width:0;margin:0;accent-color:#8571ac}
+ .slider-track{grid-column:1;grid-row:2;width:100%;min-width:0;margin:0;accent-color:var(--ds-color-accent)}
  .slider-track:disabled{opacity:.5}
 </style>

@@ -19,7 +19,7 @@
  let guides=$state<GuideSettings>(NO_GUIDES);
  function toggle(guide:Guide){guides=toggleGuide(guides,guide);try{localStorage.setItem(GUIDE_STORAGE_KEY,writeGuides(guides));}catch{}}
  function guideMenu(event:MouseEvent&{currentTarget:HTMLButtonElement}){if(menu?.guides){menu=null;return;}const box=event.currentTarget.getBoundingClientRect();menu={x:box.left,y:box.bottom+4,guides:true,anchor:event.currentTarget,actions:[{label:'Center mark',checked:guides.center,run:()=>toggle('center')},{label:'Thirds',checked:guides.thirds,run:()=>toggle('thirds')}]};}
- function context(event:MouseEvent){event.preventDefault();if(!previewOn||!selectedEditable)return;menu={x:event.clientX,y:event.clientY,actions:[['Move','translate'],['Rotate','rotate'],['Scale','scale']].map(([label,value])=>({label,disabled:!canEdit||!available||pending,run:()=>ontool(value as Tool)}))};}
+ function context(event:MouseEvent){event.preventDefault();if(!previewOn||!selectedEditable)return;menu={x:event.clientX,y:event.clientY,actions:[{label:'Move',icon:Move,tool:'translate'},{label:'Rotate',icon:RotateCw,tool:'rotate'},{label:'Scale',icon:Scaling,tool:'scale'}].map(({label,icon,tool:next})=>({label,icon,disabled:!canEdit||!available||pending,run:()=>ontool(next)}))};}
  onMount(()=>{
   try{guides=readGuides(localStorage.getItem(GUIDE_STORAGE_KEY));}catch{}
   // A hidden pane has a zero stage; keep the last size so the canvas and its pointer mapping stay valid (R7).

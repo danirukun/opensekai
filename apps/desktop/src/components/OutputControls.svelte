@@ -28,7 +28,7 @@
 </script>
 <div class="output-controls" aria-label="Output controls">
  <Select label="Camera" value={camera} options={cameras} disabled={editLocked} onchange={event => { void model.selectCamera(event.currentTarget.value); }} />
- <span class="output-state" role="status">{fresh ? 'OBS ready' : output?.connected ? 'OBS waiting' : 'OBS disconnected'}</span>
+ <span class={{ 'output-state': true, 'status-positive': fresh }} role="status">{fresh ? 'OBS ready' : output?.connected ? 'OBS waiting' : 'OBS disconnected'}</span>
  <div class="spacer"></div>
  <Select label="Quality" value={quality} options={qualityOptions} disabled={!outputUrl} onchange={event => { const parsed = QualityProfileIdSchema.safeParse(event.currentTarget.value); if (parsed.success) quality = parsed.data; }} />
  <Button variant="secondary" disabled={!outputUrl} onclick={copy}>{copied ? 'Copied' : 'Copy OBS URL'}</Button>

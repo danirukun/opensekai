@@ -6,5 +6,5 @@
 </script>
 <section class="inspector-section" data-section={id} aria-labelledby="inspector-section-{id}">
  <h4><button type="button" id="inspector-section-{id}" class="section-heading" aria-expanded={!collapsed} aria-controls="inspector-section-body-{id}" onclick={ontoggle}><ChevronRight size={14}/>{label}</button></h4>
- <div id="inspector-section-body-{id}" class="section-body" hidden={collapsed}>{@render children()}</div>
+ <div id="inspector-section-body-{id}" class={['section-body', { collapsed }]} inert={collapsed} aria-hidden={collapsed}><div class="section-clip">{@render children()}</div></div>
 </section>

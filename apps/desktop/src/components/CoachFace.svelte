@@ -30,8 +30,8 @@
  });
 </script>
 <svg class="coach" viewBox="0 0 150 150" aria-hidden="true">
- <circle cx="75" cy="75" r="68" fill="none" stroke="#eeecf2" stroke-width="5"/>
- <circle cx="75" cy="75" r="68" fill="none" stroke="#8571ac" stroke-width="5" stroke-linecap="round" stroke-dasharray={RING} stroke-dashoffset={RING*(1-Math.min(1,Math.max(0,progress)))} transform="rotate(-90 75 75)" opacity={progress>0?1:0}/>
+ <circle cx="75" cy="75" r="68" fill="none" stroke="var(--ds-color-border)" stroke-width="5"/>
+ <circle cx="75" cy="75" r="68" fill="none" stroke="var(--ds-color-accent)" stroke-width="5" stroke-linecap="round" stroke-dasharray={RING} stroke-dashoffset={RING*(1-Math.min(1,Math.max(0,progress)))} transform="rotate(-90 75 75)" opacity={progress>0?1:0}/>
  <ellipse cx="75" cy="77" rx={50+shape.cheekPuff*7} ry="52" fill="#f3d9c8"/>
  <circle cx="47" cy="92" r={6+shape.cheekPuff*6} fill="#eaa9a0" opacity={.3+shape.cheekPuff*.4}/>
  <circle cx="103" cy="92" r={6+shape.cheekPuff*6} fill="#eaa9a0" opacity={.3+shape.cheekPuff*.4}/>

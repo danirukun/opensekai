@@ -7,8 +7,8 @@
  {#if peak!==undefined&&peak>0}<b style:left={pct(peak)}></b>{/if}
 </div>
 <style>
- .meter{position:relative;height:8px;border-radius:4px;background:#eeecf2}
- i{position:absolute;inset:0 auto 0 0;border-radius:4px;background:#8571ac;transition:width 90ms linear}
- b{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;background:#3b3546}
+ .meter{position:relative;height:8px;border-radius:4px;background:var(--ds-color-border)}
+ i{position:absolute;inset:0 auto 0 0;border-radius:4px;background:var(--ds-color-accent);transition:width 90ms linear}
+ b{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;background:var(--ds-color-text)}
  @media (prefers-reduced-motion:reduce){i{transition:none}}
 </style>
