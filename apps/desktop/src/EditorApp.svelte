@@ -5,7 +5,7 @@
  import { invoke } from '@tauri-apps/api/core';
  import { getCurrentWindow } from '@tauri-apps/api/window';
  import { Button, ToastRegion, toasts } from '@oshi-connect/ui';
- import { Box, Radio, PackageOpen, Workflow, FolderOpen, Save, Settings } from '@lucide/svelte';
+ import { Radio, PackageOpen, Workflow, FolderOpen, Save, Settings } from '@lucide/svelte';
  import Stats from 'stats.js';
  import {createMediaPipeTracker} from './tracking/mediapipe';
  import {fitDevices} from './tracking/hidden-cameras';
@@ -33,6 +33,7 @@ import { createEditorMemory } from './blueprints/editor-memory';
  import {openShowDocument,showDirty,type ShowMark} from './editor/show-management';
  import type {AddKind} from './editor/live-fields';
  import type { AppApi, AppStatus, AssetRecord, ShowDocument, TrackingConfig,Transform } from '@opensekai/contracts';
+ import OpenSekaiMark from './components/OpenSekaiMark.svelte';
  import Hierarchy from './components/Hierarchy.svelte';
  import Inspector from './components/Inspector.svelte';
  import OutputControls from './components/OutputControls.svelte';
@@ -222,7 +223,7 @@ import { createEditorMemory } from './blueprints/editor-memory';
 <svelte:window onkeydown={key}/>
 <main class="editor-window">
  <nav class="editor-rail" aria-label="Editor panels">
-  <Button variant="ghost" class={panel==='assets'?'active-panel':''} title="Assets" onclick={()=>{panel='assets';}}><Box size={20}/><span class="sr-only">Assets</span></Button>
+  <Button variant="ghost" class={panel==='assets'?'active-panel':''} title="Assets" onclick={()=>{panel='assets';}}><OpenSekaiMark/><span class="sr-only">Assets</span></Button>
   <Button variant="ghost" class={panel==='output'?'active-panel':''} title="Output" onclick={()=>{panel='output';}}><Radio size={20}/><span class="sr-only">Output</span></Button>
   <Button variant="ghost" class={panel==='blueprints'?'active-panel':''} title="Blueprints" onclick={()=>{panel='blueprints';}}><Workflow size={20}/><span class="sr-only">Blueprints</span></Button>
   <div class="spacer"></div>
