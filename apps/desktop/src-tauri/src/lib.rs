@@ -356,6 +356,29 @@ fn install_menu(app: &tauri::AppHandle) -> tauri::Result<()> {
     // would skip `ExitRequested`. A custom item sends Quit through `request_quit`.
     #[cfg(target_os = "macos")]
     if let Some(app_menu) = submenus.first() {
+        // The stock About item sets no icon, so a dev build shows a generic one.
+        let about = app_menu
+            .items()?
+            .first()
+            .and_then(|item| item.as_predefined_menuitem().cloned())
+            .filter(|item| item.text().is_ok_and(|text| text.starts_with("About")));
+        if let Some(about) = about {
+            use tauri::menu::AboutMetadata;
+            let info = app.package_info();
+            let metadata = AboutMetadata {
+                name: Some(info.name.clone()),
+                version: Some(info.version.to_string()),
+                copyright: app.config().bundle.copyright.clone(),
+                icon: Some(tauri::include_image!("icons/icon.png")),
+                ..Default::default()
+            };
+            let label = format!("About {}", info.name);
+            app_menu.remove(&about)?;
+            app_menu.insert(
+                &PredefinedMenuItem::about(app, Some(&label), Some(metadata))?,
+                0,
+            )?;
+        }
         let quit = app_menu
             .items()?
             .last()
