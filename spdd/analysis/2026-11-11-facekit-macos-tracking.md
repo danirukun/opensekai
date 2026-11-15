@@ -59,3 +59,12 @@ The design lists the owner's decisions and the 15 calls of the designer. The own
 - **Two capture owners.** MediaPipe (webview) and FaceKit (host) can open the same camera. macOS permits this. The live check records the result.
 - **Other hardware.** Intel Macs, macOS 14 to 26, external cameras, and virtual cameras are not tested. The records claim only the tested Mac.
 - **Linux and Windows build.** The stub compiles and runs in the unit tests on macOS. A Linux build is checked in a container or a cloud run, or the record says unknown. Windows is unknown.
+
+## Implementation findings
+
+The live checks on the test Mac passed at `33e74eb`, and the Open Settings layout passed at `517945a`. A Linux aarch64 container ran the workspace tests and clippy with exit 0. The [FaceKit tracking check](../../docs/evaluation/facekit-tracking.md) gives the results. These findings are not fixed in this slice:
+
+1. **Revision guard (pre-existing).** After a session restart with a lower revision, the reconcile in `apps/desktop/src-tauri/src/tracking/mod.rs` skips each scene with `scene.revision <= life.revision`. A FaceKit or UDP source then stays `waiting` until an app restart. The same check is on `main` at `8dea8a3`. A follow-up issue must make the guard use the session too.
+2. **MediaPipe behind another window.** MediaPipe fell to about 1 face each second when the app window was behind another window. FaceKit stayed at about 30 each second.
+3. **Hidden cameras deadline (pre-existing, B18).** "Patterns take too long." can show under Hidden cameras when the Editor window is inactive and throttled. The match deadline is 100 ms.
+4. **Vite dependency reload (development only).** The first MediaPipe use made Vite reload the WebView. The session started again at revision 0, which caused finding 1.
