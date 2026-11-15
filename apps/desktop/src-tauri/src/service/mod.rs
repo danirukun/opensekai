@@ -943,6 +943,19 @@ impl ServicePorts {
     pub fn capture_source_allow(&self, source: CaptureSource) -> Result<(), AppError> {
         self.shared.capture.allow(source)
     }
+    /// The editor camera list (B33). Only the editor-only Tauri command calls it. The device
+    /// discovery blocks, so it runs off the async runtime and holds no tracking lock.
+    pub async fn facekit_camera_list(
+        &self,
+    ) -> Result<Vec<crate::tracking::facekit::adapter::CameraInfo>, AppError> {
+        let shared = self.shared.clone();
+        tokio::task::spawn_blocking(move || shared.tracking.face_cameras())
+            .await
+            .map_err(|error| {
+                eprintln!("OpenSekai camera list task failed: {error}");
+                err(ErrorCode::Unavailable, "Camera list unavailable")
+            })
+    }
     /// Tests replace the platform adapter with the fixture adapter.
     #[doc(hidden)]
     pub fn set_capture_adapter(&self, adapter: Arc<dyn crate::capture::adapter::CaptureAdapter>) {

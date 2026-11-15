@@ -75,6 +75,15 @@ Use `--no-fail-fast` with `cargo test`. Without it, cargo stops at the first fai
 
 After the #158 fix, `cargo test --workspace --no-fail-fast` gives 206 passed, 0 failed, 1 skipped.
 
+Linux aarch64, recorded 2026-11-13 (tests) and 2026-11-15 (clippy) on the FaceKit branch (B33) at `33e74eb`, Ubuntu 24.04 container, rustc 1.93.1. No Node checks ran in this container.
+
+| Command | Pass | Fail | Skip | Notes |
+| --- | --- | --- | --- | --- |
+| `cargo test --workspace --no-fail-fast` | 534 | 0 | 3 | Skip: `pinned_fixture_benchmark_cancel_replay_stale_timer_summary_and_history` (local pinned smoke fixtures), `loads_applecva_and_creates_a_tracker` (FaceKit needs macOS), `youtube_live_gate` (network, 30 minutes) |
+| `cargo clippy --workspace --all-targets -- -D warnings` | Clean | 0 | — | Exit 0 |
+
 One unexplained failure was seen once in about 70 runs of `evaluation_integration`: `native_capture_produces_registered_evidence_and_http_role_cors_policy` and `capture_export_failure_preserves_registered_records_and_cannot_escape_root` failed together at their first capture. It did not occur again in 65 runs, also under CPU load. If you see it, record the full output on a new issue.
+
+`clock_integration::due_clocks_progress_under_sustained_control_without_credit_accumulation` fails sometimes with "unsolicited frames accumulated credits: 2". The cause is the 100 ms timing window of the test. On macOS, the `clock_integration` binary failed 4 of 30 runs on the base of the FaceKit branch (B33) and 2 of 30 runs at `33e74eb`. This is a known defect, not a pass on a re-run. If you see it, show that it is the same failure and name it in the evidence.
 
 Update this table when a change adds a known failure, removes one, or changes a skip.

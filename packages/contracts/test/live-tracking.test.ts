@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {defaultTrackingConfig,AvatarPoseSchema,SceneEntitySchema,ScenePatchSchema,SceneViewSchema,TrackingSampleSchema,RuntimeFrameSchema,makeSmokeScene,ClockEnvelopeSchema,AppStatusSchema,TrackingBoneSchema,TrackingStatusSchema} from '../src/index';
+import {defaultTrackingConfig,AvatarPoseSchema,SceneEntitySchema,ScenePatchSchema,SceneViewSchema,TrackingSampleSchema,RuntimeFrameSchema,makeSmokeScene,ClockEnvelopeSchema,AppStatusSchema,TrackingBoneSchema,TrackingStatusSchema,TrackingConfigSchema,FACE_ONLY_TRACKING_KINDS,FAILED_TRACKING_STATES} from '../src/index';
 const base={id:'source',name:'VMC Receiver',visible:true,transform:{position:[0,0,0],rotation:[0,0,0,1],scale:[1,1,1]}};
 const receiver={...base,kind:'tracking',generation:1,config:{kind:'vmc',enabled:false,bindAddress:'127.0.0.1',port:39539,senderAddress:null}};
 describe('live authoring and tracking boundary',()=>{
@@ -67,4 +67,15 @@ it('accepts the optional local addresses, unmatched count, and bone offsets of B
  expect(AvatarPoseSchema.safeParse({...pose,boneOffsets:{chest:[0,.1045,0,.9945]}}).success).toBe(true);
  expect(AvatarPoseSchema.safeParse({...pose,boneOffsets:{tail:[0,0,0,1]}}).success).toBe(false);
  expect(AvatarPoseSchema.safeParse({...pose,boneOffsets:{chest:[0,1,0,1]}}).success).toBe(false);
+});
+
+it('gives the FaceKit defaults and keeps the kind face-only',()=>{
+ expect(defaultTrackingConfig('facekit')).toEqual({kind:'facekit',enabled:false,deviceId:''});
+ expect(FACE_ONLY_TRACKING_KINDS).toContain('facekit');
+ expect(TrackingConfigSchema.safeParse({kind:'facekit',enabled:true,deviceId:'x'.repeat(513)}).success).toBe(false);
+ expect(TrackingConfigSchema.safeParse({kind:'facekit',enabled:true,deviceId:'',mirror:false}).success).toBe(false);
+});
+it('accepts the two FaceKit states',()=>{
+ for(const state of ['unavailable','permissionNeeded'] as const)expect(TrackingStatusSchema.safeParse({sourceId:'s',generation:1,state,packets:0,invalidPackets:0,lastReceivedAtMs:null,error:null}).success).toBe(true);
+ expect(FAILED_TRACKING_STATES).toEqual(['error','unavailable','permissionNeeded']);
 });

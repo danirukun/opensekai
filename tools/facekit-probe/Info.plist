@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleIdentifier</key>
+  <string>net.oshi-connect.opensekai.facekit-probe</string>
+  <key>CFBundleName</key>
+  <string>facekit-probe</string>
+  <key>NSCameraUsageDescription</key>
+  <string>The OpenSekai FaceKit probe reads the camera for a local face tracking check.</string>
+</dict>
+</plist>

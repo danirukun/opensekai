@@ -17,6 +17,7 @@ const smoothingValues=(smoothing=DEFAULT_TRACKING_SMOOTHING)=>({smoothing:smooth
 const mappingValues=(mapping=DEFAULT_TRACKING_MAPPING)=>({headIntensity:mapping.headIntensity,headOffsetX:mapping.headOffset[0],headOffsetY:mapping.headOffset[1],headOffsetZ:mapping.headOffset[2],eyeIntensity:mapping.eyeIntensity,blendShapeSensitivity:mapping.blendShapeSensitivity,linkedBlink:mapping.linkedBlink});
 function configValues(config:Extract<SceneEntity,{kind:'tracking'}>['config']):Record<string,unknown> {
  if(config.kind==='mediapipe')return {face:config.face,upperBody:config.upperBody,hands:config.hands,mirror:config.mirror};
+ if(config.kind==='facekit')return {};
  return {bindAddress:config.bindAddress,port:config.port,address:config.kind==='ifacialmocap'?config.phoneAddress:config.senderAddress};
 }
 // The current value of each field as the Inspector shows it: a missing optional field takes its fallback (R2).
@@ -63,7 +64,7 @@ export function resetFieldIds(entity:SceneEntity):string[] {
  if(entity.kind==='environment')return [...base,'reflectionsIntensity'];
  if(entity.kind==='screen')return [...base,'content',...(entity.content.kind==='video'?['video','autoPlay','loop','volume']:entity.content.kind==='web'?['url','width','height','onTop']:entity.content.kind==='capture'?['cursor']:['image'])];
  if(entity.kind==='avatar')return [...base,'idleAnimation','bodyMovementIntensity','trackedParts'];
- if(entity.kind==='tracking')return [...(entity.config.kind==='mediapipe'?['face','upperBody','hands','mirror']:['bindAddress','port','address']),'smoothing','minCutoff','beta','derivativeCutoff','headIntensity','headOffsetX','headOffsetY','headOffsetZ','eyeIntensity','blendShapeSensitivity','linkedBlink'];
+ if(entity.kind==='tracking')return [...(entity.config.kind==='mediapipe'?['face','upperBody','hands','mirror']:entity.config.kind==='facekit'?[]:['bindAddress','port','address']),'smoothing','minCutoff','beta','derivativeCutoff','headIntensity','headOffsetX','headOffsetY','headOffsetZ','eyeIntensity','blendShapeSensitivity','linkedBlink'];
  return base;
 }
 const COLOR=/^#[0-9a-f]{6}$/i;
