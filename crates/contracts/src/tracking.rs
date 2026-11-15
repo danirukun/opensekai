@@ -40,6 +40,12 @@ pub enum TrackingConfig {
         hands: bool,
         mirror: bool,
     },
+    #[serde(rename = "facekit")]
+    FaceKit {
+        enabled: bool,
+        #[serde(rename = "deviceId")]
+        device_id: String,
+    },
 }
 /// Which VMC bone positions the composer keeps. A missing rule means `All`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -120,7 +126,7 @@ pub struct TrackingMapping {
     pub use_eye_bones: Option<bool>,
 }
 strings!(BoneSpace { Raw=>"raw",Normalized=>"normalized" });
-strings!(TrackingState { Stopped=>"stopped",Waiting=>"waiting",Receiving=>"receiving",Stale=>"stale",Error=>"error" });
+strings!(TrackingState { Stopped=>"stopped",Waiting=>"waiting",Receiving=>"receiving",Stale=>"stale",Error=>"error",Unavailable=>"unavailable",PermissionNeeded=>"permissionNeeded" });
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TrackingBone {
@@ -338,9 +344,12 @@ pub fn humanoid_bone(name: &str) -> bool {
         })
 }
 impl TrackingConfig {
-    /// iFacialMocap and OpenSeeFace give a head and a face only, so an avatar uses them only in the face slot.
+    /// iFacialMocap, OpenSeeFace and FaceKit give a head and a face only, so an avatar uses them only in the face slot.
     pub fn face_only(&self) -> bool {
-        matches!(self, Self::IFacialMocap { .. } | Self::OpenSeeFace { .. })
+        matches!(
+            self,
+            Self::IFacialMocap { .. } | Self::OpenSeeFace { .. } | Self::FaceKit { .. }
+        )
     }
 }
 impl Validate for TrackingConfig {
@@ -386,6 +395,10 @@ impl Validate for TrackingConfig {
                 device_id.encode_utf16().count() <= 512
                     && (!enabled || *face || *upper_body || *hands),
                 "invalid webcam config",
+            )?,
+            Self::FaceKit { device_id, .. } => require(
+                device_id.encode_utf16().count() <= 512,
+                "invalid facekit config",
             )?,
         }
         Ok(())

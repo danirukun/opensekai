@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-facekit-camera-list"
+description = "Enables the facekit_camera_list command without any pre-configured scope."
+commands.allow = ["facekit_camera_list"]
+
+[[permission]]
+identifier = "deny-facekit-camera-list"
+description = "Denies the facekit_camera_list command without any pre-configured scope."
+commands.deny = ["facekit_camera_list"]

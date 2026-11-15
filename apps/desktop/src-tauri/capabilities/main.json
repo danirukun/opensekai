@@ -19,6 +19,8 @@
     "allow-capture-source-list",
     "allow-capture-source-allow",
     "allow-open-capture-settings",
+    "allow-facekit-camera-list",
+    "allow-open-camera-settings",
     "allow-save-show",
     "allow-save-show-as",
     "allow-open-show",

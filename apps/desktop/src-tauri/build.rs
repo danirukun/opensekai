@@ -44,6 +44,8 @@ fn main() {
             "capture_source_list",
             "capture_source_allow",
             "open_capture_settings",
+            "facekit_camera_list",
+            "open_camera_settings",
             "save_show",
             "save_show_as",
             "open_show",

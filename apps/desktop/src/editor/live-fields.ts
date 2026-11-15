@@ -52,11 +52,11 @@ export function parseMappingDraft(draft:MappingDraft,ranges:ReadonlySet<string>)
  return parsed.success?parsed.data:null;
 }
 // The config field that the Inspector shows as the address of a UDP source.
-export const addressKey=(config:Exclude<TrackingConfig,{kind:'mediapipe'}>)=>config.kind==='ifacialmocap'?'phoneAddress':'senderAddress';
-export function parseTrackingConfig(config:TrackingConfig,values:{bindAddress:string;port:string;address:string}):TrackingConfig|null {const candidate=config.kind==='mediapipe'?config:{...config,bindAddress:values.bindAddress.trim(),port:values.port.trim()===''?NaN:Number(values.port),[addressKey(config)]:values.address.trim()||null};const parsed=TrackingConfigSchema.safeParse(candidate);return parsed.success?parsed.data:null;}
+export const addressKey=(config:Exclude<TrackingConfig,{kind:'mediapipe'|'facekit'}>)=>config.kind==='ifacialmocap'?'phoneAddress':'senderAddress';
+export function parseTrackingConfig(config:TrackingConfig,values:{bindAddress:string;port:string;address:string}):TrackingConfig|null {const candidate=config.kind==='mediapipe'||config.kind==='facekit'?config:{...config,bindAddress:values.bindAddress.trim(),port:values.port.trim()===''?NaN:Number(values.port),[addressKey(config)]:values.address.trim()||null};const parsed=TrackingConfigSchema.safeParse(candidate);return parsed.success?parsed.data:null;}
 export function matchingStatus(statuses:TrackingStatus[],id:string,generation:number){return statuses.find(status=>status.sourceId===id&&status.generation===generation);}
 
-export function initialTrackingDraft(config:TrackingConfig){return {config:{...config},bindAddress:config.kind==='mediapipe'?'':config.bindAddress,port:config.kind==='mediapipe'?'':String(config.port),address:config.kind==='ifacialmocap'?config.phoneAddress??'':config.kind==='mediapipe'?'':config.senderAddress??''};}
+export function initialTrackingDraft(config:TrackingConfig){const udp=config.kind!=='mediapipe'&&config.kind!=='facekit';return {config:{...config},bindAddress:udp?config.bindAddress:'',port:udp?String(config.port):'',address:config.kind==='ifacialmocap'?config.phoneAddress??'':udp?config.senderAddress??'':''};}
 
 export function cameraOptions(entities:readonly SceneEntity[]){return entities.filter(entity=>entity.kind==='camera').map(entity=>({value:entity.id,label:entity.name}));}
 

@@ -274,3 +274,36 @@ fn trk23_fit_blend_shape_ranges_is_checked() {
     extra["operations"][0]["extra"] = json!(1);
     assert!(validate_value::<ScenePatch>(&extra).is_err());
 }
+#[test]
+fn facekit_config_and_states_round_trip() {
+    use opensekai_contracts::{TrackingConfig, TrackingState, Validate};
+    let config: TrackingConfig =
+        serde_json::from_str(r#"{"kind":"facekit","enabled":true,"deviceId":""}"#).unwrap();
+    assert_eq!(
+        config,
+        TrackingConfig::FaceKit {
+            enabled: true,
+            device_id: String::new()
+        }
+    );
+    assert!(config.face_only() && config.validate().is_ok());
+    assert!(TrackingConfig::FaceKit {
+        enabled: true,
+        device_id: "x".repeat(513)
+    }
+    .validate()
+    .is_err());
+    assert!(serde_json::from_str::<TrackingConfig>(
+        r#"{"kind":"facekit","enabled":true,"deviceId":"","mirror":false}"#
+    )
+    .is_err());
+    for (state, text) in [
+        (TrackingState::Unavailable, "unavailable"),
+        (TrackingState::PermissionNeeded, "permissionNeeded"),
+    ] {
+        let value = json!({"sourceId":"s","generation":1,"state":text,"packets":0,"invalidPackets":0,"lastReceivedAtMs":null,"error":null});
+        let status = validate_value::<TrackingStatus>(&value).unwrap();
+        assert_eq!(status.state, state);
+        assert_eq!(serde_json::to_value(&status).unwrap()["state"], text);
+    }
+}

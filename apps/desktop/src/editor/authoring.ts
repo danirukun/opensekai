@@ -17,7 +17,7 @@ export function nextAvatarTransform(entities:readonly SceneEntity[],scale:Vec3=[
 }
 const transform=()=>({position:[0,0,0] as [number,number,number],rotation:[0,0,0,1] as [number,number,number,number],scale:[1,1,1] as [number,number,number]});
 export function makeAuthoringEntity(kind:AddKind,id:string,entities:readonly SceneEntity[]):SceneEntity {
- const label=({camera:'Camera',character:'Character',environment:'Environment',prop:'Prop',screen:'Screen',directionalLight:'Directional Light',pointLight:'Point Light',spotLight:'Spot Light',ambientLight:'Ambient Light',haze:'Haze',fpsCounter:'FPS Counter',vmcSender:'VMC Sender',vmc:'VMC Receiver',ifacialmocap:'iFacialMocap Receiver',openseeface:'OpenSeeFace Receiver',mediapipe:'MediaPipe Tracker'} as const)[kind];
+ const label=({camera:'Camera',character:'Character',environment:'Environment',prop:'Prop',screen:'Screen',directionalLight:'Directional Light',pointLight:'Point Light',spotLight:'Spot Light',ambientLight:'Ambient Light',haze:'Haze',fpsCounter:'FPS Counter',vmcSender:'VMC Sender',vmc:'VMC Receiver',ifacialmocap:'iFacialMocap Receiver',openseeface:'OpenSeeFace Receiver',mediapipe:'MediaPipe Tracker',facekit:'FaceKit Tracker'} as const)[kind];
  const taken=new Set(entities.map(entity=>entity.name));
  let n=2;while(taken.has(`${label} ${n}`))n++;
  const base={id,name:taken.has(label)?`${label} ${n}`:label,visible:true,transform:transform()};
@@ -46,7 +46,9 @@ export function addLimitReached(kind:AddKind,entities:readonly SceneEntity[]):bo
  if(kind==='fpsCounter')return fpsCounterLimitReached(entities);
  if(kind==='vmcSender')return vmcSenderLimitReached(entities);
  if(kind==='screen')return screenLimitReached(entities);
- return false;
+ if(kind==='prop')return false;
+ // Every tracking kind counts in the scene limit of 4 tracking entities.
+ return entities.filter(entity=>entity.kind==='tracking').length>=4;
 }
 // A scene holds at most 16 screens (B28 R8).
 export const screenLimitReached=(entities:readonly SceneEntity[])=>entities.filter(entity=>entity.kind==='screen').length>=LIMITS.screens;

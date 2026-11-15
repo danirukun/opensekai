@@ -60,6 +60,29 @@ objc2-core-media = "=0.3.2"
 objc2-core-video = "=0.3.2"
 objc2-video-toolbox = "=0.3.2"
 objc2-screen-capture-kit = "=0.3.2"
+# TRK-24 B33: the FaceKit camera (AVFoundation) and the face rectangle (Vision).
+objc2-av-foundation = { version = "=0.3.2", default-features = false, features = [
+    "std",
+    "block2",
+    "dispatch2",
+    "objc2-core-media",
+    "objc2-core-video",
+    "AVCaptureDevice",
+    "AVCaptureInput",
+    "AVCaptureOutputBase",
+    "AVCaptureSession",
+    "AVCaptureVideoDataOutput",
+    "AVMediaFormat",
+] }
+objc2-vision = { version = "=0.3.2", default-features = false, features = [
+    "std",
+    "objc2-core-foundation",
+    "objc2-core-video",
+    "VNObservation",
+    "VNRequest",
+    "VNRequestHandler",
+    "VNDetectFaceRectanglesRequest",
+] }
 
 # Gamepad and MIDI adapters (BP-06). Linux has stubs, so its build needs no udev or ALSA headers.
 [target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
