@@ -726,6 +726,8 @@ mod command_boundary_tests {
             "allow-save-show",
             "allow-save-show-as",
             "allow-open-show",
+            "allow-recent-show-list",
+            "allow-open-recent-show",
             "allow-set-show-dirty",
             "allow-import-blueprint-file",
             "allow-export-blueprint-file",
