@@ -16,6 +16,15 @@ Method. The app was driven with mouse clicks and key presses through System Even
 | Escape | R2, R9 | PASS. Escape closed the start screen. The preview drew the default scene, and the frame-rate monitor showed 60 FPS. |
 | OBS output | R9 | PASS. With the start screen up, the OBS capture was fully transparent (alpha maximum 0). 1 s after the `Stage Lights` click, the OBS capture showed the stage (alpha mean 0.43), and it was the same 3 s later. OBS reported 0 skipped output frames. With the QA scene on program, the OBS capture showed Catboy on a transparent background. |
 
+## After the final review
+
+The final review found that the host set the Save target and reordered the recent list before the editor accepted the scene. Commit `3be0c29` stages the file and commits it only after a successful scene replace (`commit_show_open`). A re-check in the dev build from that commit:
+
+- `Stage Lights` loaded. Command+S opened the Save sheet, and the recent list file did not exist until the save.
+- After a relaunch, a click on the recent entry loaded the Stage Lights scene (Floor, Haze, two spot lights). File › Save Show wrote the same file (the modification time changed) without a sheet.
+
+The owner then asked for the subtitle `Create your dream VTuber world` under the logo. A fresh launch showed it under the logo, above `Add character`.
+
 ## Not measured
 
 - Whether OBS reloaded the browser source page. The check shows only that OBS kept drawing the output.

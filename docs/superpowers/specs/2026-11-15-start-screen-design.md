@@ -73,6 +73,7 @@ For templates, three options were considered: stages without assets (chosen), te
 ```
 ┌──────────────────────────────┐
 │            [logo]            │
+│ Create your dream VTuber world │
 │                              │
 │   Add character              │  ← primary
 │   Open show…            ⌘O   │
@@ -88,7 +89,7 @@ For templates, three options were considered: stages without assets (chosen), te
 - The logo is the existing OpenSekai mark (`apps/desktop/src/assets/opensekai-logo.svg`), centred.
 - One clear primary action: Add character. The other actions are quieter rows.
 - The Recent section shows only when the list has entries. A first-time user does not see an empty Recent section.
-- No helper sentences. Labels only.
+- No helper sentences. Labels only. The one exception is the subtitle `Create your dream VTuber world` under the logo, which the owner asked for on 2026-11-15.
 
 ### Add character
 

@@ -16,6 +16,7 @@ After it ends, it does not show again in the session, also when the mark returns
 
 R2. **Layout and copy.** The screen shows these items, from top to bottom:
 - the full-colour OpenSekai logo in the centre;
+- the subtitle `Create your dream VTuber world` under the logo (owner request, 2026-11-15; this overrides the copy-restraint principle for this one line);
 - a primary `Add character` action;
 - `Open show…`;
 - a `Templates` heading with one row for each template;

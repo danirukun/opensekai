@@ -19,6 +19,7 @@
  <div class="start-close"><Button variant="ghost" title="Close" onclick={onclose}><X size={16}/><span class="sr-only">Close</span></Button></div>
  <div class="start-column" bind:this={column}>
   <img class="start-logo" src={logo} alt="OpenSekai"/>
+  <p class="start-subtitle">Create your dream VTuber world</p>
   <Button class="start-primary" {disabled} onclick={onaddcharacter}>Add character</Button>
   <Button variant="ghost" class="start-row" {disabled} onclick={onopen}><span>Open show…</span><kbd>⌘O</kbd></Button>
   {#if templates.length>0}<h2>Templates</h2>{#each templates as template (template.id)}<Button variant="ghost" class="start-row" {disabled} onclick={()=>ontemplate(template.id)}><span>{template.name}</span></Button>{/each}{/if}
@@ -29,7 +30,8 @@
  .start-screen{position:absolute;inset:0;z-index:4;display:flex;align-items:center;justify-content:center;overflow:auto;background:var(--ds-color-surface)}
  .start-close{position:absolute;top:10px;right:10px}
  .start-column{width:min(320px,100% - 48px);display:flex;flex-direction:column;align-items:stretch;gap:2px;padding:24px 0}
- .start-logo{width:96px;height:auto;align-self:center;margin-bottom:28px}
+ .start-logo{width:96px;height:auto;align-self:center;margin-bottom:12px}
+ .start-subtitle{margin:0 0 28px;text-align:center;font-size:13px;color:var(--ds-color-text-muted)}
  h2{margin:20px 0 4px;padding:0 10px;font-size:11px;font-weight:600;color:var(--ds-color-text-muted)}
  .start-column :global(.start-primary){margin-bottom:10px}
  .start-screen :global(.start-row),.start-close :global(button){border:0!important;background:transparent!important;color:var(--ds-color-text)!important;box-shadow:none!important}
