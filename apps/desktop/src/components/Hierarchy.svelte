@@ -1,7 +1,7 @@
 <script lang="ts">
- import {tick} from 'svelte';
+ import {tick, type Component} from 'svelte';
  import { Button, Input, Spinner } from '@oshi-connect/ui';
- import { Camera, User, Box, Search, Radio, Eye, EyeOff, ChevronRight, ChevronDown, Video, Plus, Mountain, Sun, Lightbulb, Spotlight, SunDim, CloudFog, Gauge, Send, Image } from '@lucide/svelte';
+ import { Camera, User, Box, Search, Radio, Eye, EyeOff, ChevronRight, ChevronDown, Video, Plus, Mountain, Sun, Lightbulb, Spotlight, SunDim, CloudFog, Gauge, Send, Image, Move, RotateCw, Scaling, RotateCcw, Pencil, CopyPlus, Trash2, Play, Square } from '@lucide/svelte';
  import type { Transform, Reply } from '@opensekai/contracts';
  import type {AddKind} from '../editor/live-fields';
  import type { EditorPanelProps } from '../editor/model';
@@ -11,7 +11,7 @@
  import {copyTransform} from '../editor/interaction';
  import {vmcSenderLimitReached} from '../editor/vmc-sender';
  import {addLimitReached,screenLimitReached} from '../editor/authoring';
- import {addMenuItems} from '../editor/add-menu';
+ import {addMenuEntries} from '../editor/add-menu';
  import {currentPlatform} from '../blueprints/keystroke-format';
  import {duplicateLimitReached} from '../editor/screen';
  import ContextMenu, {type MenuAction} from './ContextMenu.svelte';
@@ -52,18 +52,25 @@
   event.preventDefault();select(id);const scene=view.scene,entity=scene?.entities.find(e=>e.id===id),revision=scene?.revision;
   if(!entity||revision===undefined)return;
   const current=()=>view.scene?.revision===revision&&!view.pending&&!disabled;
-  const action=(label:string,run:()=>void):MenuAction=>({label,disabled:disabled||view.pending,run:()=>{if(current())run();}});
-  const typeActions=entity.kind==='tracking'
-   ?[ {...action(entity.config.enabled?'Stop':'Start',()=>{void ontrackingtoggle?.(id,!entity.config.enabled,revision);}),disabled:disabled||view.pending||!ontrackingtoggle} ]
-   :entity.kind==='vmcSender'?[action(entity.vmcSender.enabled?'Stop':'Start',()=>{void model.setVmcSender(id,{...entity.vmcSender,enabled:!entity.vmcSender.enabled},revision);})]
-   :[...(ontool?(['translate','rotate','scale'] as Tool[]).map((tool,i)=>action(['Move','Rotate','Scale'][i],()=>ontool?.(tool))):[]),action(entity.visible?'Hide':'Show',()=>{void model.setVisibility(id,!entity.visible,revision);}),...(['position','rotation','scale'] as const).map(row=>action(`Reset ${row}`,()=>{void model.setTransform?.(id,{...copyTransform(entity.transform),[row]:row==='rotation'?[0,0,0,1]:row==='scale'?[1,1,1]:[0,0,0]},revision);})),...(entity.kind==='camera'?[action('Use as output camera',()=>{void model.selectCamera(id,revision);})]:[])];
+  const action=(label:string,icon:Component<{size?:number}>,run:()=>void):MenuAction=>({label,icon,disabled:disabled||view.pending,run:()=>{if(current())run();}});
+  const group=(name:string,items:MenuAction[])=>items.map(item=>({...item,group:name}));
+  const spatial=entity.kind!=='tracking'&&entity.kind!=='vmcSender';
+  const tools:[Tool,string,Component<{size?:number}>][]=[['translate','Move',Move],['rotate','Rotate',RotateCw],['scale','Scale',Scaling]];
+  const toolActions=spatial&&ontool?tools.map(([tool,label,icon])=>action(label,icon,()=>ontool?.(tool))):[];
+  const controlActions=entity.kind==='tracking'
+   ?[{...action(entity.config.enabled?'Stop':'Start',entity.config.enabled?Square:Play,()=>{void ontrackingtoggle?.(id,!entity.config.enabled,revision);}),disabled:disabled||view.pending||!ontrackingtoggle}]
+   :entity.kind==='vmcSender'?[action(entity.vmcSender.enabled?'Stop':'Start',entity.vmcSender.enabled?Square:Play,()=>{void model.setVmcSender(id,{...entity.vmcSender,enabled:!entity.vmcSender.enabled},revision);})]:[];
+  const viewActions=spatial?[action(entity.visible?'Hide':'Show',entity.visible?EyeOff:Eye,()=>{void model.setVisibility(id,!entity.visible,revision);}),...(entity.kind==='camera'?[action('Use as output camera',Video,()=>{void model.selectCamera(id,revision);})]:[])]:[];
+  const resetActions=spatial?(['position','rotation','scale'] as const).map(row=>action(`Reset ${row}`,RotateCcw,()=>{void model.setTransform?.(id,{...copyTransform(entity.transform),[row]:row==='rotation'?[0,0,0,1]:row==='scale'?[1,1,1]:[0,0,0]},revision);})): [];
   const referenced=scene!.outputs.some(output=>output.cameraId===id);
   const budgetFull=scene!.entities.length>=64||(entity.kind==='avatar'&&scene!.entities.filter(item=>item.kind==='avatar').length>=2)||entity.kind==='environment'||(entity.kind==='camera'&&cameraLimitReached(scene!.entities))||(entity.kind==='light'&&(lightLimitReached(scene!.entities)||(entity.light.shadow.enabled&&scene!.entities.filter(item=>item.kind==='light'&&item.light.shadow.enabled).length>=2)))||(entity.kind==='tracking'&&scene!.entities.filter(item=>item.kind==='tracking').length>=4)||(entity.kind==='haze'&&hazeLimitReached(scene!.entities))||(entity.kind==='fpsCounter'&&fpsCounterLimitReached(scene!.entities))||(entity.kind==='vmcSender'&&vmcSenderLimitReached(scene!.entities))||(entity.kind==='screen'&&(screenLimitReached(scene!.entities)||duplicateLimitReached(entity,scene!.entities)));
-  menu={x:event.clientX,y:event.clientY,actions:[...typeActions,action('Rename',()=>{void beginRename(id,revision);}),{...action('Duplicate',()=>{void duplicate(id,revision);}),disabled:disabled||view.pending||budgetFull,title:budgetFull?'Scene asset limit reached':undefined},{...action('Remove',()=>{void remove(id,revision);}),disabled:disabled||view.pending||referenced,title:referenced?'Choose another output camera before removal':undefined}]};
+  menu={x:event.clientX,y:event.clientY,actions:[...group('tool',toolActions),...group('control',controlActions),...group('view',viewActions),...group('reset',resetActions),...group('edit',[action('Rename',Pencil,()=>{void beginRename(id,revision);}),{...action('Duplicate',CopyPlus,()=>{void duplicate(id,revision);}),disabled:disabled||view.pending||budgetFull,title:budgetFull?'Scene asset limit reached':undefined}]),...group('remove',[{...action('Remove',Trash2,()=>{void remove(id,revision);}),disabled:disabled||view.pending||referenced,title:referenced?'Choose another output camera before removal':undefined}])]};
  }
+ const addIcon:Record<AddKind,Component<{size?:number}>>={camera:Camera,character:User,environment:Mountain,prop:Box,screen:Image,directionalLight:Sun,pointLight:Lightbulb,spotLight:Spotlight,ambientLight:SunDim,haze:CloudFog,fpsCounter:Gauge,vmc:Radio,vmcSender:Send,ifacialmocap:Radio,openseeface:Radio,mediapipe:Radio,facekit:Radio};
+ function openAdd(event:MouseEvent&{currentTarget:HTMLButtonElement}){const revision=view.scene?.revision;if(revision===undefined)return;const box=event.currentTarget.getBoundingClientRect();menu={x:box.left,y:box.bottom,actions:addMenuEntries(currentPlatform()).map(entry=>{const full=addLimitReached(entry.kind,view.scene?.entities??[]);return {label:entry.label,icon:addIcon[entry.kind],group:entry.group,disabled:full,title:full?'Scene asset limit reached':undefined,run:()=>{if(view.scene?.revision===revision&&!view.pending&&!disabled)void onadd?.(entry.kind,revision);}};})};}
 
 </script>
-<section class="editor-panel hierarchy" aria-labelledby="hierarchy-heading"><div class="asset-heading"><h2 id="hierarchy-heading">Assets</h2><div class="asset-actions"><Button variant="ghost" disabled={disabled||view.pending||!view.scene||!onadd} onclick={event=>{const revision=view.scene?.revision;if(revision===undefined)return;menu={x:event.currentTarget.getBoundingClientRect().left,y:event.currentTarget.getBoundingClientRect().bottom,actions:addMenuItems(currentPlatform()).map(([kind,label])=>{const full=addLimitReached(kind,view.scene?.entities??[]);return {label,disabled:full,title:full?'Scene asset limit reached':undefined,run:()=>{if(view.scene?.revision===revision&&!view.pending&&!disabled)void onadd?.(kind,revision);}};})};}} title="Add asset"><Plus size={14}/></Button></div></div><div class="asset-search"><Search size={14}/><Input label="Search assets" placeholder="Search" bind:value={search}/></div>
+<section class="editor-panel hierarchy" aria-labelledby="hierarchy-heading"><div class="asset-heading"><h2 id="hierarchy-heading">Assets</h2><div class="asset-actions"><Button variant="ghost" disabled={disabled||view.pending||!view.scene||!onadd} onclick={openAdd} title="Add asset"><Plus size={14}/></Button></div></div><div class="asset-search"><Search size={14}/><Input label="Search assets" placeholder="Search" bind:value={search}/></div>
  <div class="entity-list" role="toolbar" aria-label="Scene assets" tabindex="0" onkeydown={navigate}>
   {#each groups as group (group.key)}
    <div class="asset-group">
@@ -92,5 +99,5 @@
 {#if menu}<ContextMenu {...menu} onclose={()=>{menu=null;}}/>{/if}
 <style>
  .asset-rename{flex:1;min-width:0;padding:3px 0}.asset-rename :global(label){position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}.asset-rename :global(input){width:100%;min-width:0}
- .asset-group{margin-bottom:8px}.asset-row{display:flex;align-items:center;gap:2px}.asset-row .entity-row{flex:1;min-width:0;padding:8px 6px;gap:7px}.asset-row .hidden-asset{color:#aaa3b5}.row-actions{display:flex;flex:none}.row-action{display:flex;align-items:center;justify-content:center;border:0;border-radius:4px;background:transparent;cursor:pointer}.row-action:hover{background:var(--ds-color-hover)}.row-action:disabled{opacity:.5;cursor:default}.row-action:focus-visible,.entity-row:focus-visible{outline:2px solid var(--ds-color-focus);outline-offset:-2px}.row-actions .row-action{padding:5px;width:25px;height:28px;color:var(--ds-color-rail-icon)}.row-actions .active-camera{color:var(--ds-color-on-selection);background:var(--ds-color-selection)}.asset-group .group-heading{border:0;background:transparent;cursor:pointer;display:flex;width:100%;justify-content:flex-start;gap:5px;padding:5px 6px;color:var(--ds-color-text-muted);font-size:11px;font-weight:500}
+ .asset-group{margin-bottom:8px}.asset-row{display:flex;align-items:center;gap:2px}.asset-row .entity-row{flex:1;min-width:0;padding:8px 6px;gap:7px}.asset-row .hidden-asset{color:#aaa3b5}.row-actions{display:flex;flex:none}.row-action{display:flex;align-items:center;justify-content:center;border:0;border-radius:4px;background:transparent;cursor:pointer}.row-action:hover{background:var(--ds-color-hover)}.row-action:disabled{opacity:.5;cursor:default}.row-action:focus-visible,.entity-row:focus-visible{outline:2px solid var(--ds-color-focus);outline-offset:-2px}.row-actions .row-action{padding:5px;width:25px;height:28px;color:var(--ds-color-rail-icon)}.row-actions .active-camera{color:var(--ds-color-on-selection);background:var(--ds-color-selection);transition:background-color .16s ease-out,color .16s ease-out}.asset-group .group-heading{border:0;background:transparent;cursor:pointer;display:flex;width:100%;justify-content:flex-start;gap:5px;padding:5px 6px;color:var(--ds-color-text-muted);font-size:11px;font-weight:500}
 .asset-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.asset-heading h2{margin:0}.asset-actions{display:flex;gap:2px}.asset-actions :global(button){font-size:12px;padding:4px 7px}.asset-search{display:flex;gap:8px;align-items:center;padding-bottom:10px}.asset-search :global(input){min-width:0}.asset-row :global(svg){flex:none}.asset-search :global(label){position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}</style>

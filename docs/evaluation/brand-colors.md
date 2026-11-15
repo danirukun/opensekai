@@ -8,6 +8,6 @@ Window size: 1440 × 900. Browser: Google Chrome headless.
 | --- | --- | --- |
 | Rail, scene tree, toolbar, properties pane, footer | [before](brand-colors/before-editor.png) | [after](brand-colors/after-editor.png) |
 
-Before, a selected row and an active tool use a purple fill. After, they use cyan at 40% opacity with navy text. The footer text "Session connected" sits on lime. The rail background is the rail neutral.
+Before, a selected row and an active tool use a purple fill. After, they use cyan at 40% opacity with navy text. A connected session is a lime dot in the show toolbar. The rail background is the rail neutral.
 
 Body text contrast is in `apps/desktop/test/brand-tokens.test.ts`. Primary text on the neutral surfaces and on lime is above 4.5:1. Navy on cyan at 40% opacity, over the app, rail, toolbar, and white surfaces, is above 4.5:1.
