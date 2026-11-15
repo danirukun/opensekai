@@ -26,6 +26,8 @@
     "allow-open-show",
     "allow-recent-show-list",
     "allow-open-recent-show",
+    "allow-show-template-list",
+    "allow-open-show-template",
     "allow-set-show-dirty",
     "allow-import-blueprint-file",
     "allow-export-blueprint-file",

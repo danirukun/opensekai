@@ -9,6 +9,7 @@ mod recent_shows;
 pub mod screenshots;
 pub mod service;
 mod show;
+mod templates;
 pub mod tracking;
 pub mod vmc_sender;
 pub mod youtube;
@@ -316,6 +317,35 @@ async fn open_show(window: tauri::WebviewWindow) -> Result<Option<serde_json::Va
         app.state::<show::ShowFile>().set_path(path.clone());
         app.state::<recent_shows::RecentShows>().touch(path);
         Ok(Some(document))
+    })
+    .await
+    .map_err(chooser_unavailable)?
+}
+#[tauri::command]
+fn show_template_list(
+    window: tauri::WebviewWindow,
+) -> Result<Vec<templates::ShowTemplate>, AppError> {
+    require_window_label(window.label(), "main")?;
+    Ok(templates::TEMPLATES.to_vec())
+}
+/// Loads a bundled template as a new show. It forgets the current file, so Save asks for one.
+#[tauri::command]
+async fn open_show_template(
+    window: tauri::WebviewWindow,
+    id: String,
+) -> Result<serde_json::Value, AppError> {
+    require_window_label(window.label(), "main")?;
+    let app = window.app_handle().clone();
+    let resources = app.path().resource_dir().map_err(|_| AppError {
+        code: ErrorCode::Unavailable,
+        message: "Show templates unavailable".into(),
+        ids: vec![],
+    })?;
+    let path = templates::template_path(&resources, &id)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let document = show::read_show(&path)?;
+        app.state::<show::ShowFile>().clear_path();
+        Ok(document)
     })
     .await
     .map_err(chooser_unavailable)?
@@ -654,6 +684,8 @@ pub fn run() {
             open_show,
             recent_show_list,
             open_recent_show,
+            show_template_list,
+            open_show_template,
             set_show_dirty,
             import_blueprint_file,
             export_blueprint_file
@@ -728,6 +760,8 @@ mod command_boundary_tests {
             "allow-open-show",
             "allow-recent-show-list",
             "allow-open-recent-show",
+            "allow-show-template-list",
+            "allow-open-show-template",
             "allow-set-show-dirty",
             "allow-import-blueprint-file",
             "allow-export-blueprint-file",

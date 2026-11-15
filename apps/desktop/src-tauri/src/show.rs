@@ -27,6 +27,11 @@ impl ShowFile {
             *current = Some(path);
         }
     }
+    pub fn clear_path(&self) {
+        if let Ok(mut current) = self.path.lock() {
+            *current = None;
+        }
+    }
     pub fn set_dirty(&self, dirty: bool) {
         self.dirty.store(dirty, Ordering::SeqCst);
     }
@@ -126,6 +131,14 @@ mod tests {
         json!({"schemaVersion":1,"name":"Concert","scene":scene,"blueprints":[{
             "schemaVersion":1,"id":"graph_1","name":"Lights","nodes":[],"connections":[]
         }]})
+    }
+
+    #[test]
+    fn clear_path_forgets_current_file() {
+        let file = ShowFile::default();
+        file.set_path(PathBuf::from("/x/a.osekai"));
+        file.clear_path();
+        assert_eq!(file.path(), None);
     }
 
     #[test]

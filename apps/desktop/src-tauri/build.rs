@@ -51,6 +51,8 @@ fn main() {
             "open_show",
             "recent_show_list",
             "open_recent_show",
+            "show_template_list",
+            "open_show_template",
             "set_show_dirty",
             "import_blueprint_file",
             "export_blueprint_file",
