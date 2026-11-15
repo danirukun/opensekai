@@ -15,7 +15,7 @@ R1. **Visibility.** The start screen shows in the Assets tab when all of these a
 After it ends, it does not show again in the session, also when the mark returns to the start value.
 
 R2. **Layout and copy.** The screen shows these items, from top to bottom:
-- the full-colour OpenSekai logo in the centre;
+- the full-colour OpenSekai logo with its corner markers in the centre;
 - the subtitle `Create your dream VTuber world` under the logo (owner request, 2026-11-15; this overrides the copy-restraint principle for this one line);
 - a primary `Add character` action;
 - `Open show…`;

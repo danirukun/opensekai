@@ -5,7 +5,7 @@
  import {Button} from '@oshi-connect/ui';
  import {X} from '@lucide/svelte';
  import type {RecentShow,ShowTemplate} from '@opensekai/contracts';
- import logo from '../assets/opensekai-logo.svg';
+ import logo from '../assets/opensekai-logo-full.png';
  let {recent,templates,disabled,onaddcharacter,onopen,ontemplate,onrecent,onclose}:{
   recent:RecentShow[];templates:ShowTemplate[];disabled:boolean;
   onaddcharacter:()=>void;onopen:()=>void;ontemplate:(id:string)=>void;onrecent:(index:number)=>void;onclose:()=>void;
@@ -30,7 +30,7 @@
  .start-screen{position:absolute;inset:0;z-index:4;display:flex;align-items:center;justify-content:center;overflow:auto;background:var(--ds-color-surface)}
  .start-close{position:absolute;top:10px;right:10px}
  .start-column{width:min(320px,100% - 48px);display:flex;flex-direction:column;align-items:stretch;gap:2px;padding:24px 0}
- .start-logo{width:96px;height:auto;align-self:center;margin-bottom:12px}
+ .start-logo{width:112px;height:auto;align-self:center;margin-bottom:12px}
  .start-subtitle{margin:0 0 28px;text-align:center;font-size:13px;color:var(--ds-color-text-muted)}
  h2{margin:20px 0 4px;padding:0 10px;font-size:11px;font-weight:600;color:var(--ds-color-text-muted)}
  .start-column :global(.start-primary){margin-bottom:10px}

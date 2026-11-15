@@ -23,7 +23,7 @@ The final review found that the host set the Save target and reordered the recen
 - `Stage Lights` loaded. Command+S opened the Save sheet, and the recent list file did not exist until the save.
 - After a relaunch, a click on the recent entry loaded the Stage Lights scene (Floor, Haze, two spot lights). File › Save Show wrote the same file (the modification time changed) without a sheet.
 
-The owner then asked for the subtitle `Create your dream VTuber world` under the logo. A fresh launch showed it under the logo, above `Add character`.
+The owner then asked for the subtitle `Create your dream VTuber world` under the logo. A fresh launch showed it under the logo, above `Add character`. The owner also asked for the full logo with its corner markers (`Logo-Full-Color-Transparent.png`). The start screen now uses a 448 px copy (`opensekai-logo-full.png`) at 112 px wide, and a fresh launch showed the four markers around the cube.
 
 ## Not measured
 

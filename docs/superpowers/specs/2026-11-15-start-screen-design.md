@@ -86,7 +86,7 @@ For templates, three options were considered: stages without assets (chosen), te
 └──────────────────────────────┘
 ```
 
-- The logo is the existing OpenSekai mark (`apps/desktop/src/assets/opensekai-logo.svg`), centred.
+- The logo is the full-colour OpenSekai logo with its corner markers (`apps/desktop/src/assets/opensekai-logo-full.png`, from `Logo-Full-Color-Transparent.png`), centred. The owner asked for the full logo on 2026-11-15.
 - One clear primary action: Add character. The other actions are quieter rows.
 - The Recent section shows only when the list has entries. A first-time user does not see an empty Recent section.
 - No helper sentences. Labels only. The one exception is the subtitle `Create your dream VTuber world` under the logo, which the owner asked for on 2026-11-15.
