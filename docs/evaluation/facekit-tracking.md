@@ -58,6 +58,23 @@ The 6 invalid callbacks in the first check are not explained by a test. The adap
 
 These drop times are the reason for the FaceKit worker: the publisher frame loop must not wait for a camera stop or start.
 
+## macOS tests
+
+Test Mac above, source at `33e74eb`.
+
+| Command | Result |
+| --- | --- |
+| `pnpm check` | pass; svelte-check 0 errors, 0 warnings |
+| `pnpm test:unit` | 244 files; 2153 passed, 1 skipped |
+| `direnv exec . pnpm test:integration` | 38 files passed, 2 skipped; 92 tests passed, 4 skipped |
+| `direnv exec . cargo test --workspace --no-fail-fast` | exit 0; 540 passed, 0 failed, 2 ignored |
+| `direnv exec . cargo clippy --workspace --all-targets -- -D warnings` | clean |
+| `direnv exec . cargo fmt --all -- --check` | clean |
+
+The first `cargo test --workspace` run had one failure: `clock_integration::due_clocks_progress_under_sustained_control_without_credit_accumulation` ("unsolicited frames accumulated credits: 2"). The second run passed. Over 30 runs of the `clock_integration` binary, the base code failed 4 times and `33e74eb` failed 2 times. The flake is pre-existing. See [testing](../testing.md).
+
+At `517945a`, `pnpm check` passed (0 errors) and `pnpm test:unit` gave 2153 passed, 1 skipped.
+
 ## Linux
 
 Linux aarch64 container, Ubuntu 24.04, rustc 1.93.1, source at `33e74eb`. The macOS adapter is not compiled. The stub adapter runs.
