@@ -1,7 +1,8 @@
 <script lang="ts">
  let { size = 20 }: { size?: number } = $props();
 </script>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -68 733 712" width={size} height={size} fill="none" aria-hidden="true">
+<!-- The viewBox is centred on the filled-area centroid, not the bounds, so the cube sits optically centred and the sparkles overflow top right. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-49 -30 733 712" width={size} height={size} fill="none" overflow="visible" aria-hidden="true">
 <g>
 <rect width="316.979" height="339.735" rx="32" transform="matrix(0.912015 -0.410156 0 1 311 304)" fill="currentColor"/>
 <path d="M43.2166 165.405C27.5749 158.333 27.9636 145.572 44.0224 138.95L282.156 40.752C293.901 35.9085 310.506 35.9548 322.357 40.8642L558.814 138.823C574.979 145.52 575.683 158.246 560.276 165.244L323.265 272.902C311.138 278.41 293.08 278.377 280.797 272.823L43.2166 165.405Z" fill="currentColor"/>

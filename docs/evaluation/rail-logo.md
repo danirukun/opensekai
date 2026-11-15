@@ -16,4 +16,4 @@ The rail mark at 20 px, 22 px, and 24 px, in the rail icon grey, and at 24 px on
 
 ![Mark sizes](rail-logo/mark-sizes.png)
 
-The first rail item is the muted cube and sparkles. The Assets item under it stays the active item on the scene view.
+The first rail item is the muted cube and sparkles. It is the only Assets item; the box icon is removed. The mark's viewBox is centred on its filled-area centroid (about 49 units left and 38 units down from the bounds centre), so the cube is optically centred in the 38 px tile and the sparkles extend into the button padding.
