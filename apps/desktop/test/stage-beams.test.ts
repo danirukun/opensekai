@@ -1,5 +1,7 @@
 import {describe,expect,it} from 'vitest';
-import {LightSettingsSchema,type LightSettings,type SceneEntity} from '@opensekai/contracts';
+import {readFileSync} from 'node:fs';
+import {fileURLToPath} from 'node:url';
+import {LightSettingsSchema,ShowDocumentSchema,rotateByQuaternion,type LightSettings,type SceneEntity} from '@opensekai/contracts';
 import {makeAuthoringEntity} from '../src/editor/authoring';
 import {BEAM,POINT_LIGHT,SPOT_LIGHT,lightForType,withBeam} from '../src/editor/lights';
 import {changedFields,defaultsFor,resetFieldIds} from '../src/editor/property-defaults';
@@ -51,5 +53,34 @@ describe('beam controls (stage beams R19 to R24)',()=>{
  it('gives the beam sliders the contract ranges (L2, L3)',()=>{
   expect(SLIDERS.beamIntensity).toEqual({min:0,max:4,step:0.01,curve:'linear'});
   expect(SLIDERS.beamSoftness).toEqual({min:0,max:1,step:0.01,curve:'linear'});
+ });
+});
+
+// The aim points of the plan table. The rotations in the file were computed by hand, so this test checks each one.
+const AIMS:Record<string,[number,number,number]>={
+ beam_front_1:[-1.5,0,-1],beam_front_2:[-0.5,1.2,0],beam_front_3:[0.5,1.2,0],beam_front_4:[1.5,0,-1],
+ beam_back_1:[-2,0,1.5],beam_back_2:[-1,0,2.5],beam_back_3:[1,0,2.5],beam_back_4:[2,0,1.5],
+};
+const showText=readFileSync(fileURLToPath(new URL('../../../fixtures/shows/stage-beams.osekai',import.meta.url)),'utf8');
+
+describe('stage beams fixture show (R29)',()=>{
+ const show=ShowDocumentSchema.parse(JSON.parse(showText));
+ const spots=show.scene.entities.filter(e=>e.kind==='light'&&e.light.type==='spot') as Extract<SceneEntity,{kind:'light'}>[];
+ it('has 8 spot lights with the beam on, 2 of them with a shadow, and no haze and no avatar',()=>{
+  expect(spots.map(e=>e.id).sort()).toEqual(Object.keys(AIMS).sort());
+  expect(spots.every(e=>e.light.beam?.enabled===true&&e.light.volumetric===undefined)).toBe(true);
+  expect(spots.filter(e=>e.light.shadow.enabled).map(e=>e.id)).toEqual(['beam_front_2','beam_front_3']);
+  expect(show.scene.entities.some(e=>e.kind==='haze'||e.kind==='avatar')).toBe(false);
+ });
+ it('aims each spot light at its point of the plan table, within 0.05 m',()=>{
+  for(const e of spots){
+   const [px,py,pz]=e.transform.position;
+   const [ax,ay,az]=AIMS[e.id]!;
+   const [dx,dy,dz]=rotateByQuaternion([0,0,-1],e.transform.rotation);
+   const t=(ax-px)*dx+(ay-py)*dy+(az-pz)*dz;
+   const miss=Math.hypot(px+t*dx-ax,py+t*dy-ay,pz+t*dz-az);
+   expect(t,e.id).toBeGreaterThan(0);
+   expect(miss,e.id).toBeLessThan(0.05);
+  }
  });
 });
