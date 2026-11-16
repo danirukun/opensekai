@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-finish-blueprint-link"
+description = "Enables the finish_blueprint_link command without any pre-configured scope."
+commands.allow = ["finish_blueprint_link"]
+
+[[permission]]
+identifier = "deny-finish-blueprint-link"
+description = "Denies the finish_blueprint_link command without any pre-configured scope."
+commands.deny = ["finish_blueprint_link"]
