@@ -124,3 +124,18 @@ Images (clipped to the canvas; the 50%, 100%, and 200% views are centred on the 
 The same script also does the #244 check in the Editor window (R2): `sceneReplace` with the inspected scene and `sceneId: 'scene_b33'`. The footer status stays `Session connected` for 3 s of samples (six polls), and the session holds `scene_b33`. This run is on the #244 code only, so it has no old-code result; the old-code result of R2 is in the #244 section.
 
 Not checked: WKWebView (the macOS app) has other font widths. The owner judges the look in the app.
+
+## Full checks and platform
+
+Full checks on e3c28fb (the #261 commit; this section adds no code): `pnpm check` pass (svelte-check: 0 errors, 0 warnings); `pnpm test:unit` 249 files pass, 2189 tests pass, 1 skipped; `pnpm test:integration` 39 files pass, 2 skipped, 93 tests pass, 4 skipped; `cargo test --workspace --no-fail-fast` 557 pass, 0 fail, 2 ignored; `cargo clippy --workspace --all-targets` no warning; `cargo fmt --all -- --check` lists only `apps/desktop/src-tauri/src/recent_shows.rs`, as on the base commit.
+
+| Platform | Result |
+| --- | --- |
+| macOS host, headless Chromium 158 | Pass: the tests above and the Editor check of #261 and #244 |
+| macOS app (WKWebView, Tauri host) | Not checked. The pull request lists the owner checks. |
+| Linux cloud | Not checked |
+| Windows | Not checked |
+
+OBS: not affected. No change to output, alpha, camera, or material.
+
+Gaps: no test joins the real Rust host and the real Editor window for #244. The #245 tests do not prove that the fault seen in the app on 2026-10-28 had the cause that the code reading found. The #261 check measures Chromium font widths, not WKWebView.
