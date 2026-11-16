@@ -4,14 +4,14 @@ import {VMC_SENDER} from './vmc-sender';
 import {DEFAULT_WEB_SCREEN,VIDEO_DEFAULTS} from './screen';
 import {GRADING_FIELD_IDS,gradingValues} from './grading';
 import {bodyTrackingOf} from './live-fields';
-import {AMBIENT_LIGHT,DIRECTIONAL_LIGHT,FPS_COUNTER,HAZE,POINT_LIGHT,SPOT_LIGHT,hazeTransform} from './lights';
+import {AMBIENT_LIGHT,BEAM,DIRECTIONAL_LIGHT,FPS_COUNTER,HAZE,POINT_LIGHT,SPOT_LIGHT,hazeTransform} from './lights';
 // The reset defaults of the Inspector fields (B17 R1–R4). Each value comes from the add defaults, so a reset and an add cannot differ.
 export type EntityDefaults=Readonly<Record<string,unknown>>;
 const LIGHTS:Record<LightSettings['type'],LightSettings>={directional:DIRECTIONAL_LIGHT,point:POINT_LIGHT,spot:SPOT_LIGHT,ambient:AMBIENT_LIGHT};
 const camera=()=>{const added=makeAuthoringEntity('camera','camera_default',[]);if(added.kind!=='camera')throw new Error('camera default');return added;};
 const transform=(entity:SceneEntity)=>({position:[0,0,0],rotation:[0,0,0,1],scale:entity.kind==='haze'?hazeTransform().scale:[1,1,1]});
 function lightValues(light:LightSettings):Record<string,unknown> {
- return {color:light.color,intensity:light.intensity,range:light.range,angleDegrees:light.cone?.angleDegrees??40,penumbra:light.cone?.penumbra??0,volumetric:light.volumetric===true,affectCharacters:light.affectCharacters,affectProps:light.affectProps,affectEnvironment:light.affectEnvironment,shadow:light.shadow.enabled,shadowIntensity:light.shadow.intensity,soft:light.shadow.soft,bias:light.shadow.bias,normalBias:light.shadow.normalBias};
+ return {color:light.color,intensity:light.intensity,range:light.range,angleDegrees:light.cone?.angleDegrees??40,penumbra:light.cone?.penumbra??0,beam:light.beam?.enabled===true,beamIntensity:light.beam?.intensity??BEAM.intensity,beamSoftness:light.beam?.softness??BEAM.softness,volumetric:light.volumetric===true,affectCharacters:light.affectCharacters,affectProps:light.affectProps,affectEnvironment:light.affectEnvironment,shadow:light.shadow.enabled,shadowIntensity:light.shadow.intensity,soft:light.shadow.soft,bias:light.shadow.bias,normalBias:light.shadow.normalBias};
 }
 const smoothingValues=(smoothing=DEFAULT_TRACKING_SMOOTHING)=>({smoothing:smoothing.enabled,minCutoff:smoothing.minCutoff,beta:smoothing.beta,derivativeCutoff:smoothing.derivativeCutoff});
 const mappingValues=(mapping=DEFAULT_TRACKING_MAPPING)=>({headIntensity:mapping.headIntensity,headOffsetX:mapping.headOffset[0],headOffsetY:mapping.headOffset[1],headOffsetZ:mapping.headOffset[2],eyeIntensity:mapping.eyeIntensity,blendShapeSensitivity:mapping.blendShapeSensitivity,linkedBlink:mapping.linkedBlink});
@@ -54,7 +54,7 @@ export function resetFieldIds(entity:SceneEntity):string[] {
  if(entity.kind==='camera')return [...base,'renderEnvironment','antiAliasing',...GRADING_FIELD_IDS,'fovDegrees','near','far','controlMode',...(entity.navigation&&entity.navigation.mode!=='none'?['sensitivity']:[])];
  if(entity.kind==='light'){
   const {type,shadow}=entity.light,placed=type==='point'||type==='spot';
-  return [...base,'color','intensity',...(placed?['range']:[]),...(type==='spot'?['angleDegrees','penumbra']:[]),...(placed?['volumetric']:[]),'affectCharacters','affectProps','affectEnvironment',...(type!=='ambient'?['shadow']:[]),...(type!=='ambient'&&shadow.enabled?['shadowIntensity','soft','bias','normalBias']:[])];
+  return [...base,'color','intensity',...(placed?['range']:[]),...(type==='spot'?['angleDegrees','penumbra','beam',...(entity.light.beam?.enabled?['beamIntensity','beamSoftness']:[])]:[]),...(placed?['volumetric']:[]),'affectCharacters','affectProps','affectEnvironment',...(type!=='ambient'?['shadow']:[]),...(type!=='ambient'&&shadow.enabled?['shadowIntensity','soft','bias','normalBias']:[])];
  }
  if(entity.kind==='haze')return [...base,'density','smoke','intensity','drift'];
  // An FPS counter has no Transform section (B19 R5).
