@@ -27,7 +27,7 @@ const start = () => {
  let now = 0, batch = 0;
  const edit = (ops: object[]) => session.editBlueprints({ clientId: 't', batchId: `b${batch++}`, ops });
  const tick = (count: number) => { for (let i = 0; i < count; i++) { now += 16; session.advance(now, now); } };
- // A run writes an override; 20 ticks later (320 ms) it is committed to the scene.
+ // A run commits its write before the reply (Editor and MCP fixes R4); the 20 ticks after it change nothing.
  const runAndCommit = () => { tick(1); const reply = session.runBlueprint('g', 'go'); tick(20); return reply; };
  const position = () => session.inspect().entities.find(item => item.id === 'reference')!.transform.position;
  expect(edit([{ kind: 'replaceAll', graphs: [graph] }]).ok).toBe(true);

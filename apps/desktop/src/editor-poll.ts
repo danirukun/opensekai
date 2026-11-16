@@ -20,8 +20,12 @@ export function createEditorPoll(api: AppApi, model: EditorModel, publish: (stat
      if (moved || blueprintsVisible() || blueprints.issue()?.kind === 'unavailable') await blueprints.poll();
      }
     }
-    const view = model.read();
-    if (!view.pending && (view.scene === null || reply.data.revision !== null && reply.data.revision !== view.scene.revision)) await model.load(reply.data.revision!==null&&view.scene!==null&&reply.data.revision<view.scene.revision);
+    const view = model.read(), older = reply.data.revision!==null&&view.scene!==null&&reply.data.revision<view.scene.revision;
+    // Another client can replace the scene with one that has a new ID (#244). The status gives the ID of the latest frame;
+    // a frame older than the held scene (for example just after Open Show in this window) can have the old ID, so it is read
+    // only when the held ID does not exist (a session restart, R3).
+    const sceneId = older ? undefined : reply.data.sceneId;
+    if (!view.pending && (view.scene === null || reply.data.revision !== null && reply.data.revision !== view.scene.revision || sceneId !== undefined && sceneId !== view.scene.sceneId)) await model.load(older,sceneId,older ? reply.data.sceneId : undefined);
    } catch { if (!closed) fail('UNAVAILABLE'); }
    finally { active = false; }
   },

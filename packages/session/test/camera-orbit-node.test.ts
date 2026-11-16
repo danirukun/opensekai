@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ease, makeSmokeScene, orbitFromTransform, orbitFromUser, rotationOf, transformFromOrbit, userFromOrbit, type OrbitUser, type SceneView, type Transform, type Vec3 } from '@opensekai/contracts';
+import { ease, keystrokeAccelerator, makeSmokeScene, orbitFromTransform, orbitFromUser, rotationOf, transformFromOrbit, userFromOrbit, type OrbitUser, type SceneView, type Transform, type Vec3 } from '@opensekai/contracts';
 import { compileBlueprint } from '../src/blueprint';
 import { createSession } from '../src/session';
 import { EMPTY_OVERRIDES } from '../src/overrides';
@@ -19,6 +19,10 @@ const orbit = (id: string, target: OrbitUser, seconds?: number, cameraId = 'came
 const graph = (id: string, nodes: unknown[], connections: unknown[], trigger = node('go', 'event.manual')) => ({ schemaVersion: 1, id, name: id, enabled: true, variables: [], nodes: [trigger, ...nodes], connections });
 // go → set; set.exit → started; set.transitionEnd → done.
 const ended = (id: string, set: unknown) => graph(id, [set, log('started', `${id} exit`), log('done', `${id} end`)], [wire('a', 'go', 'flow', 'set', 'flow'), wire('b', 'set', 'exit', 'started', 'flow'), wire('c', 'set', 'transitionEnd', 'done', 'flow')]);
+// A keystroke runs its graph in a clock step, so its writes stay overrides until 250 ms after the write. A manual run commits them at once (Editor and MCP fixes R4).
+const KEY = { code: 'KeyK', control: true, alt: true, shift: false, meta: false } as const;
+const keyed = (id: string, set: unknown, code = 'KeyK') => graph(id, [set], [wire('a', 'key', 'flow', 'set', 'flow')], node('key', 'event.keystroke', { ...KEY, code }));
+const press = (code = 'KeyK') => ({ events: [{ kind: 'keystroke' as const, accelerator: keystrokeAccelerator({ ...KEY, code: code as typeof KEY.code }) }] });
 
 function start(...graphs: unknown[]): S {
  const s = createSession(makeSmokeScene(), 's');
@@ -52,7 +56,7 @@ describe('Camera Orbit Character without a transition (R5)', () => {
    expect(lines(s)).toEqual([[0, 'g exit'], [20, 'g end']]);
    near(cameraOf(frame).position, pose(target).position);
    sameRotation(cameraOf(frame).rotation, rotationOf(Math.PI / 2, -20 * Math.PI / 180));
-   // The idle commit writes the same values to the scene; the rotation goes through Euler and back.
+   // The run commits the same values to the scene before its reply; the rotation goes through Euler and back.
    sweep(s, 40, 400);
    near(cameraOf(s.inspect()).position, pose(target).position);
    sameRotation(cameraOf(s.inspect()).rotation, pose(target).rotation);
@@ -111,9 +115,9 @@ describe('Camera Orbit Character with a transition (R6)', () => {
 describe('Camera Orbit Character and a moving character (R4, R8)', () => {
  it('orbits the evaluated character while a Blueprint override moves it, and commits once after the end', () => {
   const moved: Vec3 = [1, 0, -0.5];
-  const shift = graph('h', [node('set', 'property.set', { entityId: 'performer', property: 'position' }, { value: moved })], [wire('a', 'go', 'flow', 'set', 'flow')]);
+  const shift = keyed('h', node('set', 'property.set', { entityId: 'performer', property: 'position' }, { value: moved }));
   const s = start(ended('g', orbit('set', target, 1)), shift);
-  run(s, 'h');
+  s.advance(0, 0, press());
   run(s);
   const frame = sweep(s, 20, 500);
   // The performer override commits at 250 ms, during the move; the camera keeps orbiting the moved character.
@@ -157,12 +161,10 @@ describe('Camera Orbit Character review fixes', () => {
  it('keeps a moved orbit position follow-relative: Move Entity on the camera does not drop the follow offset', () => {
   const step: Vec3 = [0.002, 0, 0.001];
   const walk = graph('walk', [node('move', 'entity.move', { entityId: 'performer', space: 'world' }, { delta: step })], [wire('a', 'tick', 'flow', 'move', 'flow')], node('tick', 'event.update'));
-  const lift = graph('lift', [node('move', 'entity.move', { entityId: 'camera_wide', space: 'world' }, { delta: [0, 0.1, 0] })], [wire('a', 'go', 'flow', 'move', 'flow')]);
-  const s = start(ended('g', orbit('set', target)), walk, lift);
-  s.advance(20);
-  run(s);
-  s.advance(40);
-  run(s, 'lift');
+  const lift = keyed('lift', node('set', 'entity.move', { entityId: 'camera_wide', space: 'world' }, { delta: [0, 0.1, 0] }), 'KeyL');
+  const s = start(keyed('g', orbit('set', target)), walk, lift);
+  s.advance(20, 20, press());
+  s.advance(40, 40, press('KeyL'));
   const relative = (frame: Frame, ms: number) => {
    const smoke = entity(frame.scene, 'performer').transform.position;
    return cameraOf(frame).position.map((value, i) => value - [smoke[0] - 0.08 * Math.sin(ms / 1000), smoke[1] - 0.02 * Math.sin(ms / 500), smoke[2]][i]!);
@@ -224,9 +226,8 @@ describe('Camera Orbit Character join, replace, and stop rules (R5, R7)', () => 
   if (name !== 'a Set Asset Property Rotation tween') near(cameraOf(s.inspect()).position, cameraOf(after).position);
  });
  it('drops the camera position and rotation overrides on a setCameraNavigation patch', () => {
-  const s = start(ended('g', orbit('set', target)));
-  run(s);
-  s.advance(20);
+  const s = start(keyed('g', orbit('set', target)));
+  s.advance(20, 20, press());
   expect(s.applyPatch({ sceneId: 'scene_smoke', expectedRevision: 1, operations: [{ kind: 'setCameraNavigation', entityId: 'camera_wide', navigation: { mode: 'freeLook', sensitivity: 1 } }] }).ok).toBe(true);
   const frame = s.advance(40);
   expect(cameraOf(frame)).toEqual(cameraOf(makeSmokeScene()));

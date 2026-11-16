@@ -24,11 +24,12 @@ function start(...files: string[]) {
  return { session, imported, tick, ticks, entity, camera };
 }
 
-it('nudge sets the position after a run and commits it 250 ms later', () => {
+// A manual run commits its write before the reply (Editor and MCP fixes R4).
+it('nudge sets the position and commits it before the run reply', () => {
  const { session, imported, ticks, entity } = start('nudge');
  ticks(1);
- expect(session.runBlueprint(imported[0]!.graph.id, 'run').ok).toBe(true);
- expect(entity('reference').transform.position).toEqual([0.9, 0.7, 0]);
+ expect(session.runBlueprint(imported[0]!.graph.id, 'run')).toEqual({ ok: true, data: { revision: 1 } });
+ expect(entity('reference').transform.position).toEqual([0.2, 1.1, -0.5]);
  ticks(20);
  expect(entity('reference').transform.position).toEqual([0.2, 1.1, -0.5]);
 });

@@ -334,6 +334,7 @@ impl Shared {
                 session_id: self.session.clone(),
                 ready: inner.publisher.is_some() && current,
                 revision: inner.latest.as_ref().map(|f| f.scene.revision),
+                scene_id: inner.latest.as_ref().map(|f| f.scene.scene_id.clone()),
                 capabilities: capabilities.to_vec(),
                 warnings: lock(&self.keystroke_warnings)
                     .iter()

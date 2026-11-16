@@ -126,13 +126,14 @@ it('hides and shows the environment with Set Asset Property and commits each cha
  const session = withStage(g);
  const revision = session.inspect().revision;
  session.advance(0);
- expect(session.runBlueprint('stage-toggle', 'hide').ok).toBe(true);
+ // A manual run commits its write before the reply (Editor and MCP fixes R4).
+ expect(session.runBlueprint('stage-toggle', 'hide')).toEqual({ ok: true, data: { revision: revision + 1 } });
+ expect(find(session.inspect(), 'stage').visible).toBe(false);
  expect(find(session.advance(16).scene, 'stage').visible).toBe(false);
- expect(find(session.inspect(), 'stage').visible).toBe(true);
  session.advance(300);
  expect(find(session.inspect(), 'stage')).toMatchObject({ kind: 'environment', visible: false, assetId: null });
  expect(session.inspect().revision).toBe(revision + 1);
- expect(session.runBlueprint('stage-toggle', 'show').ok).toBe(true);
+ expect(session.runBlueprint('stage-toggle', 'show')).toEqual({ ok: true, data: { revision: revision + 2 } });
  expect(find(session.advance(316).scene, 'stage').visible).toBe(true);
  session.advance(600);
  expect(find(session.inspect(), 'stage').visible).toBe(true);

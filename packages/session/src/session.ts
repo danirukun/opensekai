@@ -13,6 +13,7 @@ import { createDebugLog } from './debug-log';
 import { composeBoneOffsets, EMPTY_BONE_OFFSETS, writeBoneOffset, type BoneOffsets } from './bone-offsets';
 import { advanceExpressions, composeExpressions, dropExpressionFades, EMPTY_EXPRESSIONS, expressionOwners, expressionView, reconcileExpressions, setExpression, type ExpressionStates } from './expressions';
 import { applyOverrides, dropOverrides, EMPTY_OVERRIDES, evaluatedEntity, takeIdle, type OverrideLayer } from './overrides';
+import type { PropertyKey } from '@opensekai/contracts';
 import { advanceTweens, dropGraphTweens, dropTweens, EMPTY_TWEENS, transitionStart, tweenOwners, tweening, writeOrbit, writeTransitioned, type PropertyLayers, type TransitionEnd, type TweenLayer } from './tweens';
 import { advanceBlendShapes, blendShapeOwners, composeBlendShapes, dropGraphBlendShapes, EMPTY_BLEND_SHAPES, setBlendShape, type BlendShapeStates } from './blend-shapes';
 import { vmcPosesFor, withSendersStopped } from './vmc-send';
@@ -52,6 +53,13 @@ export interface Session {
     setExpression(avatarId: Id, name: string, active: boolean): Reply<ExpressionState>;
 }
 const failure = (code: ErrorCode, message: string, ids: Id[] = []): Reply<never> => ({ ok: false, error: { code, message, ids } });
+const writeKey = (entityId: Id, property: string) => `${entityId}\0${property}`;
+// The value of an override entry without its write time and graphs: a write of the value that the layer already holds
+// compares equal, also when another run wrote it at the same session time (Editor and MCP fixes R7).
+const entryValue = (layer: OverrideLayer, entityId: Id, property: PropertyKey) => {
+    const entry = layer.get(entityId)?.get(property);
+    return entry ? JSON.stringify([entry.value, entry.followRelative === true]) : null;
+};
 export function createSession(scene: SceneView, sessionId: Id, assets: readonly AssetRecord[] = []): Session {
     IdSchema.parse(sessionId);
     let persistent: SceneView = withSendersStopped(structuredClone(SceneViewSchema.parse(scene)));
@@ -126,8 +134,10 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
     const devices = createDeviceInput();
     // The device state of the last clock; a manual run reads it too.
     let deviceEnv: DeviceEnv = NO_DEVICES;
-    const stepBlueprints = (events: BlueprintEvent[], nowMs: number, held: ReadonlySet<string>, transitionEnds: readonly TransitionEnd[] = []): { runs: GraphRun[]; committed: Reply<{ revision: number }> } => {
+    // `written` holds the entity and property keys of the override writes of the accepted runs (`writeKey`).
+    const stepBlueprints = (events: BlueprintEvent[], nowMs: number, held: ReadonlySet<string>, transitionEnds: readonly TransitionEnd[] = []): { runs: GraphRun[]; committed: Reply<{ revision: number }>; written: ReadonlySet<string> } => {
         let working: SceneView | null = null;
+        const writtenKeys = new Set<string>();
         let layer = overrides;
         let moving = tweens;
         let ends = pendingEnds;
@@ -147,13 +157,18 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             const logic = ownerKey(run.graphId);
             // Only a wired On Transition End records an end, so an old graph never meets the end limits.
             const wired = new Set(store.active(run.graphId)?.connections.flatMap(wire => wire.sourcePort === 'transitionEnd' ? [wire.sourceNodeId] : []));
+            const keys: string[] = [];
             for (const effect of run.effects) {
                 if (!isOverrideEffect(effect) && !isOrbitEffect(effect)) continue;
+                const touched: [Id, PropertyKey][] = effect.kind === 'orbitCamera' ? [[effect.cameraId, 'position'], [effect.cameraId, 'rotation']] : [[effect.entityId, effect.kind === 'setProperty' ? effect.property : 'position']];
+                const before = touched.map(([id, property]) => entryValue(nextLayers.overrides, id, property));
                 const nodeId = effect.kind === 'setProperty' || effect.kind === 'orbitCamera' ? effect.nodeId : undefined;
                 const end = nodeId !== undefined && logic !== null && wired.has(nodeId) ? { graphId: run.graphId, nodeId, logic } : undefined;
                 const written = isOrbitEffect(effect) ? writeOrbit(nextLayers, scene, effect, run.graphId, nowMs, startMs, end) : writeTransitioned(nextLayers, scene, effect, run.graphId, nowMs, startMs, end);
                 if (!written.ok) return written.error;
                 nextLayers = written.data;
+                // Only a write that changed an override entry is a write of the run (R7).
+                touched.forEach(([id, property], i) => { if (entryValue(nextLayers.overrides, id, property) !== before[i]) keys.push(writeKey(id, property)); });
             }
             // Expression effects apply only when the scene effects of the same run apply.
             let nextFaces = faces;
@@ -182,6 +197,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
                 }
             }
             if (sceneEffects.length) working = scene;
+            for (const key of keys) writtenKeys.add(key);
             layer = nextLayers.overrides;
             if (nextLayers.tweens !== moving) tweenErrors.delete(run.graphId);
             moving = nextLayers.tweens;
@@ -205,7 +221,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
         // Debug output only from runs whose scene changes were committed.
         if (committed.ok) for (const run of runs) if (!run.error) debugLog.record(run.graphId, run.effects.filter(isDebugEffect), run.debug ?? [], nowMs);
         applyControls();
-        return { runs, committed };
+        return { runs, committed, written: writtenKeys };
     };
     // Enable, Disable, and Toggle Blueprint requests of the step become one document edit, as if the editor sent it (slice D R9).
     let controlBatch = 0;
@@ -232,13 +248,22 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
         for (const failure of stepped.failures) if (ownerKey(failure.graphId) !== null) tweenErrors.set(failure.graphId, failure.error);
     };
     // Overrides with no write for 250 ms go to the persistent scene in one commit. An override under a tween waits for its end.
-    const commitIdle = (nowMs: number) => {
-        const idle = takeIdle(persistent, overrides, nowMs, (entityId, property) => tweening(tweens, entityId, property));
+    // `force` also takes the given keys at once. A failed commit drops the taken overrides and reports each graph that wrote them.
+    const commitIdle = (nowMs: number, force: ReadonlySet<string> = new Set()): Reply<{ revision: number }> => {
+        const idle = takeIdle(persistent, overrides, nowMs, (entityId, property) => tweening(tweens, entityId, property), (entityId, property) => force.has(writeKey(entityId, property)));
         overrides = idle.remaining;
-        if (idle.operations.length === 0) return;
+        if (idle.operations.length === 0) return { ok: true, data: { revision: persistent.revision } };
         const applied = applyOperations(persistent, idle.operations, persistent.revision + 1);
         const committed = applied.ok ? commit(applied.data) : applied;
         if (!committed.ok) for (const graphId of idle.graphIds) runtimeErrors.set(graphId, committed.error);
+        return committed;
+    };
+    // A manual run or a custom event commits the overrides that the runs of its step wrote, before it replies (Editor and MCP fixes R4).
+    // The runs of a clock step keep the 250 ms rule (R5).
+    const replyAfterStep = (error: AppError | null | undefined, step: ReturnType<typeof stepBlueprints>): Reply<{ revision: number }> => {
+        if (error) return { ok: false, error };
+        if (!step.committed.ok) return step.committed;
+        return commitIdle(elapsed, step.written);
     };
     // A live tracking source that a patch operation reads. It fails when the source is missing, not tracking, changed in the same patch, or has no current sample.
     const liveSample = (id: string, operations: ScenePatch['operations'], context: string) => {
@@ -319,10 +344,9 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             if (!graph.enabled) return failure('INVALID_INPUT', 'Blueprint is disabled', [graphId]);
             if (!graph.nodes.some(node => node.id === triggerNodeId && node.type === 'event.manual')) return failure('INVALID_INPUT', 'Manual trigger not found', [triggerNodeId]);
             try {
-                const { runs, committed } = stepBlueprints([{ kind: 'manual', graphId, nodeId: triggerNodeId }], elapsed, new Set());
-                const own = runs.find(run => run.graphId === graphId && run.nodeId === triggerNodeId);
-                if (own?.error) return { ok: false, error: own.error };
-                return committed;
+                const step = stepBlueprints([{ kind: 'manual', graphId, nodeId: triggerNodeId }], elapsed, new Set());
+                const own = step.runs.find(run => run.graphId === graphId && run.nodeId === triggerNodeId);
+                return replyAfterStep(own?.error, step);
             } catch (error) {
                 logOnce(error);
                 return failure('INVALID_INPUT', 'Blueprint step failed', [graphId]);
@@ -331,11 +355,10 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
         emitBlueprintEvent(name, payload) {
             if (name.trim().length === 0 || name.length > 64) return failure('INVALID_INPUT', 'Invalid event name');
             try {
-                const { runs, committed } = stepBlueprints([{ kind: 'custom', name, payload: payload ?? null }], elapsed, new Set());
+                const step = stepBlueprints([{ kind: 'custom', name, payload: payload ?? null }], elapsed, new Set());
                 // Only the runs that this event caused, not On Enable or due delays of the same step.
-                const delivered = runs.find(run => run.external && run.error);
-                if (delivered?.error) return { ok: false, error: delivered.error };
-                return committed;
+                const delivered = step.runs.find(run => run.external && run.error);
+                return replyAfterStep(delivered?.error, step);
             } catch (error) {
                 logOnce(error);
                 return failure('INVALID_INPUT', 'Blueprint step failed');

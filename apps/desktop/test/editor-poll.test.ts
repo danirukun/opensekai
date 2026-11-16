@@ -3,6 +3,7 @@ import type { AppApi, AppStatus } from '@opensekai/contracts';
 import { createEditorModel } from '../src/editor/model';
 import { createEditorPoll } from '../src/editor-poll';
 import { makeSmokeScene } from '@opensekai/contracts';
+import { createSession, sessionApi } from '@opensekai/session';
 const status = (revision: number): AppStatus => ({schemaVersion:1, sessionId:'session_smoke', ready:false, revision, capabilities:['read'], warnings:[], outputs:[]});
 it('refreshes persistent scene once after an external revision and avoids overlapping polls', async () => {
  let finish!: (reply: unknown) => void;
@@ -42,6 +43,51 @@ it('polls Blueprints on a revision change, on every tick while visible, and whil
  revision=2;await p.poll();expect(poll).toHaveBeenCalledTimes(1);
  revision=3;visible=true;await p.poll();expect(poll).toHaveBeenCalledTimes(2);
  visible=false;issue={kind:'unavailable'};await p.poll();expect(poll).toHaveBeenCalledTimes(3);
+});
+// A real session behind the scene calls. Only the host status is a fake: the host is a boundary that this test does not own.
+// `frame` pins the status to an older frame; null reads the session.
+function external() {
+ const session=createSession(makeSmokeScene(),'test_session');
+ const host={frame:null as {revision:number;sceneId:string}|null};
+ const api={...sessionApi(session),appStatus:vi.fn(async()=>{const frame=host.frame??session.inspect();return {ok:true,data:{...status(frame.revision),sceneId:frame.sceneId}};})} as unknown as AppApi;
+ const model=createEditorModel(api);
+ return {session,model,host,poll:createEditorPoll(api,model,vi.fn(),vi.fn())};
+}
+it('keeps a show opened in this window while the status still has the frame before it',async()=>{
+ const {model,host,poll}=external();
+ await poll.poll();host.frame={revision:0,sceneId:'scene_smoke'};
+ expect(await model.replaceScene({...makeSmokeScene(),sceneId:'opened-show'})).toMatchObject({ok:true});
+ await poll.poll();
+ expect(model.read()).toMatchObject({error:null,scene:{sceneId:'opened-show',revision:1}});
+});
+it('follows a new scene ID after another client replaces the scene, and keeps a selection that the new scene has',async()=>{
+ const {session,model,poll}=external();
+ await poll.poll();model.select('marker');
+ expect(session.replaceScene({...makeSmokeScene(),sceneId:'scene_other'},0).ok).toBe(true);
+ await poll.poll();
+ expect(model.read()).toMatchObject({error:null,scene:{sceneId:'scene_other',revision:1},selectedId:'marker'});
+ expect(await model.setVisibility('marker',false)).toMatchObject({ok:true});
+});
+it('clears a selection that the replaced scene does not have',async()=>{
+ const {session,model,poll}=external();
+ await poll.poll();model.select('marker');
+ const next=makeSmokeScene();next.sceneId='scene_other';next.entities=next.entities.filter(e=>e.id!=='marker');
+ expect(session.replaceScene(next,0).ok).toBe(true);
+ await poll.poll();
+ expect(model.read()).toMatchObject({error:null,scene:{sceneId:'scene_other',revision:1},selectedId:null});
+});
+it('loads the scene of the status after a session restart, also when the held show has a higher revision (R3)',async()=>{
+ // A session restart: a new session starts again at revision 0 with scene_smoke, while the Editor holds my_show at revision 3.
+ let session=createSession(makeSmokeScene(),'test_session');
+ const api={appStatus:vi.fn(async()=>{const scene=session.inspect();return {ok:true,data:{...status(scene.revision),sceneId:scene.sceneId}};}),sceneInspect:vi.fn(async(params:unknown)=>sessionApi(session).sceneInspect(params as never))} as unknown as AppApi;
+ const model=createEditorModel(api),poll=createEditorPoll(api,model,vi.fn(),vi.fn());
+ expect(session.replaceScene({...makeSmokeScene(),sceneId:'my_show'},0).ok).toBe(true);
+ for(let i=0;i<2;i++){const held=session.inspect();expect(session.applyPatch({sceneId:'my_show',expectedRevision:held.revision,operations:[{kind:'setVisibility',entityId:'marker',visible:i===1}]}).ok).toBe(true);}
+ await poll.poll();model.select('marker');
+ expect(model.read()).toMatchObject({error:null,scene:{sceneId:'my_show',revision:3}});
+ session=createSession(makeSmokeScene(),'test_session');
+ await poll.poll();
+ expect(model.read()).toMatchObject({error:null,scene:{sceneId:'scene_smoke',revision:0},selectedId:'marker'});
 });
 it('resets Blueprint sync when the session reports a lower revision than the editor holds',async()=>{
  const readStatus=vi.fn(async()=>({ok:true,data:{...status(0),blueprintRevision:0}}));
