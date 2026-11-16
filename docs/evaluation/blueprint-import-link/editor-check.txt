@@ -13,21 +13,25 @@ PASS R12: the new graph is selected and disabled in the list "Counter"
 PASS R12: Import ends the start screen 
 PASS R11: the dialog has the Missing line ["Import blueprint?","Missing Reference","2 nodes · blueprints.example","Missing: Ghost","Cancel","Import"]
 PASS R12: the panel status line has the same Missing line after Import {"state":"Missing: Ghost","missingLine":"Missing: Ghost"}
+PASS R11: while Adding, Cancel is disabled and Escape does not close the dialog {"cancelDisabled":true}
+PASS R12: after Adding, the dialog closes with one more graph 
+PASS R13: Import is disabled and sends nothing while the session is unavailable {"importDisabled":true}
+PASS R14: Open Show does nothing while the window waits for the take reply {"open":[0,0]}
 PASS R11: Failed shows the title, "Link must use HTTPS", and Close ["Blueprint not imported","Link must use HTTPS","Close"]
 PASS R11: focus is on Close for "Link must use HTTPS" "Close"
-PASS R13: Close calls finish and leaves the show unchanged for "Link must use HTTPS" {"start":2,"end":2}
+PASS R13: Close calls finish and leaves the show unchanged for "Link must use HTTPS" {"start":3,"end":3}
 PASS R11: Failed shows the title, "Blueprint file is too large", and Close ["Blueprint not imported","Blueprint file is too large","Close"]
 PASS R11: focus is on Close for "Blueprint file is too large" "Close"
-PASS R13: Close calls finish and leaves the show unchanged for "Blueprint file is too large" {"start":2,"end":2}
+PASS R13: Close calls finish and leaves the show unchanged for "Blueprint file is too large" {"start":3,"end":3}
 PASS R11: Failed shows the title, "Unknown node types: character.wave", and Close ["Blueprint not imported","Unknown node types: character.wave","Close"]
 PASS R11: focus is on Close for "Unknown node types: character.wave" "Close"
-PASS R13: Close calls finish and leaves the show unchanged for "Unknown node types: character.wave" {"start":2,"end":2}
-PASS R9: a second app-link while the dialog is open does not take again and does not change the dialog {"takes":8,"open":8,"text":["Import blueprint?","Counter","7 nodes · blueprints.example","Missing: camera_close, camera_wide","Cancel","Import"]}
+PASS R13: Close calls finish and leaves the show unchanged for "Unknown node types: character.wave" {"start":3,"end":3}
+PASS R9: a second app-link while the dialog is open does not take again and does not change the dialog {"takes":11,"open":11,"text":["Import blueprint?","Counter","7 nodes · blueprints.example","Missing: camera_close, camera_wide","Cancel","Import"]}
 PASS R14: Open Show does nothing while the dialog is open, and Save Show runs {"open":[0,0],"save":[0,1]}
-PASS R9: after the dialog closes, the window takes again and the host has no link {"takes":9,"finishes":8}
+PASS R9: after the dialog closes, the window takes again and the host has no link {"takes":12,"finishes":11}
 PASS R10, R13: with 8 graphs the dialog fails with "Show already has 8 blueprints" {"graphs":8,"text":["Blueprint not imported","Show already has 8 blueprints","Close"]}
 PASS R13: the dialog closes and the 8-graph show is unchanged 
 PASS R11: Loading shows after 300 ms with the title, the Spinner, and Cancel ["Import blueprint","Cancel"]
-PASS R11: Cancel closes the loading dialog, calls finish, and the late reply does not open it {"takes":11,"finishes":10}
+PASS R11: Cancel closes the loading dialog, calls finish, and the late reply does not open it {"takes":14,"finishes":13}
 PASS no page error []
-32/32 passed
+36/36 passed

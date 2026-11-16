@@ -14,8 +14,8 @@
  import {createLiveTransform} from './editor/live-transform';
  import {createLiveEdit,type LiveEdit} from './editor/live-edit';
  import { createEditorPoll } from './editor-poll';
- import { createBlueprintSync, issueText, type BlueprintSync } from './blueprints/blueprint-sync';
- import { linkSummary, type LinkDownload, type LinkImportState } from './blueprints/link-import';
+ import { createBlueprintSync, type BlueprintSync } from './blueprints/blueprint-sync';
+ import { addLinkedGraph, linkSummary, type LinkDownload, type LinkImportState } from './blueprints/link-import';
 import { createEditorMemory } from './blueprints/editor-memory';
  import { createDebugFeed, planToasts, type DebugFeed } from './blueprints/debug-feed';
  import { compileBlueprint } from '@opensekai/session';
@@ -84,7 +84,7 @@ import { createEditorMemory } from './blueprints/editor-memory';
  // The avatar whose tracking guide replaces the Inspector.
  let guideFor=$state<string|null>(null);
  // A Blueprint from an opensekai:// link (B39 R9-R14). `app-link` only wakes the window; the window pulls the link when it is ready.
- let link=$state.raw<LinkImportState>({kind:'idle'}),linkWanted=$state(true),linkTaking=$state(false),linkAdding=false,linkToken=0;
+ let link=$state.raw<LinkImportState>({kind:'idle'}),linkWanted=$state(true),linkTaking=$state(false),linkAdding=$state(false),linkToken=0;
  let blueprintsLoaded=$state(false),graphCount=$state(0),linkArrival=$state.raw<{graphId:string;missing:string[]}|null>(null);
  const linkReady=$derived(canEdit&&available&&blueprintsLoaded&&!showBusy&&guideFor===null&&link.kind==='idle'&&!linkTaking);
  const linkContent=$derived(link.kind==='confirm'&&view.scene?linkSummary(link.text,link.host,view.scene,graphCount,()=>crypto.randomUUID()):null);
@@ -97,15 +97,16 @@ import { createEditorMemory } from './blueprints/editor-memory';
   catch(cause){if(token===linkToken)link={kind:'failed',message:showFailure(cause)};}
   finally{clearTimeout(timer);linkTaking=false;}
  }
- function closeLink(){if(link.kind==='idle')return;linkToken++;link={kind:'idle'};void invoke('finish_blueprint_link').catch(()=>{});}
+ // While the session answers an Import, the dialog cannot close (R11).
+ function closeLink(){if(link.kind==='idle'||linkAdding)return;linkToken++;link={kind:'idle'};void invoke('finish_blueprint_link').catch(()=>{});}
  async function importLink(){
-  if(!sync||linkAdding||!linkContent?.ok)return;
-  const {graph,missing}=linkContent.data;const applied=sync.edit([{kind:'createGraph',graph}]);
-  if(!applied.ok){link={kind:'failed',message:applied.error.message};return;}
+  if(!sync||linkAdding||!available||!linkContent?.ok)return;
+  const {graph,missing}=linkContent.data,token=linkToken;
   linkAdding=true;
-  try{await sync.idle();}finally{linkAdding=false;}
-  const issue=sync.issue();
-  if(issue){link={kind:'failed',message:issueText(issue)};return;}
+  let reply;try{reply=await addLinkedGraph(sync,graph);}finally{linkAdding=false;}
+  // The result of its own batch (R13); a newer link or a closed dialog keeps its state.
+  if(token!==linkToken)return;
+  if(!reply.ok){link={kind:'failed',message:reply.error.message};return;}
   closeLink();panel='blueprints';linkArrival={graphId:graph.id,missing};
  }
  let liveTransform:ReturnType<typeof createLiveTransform>|undefined,transformError=$state<string|null>(null),livePending=$state(false);
@@ -204,7 +205,7 @@ import { createEditorMemory } from './blueprints/editor-memory';
  }
  // Open Show, a template, and a recent show load through the same path (start screen R4, R5, R7).
  async function openShowFrom(load:()=>Promise<unknown|null>):Promise<boolean>{
-  if(!model||showBusy||view.pending||guideFor!==null||link.kind!=='idle')return false;
+  if(!model||showBusy||view.pending||guideFor!==null||link.kind!=='idle'||linkTaking)return false;
   showBusy=true;showError=null;
   try{
    const raw=await load();if(raw===null)return false;
@@ -296,5 +297,5 @@ import { createEditorMemory } from './blueprints/editor-memory';
   </div>
  </div>
 </main>
-{#if link.kind!=='idle'}<BlueprintLinkDialog state={link} summary={linkContent} onimport={()=>{void importLink();}} onclose={closeLink}/>{/if}
+{#if link.kind!=='idle'}<BlueprintLinkDialog state={link} summary={linkContent} busy={linkAdding} canImport={available} onimport={()=>{void importLink();}} onclose={closeLink}/>{/if}
 <ToastRegion/>

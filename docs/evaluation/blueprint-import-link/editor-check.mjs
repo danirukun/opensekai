@@ -74,7 +74,9 @@ const pending=new Map(),calls=[];
 const hostCall=async(method,params)=>{for(let i=0;!publisher&&i<200;i++)await new Promise(r=>setTimeout(r,50));if(!publisher)return {ok:false,error:{code:'UNAVAILABLE',message:'No publisher',ids:[]}};return new Promise(resolve=>{const requestId=`host_${nextCall++}`;pending.set(requestId,resolve);publisher.send(JSON.stringify({kind:'call',requestId,method,params}));});};
 const blueprints=async()=>{const reply=await hostCall('blueprintInspect',{});return reply.ok?reply.data:null;};
 // The status has the live scene and Blueprint revisions, as the host status does; the start screen ends on a change.
-const status=async()=>{const scene=await hostCall('sceneInspect',{sceneId:'scene_smoke'});const set=await blueprints();return {ok:true,data:{schemaVersion:1,sessionId:SESSION,ready:true,revision:scene.ok?scene.data.revision:0,blueprintRevision:set?.revision??0,capabilities:['read','edit'],warnings:[],outputs:[]}};};
+// `host.editDelay` holds Blueprint edits for a time; `host.statusDown` makes the status fail, so the Editor marks the session unavailable.
+const host={editDelay:0,statusDown:false};
+const status=async()=>{if(host.statusDown)return {ok:false,error:{code:'UNAVAILABLE',message:'Session unavailable',ids:[]}};const scene=await hostCall('sceneInspect',{sceneId:'scene_smoke'});const set=await blueprints();return {ok:true,data:{schemaVersion:1,sessionId:SESSION,ready:true,revision:scene.ok?scene.data.revision:0,blueprintRevision:set?.revision??0,capabilities:['read','edit'],warnings:[],outputs:[]}};};
 const begun=Date.now();
 const clock=setInterval(()=>publisher?.send(JSON.stringify({kind:'clock',sessionId:SESSION,elapsedMs:Date.now()-begun})),16);
 wss.on('connection',ws=>{
@@ -90,6 +92,7 @@ wss.on('connection',ws=>{
   if(role==='publisher'&&message.kind==='frame'){preview?.send(text);return;}
   if(role==='operator'&&message.kind==='call'){
    calls.push({method:message.method,params:message.params});
+   if(message.method==='blueprintEdit'&&host.editDelay)await new Promise(resolve=>setTimeout(resolve,host.editDelay));
    const result=message.method==='appStatus'?await status():await hostCall(message.method,message.params);
    ws.send(JSON.stringify({kind:'reply',requestId:message.requestId,result}));
   }
@@ -164,6 +167,37 @@ await dialog.getByRole('button',{name:'Import'}).click();
 await settle(1200);
 const state=(await page.locator('.blueprint-toolbar .blueprint-state').innerText()).trim();
 check('R12: the panel status line has the same Missing line after Import',state===missingLine,{state,missingLine});
+
+// While the session answers an Import, the dialog cannot close (R11, R13).
+host.editDelay=1500;
+await queue([linked('counter')]);await wake();await dialog.waitFor();await settle(300);
+const busyStart=(await blueprints()).blueprints.length;
+await dialog.getByRole('button',{name:'Import'}).click();
+await settle(300);
+const cancelDisabled=await dialog.getByRole('button',{name:'Cancel'}).isDisabled();
+await page.keyboard.press('Escape');await settle(300);
+check('R11: while Adding, Cancel is disabled and Escape does not close the dialog',cancelDisabled&&await dialog.isVisible(),{cancelDisabled});
+await settle(2000);
+host.editDelay=0;
+check('R12: after Adding, the dialog closes with one more graph',!(await dialog.isVisible())&&(await blueprints()).blueprints.length===busyStart+1);
+
+// While the session is unavailable, Import does nothing (R13).
+await queue([linked('counter')]);await wake();await dialog.waitFor();await settle(300);
+host.statusDown=true;await settle(1500);
+const editsBefore=calls.filter(call=>call.method==='blueprintEdit').length;
+const importDisabled=await dialog.getByRole('button',{name:'Import'}).isDisabled();
+await dialog.getByRole('button',{name:'Import'}).click({force:true});await settle(800);
+check('R13: Import is disabled and sends nothing while the session is unavailable',importDisabled&&calls.filter(call=>call.method==='blueprintEdit').length===editsBefore&&await dialog.isVisible(),{importDisabled});
+host.statusDown=false;await settle(1500);
+if(await dialog.isVisible())await cancel();
+await settle(800);
+
+// While the window waits for the take reply, Open Show does nothing (R14).
+await queue([{...linked('counter'),delay:1000}]);await wake();await settle(100);
+const opensWaiting=await invoked('open_show');
+await emit('show-command','open');await settle(300);
+check('R14: Open Show does nothing while the window waits for the take reply',await invoked('open_show')===opensWaiting,{open:[opensWaiting,await invoked('open_show')]});
+await dialog.waitFor();await settle(1000);await cancel();await settle(800);
 
 // Errors from the host and from the file (R11, R13).
 for(const [item,reason] of [[{error:{code:'INVALID_INPUT',message:'Link must use HTTPS',ids:[]}},'Link must use HTTPS'],[{error:{code:'INVALID_INPUT',message:'Blueprint file is too large',ids:[]}},'Blueprint file is too large'],[linked('unknown-node'),'Unknown node types: character.wave']]){

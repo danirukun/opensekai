@@ -1,5 +1,6 @@
 import { importBlueprint, type BlueprintGraph, type Id, type Reply, type SceneView } from '@opensekai/contracts';
 import { MAX_GRAPHS } from './templates';
+import type { BlueprintSync } from './blueprint-sync';
 
 // The reply of the host command `take_blueprint_link` (B39).
 export interface LinkDownload { text: string; host: string }
@@ -20,3 +21,6 @@ export function linkSummary(text: string, host: string, scene: SceneView, graphC
 }
 
 export const countLine = (nodeCount: number, host: string) => `${nodeCount} ${nodeCount === 1 ? 'node' : 'nodes'} · ${host}`;
+
+// Adds the linked graph as one batch, with the result of that batch only (B39 R12, R13).
+export const addLinkedGraph = (sync: Pick<BlueprintSync, 'commit'>, graph: BlueprintGraph) => sync.commit([{ kind: 'createGraph', graph }]);

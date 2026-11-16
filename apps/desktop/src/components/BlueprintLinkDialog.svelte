@@ -5,7 +5,8 @@
  import { countLine, type LinkImportState, type LinkSummary } from '../blueprints/link-import';
 
  // The link confirmation (B39 R11). The parent mounts it only while a link is open.
- let { state: link, summary, onimport, onclose }: { state: LinkImportState; summary: Reply<LinkSummary> | null; onimport: () => void; onclose: () => void } = $props();
+ // `busy`: the session answers an Import; the dialog cannot close (R11). `canImport`: the session is available (R13).
+ let { state: link, summary, busy = false, canImport = true, onimport, onclose }: { state: LinkImportState; summary: Reply<LinkSummary> | null; busy?: boolean; canImport?: boolean; onimport: () => void; onclose: () => void } = $props();
  const failure = $derived(link.kind === 'failed' ? link.message : link.kind === 'confirm' && summary && !summary.ok ? summary.error.message : null);
  const ready = $derived(link.kind === 'confirm' && summary?.ok ? summary.data : null);
  const title = $derived(failure !== null ? 'Blueprint not imported' : ready ? 'Import blueprint?' : 'Import blueprint');
@@ -13,6 +14,8 @@
  // Focus starts on the first footer button: Cancel, or Close after a failure.
  $effect(() => { void (failure !== null); void tick().then(() => (body?.closest('dialog')?.querySelector('footer button') as HTMLButtonElement | null)?.focus()); });
 </script>
+
+<svelte:window onkeydowncapture={event => { if (busy && event.key === 'Escape') event.preventDefault(); }} />
 
 <Modal open={true} {title} closeOnBackdrop={false} class="blueprint-link-dialog" {onclose}>
  <div bind:this={body}>
@@ -22,6 +25,6 @@
  </div>
  {#snippet footer()}
   {#if failure !== null}<Button variant="primary" onclick={onclose}>Close</Button>
-  {:else}<Button variant="secondary" onclick={onclose}>Cancel</Button>{#if ready}<Button variant="primary" onclick={onimport}>Import</Button>{/if}{/if}
+  {:else}<Button variant="secondary" disabled={busy} onclick={onclose}>Cancel</Button>{#if ready}<Button variant="primary" disabled={!canImport} loading={busy} onclick={onimport}>Import</Button>{/if}{/if}
  {/snippet}
 </Modal>

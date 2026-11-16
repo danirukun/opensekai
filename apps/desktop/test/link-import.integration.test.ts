@@ -5,7 +5,7 @@ import { expect, it } from 'vitest';
 import { importBlueprint, makeSmokeScene, type AppApi } from '@opensekai/contracts';
 import { createSession, sessionApi } from '@opensekai/session';
 import { createBlueprintSync } from '../src/blueprints/blueprint-sync';
-import { linkSummary } from '../src/blueprints/link-import';
+import { addLinkedGraph, linkSummary } from '../src/blueprints/link-import';
 
 const load = (name: string) => readFileSync(new URL(`../../../fixtures/blueprints/${name}.json`, import.meta.url), 'utf8');
 
@@ -70,4 +70,39 @@ it('fails a link at 8 graphs and leaves the Blueprint revision and the graph lis
  const after = snapshot();
  expect(after.revision).toBe(before.revision);
  expect(after.blueprints.map(graph => graph.id)).toEqual(before.blueprints.map(graph => graph.id));
+});
+
+// A session that the Editor cannot reach for a time: each call throws while `down` is set, as the operator client does.
+async function flaky() {
+ const session = createSession(makeSmokeScene(), 'link');
+ const api = sessionApi(session);
+ const state = { editDown: false, inspectDown: false };
+ const sync = createBlueprintSync({
+  blueprintEdit: async batch => { if (state.editDown) throw new Error('closed'); return api.blueprintEdit(batch); },
+  blueprintInspect: async params => { if (state.inspectDown) throw new Error('closed'); return api.blueprintInspect(params); },
+ }, 'editor');
+ await sync.load();
+ const summary = linkSummary(load('counter'), 'blueprints.example', session.inspect(), sync.view().length, () => 'linked');
+ if (!summary.ok) throw new Error(summary.error.message);
+ return { session, sync, state, graph: summary.data.graph };
+}
+
+it('fails an Import that the session did not get, and no later poll sends it (R13)', async () => {
+ const { session, sync, state, graph } = await flaky();
+ const revision = session.inspectBlueprints().revision;
+ state.editDown = true; state.inspectDown = true;
+ expect(await addLinkedGraph(sync, graph)).toMatchObject({ ok: false, error: { code: 'UNAVAILABLE', message: 'Session unavailable' } });
+ expect(sync.view().map(item => item.id)).not.toContain('linked');
+ state.editDown = false; state.inspectDown = false;
+ await sync.poll(); await sync.idle(); await sync.poll(); await sync.idle();
+ expect(session.inspectBlueprints().revision).toBe(revision);
+ expect(sync.view().map(item => item.id)).not.toContain('linked');
+});
+
+it('reports an Import that the session confirmed as done when the pull after it fails (R13)', async () => {
+ const { session, sync, state, graph } = await flaky();
+ state.inspectDown = true;
+ const reply = await addLinkedGraph(sync, graph);
+ expect(reply).toMatchObject({ ok: true, data: { revision: session.inspectBlueprints().revision } });
+ expect(session.inspectBlueprints().kind === 'snapshot' && session.inspectBlueprints().blueprints.map(item => item.id)).toContain('linked');
 });

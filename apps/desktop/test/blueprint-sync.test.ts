@@ -203,3 +203,12 @@ it('rejects a paste over the node limit without changing the graph', async () =>
  expect(a.edit(ops).ok).toBe(false);
  expect(a.view()).toEqual(before);
 });
+
+it('commit gives the rejection of its own batch and drops the graph from the view (B39 R13)', async () => {
+ const session = createSession(makeSmokeScene(), 's');
+ const sync = createBlueprintSync({ ...apiFor(session), blueprintEdit: async () => ({ ok: false, error: { code: 'INVALID_INPUT', message: 'Refused', ids: [] } }) }, 'c');
+ await sync.load();
+ const graph = { ...fixture.blueprints[0], id: 'refused' };
+ expect(await sync.commit([{ kind: 'createGraph', graph: graph as never }])).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', message: 'Refused' } });
+ expect(sync.view().map(item => item.id)).not.toContain('refused');
+});
