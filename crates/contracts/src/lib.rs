@@ -203,6 +203,11 @@ object!(LightCone {
     angle_degrees: f64,
     penumbra: f64
 });
+object!(LightBeam {
+    enabled: bool,
+    intensity: f64,
+    softness: f64
+});
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct LightSettings {
@@ -219,6 +224,8 @@ pub struct LightSettings {
     pub cone: Option<LightCone>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub volumetric: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub beam: Option<LightBeam>,
 }
 object!(HazeSettings {
     density: f64,
@@ -274,6 +281,16 @@ impl Validate for LightSettings {
             self.volumetric != Some(true)
                 || matches!(self.light_type, LightType::Point | LightType::Spot),
             "only point and spot lights scatter in haze",
+        )?;
+        require(
+            self.beam
+                .as_ref()
+                .is_none_or(|b| within(b.intensity, 0., 4.) && within(b.softness, 0., 1.)),
+            "invalid light beam",
+        )?;
+        require(
+            self.beam.as_ref().is_none_or(|b| !b.enabled) || self.light_type == LightType::Spot,
+            "only a spot light has a beam",
         )
     }
 }

@@ -137,6 +137,11 @@ export const LightConeSchema = z.strictObject({
     angleDegrees: n.min(1).max(170),
     penumbra: n.min(0).max(1)
 });
+export const LightBeamSchema = z.strictObject({
+    enabled: z.boolean(),
+    intensity: n.min(0).max(4),
+    softness: n.min(0).max(1)
+});
 export const LightSettingsSchema = z.strictObject({
     type: z.enum(["directional", "point", "spot", "ambient"]),
     color: LightColorSchema,
@@ -147,10 +152,12 @@ export const LightSettingsSchema = z.strictObject({
     affectEnvironment: z.boolean(),
     shadow: LightShadowSchema,
     cone: LightConeSchema.optional(),
-    volumetric: z.boolean().optional()
+    volumetric: z.boolean().optional(),
+    beam: LightBeamSchema.optional()
 }).refine(l => l.type !== "spot" || l.cone !== undefined, "A spot light needs a cone")
     .refine(l => l.type !== "ambient" || !l.shadow.enabled, "An ambient light has no shadow")
-    .refine(l => l.volumetric !== true || l.type === "point" || l.type === "spot", "Only point and spot lights scatter in haze");
+    .refine(l => l.volumetric !== true || l.type === "point" || l.type === "spot", "Only point and spot lights scatter in haze")
+    .refine(l => l.beam?.enabled !== true || l.type === "spot", "Only a spot light has a beam");
 export const HazeSettingsSchema = z.strictObject({
     density: n.min(0).max(2),
     smoke: n.min(0).max(3),
