@@ -5,6 +5,7 @@
  import {Button} from '@oshi-connect/ui';
  import {X} from '@lucide/svelte';
  import type {RecentShow,ShowTemplate} from '@opensekai/contracts';
+ import {currentPlatform,menuShortcut} from '../blueprints/keystroke-format';
  import logo from '../assets/opensekai-logo-full.png';
  let {recent,templates,disabled,onaddcharacter,onopen,ontemplate,onrecent,onclose}:{
   recent:RecentShow[];templates:ShowTemplate[];disabled:boolean;
@@ -21,7 +22,7 @@
   <img class="start-logo" src={logo} alt="OpenSekai"/>
   <p class="start-subtitle">Create your dream VTuber world</p>
   <Button class="start-primary" {disabled} onclick={onaddcharacter}>Add character</Button>
-  <Button variant="ghost" class="start-row" {disabled} onclick={onopen}><span>Open show…</span><kbd>⌘O</kbd></Button>
+  <Button variant="ghost" class="start-row" {disabled} onclick={onopen}><span>Open show…</span><kbd>{menuShortcut('KeyO',currentPlatform())}</kbd></Button>
   {#if templates.length>0}<h2>Templates</h2>{#each templates as template (template.id)}<Button variant="ghost" class="start-row" {disabled} onclick={()=>ontemplate(template.id)}><span>{template.name}</span></Button>{/each}{/if}
   {#if recent.length>0}<h2>Recent</h2>{#each recent as show, index (index)}<Button variant="ghost" class="start-row" {disabled} onclick={()=>onrecent(index)}><span>{show.name}</span><span class="start-folder">{show.folder}</span></Button>{/each}{/if}
  </div>
