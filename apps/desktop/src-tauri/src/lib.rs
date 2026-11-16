@@ -33,8 +33,10 @@ pub fn output_resource_dir(app: &tauri::AppHandle) -> tauri::Result<PathBuf> {
 async fn bootstrap_session(
     window: tauri::WebviewWindow,
     state: tauri::State<'_, Arc<DesktopState>>,
+    inbox: tauri::State<'_, link::inbox::LinkInbox>,
 ) -> Result<NativeBootstrap, AppError> {
     require_window_label(window.label(), "main")?;
+    inbox.reset();
     state.session_bootstrap().await
 }
 #[tauri::command]
@@ -475,6 +477,10 @@ fn install_menu(app: &tauri::AppHandle) -> tauri::Result<()> {
 }
 /// Brings the window forward and asks it to run a show command, so the editor builds the document.
 fn send_show_command(app: &tauri::AppHandle, command: &str) {
+    wake_main_window(app, "show-command", command);
+}
+/// Shows, unminimizes, and focuses the Editor window, then sends it the event.
+fn wake_main_window<S: serde::Serialize + Clone>(app: &tauri::AppHandle, event: &str, payload: S) {
     use tauri::Emitter;
     let Some(window) = app.get_webview_window("main") else {
         return;
@@ -482,7 +488,34 @@ fn send_show_command(app: &tauri::AppHandle, command: &str) {
     let _ = window.show();
     let _ = window.unminimize();
     let _ = window.set_focus();
-    let _ = app.emit_to("main", "show-command", command);
+    let _ = app.emit_to("main", event, payload);
+}
+/// Takes the link from the inbox (B39 R5). A link starts its download here; the window gets the
+/// text and the host, or the error, or `null` when it cancelled during the download.
+#[tauri::command]
+async fn take_blueprint_link(
+    window: tauri::WebviewWindow,
+    inbox: tauri::State<'_, link::inbox::LinkInbox>,
+) -> Result<Option<link::fetch::LinkDownload>, AppError> {
+    require_window_label(window.label(), "main")?;
+    let (ticket, url) = match inbox.take() {
+        link::inbox::Take::Nothing => return Ok(None),
+        link::inbox::Take::Failed(error) => return Err(error.into()),
+        link::inbox::Take::Download { ticket, url } => (ticket, url),
+    };
+    let config = link::fetch::LinkFetchConfig::default();
+    let result = link::fetch::fetch_blueprint(&config, &url).await;
+    inbox.complete(ticket, result).transpose()
+}
+/// The window closed the link dialog (B39 R5).
+#[tauri::command]
+fn finish_blueprint_link(
+    window: tauri::WebviewWindow,
+    inbox: tauri::State<'_, link::inbox::LinkInbox>,
+) -> Result<(), AppError> {
+    require_window_label(window.label(), "main")?;
+    inbox.finish();
+    Ok(())
 }
 /// Quits now, or first asks when the show has unsaved changes.
 fn request_quit(app: &tauri::AppHandle) {
@@ -634,6 +667,7 @@ pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, shortcut, event| {
@@ -646,6 +680,7 @@ pub fn run() {
         )
         .manage(state.clone())
         .manage(show::ShowFile::default())
+        .manage(link::inbox::LinkInbox::default())
         .on_menu_event(|app, event| {
             let id = event.id().as_ref();
             if id == QUIT_MENU_ID {
@@ -658,6 +693,7 @@ pub fn run() {
         })
         .setup(move |app| {
             install_menu(app.handle())?;
+            link::source::install(app.handle());
             let data = app.path().app_local_data_dir()?;
             std::fs::create_dir_all(&data)?;
             app.manage(recent_shows::RecentShows::load(
@@ -726,7 +762,9 @@ pub fn run() {
             open_show_template,
             set_show_dirty,
             import_blueprint_file,
-            export_blueprint_file
+            export_blueprint_file,
+            take_blueprint_link,
+            finish_blueprint_link
         ])
         .build(tauri::generate_context!())
         .expect("OpenSekai failed to start");
@@ -804,6 +842,8 @@ mod command_boundary_tests {
             "allow-set-show-dirty",
             "allow-import-blueprint-file",
             "allow-export-blueprint-file",
+            "allow-take-blueprint-link",
+            "allow-finish-blueprint-link",
             "core:event:allow-listen",
             "core:event:allow-unlisten",
         ]
@@ -812,6 +852,8 @@ mod command_boundary_tests {
         assert_eq!(permissions, expected);
         // The window opens the screenshot folder only through the command; it gets no `opener:` permission.
         assert!(!permissions.iter().any(|p| p.starts_with("opener:")));
+        // B39: the window gets a link only through the two link commands, not the plugin API.
+        assert!(!permissions.iter().any(|p| p.starts_with("deep-link:")));
         assert!(!permissions.contains("core:window:allow-minimize"));
         assert!(!permissions.contains("core:window:allow-unminimize"));
     }

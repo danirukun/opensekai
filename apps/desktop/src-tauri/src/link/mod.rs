@@ -2,4 +2,6 @@
 //! host parses it (`parse`), keeps one link (`inbox`), and downloads the file with limits
 //! (`fetch`). The Editor window pulls the result with two commands that take no arguments.
 pub mod fetch;
+pub mod inbox;
 pub mod parse;
+pub mod source;

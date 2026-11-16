@@ -32,6 +32,8 @@
     "allow-set-show-dirty",
     "allow-import-blueprint-file",
     "allow-export-blueprint-file",
+    "allow-take-blueprint-link",
+    "allow-finish-blueprint-link",
     "core:event:allow-listen",
     "core:event:allow-unlisten"
   ]
