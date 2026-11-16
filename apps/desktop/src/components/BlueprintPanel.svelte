@@ -1,5 +1,5 @@
 <script lang="ts">
- import { onMount, tick } from 'svelte';
+ import { onMount, tick, untrack } from 'svelte';
  import { invoke } from '@tauri-apps/api/core';
  import { Button, Textarea } from '@oshi-connect/ui';
  import { Play, Search, SquareTerminal, Trash2, Variable } from '@lucide/svelte';
@@ -29,8 +29,10 @@
  import BlueprintDebugOutput from './BlueprintDebugOutput.svelte';
  import { debugTime, EMPTY_DEBUG_FEED, type DebugFeed, type DebugFeedState } from '../blueprints/debug-feed';
 
- let { api, sync, debug = null, memory, scene, assets = [], status, disabled, selectedEntityId = null, onrun }: {
+ let { api, sync, debug = null, memory, scene, assets = [], status, disabled, selectedEntityId = null, onrun, arrival = null }: {
   api: AppApi | null; sync: BlueprintSync; debug?: DebugFeed | null; memory: EditorMemory; scene: SceneView | null; assets?: readonly AssetRecord[]; status: AppStatus | null; disabled: boolean; selectedEntityId?: string | null; onrun: () => void;
+  // A graph that a Blueprint link added (B39 R12): select it and show its missing references, as a file import does.
+  arrival?: { graphId: string; missing: string[] } | null;
  } = $props();
  const platform = currentPlatform();
  let canvas: HTMLDivElement;
@@ -375,6 +377,7 @@
   update(sync.view());
   return () => { off(); offDebug(); clearInterval(timer); generation++; editor?.destroy(); editor = null; };
  });
+ $effect(() => { const next = arrival; if (next) untrack(() => { choose(next.graphId); missing = [...next.missing]; }); });
 </script>
 
 <section class="blueprint-panel" aria-label="Blueprint editor">
