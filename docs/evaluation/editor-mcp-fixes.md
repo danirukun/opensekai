@@ -21,3 +21,66 @@ Commands: `pnpm exec vitest run --project unit packages/contracts/test/app-statu
 Full checks after the change: `pnpm check` pass; `pnpm test:unit` 248 files, 2178 tests pass, 1 skipped; `pnpm test:integration` 38 files pass, 2 skipped, 92 tests pass, 4 skipped; `cargo test --workspace --no-fail-fast` 557 pass, 0 fail, 2 ignored; `cargo clippy --workspace --all-targets` no warning.
 
 Known limit: if a replace occurs between the status reply and the scene read of one poll, that poll gets `NOT_FOUND`. The next poll, 500 ms later, corrects it. The poll does not use the status ID when the status revision is lower than the held revision, because that frame is older than the held scene.
+
+## #245: a manual run commits its writes before the reply (R4 to R7, R12)
+
+### Gate on the old code
+
+The cause came from a code reading. Two tests with no clock step after the run were written first and run on the unchanged code (06dce38 plus the tests):
+
+```text
+$ pnpm exec vitest run --project unit packages/session/test/manual-run-commit.test.ts
+ × commits the write of a manual run before the reply, with no clock step after the run
+AssertionError: expected { ok: true, data: { revision: +0 } } to deeply equal { ok: true, data: { revision: 1 } }
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+
+$ pnpm exec vitest run --project integration apps/mcp/test/blueprint-run-commit.integration.test.ts
+ × shows the write of blueprint_run in its reply revision and in the next scene_inspect, with no clock step
+AssertionError: expected { ok: true, data: { revision: +0 } } to deeply equal { ok: true, data: { revision: 1 } }
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+```
+
+A temporary test (not committed) confirmed that the run occurs on the old code, and that only the committed scene keeps the old value:
+
+```text
+GATE reply {"ok":true,"data":{"revision":0}} inspect revision 0 inspect position [0.9,0.7,0] before [0.9,0.7,0]
+GATE advance(32).scene position [1,2,3]
+```
+
+The gate held, so the fix went ahead.
+
+### Checks
+
+| Check | Requirement | Old code | New code |
+| --- | --- | --- | --- |
+| `manual-run-commit.test.ts`, no clock step after the run | R4: the reply is revision 1 and `inspect()` has the position | Fail (revision 0) | Pass |
+| `blueprint-run-commit.integration.test.ts` (MCP stdio, real session, no fixture clock) | R4: `blueprint_run` replies revision 1 and the next `scene_inspect` has the position | Fail (revision 0) | Pass |
+| `manual-run-commit.test.ts`, custom event | R4: `emitBlueprintEvent` replies the new revision | Fail | Pass |
+| `manual-run-commit.test.ts`, Move Entity | R4 | Fail | Pass |
+| `manual-run-commit.test.ts`, Camera Orbit Character without a transition | R4 | Fail | Pass |
+| `manual-run-commit.test.ts`, Set Asset Property with `transitionSeconds: 1` | R6: the reply has the old revision; the value commits 250 ms after the end | Pass | Pass |
+| `manual-run-commit.test.ts`, keystroke run in a clock step | R5: a write at 32 ms commits at 282 ms, not at 281 ms | Pass | Pass |
+| `manual-run-commit.test.ts`, On Update graph and a manual graph | R5: the manual run commits only its own write; the On Update override stays | Fail | Pass |
+| `manual-run-commit.test.ts`, write of the current value | R7: no commit, old revision | Pass | Pass |
+| `manual-run-commit.test.ts`, wired On Transition End | R7: the write commits in the call; the end runs on the next clock step | Fail | Pass |
+| `manual-run-commit.test.ts`, failed commit (scene at the revision limit) | R7: the reply is `Revision limit reached`, the override is gone, and the graph has the runtime error | Fail | Pass |
+| `overrides.test.ts`, forced keys | `takeIdle` takes a forced key before 250 ms and never a busy key | New test | Pass |
+
+### Older tests that changed
+
+| Test | Reason |
+| --- | --- |
+| `transitions-session.test.ts`, "keeps an old graph without transition settings immediate" | It stated the commit time of a manual write. The revision is now 1 after the run. |
+| `property-nodes.test.ts`, "hides and shows the environment …" | It stated the commit time of a manual write. Each run reply now has the new revision, and `inspect()` shows the value after the run. |
+| `blueprint-files.integration.test.ts`, "nudge sets the position after a run and commits it 250 ms later" | It stated the commit time of a manual write. Renamed to "nudge sets the position and commits it before the run reply". |
+| `camera-orbit-node.test.ts`, "drops the camera position and rotation overrides on a setCameraNavigation patch" | It used a manual run only to make a camera override. The write now comes from a keystroke in a clock step, so the patch still drops a live override. |
+| `camera-orbit-node.test.ts`, "orbits the evaluated character while a Blueprint override moves it …" | It used a manual run only to make a character position override. It passed without the override, so the write now comes from a keystroke in a clock step. |
+| `camera-orbit-node.test.ts`, "keeps a moved orbit position follow-relative …" | It used two manual runs only to make follow-relative camera overrides. It passed without the overrides, so both writes now come from keystrokes in clock steps. |
+| `camera-orbit-node.test.ts`, the comment in "writes the position and rotation …" | Comment only: the run commits the values, not the idle commit. |
+| `blueprint-value-model.test.ts`, the comment of `runAndCommit` | Comment only: the run commits its write before the reply. |
+
+The continuous Blueprints contract R11 has the exception, and its safeguard names it. The `blueprint_run` tool text says which writes are in the reply revision. `docs/warudo-parity.md` does not change: BP-01 and BP-05 describe clock-step writes and transitions, which keep the 250 ms rule.
+
+A property that a manual run and an On Update graph both write commits at each manual run. This adds revisions; it does not make a wrong value.

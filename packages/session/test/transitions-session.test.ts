@@ -61,9 +61,10 @@ it('eases a camera Field of View and an entity Position over the ticks, and comm
 
 it('keeps an old graph without transition settings immediate', () => {
  const s = start([num('wide', 85), node('lens', 'property.set', { entityId: 'camera_wide', property: 'fovDegrees' })], [wire('a', 'go', 'flow', 'lens', 'flow'), wire('b', 'wide', 'value', 'lens', 'value')]);
+ // A manual run commits a write without a transition before the reply (Editor and MCP fixes R4).
  run(s);
+ expect(s.inspect().revision).toBe(1);
  expect(fov(s.advance(20))).toBe(85);
- expect(s.inspect().revision).toBe(0);
  s.advance(270);
  expect(s.inspect().revision).toBe(1);
 });

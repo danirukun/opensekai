@@ -50,6 +50,16 @@ it('commits only overrides idle for 250 ms, in one batch of operations, and keep
  expect([...idle.remaining.keys()]).toEqual(['marker']);
 });
 
+it('also takes the forced overrides before 250 ms, but never a busy one (Editor and MCP fixes R4)', () => {
+ let layer = ok(set(EMPTY_OVERRIDES, 'reference', 'position', [1, 2, 3] as never, 100, 'a'));
+ layer = ok(set(layer, 'camera_wide', 'fovDegrees', 30 as never, 100, 'b'));
+ layer = ok(set(layer, 'marker', 'visible', false as never, 100, 'c'));
+ const forced = takeIdle(scene, layer, 100, (id, key) => id === 'camera_wide' && key === 'fovDegrees', id => id !== 'reference');
+ expect(forced.operations).toEqual([{ kind: 'setVisibility', entityId: 'marker', visible: false }]);
+ expect(forced.graphIds).toEqual(['c']);
+ expect([...forced.remaining.keys()]).toEqual(['reference', 'camera_wide']);
+});
+
 it('drops overrides that an explicit edit changes', () => {
  let layer = ok(set(EMPTY_OVERRIDES, 'reference', 'position', [1, 2, 3] as never));
  layer = ok(set(layer, 'reference', 'visible', false as never));

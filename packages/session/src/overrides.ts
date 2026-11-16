@@ -76,9 +76,10 @@ export function writeOverride(layer: OverrideLayer, scene: SceneView, write: Ove
 }
 
 // `busy` keeps an override from committing, for example while a transition writes it.
-export function takeIdle(scene: SceneView, layer: OverrideLayer, nowMs: number, busy: (entityId: Id, property: PropertyKey) => boolean = () => false): { operations: Operation[]; graphIds: Id[]; remaining: OverrideLayer } {
+// `force` also takes an override before its 250 ms, for example the writes of a manual run (Editor and MCP fixes R4). A busy override stays.
+export function takeIdle(scene: SceneView, layer: OverrideLayer, nowMs: number, busy: (entityId: Id, property: PropertyKey) => boolean = () => false, force: (entityId: Id, property: PropertyKey) => boolean = () => false): { operations: Operation[]; graphIds: Id[]; remaining: OverrideLayer } {
  const operations: Operation[] = [], graphIds = new Set<Id>(), remaining = new Map<Id, ReadonlyMap<PropertyKey, OverrideEntry>>();
- const idleOf = new Map([...layer].map(([entityId, entries]) => [entityId, new Map([...entries].filter(([key, entry]) => nowMs - entry.lastWriteMs >= COMMIT_IDLE_MS && !busy(entityId, key)))]));
+ const idleOf = new Map([...layer].map(([entityId, entries]) => [entityId, new Map([...entries].filter(([key, entry]) => (nowMs - entry.lastWriteMs >= COMMIT_IDLE_MS || force(entityId, key)) && !busy(entityId, key)))]));
  // A character position that commits moves the persistent character, so a follow-relative camera position moves with it.
  const moved = new Map<Id, Vec3>();
  for (const [entityId, idle] of idleOf) {
