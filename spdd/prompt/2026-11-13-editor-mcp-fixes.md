@@ -8,7 +8,8 @@ Date: 2026-11-13. Scope: three defect fixes, bundle B33 ([#244](https://github.c
 
 R1. `AppStatus` has an optional `sceneId` (an ID), in TypeScript and in Rust. The host sets it to the scene ID of the latest frame, from the same frame as `revision`. Before the first frame it is absent.
 R2. When another client replaces the scene with a scene that has a new `sceneId`, the next Editor poll loads the new scene. The Editor model then holds the new scene and no `NOT_FOUND` error. A selected entity stays selected only when its ID is in the new scene. Each later Editor edit and Save use the new ID.
-R3. `sceneReplace` and MCP `scene_replace` accept a scene with a new `sceneId`, as before. The Open Show action of the Editor does not change.
+R3. `sceneReplace` and MCP `scene_replace` accept a scene with a new `sceneId`, as before. The Open Show action of the Editor does not change. Just after Open Show, a status from an older frame (a lower revision with the old ID) does not give a `NOT_FOUND` error. After a session restart (the revision starts again from 0 with a new scene ID), the next poll loads the scene of the status ID, also when the status revision is lower than the held revision.
+
 ### Commit of a manual run (#245)
 
 R4. `blueprintRun` (a Manual Trigger, or a custom event) commits each property override that a run of its step wrote, before it replies. The override writes are: Set Asset Property without a transition (or on a boolean property), Move Entity, and Camera Orbit Character without a transition. The reply `revision` is the revision after that commit, and `sceneInspect` after the reply shows the values.

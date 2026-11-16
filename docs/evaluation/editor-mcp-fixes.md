@@ -17,7 +17,11 @@ Commands: `pnpm exec vitest run --project unit packages/contracts/test/app-statu
 | `apps/desktop/test/editor-poll.test.ts`, "clears a selection …" | R2: the new scene has no `marker`; the selection is `null` | Fail: `error: "NOT_FOUND"`, `sceneId: "scene_smoke"`, `selectedId: "marker"` | Pass |
 | `apps/desktop/test/editor-poll.test.ts`, "keeps a show opened in this window …" | R3: after Open Show in the Editor, a status from the older frame (old revision and old ID) does not give `NOT_FOUND` | Pass (no fault on the old code) | Pass. It fails when the poll uses the ID of an older frame (checked with a temporary change) |
 | `apps/desktop/test/editor-model.test.ts`, unchanged | R3: Open Show with a new scene ID | Pass | Pass |
+| `apps/desktop/test/editor-poll.test.ts`, "loads the scene of the status after a session restart …" (review fix) | R3: the Editor holds `my_show` at revision 3; a new session starts at revision 0 with `scene_smoke`; the next poll gives `error: null`, `scene_smoke`, revision 0, `marker` still selected | Fail on eb9d93f: `error: "NOT_FOUND"`, `sceneId: "my_show"`, revision 3 | Pass |
+
 Full checks after the change: `pnpm check` pass; `pnpm test:unit` 248 files, 2178 tests pass, 1 skipped; `pnpm test:integration` 38 files pass, 2 skipped, 92 tests pass, 4 skipped; `cargo test --workspace --no-fail-fast` 557 pass, 0 fail, 2 ignored; `cargo clippy --workspace --all-targets` no warning.
+
+Review fix (session restart): when the status revision is lower than the held revision, the poll reads the held scene ID first. Only when that read gives `NOT_FOUND` and the status has another ID does it read the status ID. So the restart case loads the new scene, and the Open Show case keeps its guard.
 
 Known limit: if a replace occurs between the status reply and the scene read of one poll, that poll gets `NOT_FOUND`. The next poll, 500 ms later, corrects it. The poll does not use the status ID when the status revision is lower than the held revision, because that frame is older than the held scene.
 
@@ -131,6 +135,8 @@ Not checked: WKWebView (the macOS app) has other font widths. The owner judges t
 ## Full checks and platform
 
 Full checks on e3c28fb (the #261 commit; this section adds no code): `pnpm check` pass (svelte-check: 0 errors, 0 warnings); `pnpm test:unit` 249 files pass, 2189 tests pass, 1 skipped; `pnpm test:integration` 39 files pass, 2 skipped, 93 tests pass, 4 skipped; `cargo test --workspace --no-fail-fast` 557 pass, 0 fail, 2 ignored; `cargo clippy --workspace --all-targets` no warning; `cargo fmt --all -- --check` lists only `apps/desktop/src-tauri/src/recent_shows.rs`, as on the base commit.
+
+After the two review fixes (no Rust change, so no cargo run): `pnpm check` pass (0 errors, 0 warnings); `pnpm test:unit` 249 files pass, 2193 tests pass, 1 skipped; `pnpm test:integration` 39 files pass, 2 skipped, 93 tests pass, 4 skipped.
 
 | Platform | Result |
 | --- | --- |

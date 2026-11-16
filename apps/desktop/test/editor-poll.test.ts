@@ -76,6 +76,19 @@ it('clears a selection that the replaced scene does not have',async()=>{
  await poll.poll();
  expect(model.read()).toMatchObject({error:null,scene:{sceneId:'scene_other',revision:1},selectedId:null});
 });
+it('loads the scene of the status after a session restart, also when the held show has a higher revision (R3)',async()=>{
+ // A session restart: a new session starts again at revision 0 with scene_smoke, while the Editor holds my_show at revision 3.
+ let session=createSession(makeSmokeScene(),'test_session');
+ const api={appStatus:vi.fn(async()=>{const scene=session.inspect();return {ok:true,data:{...status(scene.revision),sceneId:scene.sceneId}};}),sceneInspect:vi.fn(async(params:unknown)=>sessionApi(session).sceneInspect(params as never))} as unknown as AppApi;
+ const model=createEditorModel(api),poll=createEditorPoll(api,model,vi.fn(),vi.fn());
+ expect(session.replaceScene({...makeSmokeScene(),sceneId:'my_show'},0).ok).toBe(true);
+ for(let i=0;i<2;i++){const held=session.inspect();expect(session.applyPatch({sceneId:'my_show',expectedRevision:held.revision,operations:[{kind:'setVisibility',entityId:'marker',visible:i===1}]}).ok).toBe(true);}
+ await poll.poll();model.select('marker');
+ expect(model.read()).toMatchObject({error:null,scene:{sceneId:'my_show',revision:3}});
+ session=createSession(makeSmokeScene(),'test_session');
+ await poll.poll();
+ expect(model.read()).toMatchObject({error:null,scene:{sceneId:'scene_smoke',revision:0},selectedId:'marker'});
+});
 it('resets Blueprint sync when the session reports a lower revision than the editor holds',async()=>{
  const readStatus=vi.fn(async()=>({ok:true,data:{...status(0),blueprintRevision:0}}));
  const api={appStatus:readStatus,sceneInspect:vi.fn(async()=>({ok:true,data:makeSmokeScene()}))} as unknown as AppApi;
