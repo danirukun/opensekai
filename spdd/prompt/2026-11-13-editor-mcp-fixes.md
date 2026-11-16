@@ -9,13 +9,12 @@ Date: 2026-11-13. Scope: three defect fixes, bundle B33 ([#244](https://github.c
 R1. `AppStatus` has an optional `sceneId` (an ID), in TypeScript and in Rust. The host sets it to the scene ID of the latest frame, from the same frame as `revision`. Before the first frame it is absent.
 R2. When another client replaces the scene with a scene that has a new `sceneId`, the next Editor poll loads the new scene. The Editor model then holds the new scene and no `NOT_FOUND` error. A selected entity stays selected only when its ID is in the new scene. Each later Editor edit and Save use the new ID.
 R3. `sceneReplace` and MCP `scene_replace` accept a scene with a new `sceneId`, as before. The Open Show action of the Editor does not change.
-
 ### Commit of a manual run (#245)
 
 R4. `blueprintRun` (a Manual Trigger, or a custom event) commits each property override that a run of its step wrote, before it replies. The override writes are: Set Asset Property without a transition (or on a boolean property), Move Entity, and Camera Orbit Character without a transition. The reply `revision` is the revision after that commit, and `sceneInspect` after the reply shows the values.
 R5. A run of a clock step (On Update, keystroke, device, tracking, YouTube, timer, delay, On Transition End) keeps continuous Blueprints R11: its overrides commit 250 ms after the last write. A `blueprintRun` call does not commit an override that its step did not write.
 R6. A write with a transition does not commit in the call. The reply is `ok` with the current revision, and the value commits after the transition ends, as before. The `blueprint_run` tool text says which writes are in the reply revision.
-R7. When the commit of R4 fails, the reply is that error, the overrides of the failed commit are removed, and the error is the runtime error of each graph that wrote them (the R11 rule for a failed commit). A write that does not change the value makes no commit and no new revision. On Transition End of a write still runs on the next clock step.
+R7. When the commit of R4 fails, the reply is that error, the overrides of the failed commit are removed, and the error is the runtime error of each graph that wrote them (the R11 rule for a failed commit). A write that does not change the value makes no commit and no new revision. This is also true when the value is already in a pending override of another run (a clock step less than 250 ms ago, or a transition that ended less than 250 ms ago), with or without a transition on the write: that override commits by the R5 rule, not in the call. On Transition End of a write still runs on the next clock step.
 
 ### Node width (#261)
 

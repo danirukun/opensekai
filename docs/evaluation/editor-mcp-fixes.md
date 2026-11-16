@@ -17,7 +17,6 @@ Commands: `pnpm exec vitest run --project unit packages/contracts/test/app-statu
 | `apps/desktop/test/editor-poll.test.ts`, "clears a selection …" | R2: the new scene has no `marker`; the selection is `null` | Fail: `error: "NOT_FOUND"`, `sceneId: "scene_smoke"`, `selectedId: "marker"` | Pass |
 | `apps/desktop/test/editor-poll.test.ts`, "keeps a show opened in this window …" | R3: after Open Show in the Editor, a status from the older frame (old revision and old ID) does not give `NOT_FOUND` | Pass (no fault on the old code) | Pass. It fails when the poll uses the ID of an older frame (checked with a temporary change) |
 | `apps/desktop/test/editor-model.test.ts`, unchanged | R3: Open Show with a new scene ID | Pass | Pass |
-
 Full checks after the change: `pnpm check` pass; `pnpm test:unit` 248 files, 2178 tests pass, 1 skipped; `pnpm test:integration` 38 files pass, 2 skipped, 92 tests pass, 4 skipped; `cargo test --workspace --no-fail-fast` 557 pass, 0 fail, 2 ignored; `cargo clippy --workspace --all-targets` no warning.
 
 Known limit: if a replace occurs between the status reply and the scene read of one poll, that poll gets `NOT_FOUND`. The next poll, 500 ms later, corrects it. The poll does not use the status ID when the status revision is lower than the held revision, because that frame is older than the held scene.
@@ -64,6 +63,8 @@ The gate held, so the fix went ahead.
 | `manual-run-commit.test.ts`, keystroke run in a clock step | R5: a write at 32 ms commits at 282 ms, not at 281 ms | Pass | Pass |
 | `manual-run-commit.test.ts`, On Update graph and a manual graph | R5: the manual run commits only its own write; the On Update override stays | Fail | Pass |
 | `manual-run-commit.test.ts`, write of the current value | R7: no commit, old revision | Pass | Pass |
+| `manual-run-commit.test.ts`, keystroke sets FOV 60 at 32 ms, then a manual write of 60 at 48 ms, without and with a 1 s transition (two tests, review fix) | R7: the reply is revision 0; the keystroke override commits at 282 ms, not at 281 ms | Pass on 06dce38. Fail on e5198ed: reply revision 1 | Pass |
+| `manual-run-commit.test.ts`, a 1 s FOV transition to 60 ends, then a manual write of 60 (review fix) | R7: the reply is revision 0; the ended transition commits 250 ms after its end | Pass on 06dce38. Fail on e5198ed: reply revision 1 | Pass |
 | `manual-run-commit.test.ts`, wired On Transition End | R7: the write commits in the call; the end runs on the next clock step | Fail | Pass |
 | `manual-run-commit.test.ts`, failed commit (scene at the revision limit) | R7: the reply is `Revision limit reached`, the override is gone, and the graph has the runtime error | Fail | Pass |
 | `overrides.test.ts`, forced keys | `takeIdle` takes a forced key before 250 ms and never a busy key | New test | Pass |
@@ -82,6 +83,8 @@ The gate held, so the fix went ahead.
 | `blueprint-value-model.test.ts`, the comment of `runAndCommit` | Comment only: the run commits its write before the reply. |
 
 The continuous Blueprints contract R11 has the exception, and its safeguard names it. The `blueprint_run` tool text says which writes are in the reply revision. `docs/warudo-parity.md` does not change: BP-01 and BP-05 describe clock-step writes and transitions, which keep the 250 ms rule.
+
+Review fix (a write that changes nothing): the call records a key only when the override entry of that key changed (its value or follow-relative flag; not its write time, because a clock step and a manual write can have the same time). On e5198ed the key was recorded before the write, so a write of the value that a pending override of another run already held committed that override at once.
 
 A property that a manual run and an On Update graph both write commits at each manual run. This adds revisions; it does not make a wrong value.
 

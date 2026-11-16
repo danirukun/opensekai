@@ -13,6 +13,7 @@ import { createDebugLog } from './debug-log';
 import { composeBoneOffsets, EMPTY_BONE_OFFSETS, writeBoneOffset, type BoneOffsets } from './bone-offsets';
 import { advanceExpressions, composeExpressions, dropExpressionFades, EMPTY_EXPRESSIONS, expressionOwners, expressionView, reconcileExpressions, setExpression, type ExpressionStates } from './expressions';
 import { applyOverrides, dropOverrides, EMPTY_OVERRIDES, evaluatedEntity, takeIdle, type OverrideLayer } from './overrides';
+import type { PropertyKey } from '@opensekai/contracts';
 import { advanceTweens, dropGraphTweens, dropTweens, EMPTY_TWEENS, transitionStart, tweenOwners, tweening, writeOrbit, writeTransitioned, type PropertyLayers, type TransitionEnd, type TweenLayer } from './tweens';
 import { advanceBlendShapes, blendShapeOwners, composeBlendShapes, dropGraphBlendShapes, EMPTY_BLEND_SHAPES, setBlendShape, type BlendShapeStates } from './blend-shapes';
 import { vmcPosesFor, withSendersStopped } from './vmc-send';
@@ -53,6 +54,12 @@ export interface Session {
 }
 const failure = (code: ErrorCode, message: string, ids: Id[] = []): Reply<never> => ({ ok: false, error: { code, message, ids } });
 const writeKey = (entityId: Id, property: string) => `${entityId}\0${property}`;
+// The value of an override entry without its write time and graphs: a write of the value that the layer already holds
+// compares equal, also when another run wrote it at the same session time (Editor and MCP fixes R7).
+const entryValue = (layer: OverrideLayer, entityId: Id, property: PropertyKey) => {
+    const entry = layer.get(entityId)?.get(property);
+    return entry ? JSON.stringify([entry.value, entry.followRelative === true]) : null;
+};
 export function createSession(scene: SceneView, sessionId: Id, assets: readonly AssetRecord[] = []): Session {
     IdSchema.parse(sessionId);
     let persistent: SceneView = withSendersStopped(structuredClone(SceneViewSchema.parse(scene)));
@@ -153,13 +160,15 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             const keys: string[] = [];
             for (const effect of run.effects) {
                 if (!isOverrideEffect(effect) && !isOrbitEffect(effect)) continue;
-                if (effect.kind === 'orbitCamera') keys.push(writeKey(effect.cameraId, 'position'), writeKey(effect.cameraId, 'rotation'));
-                else keys.push(writeKey(effect.entityId, effect.kind === 'setProperty' ? effect.property : 'position'));
+                const touched: [Id, PropertyKey][] = effect.kind === 'orbitCamera' ? [[effect.cameraId, 'position'], [effect.cameraId, 'rotation']] : [[effect.entityId, effect.kind === 'setProperty' ? effect.property : 'position']];
+                const before = touched.map(([id, property]) => entryValue(nextLayers.overrides, id, property));
                 const nodeId = effect.kind === 'setProperty' || effect.kind === 'orbitCamera' ? effect.nodeId : undefined;
                 const end = nodeId !== undefined && logic !== null && wired.has(nodeId) ? { graphId: run.graphId, nodeId, logic } : undefined;
                 const written = isOrbitEffect(effect) ? writeOrbit(nextLayers, scene, effect, run.graphId, nowMs, startMs, end) : writeTransitioned(nextLayers, scene, effect, run.graphId, nowMs, startMs, end);
                 if (!written.ok) return written.error;
                 nextLayers = written.data;
+                // Only a write that changed an override entry is a write of the run (R7).
+                touched.forEach(([id, property], i) => { if (entryValue(nextLayers.overrides, id, property) !== before[i]) keys.push(writeKey(id, property)); });
             }
             // Expression effects apply only when the scene effects of the same run apply.
             let nextFaces = faces;

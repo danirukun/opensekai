@@ -110,6 +110,33 @@ it('makes no commit for a write of the current value (R7)', () => {
  expect(s.inspect().revision).toBe(0);
 });
 
+// The value 60 is already in a pending override of another run, so the manual write changes nothing and commits nothing.
+for (const seconds of [undefined, 1]) it(`does not commit a pending keystroke override when a manual write${seconds ? ' with a transition' : ''} sets the same value (R7)`, () => {
+ const key = { code: 'KeyK', control: true, alt: true, shift: false, meta: false };
+ const s = start([graphOf('k', node('key', 'event.keystroke', key), [setFov(60)]), graphOf('g', null, [setFov(60, seconds)])]);
+ s.advance(32, 32, { events: [{ kind: 'keystroke', accelerator: keystrokeAccelerator(key) }] });
+ s.advance(48);
+ expect(s.runBlueprint('g', 'go')).toEqual({ ok: true, data: { revision: 0 } });
+ s.advance(281);
+ expect(s.inspect().revision).toBe(0);
+ s.advance(282);
+ expect(s.inspect().revision).toBe(1);
+ expect(fovOf(s.inspect())).toBe(60);
+});
+
+it('does not commit the override of an ended transition when a manual write sets the same value (R7)', () => {
+ const s = start([graphOf('t', null, [setFov(60, 1)]), graphOf('g', null, [setFov(60)])]);
+ expect(s.runBlueprint('t', 'go')).toEqual({ ok: true, data: { revision: 0 } });
+ let ms = 32;
+ for (; fovOf(s.advance(ms).scene) !== 60; ms += 16) if (ms > 1300) throw new Error('the transition did not end');
+ expect(s.inspect().revision).toBe(0);
+ expect(s.runBlueprint('g', 'go')).toEqual({ ok: true, data: { revision: 0 } });
+ const ended = ms;
+ for (ms += 16; s.inspect().revision === 0 && ms <= ended + 400; ms += 16) s.advance(ms);
+ expect(s.inspect().revision).toBe(1);
+ expect(fovOf(s.inspect())).toBe(60);
+});
+
 it('runs a wired On Transition End of a manual write on the next clock step, not in the call (R7)', () => {
  const g = graphOf('g', null, [setFov(60), node('done', 'debug.log', { level: 'info' }, { message: 'end' })], [wire('a', 'go', 'flow', 'set', 'flow'), wire('b', 'set', 'transitionEnd', 'done', 'flow')]);
  const s = start([g]);
