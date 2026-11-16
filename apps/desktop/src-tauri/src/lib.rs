@@ -4,6 +4,7 @@ mod bootstrap;
 pub mod capture;
 pub mod evaluation;
 pub mod input;
+pub mod link;
 mod local_file;
 mod recent_shows;
 pub mod screenshots;
