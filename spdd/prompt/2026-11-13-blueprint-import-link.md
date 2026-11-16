@@ -12,7 +12,7 @@ R2. The host accepts one link form: `opensekai://blueprint/import?url=<value>`. 
 
 R3. When the OS gives a link to the running app, the host shows, unminimizes, and focuses the `main` window and emits `app-link` (no payload) to it. When the OS starts the app with a link, the host keeps the link until the window asks for it.
 
-R4. The host keeps at most one link (the inbox). States: `idle`, `pending`, `downloading`, `shown`. A new link replaces a pending link. In the `downloading` or `shown` state, the host drops a new link and shows no message. A webview reload (`bootstrap_session`) sets the inbox to `idle`. The host discards a download that ends after that reset.
+R4. The host keeps at most one link (the inbox). States: `idle`, `pending`, `downloading`, `shown`. A new link replaces a pending link. In the `downloading` or `shown` state, the host drops a new link and shows no message. A webview reload (`bootstrap_session`) sets a `downloading` or `shown` inbox to `idle` and keeps a `pending` link, so a link from a cold start, which arrives before the first `bootstrap_session`, is not lost. The host discards a download that ends after that reset.
 
 R5. Two commands for the `main` window only, with no arguments:
 - `take_blueprint_link`: in a state other than `pending` it returns `null`. A pending parse error returns that error (state `shown`). A pending link starts the download (state `downloading`). It then returns `{ text, host }` or the download error (state `shown`), or `null` when the window cancelled during the download (state `idle`).
@@ -25,7 +25,7 @@ R6. When the variable `OPENSEKAI_OPEN_LINK` is set at start, the host offers its
 
 R7. Only the Rust host downloads. Limits:
 - `GET` only, with `https_only`. Each redirect target must pass the URL rule of R2. A redirect to another scheme or to a refused address gives `Link address not allowed`. More than 3 redirects give `Too many redirects`.
-- Each address that DNS gives for a name must be public. The resolver removes unspecified, loopback, private, link-local, CGNAT (`100.64.0.0/10`), benchmark (`198.18.0.0/15`), reserved (`0.0.0.0/8`, `240.0.0.0/4`), broadcast, multicast, documentation, unique-local (`fc00::/7`), and site-local addresses. It also removes the IPv4-mapped (`::ffff:0:0/96`) and NAT64 (`64:ff9b::/96`) forms of a refused IPv4 address. When no address is left: `Link address not allowed`.
+- Each address that DNS gives for a name must be public. The resolver removes unspecified, loopback, private, link-local, CGNAT (`100.64.0.0/10`), benchmark (`198.18.0.0/15`), reserved (`0.0.0.0/8`, `240.0.0.0/4`), IETF protocol assignments (`192.0.0.0/24`), broadcast, multicast, documentation, unique-local (`fc00::/7`), and site-local addresses. It also removes the IPv4-compatible (`::/96`), IPv4-mapped (`::ffff:0:0/96`), NAT64 (`64:ff9b::/96`), NAT64 local-use (`64:ff9b:1::/48`), and 6to4 (`2002::/16`) forms of a refused IPv4 address. When no address is left: `Link address not allowed`.
 - No system proxy, no cookie store, no `Referer`. Headers: `User-Agent: OpenSekai/<app version>`, `Accept: application/json`.
 - Connect timeout 5 s and total timeout 10 s. A timeout gives `Download timed out`.
 - Only status 200 is accepted. Another status gives `Download failed (<status>)`. A DNS, connect, TLS, or read error gives `Download failed`.
@@ -42,15 +42,16 @@ R10. One pure function builds the dialog content from the reply. First, when the
 
 R11. The dialog uses the kit `Modal` with `closeOnBackdrop={false}`. States:
 - Loading, only when no reply has come after 300 ms: title `Import blueprint`, the kit `Spinner`, and `Cancel`.
+- Adding, after `Import` until the session answers: the Confirm content with `Cancel` and `Import` disabled. Escape does nothing.
 - Confirm: title `Import blueprint?`; the graph name; `<n> nodes · <host>` (`1 node` for one); `Missing: <names>`, only when references are missing (the same form as file import); `Cancel` then `Import`. Focus starts on `Cancel`.
 - Failed: title `Blueprint not imported`; one line with the reason; `Close`.
-The dialog has no other text. Escape does the same as `Cancel` or `Close`. Each close calls `finish_blueprint_link`.
+The dialog has no other text. Escape does the same as `Cancel` or `Close`, except while Adding. Each close calls `finish_blueprint_link`.
 
-R12. `Import` sends one `createGraph` op through `BlueprintSync.edit`, built from the current scene. On success, the dialog closes and the Blueprints tab shows. The new graph is selected and disabled. When references are missing, the panel status line shows `Missing: …`. No toast. The start screen ends, because the Blueprint revision changes (start screen R1). After Cancel or a failure it stays. On a synchronous failure or a server rejection, the dialog goes to the Failed state with that message.
+R12. `Import` sends one `createGraph` op as one batch through `BlueprintSync.commit`, built from the current scene. On success, the dialog closes and the Blueprints tab shows. The new graph is selected and disabled. When references are missing, the panel status line shows `Missing: …`. No toast. The start screen ends, because the Blueprint revision changes (start screen R1). After Cancel or a failure it stays. On a synchronous failure or a server rejection, the dialog goes to the Failed state with that message. When the session cannot be reached, the message is `Session unavailable`.
 
-R13. Each failure and each `Cancel` leaves the show unchanged: the Blueprint revision and the graph list are the same as before the link.
+R13. Each failure and each `Cancel` leaves the show unchanged: the Blueprint revision and the graph list are the same as before the link. The Import result comes from its own batch, not from the shared sync state: when the session confirms the batch with a revision, Import succeeds, also when the pull after it fails; when the batch was not confirmed, the Editor removes it from the sync before it shows Failed, so no later poll sends it. `Import` does nothing while the session is unavailable. A result that comes after the dialog closed or after a newer link opened changes nothing.
 
-R14. While the dialog is open, File › Open Show, a template, and a recent show do nothing. Save Show works. The session clock and the output do not stop.
+R14. While the dialog is open or the window waits for `take_blueprint_link`, File › Open Show, a template, and a recent show do nothing. Save Show works. The session clock and the output do not stop.
 
 R15. An imported graph registers no keystroke and no held key, and runs no node, until the user enables it.
 
@@ -75,13 +76,14 @@ R19. Documents: `ARCHITECTURE.md` (the Blueprint link path and its trust checks)
 - `LinkDownload { text, host }` (Rust, serde camelCase): the reply of `take_blueprint_link`. Errors use the existing `AppError` (`INVALID_INPUT` for link, address, size, and format errors; `UNAVAILABLE` for download and timeout errors).
 - `LinkImportState` (TypeScript): `idle | loading | confirm { text, host } | failed { message }`.
 - `linkSummary(text, host, scene, graphCount, newId)` (TypeScript, pure): `Reply<{ graph, name, host, nodeCount, missing }>`.
+- `BlueprintSync.commit(ops)` (TypeScript): applies the ops as one batch at once, sends it, and resolves with the result of that batch: `{ revision }` when the session confirmed it; the rejection; or `UNAVAILABLE` after it removed the unconfirmed batch and rebuilt the view.
 - No change to a schema in `packages/contracts` or `crates/contracts`, to the session, to the show file, or to MCP.
 
 ## A — Approach
 
 - Tests first in each task. Host first (parser, download, inbox), then the platform adapter, then the Editor.
 - The download follows the YouTube client: a redirect policy, a streamed byte limit, and a config that a test can change.
-- Reuse `is_web_screen_url` for each URL. Reuse `importBlueprint` and `BlueprintSync.edit` for validation and the add. Force `enabled: false` after `importBlueprint`.
+- Reuse `is_web_screen_url` for each URL. Reuse `importBlueprint` for validation and the Blueprint sync for the add (`BlueprintSync.commit`, so the add has its own result). Force `enabled: false` after `importBlueprint`.
 - Delivery: one adapter file (`link/source.rs`) connects the OS to the inbox. It uses the deep-link plugin Rust API on macOS. Other targets get a stub. The event `app-link` only wakes the window; the window pulls the link with a command, so a link that arrives before the webview listens is not lost.
 - The Editor flow lives in `EditorApp.svelte`, because a link can arrive on any tab. The dialog is one new component.
 
@@ -90,7 +92,7 @@ R19. Documents: `ARCHITECTURE.md` (the Blueprint link path and its trust checks)
 - New: `apps/desktop/src-tauri/src/link/{mod.rs,parse.rs,fetch.rs,inbox.rs,source.rs}`; `apps/desktop/src-tauri/tests/link_import_integration.rs`.
 - Changed host files: `apps/desktop/src-tauri/Cargo.toml` and `Cargo.lock` (plugin; dev-dependencies `rcgen` and a rustls server crate already in the lock), `build.rs`, `capabilities/main.json`, `src/lib.rs` (module, plugin, managed inbox, two commands, handler list, pinned list test, reset in `bootstrap_session`), `tauri.conf.json` (`plugins.deep-link`). `Info.plist` changes only in the fallback.
 - New Editor files: `apps/desktop/src/blueprints/link-import.ts`, `apps/desktop/src/components/BlueprintLinkDialog.svelte`, `apps/desktop/test/link-import.test.ts`, `apps/desktop/test/link-import.integration.test.ts`.
-- Changed Editor files: `apps/desktop/src/EditorApp.svelte`, `apps/desktop/src/components/BlueprintPanel.svelte` (optional `arrival` prop). `apps/desktop/src/app.css` only if the kit classes are not enough.
+- Changed Editor files: `apps/desktop/src/EditorApp.svelte`, `apps/desktop/src/components/BlueprintPanel.svelte` (optional `arrival` prop), `apps/desktop/src/blueprints/blueprint-sync.ts` (`commit`: one batch with its own result). `apps/desktop/src/app.css` only if the kit classes are not enough.
 - Documents: `ARCHITECTURE.md`, `docs/warudo-parity.md` (BP-19), `docs/mcp-client-setup.md`, `docs/evaluation/blueprint-import-link.md`, `docs/evaluation/blueprint-import-link/` (check script, output, screenshots, `link.html`).
 
 ## O — Operations
