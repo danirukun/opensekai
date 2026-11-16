@@ -14,6 +14,7 @@ import { createLoadJobs, type AssetLoadStatus, type LoadReport, type LoadRequest
 import { createEnvironmentLight, roomEnvironmentMap, type InstanceMaterials } from "./environment-light";
 import { createSceneLights, groupOf, roomLight, withDrafts, type LightGroup } from "./scene-lights";
 import { logPipelineFailure, watchPipelineErrors, type PipelineDevice } from "./pipeline-diagnostics";
+import { afterRebuild, blameFrame, initialBlame } from "./pipeline-blame";
 import { freshModulePerPipeline, isWebKit } from "./webkit-shader-modules";
 import { createDiagnosticMarker } from "./diagnostic-marker";
 import { createPostChain } from "./post-chain";
@@ -79,15 +80,17 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     const sceneLights = createSceneLights(scene, renderer);
     // A failed pipeline compile is logged with its WGSL and named in frame warnings until the next light-set rebuild.
     let pipelineFailed = false;
+    // The labels of the failure reports since the last drawn frame, and the state that gives each one to a pass (R15a).
+    let failureReports: (string | null)[] = [], blame = initialBlame();
     const device = backend === "webgpu" ? (renderer.backend as unknown as { device?: PipelineDevice }).device : undefined;
-    const unwatchPipelines = device ? watchPipelineErrors(device, (failure, first) => { pipelineFailed = true; if (first) logPipelineFailure(failure); }) : null;
+    const unwatchPipelines = device ? watchPipelineErrors(device, (failure, first) => { pipelineFailed = true; failureReports.push(failure.label ?? null); if (first) logPipelineFailure(failure); }) : null;
     // After the watch, so that each new module still has its WGSL for the failure log (R9b).
     const restoreModules = device && isWebKit(navigator.userAgent) ? freshModulePerPipeline(device) : null;
     const loadAsset = createAssetLoader(options.resources, {maxTextureSize: quality.maxTextureSize});
     const postChain = createPostChain(renderer);
     // The haze volume (B13 R7). A pipeline failure while it draws stops it until the next node-set rebuild (R9).
     let haze: Haze | null = null, hazeFailed = false;
-    // The cone beams of spot lights (stage beams R10), with the same failure rule as the haze (R15).
+    // The cone beams of spot lights (stage beams R10). A new failure that `pipeline-blame.ts` gives to the beams stops them (R15, R15a).
     // The cone root is in the scene only while a beam draws, so a scene without a beam keeps its objects.
     const beams = createBeams();
     let beamsFailed = false;
@@ -236,7 +239,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         // A dragged light or haze follows the gizmo on each frame, between the throttled commits (B12 R7).
         const drawn = editor ? withDrafts(frame.scene.entities, id => editor.draftTransform(id)) : frame.scene.entities;
         const lightsRebuilt = sceneLights.apply(drawn);
-        if (lightsRebuilt) { pipelineFailed = false; hazeFailed = false; beamsFailed = false; }
+        if (lightsRebuilt) { pipelineFailed = false; hazeFailed = false; beamsFailed = false; blame = afterRebuild(blame); }
         environmentLight.room(roomLight(drawn));
         // Cameras, lights, and the haze have a scene object only in the editor viewport, as a pick target and helper (R14, B13 R13).
         // An FPS counter is a DOM overlay and a VMC sender sends UDP; neither has a scene object (B19 R7, B21).
@@ -436,8 +439,11 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             // three.js 0.180: on WebGPU a shadow first set up during a draw stays empty, so compile first; on WebGL 2 this compile leaves the shadow empty.
             if (lightsRebuilt && sceneLights.shadows() && backend === "webgpu") await renderer.compileAsync(scene, camera);
             await postChain.render(scene, camera, cameraEntity.antiAliasing, hazeDrawn, cameraEntity.grading ?? null, beamsDrawn);
-            if (hazeDrawn && pipelineFailed) hazeFailed = true;
-            if (beamsDrawn && pipelineFailed) beamsFailed = true;
+            const blamed = blameFrame(blame, { haze: hazeDrawn !== null, beams: beamsDrawn !== null }, failureReports);
+            blame = blamed.state;
+            failureReports = [];
+            if (blamed.stop.includes("haze")) hazeFailed = true;
+            if (blamed.stop.includes("beams")) beamsFailed = true;
             if (marker) {
                 marker.update(frame, cameraEntity.id, width, height);
                 renderer.autoClear = false;

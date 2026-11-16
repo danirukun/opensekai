@@ -139,4 +139,26 @@ describe('beams in the renderer (stage beams R12, R15)', () => {
         expect(drawnBeams()).not.toBeNull();
         renderer.dispose();
     });
+    it('keeps the haze when a beam that starts later fails (R15a)', async () => {
+        const renderer = await make();
+        await renderer.applyFrame(frame([spot('a', { beam: undefined }), haze]));
+        await renderer.applyFrame(frame([spot('a'), haze]));
+        ports.failure!({ message: 'compile failed', label: 'renderPipeline_NodeMaterial_9' }, true);
+        await renderer.applyFrame(frame([spot('a'), haze]));
+        await renderer.applyFrame(frame([spot('a'), haze]));
+        expect(drawnBeams()).toBeNull();
+        expect(ports.aa.render.mock.lastCall![3]).not.toBeNull();
+        renderer.dispose();
+    });
+    it('does not stop a beam for a failure that came before the beam was switched on (R15a)', async () => {
+        const renderer = await make();
+        await renderer.applyFrame(frame([spot('a', { beam: undefined })]));
+        ports.failure!({ message: 'compile failed', label: 'renderPipeline_MToonNodeMaterial_4' }, true);
+        await renderer.applyFrame(frame([spot('a', { beam: undefined })]));
+        await renderer.applyFrame(frame([spot('a')]));
+        await renderer.applyFrame(frame([spot('a')]));
+        await renderer.applyFrame(frame([spot('a')]));
+        expect(drawnBeams()).not.toBeNull();
+        renderer.dispose();
+    });
 });

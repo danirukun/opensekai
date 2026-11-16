@@ -19,6 +19,17 @@ These commands ran on macOS (Darwin 27.2.0, Apple silicon) in the B34 worktree, 
 
 The unit tests cannot show that the beam material compiles on a GPU or how the beam looks. A Node `WGSLNodeBuilder` run built the WGSL of the beam material. That run is not a GPU compile.
 
+## Pipeline failure rule
+
+Review of PR #303 found that one sticky failure flag stopped the haze and the beams together. It also stopped a beam that was switched on after an unrelated failure. Contract R15a replaces the flag with `pipeline-blame.ts`. Each failure report counts one time, in the first drawn frame after it arrives. A label that starts with `renderPipeline_beam_` stops the beams only. Any other new report goes to the pass (haze or beams) that started to draw later, or to both if they started in the same frame. The report cannot always name the pass, because the chain composite is one pipeline for both, so this rule is a choice. `pipeline-blame.test.ts` (8 tests) and two renderer tests in `beam.test.ts` cover it. The two renderer tests fail with the old flag.
+
+After the fix: `pnpm check` exit 0 (svelte-check 0 errors, 0 warnings); `pnpm vitest run --project unit packages/renderer` 40 files, 333 tests passed (this includes `haze.test.ts` and `beam.test.ts`). Cargo did not run again, because no Rust file changed.
+
+## Limits
+
+- A change of the beam count between 0 and 1 or more rebuilds the post chain (`post-chain.ts`, chain key). A Blueprint that strobes the only beam rebuilds the chain at each toggle. R13 permits this.
+- The failure rule cannot tell an avatar or prop pipeline that fails for the first time while a beam starts from a beam failure. It gives that failure to the beams.
+
 ## Local checks
 
 The orchestrator runs these checks on macOS with MCP and OBS, at `production_v1` and 1920 × 1080 at 60 FPS.
