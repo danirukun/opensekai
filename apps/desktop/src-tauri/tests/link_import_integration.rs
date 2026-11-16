@@ -4,7 +4,7 @@
 // small HTTP/1.1 responder over rustls on 127.0.0.1. The client trusts only that CA and sends
 // `blueprints.test` to the local address. The pure rules (link parser, address filter, messages)
 // have unit tests in `src/link/`.
-use opensekai_desktop_lib::link::fetch::{fetch_blueprint, LinkFetchConfig};
+use opensekai_desktop_lib::link::fetch::{fetch_blueprint, LinkFetchConfig, Lookup};
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -304,4 +304,29 @@ async fn refuses_a_server_without_tls() {
     };
     let url = Url::parse(&format!("https://{HOST}:{}/counter.json", addr.port())).unwrap();
     assert_eq!(message(&config, &url).await, "Download failed");
+}
+
+#[tokio::test]
+async fn the_client_resolves_names_through_the_public_address_filter() {
+    // No `resolve` override: the name goes through the resolver of the real client. The lookup
+    // gives the loopback address of a working test server, and the filter must refuse it.
+    let server = start().await;
+    let calls = Arc::new(Mutex::new(Vec::<String>::new()));
+    let seen = calls.clone();
+    let addr = server.addr;
+    let lookup: Lookup = Arc::new(move |name| {
+        seen.lock().unwrap().push(name);
+        Box::pin(async move { Ok(vec![addr]) })
+    });
+    let config = LinkFetchConfig {
+        resolve: vec![],
+        lookup: Some(lookup),
+        ..server.config()
+    };
+    assert_eq!(
+        message(&config, &server.url("/counter.json")).await,
+        "Link address not allowed"
+    );
+    assert_eq!(*calls.lock().unwrap(), vec![HOST.to_string()]);
+    assert!(server.heads.lock().unwrap().is_empty());
 }

@@ -13,7 +13,7 @@ use std::{
 use url::Url;
 
 /// The limits of R7. The app uses the defaults; the integration test changes the hidden fields.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct LinkFetchConfig {
     pub connect_timeout: Duration,
     pub total_timeout: Duration,
@@ -25,6 +25,9 @@ pub struct LinkFetchConfig {
     /// Tests send these names to a local address. The app has none.
     #[doc(hidden)]
     pub resolve: Vec<(String, SocketAddr)>,
+    /// Tests give the name lookup behind the public-address filter. The app uses the system lookup.
+    #[doc(hidden)]
+    pub lookup: Option<Lookup>,
 }
 impl Default for LinkFetchConfig {
     fn default() -> Self {
@@ -35,6 +38,7 @@ impl Default for LinkFetchConfig {
             max_redirects: 3,
             extra_roots: vec![],
             resolve: vec![],
+            lookup: None,
         }
     }
 }
@@ -88,7 +92,7 @@ impl From<FetchError> for AppError {
 }
 
 /// True for an address that the download can connect to. It refuses each range of R7, and the
-/// IPv4-mapped, IPv4-compatible, and NAT64 forms of a refused IPv4 address.
+/// IPv4-mapped, IPv4-compatible, NAT64 (also local-use), and 6to4 forms of a refused IPv4 address.
 pub fn is_public_ip(ip: IpAddr) -> bool {
     match ip {
         IpAddr::V4(ip) => public_ipv4(ip),
@@ -105,6 +109,7 @@ fn public_ipv4(ip: Ipv4Addr) -> bool {
         || (a == 172 && (16..32).contains(&b))
         || (a == 192 && b == 168)
         || (a == 198 && (18..20).contains(&b))
+        || (a, b, c) == (192, 0, 0)
         || (a, b, c) == (192, 0, 2)
         || (a, b, c) == (198, 51, 100)
         || (a, b, c) == (203, 0, 113)
@@ -116,8 +121,14 @@ fn public_ipv6(ip: Ipv6Addr) -> bool {
     let mapped = s[..6] == [0, 0, 0, 0, 0, 0xffff];
     let nat64 = s[..6] == [0x64, 0xff9b, 0, 0, 0, 0];
     let compatible = s[..6] == [0; 6];
-    if mapped || nat64 || compatible {
+    // NAT64 local-use 64:ff9b:1::/48, read as its /96 form.
+    let local_nat64 = s[..3] == [0x64, 0xff9b, 1];
+    if mapped || nat64 || compatible || local_nat64 {
         return public_ipv4(embedded);
+    }
+    // 6to4 2002::/16 carries the IPv4 address in bits 16 to 47.
+    if s[0] == 0x2002 {
+        return public_ipv4(Ipv4Addr::from((u32::from(s[1]) << 16) | u32::from(s[2])));
     }
     !((s[0] & 0xfe00) == 0xfc00 // unique-local fc00::/7
         || (s[0] & 0xffc0) == 0xfe80 // link-local fe80::/10
@@ -200,7 +211,12 @@ fn client(config: &LinkFetchConfig) -> Result<reqwest::Client, FetchError> {
         .user_agent(concat!("OpenSekai/", env!("CARGO_PKG_VERSION")))
         .connect_timeout(config.connect_timeout)
         .timeout(config.total_timeout)
-        .dns_resolver(PublicResolver::system())
+        .dns_resolver(
+            config
+                .lookup
+                .clone()
+                .map_or_else(PublicResolver::system, PublicResolver::new),
+        )
         .redirect(policy);
     if !config.extra_roots.is_empty() {
         let roots = config
@@ -325,6 +341,14 @@ mod tests {
             "64:ff9b::7f00:1",
             "64:ff9b::a00:1",
             "::127.0.0.1",
+            "192.0.0.1",
+            "192.0.0.170",
+            "64:ff9b:1::7f00:1",
+            "64:ff9b:1::a00:1",
+            "64:ff9b:1:ffff::c0a8:101",
+            "2002:7f00:1::",
+            "2002:a00:1:1::1",
+            "2002:c0a8:101::1",
         ] {
             assert!(!is_public_ip(ip(text)), "{text}");
         }
@@ -342,6 +366,9 @@ mod tests {
             "3fff:1000::1",
             "::ffff:1.1.1.1",
             "64:ff9b::101:101",
+            "64:ff9b:1::101:101",
+            "2002:101:101::1",
+            "192.0.1.1",
         ] {
             assert!(is_public_ip(ip(text)), "{text}");
         }
