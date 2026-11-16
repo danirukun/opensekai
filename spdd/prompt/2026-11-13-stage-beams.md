@@ -103,7 +103,7 @@ R28. `packages/assist` does not change.
 
 R29. `fixtures/shows/stage-beams.osekai` is a valid show on both sides (the TypeScript `ShowDocumentSchema` and the Rust show-open path). It has:
 - the environment `stage` with the test stage library ID (`scene_6eb170021aa3c791a7f1665b25076754f9d2c2262568f9fdd720b6c4f381d1ee`);
-- a directional light at 0.2 and an ambient light `#8090ff` at 0.15;
+- no directional light and no ambient light, because the 8 spot lights use all of the light limit (`LIMITS.lights` is 8), and a show with 10 lights is not valid;
 - 8 spot lights, each with `beam: { enabled: true, intensity: 1, softness: 0.5 }`, no `volumetric` field, Range 12, Angle 14°, Penumbra 0.4; 2 of them have a shadow;
 - the cameras Wide (output), Stage, and Close;
 - no character, no haze, and no Blueprint.
