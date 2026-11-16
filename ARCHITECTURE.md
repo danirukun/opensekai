@@ -91,7 +91,7 @@ The session reports the device kinds that the listened graphs use (`devices`) in
 
 ## Blueprint link path
 
-The OS gives an `opensekai://blueprint/import?url=…` link to `link/source.rs` (macOS only: the deep-link plugin Rust API; other targets have a stub). The host parses the link (`link/parse.rs`), keeps one link (`link/inbox.rs`), and downloads the file itself (`link/fetch.rs`): the web screen URL rule for each URL and redirect, a public-address filter on each resolved address, no proxy, at most 3 redirects, 1 MiB, and a 10 s limit. The event `app-link` only wakes the Editor window. The window pulls the link with `take_blueprint_link` and ends it with `finish_blueprint_link` (no arguments), shows a confirmation, and adds the graph disabled with one `createGraph` through the Blueprint edit call.
+The OS gives an `opensekai://blueprint/import?url=…` link to `link/source.rs` (macOS only: the deep-link plugin Rust API; other targets have a stub). The host parses the link (`link/parse.rs`), keeps one link (`link/inbox.rs`), and downloads the file itself (`link/fetch.rs`): the web screen URL rule for each URL and redirect, a public-address filter on each resolved address, no proxy, at most 3 redirects, 1 MiB, and a 10 s limit. The event `app-link` only wakes the Editor window. The window pulls the link with `take_blueprint_link` and ends it with `finish_blueprint_link` (no arguments), shows a confirmation, and adds the graph disabled with one `createGraph` batch (`BlueprintSync.commit`). The dialog shows the result of that batch only.
 
 ## Capture path
 
