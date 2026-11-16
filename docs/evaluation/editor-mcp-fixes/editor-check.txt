@@ -1,0 +1,53 @@
+chromium 158.0.8127.18
+console THREE.WebGPURenderer: Uncaptured WebGPU GPUValidationError: [Invalid Texture] is invalid due to a previous error.
+ - While calling [Invalid Texture].CreateView([TextureViewDescriptor]).
+
+console THREE.WebGPURenderer: Uncaptured WebGPU GPUValidationError: [Invalid TextureView] is invalid due to a previous error.
+ - While validating colorAttachments[0].
+ - While encoding [CommandEncoder "renderContext_1"].BeginRenderPass([RenderPassDescriptor]).
+ - While finishing [CommandEncoder "renderContext_1"].
+
+console THREE.WebGPURenderer: Uncaptured WebGPU GPUValidationError: [Invalid CommandBuffer from CommandEncoder "renderContext_1"] is invalid due to a previous error.
+ - While calling [Queue].Submit([[Invalid CommandBuffer from CommandEncoder "renderContext_1"]])
+
+console THREE.THREE.WebGPURenderer: WebGPU Device Lost:
+
+Message: A valid external Instance reference no longer exists.
+Reason: unknown
+scene scene_smoke camera camera_main visible target light_main
+PASS the graph loads 
+PASS the run gives the Debug Value watch {"ok":true,"data":{"revision":0}}
+PASS the Debug Value node shows its strip 
+open view k 0.677
+PASS R8 (open fit, k=0.677): no two controls of a node intersect []
+PASS R8 (open fit): each control is inside its node (a socket up to 9 px outside) []
+PASS R9 (open fit): the button is 4 px or more below the last port row []
+PASS zoom-50: k is within 2% of 0.5 {"k":0.5}
+PASS R8 (zoom-50, k=0.500): no two controls of a node intersect []
+PASS R8 (zoom-50): each control is inside its node (a socket up to 9 px outside) []
+PASS R9 (zoom-50): the button is 4 px or more below the last port row []
+PASS zoom-100: k is within 2% of 1 {"k":1}
+PASS R8 (zoom-100, k=1.000): no two controls of a node intersect []
+PASS R8 (zoom-100): each control is inside its node (a socket up to 9 px outside) []
+PASS R9 (zoom-100): the button is 4 px or more below the last port row []
+PASS zoom-200: k is within 2% of 2 {"k":2}
+PASS R8 (zoom-200, k=2.000): no two controls of a node intersect []
+PASS R8 (zoom-200): each control is inside its node (a socket up to 9 px outside) []
+PASS R9 (zoom-200): the button is 4 px or more below the last port row []
+WIDTH 156.0 Manual Trigger [] inline=0
+WIDTH 282.0 Set Asset Property [value,On Transition End] inline=3
+WIDTH 176.9 Log [message] inline=1
+WIDTH 156.0 Make Vector3 [x,y,z,value] inline=3
+WIDTH 158.0 Set Asset Property [value,On Transition End] inline=0
+WIDTH 210.0 Set Asset Property [value,On Transition End] inline=1
+WIDTH 177.0 Set Asset Property [value,On Transition End] inline=1
+WIDTH 245.8 Camera Orbit Character [Yaw (°),Pitch (°),Distance (m),On Transition End] inline=3
+WIDTH 200.6 Lerp Vector3 [a,b,t,result] inline=7
+WIDTH 229.4 Move Towards Vector3 [current,target,maxDistance,result] inline=7
+WIDTH 223.0 Replace String [text,search,replacement,result] inline=3
+WIDTH 260.0 Debug Value [value,value] inline=1
+PASS R2: sceneReplace with scene_b33 succeeds 
+PASS R2: the footer shows Session connected after the replace and does not settle on NOT_FOUND {"seen":["Session connected"],"last":"Session connected"}
+PASS R2: the session holds scene_b33 {"sceneId":"scene_b33"}
+PASS no page error []
+22/22 passed

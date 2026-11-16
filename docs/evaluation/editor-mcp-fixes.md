@@ -84,3 +84,43 @@ The gate held, so the fix went ahead.
 The continuous Blueprints contract R11 has the exception, and its safeguard names it. The `blueprint_run` tool text says which writes are in the reply revision. `docs/warudo-parity.md` does not change: BP-01 and BP-05 describe clock-step writes and transitions, which keep the 250 ms rule.
 
 A property that a manual run and an On Update graph both write commits at each manual run. This adds revisions; it does not make a wrong value.
+
+## #261: a Blueprint node grows to fit its rows (R8 to R11)
+
+Check: [`editor-mcp-fixes/editor-check.mjs`](editor-mcp-fixes/editor-check.mjs). It runs the built Editor window in headless Chromium 158.0.8127.18 (Playwright `chromium-headless-shell` v1254) with a stand-in host on port 4183. The viewport is 1440 x 900 at device scale 1. Command, from the repository root after `pnpm build`: `pnpm exec tsx docs/evaluation/editor-mcp-fixes/editor-check.mjs docs/evaluation/editor-mcp-fixes [before]`.
+
+The script loads one graph with twelve nodes, 340 px apart: Manual Trigger, Log, Make Vector3, Set Asset Property (Position with an inline vector and a wired On Transition End; Field of View; Visible; Position wired from Make Vector3), Camera Orbit Character, Lerp Vector3, Move Towards Vector3, Replace String (three text inputs), and Debug Value with a long text. A run of the graph gives the Debug Value node its strip, so R10 for Debug Value is checked. For each node the script reads the rectangles of the port labels, the inline inputs, the sockets, the button, and the Debug Value strip, and divides each length by the zoom `k` of the Rete area. The tolerance is 0.5 px.
+
+| View | Real `k` | Old CSS | New CSS |
+| --- | --- | --- | --- |
+| Open (fit to the graph) | 0.677 | R8 fail, R9 fail | Pass |
+| 50% | 0.500 | R8 fail, R9 fail | Pass |
+| 100% | 1.000 | R8 fail, R9 fail | Pass |
+| 200% | 2.000 | R8 fail, R9 fail | Pass |
+
+Old CSS, R8 in each view: `Set Asset Property [value,On Transition End] inline=3: label On Transition End x input #2` (the third vector input covers the output label). Old CSS, R9 in each view: the button is 0 px below the last port row on the vector, Field of View, and Visible Set Asset Property nodes and on Camera Orbit Character. The R8 rule "each control is inside its node" passes on the old CSS too. Full outputs: [`editor-check-before.txt`](editor-mcp-fixes/editor-check-before.txt) (14/22 passed) and [`editor-check.txt`](editor-mcp-fixes/editor-check.txt) (22/22 passed).
+
+Node widths at 100% (R10), in CSS pixels:
+
+| Node | Old CSS | New CSS |
+| --- | --- | --- |
+| Manual Trigger | 156.0 | 156.0 |
+| Set Asset Property, Position, inline vector | 260.0 | 282.0 |
+| Log | 176.9 | 176.9 |
+| Make Vector3 | 156.0 | 156.0 |
+| Set Asset Property, Position, wired | 158.0 | 158.0 |
+| Set Asset Property, Field of View | 210.0 | 210.0 |
+| Set Asset Property, Visible | 177.0 | 177.0 |
+| Camera Orbit Character | 245.8 | 245.8 |
+| Lerp Vector3 | 200.6 | 200.6 |
+| Move Towards Vector3 | 229.4 | 229.4 |
+| Replace String | 223.0 | 223.0 |
+| Debug Value, long text | 260.0 | 260.0 |
+
+Only the vector Set Asset Property node changes. The Debug Value node stays at 260 px: the strip is 242 px at most, plus its 16 px margin and the 2 px node border.
+
+Images (clipped to the canvas; the 50%, 100%, and 200% views are centred on the vector node): [`before-100.png`](editor-mcp-fixes/before-100.png) (old CSS), [`open-fit.png`](editor-mcp-fixes/open-fit.png), [`zoom-50.png`](editor-mcp-fixes/zoom-50.png), [`zoom-100.png`](editor-mcp-fixes/zoom-100.png), [`zoom-200.png`](editor-mcp-fixes/zoom-200.png). A visual inspection of each image found no clipped label, and each wire starts at its socket.
+
+The same script also does the #244 check in the Editor window (R2): `sceneReplace` with the inspected scene and `sceneId: 'scene_b33'`. The footer status stays `Session connected` for 3 s of samples (six polls), and the session holds `scene_b33`. This run is on the #244 code only, so it has no old-code result; the old-code result of R2 is in the #244 section.
+
+Not checked: WKWebView (the macOS app) has other font widths. The owner judges the look in the app.
