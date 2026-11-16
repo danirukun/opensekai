@@ -79,6 +79,13 @@ The order of the full chain is: scene pass, haze, beams, bloom, grade, output tr
 R13. `needsChain` and `chainKey` take a beam flag as their last parameter, with the default `false`. With the flag `false` each result equals the result before this change. The chain is built again when the flag changes, and not when a beam value changes.
 R14. The beam material reads the scene pass depth (R9 `depth`). An object in front of a beam hides it, and a beam has no hard line where it meets a surface.
 R15. If a render pipeline fails to compile on WebGPU while a beam draws, the renderer stops the beams until the next light node-set rebuild. The frame acknowledgment carries the existing `UNSUPPORTED Pipeline compile failed` warning. The scene, the lights, the shadows, and the haze still draw.
+R15a. The renderer finds the pass that failed from each failure report one time only, in the first frame after the report arrives (`pipeline-blame.ts`). The `Pipeline compile failed` warning stays until the rebuild, as before. The rules:
+- A report that arrived before the frame does not stop a pass. An earlier failure (for example, an avatar material on WebKit) therefore does not stop a beam that the user switches on later.
+- A report with a pipeline label that failed before does not stop a pass.
+- A report whose pipeline label names the beam material (`renderPipeline_beam_`) stops the beams only.
+- Each other new report goes to the passes (haze, beams) that drew in that frame or in the frame before. If both drew, it goes to the pass that started to draw later. If both started in the same frame, it goes to both.
+
+Reason: the report does not always tell which pass failed. The chain composite is one pipeline for the haze and the beams, and its label names neither. The pass that started later made the new pipelines. A beam that fails while a haze draws without failure stops only the beams. This rule also applies to the haze of B13. A haze stops only for a new failure.
 R16. The screenshot path draws the same beam pass at `BEAM_RESOLUTION` of 1920 × 1080, in the same order, so a camera screenshot shows the beam.
 R17. The editor viewport helpers do not change. No helper and no beam draws that the output does not draw.
 R18. The beam stays on the GPU. No image readback, no JPEG or PNG encode, and no image through Tauri IPC is added to the output path.
