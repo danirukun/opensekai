@@ -19,8 +19,8 @@ export function createEditorModel(api: AppApi) {
   view = { ...view, ...next };
   for (const listener of listeners) listener(read());
  }
- async function inspect(allowRevisionReset=false,epoch=inspectionEpoch): Promise<void> {
-  const reply = await api.sceneInspect({ sceneId: view.scene?.sceneId ?? 'scene_smoke' });
+ async function inspect(allowRevisionReset=false,epoch=inspectionEpoch,sceneId?:Id): Promise<void> {
+  const reply = await api.sceneInspect({ sceneId: sceneId ?? view.scene?.sceneId ?? 'scene_smoke' });
   if (epoch !== inspectionEpoch) return;
   if (!reply.ok) { publish({ error: reply.error.code }); return; }
   if (!allowRevisionReset && view.scene && reply.data.revision < view.scene.revision) return;
@@ -227,14 +227,14 @@ export function createEditorModel(api: AppApi) {
    return patch({kind:'setTrackingConfig',entityId,config:parsed.data},expectedRevision);
   },
   subscribe(listener: (view: EditorView) => void) { listeners.add(listener); listener(read()); return () => { listeners.delete(listener); }; },
-  async load(allowRevisionReset=false): Promise<void> {
+  async load(allowRevisionReset=false,sceneId?:Id): Promise<void> {
    if (view.pending || inspecting&&!allowRevisionReset) return;
    if(allowRevisionReset)inspectionEpoch+=1;
    const epoch=inspectionEpoch;
    inspecting = true;
    const initial = view.scene === null;
    if (initial) publish({ pending: true });
-   try { await inspect(allowRevisionReset,epoch); } catch { if(epoch===inspectionEpoch)publish({ error: 'UNAVAILABLE' }); }
+   try { await inspect(allowRevisionReset,epoch,sceneId); } catch { if(epoch===inspectionEpoch)publish({ error: 'UNAVAILABLE' }); }
    finally { if(epoch===inspectionEpoch){inspecting = false; if (initial) publish({ pending: false });} }
   },
   select(entityId: Id): void {

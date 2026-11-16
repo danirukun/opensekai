@@ -91,6 +91,11 @@ async fn service_real_loopback_relays_inspection_and_recovers_latest_frame() {
     let mut publisher = auth(&publisher_descriptor).await;
     let mut renderer = auth(&renderer_descriptor).await;
     let mut operator = auth(&service.operator_descriptor()).await;
+    // Before the first frame the status has no scene ID.
+    send(&mut operator, call("early", "appStatus", json!({}))).await;
+    let early = recv(&mut operator).await;
+    assert_eq!(early["result"]["ok"], true);
+    assert!(early["result"]["data"].get("sceneId").is_none());
     send(&mut publisher, frame(&publisher_descriptor.session_id, 1)).await;
     let delivered = recv(&mut renderer).await;
     assert_eq!(delivered["frame"]["sequence"], 1);
@@ -105,7 +110,10 @@ async fn service_real_loopback_relays_inspection_and_recovers_latest_frame() {
     send(&mut publisher,json!({"kind":"reply","requestId":relayed["requestId"],"result":{"ok":true,"data":delivered["frame"]["scene"]}})).await;
     assert_eq!(recv(&mut operator).await["requestId"], "inspect");
     send(&mut operator, call("status", "appStatus", json!({}))).await;
-    assert_eq!(recv(&mut operator).await["result"]["data"]["ready"], true);
+    let status = recv(&mut operator).await;
+    assert_eq!(status["result"]["data"]["ready"], true);
+    // The scene ID comes from the same frame as the revision (#244).
+    assert_eq!(status["result"]["data"]["sceneId"], "scene_main");
     assert!(service.last_applied("output_main").is_some());
     assert!(service.now_ms() >= service.last_applied("output_main").unwrap().1);
     renderer.close(None).await.unwrap();

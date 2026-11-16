@@ -236,6 +236,7 @@ export interface AppStatus {
     sessionId: Id;
     ready: boolean;
     revision: number | null;
+    sceneId?: Id;
     capabilities: Capability[];
     warnings: AppError[];
     outputs: {

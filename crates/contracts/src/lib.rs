@@ -1226,6 +1226,8 @@ pub struct AppStatus {
     pub warnings: Vec<AppError>,
     pub outputs: Vec<OutputStatus>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scene_id: Option<Id>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tracking_status: Option<Vec<TrackingStatus>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub blueprint_revision: Option<u64>,

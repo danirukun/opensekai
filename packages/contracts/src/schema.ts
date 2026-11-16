@@ -505,6 +505,7 @@ export const AppStatusSchema = z.strictObject({
     sessionId: IdSchema,
     ready: z.boolean(),
     revision: u.nullable(),
+    sceneId: IdSchema.optional(),
     capabilities: CapabilitiesSchema,
     warnings: z.array(AppErrorSchema),
     outputs: z.array(z.strictObject({
