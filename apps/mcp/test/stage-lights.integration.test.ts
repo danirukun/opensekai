@@ -27,3 +27,26 @@ it('creates a spot light and a haze, changes the haze, and limits it to one thro
   expect((await client.callTool({ name: 'scene_patch', arguments: { sceneId: 'scene_smoke', expectedRevision: 2, operations: [{ kind: 'setLight', entityId: 'spot', light: coneless }] } })).isError).toBe(true);
  } finally { await client.close(); }
 }, 15000);
+// Real MCP stdio process and real session: a spot light beam goes through setLight, and a point light beam is rejected (stage beams R4, R27).
+it('sets a spot light beam through scene_patch and rejects a point light beam', async () => {
+ const transport = new StdioClientTransport({ command: process.execPath, args: ['--import', 'tsx', 'apps/mcp/test/session-fixture.ts'], stderr: 'pipe' });
+ const client = new Client({ name: 'opensekai-test', version: '0.1.0' });
+ await client.connect(transport);
+ const call = async (name: string, args: Record<string, unknown>) => (await client.callTool({ name, arguments: args })).structuredContent as { ok: boolean; data?: any; error?: any };
+ const transform = { position: [0, 3, 2], rotation: [-0.382683, 0, 0, 0.92388], scale: [1, 1, 1] };
+ const spot = { type: 'spot', color: '#ffffff', intensity: 60, range: 15, affectCharacters: true, affectProps: true, affectEnvironment: true, shadow: { enabled: false, intensity: 1, soft: true, bias: -0.0005, normalBias: 0.02 }, cone: { angleDegrees: 40, penumbra: 0.3 }, volumetric: true };
+ const beam = { enabled: true, intensity: 2, softness: 0.25 };
+ const patch = (expectedRevision: number, operations: unknown[]) => call('scene_patch', { sceneId: 'scene_smoke', expectedRevision, operations });
+ try {
+  const tools = await client.listTools();
+  expect(tools.tools.find(tool => tool.name === 'scene_patch')?.description).toMatch(/beam \{enabled; intensity 0 to 4; softness 0 to 1\}/);
+  expect(await patch(0, [{ kind: 'createEntity', entity: { id: 'spot', name: 'Spot Light', visible: true, transform, kind: 'light', light: spot } }])).toMatchObject({ ok: true, data: { revision: 1 } });
+  expect(await patch(1, [{ kind: 'setLight', entityId: 'spot', light: { ...spot, beam } }])).toMatchObject({ ok: true, data: { revision: 2 } });
+  const entities = (await call('scene_inspect', { sceneId: 'scene_smoke' })).data.entities;
+  expect(entities.find((e: { id: string }) => e.id === 'spot')).toMatchObject({ kind: 'light', light: { beam } });
+  const { cone: _, ...point } = { ...spot, type: 'point', beam };
+  // The tool input schema rejects the light before the session, as it rejects a spot light without a cone.
+  expect(await client.callTool({ name: 'scene_patch', arguments: { sceneId: 'scene_smoke', expectedRevision: 2, operations: [{ kind: 'setLight', entityId: 'spot', light: point }] } })).toMatchObject({ isError: true, content: [{ text: expect.stringContaining('Only a spot light has a beam') }] });
+  expect((await call('scene_inspect', { sceneId: 'scene_smoke' })).data.revision).toBe(2);
+ } finally { await client.close(); }
+}, 15000);
