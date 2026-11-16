@@ -9,3 +9,5 @@ export function formatKeystroke(s: KeystrokeSettings, platform: string): string 
  if (isMac(platform)) return `${s.control ? '⌃' : ''}${s.alt ? '⌥' : ''}${s.shift ? '⇧' : ''}${s.meta ? '⌘' : ''}${key(s.code)}`;
  return [s.control && 'Ctrl', s.alt && 'Alt', s.shift && 'Shift', s.meta && 'Win', key(s.code)].filter(Boolean).join('+');
 }
+export const menuShortcut = (code: string, platform: string): string =>
+ formatKeystroke({ code, control: !isMac(platform), alt: false, shift: false, meta: isMac(platform) }, platform);

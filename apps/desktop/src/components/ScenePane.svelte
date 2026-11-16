@@ -1,5 +1,5 @@
 <script lang="ts">
- import { onMount } from 'svelte';
+ import { onMount, type Snippet } from 'svelte';
  import { Button } from '@oshi-connect/ui';
  import { Move, RotateCw, Scaling, Activity, Grid3x3, Eye, EyeOff } from '@lucide/svelte';
  import type {AssetLoadStatus} from '@opensekai/renderer';
@@ -8,10 +8,11 @@
  import ContextMenu, {type MenuAction} from './ContextMenu.svelte';
  import GuideOverlay from './GuideOverlay.svelte';
  import {GUIDE_STORAGE_KEY,NO_GUIDES,guidesOn,readGuides,toggleGuide,writeGuides,type Guide,type GuideSettings} from '../editor/guides';
- let {canvas=$bindable(),webBack=$bindable(),webFront=$bindable(),counterHost=$bindable(),monitorHost=$bindable(),tool,canEdit,available,pending,selectedName,selectedEditable,previewOn,perfVisible,loads,names,hidden=false,ontool,onpreviewtoggle,onperftoggle,ondismissload}:{
+ let {canvas=$bindable(),webBack=$bindable(),webFront=$bindable(),counterHost=$bindable(),monitorHost=$bindable(),tool,canEdit,available,pending,selectedName,selectedEditable,previewOn,perfVisible,loads,names,hidden=false,ontool,onpreviewtoggle,onperftoggle,ondismissload,children}:{
   canvas?:HTMLCanvasElement;webBack?:HTMLDivElement;webFront?:HTMLDivElement;counterHost?:HTMLDivElement;monitorHost?:HTMLDivElement;
   tool:Tool;canEdit:boolean;available:boolean;pending:boolean;selectedName:string;selectedEditable:boolean;previewOn:boolean;perfVisible:boolean;loads:AssetLoadStatus[];names:Record<string,string>;hidden?:boolean;
   ontool:(tool:Tool)=>void;onpreviewtoggle:()=>void;onperftoggle:()=>void;ondismissload:(entityId:string)=>void;
+  children?:Snippet;
  }=$props();
  let stage:HTMLDivElement;
  let previewSize=$state({width:0,height:0});
@@ -19,7 +20,7 @@
  let guides=$state<GuideSettings>(NO_GUIDES);
  function toggle(guide:Guide){guides=toggleGuide(guides,guide);try{localStorage.setItem(GUIDE_STORAGE_KEY,writeGuides(guides));}catch{}}
  function guideMenu(event:MouseEvent&{currentTarget:HTMLButtonElement}){if(menu?.guides){menu=null;return;}const box=event.currentTarget.getBoundingClientRect();menu={x:box.left,y:box.bottom+4,guides:true,anchor:event.currentTarget,actions:[{label:'Center mark',checked:guides.center,run:()=>toggle('center')},{label:'Thirds',checked:guides.thirds,run:()=>toggle('thirds')}]};}
- function context(event:MouseEvent){event.preventDefault();if(!previewOn||!selectedEditable)return;menu={x:event.clientX,y:event.clientY,actions:[{label:'Move',icon:Move,tool:'translate'},{label:'Rotate',icon:RotateCw,tool:'rotate'},{label:'Scale',icon:Scaling,tool:'scale'}].map(({label,icon,tool:next})=>({label,icon,disabled:!canEdit||!available||pending,run:()=>ontool(next)}))};}
+ function context(event:MouseEvent){event.preventDefault();if(!previewOn||!selectedEditable)return;menu={x:event.clientX,y:event.clientY,actions:([{label:'Move',icon:Move,tool:'translate'},{label:'Rotate',icon:RotateCw,tool:'rotate'},{label:'Scale',icon:Scaling,tool:'scale'}] satisfies {label:string;icon:typeof Move;tool:Tool}[]).map(({label,icon,tool:next})=>({label,icon,disabled:!canEdit||!available||pending,run:()=>ontool(next)}))};}
  onMount(()=>{
   try{guides=readGuides(localStorage.getItem(GUIDE_STORAGE_KEY));}catch{}
   // A hidden pane has a zero stage; keep the last size so the canvas and its pointer mapping stay valid (R7).
@@ -34,6 +35,6 @@
   <Button variant="ghost" class={tool==='rotate'?'active-tool':''} title="Rotate (E)" disabled={!canEdit||!available} onclick={()=>ontool('rotate')}><RotateCw size={17}/><span class="sr-only">Rotate</span></Button>
   <Button variant="ghost" class={tool==='scale'?'active-tool':''} title="Scale (R)" disabled={!canEdit||!available} onclick={()=>ontool('scale')}><Scaling size={17}/><span class="sr-only">Scale</span></Button>
  </div><span class="selection-name">{selectedName}</span><div class="spacer"></div><Button variant="ghost" class={guidesOn(guides)?'active-tool':''} title="Guides" aria-haspopup="menu" aria-expanded={menu?.guides===true} onclick={guideMenu}><Grid3x3 size={17}/><span class="sr-only">Guides</span></Button><Button variant="ghost" class={perfVisible?'active-tool':''} title={perfVisible?'Hide performance monitor':'Show performance monitor'} onclick={onperftoggle}><Activity size={17}/><span class="sr-only">{perfVisible?'Hide performance monitor':'Show performance monitor'}</span></Button><Button variant="ghost" class={previewOn?'active-tool':''} title={previewOn?'Turn off preview':'Turn on preview'} onclick={onpreviewtoggle}>{#if previewOn}<Eye size={17}/>{:else}<EyeOff size={17}/>{/if}<span class="sr-only">{previewOn?'Turn off preview':'Turn on preview'}</span></Button></header>
- <div bind:this={stage} class="viewport" oncontextmenu={context} role="presentation"><div class="preview-surface" class:paused={!previewOn} inert={!previewOn} style:width={`${previewSize.width}px`} style:height={`${previewSize.height}px`}><div bind:this={webBack} class="web-layer"></div><canvas bind:this={canvas} id="preview" tabindex="0" aria-label="Scene preview"></canvas><div bind:this={webFront} class="web-layer"></div><GuideOverlay settings={guides}/><div bind:this={counterHost} class="fps-counter-host"></div><div class="camera-frame" aria-hidden="true"></div><LoadOverlay entries={loads} {names} ondismiss={ondismissload}/></div><div bind:this={monitorHost} class="perf-monitor" class:visible={perfVisible} aria-label="Scene preview performance"></div></div>
+ <div bind:this={stage} class="viewport" oncontextmenu={context} role="presentation"><div class="preview-surface" class:paused={!previewOn} inert={!previewOn} style:width={`${previewSize.width}px`} style:height={`${previewSize.height}px`}><div bind:this={webBack} class="web-layer"></div><canvas bind:this={canvas} id="preview" tabindex="0" aria-label="Scene preview"></canvas><div bind:this={webFront} class="web-layer"></div><GuideOverlay settings={guides}/><div bind:this={counterHost} class="fps-counter-host"></div><div class="camera-frame" aria-hidden="true"></div><LoadOverlay entries={loads} {names} ondismiss={ondismissload}/></div><div bind:this={monitorHost} class="perf-monitor" class:visible={perfVisible} aria-label="Scene preview performance"></div>{@render children?.()}</div>
 </section>
 {#if menu}<ContextMenu x={menu.x} y={menu.y} actions={menu.actions} anchor={menu.anchor} onclose={()=>{menu=null;}}/>{/if}

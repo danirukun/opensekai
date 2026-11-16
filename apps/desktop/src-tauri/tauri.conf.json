@@ -35,7 +35,8 @@
       "app"
     ],
     "resources": {
-      "resources/output/": "output/"
+      "resources/output/": "output/",
+      "resources/templates/": "templates/"
     },
     "icon": [
       "icons/32x32.png",

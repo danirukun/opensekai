@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-commit-show-open"
+description = "Enables the commit_show_open command without any pre-configured scope."
+commands.allow = ["commit_show_open"]
+
+[[permission]]
+identifier = "deny-commit-show-open"
+description = "Denies the commit_show_open command without any pre-configured scope."
+commands.deny = ["commit_show_open"]

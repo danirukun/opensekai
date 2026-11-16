@@ -27,10 +27,11 @@ import { createEditorMemory } from './blueprints/editor-memory';
  import type {FaceKitCommands} from './editor/facekit';
  import type { Draft, Tool } from './editor/ui-message';
  import type {AssetLoadStatus} from '@opensekai/renderer';
- import {AssetRecordSchema,ShowDocumentSchema} from '@opensekai/contracts';
+ import {AssetRecordSchema,RecentShowSchema,ShowDocumentSchema,ShowTemplateSchema,type RecentShow,type ShowTemplate} from '@opensekai/contracts';
  import {makeAuthoringEntity,importFailure} from './editor/authoring';
  import {applyTrackingConfig} from './editor/tracking-activation';
  import {openShowDocument,showDirty,type ShowMark} from './editor/show-management';
+ import {startScreenEnds,startScreenOpen} from './editor/start-screen';
  import type {AddKind} from './editor/live-fields';
  import type { AppApi, AppStatus, AssetRecord, ShowDocument, TrackingConfig,Transform } from '@opensekai/contracts';
  import OpenSekaiMark from './components/OpenSekaiMark.svelte';
@@ -43,6 +44,7 @@ import { createEditorMemory } from './blueprints/editor-memory';
  import TrackingGuide from './components/TrackingGuide.svelte';
  import SettingsPanel from './components/SettingsPanel.svelte';
  import ScenePane from './components/ScenePane.svelte';
+ import StartScreen from './components/StartScreen.svelte';
  const reduceMotion = new MediaQuery('(prefers-reduced-motion: reduce)');
  function panelIn(_node: Element) {
   return { duration: reduceMotion.current ? 0 : 200, easing: cubicOut, css: (t: number) => `opacity:${t};transform:translateY(${(1 - t) * 6}px)` };
@@ -63,6 +65,11 @@ import { createEditorMemory } from './blueprints/editor-memory';
  let showName=$state('Untitled Show'),showBusy=$state(false),showError=$state<string|null>(null),savedMark=$state<ShowMark|null>(null);
  const currentMark=():ShowMark=>({name:showName,revision:view.scene?.revision??null,blueprintRevision:status?.blueprintRevision});
  const dirty=$derived(showDirty(savedMark,currentMark()));
+ // The start screen (start screen R1): shown until the show first changes, or an open, save, or dismiss ends it.
+ let fixtureMode=$state(true),startMark=$state<ShowMark|null>(null),startEnded=$state(false),recent=$state<RecentShow[]>([]),templates=$state<ShowTemplate[]>([]);
+ $effect(()=>{if(startScreenEnds({start:startMark,current:currentMark()}))startEnded=true;});
+ const startOpen=$derived(panel==='assets'&&startScreenOpen({fixtureMode,ended:startEnded,start:startMark,current:currentMark()}));
+ async function refreshRecent(){try{recent=RecentShowSchema.array().max(5).parse(await invoke<unknown>('recent_show_list'));}catch{recent=[];}}
  $effect(()=>{if(canEdit)void invoke('set_show_dirty',{dirty}).catch(()=>{});});
  let importError=$state<{entityId:string;message:string}|null>(null),trackingError=$state<string|null>(null);
  let importingId=$state<string|null>(null);const importing=$derived(importingId!==null);let loads=$state<AssetLoadStatus[]>([]);
@@ -94,13 +101,14 @@ import { createEditorMemory } from './blueprints/editor-memory';
   if(event.defaultPrevented)return;
   const target=event.target instanceof Element?event.target:null;
   const next=toolForKey({key:event.key,modifier:event.ctrlKey||event.metaKey||event.altKey,editableTarget:!!target?.closest('input,textarea,select,[contenteditable="true"]')},{assetsShown:panel==='assets',editable:canEdit&&available});
-  if(next){event.preventDefault();setTool(next);}else if(event.key==='Escape'&&dragging){session?.editor?.cancel();dragging=false;}
+  if(next){event.preventDefault();setTool(next);}else if(event.key==='Escape'&&startOpen){startEnded=true;}else if(event.key==='Escape'&&dragging){session?.editor?.cancel();dragging=false;}
  }
  const warnings=$derived(collectWarnings(status));
  const sessionLabel=$derived(showError??importError?.message??trackingError??transformError??error??view.error??(view.scene?'Session connected':'Starting…'));
  const sessionState=$derived(sessionLabel==='Session connected'?'connected':sessionLabel==='Starting…'?'starting':'error');
  function select(id:string|null){if(importError&&importError.entityId!==id)importError=null;liveTransform?.cancel();liveField?.cancel();transformError=null;draft=null;if(model&&model.read().selectedId!==id){if(id)model.select(id);else model.clearSelection();}}
- async function add(kind:AddKind,revision:number){if(!model||!view.scene)return;const entity=makeAuthoringEntity(kind,crypto.randomUUID(),model.read().scene!.entities);const reply=await model.createEntity(entity,revision);if(reply.ok)select(entity.id);}
+ async function add(kind:AddKind,revision:number):Promise<string|undefined>{if(!model||!view.scene)return;const entity=makeAuthoringEntity(kind,crypto.randomUUID(),model.read().scene!.entities);const reply=await model.createEntity(entity,revision);if(!reply.ok)return;select(entity.id);return entity.id;}
+ async function addCharacter(){if(!view.scene)return;startEnded=true;const id=await add('character',view.scene.revision);if(id)await chooseModel(id);}
  async function chooseModel(entityId:string){
   if(importingId||!model||!view.scene)return;importingId=entityId;importError=null;
   try{
@@ -160,17 +168,19 @@ import { createEditorMemory } from './blueprints/editor-memory';
    const document=ShowDocumentSchema.parse({schemaVersion:1,name:showName,scene:inspected.data,blueprints:blueprints.data.kind==='snapshot'?blueprints.data.blueprints:[]}) satisfies ShowDocument;
    const path=await invoke<string|null>(chooseFile?'save_show_as':'save_show',{document});
    if(!path)return false;
+   startEnded=true;void refreshRecent();
    showName=document.name;savedMark={name:document.name,revision:inspected.data.revision,blueprintRevision:blueprints.data.revision};
    toasts.push({variant:'success',message:`Saved ${path.split(/[\\/]/).pop()}`},3000);
    return true;
   }catch(cause){showError=showFailure(cause);return false;}
   finally{showBusy=false;if(showError)toasts.push({variant:'error',message:showError});}
  }
- async function openShow(){
-  if(!model||showBusy||view.pending||guideFor!==null)return;
+ // Open Show, a template, and a recent show load through the same path (start screen R4, R5, R7).
+ async function openShowFrom(load:()=>Promise<unknown|null>):Promise<boolean>{
+  if(!model||showBusy||view.pending||guideFor!==null)return false;
   showBusy=true;showError=null;
   try{
-   const raw=await invoke<unknown|null>('open_show');if(raw===null)return;
+   const raw=await load();if(raw===null)return false;
    liveTransform?.cancel();liveField?.cancel();
    const reply=await openShowDocument(raw,scene=>model!.replaceScene(scene),async document=>{
     panel='assets';await tick();
@@ -180,10 +190,18 @@ import { createEditorMemory } from './blueprints/editor-memory';
     if(broken&&!broken.result.ok)showError=`${broken.graph.name}: ${broken.result.error.message}`;
     if(sync){const applied=sync.edit([{kind:'replaceAll',graphs:document.blueprints}]);await sync.idle();if(applied.ok)memory.history.clear();if((!applied.ok||sync.issue())&&!showError)showError='Blueprints were not applied';}
    });
-   if(reply.ok)savedMark={name:showName,revision:reply.data.revision,blueprintRevision:sync?.revision()};
-   if(!reply.ok){showError=reply.error.message;return;}
-  }catch(cause){showError=showFailure(cause);}
+   if(reply.ok){await invoke('commit_show_open');savedMark={name:showName,revision:reply.data.revision,blueprintRevision:sync?.revision()};startEnded=true;}
+   if(!reply.ok){showError=reply.error.message;return false;}
+   return true;
+  }catch(cause){showError=showFailure(cause);return false;}
   finally{showBusy=false;}
+ }
+ async function openShow(){if(await openShowFrom(()=>invoke<unknown|null>('open_show')))void refreshRecent();}
+ function openTemplate(id:string){return openShowFrom(()=>invoke<unknown>('open_show_template',{id}));}
+ async function openRecent(index:number){
+  const opened=await openShowFrom(()=>invoke<unknown>('open_recent_show',{index}));
+  if(!opened&&showError)toasts.push({variant:'error',message:showError});
+  void refreshRecent();
  }
  const showCommands={open:()=>openShow(),save:()=>saveShow(),saveAs:()=>saveShow(true)};
  function runShowCommand(command:unknown){if(canEdit&&available&&typeof command==='string'&&Object.hasOwn(showCommands,command))void showCommands[command as keyof typeof showCommands]();}
@@ -209,13 +227,14 @@ import { createEditorMemory } from './blueprints/editor-memory';
    onInspect(sceneId){return session!.client.api.sceneInspect({sceneId});},
    onCycleCamera(direction){const state=model?.read();const next=cycleCamera(state?.scene??null,direction);if(next&&!state?.pending)void model?.selectCamera(next);},
   },{begin(){if(!perfVisible)return false;stats.begin();return true;},end(){stats.end();}},counterHost!,{back:webBack!,front:webFront!}).then(async value=>{if(disposed){await value.stop();return;}
-   session=value;api=value.client.api;assets=value.assets;outputUrl=value.outputUrl;canEdit=value.canEdit;
+   session=value;api=value.client.api;assets=value.assets;outputUrl=value.outputUrl;canEdit=value.canEdit;fixtureMode=value.fixtureMode;
+   if(value.canEdit){void refreshRecent();void invoke<unknown>('show_template_list').then(list=>{templates=ShowTemplateSchema.array().max(16).parse(list);}).catch(()=>{});}
    offLoads=value.onLoadStatus(entries=>{loads=entries;});offPlayback=value.onPlayback(next=>{playback=next;});
    model=createEditorModel(value.client.api);sync=createBlueprintSync(value.client.api);debugFeed=createDebugFeed(value.client.api,showDebugToasts);liveTransform=createLiveTransform(model,code=>{transformError=code;},pending=>{livePending=pending;});liveField=createLiveEdit(model,()=>{},pending=>{fieldPending=pending;});
    tracker=createMediaPipeTracker({now:()=>value.tracking.now()??0,onSample:sample=>value.tracking.submit({samples:[sample],statuses:[]}),onStatus:status=>value.tracking.submit({samples:[],statuses:[status]}),onDevices:choices=>{devices=fitDevices(choices.map(device=>({deviceId:device.deviceId.slice(0,512),label:device.label.slice(0,128)})));}});
    offClock=value.tracking.onClock(reconcileTracking);
    off=model.subscribe(next=>{const previous=view;view=next;if(previous.scene?.revision!==next.scene?.revision)draft=null;syncViewport();reconcileTracking();});
-   poll=createEditorPoll(value.client.api,model,next=>{status=next;available=next.revision!==null;error=null;if(!available)cancelDrag();if(!savedMark&&next.revision!==null)savedMark={name:showName,revision:next.revision,blueprintRevision:next.blueprintRevision};syncViewport();},code=>{available=false;error=code;cancelDrag();syncViewport();},sync,()=>panel==='blueprints');await poll.poll();syncViewport();
+   poll=createEditorPoll(value.client.api,model,next=>{status=next;available=next.revision!==null;error=null;if(!available)cancelDrag();if(!savedMark&&next.revision!==null){savedMark={name:showName,revision:next.revision,blueprintRevision:next.blueprintRevision};startMark=savedMark;}syncViewport();},code=>{available=false;error=code;cancelDrag();syncViewport();},sync,()=>panel==='blueprints');await poll.poll();syncViewport();
   }).catch(cause=>{if(!disposed)error=cause instanceof Error?cause.message:'Session startup failed';});
   return()=>{disposed=true;clearInterval(timer);offToasts();resize.disconnect();tracker?.shutdown();offClock();offLoads();offPlayback();liveTransform?.close();liveField?.close();poll?.close();off();offMenu();stats.dom.remove();void session?.stop().catch(()=>{});};
  });
@@ -237,7 +256,7 @@ import { createEditorMemory } from './blueprints/editor-memory';
     <ResizeHandle value={width} min={160} max={maxWidth} onchange={value=>{width=value;}}/>
    {/if}
    <!-- The pane stays mounted on every tab, so the renderer and its loaded assets stay (R5). -->
-   <ScenePane bind:canvas bind:webBack bind:webFront bind:counterHost bind:monitorHost hidden={panel!=='assets'} {tool} {canEdit} {available} pending={view.pending} selectedName={selected?.name??''} selectedEditable={!!selected&&selected.kind!=='tracking'} {previewOn} {perfVisible} {loads} {names} ontool={setTool} onpreviewtoggle={()=>{previewOn=!previewOn;}} onperftoggle={togglePerf} ondismissload={id=>session?.dismissLoad(id)}/>
+   <ScenePane bind:canvas bind:webBack bind:webFront bind:counterHost bind:monitorHost hidden={panel!=='assets'} {tool} {canEdit} {available} pending={view.pending} selectedName={selected?.name??''} selectedEditable={!!selected&&selected.kind!=='tracking'} {previewOn} {perfVisible} {loads} {names} ontool={setTool} onpreviewtoggle={()=>{previewOn=!previewOn;}} onperftoggle={togglePerf} ondismissload={id=>session?.dismissLoad(id)}>{#if startOpen}<StartScreen {recent} {templates} disabled={!canEdit||!available||showBusy||view.pending||importing} onaddcharacter={()=>{void addCharacter();}} onopen={()=>{void openShow();}} ontemplate={id=>{void openTemplate(id);}} onrecent={index=>{void openRecent(index);}} onclose={()=>{startEnded=true;}}/>{/if}</ScenePane>
    <!-- The guide stays mounted while another rail panel shows, so a panel switch keeps the run (R14a). -->
    {#if model&&api&&guideFor}<div class="properties-column" hidden={panel!=='assets'}><TrackingGuide avatarId={guideFor} {model} {view} {api} {assets} localAddresses={status?.localAddresses??[]} trackingStatus={status?.trackingStatus??[]} disabled={!canEdit||!available} onclose={()=>{guideFor=null;}}/></div>{/if}
    {#if panel==='assets'}{#if model&&!(api&&guideFor)}<div class="properties-column" in:panelIn out:panelOut><Inspector onguide={id=>{guideFor=id;}} {model} {view} onlivefield={request=>{liveField?.offer(request);}} onlivefieldend={()=>liveField?.end()} {assets} {loads} {importingId} {importError} onchoosemodel={chooseModel} onchoosescene={chooseScene} onchooseimage={chooseImage} onchoosevideo={chooseVideo} {playback} onpickimage={(id,assetId)=>{void model?.setScreenImage(id,assetId,model.read().scene?.revision);}} onpickscene={(id,assetId)=>{void setSceneModel(id,assetId);}} onrenderenvironment={(id,value,revision)=>model?.setCameraRenderEnvironment(id,value,revision)??Promise.resolve(undefined)} {expressionApi} onexpressionsettings={(id,name,settings,revision)=>model?.setAvatarExpression(id,name,settings,revision)??Promise.resolve(undefined)} onnavigation={(id,navigation,revision)=>model?.setCameraNavigation(id,navigation,revision)??Promise.resolve(undefined)} onscreenshot={id=>model?.cameraScreenshot(id)??Promise.resolve(undefined)} onopenscreenshots={()=>invoke<void>('open_screenshots_folder')} {draft} {transformError} {livePending} onlivetransform={transformLive} oncanceltransform={()=>liveTransform?.cancel()} onfinishtransform={()=>liveTransform?.end()} disabled={!canEdit||!available||importing} {devices} trackingStatus={status?.trackingStatus??[]} localAddresses={status?.localAddresses??[]} vmcSenders={status?.vmcSenders??[]} captureCommands={canEdit?captureCommands:null} faceKit={canEdit?faceKitCommands:null} captureStatus={status} onlens={async(id,lens,revision)=>{await model?.setCameraLens(id,lens,revision);}} onavataridle={async(id,idle,revision)=>{await model?.setAvatarIdle(id,idle,revision);}} onavatartracking={async(id,tracking,revision)=>{await model?.setAvatarTracking(id,tracking,revision);}} ontrackingsmoothing={async(id,smoothing,revision)=>{await model?.setTrackingSmoothing(id,smoothing,revision);}} ontrackingmapping={async(id,mapping,revision)=>{await model?.setTrackingMapping(id,mapping,revision);}} ontrackingcalibrate={(id,revision)=>model?.calibrateTracking(id,revision)??Promise.resolve(undefined)} ontrackingcalibrationreset={(id,revision)=>model?.resetTrackingCalibration(id,revision)??Promise.resolve(undefined)} ontrackingconfig={configureTracking} ontrackingtoggle={toggleTracking}/></div>{/if}

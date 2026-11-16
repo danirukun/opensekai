@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-show-template-list"
+description = "Enables the show_template_list command without any pre-configured scope."
+commands.allow = ["show_template_list"]
+
+[[permission]]
+identifier = "deny-show-template-list"
+description = "Denies the show_template_list command without any pre-configured scope."
+commands.deny = ["show_template_list"]

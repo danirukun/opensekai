@@ -14,6 +14,8 @@ use std::{
 #[derive(Default)]
 pub struct ShowFile {
     path: Mutex<Option<PathBuf>>,
+    /// The file of a show that was read but not yet accepted by the editor. `Some(None)` is a template.
+    staged: Mutex<Option<Option<PathBuf>>>,
     dirty: AtomicBool,
     quit_confirmed: AtomicBool,
 }
@@ -23,9 +25,27 @@ impl ShowFile {
         self.path.lock().map(|path| path.clone()).unwrap_or(None)
     }
     pub fn set_path(&self, path: PathBuf) {
+        if let Ok(mut staged) = self.staged.lock() {
+            *staged = None;
+        }
         if let Ok(mut current) = self.path.lock() {
             *current = Some(path);
         }
+    }
+    /// Keeps the file of a show that was read. The current path changes only at `commit_open`,
+    /// so a scene replace that fails in the editor cannot point Save at another file.
+    pub fn stage_open(&self, path: Option<PathBuf>) {
+        if let Ok(mut staged) = self.staged.lock() {
+            *staged = Some(path);
+        }
+    }
+    /// Makes the staged file the current path and returns it. A template clears the path.
+    pub fn commit_open(&self) -> Option<PathBuf> {
+        let staged = self.staged.lock().ok()?.take()?;
+        if let Ok(mut current) = self.path.lock() {
+            current.clone_from(&staged);
+        }
+        staged
     }
     pub fn set_dirty(&self, dirty: bool) {
         self.dirty.store(dirty, Ordering::SeqCst);
@@ -126,6 +146,37 @@ mod tests {
         json!({"schemaVersion":1,"name":"Concert","scene":scene,"blueprints":[{
             "schemaVersion":1,"id":"graph_1","name":"Lights","nodes":[],"connections":[]
         }]})
+    }
+
+    #[test]
+    fn staged_open_keeps_current_path_until_commit() {
+        let file = ShowFile::default();
+        file.set_path(PathBuf::from("/x/a.osekai"));
+        file.stage_open(Some(PathBuf::from("/x/b.osekai")));
+        assert_eq!(file.path(), Some(PathBuf::from("/x/a.osekai")));
+        assert_eq!(file.commit_open(), Some(PathBuf::from("/x/b.osekai")));
+        assert_eq!(file.path(), Some(PathBuf::from("/x/b.osekai")));
+    }
+
+    #[test]
+    fn staged_template_forgets_current_file_on_commit() {
+        let file = ShowFile::default();
+        file.set_path(PathBuf::from("/x/a.osekai"));
+        file.stage_open(None);
+        assert_eq!(file.path(), Some(PathBuf::from("/x/a.osekai")));
+        assert_eq!(file.commit_open(), None);
+        assert_eq!(file.path(), None);
+    }
+
+    #[test]
+    fn commit_without_staged_open_keeps_path() {
+        let file = ShowFile::default();
+        file.set_path(PathBuf::from("/x/a.osekai"));
+        assert_eq!(file.commit_open(), None);
+        file.stage_open(Some(PathBuf::from("/x/b.osekai")));
+        file.set_path(PathBuf::from("/x/c.osekai"));
+        assert_eq!(file.commit_open(), None);
+        assert_eq!(file.path(), Some(PathBuf::from("/x/c.osekai")));
     }
 
     #[test]

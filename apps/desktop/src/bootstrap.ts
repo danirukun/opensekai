@@ -24,7 +24,7 @@ export interface NativeBootstrap {
 }
 export interface PreviewFrameProbe { begin(): boolean; end(): void }
 export async function bootstrapDesktop(canvas: HTMLCanvasElement, editorOptions?: EditorOptions, previewProbe?: PreviewFrameProbe, counterHost?: HTMLElement, webLayers?: { back: HTMLElement; front: HTMLElement }): Promise<{
- client: BrowserClient; outputUrl: string; assets: AssetRecord[]; canEdit:boolean; editor?:EditorHandle; tracking:{submit(update:TrackingUpdate):void;now():number|null;onClock(listener:()=>void):()=>void}; onLoadStatus(listener:(entries:AssetLoadStatus[])=>void):()=>void;onPlayback(listener:(state:PlaybackState)=>void):()=>void;dismissLoad(entityId:string):void; setPreviewEnabled(enabled:boolean):void; stop(): Promise<void>;
+ client: BrowserClient; outputUrl: string; assets: AssetRecord[]; canEdit:boolean; fixtureMode:boolean; editor?:EditorHandle; tracking:{submit(update:TrackingUpdate):void;now():number|null;onClock(listener:()=>void):()=>void}; onLoadStatus(listener:(entries:AssetLoadStatus[])=>void):()=>void;onPlayback(listener:(state:PlaybackState)=>void):()=>void;dismissLoad(entityId:string):void; setPreviewEnabled(enabled:boolean):void; stop(): Promise<void>;
 }> {
  const info = await invoke<NativeBootstrap>('bootstrap_session');
  let worker: Worker | undefined;
@@ -130,7 +130,7 @@ export async function bootstrapDesktop(canvas: HTMLCanvasElement, editorOptions?
   });
   closePreview = () => { off(); playbackListeners.clear(); offScreenshot(); pump.stop(); fpsCounter?.dispose(); renderer.dispose(); };
   const outputUrl = makeOutputUrl(info.output,info.rendererMode);
-  return { client, outputUrl, assets: info.assets, canEdit:info.operator.capabilities.includes('edit'), editor:renderer.editor, tracking, onLoadStatus:renderer.onLoadStatus, onPlayback, dismissLoad:renderer.dismissLoad, setPreviewEnabled, stop };
+  return { client, outputUrl, assets: info.assets, canEdit:info.operator.capabilities.includes('edit'), fixtureMode:info.fixtureMode, editor:renderer.editor, tracking, onLoadStatus:renderer.onLoadStatus, onPlayback, dismissLoad:renderer.dismissLoad, setPreviewEnabled, stop };
  } catch (error) {
   await stop().catch(() => {});
   throw error;
