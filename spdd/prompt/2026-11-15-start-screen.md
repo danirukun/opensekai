@@ -77,4 +77,4 @@ Use Svelte 5, `@oshi-connect/ui`, `@lucide/svelte`, and Tauri v2. Keep platform 
 
 ## Status
 
-Implemented on branch `start-screen` (commits `67c2a9a`..`3670acf`). The live macOS check of R1–R9 passed; see [the start screen check](../../docs/evaluation/start-screen.md). An MCP or Blueprint edit that ends the screen (R1) has unit tests only. Not verified: a release build, Windows, and keyboard-only navigation.
+Implemented on branch `start-screen` (commits `67c2a9a`..`3670acf`). The live macOS check of R1–R9 passed; see [the start screen check](../../docs/evaluation/start-screen.md). An MCP or Blueprint edit that ends the screen (R1) has unit tests only. A Windows 11 ARM64 debug build passed the fresh launch, template, recent, and Add character checks. The `Open show…` row shows the shortcut label of the platform (`⌘O` or `Ctrl+O`). Not verified: a release build and keyboard-only navigation.

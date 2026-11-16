@@ -25,9 +25,22 @@ The final review found that the host set the Save target and reordered the recen
 
 The owner then asked for the subtitle `Create your dream VTuber world` under the logo. A fresh launch showed it under the logo, above `Add character`. The owner also asked for the full logo with its corner markers (`Logo-Full-Color-Transparent.png`). The start screen now uses a 448 px copy (`opensekai-logo-full.png`) at 112 px wide, and a fresh launch showed the four markers around the cube.
 
+## Windows
+
+Checked 2026-11-16 in the VMPal VM `Windows VM 1 QA` (Windows 11 24H2, build 26100, ARM64, WebView2). The app was a debug build for `aarch64-pc-windows-msvc` (`cargo build -p opensekai-desktop --features tauri/custom-protocol`, debug info off), from a source archive of commit `f593940` with the frontend `dist` built on the Mac. The branch is older than the app icon merge, so the build used `icons/icon.ico` from `main`. The first build needed two VM changes: the MSVC ARM64 tools and clang-cl (for `aws-lc-sys`) were added to the VS 2022 Build Tools. The input was mouse clicks and key presses through VMPal. The app data folder `%LOCALAPPDATA%\com.oshi-connect.opensekai` did not exist before the check.
+
+| Check | Requirement | Result |
+| --- | --- | --- |
+| Fresh launch | R1, R2 | PASS. The full logo with its four corner markers, the subtitle, `Add character`, `Open show…`, and `Templates` with `Stage Lights`. No `Recent` heading. The row showed the Mac hint `⌘O`. Commit `1eda6e8` changes the hint to the platform label; after a rebuild, the row showed `Ctrl+O`, the same as the File menu. |
+| Template load | R5 | PASS. `Stage Lights` loaded 7 assets, and the preview drew the stage. File › Save Show opened the Save dialog with `Stage Lights` in Documents. |
+| Recent list | R6, R7 | PASS. After the save, `recent-shows.json` held `C:\Users\danirukun\Documents\Stage Lights.osekai`. After a relaunch, `Recent` showed `Stage Lights` with the folder `Documents`. A click loaded the show, and File › Save Show wrote the same file without a dialog (the modification time changed). |
+| Add character | R3 | PASS. A click added `Character`, closed the start screen, and opened the "Import VRM avatar" chooser. The Catboy QA avatar loaded as "Catboy with black hoodie". |
+
+Found on Windows, not caused by this branch: the File menu shortcuts (Ctrl+O, Ctrl+S, Ctrl+Shift+S) did nothing while the editor web view had the keyboard focus. Ctrl+A in a text field worked, and the menu items worked with the mouse.
+
 ## Not measured
 
 - Whether OBS reloaded the browser source page. The check shows only that OBS kept drawing the output.
-- A release build, Windows, and keyboard-only navigation through the start screen.
+- A release build and keyboard-only navigation through the start screen. On Windows: OBS output, Escape, and a missing recent file.
 - The time from a template click to the first OBS frame below 1 s.
 - The OBS browser source does not draw while its scene is not shown. The first two OBS captures were taken while the QA scene was not on program, and they were transparent for that reason. The OBS results above come from captures with the QA scene on program.
