@@ -36,6 +36,10 @@ Images (WebGL 2):
 - Camera screenshot: [vignetting](camera-effects/vignetting-screenshot-webgl2.png), [vignetting with Blink 1](camera-effects/vignetting-blink-screenshot-webgl2.png), [pixelate 64](camera-effects/pixelate-screenshot-webgl2.png).
 - Inspector: [Effects section](camera-effects/inspector-effects-webgl2.png).
 
+## Limits
+
+- The output keeps one dirt lease, for the output camera only (R20). A camera cut to a camera with another dirt image, or with no dirt image, releases the image. A cut back loads it again, and lens dirt does not show until that load completes.
+
 ## Local checks
 
 The local checks did not run. The app, a WebView, and OBS were not started.
