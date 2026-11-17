@@ -108,9 +108,9 @@ fn v0_values(props: &Value, shader: &str) -> Values {
         value => value.as_f64(),
     };
     let outline_mode = match mode {
-        Some(n) if n == 0.0 => Some("none"),
-        Some(n) if n == 1.0 => Some("worldCoordinates"),
-        Some(n) if n == 2.0 => Some("screenCoordinates"),
+        Some(0.0) => Some("none"),
+        Some(1.0) => Some("worldCoordinates"),
+        Some(2.0) => Some("screenCoordinates"),
         _ => None,
     };
     Values {
