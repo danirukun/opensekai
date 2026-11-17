@@ -6112,6 +6112,7 @@
     "target": "scene",
     "valid": false,
     "errorCode": "INVALID_INPUT",
+    "message": "Scene has the maximum of 8 lit lights",
     "payload": {
       "schemaVersion": 1,
       "sceneId": "scene_smoke",
@@ -7123,10 +7124,2947 @@
     }
   },
   {
+    "name": "light-eight-lit-twenty-four-unlit",
+    "target": "scene",
+    "valid": true,
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "box"
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1"
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          },
+          "antiAliasing": "fxaa"
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "light_0",
+          "name": "light_0",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": true,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_1",
+          "name": "light_1",
+          "visible": false,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_2",
+          "name": "light_2",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_3",
+          "name": "light_3",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_4",
+          "name": "light_4",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_5",
+          "name": "light_5",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_6",
+          "name": "light_6",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_7",
+          "name": "light_7",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_8",
+          "name": "light_8",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": true,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_9",
+          "name": "light_9",
+          "visible": false,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_10",
+          "name": "light_10",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_11",
+          "name": "light_11",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_12",
+          "name": "light_12",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_13",
+          "name": "light_13",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_14",
+          "name": "light_14",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_15",
+          "name": "light_15",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_16",
+          "name": "light_16",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_17",
+          "name": "light_17",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_18",
+          "name": "light_18",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_19",
+          "name": "light_19",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_20",
+          "name": "light_20",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_21",
+          "name": "light_21",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_22",
+          "name": "light_22",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_23",
+          "name": "light_23",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_24",
+          "name": "light_24",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_25",
+          "name": "light_25",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_26",
+          "name": "light_26",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_27",
+          "name": "light_27",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_28",
+          "name": "light_28",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_29",
+          "name": "light_29",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_30",
+          "name": "light_30",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_31",
+          "name": "light_31",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "light-thirty-three-lights",
+    "target": "scene",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "message": "Scene has the maximum of 32 lights",
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "box"
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1"
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          },
+          "antiAliasing": "fxaa"
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        },
+        {
+          "id": "light_0",
+          "name": "light_0",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_1",
+          "name": "light_1",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_2",
+          "name": "light_2",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_3",
+          "name": "light_3",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_4",
+          "name": "light_4",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_5",
+          "name": "light_5",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_6",
+          "name": "light_6",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_7",
+          "name": "light_7",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": true,
+            "affectProps": true,
+            "affectEnvironment": true,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_8",
+          "name": "light_8",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_9",
+          "name": "light_9",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_10",
+          "name": "light_10",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_11",
+          "name": "light_11",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_12",
+          "name": "light_12",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_13",
+          "name": "light_13",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_14",
+          "name": "light_14",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_15",
+          "name": "light_15",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_16",
+          "name": "light_16",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_17",
+          "name": "light_17",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_18",
+          "name": "light_18",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_19",
+          "name": "light_19",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_20",
+          "name": "light_20",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_21",
+          "name": "light_21",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_22",
+          "name": "light_22",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_23",
+          "name": "light_23",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_24",
+          "name": "light_24",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_25",
+          "name": "light_25",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_26",
+          "name": "light_26",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_27",
+          "name": "light_27",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_28",
+          "name": "light_28",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_29",
+          "name": "light_29",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_30",
+          "name": "light_30",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_31",
+          "name": "light_31",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        },
+        {
+          "id": "light_32",
+          "name": "light_32",
+          "visible": true,
+          "transform": {
+            "position": [
+              2,
+              4,
+              3
+            ],
+            "rotation": [
+              -0.389,
+              0.2648,
+              0.1178,
+              0.8745
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "light",
+          "light": {
+            "type": "directional",
+            "color": "#ffffff",
+            "intensity": 3,
+            "range": 0,
+            "affectCharacters": false,
+            "affectProps": false,
+            "affectEnvironment": false,
+            "shadow": {
+              "enabled": false,
+              "intensity": 1,
+              "soft": true,
+              "bias": -0.0005,
+              "normalBias": 0.02
+            }
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
     "name": "light-three-shadows",
     "target": "scene",
     "valid": false,
     "errorCode": "INVALID_INPUT",
+    "message": "Scene has the maximum of 2 shadow lights",
     "payload": {
       "schemaVersion": 1,
       "sceneId": "scene_smoke",
