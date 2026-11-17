@@ -4,7 +4,7 @@
  import { MediaQuery } from 'svelte/reactivity';
  import { Button } from '@oshi-connect/ui';
  import { Check } from '@lucide/svelte';
- import { menuPosition } from '../editor/interaction';
+ import { menuPosition, shouldRestoreMenuFocus } from '../editor/interaction';
  const reduceMotion = new MediaQuery('(prefers-reduced-motion: reduce)');
  function menuIn(_node: Element) {
   return { duration: reduceMotion.current ? 0 : 180, easing: cubicOut, css: (t: number) => `opacity:${t};transform:translateY(${(1 - t) * 4}px) scale(${0.96 + t * 0.04})` };
@@ -18,7 +18,7 @@
  let {x,y,actions,anchor,onclose}: {x:number;y:number;actions:MenuAction[];anchor?:HTMLElement;onclose:()=>void}=$props();
  let element:HTMLDivElement; let left=$state(0),top=$state(0);
  $effect.pre(()=>{left=x;top=y;});
- $effect(()=>{const previous=document.activeElement as HTMLElement|null;let active=true;void tick().then(()=>{if(!active)return;const box=element.getBoundingClientRect();const p=menuPosition(x,y,box.width,box.height,innerWidth,innerHeight);left=p.x;top=p.y;element.querySelectorAll('button').forEach((button,index)=>{const checked=actions[index]?.checked;button.setAttribute('role',checked===undefined?'menuitem':'menuitemcheckbox');if(checked!==undefined)button.setAttribute('aria-checked',String(checked));});element.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();});return()=>{active=false;previous?.focus();};});
+ $effect(()=>{const previous=document.activeElement as HTMLElement|null;let active=true;void tick().then(()=>{if(!active)return;const box=element.getBoundingClientRect();const p=menuPosition(x,y,box.width,box.height,innerWidth,innerHeight);left=p.x;top=p.y;element.querySelectorAll('button').forEach((button,index)=>{const checked=actions[index]?.checked;button.setAttribute('role',checked===undefined?'menuitem':'menuitemcheckbox');if(checked!==undefined)button.setAttribute('aria-checked',String(checked));});element.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();});return()=>{active=false;const current=document.activeElement;const restore=shouldRestoreMenuFocus({previousConnected:previous?.isConnected===true,activeInsideMenu:!!current&&!!element&&(current===element||element.contains(current)),activeIsDocument:current==null||current===document.body||current===document.documentElement});if(restore)previous?.focus();};});
  function keys(event:KeyboardEvent){const buttons=[...element.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')];let index=buttons.indexOf(document.activeElement as HTMLButtonElement);if(event.key==='Escape'){event.preventDefault();onclose();return;}if(['ArrowDown','ArrowUp','Home','End'].includes(event.key)){event.preventDefault();index=event.key==='Home'?0:event.key==='End'?buttons.length-1:(index+(event.key==='ArrowDown'?1:-1)+buttons.length)%buttons.length;buttons[index]?.focus();}}
 </script>
 <svelte:window onpointerdown={event=>{const target=event.target as Node;if(!element?.contains(target)&&!anchor?.contains(target))onclose();}} onblur={onclose} />

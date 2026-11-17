@@ -1,11 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import type {Transform} from '@opensekai/contracts';
-import { copyTransform, initialTransformFields, clamp, scrubValue, eulerToQuaternion, quaternionToEuler, menuPosition, transformFromRow, reconcileTransformFields } from '../src/editor/interaction';
+import { copyTransform, initialTransformFields, clamp, scrubValue, eulerToQuaternion, quaternionToEuler, menuPosition, shouldRestoreMenuFocus, transformFromRow, reconcileTransformFields } from '../src/editor/interaction';
 describe('editor interaction math', () => {
  it('bounds resize and positive scale scrubs', () => { expect(clamp(450,160,360)).toBe(360); expect(scrubValue(1,-200,'scale')).toBe(0.001); expect(scrubValue(2,10,'position')).toBeCloseTo(2.1); });
  it('round trips Euler degrees with normalized rotation', () => { const q=eulerToQuaternion([20,30,40]); expect(Math.hypot(...q)).toBeCloseTo(1); quaternionToEuler(q).forEach((v,i)=>expect(v).toBeCloseTo([20,30,40][i])); });
  it('rejects invalid property values',()=>{const base={position:[0,0,0] as [number,number,number],rotation:[0,0,0,1] as [number,number,number,number],scale:[1,1,1] as [number,number,number]};expect(transformFromRow(base,'scale',[0,1,1])).toBeNull();expect(transformFromRow(base,'position',[Infinity,0,0])).toBeNull();expect(transformFromRow(base,'rotation',[0,0,180])?.rotation[2]).toBeCloseTo(1);});
  it('keeps menus within viewport', () => { expect(menuPosition(990,790,200,250,1000,800)).toEqual({x:796,y:546}); });
+ it('does not take focus back after a menu action moved it', () => {
+  expect(shouldRestoreMenuFocus({previousConnected:true,activeInsideMenu:false,activeIsDocument:false})).toBe(false);
+  expect(shouldRestoreMenuFocus({previousConnected:true,activeInsideMenu:true,activeIsDocument:false})).toBe(true);
+  expect(shouldRestoreMenuFocus({previousConnected:true,activeInsideMenu:false,activeIsDocument:true})).toBe(true);
+  expect(shouldRestoreMenuFocus({previousConnected:false,activeInsideMenu:false,activeIsDocument:true})).toBe(false);
+ });
 });
 
 describe('ordinary transform input reconciliation',()=>{

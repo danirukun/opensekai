@@ -43,10 +43,32 @@
  }
  async function finishRename(){
   if(!renaming||renamePending||view.pending||disabled)return;
-  const draft={...renaming};renamePending=true;
+  const draft={...renaming};
+  const next=draft.name.trim();
+  const current=view.scene?.entities.find(item=>item.id===draft.id)?.name;
+  if(next===current){renaming=null;return;}
+  renamePending=true;
   try{const reply=await model.renameEntity(draft.id,draft.name,draft.revision);if(reply.ok)renaming=null;}finally{renamePending=false;}
  }
  function renameKeys(event:KeyboardEvent){event.stopPropagation();if(event.key==='Escape'){event.preventDefault();if(!renamePending)renaming=null;}else if(event.key==='Enter'){event.preventDefault();void finishRename();}}
+ function renameBlur(event:FocusEvent){
+  if(renamePending||!renaming)return;
+  const next=event.relatedTarget as Node|null;
+  if(next&&(event.currentTarget as Node).contains(next))return;
+  void finishRename();
+ }
+ // A press outside the field commits. The menu that opened the field does not count as outside.
+ function commitOutside(node:HTMLElement){
+  const outside=(event:PointerEvent)=>{
+   if(renamePending||!renaming)return;
+   const target=event.target;
+   if(!(target instanceof Node)||node.contains(target))return;
+   if(target instanceof Element&&target.closest('.context-menu'))return;
+   void finishRename();
+  };
+  document.addEventListener('pointerdown',outside,true);
+  return()=>document.removeEventListener('pointerdown',outside,true);
+ }
  async function duplicate(id:string,revision:number){const reply=await model.duplicateEntity(id,crypto.randomUUID(),revision);if(reply.ok)onselect?.(model.read().selectedId);}
  async function remove(id:string,revision:number){const reply=await model.removeEntity(id,revision);if(reply.ok)onselect?.(model.read().selectedId);}
  function context(event:MouseEvent,id:string){
@@ -82,7 +104,7 @@
      {#each group.entities as entity (entity.id)}
       <div class="asset-row" oncontextmenu={event=>context(event,entity.id)} role="presentation">
        {#if renaming?.id===entity.id}
-        <div class="asset-rename" onfocusout={()=>{if(!renamePending)renaming=null;}}><Input label="Asset name" onkeydown={renameKeys} bind:value={renaming.name} disabled={renamePending||disabled||view.pending}/></div>
+        <div class="asset-rename" {@attach commitOutside} onfocusout={renameBlur}><Input label="Asset name" onkeydown={renameKeys} bind:value={renaming.name} disabled={renamePending||disabled||view.pending}/></div>
        {:else}<button type="button" data-asset-id={entity.id} class={`entity-row${view.selectedId===entity.id?' selected':''}${entity.visible?'':' hidden-asset'}`} onclick={()=>select(entity.id)}>
         {#if loading.has(entity.id)}<Spinner size="sm" variant="muted" aria-hidden="true"/>{:else if entity.kind==='camera'}<Camera size={15}/>{:else if entity.kind==='avatar'}<User size={15}/>{:else if entity.kind==='tracking'}<Radio size={15}/>{:else if entity.kind==='environment'}<Mountain size={15}/>{:else if entity.kind==='light'}{#if entity.light.type==='point'}<Lightbulb size={15}/>{:else if entity.light.type==='spot'}<Spotlight size={15}/>{:else if entity.light.type==='ambient'}<SunDim size={15}/>{:else}<Sun size={15}/>{/if}{:else if entity.kind==='haze'}<CloudFog size={15}/>{:else if entity.kind==='fpsCounter'}<Gauge size={15}/>{:else if entity.kind==='vmcSender'}<Send size={15}/>{:else if entity.kind==='screen'}<Image size={15}/>{:else}<Box size={15}/>{/if}<span>{entity.name}</span>
        </button>{/if}
