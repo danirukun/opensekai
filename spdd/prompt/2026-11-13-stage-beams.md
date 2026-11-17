@@ -67,6 +67,12 @@ R9. The beam value at a point of the cone surface is `color × BEAM_BASE × axis
 
 One pure module (`beam-math.ts`) holds these functions and constants. It is the CPU reference of the material, and the material uses its constants.
 
+R9a. The surface normal of R9 `edge` is the exact normal of the cone surface. The material calculates it in each fragment from the local position, `normalize(x, y, √(x² + y²))` in the cone space of R7 (`beamConeNormal`). It then transforms it to view space with the normal matrix. The interpolated vertex normal is not used.
+
+Cause (the 2026-11-17 macOS check, `docs/evaluation/stage-beams/banding-obs.png`): the beam showed vertical bands in OBS. three.js r187 makes a cone with a top radius of 0 from one triangle per segment, and the apex vertex of that triangle has the normal of the next segment. The interpolated normal is therefore discontinuous at each segment edge, and the step increases toward the apex. The capture agrees with this cause, not with 8-bit quantization. On a row of the capture, the values are flat for 10 to 28 px, and adjacent flat runs differ by 3 to 8 levels, not by 1. The row nearer the apex has 83 runs, and the row farther from the apex has 39. A row has about 24 bands, which is 48 segments / 2, because a front segment edge and a back segment edge project to the same place. The center band is 26 px wide; the 7.5° segment angle predicts about 28 px.
+
+R9b. A beam has no visible banding. Check: in the OBS output, the bands of the capture above are gone at the Wide camera of the fixture show (LC4), and a row through a beam has no flat runs with steps of more than 2 levels. The unit test of `beamConeNormal` makes sure that the normal is perpendicular to the cone surface and is continuous across a segment edge.
+
 ### Renderer
 
 R10. Each drawn beam is an open cone mesh on `BEAM_LAYER` only. Both faces draw. The material is unlit and additive, with no depth test and no depth write. A beam mesh does not cast or receive a shadow. The scene pass, the haze pass, and each shadow pass do not draw it. It is not a pick target in the editor viewport.
