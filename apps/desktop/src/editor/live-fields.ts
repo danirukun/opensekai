@@ -17,6 +17,9 @@ export function sourceOptions(entities:readonly SceneEntity[],channel:SourceChan
  const used=new Set(avatars.filter(avatar=>avatar.id!==avatarId).flatMap(avatar=>[avatar.tracking?.bodySourceId,avatar.tracking?.faceSourceId,avatar.tracking?.fingersSourceId]));
  return [{value:'',label:'None',disabled:false},...entities.filter(entity=>entity.kind==='tracking'&&(channel==='face'||!FACE_ONLY_TRACKING_KINDS.includes(entity.config.kind))).map(entity=>({value:entity.id,label:entity.name,disabled:entity.id!==own&&used.has(entity.id)}))];
 }
+// The characters that bind a source in any slot.
+export const sourceUsers=(scene:{entities:readonly SceneEntity[]},sourceId:string):string[]=>
+ scene.entities.flatMap(entity=>entity.kind==='avatar'&&[entity.tracking?.bodySourceId,entity.tracking?.faceSourceId,entity.tracking?.fingersSourceId].includes(sourceId)?[entity.id]:[]);
 // One select changes one slot; the other two keep their IDs, and the body group stays. An empty finger slot is left out.
 export function withSource(tracking:AvatarTracking|undefined,channel:SourceChannel,value:string):AvatarTracking {
  const next={bodySourceId:tracking?.bodySourceId??null,faceSourceId:tracking?.faceSourceId??null,fingersSourceId:tracking?.fingersSourceId??null,[slot[channel]]:value||null};

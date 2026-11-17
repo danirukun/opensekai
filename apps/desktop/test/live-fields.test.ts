@@ -1,6 +1,6 @@
 import type {SceneEntity,TrackingStatus,TrackingConfig} from '@opensekai/contracts';
 import {describe,it,expect} from 'vitest';
-import {parseLens,reconcileDraft,sourceOptions,parseTrackingConfig,matchingStatus,initialTrackingDraft,cameraOptions} from '../src/editor/live-fields';
+import {parseLens,reconcileDraft,sourceOptions,parseTrackingConfig,matchingStatus,initialTrackingDraft,cameraOptions,sourceUsers} from '../src/editor/live-fields';
 describe('live property drafts',()=>{
  it('validates the complete lens',()=>{expect(parseLens({fovDegrees:'60',near:'0.1',far:'100'})).toEqual({fovDegrees:60,near:.1,far:100});for(const values of [{fovDegrees:'',near:'1',far:'2'},{fovDegrees:'180',near:'1',far:'2'},{fovDegrees:'60',near:'2',far:'2'}])expect(parseLens(values)).toBeNull();});
  it('retains ordinary drafts through equal polls and resets on revision or selection change',()=>{const draft={value:'unfinished'};expect(reconcileDraft('a:2',{entityId:'a',revision:2},draft,{value:'base'}).values).toBe(draft);expect(reconcileDraft('a:2',{entityId:'a',revision:3},draft,{value:'base'}).values).toEqual({value:'base'});expect(reconcileDraft('a:2',{entityId:'b',revision:2},draft,{value:'base'}).values).toEqual({value:'base'});});
@@ -38,4 +38,11 @@ it('keeps a FaceKit config as it is and gives it empty address drafts',()=>{
  expect(parseTrackingConfig(config,{bindAddress:'',port:'',address:''})).toEqual(config);
  const draft=initialTrackingDraft(config);
  expect([draft.bindAddress,draft.port,draft.address]).toEqual(['','','']);
+});
+it('lists the characters that bind a source in any slot',()=>{
+ const avatar=(id:string,tracking?:{bodySourceId:string|null;faceSourceId:string|null;fingersSourceId?:string|null})=>({id,kind:'avatar',name:id,tracking});
+ const entities=[{id:'s',kind:'tracking',name:'VMC'},avatar('a',{bodySourceId:null,faceSourceId:'s'}),avatar('b',{bodySourceId:null,faceSourceId:null,fingersSourceId:'s'}),avatar('c',{bodySourceId:'t',faceSourceId:null}),avatar('d')] as SceneEntity[];
+ expect(sourceUsers({entities},'s')).toEqual(['a','b']);
+ expect(sourceUsers({entities},'t')).toEqual(['c']);
+ expect(sourceUsers({entities},'free')).toEqual([]);
 });

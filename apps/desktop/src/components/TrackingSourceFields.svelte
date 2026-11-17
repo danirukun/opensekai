@@ -9,7 +9,7 @@
  import {addressKey,parseTrackingConfig,reconcileDraft,matchingStatus,initialTrackingDraft,type Commit} from '../editor/live-fields';
  import ResetMark from './ResetMark.svelte';
  import {NO_MARKS,type ResetMarks} from '../editor/property-defaults';
- let {marks=NO_MARKS,entityId,config,generation,revision,disabled=false,oncommit,ontoggle,statuses=[],localAddresses=[],devices=[],faceKit=null,calibrated=false,oncalibrate,onresetcalibration}:{faceKit?:FaceKitCommands|null;marks?:ResetMarks;calibrated?:boolean;oncalibrate?:(id:string,revision:number)=>Promise<Reply<unknown>|undefined>;onresetcalibration?:(id:string,revision:number)=>Promise<Reply<unknown>|undefined>;entityId:string;config:TrackingConfig;generation:number;revision:number;disabled?:boolean;oncommit?:Commit<TrackingConfig>;ontoggle?:(id:string,enabled:boolean,revision:number)=>Promise<unknown>;statuses?:TrackingStatus[];localAddresses?:string[];devices?:{deviceId:string;label:string}[]}=$props();
+ let {marks=NO_MARKS,entityId,config,generation,revision,disabled=false,oncommit,ontoggle,statuses=[],localAddresses=[],devices=[],faceKit=null,calibrated=false,unused=false,oncalibrate,onresetcalibration}:{faceKit?:FaceKitCommands|null;unused?:boolean;marks?:ResetMarks;calibrated?:boolean;oncalibrate?:(id:string,revision:number)=>Promise<Reply<unknown>|undefined>;onresetcalibration?:(id:string,revision:number)=>Promise<Reply<unknown>|undefined>;entityId:string;config:TrackingConfig;generation:number;revision:number;disabled?:boolean;oncommit?:Commit<TrackingConfig>;ontoggle?:(id:string,enabled:boolean,revision:number)=>Promise<unknown>;statuses?:TrackingStatus[];localAddresses?:string[];devices?:{deviceId:string;label:string}[]}=$props();
  const base=()=>initialTrackingDraft(config);
  let draft=$state(untrack(base)),invalid=$state(false);let key:string|null=null;
  const status=$derived(matchingStatus(statuses,entityId,generation));
@@ -38,6 +38,7 @@
  function apply(){const parsed=parseTrackingConfig(draft.config,draft);invalid=!parsed;if(parsed)void oncommit?.(entityId,parsed,revision);}
 </script>
 <form onsubmit={event=>{event.preventDefault();apply();}}><fieldset disabled={disabled||!oncommit}>
+ {#if unused}<p class="private">No character uses this source. Use Set up tracking on a character.</p>{/if}
  {#snippet mark(id:string,label:string)}{#if marks.changed.has(id)}<ResetMark {label} disabled={marks.disabled} onreset={()=>reset(id)}/>{/if}{/snippet}
  {#if draft.config.kind==='mediapipe'}<Select label="Camera" bind:value={draft.config.deviceId} {options}/>{#each [['face','Face'],['upperBody','Upper body'],['hands','Hands'],['mirror','Mirror']] as const as [option,label] (option)}<div class="resettable"><label class="option"><input type="checkbox" checked={draft.config[option]} onchange={event=>{if(draft.config.kind==='mediapipe')draft.config[option]=event.currentTarget.checked;}}/>{label}</label>{@render mark(option,label)}</div>{/each}
  {:else if draft.config.kind==='facekit'}<Select label="Camera" bind:value={draft.config.deviceId} {options}/><p class="private">Uses a private macOS API. It can stop after a macOS update.</p>

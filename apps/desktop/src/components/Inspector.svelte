@@ -7,7 +7,7 @@
  import AvatarMeshFields from './AvatarMeshFields.svelte';
  import {hasTriggerableExpressions} from '../editor/expressions';
  import type { EditorPanelProps } from '../editor/model';
- import {antiAliasingOptions,matchingStatus,settleCheckbox,type LivePropertyCallbacks} from '../editor/live-fields';
+ import {antiAliasingOptions,matchingStatus,settleCheckbox,sourceUsers,type LivePropertyCallbacks} from '../editor/live-fields';
  import { Select } from '@oshi-connect/ui';
  import { CameraAntiAliasingSchema } from '@opensekai/contracts';
  import CameraLensFields from './CameraLensFields.svelte';
@@ -140,7 +140,7 @@
    {:else if id==='meshes'}<AvatarMeshFields meshes={avatarMeshes} hidden={entity.hiddenMeshes} disabled={view.pending||livePending||disabled} oncommit={hidden=>model.setHiddenMeshes(entity!.id,hidden,view.scene?.revision)}/>
    {:else if id==='tracking'}<AvatarSourceFields marks={marks!} entityId={entity.id} tracking={entity.tracking} idleAnimation={entity.idleAnimation} onidle={onavataridle} entities={scene.entities} revision={scene.revision} disabled={view.pending||livePending||disabled} oncommit={onavatartracking} {onguide}/>{/if}
   {:else if entity.kind==='tracking'}
-   {#if id==='receiver'}<TrackingSourceFields marks={marks!} entityId={entity.id} config={entity.config} generation={entity.generation} revision={scene.revision} disabled={view.pending||disabled} oncommit={ontrackingconfig} ontoggle={ontrackingtoggle} statuses={trackingStatus} {localAddresses} {devices} calibrated={entity.calibration!==undefined} oncalibrate={ontrackingcalibrate} onresetcalibration={ontrackingcalibrationreset} {faceKit}/>
+   {#if id==='receiver'}<TrackingSourceFields marks={marks!} entityId={entity.id} config={entity.config} generation={entity.generation} revision={scene.revision} disabled={view.pending||disabled} oncommit={ontrackingconfig} ontoggle={ontrackingtoggle} statuses={trackingStatus} {localAddresses} {devices} calibrated={entity.calibration!==undefined} oncalibrate={ontrackingcalibrate} onresetcalibration={ontrackingcalibrationreset} {faceKit} unused={sourceUsers(scene,entity.id).length===0}/>
    {:else if id==='smoothing'}<TrackingSmoothingFields entityId={entity.id} smoothing={entity.smoothing} revision={scene.revision} marks={marks!} disabled={busy||disabled} oncommit={ontrackingsmoothing} onlive={(id,smoothing)=>live(id,revision=>model.setTrackingSmoothing(id,smoothing,revision,true))} onliveend={onlivefieldend}/>
    {:else if id==='face'}<TrackingMappingFields entityId={entity.id} mapping={entity.mapping} revision={scene.revision} marks={marks!} disabled={busy||disabled} oncommit={ontrackingmapping}/>
    {:else if id==='diagnostics'}<TrackingDiagnostics kind={entity.config.kind} generation={entity.generation} status={matchingStatus(trackingStatus,entity.id,entity.generation)}/>{/if}

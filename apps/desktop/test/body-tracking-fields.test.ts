@@ -58,6 +58,6 @@ it('keeps the body group on a duplicate and on a guide cancel (R9)',()=>{
  performer.tracking={bodySourceId:'vmc',faceSourceId:null,body};
  const copy=makeEntityCopy(performer,'copy',scene.entities);
  expect(copy.kind==='avatar'&&copy.tracking).toEqual({bodySourceId:null,faceSourceId:null,body});
- const operations=planCancel(scene,{avatarId:'performer',tracking:{bodySourceId:null,faceSourceId:null,body},sourceId:'vmc',created:false,mapping:undefined},false);
+ const operations=planCancel(scene,{avatarId:'performer',tracking:{bodySourceId:null,faceSourceId:null,body},created:[],sources:{}});
  expect(operations.find(operation=>operation.kind==='setAvatarTracking')).toMatchObject({tracking:{bodySourceId:null,faceSourceId:null,body}});
 });

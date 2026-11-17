@@ -1,11 +1,17 @@
 import { expect, it } from 'vitest';
 import { DEFAULT_TRACKING_MAPPING, TRACKING_PRESETS, type TrackingMapping, type TrackingProbe } from '@opensekai/contracts';
 import { initialGuide, type GuideState } from '../src/editor/tracking-guide';
-import { groupLevel, rankAddresses, relaxSecondsLeft, stepProgress, waitsForNext } from '../src/editor/tracking-guide-view';
+import { groupLevel, rankAddresses, relaxHeading, relaxSecondsLeft, stepProgress, waitsForNext } from '../src/editor/tracking-guide-view';
 
 const preset = TRACKING_PRESETS[0]!;
 const probe = (over: Partial<TrackingProbe> = {}): TrackingProbe => ({ sourceId: 'src', generation: 1, state: 'receiving', values: {}, peaks: {}, presentChannels: [], eyeBones: false, ...over });
-const at = (over: Partial<GuideState>): GuideState => ({ ...initialGuide(), preset, sourceId: 'src', ...over });
+const at = (over: Partial<GuideState>): GuideState => ({ ...initialGuide(), parts: [{ preset, roles: ['face', 'body', 'fingers'], sourceId: 'src' }], faceSourceId: 'src', ...over });
+
+it('names the relax step after the parts: the face when a face part exists, the posture otherwise', () => {
+ expect(relaxHeading([{ roles: ['face'] }, { roles: ['body', 'fingers'] }])).toBe('Relax your face');
+ expect(relaxHeading([{ roles: ['face', 'body'] }])).toBe('Relax your face');
+ expect(relaxHeading([{ roles: ['body', 'fingers'] }])).toBe('Sit straight');
+});
 
 it('counts the relax seconds down from 3 to 0', () => {
  const s = at({ step: 'relax', relaxStartMs: 1000 });
