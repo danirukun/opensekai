@@ -1,6 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/server';
 import { type AppApi, type CaptureRecord, type EvidenceManifest, type SceneView } from '@opensekai/contracts';
-import { failure, invokeTool, ParamSchemas, respond, toolMethods, YouTubeLinkParams, youtubeLinkTool } from './tools';
+import { failure, inputSchema, invokeTool, respond, toolMethods, YouTubeLinkParams, youtubeLinkTool } from './tools';
 import { registerAssistTools } from './assist-tools';
 import { BlueprintExportParams, BlueprintImportParams, exportBlueprintTool, importBlueprintTool } from './blueprint-files';
 import { registerResources } from './resources';
@@ -9,7 +9,7 @@ export function createMcpServer(api: AppApi, readResource: (uri: string) => Prom
  const server = new McpServer({name:'opensekai',version:'0.1.0'});
  const resources = registerResources(server, api, readResource);
  for (const [name, method] of Object.entries(toolMethods)) {
-  server.registerTool(name, {description:descriptions[name] ?? `OpenSekai ${name.replaceAll('_', ' ')}`, inputSchema:ParamSchemas[method]}, async (params: unknown) => {
+  server.registerTool(name, {description:descriptions[name] ?? `OpenSekai ${name.replaceAll('_', ' ')}`, inputSchema:inputSchema(method)}, async (params: unknown) => {
    let reply = await invokeTool(api, method, params);
    if (reply.ok) {
     try {

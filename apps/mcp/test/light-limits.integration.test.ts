@@ -41,13 +41,19 @@ it('refuses a ninth lit light, a 33rd light, and an affect flag on at 8 lit ligh
  } finally { await client.close(); }
 }, 15000);
 
-it('refuses a scene replace with 9 lit lights and replaces the scene with the Stage Rig scene', async () => {
+it('refuses a scene replace over each light limit with its message and replaces the scene with the Stage Rig scene', async () => {
  const { client, call } = await connect();
+ const sceneWith = (lights: unknown[]) => { const scene = makeSmokeScene(); scene.entities.push(...lights as never[]); return scene; };
+ const group = (count: number, prefix: string, patch: Record<string, unknown> = {}) => Array.from({ length: count }, (_, i) => light(`${prefix}_${i}`, patch));
  try {
-  const nine = makeSmokeScene();
-  nine.entities.push(...Array.from({ length: 9 }, (_, i) => light(`lit_${i}`)) as never[]);
-  // The MCP SDK checks the tool input schema before the handler, so the refusal is a tool error whose text has the message.
-  expect(await client.callTool({ name: 'scene_replace', arguments: { scene: nine, expectedRevision: 0 } })).toMatchObject({ isError: true, content: [{ text: expect.stringContaining(M.litLights) }] });
+  for (const [scene, message] of [
+   [sceneWith(group(9, 'lit')), M.litLights],
+   [sceneWith([...group(8, 'lit'), ...group(25, 'unlit', off)]), M.lights],
+   [sceneWith(group(3, 'shadow', { ...off, shadow: { ...shadow, enabled: true } })), M.shadowLights],
+  ] as const) {
+   const reply = await client.callTool({ name: 'scene_replace', arguments: { scene, expectedRevision: 0 } });
+   expect(reply).toMatchObject({ isError: true, structuredContent: refused(message) });
+  }
   expect((await call('scene_inspect', { sceneId: 'scene_smoke' })).data.revision).toBe(0);
   const rig = JSON.parse(readFileSync(new URL('../../../fixtures/shows/stage-rig.osekai', import.meta.url), 'utf8'));
   expect(await call('scene_replace', { scene: rig.scene, expectedRevision: 0 })).toMatchObject({ ok: true });

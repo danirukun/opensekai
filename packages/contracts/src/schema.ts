@@ -279,7 +279,8 @@ export const OutputSpecSchema = z.strictObject({
     fps: z.union(OUTPUT_FRAME_LIMITS.map(fps => z.literal(fps))),
     renderScale: z.union(OUTPUT_RENDER_SCALES.map(scale => z.literal(scale))).optional()
 }).refine(isOutputSize, 'Invalid output size');
-export const SceneViewSchema = z.strictObject({
+// The scene shape and reference checks without the light budget; SceneViewSchema adds the budget.
+const SceneViewShapeSchema = z.strictObject({
     schemaVersion: z.literal(1),
     sceneId: IdSchema,
     revision: u,
@@ -301,13 +302,13 @@ export const SceneViewSchema = z.strictObject({
  if(new Set(s.entities.map(e=>e.id)).size!==s.entities.length||new Set(s.outputs.map(o=>o.id)).size!==s.outputs.length||!s.outputs.every(o=>s.entities.some(e=>e.id===o.cameraId&&e.kind==='camera')))return false;
  // Only the face slot (index 1) accepts an iFacialMocap source.
  return s.entities.every(e=>e.kind!=='avatar'||!e.tracking||[e.tracking.bodySourceId,e.tracking.faceSourceId,e.tracking.fingersSourceId??null].every((id,index)=>id===null||sources.some(source=>source.id===id&&(index===1||!FACE_ONLY_TRACKING_KINDS.includes(source.config.kind)))));
-}, 'Duplicate ID, budget or invalid reference').superRefine((s, ctx) => {
+}, 'Duplicate ID, budget or invalid reference');
+export const SceneViewSchema = SceneViewShapeSchema.superRefine((s, ctx) => {
     const message = lightBudgetError(s.entities);
     if (message) ctx.addIssue({ code: 'custom', message, path: ['entities'] });
 });
-export const ShowSceneSchema = SceneViewSchema.refine(scene =>
-    ['output_main', 'preview_main'].every(id => scene.outputs.some(output => output.id === id)),
-    'Show requires main and preview outputs');
+const hasShowOutputs = (scene: { outputs: { id: string }[] }) => ['output_main', 'preview_main'].every(id => scene.outputs.some(output => output.id === id));
+export const ShowSceneSchema = SceneViewSchema.refine(hasShowOutputs, 'Show requires main and preview outputs');
 export const ShowDocumentSchema = z.strictObject({
     schemaVersion: z.literal(1),
     name: z.string().trim().min(1).max(128),
@@ -742,6 +743,9 @@ export const MethodSchema = z.enum([
     "cameraScreenshot",
     "integrationsSet"
 ]);
+// The MCP input schema of scene_replace: ParamSchemas.sceneReplace without the light budget check.
+// The MCP SDK checks the input schema before the tool runs, so the budget check stays in validateCall, which gives the budget message as a structured INVALID_INPUT reply.
+export const SceneReplaceInputSchema = z.strictObject({ scene: SceneViewShapeSchema.refine(hasShowOutputs, 'Show requires main and preview outputs'), expectedRevision: u });
 export function validateCall(method: unknown, params: unknown): Reply<ValidatedCall> {
     const m = MethodSchema.safeParse(method);
     if (m.success) {
