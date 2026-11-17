@@ -658,8 +658,9 @@ pub enum SceneEntity {
         anti_aliasing: Option<CameraAntiAliasing>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         grading: Option<CameraGrading>,
+        // Boxed: the group is large and most cameras do not have it.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        effects: Option<CameraEffects>,
+        effects: Option<Box<CameraEffects>>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         navigation: Option<CameraNavigation>,
     },
@@ -892,7 +893,7 @@ pub enum PatchOp {
         entity_id: Id,
         /// Required; null removes the group.
         #[serde(deserialize_with = "nullable")]
-        effects: Option<CameraEffects>,
+        effects: Option<Box<CameraEffects>>,
     },
     SetCameraNavigation {
         #[serde(rename = "entityId")]
