@@ -35,18 +35,22 @@ const bodyPreset=(choice:SetupChoice):TrackingPresetId|null=>
  choice.body==='none'?null:choice.body==='same'?(NO_SAME.includes(choice.face)?null:choice.face as TrackingPresetId):choice.body;
 
 export const showsHands=(choice:SetupChoice):boolean=>bodyPreset(choice)==='webcam';
-export const canContinue=(choice:SetupChoice):boolean=>!(choice.face==='none'&&choice.body==='none');
+// Next needs a source, and an option that the lists offer and do not disable.
+const offered=<T extends string>(options:readonly ChoiceOption<T>[],value:T)=>options.some(o=>o.value===value&&!o.disabled);
+export const canContinue=(choice:SetupChoice,faces:readonly ChoiceOption<FaceChoice>[],bodies:readonly ChoiceOption<BodyChoice>[]):boolean=>
+ !(choice.face==='none'&&choice.body==='none')&&offered(faces,choice.face)&&offered(bodies,choice.body);
 
-const choiceOf=(config:TrackingConfig):Exclude<FaceChoice,'none'>=>
+export const choiceOf=(config:TrackingConfig):Exclude<FaceChoice,'none'>=>
  config.kind==='vmc'?(config.positions==='rotationsOnly'?'selfreflect':'vmc'):config.kind==='mediapipe'?'webcam':config.kind;
 
 // A character with no face and no body source starts at the webcam (owner question Q1, answer a).
-// Hands is on unless a bound webcam source is missing from the fingers slot.
-export function initialChoice(scene:SceneView,avatarId:Id):SetupChoice {
+// Hands is on unless a bound webcam source is missing from the fingers slot. FaceKit runs only on macOS.
+export function initialChoice(scene:SceneView,avatarId:Id,isMac:boolean):SetupChoice {
  const tracking=avatarOf(scene,avatarId)?.tracking;
  const face=sourceOf(scene,tracking?.faceSourceId),body=sourceOf(scene,tracking?.bodySourceId);
  if(!face&&!body)return {face:'webcam',body:'same',hands:true};
- const faceChoice:FaceChoice=face?choiceOf(face.config):'none';
+ const faceKind=face?choiceOf(face.config):'none';
+ const faceChoice:FaceChoice=faceKind==='facekit'&&!isMac?'none':faceKind;
  const bodyKind=body?choiceOf(body.config):'none';
  const bodyChoice:BodyChoice=body&&body.id===face?.id?'same':bodyKind==='webcam'||bodyKind==='selfreflect'||bodyKind==='vmc'?bodyKind:'none';
  const webcam=[body,face].find(s=>s?.config.kind==='mediapipe');

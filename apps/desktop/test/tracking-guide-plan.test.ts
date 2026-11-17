@@ -154,11 +154,11 @@ it('reuse order: an unbound same-kind source comes next, one on the preset port 
  expect(ready(planSetup(onlyTheirs, 'b', [part(selfReflect)], null, undefined, 'new')).parts.map(p => [p.sourceId, p.created])).toEqual([['new', true]]);
 });
 
-it('one source never serves two parts', () => {
+it('one source never serves two parts; the own SelfReflect source stays with the SelfReflect part', () => {
  const scene = sceneOf(source('v', 'vmc', {}, vmc39539()), avatar('a', { bodySourceId: 'v', faceSourceId: 'v', fingersSourceId: 'v' }));
  const plan = ready(planSetup(scene, 'a', resolveSetup({ face: 'vmc', body: 'selfreflect', hands: true }), null, undefined, 'new'));
- expect(plan.parts.map(p => [p.sourceId, p.created, p.port])).toEqual([['v', false, 39539], ['new', true, 39540]]);
- expect(find(apply(scene, plan.ops), 'a', 'avatar').tracking).toEqual({ bodySourceId: 'new', faceSourceId: 'v', fingersSourceId: 'new' });
+ expect(plan.parts.map(p => [p.sourceId, p.created, p.port])).toEqual([['new', true, 39540], ['v', false, 39539]]);
+ expect(find(apply(scene, plan.ops), 'a', 'avatar').tracking).toEqual({ bodySourceId: 'v', faceSourceId: 'new', fingersSourceId: 'v' });
 });
 
 it('an own VMC source does not move onto a port that a free unaddressed source holds; it takes the next free port', () => {
@@ -400,3 +400,37 @@ it('cancel: a missing source has no operation for it; a missing avatar still rem
  expect(planCancel(sceneOf(held), { ...snapshot, created: ['s1'] })).toEqual([{ kind: 'removeEntity', entityId: 's1' }]);
 });
 
+
+it('does not reuse a source that another character also binds: A and B share S, and a run on A leaves S as it was', () => {
+ const shared = source('s', 'vmc', {}, vmc39539());
+ const scene = sceneOf(shared, avatar('a', { bodySourceId: 's', faceSourceId: 's' }), avatar('b', { bodySourceId: 's', faceSourceId: 's' }));
+ const plan = ready(planSetup(scene, 'a', [part(otherVmc, ['face'])], null, undefined, 'new'));
+ expect(plan.parts).toMatchObject([{ sourceId: 'new', created: true, port: 39540 }]);
+ expect(plan.ops.filter(o => 'entityId' in o && o.entityId === 's')).toEqual([]);
+ expect(plan.released).toEqual([]);
+ const out = applyOperations(scene, plan.ops, 7);
+ expect(out.ok).toBe(true);
+ const next = (out as { ok: true; data: SceneView }).data;
+ expect(find(next, 's', 'tracking')).toEqual(find(scene, 's', 'tracking'));
+ expect(find(next, 'b', 'avatar')).toEqual(find(scene, 'b', 'avatar'));
+});
+
+it('gives the own SelfReflect source to the SelfReflect body part, not to an Other VMC app face part before it', () => {
+ const scene = sceneOf(source('x', 'vmc', {}, vmc39539()), avatar('a', { bodySourceId: 'x', faceSourceId: 'x', fingersSourceId: 'x' }));
+ const plan = ready(planSetup(scene, 'a', [part(otherVmc, ['face']), part(selfReflect, ['body', 'fingers'])], null, undefined, 'new'));
+ expect(plan.parts.map(p => [p.preset.id, p.sourceId, p.created, p.port])).toEqual([['vmc', 'new', true, 39540], ['selfreflect', 'x', false, 39539]]);
+ expect(plan.ops.filter(o => o.kind === 'setTrackingConfig' && o.entityId === 'x')).toEqual([]);
+ const out = apply(scene, plan.ops);
+ expect(find(out, 'x', 'tracking').config).toMatchObject({ port: 39539, positions: 'rotationsOnly' });
+ expect(find(out, 'a', 'avatar').tracking).toMatchObject({ bodySourceId: 'x', faceSourceId: 'new', fingersSourceId: 'x' });
+});
+
+it('does not take the port of an enabled VMC sender that sends to this computer', () => {
+ const sender = (id: string, address: string, port: number, enabled = true): SceneEntity => ({ ...(makeAuthoringEntity('vmcSender', id, []) as Extract<SceneEntity, { kind: 'vmcSender' }>), vmcSender: { enabled, address, port, avatarId: null } });
+ const portFor = (...entities: SceneEntity[]) => ready(planSetup(sceneOf(...entities, avatar('a')), 'a', [part(selfReflect)], null, undefined, 'new')).parts[0]!.port;
+ expect(portFor(sender('o', '127.0.0.1', 39539))).toBe(39540);
+ expect(portFor(sender('o', 'localhost', 39539), sender('p', '::1', 39540))).toBe(39541);
+ expect(portFor(sender('o', '127.0.0.1', 39539), source('s', 'ifacialmocap', {}, { kind: 'ifacialmocap', enabled: false, bindAddress: '0.0.0.0', port: 39540, phoneAddress: null }))).toBe(39541);
+ expect(portFor(sender('o', '192.168.1.20', 39539))).toBe(39539);
+ expect(portFor(sender('o', '127.0.0.1', 39539, false))).toBe(39539);
+});

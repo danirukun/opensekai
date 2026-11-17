@@ -1,6 +1,6 @@
 import {DEFAULT_TRACKING_MAPPING,type AvatarTracking,type Id,type PatchOp,type SceneEntity,type SceneView,type TrackingConfig,type TrackingMapping,type TrackingPreset,type TrackingSmoothing} from '@opensekai/contracts';
 import {makeAuthoringEntity} from './authoring';
-import type {SetupPart,SetupRole} from './tracking-guide-setup';
+import {choiceOf,type SetupPart,type SetupRole} from './tracking-guide-setup';
 
 export interface PlannedPart {preset:TrackingPreset;roles:SetupRole[];sourceId:Id;created:boolean;port:number|null}
 export type SetupPlan={ops:PatchOp[];parts:PlannedPart[];released:Id[];needsPhone:boolean}|{blocked:'sourceLimit'};
@@ -17,6 +17,9 @@ const avatars=(scene:SceneView)=>scene.entities.filter((e):e is Avatar=>e.kind==
 const boundIds=(t:AvatarTracking|undefined):Id[]=>t?[t.bodySourceId,t.faceSourceId,t.fingersSourceId??null].filter((id):id is Id=>id!==null):[];
 const portOf=(config:TrackingConfig)=>'port' in config?config.port:null;
 const addressOf=(c:TrackingConfig)=>c.kind==='vmc'||c.kind==='openseeface'?c.senderAddress:c.kind==='ifacialmocap'?c.phoneAddress:null;
+// A VMC sender of this app that sends to this computer uses its port.
+const LOCAL=new Set(['127.0.0.1','localhost','::1']);
+const senderPorts=(scene:SceneView)=>new Set(scene.entities.flatMap(e=>e.kind==='vmcSender'&&e.vmcSender.enabled&&LOCAL.has(e.vmcSender.address.toLowerCase())?[e.vmcSender.port]:[]));
 const emptyTracking=():AvatarTracking=>({bodySourceId:null,faceSourceId:null});
 const sameJson=(a:unknown,b:unknown)=>JSON.stringify(a)===JSON.stringify(b);
 
@@ -42,21 +45,24 @@ function targetConfig(base:TrackingConfig,port:number|null,phoneAddress:string|n
 
 const roleSlots=(roles:readonly SetupRole[])=>roles.map(role=>SLOT_KEY[role]);
 
-// Source order for each part: a same-kind source of this character (in each part's own slots in a first pass, then in any slot),
-// then a free same-kind source (one on the preset port first), then a new source.
-// A source of another character is never taken, and one source serves one part.
+// Source order for each part: a same-kind source of this character only (in the part's own slots with its own preset first,
+// then in its own slots, then in any slot), then a free same-kind source (one on the preset port first), then a new source.
+// A source that another character also binds is never taken, and one source serves one part.
 function selectSources(scene:SceneView,avatar:Avatar,parts:readonly SetupPart[]):(Source|undefined)[] {
  const taken=new Set<Id>();
  const anyBound=new Set(avatars(scene).flatMap(a=>boundIds(a.tracking)));
- const own=boundIds(avatar.tracking);
+ const others=new Set(avatars(scene).filter(a=>a.id!==avatar.id).flatMap(a=>boundIds(a.tracking)));
+ const own=boundIds(avatar.tracking).filter(id=>!others.has(id));
+ const inSlots=(part:SetupPart,sameKind:Source[])=>roleSlots(part.roles).map(key=>avatar.tracking?.[key]).flatMap(id=>sameKind.filter(s=>s.id===id&&own.includes(s.id)));
  const chosen:(Source|undefined)[]=parts.map(()=>undefined);
  const pass=(pick:(part:SetupPart,sameKind:Source[])=>Source|undefined)=>parts.forEach((part,index)=>{
   if(chosen[index])return;
   const found=pick(part,sources(scene).filter(s=>s.config.kind===part.config.kind&&!taken.has(s.id)));
   if(found){chosen[index]=found;taken.add(found.id);}
  });
- pass((part,sameKind)=>roleSlots(part.roles).map(key=>avatar.tracking?.[key]).flatMap(id=>sameKind.filter(s=>s.id===id))[0]);
- pass((_,sameKind)=>sameKind.find(s=>own.includes(s.id)));
+ pass((part,sameKind)=>inSlots(part,sameKind).find(s=>choiceOf(s.config)===part.preset.id));
+ pass((part,sameKind)=>inSlots(part,sameKind)[0]);
+ pass((part,sameKind)=>{const held=sameKind.filter(s=>own.includes(s.id));return held.find(s=>choiceOf(s.config)===part.preset.id)??held[0];});
  pass((part,sameKind)=>{const free=sameKind.filter(s=>!anyBound.has(s.id));return free.find(s=>portOf(s.config)===portOf(part.config))??free[0];});
  return chosen;
 }
@@ -74,6 +80,7 @@ export function planSetup(scene:SceneView,avatarId:Id,parts:readonly SetupPart[]
  const released=[...new Set(boundIds(avatar.tracking))].filter(id=>!kept.has(id)&&!othersBind.has(id)).flatMap(id=>sources(scene).filter(s=>s.id===id&&s.config.enabled).map(s=>s.id));
 
  // The working configs: each part sees the endpoints of the parts before it, and a released source is off.
+ const senders=senderPorts(scene);
  const configs=new Map<Id,TrackingConfig>(sources(scene).map(s=>[s.id,released.includes(s.id)?{...s.config,enabled:false}:s.config]));
  const entities:SceneEntity[]=[...scene.entities];
  const ops:PatchOp[]=[];
@@ -87,6 +94,7 @@ export function planSetup(scene:SceneView,avatarId:Id,parts:readonly SetupPart[]
   // The host share rule: the source may use a port only when every other enabled source on it
   // (bound or not) has the same kind and an address, and all addresses are distinct.
   const fits=(port:number)=>{
+   if(senders.has(port))return false;
    const rest=[...configs].filter(([id,c])=>id!==sourceId&&c.enabled&&portOf(c)===port).map(([,c])=>c);
    if(rest.length===0)return true;
    const addresses=[...rest.map(c=>c.kind===kind?addressOf(c):null),ownAddress];
@@ -96,7 +104,7 @@ export function planSetup(scene:SceneView,avatarId:Id,parts:readonly SetupPart[]
   if(presetPort!==null&&!fits(presetPort)){
    if(kind==='ifacialmocap')return {ops:[],parts:[],released:[],needsPhone:true};
    // Any tracking source counts as using a port, enabled or not.
-   const used=new Set([...configs].filter(([id])=>id!==sourceId).map(([,c])=>portOf(c)));
+   const used=new Set([...[...configs].filter(([id])=>id!==sourceId).map(([,c])=>portOf(c)),...senders]);
    port=presetPort+1;
    while(used.has(port))port++;
   }

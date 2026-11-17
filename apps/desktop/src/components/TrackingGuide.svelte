@@ -21,7 +21,7 @@
  const GROUPS=[['Eyes',EXPRESSION_STEPS.blink.main],['Mouth',EXPRESSION_STEPS.mouthWide.main],['Brows',EXPRESSION_STEPS.browsUp.main]] as const;
 
  let guide=$state.raw(initialGuide()),probes=$state.raw<Record<Id,TrackingProbe>>({}),now=$state(performance.now());
- let choice=$state<SetupChoice>(untrack(()=>view.scene?initialChoice(view.scene,avatarId):{face:'webcam',body:'same',hands:true})),limitReached=$state(false);
+ let choice=$state<SetupChoice>(untrack(()=>view.scene?initialChoice(view.scene,avatarId,isMac):{face:'webcam',body:'same',hands:true})),limitReached=$state(false);
  let askPhone=$state(false),phone=$state(''),phoneTaken=$state(false),planned=$state.raw<PlannedPart[]>([]),connecting=$state(false),retry=$state(false),error=$state<string|null>(null),probeError=$state<string|null>(null),closing=$state(false);
  let hostCameras=$state.raw<CameraDevice[]>([]),hostCamerasLoaded=false;
  let snapshot:GuideSnapshot|null=null,pendingParts:SetupPart[]=[],finished=false,resetNext=false,inFlight=false,probeFailures=0,avatarGone=false,timer:ReturnType<typeof setInterval>|undefined;
@@ -59,7 +59,8 @@
  }
  function next(){
   const scene=model.read().scene;if(!scene)return;
-  const parts=resolveSetup(choice);
+  if(!canContinue(choice,faces,bodies))return;
+ const parts=resolveSetup(choice);
   limitReached='blocked' in planSetup(scene,avatarId,parts,null,undefined,'limit-check');
   if(!limitReached)dispatch({kind:'pick',parts});
  }
@@ -162,7 +163,7 @@
   <div {@attach disableOptions(bodies)}><Select label="Body" value={choice.body} options={bodies} {disabled} onchange={event=>{choice={...choice,body:event.currentTarget.value as SetupChoice['body']};limitReached=false;}}/></div>
   {#if showsHands(choice)}<label class="option"><input type="checkbox" checked={choice.hands} {disabled} onchange={event=>{choice={...choice,hands:event.currentTarget.checked};}}/>Hands</label>{/if}
   {#if limitReached}<p role="alert">Tracking source limit reached</p>{/if}
-  <div class="actions"><Button variant="primary" disabled={disabled||!canContinue(choice)} onclick={next}>Next</Button></div>
+  <div class="actions"><Button variant="primary" disabled={disabled||!canContinue(choice,faces,bodies)} onclick={next}>Next</Button></div>
 
  {:else if guide.step==='connect'}
   {#if askPhone&&planned.length===0}
