@@ -1117,6 +1117,42 @@ pub fn asset_materials_ok(materials: &[AssetMaterial]) -> bool {
                     .all(|(key, value)| m.applies(key) && material_value_ok(key, value))
         })
 }
+// The `materialList` call of B38 R18. Keep in step with `MaterialListSchema`.
+object!(MaterialParameterView {
+    parameter: String,
+    model: MaterialValue
+});
+object!(MaterialListEntry {
+    name: String,
+    profile: MaterialProfile,
+    parameters: Vec<MaterialParameterView>
+});
+object!(MaterialList {
+    materials: Vec<MaterialListEntry>
+});
+object!(MaterialListParams { entity_id: Id });
+impl Validate for MaterialList {
+    fn validate(&self) -> Result<(), AppError> {
+        let value_ok = |view: &MaterialParameterView| {
+            MATERIAL_PARAMETERS
+                .iter()
+                .any(|(key, _)| *key == view.parameter)
+                && match &view.model {
+                    MaterialValue::Color(color) => light_color_ok(color),
+                    MaterialValue::Number(n) => n.is_finite(),
+                }
+        };
+        require(
+            self.materials.len() <= MAX_MATERIALS
+                && self.materials.iter().all(|m| {
+                    material_name_ok(&m.name)
+                        && m.parameters.len() <= MATERIAL_PARAMETERS.len()
+                        && m.parameters.iter().all(value_ok)
+                }),
+            "invalid material list",
+        )
+    }
+}
 object!(AssetExpression {
     name: String,
     preset: bool
@@ -3117,6 +3153,10 @@ pub fn validate_call(method: &str, params: &Value) -> Result<(), AppError> {
             let p = decode::<MeshListParams>(params)?;
             require(id_text_ok(&p.avatar_id), "invalid avatar ID")
         }
+        "materialList" => {
+            let p = decode::<MaterialListParams>(params)?;
+            require(id_text_ok(&p.entity_id), "invalid entity ID")
+        }
         "expressionSet" => {
             let p = decode::<ExpressionSetParams>(params)?;
             require(
@@ -3197,6 +3237,7 @@ pub fn validate_result(method: &str, result: &Value) -> Result<(), AppError> {
             | "expressionGet"
             | "expressionSet"
             | "meshList"
+            | "materialList"
             | "cameraScreenshot"
             | "integrationsSet"
     );
@@ -3229,6 +3270,7 @@ pub fn validate_result(method: &str, result: &Value) -> Result<(), AppError> {
         "assetList" => decode::<AssetList>(data)?.validate(),
         "expressionGet" | "expressionSet" => decode::<ExpressionState>(data)?.validate(),
         "meshList" => decode::<MeshList>(data)?.validate(),
+        "materialList" => decode::<MaterialList>(data)?.validate(),
         "cameraScreenshot" => decode::<CameraScreenshotResult>(data)?.validate(),
         "integrationsSet" => decode::<YouTubeStatus>(data)?.validate(),
         _ => unreachable!(),

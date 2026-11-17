@@ -21714,6 +21714,22 @@
     }
   },
   {
+    "name": "material-list-call",
+    "target": "wireText",
+    "valid": true,
+    "payload": "{\"kind\": \"call\", \"requestId\": \"r\", \"method\": \"materialList\", \"params\": {\"entityId\": \"reference\"}}"
+  },
+  {
+    "name": "material-list-avatar-id",
+    "target": "call",
+    "method": "materialList",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "avatarId": "performer"
+    }
+  },
+  {
     "name": "mesh-asset-duplicate",
     "target": "asset",
     "valid": false,

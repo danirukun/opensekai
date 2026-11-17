@@ -9,6 +9,8 @@ export type MaterialParameter = typeof MATERIAL_PARAMETER_KEYS[number];
 export type MaterialModel = Partial<Record<MaterialParameter, string | number>>;
 export interface MaterialShape { profile: MaterialProfile; blend: boolean; outline: boolean }
 export interface AssetMaterial extends MaterialShape { index: number; name: string; model: MaterialModel }
+export interface MaterialParameterView { parameter: MaterialParameter; model: string | number }
+export interface MaterialList { materials: { name: string; profile: MaterialProfile; parameters: MaterialParameterView[] }[] }
 
 type Spec = {
  key: MaterialParameter;
@@ -56,3 +58,20 @@ export const AssetMaterialSchema = z.strictObject({
  model: MaterialModelSchema,
 }).refine(m => (!m.outline || m.profile === 'mtoon') && Object.keys(m.model).every(key => materialParameter(key as MaterialParameter).applies(m)), 'Material value does not apply');
 export const AssetMaterialsSchema = z.array(AssetMaterialSchema).max(MAX_MATERIALS).refine(list => unique(list.map(m => m.name)), 'Duplicate material name');
+
+export const MaterialListSchema = z.strictObject({
+ materials: z.array(z.strictObject({
+  name: MaterialNameSchema,
+  profile: MaterialProfileSchema,
+  parameters: z.array(z.strictObject({ parameter: MaterialParameterSchema, model: z.union([MaterialColorSchema, z.number()]) })).max(MATERIAL_PARAMETERS.length),
+ })).max(MAX_MATERIALS),
+});
+
+// `materialList` (R18): the record materials in record order, each with the model value of each parameter that applies.
+export const materialList = (materials: readonly AssetMaterial[]): MaterialList => ({
+ materials: materials.map(m => ({
+  name: m.name,
+  profile: m.profile,
+  parameters: appliedParameters(m).flatMap(spec => m.model[spec.key] === undefined ? [] : [{ parameter: spec.key, model: m.model[spec.key]! }]),
+ })),
+});

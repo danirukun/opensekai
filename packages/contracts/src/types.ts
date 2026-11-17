@@ -9,7 +9,7 @@ import type { CameraGrading } from './grading';
 import type { CameraAntiAliasing, OutputFrameLimit, OutputRenderScale, QualityProfileId } from './quality';
 import type { AvatarRig, VmcPosesEnvelope, VmcSenderSettings, VmcSenderStatus } from './vmc-sender';
 import type { AssetMesh, MeshList } from './meshes';
-import type { AssetMaterial } from './material-parameters';
+import type { AssetMaterial, MaterialList } from './material-parameters';
 import type { ArkitName, AssetExpression, ExpressionSettings, ExpressionState } from './expressions';
 import type { IntegrationsSetParams, YouTubeStatus } from './youtube';
 import type { CaptureState } from './capture';
@@ -333,6 +333,7 @@ export interface AppApi {
     expressionGet(params: { avatarId: Id }): Promise<Reply<ExpressionState>>;
     expressionSet(params: { avatarId: Id; name: string; active: boolean }): Promise<Reply<ExpressionState>>;
     meshList(params: { avatarId: Id }): Promise<Reply<MeshList>>;
+    materialList(params: { entityId: Id }): Promise<Reply<MaterialList>>;
     cameraScreenshot(params: CameraScreenshotParams): Promise<Reply<CameraScreenshotResult>>;
     // Host-answered: stores the YouTube link in the user settings and restarts the chat client.
     integrationsSet(params: IntegrationsSetParams): Promise<Reply<YouTubeStatus>>;

@@ -1,4 +1,4 @@
-import { fingerprint, IdSchema, ParamSchemas, ProposalApplyParamsSchema, type ProposalApplyResult, type VmcPosesEnvelope, AssetRecordSchema, type AssetRecord, type ExpressionState, meshList, type MeshList, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate, type AppError, type InputUpdate, type BlueprintInspect, type AvatarPose, type DeviceKind, type ScalarValue, type BlueprintDebug, type TrackingProbe, type TrackingProbeParams, type TrackingStatus, type ArkitName } from "@opensekai/contracts";
+import { fingerprint, IdSchema, ParamSchemas, ProposalApplyParamsSchema, type ProposalApplyResult, type VmcPosesEnvelope, AssetRecordSchema, type AssetRecord, type ExpressionState, meshList, type MeshList, materialList, type MaterialList, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate, type AppError, type InputUpdate, type BlueprintInspect, type AvatarPose, type DeviceKind, type ScalarValue, type BlueprintDebug, type TrackingProbe, type TrackingProbeParams, type TrackingStatus, type ArkitName } from "@opensekai/contracts";
 import { createTransformAdapter } from "./ecs";
 import {createTrackingComposer} from "./tracking";
 import { createBlueprintRuntime, logicKey, type BlueprintEvent, type GraphRun, type StepEnv } from './blueprint-runtime';
@@ -50,6 +50,7 @@ export interface Session {
     setAssetRecords(records: readonly AssetRecord[]): void;
     getExpressions(avatarId: Id): Reply<ExpressionState>;
     meshList(avatarId: Id): Reply<MeshList>;
+    materialList(entityId: Id): Reply<MaterialList>;
     setExpression(avatarId: Id, name: string, active: boolean): Reply<ExpressionState>;
 }
 const failure = (code: ErrorCode, message: string, ids: Id[] = []): Reply<never> => ({ ok: false, error: { code, message, ids } });
@@ -491,6 +492,15 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             const meshes = entity.assetId === null ? undefined : record(entity.assetId)?.meshes;
             if (!meshes) return failure('NOT_FOUND', 'Asset has no mesh list', [avatarId]);
             return { ok: true, data: meshList(meshes, entity.hiddenMeshes) };
+        },
+        // R18: the materials of the model of a character or a prop, in record order.
+        materialList(entityId) {
+            const entity = persistent.entities.find(item => item.id === entityId);
+            if (!entity) return failure('NOT_FOUND', 'Entity not found', [entityId]);
+            const assetId = entity.kind === 'avatar' ? entity.assetId : entity.kind === 'mesh' && entity.source.kind === 'asset' ? entity.source.assetId : null;
+            const materials = assetId === null ? undefined : record(assetId)?.materials;
+            if (!materials) return failure('INVALID_INPUT', 'Entity has no materials', [entityId]);
+            return { ok: true, data: materialList(materials) };
         },
         getExpressions(avatarId) {
             return expressionView(reconcileExpressions(expressions, persistent), persistent, record, avatarId);

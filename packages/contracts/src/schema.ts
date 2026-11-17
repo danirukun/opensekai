@@ -13,7 +13,7 @@ import { CameraAntiAliasingSchema, QualityProfileIdSchema, OUTPUT_FRAME_LIMITS, 
 import { AvatarRigSchema, VmcPosesEnvelopeSchema, VmcSenderSettingsSchema, VmcSenderStatusSchema } from './vmc-sender';
 import { AssetExpressionsSchema, AvatarExpressionsSchema, ExpressionNameSchema, ExpressionSettingsSchema, ExpressionStateSchema, ARKIT_NAMES } from './expressions';
 import { AssetMeshesSchema, HiddenMeshesSchema, MeshListSchema } from './meshes';
-import { AssetMaterialsSchema } from './material-parameters';
+import { AssetMaterialsSchema, MaterialListSchema } from './material-parameters';
 import { isWebScreenUrl } from './web-url';
 import { CAPTURE_STATES, CAPTURE_TEXT_LIMITS, captureTextLength, normalizeCaptureText } from './capture';
 import type { AppApi, Capability, Reply, ValidatedCall } from "./types";
@@ -662,6 +662,7 @@ export const ParamSchemas = {
     expressionGet: z.strictObject({ avatarId: IdSchema }),
     expressionSet: z.strictObject({ avatarId: IdSchema, name: ExpressionNameSchema, active: z.boolean() }),
     meshList: z.strictObject({ avatarId: IdSchema }),
+    materialList: z.strictObject({ entityId: IdSchema }),
     cameraScreenshot: CameraScreenshotParamsSchema,
     integrationsSet: IntegrationsSetParamsSchema
 };
@@ -693,6 +694,7 @@ export const ResultSchemas = {
     expressionGet: ExpressionStateSchema,
     expressionSet: ExpressionStateSchema,
     meshList: MeshListSchema,
+    materialList: MaterialListSchema,
     cameraScreenshot: CameraScreenshotResultSchema,
     integrationsSet: YouTubeStatusSchema
 };
@@ -717,6 +719,7 @@ export const MethodSchema = z.enum([
     "expressionGet",
     "expressionSet",
     "meshList",
+    "materialList",
     "cameraScreenshot",
     "integrationsSet"
 ]);

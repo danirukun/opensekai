@@ -9,8 +9,9 @@ export function sceneFor(name: string | undefined): SceneView {
  const scene = makeSmokeScene();
  return name === 'twin' ? { ...scene, entities: scene.entities.map(e => e.id === 'camera_close' ? { ...e, name: 'camera_wide' } : e) } as SceneView : scene;
 }
-// The smoke avatar model, with two triggerable expressions and one that tracking drives.
-export const fixtureAvatar: AssetRecord = { id: 'fixture_vrm_1', format: 'vrm', sha256: 'a'.repeat(64), bytes: 1, sourceUrl: null, licenseLabel: 'fixture', importerVersion: 1, name: 'Fixture', expressions: [{ name: 'happy', preset: true }, { name: 'aa', preset: true }, { name: 'Wink', preset: false }], meshes: [{ node: 0, name: 'Body' }, { node: 1, name: 'Face' }, { node: 2, name: 'Hair' }] };
+// The smoke avatar model, with two triggerable expressions and one that tracking drives, three meshes, and one material.
+export const fixtureAvatar: AssetRecord = { id: 'fixture_vrm_1', format: 'vrm', sha256: 'a'.repeat(64), bytes: 1, sourceUrl: null, licenseLabel: 'fixture', importerVersion: 1, name: 'Fixture', expressions: [{ name: 'happy', preset: true }, { name: 'aa', preset: true }, { name: 'Wink', preset: false }], meshes: [{ node: 0, name: 'Body' }, { node: 1, name: 'Face' }, { node: 2, name: 'Hair' }],
+ materials: [{ index: 0, name: 'Skin', profile: 'mtoon', blend: false, outline: false, model: { baseColor: '#ffffff', emissionColor: '#000000', emissionStrength: 1, shadeColor: '#ffcccc', rimColor: '#000000' } }] };
 // The host reports a status for each VMC sender; this fixture host reports each sender of the session scene as stopped or waiting.
 // With OPENSEKAI_FIXTURE_CLOCK=1 the session advances on a 20 ms wall clock, as the app tick does.
 export const sessionFixtureApi = (scene: SceneView): AppApi => {
