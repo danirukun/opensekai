@@ -53,5 +53,6 @@
 <style>
  .effects{border:0;padding:0;margin:0;min-width:0;display:grid;gap:14px}
  .effect{display:grid;gap:10px}
+ .effect :global(.visibility-control){margin-bottom:0}
  .failed{margin:0;font-size:11px;color:var(--ds-color-error)}
 </style>
