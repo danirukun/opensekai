@@ -34,6 +34,7 @@
     "allow-export-blueprint-file",
     "allow-take-blueprint-link",
     "allow-finish-blueprint-link",
+    "allow-open-help",
     "core:event:allow-listen",
     "core:event:allow-unlisten"
   ]

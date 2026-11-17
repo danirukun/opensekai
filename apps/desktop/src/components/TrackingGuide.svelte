@@ -9,6 +9,7 @@
  import {groupLevel,rankAddresses,relaxSecondsLeft,stepProgress,waitsForNext} from '../editor/tracking-guide-view';
  import CoachFace from './CoachFace.svelte';
  import GuideMeter from './GuideMeter.svelte';
+ import HelpButton from './HelpButton.svelte';
  let {avatarId,model,view,api,assets=[],localAddresses=[],trackingStatus=[],disabled=false,onclose}:{avatarId:string;model:EditorModel;view:EditorView;api:AppApi;assets?:AssetRecord[];localAddresses?:string[];trackingStatus?:TrackingStatus[];disabled?:boolean;onclose:()=>void}=$props();
 
  const STEPS:GuideStep[]=['pick','connect','relax','expressions','review'];
@@ -122,7 +123,7 @@
 <section class="editor-panel tracking-guide" aria-labelledby="guide-heading">
  <header>
   <h2 id="guide-heading">{avatar?.name??'Character'}</h2>
-  <Button variant="ghost" size="sm" title="Close" disabled={closing||connecting} onclick={close}><X size={16}/><span class="sr-only">Close</span></Button>
+  <div class="header-actions"><HelpButton topic="motionCapture"/><Button variant="ghost" size="sm" title="Close" disabled={closing||connecting} onclick={close}><X size={16}/><span class="sr-only">Close</span></Button></div>
  </header>
  <ol class="steps" aria-label="Steps">{#each STEPS as item,index (item)}<li class:on={index<=current} aria-current={index===current?'step':undefined}></li>{/each}</ol>
 
@@ -174,6 +175,7 @@
 <style>
  .tracking-guide{display:flex;flex-direction:column;gap:16px;padding:20px 24px;max-width:420px}
  header{display:flex;align-items:center;justify-content:space-between}
+ .header-actions{display:flex;align-items:center;gap:8px}
  h2{margin:0;font-size:11px;color:var(--ds-color-text-muted)}
  h3{margin:0;font-size:16px;color:var(--ds-color-text)}
  .prompt{text-align:center}

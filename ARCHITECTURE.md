@@ -93,6 +93,8 @@ The session reports the device kinds that the listened graphs use (`devices`) in
 
 The OS gives an `opensekai://blueprint/import?url=…` link to `link/source.rs` (macOS only: the deep-link plugin Rust API; other targets have a stub). The host parses the link (`link/parse.rs`), keeps one link (`link/inbox.rs`), and downloads the file itself (`link/fetch.rs`): the web screen URL rule for each URL and redirect, a public-address filter on each resolved address, no proxy, at most 3 redirects, 1 MiB, and a 10 s limit. The event `app-link` only wakes the Editor window. The window pulls the link with `take_blueprint_link` and ends it with `finish_blueprint_link` (no arguments), shows a confirmation, and adds the graph disabled with one `createGraph` batch (`BlueprintSync.commit`). The dialog shows the result of that batch only.
 
+Help path (B40a): each Help button calls the editor-only command `open_help` with a topic name only. `help.rs` maps the topic enum to a fixed `docs/handbook/` URL on GitHub and opens it in the default browser through the opener plugin. The window has no `opener:` permission, so it cannot open a URL itself. MCP has no help tool.
+
 ## Capture path
 
 A capture screen (B31, at most 2) shows one display or one window. The scene holds a source description (`{ kind: 'display', name, ordinal }` or `{ kind: 'window', app, title }`, normalized by one rule on both sides), never a platform ID. The host (`capture/`) owns capture and encode; the session does not know the capture state.
