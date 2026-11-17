@@ -1,14 +1,17 @@
 import { EXPRESSION_STEPS, type ArkitName, type TrackingMapping } from '@opensekai/contracts';
-import { RELAX_MS, RISE, SETTLE_MS, type GuideState } from './tracking-guide';
+import { RELAX_MS, RISE, SETTLE_MS, facePart, type GuidePart, type GuideState } from './tracking-guide';
 
 const unit = (value: number) => Math.min(1, Math.max(0, value));
+
+export const relaxHeading = (parts: readonly Pick<GuidePart, 'roles'>[]): string =>
+ parts.some(part => part.roles.includes('face')) ? 'Relax your face' : 'Sit straight';
 
 export const relaxSecondsLeft = (state: GuideState, nowMs: number): number =>
  state.relaxStartMs === null ? RELAX_MS / 1000 : Math.max(0, Math.ceil((state.relaxStartMs + RELAX_MS - nowMs) / 1000));
 
 // The coach ring fills while the risen peak holds; the step ends as 'done' when it is full.
 export function stepProgress(state: GuideState, nowMs: number): number {
- const id = state.step === 'expressions' ? state.preset?.steps[state.index] : undefined;
+ const id = state.step === 'expressions' ? facePart(state)?.preset.steps[state.index] : undefined;
  if (id === undefined || state.lastRiseMs === null) return 0;
  const neutral = Math.max(0, ...EXPRESSION_STEPS[id].main.map(name => state.neutral[name] ?? 0));
  return state.stepPeak > neutral + RISE ? unit((nowMs - state.lastRiseMs) / SETTLE_MS) : 0;
@@ -16,7 +19,7 @@ export function stepProgress(state: GuideState, nowMs: number): number {
 
 // lookAround with gaze only as eye bones cannot end by itself.
 export function waitsForNext(state: GuideState): boolean {
- const id = state.step === 'expressions' ? state.preset?.steps[state.index] : undefined;
+ const id = state.step === 'expressions' ? facePart(state)?.preset.steps[state.index] : undefined;
  const probe = state.previous;
  return id === 'lookAround' && probe !== null && probe.eyeBones && !EXPRESSION_STEPS.lookAround.main.some(name => probe.presentChannels.includes(name));
 }

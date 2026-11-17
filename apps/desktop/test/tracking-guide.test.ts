@@ -1,9 +1,14 @@
 import { expect, it } from 'vitest';
-import { TRACKING_PRESETS, type ArkitName, type TrackingProbe } from '@opensekai/contracts';
+import { TRACKING_PRESETS, type ArkitName, type TrackingPreset, type TrackingProbe } from '@opensekai/contracts';
 import { guideStep, initialGuide, mainValue, type GuideEffect, type GuideEvent, type GuideState } from '../src/editor/tracking-guide';
+import { resolveSetup, type SetupPart } from '../src/editor/tracking-guide-setup';
 
 const selfReflect = TRACKING_PRESETS[0]!;
 const ifacial = TRACKING_PRESETS[1]!;
+// The one-part form of the old one-preset cases: the part fills the preset slots.
+const one = (preset: TrackingPreset): SetupPart[] => [{ preset, roles: [...preset.slots], config: preset.config }];
+const pick = (preset: TrackingPreset): GuideEvent => ({ kind: 'pick', parts: one(preset) });
+const connected = (...sourceIds: string[]): GuideEvent => ({ kind: 'connected', sourceIds });
 const ALL: ArkitName[] = ['eyeBlinkLeft', 'eyeBlinkRight', 'jawOpen', 'browInnerUp', 'mouthSmileLeft', 'mouthSmileRight', 'mouthFrownLeft', 'mouthFrownRight', 'mouthPucker', 'cheekPuff', 'tongueOut', 'eyeLookUpLeft', 'eyeLookInLeft'];
 
 const probe = (values: Partial<Record<ArkitName, number>> = {}, over: Partial<TrackingProbe> = {}): TrackingProbe => ({ sourceId: 'src', generation: 1, state: 'receiving', values, peaks: {}, presentChannels: ALL, eyeBones: false, ...over });
@@ -14,26 +19,26 @@ function run(state: GuideState, events: GuideEvent[]) {
  for (const event of events) { const out = guideStep(state, event); state = out.state; effects.push(...out.effects); }
  return { state, effects };
 }
-const toRelax = (preset = selfReflect) => run(initialGuide(), [{ kind: 'pick', preset }, { kind: 'connected', sourceId: 'src' }, ev(probe(), 1000)]).state;
+const toRelax = (preset = selfReflect) => run(initialGuide(), [pick(preset), connected('src'), ev(probe(), 1000)]).state;
 const toExpressions = (neutral: Partial<Record<ArkitName, number>> = {}, preset = selfReflect) => {
  const out = run(toRelax(preset), [ev(probe(neutral), 4000)]);
  return { state: out.state, effects: out.effects };
 };
 
 it('pick emits connect; connected then a receiving probe enters relax', () => {
- const a = guideStep(initialGuide(), { kind: 'pick', preset: selfReflect });
+ const a = guideStep(initialGuide(), pick(selfReflect));
  expect(a.state.step).toBe('connect');
- expect(a.effects).toEqual([{ kind: 'connect', preset: selfReflect }]);
- const b = guideStep(a.state, { kind: 'connected', sourceId: 'src' });
+ expect(a.effects).toEqual([{ kind: 'connect', parts: one(selfReflect) }]);
+ const b = guideStep(a.state, connected('src'));
  expect(b.state.step).toBe('connect');
- expect(b.state.sourceId).toBe('src');
+ expect(b.state.faceSourceId).toBe('src');
  const c = guideStep(b.state, ev(probe(), 500));
  expect(c.state.step).toBe('relax');
  expect(c.state.relaxStartMs).toBe(500);
 });
 
 it('connect waits until the probe state is receiving', () => {
- let s = run(initialGuide(), [{ kind: 'pick', preset: selfReflect }, { kind: 'connected', sourceId: 'src' }]).state;
+ let s = run(initialGuide(), [pick(selfReflect), connected('src')]).state;
  for (const state of ['waiting', 'stale', 'stopped', 'error'] as const) s = guideStep(s, ev(probe({}, { state }), 10)).state;
  expect(s.step).toBe('connect');
  s = guideStep(s, ev(probe({}, { sourceId: 'other' }), 20)).state;
@@ -52,7 +57,7 @@ it('relax captures probe.values as neutral at 3000 ms and emits resetPeaks', () 
 
 it('relax with iFacialMocap also emits calibrate', () => {
  const out = toExpressions({}, ifacial);
- expect(out.effects).toEqual([{ kind: 'resetPeaks' }, { kind: 'calibrate' }]);
+ expect(out.effects).toEqual([{ kind: 'resetPeaks' }, { kind: 'calibrate', sourceId: 'src' }]);
 });
 
 it('relax does not capture while the probe is stale; it captures at the first receiving probe after 3000 ms', () => {
@@ -129,15 +134,15 @@ it('lookAround with only eye bones waits for next; with neither eyeLook nor eye 
  expect(bones.effects).toEqual([]);
  const after = guideStep(bones.state, { kind: 'next', nowMs: 31000 });
  expect(after.state.results.lookAround).toBe('skipped');
- expect(after.effects).toEqual([{ kind: 'fit', neutral: {} }]);
+ expect(after.effects).toEqual([{ kind: 'fit', sourceId: 'src', neutral: {} }]);
  const neither = run(toLook(), [ev(probe({}, { presentChannels: noLook, eyeBones: false }), 5000)]);
  expect(neither.state.results.lookAround).toBe('notSent');
- expect(neither.effects).toEqual([{ kind: 'fit', neutral: {} }]);
+ expect(neither.effects).toEqual([{ kind: 'fit', sourceId: 'src', neutral: {} }]);
 });
 
 it('after the last step: emits fit with neutral; fitted enters review; fitFailed enters review with fitError', () => {
  const out = run(toExpressions({ jawOpen: 0.1 }).state, [ev(probe(), 4100), ...Array.from({ length: 9 }, (_, i): GuideEvent => ({ kind: 'next', nowMs: 5000 + i }))]);
- expect(out.effects).toEqual([{ kind: 'fit', neutral: { jawOpen: 0.1 } }]);
+ expect(out.effects).toEqual([{ kind: 'fit', sourceId: 'src', neutral: { jawOpen: 0.1 } }]);
  expect(out.state.step).toBe('expressions');
  expect(guideStep(out.state, ev(probe(), 9000)).effects).toEqual([]);
  expect(guideStep(out.state, { kind: 'fitted' }).state).toMatchObject({ step: 'review', fitError: null });
@@ -162,7 +167,7 @@ it('fitted, fitFailed, and connected are ignored outside their step', () => {
  const early = toExpressions().state;
  expect(guideStep(early, { kind: 'fitted' }).state).toBe(early);
  expect(guideStep(early, { kind: 'fitFailed', message: 'x' }).state).toBe(early);
- expect(guideStep(early, { kind: 'connected', sourceId: 'other' }).state.sourceId).toBe('src');
+ expect(guideStep(early, connected('other')).state.faceSourceId).toBe('src');
 });
 
 it('a data gap does not cause a false notSent', () => {
@@ -171,4 +176,64 @@ it('a data gap does not cause a false notSent', () => {
  s = guideStep(s, p(0.3, 9000)).state;
  expect(s.index).toBe(0);
  expect(guideStep(s, p(0.4, 9500)).state.index).toBe(0);
+});
+
+// Two parts: iFacialMocap on the face ('face') and SelfReflect on the body ('body').
+const twoParts = resolveSetup({ face: 'ifacialmocap', body: 'selfreflect', hands: true });
+const at = (sourceId: string, values: Partial<Record<ArkitName, number>> = {}, over: Partial<TrackingProbe> = {}) => probe(values, { sourceId, ...over });
+const twoConnected = () => run(initialGuide(), [{ kind: 'pick', parts: twoParts }, connected('face', 'body')]).state;
+
+it('pick with two parts emits one connect with both parts', () => {
+ const out = guideStep(initialGuide(), { kind: 'pick', parts: twoParts });
+ expect(out.effects).toEqual([{ kind: 'connect', parts: twoParts }]);
+ expect(out.state.parts.map(p => [p.preset.id, p.roles, p.sourceId])).toEqual([['ifacialmocap', ['face'], null], ['selfreflect', ['body', 'fingers'], null]]);
+ const s = guideStep(out.state, connected('face', 'body')).state;
+ expect(s.faceSourceId).toBe('face');
+ expect(s.parts.map(p => p.sourceId)).toEqual(['face', 'body']);
+});
+
+it('connect stays until each part has a receiving probe', () => {
+ let s = twoConnected();
+ s = run(s, [ev(at('face'), 100), ev(at('body', {}, { state: 'waiting' }), 110)]).state;
+ expect(s.step).toBe('connect');
+ s = guideStep(s, ev(at('face', {}, { state: 'stale' }), 200)).state;
+ s = guideStep(s, ev(at('body'), 210)).state;
+ expect(s.step).toBe('connect');
+ s = guideStep(s, ev(at('face'), 300)).state;
+ expect(s).toMatchObject({ step: 'relax', relaxStartMs: 300 });
+});
+
+it('the end of Relax emits one calibrate for each part that calibrates: iFacialMocap, not SelfReflect', () => {
+ const relax = run(twoConnected(), [ev(at('face'), 100), ev(at('body'), 200)]).state;
+ expect(relax.step).toBe('relax');
+ expect(guideStep(relax, ev(at('body'), 5000)).state.step).toBe('relax');
+ const out = guideStep(relax, ev(at('face', { jawOpen: 0.1 }), 5000));
+ expect(out.state.step).toBe('expressions');
+ expect(out.state.neutral).toEqual({ jawOpen: 0.1 });
+ expect(out.effects).toEqual([{ kind: 'resetPeaks' }, { kind: 'calibrate', sourceId: 'face' }]);
+});
+
+it('only face probes drive the expression steps; a body probe does not change the peak', () => {
+ let s = run(twoConnected(), [ev(at('face'), 100), ev(at('body'), 200), ev(at('face'), 5000)]).state;
+ expect(s.step).toBe('expressions');
+ s = guideStep(s, ev(at('face', { eyeBlinkLeft: 0.3 }), 5100)).state;
+ const body = guideStep(s, ev(at('body', { eyeBlinkLeft: 0.9 }), 5200)).state;
+ expect(body).toBe(s);
+ expect(body.stepPeak).toBe(0.3);
+});
+
+it('a body-only run goes from Relax to Review and sends no fit', () => {
+ const parts = resolveSetup({ face: 'none', body: 'webcam', hands: true });
+ const relax = run(initialGuide(), [{ kind: 'pick', parts }, connected('cam'), ev(at('cam'), 100)]).state;
+ expect(relax).toMatchObject({ step: 'relax', faceSourceId: null });
+ const out = guideStep(relax, ev(at('cam'), 3100));
+ expect(out.state).toMatchObject({ step: 'review', fitError: null });
+ expect(out.effects).toEqual([{ kind: 'calibrate', sourceId: 'cam' }]);
+});
+
+it('a probe with an unknown source changes nothing', () => {
+ const s = twoConnected();
+ expect(guideStep(s, ev(at('stranger'), 100)).state).toBe(s);
+ const relax = run(s, [ev(at('face'), 100), ev(at('body'), 200)]).state;
+ expect(guideStep(relax, ev(at('stranger'), 9000)).state).toBe(relax);
 });

@@ -1,13 +1,17 @@
 import { EXPRESSION_STEPS, type ArkitName, type ExpressionStepId, type Id, type TrackingPreset, type TrackingProbe } from '@opensekai/contracts';
+import type { SetupPart, SetupRole } from './tracking-guide-setup';
 
 export type GuideStep = 'pick' | 'connect' | 'relax' | 'expressions' | 'review';
 export type StepResult = 'done' | 'notSent' | 'skipped';
 type Channels = Partial<Record<ArkitName, number>>;
 
+export interface GuidePart { preset: TrackingPreset; roles: SetupRole[]; sourceId: Id | null }
+
 export interface GuideState {
  step: GuideStep;
- preset: TrackingPreset | null;
- sourceId: Id | null;
+ parts: GuidePart[];
+ faceSourceId: Id | null;
+ receiving: Id[];
  relaxStartMs: number | null;
  neutral: Channels;
  index: number;
@@ -22,18 +26,18 @@ export interface GuideState {
 }
 
 export type GuideEvent =
- | { kind: 'pick'; preset: TrackingPreset }
- | { kind: 'connected'; sourceId: Id }
+ | { kind: 'pick'; parts: SetupPart[] }
+ | { kind: 'connected'; sourceIds: Id[] }
  | { kind: 'probe'; probe: TrackingProbe; nowMs: number }
  | { kind: 'next'; nowMs: number }
  | { kind: 'fitted' }
  | { kind: 'fitFailed'; message: string };
 
 export type GuideEffect =
- | { kind: 'connect'; preset: TrackingPreset }
+ | { kind: 'connect'; parts: SetupPart[] }
  | { kind: 'resetPeaks' }
- | { kind: 'calibrate' }
- | { kind: 'fit'; neutral: Channels };
+ | { kind: 'calibrate'; sourceId: Id }
+ | { kind: 'fit'; sourceId: Id; neutral: Channels };
 
 type Out = { state: GuideState; effects: GuideEffect[] };
 
@@ -43,9 +47,12 @@ export const SETTLE_MS = 1000;
 const UNCHANGED_MS = 4000;
 
 export const initialGuide = (): GuideState => ({
- step: 'pick', preset: null, sourceId: null, relaxStartMs: null, neutral: {}, index: 0, stepPeak: 0, stepStartMs: 0,
+ step: 'pick', parts: [], faceSourceId: null, receiving: [], relaxStartMs: null, neutral: {}, index: 0, stepPeak: 0, stepStartMs: 0,
  lastRiseMs: null, lastMainChangeMs: 0, lastOtherChangeMs: null, previous: null, results: {}, fitError: null
 });
+
+// The part that drives the expression steps, the coach, and the fit.
+export const facePart = (state: GuideState): GuidePart | undefined => state.parts.find(part => part.roles.includes('face'));
 
 export const mainValue = (probe: TrackingProbe, step: ExpressionStepId): number =>
  Math.max(0, ...EXPRESSION_STEPS[step].main.map(name => probe.values[name] ?? 0));
@@ -53,7 +60,7 @@ export const mainValue = (probe: TrackingProbe, step: ExpressionStepId): number 
 const mainNeutral = (neutral: Channels, step: ExpressionStepId): number =>
  Math.max(0, ...EXPRESSION_STEPS[step].main.map(name => neutral[name] ?? 0));
 
-const currentStep = (state: GuideState): ExpressionStepId | undefined => state.preset?.steps[state.index];
+const currentStep = (state: GuideState): ExpressionStepId | undefined => facePart(state)?.preset.steps[state.index];
 
 // A step with no usable main channel ends at once. Eye bones alone keep lookAround open until Skip.
 function absent(probe: TrackingProbe, step: ExpressionStepId): boolean {
@@ -64,8 +71,8 @@ function absent(probe: TrackingProbe, step: ExpressionStepId): boolean {
 function enter(state: GuideState, index: number, probe: TrackingProbe | null, nowMs: number): Out {
  let next: GuideState = { ...state, index };
  for (;;) {
-  const id = next.preset?.steps[next.index];
-  if (id === undefined) return { state: { ...next, previous: probe }, effects: [{ kind: 'fit', neutral: next.neutral }] };
+  const id = facePart(next)?.preset.steps[next.index];
+  if (id === undefined) return { state: { ...next, previous: probe }, effects: next.faceSourceId ? [{ kind: 'fit', sourceId: next.faceSourceId, neutral: next.neutral }] : [] };
   next = { ...next, stepPeak: 0, stepStartMs: nowMs, lastRiseMs: null, lastMainChangeMs: nowMs, lastOtherChangeMs: null, previous: probe };
   if (probe === null || !absent(probe, id)) return { state: next, effects: [] };
   next = { ...next, results: { ...next.results, [id]: 'notSent' }, index: next.index + 1 };
@@ -101,14 +108,28 @@ function expressionProbe(state: GuideState, probe: TrackingProbe, nowMs: number)
  return { state: tracked, effects: [] };
 }
 
-const awaitingFit = (state: GuideState): boolean => state.step === 'expressions' && state.preset !== null && state.index >= state.preset.steps.length;
+const awaitingFit = (state: GuideState): boolean => {
+ const face = facePart(state);
+ return state.step === 'expressions' && face !== undefined && state.index >= face.preset.steps.length;
+};
+
+// The end of Relax: each part whose preset calibrates gets one calibrate. Without a face part, the run goes to Review.
+function endRelax(state: GuideState, probe: TrackingProbe, nowMs: number): Out {
+ const calibrate: GuideEffect[] = state.parts.flatMap(part => part.preset.calibrate && part.sourceId ? [{ kind: 'calibrate' as const, sourceId: part.sourceId }] : []);
+ if (state.faceSourceId === null) return { state: { ...state, step: 'review', fitError: null }, effects: calibrate };
+ const started = enter({ ...state, step: 'expressions', neutral: { ...probe.values }, results: {} }, 0, probe, nowMs);
+ return { state: started.state, effects: [{ kind: 'resetPeaks' }, ...calibrate, ...started.effects] };
+}
 
 export function guideStep(state: GuideState, event: GuideEvent): Out {
  switch (event.kind) {
   case 'pick':
-   return { state: { ...initialGuide(), step: 'connect', preset: event.preset }, effects: [{ kind: 'connect', preset: event.preset }] };
-  case 'connected':
-   return state.step === 'connect' ? { state: { ...state, sourceId: event.sourceId }, effects: [] } : { state, effects: [] };
+   return { state: { ...initialGuide(), step: 'connect', parts: event.parts.map(part => ({ preset: part.preset, roles: [...part.roles], sourceId: null })) }, effects: [{ kind: 'connect', parts: event.parts }] };
+  case 'connected': {
+   if (state.step !== 'connect' || event.sourceIds.length !== state.parts.length) return { state, effects: [] };
+   const parts = state.parts.map((part, index) => ({ ...part, sourceId: event.sourceIds[index] ?? null }));
+   return { state: { ...state, parts, faceSourceId: parts.find(part => part.roles.includes('face'))?.sourceId ?? null, receiving: [] }, effects: [] };
+  }
   case 'fitted':
    return awaitingFit(state) ? { state: { ...state, step: 'review', fitError: null }, effects: [] } : { state, effects: [] };
   case 'fitFailed':
@@ -122,16 +143,23 @@ export function guideStep(state: GuideState, event: GuideEvent): Out {
    }
   case 'probe': {
    const { probe, nowMs } = event;
-   if (probe.sourceId !== state.sourceId) return { state, effects: [] };
+   const ids = state.parts.flatMap(part => part.sourceId ? [part.sourceId] : []);
+   if (!ids.includes(probe.sourceId)) return { state, effects: [] };
+   const live = probe.state === 'receiving';
+   if (state.step === 'connect') {
+    // Connect ends when the last probe of each part is receiving.
+    const receiving = live ? [...new Set([...state.receiving, probe.sourceId])] : state.receiving.filter(id => id !== probe.sourceId);
+    const all = ids.length === state.parts.length && ids.every(id => receiving.includes(id));
+    return { state: all ? { ...state, receiving, step: 'relax', relaxStartMs: nowMs } : { ...state, receiving }, effects: [] };
+   }
+   // With a face part, only its probes drive Relax and the steps. A body-only run ends Relax on any of its probes.
+   const driver = state.faceSourceId ?? probe.sourceId;
+   if (probe.sourceId !== driver) return { state, effects: [] };
    // A gap in data breaks the comparison: the next receiving probe restarts the unchanged clocks.
-   if (probe.state !== 'receiving') return { state: state.step === 'expressions' ? { ...state, previous: null } : state, effects: [] };
-   if (state.step === 'connect') return { state: { ...state, step: 'relax', relaxStartMs: nowMs }, effects: [] };
+   if (!live) return { state: state.step === 'expressions' ? { ...state, previous: null } : state, effects: [] };
    if (state.step === 'relax') {
     if (state.relaxStartMs === null || nowMs < state.relaxStartMs + RELAX_MS) return { state, effects: [] };
-    const effects: GuideEffect[] = [{ kind: 'resetPeaks' }];
-    if (state.preset?.id === 'ifacialmocap') effects.push({ kind: 'calibrate' });
-    const started = enter({ ...state, step: 'expressions', neutral: { ...probe.values }, results: {} }, 0, probe, nowMs);
-    return { state: started.state, effects: [...effects, ...started.effects] };
+    return endRelax(state, probe, nowMs);
    }
    if (state.step === 'expressions') return expressionProbe(state, probe, nowMs);
    return { state, effects: [] };
