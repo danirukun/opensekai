@@ -1,5 +1,7 @@
 # Guided tracking setup for a character
 
+Step 1 and the source rules changed: see `spdd/prompt/2026-11-16-guided-setup-sources.md`.
+
 Date: 2026-10-21. Status: draft for owner approval. Parity: TRK-23 ([#167](https://github.com/danirukun/opensekai/issues/167)), TRK-01, TRK-04, BP-05, BP-06.
 
 ## Intent
