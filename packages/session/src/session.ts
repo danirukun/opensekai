@@ -1,4 +1,4 @@
-import { fingerprint, IdSchema, ParamSchemas, ProposalApplyParamsSchema, type ProposalApplyResult, type VmcPosesEnvelope, AssetRecordSchema, type AssetRecord, type ExpressionState, meshList, type MeshList, materialList, type MaterialList, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate, type AppError, type InputUpdate, type BlueprintInspect, type AvatarPose, type DeviceKind, type ScalarValue, type BlueprintDebug, type TrackingProbe, type TrackingProbeParams, type TrackingStatus, type ArkitName } from "@opensekai/contracts";
+import { fingerprint, lightBudgetIssue, IdSchema, ParamSchemas, ProposalApplyParamsSchema, type ProposalApplyResult, type VmcPosesEnvelope, AssetRecordSchema, type AssetRecord, type ExpressionState, meshList, type MeshList, materialList, type MaterialList, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate, type AppError, type InputUpdate, type BlueprintInspect, type AvatarPose, type DeviceKind, type ScalarValue, type BlueprintDebug, type TrackingProbe, type TrackingProbeParams, type TrackingStatus, type ArkitName } from "@opensekai/contracts";
 import { createTransformAdapter } from "./ecs";
 import {createTrackingComposer} from "./tracking";
 import { createBlueprintRuntime, logicKey, type BlueprintEvent, type GraphRun, type StepEnv } from './blueprint-runtime';
@@ -308,7 +308,8 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
         replaceScene(scene, expectedRevision) {
             if (expectedRevision !== persistent.revision) return failure('CONFLICT', 'Scene revision changed');
             const parsed = ShowSceneSchema.safeParse(scene);
-            if (!parsed.success || !Number.isSafeInteger(persistent.revision + 1)) return failure('INVALID_INPUT', 'Invalid show scene');
+            if (!parsed.success) return failure('INVALID_INPUT', lightBudgetIssue(parsed.error) ?? 'Invalid show scene');
+            if (!Number.isSafeInteger(persistent.revision + 1)) return failure('INVALID_INPUT', 'Invalid show scene');
             persistent = withSendersStopped(structuredClone({ ...parsed.data, revision: persistent.revision + 1 }));
             tracking = createTrackingComposer();
             lastTrackingStatus = [];

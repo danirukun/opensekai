@@ -1,4 +1,4 @@
-import { SceneViewSchema, normalizeBodyTracking, setMeshesVisible, toggleMeshes, type AvatarTracking, type PatchOp, type ErrorCode, type Id, type Reply, type ScenePatch, type SceneView } from "@opensekai/contracts";
+import { SceneViewSchema, lightBudgetError, normalizeBodyTracking, setMeshesVisible, toggleMeshes, type AvatarTracking, type PatchOp, type ErrorCode, type Id, type Reply, type ScenePatch, type SceneView } from "@opensekai/contracts";
 import type { SceneEffect } from "./blueprint";
 import { delta, followers, shifted } from "./camera-follow";
 
@@ -108,7 +108,7 @@ export function applyOperations(scene: SceneView, operations: ScenePatch["operat
                  case 'controlScreenVideo':return failure('INVALID_INPUT','Video control needs a live session',[entity.id]);
                 }
             }
-            if(!SceneViewSchema.safeParse(next).success)return failure('INVALID_INPUT','Invalid scene references or budget');
+            if(!SceneViewSchema.safeParse(next).success)return failure('INVALID_INPUT',lightBudgetError(next.entities)??'Invalid scene references or budget');
             const shared=newShare(scene,next);
             if(shared)return failure('INVALID_INPUT','Tracking source used by another avatar',shared);
             return { ok: true, data: next };
