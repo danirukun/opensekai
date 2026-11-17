@@ -1,4 +1,4 @@
-import { eulerFromQuaternion, LIMITS, quaternionFromEuler, rotateByQuaternion, type LightSettings, type Quat, type Reply, type SceneEntity, type Transform, type Vec3 } from '@opensekai/contracts';
+import { eulerFromQuaternion, isLitLight, LIGHT_BUDGET_MESSAGES, LIMITS, quaternionFromEuler, rotateByQuaternion, type LightSettings, type Quat, type Reply, type SceneEntity, type Transform, type Vec3 } from '@opensekai/contracts';
 import { lookAt, targetPoint } from './aim';
 import type { ColorWord, Direction, Framing, Height, Intensity, Intent } from './intents';
 import { WORDS } from './words';
@@ -38,7 +38,9 @@ export const compileLight = only('light_setup', (i, state, context) => {
  if (old && !old.ok) return old;
  const replaced = old?.data ?? null;
  const others = t.data.state.scene.entities.flatMap(e => e.kind === 'light' && e.id !== replaced?.id ? [e] : []);
- if (!replaced && others.length >= LIMITS.lights) return invalid(`Scene has the maximum of ${LIMITS.lights} lights`);
+ if (!replaced && others.length >= LIMITS.lights) return invalid(LIGHT_BUDGET_MESSAGES.lights);
+ // The new light is lit, so the lit lights apart from the replaced light must leave a place (light limits R17).
+ if (others.filter(e => isLitLight(e.light)).length >= LIMITS.litLights) return invalid(LIGHT_BUDGET_MESSAGES.litLights);
  const role = ROLES[i.role];
  const type = i.role === 'ambient' ? 'ambient' : 'spot';
  const wantShadow = i.shadow ?? role.shadow;
