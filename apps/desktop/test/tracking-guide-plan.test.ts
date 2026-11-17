@@ -136,11 +136,20 @@ it('iFacialMocap: a phone address that a source on the endpoint already has asks
  expect(plan).toMatchObject({ operations: [], needsPhone: true });
 });
 
-it('reuse order: a same-kind source of this character in any slot comes first (R11)', () => {
+it('reuse order: a same-kind source of this character in any slot that a part fills comes first (R11)', () => {
+ const scene = sceneOf(source('free', 'vmc', {}, vmc39539()), source('mine', 'vmc', {}, vmc39539({ port: 40000 })), avatar('a', { bodySourceId: 'mine', faceSourceId: null }));
+ const plan = ready(planSetup(scene, 'a', resolveSetup({ face: 'vmc', body: 'webcam', hands: false }), null, undefined, 'new'));
+ expect(plan.parts.map(p => [p.sourceId, p.created])).toEqual([['mine', false], ['new', true]]);
+ expect(find(apply(scene, plan.ops), 'a', 'avatar').tracking).toEqual({ bodySourceId: 'new', faceSourceId: 'mine' });
+});
+
+it('reuse order: a source in a slot that no part fills stays there and is not taken (R10, R11)', () => {
  const scene = sceneOf(source('free', 'vmc', {}, vmc39539()), source('mine', 'vmc', {}, vmc39539({ port: 40000 })), avatar('a', { bodySourceId: 'mine', faceSourceId: null }));
  const plan = ready(planSetup(scene, 'a', [part(otherVmc, ['face'])], null, undefined, 'new'));
- expect(plan.parts.map(p => [p.sourceId, p.created])).toEqual([['mine', false]]);
- expect(find(apply(scene, plan.ops), 'a', 'avatar').tracking).toEqual({ bodySourceId: null, faceSourceId: 'mine' });
+ expect(plan.parts.map(p => [p.sourceId, p.created])).toEqual([['free', false]]);
+ expect(plan.ops.filter(o => 'entityId' in o && o.entityId === 'mine')).toEqual([]);
+ expect(plan.released).toEqual([]);
+ expect(find(apply(scene, plan.ops), 'a', 'avatar').tracking).toEqual({ bodySourceId: 'mine', faceSourceId: 'free' });
 });
 
 it('reuse order: an unbound same-kind source comes next, one on the preset port first; a source of the other character never', () => {
@@ -297,11 +306,11 @@ it('released: a second run from SelfReflect to Webcam stops the old VMC source i
 
 it('released: a source of the other character, a disabled source, and a source still bound in another slot get no stop', () => {
  const theirs = sceneOf(source('v', 'vmc', {}, vmc39539({ senderAddress: '10.0.0.2' })), source('t', 'vmc', {}, vmc39539({ senderAddress: '10.0.0.3' })), avatar('a', { bodySourceId: 'v', faceSourceId: 'v' }), avatar('b', { bodySourceId: 't', faceSourceId: 't' }));
- const plan = ready(planSetup(theirs, 'a', resolveSetup({ face: 'openseeface', body: 'none', hands: true }), null, undefined, 'new'));
+ const plan = ready(planSetup(theirs, 'a', resolveSetup({ face: 'openseeface', body: 'webcam', hands: true }), null, undefined, 'new'));
  expect(plan.released).toEqual(['v']);
  expect(plan.ops.some(o => 'entityId' in o && o.entityId === 't')).toBe(false);
  const off = sceneOf(source('v', 'vmc', {}, vmc39539({ enabled: false })), avatar('a', { bodySourceId: 'v', faceSourceId: 'v' }));
- const offPlan = ready(planSetup(off, 'a', resolveSetup({ face: 'openseeface', body: 'none', hands: true }), null, undefined, 'new'));
+ const offPlan = ready(planSetup(off, 'a', resolveSetup({ face: 'openseeface', body: 'webcam', hands: true }), null, undefined, 'new'));
  expect(offPlan.released).toEqual([]);
  expect(offPlan.ops.some(o => 'entityId' in o && o.entityId === 'v' && o.kind === 'setTrackingConfig')).toBe(false);
  const kept = sceneOf(source('v', 'vmc', {}, vmc39539()), avatar('a', { bodySourceId: 'v', faceSourceId: 'v' }));
@@ -338,16 +347,17 @@ it('cancel removes a created source and restores the bindings', () => {
  expect(find(out, 'a', 'avatar').tracking).toEqual({ bodySourceId: null, faceSourceId: null });
 });
 
-it('cancel gives the replaced VMC source back, started, after an iFacialMocap run', () => {
+it('cancel gives the replaced VMC source back, started, after an iFacialMocap and Webcam run', () => {
  const before = { bodySourceId: 'v', faceSourceId: 'v' };
  const scene = sceneOf(source('v', 'vmc', {}, vmc39539()), avatar('a', before));
- const { plan, snapshot, connected } = run(scene, 'a', [part(ifacial)]);
+ const { plan, snapshot, connected } = run(scene, 'a', resolveSetup({ face: 'ifacialmocap', body: 'webcam', hands: true }), '192.168.1.50');
  expect(plan.released).toEqual(['v']);
- expect(find(connected, 'a', 'avatar').tracking?.faceSourceId).toBe('new');
+ expect(find(connected, 'a', 'avatar').tracking).toEqual({ bodySourceId: 'new-2', faceSourceId: 'new', fingersSourceId: 'new-2' });
+ expect(find(connected, 'v', 'tracking').config.enabled).toBe(false);
  const out = apply(connected, planCancel(connected, snapshot));
  expect(find(out, 'a', 'avatar').tracking).toEqual(before);
  expect(restorable(find(out, 'v', 'tracking'))).toEqual(restorable(find(scene, 'v', 'tracking')));
- expect(out.entities.some(e => e.id === 'new')).toBe(false);
+ expect(out.entities.some(e => e.id === 'new' || e.id === 'new-2')).toBe(false);
 });
 
 it('cancel on a reused source restores bindings and the mapping', () => {
@@ -369,12 +379,14 @@ it('cancel on a reused source restores bindings and the mapping', () => {
 it('cancel restores the config and smoothing of a reused and a released source', () => {
  const smoothing = { enabled: false, minCutoff: 2, beta: 1, derivativeCutoff: 1 };
  const scene = sceneOf(source('v', 'vmc', { smoothing }, vmc39539({ bindAddress: '127.0.0.1' })), source('i', 'ifacialmocap', {}, { ...ifacial.config, phoneAddress: '192.168.1.9' } as TrackingConfig), avatar('a', { bodySourceId: 'v', faceSourceId: 'i' }));
- const { plan, snapshot, connected } = run(scene, 'a', resolveSetup({ face: 'vmc', body: 'none', hands: true }));
- expect(plan.parts.map(p => p.sourceId)).toEqual(['v']);
+ const { plan, snapshot, connected } = run(scene, 'a', resolveSetup({ face: 'vmc', body: 'webcam', hands: false }));
+ expect(plan.parts.map(p => p.sourceId)).toEqual(['v', 'new']);
  expect(plan.released).toEqual(['i']);
+ expect(find(connected, 'v', 'tracking').smoothing).not.toEqual(smoothing);
  const out = apply(connected, planCancel(connected, snapshot));
  for (const id of ['v', 'i']) expect(restorable(find(out, id, 'tracking'))).toEqual(restorable(find(scene, id, 'tracking')));
  expect(find(out, 'a', 'avatar')).toEqual(find(scene, 'a', 'avatar'));
+ expect(out.entities.some(e => e.id === 'new')).toBe(false);
 });
 
 it('cancel puts back the config of a disabled SelfReflect-port source that Other VMC app reused (the old deferred defect)', () => {
@@ -433,4 +445,69 @@ it('does not take the port of an enabled VMC sender that sends to this computer'
  expect(portFor(sender('o', '127.0.0.1', 39539), source('s', 'ifacialmocap', {}, { kind: 'ifacialmocap', enabled: false, bindAddress: '0.0.0.0', port: 39540, phoneAddress: null }))).toBe(39541);
  expect(portFor(sender('o', '192.168.1.20', 39539))).toBe(39539);
  expect(portFor(sender('o', '127.0.0.1', 39539, false))).toBe(39539);
+});
+
+// Keep unused slots (owner decision, 2026-11-17): the run changes only the slots that its parts fill.
+const handScene = () => sceneOf(
+ source('b', 'vmc', {}, vmc39539()),
+ source('h', 'vmc', {}, vmc39539({ port: 40000, senderAddress: '192.168.1.60' })),
+ avatar('a', { bodySourceId: 'b', faceSourceId: 'b', fingersSourceId: 'h' })
+);
+
+it('keep unused slots: face iFacialMocap and body SelfReflect keep a separate VMC hand source in the fingers slot, and no operation touches it', () => {
+ const scene = handScene();
+ const plan = ready(planSetup(scene, 'a', resolveSetup({ face: 'ifacialmocap', body: 'selfreflect', hands: true }), '192.168.1.40', undefined, 'new'));
+ expect(plan.parts.map(p => [p.preset.id, p.roles, p.sourceId, p.created])).toEqual([['ifacialmocap', ['face'], 'new', true], ['selfreflect', ['body'], 'b', false]]);
+ expect(plan.ops.filter(o => 'entityId' in o && o.entityId === 'h')).toEqual([]);
+ expect(plan.released).toEqual([]);
+ const out = apply(scene, plan.ops);
+ expect(find(out, 'a', 'avatar').tracking).toEqual({ bodySourceId: 'b', faceSourceId: 'new', fingersSourceId: 'h' });
+ expect(find(out, 'h', 'tracking')).toEqual(find(scene, 'h', 'tracking'));
+});
+
+it('keep unused slots: Face None, Body None, and Hands off keep the binding and the source of the slot', () => {
+ const ifm = source('i', 'ifacialmocap', {}, { ...ifacial.config, phoneAddress: '192.168.1.9' } as TrackingConfig);
+ const scene = sceneOf(source('v', 'vmc', {}, vmc39539()), ifm, avatar('a', { bodySourceId: 'v', faceSourceId: 'i', fingersSourceId: 'v' }));
+ const check = (choice: Parameters<typeof resolveSetup>[0], tracking: Avatar['tracking'], untouched: string, released: string[] = []) => {
+  const plan = ready(planSetup(scene, 'a', resolveSetup(choice), null, undefined, 'new'));
+  expect(plan.released).toEqual(released);
+  expect(plan.ops.filter(o => 'entityId' in o && o.entityId === untouched)).toEqual([]);
+  const out = apply(scene, plan.ops);
+  expect(find(out, 'a', 'avatar').tracking).toEqual(tracking);
+  expect(find(out, untouched, 'tracking')).toEqual(find(scene, untouched, 'tracking'));
+ };
+ // Face None: the face slot keeps the iFacialMocap source; the VMC source loses body and fingers and stops.
+ check({ face: 'none', body: 'webcam', hands: true }, { bodySourceId: 'new', faceSourceId: 'i', fingersSourceId: 'new' }, 'i', ['v']);
+ // Body None and Hands off: the VMC source keeps its slots and runs on; the iFacialMocap source loses the face slot and stops.
+ check({ face: 'webcam', body: 'none', hands: true }, { bodySourceId: 'v', faceSourceId: 'new', fingersSourceId: 'v' }, 'v', ['i']);
+ check({ face: 'webcam', body: 'same', hands: false }, { bodySourceId: 'new', faceSourceId: 'new', fingersSourceId: 'v' }, 'v', ['i']);
+});
+
+it('keep unused slots: a source that loses its last slot of this character stops; one that keeps a slot does not', () => {
+ const ifm = source('i', 'ifacialmocap', {}, { ...ifacial.config, phoneAddress: '192.168.1.9' } as TrackingConfig);
+ const scene = sceneOf(source('v', 'vmc', {}, vmc39539()), ifm, avatar('a', { bodySourceId: 'v', faceSourceId: 'i', fingersSourceId: 'v' }));
+ const all = ready(planSetup(scene, 'a', resolveSetup({ face: 'ifacialmocap', body: 'webcam', hands: true }), null, undefined, 'new'));
+ expect(all.parts.map(p => [p.sourceId, p.created])).toEqual([['i', false], ['new', true]]);
+ expect(all.released).toEqual(['v']);
+ expect(all.ops).toContainEqual({ kind: 'setTrackingConfig', entityId: 'v', config: vmc39539({ enabled: false }) });
+ const out = apply(scene, all.ops);
+ expect(find(out, 'a', 'avatar').tracking).toEqual({ bodySourceId: 'new', faceSourceId: 'i', fingersSourceId: 'new' });
+ expect(find(out, 'v', 'tracking').config.enabled).toBe(false);
+ expect(find(out, 'i', 'tracking').config.enabled).toBe(true);
+ // With Hands off, the fingers slot keeps the VMC source, so it runs on.
+ const some = ready(planSetup(scene, 'a', resolveSetup({ face: 'ifacialmocap', body: 'webcam', hands: false }), null, undefined, 'new'));
+ expect(some.released).toEqual([]);
+ expect(find(apply(scene, some.ops), 'v', 'tracking').config.enabled).toBe(true);
+});
+
+it('keep unused slots: cancel after a run that keeps the hand source restores the scene exactly', () => {
+ const scene = handScene();
+ const { snapshot, connected } = run(scene, 'a', resolveSetup({ face: 'ifacialmocap', body: 'webcam', hands: false }), '192.168.1.40');
+ expect(find(connected, 'a', 'avatar').tracking).toEqual({ bodySourceId: 'new-2', faceSourceId: 'new', fingersSourceId: 'h' });
+ expect(find(connected, 'b', 'tracking').config.enabled).toBe(false);
+ const out = apply(connected, planCancel(connected, snapshot));
+ expect(find(out, 'a', 'avatar')).toEqual(find(scene, 'a', 'avatar'));
+ for (const id of ['b', 'h']) expect(restorable(find(out, id, 'tracking'))).toEqual(restorable(find(scene, id, 'tracking')));
+ expect(find(out, 'h', 'tracking')).toEqual(find(scene, 'h', 'tracking'));
+ expect(out.entities.filter(e => e.kind === 'tracking').map(e => e.id)).toEqual(['b', 'h']);
 });

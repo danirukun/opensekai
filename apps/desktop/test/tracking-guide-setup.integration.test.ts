@@ -61,7 +61,9 @@ it('a cancel patch gives back the tracking sources and the binding of the snapsh
  const { model } = fixture(); await model.load();
  await setUp(model, 'performer', { face: 'selfreflect', body: 'same', hands: true }, null, 'first');
  const before = scene(model);
- const { snapshot } = await setUp(model, 'performer', { face: 'ifacialmocap', body: 'none', hands: true }, '127.0.0.1', 'second');
+ // Face and body move to new sources, so the first source fills no slot and stops.
+ const { snapshot } = await setUp(model, 'performer', { face: 'ifacialmocap', body: 'webcam', hands: true }, '127.0.0.1', 'second');
+ expect(avatarOf(scene(model), 'performer').tracking).toEqual({ bodySourceId: 'second-2', faceSourceId: 'second', fingersSourceId: 'second-2' });
  expect(scene(model).entities.find(e => e.id === 'first')).toMatchObject({ config: { enabled: false } });
  const reply = await model.applyOperations(planCancel(scene(model), snapshot), scene(model).revision);
  expect(reply.ok).toBe(true);

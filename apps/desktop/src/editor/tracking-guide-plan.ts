@@ -45,14 +45,24 @@ function targetConfig(base:TrackingConfig,port:number|null,phoneAddress:string|n
 
 const roleSlots=(roles:readonly SetupRole[])=>roles.map(role=>SLOT_KEY[role]);
 
+// A VMC body fills the fingers slot only when the slot is empty, holds no source, or held the body source (R10).
+// A separate hand source keeps the slot.
+function fillableParts(scene:SceneView,avatar:Avatar,parts:readonly SetupPart[]):SetupPart[] {
+ const fingers=avatar.tracking?.fingersSourceId??null;
+ const separate=fingers!==null&&fingers!==avatar.tracking?.bodySourceId&&sources(scene).some(s=>s.id===fingers);
+ return parts.map(part=>separate&&part.config.kind!=='mediapipe'&&part.roles.includes('fingers')?{...part,roles:part.roles.filter(role=>role!=='fingers')}:part);
+}
+
 // Source order for each part: a same-kind source of this character only (in the part's own slots with its own preset first,
-// then in its own slots, then in any slot), then a free same-kind source (one on the preset port first), then a new source.
+// then in its own slots, then in any slot that a part fills), then a free same-kind source (one on the preset port first), then a new source.
 // A source that another character also binds is never taken, and one source serves one part.
 function selectSources(scene:SceneView,avatar:Avatar,parts:readonly SetupPart[]):(Source|undefined)[] {
  const taken=new Set<Id>();
  const anyBound=new Set(avatars(scene).flatMap(a=>boundIds(a.tracking)));
  const others=new Set(avatars(scene).filter(a=>a.id!==avatar.id).flatMap(a=>boundIds(a.tracking)));
  const own=boundIds(avatar.tracking).filter(id=>!others.has(id));
+ const covered=new Set(parts.flatMap(part=>roleSlots(part.roles)));
+ const keptIds=new Set((Object.values(SLOT_KEY)).filter(key=>!covered.has(key)).map(key=>avatar.tracking?.[key]).filter((id):id is Id=>typeof id==='string'));
  const inSlots=(part:SetupPart,sameKind:Source[])=>roleSlots(part.roles).map(key=>avatar.tracking?.[key]).flatMap(id=>sameKind.filter(s=>s.id===id&&own.includes(s.id)));
  const chosen:(Source|undefined)[]=parts.map(()=>undefined);
  const pass=(pick:(part:SetupPart,sameKind:Source[])=>Source|undefined)=>parts.forEach((part,index)=>{
@@ -62,22 +72,28 @@ function selectSources(scene:SceneView,avatar:Avatar,parts:readonly SetupPart[])
  });
  pass((part,sameKind)=>inSlots(part,sameKind).find(s=>choiceOf(s.config)===part.preset.id));
  pass((part,sameKind)=>inSlots(part,sameKind)[0]);
- pass((part,sameKind)=>{const held=sameKind.filter(s=>own.includes(s.id));return held.find(s=>choiceOf(s.config)===part.preset.id)??held[0];});
+ pass((part,sameKind)=>{const held=sameKind.filter(s=>own.includes(s.id)&&!keptIds.has(s.id));return held.find(s=>choiceOf(s.config)===part.preset.id)??held[0];});
  pass((part,sameKind)=>{const free=sameKind.filter(s=>!anyBound.has(s.id));return free.find(s=>portOf(s.config)===portOf(part.config))??free[0];});
  return chosen;
 }
 
-export function planSetup(scene:SceneView,avatarId:Id,parts:readonly SetupPart[],phoneAddress:string|null,eyeBones:boolean|undefined,newId:Id):SetupPlan {
+export function planSetup(scene:SceneView,avatarId:Id,choiceParts:readonly SetupPart[],phoneAddress:string|null,eyeBones:boolean|undefined,newId:Id):SetupPlan {
  const avatar=avatars(scene).find(e=>e.id===avatarId);
  if(!avatar)return {ops:[],parts:[],released:[],needsPhone:false};
+ const parts=fillableParts(scene,avatar,choiceParts);
  const chosen=selectSources(scene,avatar,parts);
  const createdCount=chosen.filter(s=>!s).length;
  if(sources(scene).length+createdCount>SOURCE_LIMIT)return {blocked:'sourceLimit'};
 
- const kept=new Set(chosen.flatMap(s=>s?[s.id]:[]));
+ let made=0;
+ const ids=chosen.map(s=>s?s.id:made++===0?newId:`${newId}-${made}`);
+ // Keep unused slots (owner decision): the run writes only the slots that its parts fill. The body group stays.
+ const tracking:AvatarTracking=avatar.tracking?structuredClone(avatar.tracking):emptyTracking();
+ parts.forEach((part,index)=>{for(const role of part.roles)tracking[SLOT_KEY[role]]=ids[index]!;});
+ const after=new Set(boundIds(tracking));
  const othersBind=new Set(avatars(scene).filter(a=>a.id!==avatarId).flatMap(a=>boundIds(a.tracking)));
- // A source that this character bound before the run, that no character binds after it, stops. It keeps its other settings.
- const released=[...new Set(boundIds(avatar.tracking))].filter(id=>!kept.has(id)&&!othersBind.has(id)).flatMap(id=>sources(scene).filter(s=>s.id===id&&s.config.enabled).map(s=>s.id));
+ // A source that this character bound before the run, that fills no slot of it after the run and that no other character binds, stops. It keeps its other settings.
+ const released=[...new Set(boundIds(avatar.tracking))].filter(id=>!after.has(id)&&!othersBind.has(id)).flatMap(id=>sources(scene).filter(s=>s.id===id&&s.config.enabled).map(s=>s.id));
 
  // The working configs: each part sees the endpoints of the parts before it, and a released source is off.
  const senders=senderPorts(scene);
@@ -87,8 +103,7 @@ export function planSetup(scene:SceneView,avatarId:Id,parts:readonly SetupPart[]
  const planned:PlannedPart[]=[];
  for(const [index,part] of parts.entries()){
   const existing=chosen[index];
-  const createdBefore=planned.filter(p=>p.created).length;
-  const sourceId=existing?.id??(createdBefore===0?newId:`${newId}-${createdBefore+1}`);
+  const sourceId=ids[index]!;
   const kind=part.config.kind,presetPort=portOf(part.config),phone=kind==='ifacialmocap'?phoneAddress:null;
   const ownAddress=addressOf(targetConfig(part.config,presetPort,phone,existing?.config));
   // The host share rule: the source may use a port only when every other enabled source on it
@@ -126,10 +141,6 @@ export function planSetup(scene:SceneView,avatarId:Id,parts:readonly SetupPart[]
  }
  for(const id of released)ops.push({kind:'setTrackingConfig',entityId:id,config:configs.get(id)!});
 
- // The choice gives the whole binding: a slot that no part fills is empty. The body group stays.
- const tracking:AvatarTracking=emptyTracking();
- for(const part of planned)for(const role of part.roles)tracking[SLOT_KEY[role]]=part.sourceId;
- if(avatar.tracking?.body)tracking.body=structuredClone(avatar.tracking.body);
  ops.push({kind:'setAvatarTracking',entityId:avatarId,tracking});
  return {ops,parts:planned,released,needsPhone:false};
 }
