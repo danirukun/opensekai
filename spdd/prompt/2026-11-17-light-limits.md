@@ -54,7 +54,7 @@ R6. No new patch operation, no new field, and no new show version. `fixtures/sho
 ### Editor
 
 R7. The four Add light items (Directional, Point, Spot, Ambient) are disabled when the scene has 32 lights. Below 32 lights they are enabled.
-R8. When the scene has 8 lit lights, Add makes each light kind with the three affect flags false. All other values are the Add default of that kind (a Spot Light has no `beam` group and has `volumetric: true`, as in stage beams R22). Below 8 lit lights the Add defaults do not change.
+R8. When the scene has 8 lit lights, Add makes each light kind with the three affect flags false. All other values are the Add default of that kind (a Spot Light has no `beam` group and has `volumetric: true`, as in stage beams R22). Below 8 lit lights the Add defaults do not change. An unlit Ambient Light added at 8 lit lights is an ambient entity, so it removes the fixed ambient fill (stage lights R4): the room fill and the environment reflections go to 0; the owner accepted this effect on 2026-11-17.
 R9. The Hierarchy Duplicate item is disabled when the copy would break a limit: at 32 lights; for a lit light at 8 lit lights; for a shadow light at 2 shadow lights. Its title does not change.
 R10. When the user turns on an affect flag and the session refuses the change with M1, the checkbox shows the scene value again (off) and the Inspector alert shows M1. The checkbox is not disabled in advance. An alert for another error does not change.
 R11. The only new visible text is M1 to M3 in the existing alert and status. No new label, helper text, badge, or empty state.
