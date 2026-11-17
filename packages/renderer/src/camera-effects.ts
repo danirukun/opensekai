@@ -3,7 +3,7 @@ import { abs, convertToTexture, dot, float, floor, length, max, min, mix, rtt, s
 import { gaussianBlur } from "three/addons/tsl/display/GaussianBlurNode.js";
 import { DEFAULT_CAMERA_EFFECTS, type CameraEffects, type Id } from "@opensekai/contracts";
 import {
-    BLINK_EDGE, BLUR_RESOLUTION, BLUR_SIGMA, DIRT_KNEE, DIRT_RESOLUTION, DIRT_SIGMA, LUMA, VIGNETTE_INNER, blockSize, blurStep, type ActiveEffects,
+    BLINK_EDGE, BLUR_RESOLUTION, BLUR_SIGMA, DIRT_KNEE, DIRT_NODE_SIGMA, DIRT_RESOLUTION, LUMA, VIGNETTE_INNER, blockSize, blurStep, type ActiveEffects,
 } from "./camera-effects-math";
 import type { ScreenImage, ScreenImageLease } from "./screen";
 
@@ -63,7 +63,7 @@ export function createCameraEffects(): CameraEffectsRuntime {
             const bright = vec4(color.rgb.mul(weight), 0) as unknown as Vec4;
             // The blur node does not dispose a texture that it makes from a colour node, so the step makes it and owns it.
             const source = toTexture(bright, size);
-            const glow = gaussianBlur(source as never, uniform(1) as never, DIRT_SIGMA, { resolutionScale: DIRT_RESOLUTION });
+            const glow = gaussianBlur(source as never, uniform(1) as never, DIRT_NODE_SIGMA, { resolutionScale: DIRT_RESOLUTION });
             const k = f(u.frameAspect).div(f(u.dirtAspect));
             const dirtUv = uv().sub(0.5).mul(vec2(min(k, 1), min(k.reciprocal(), 1))).add(0.5) as unknown as Vec2;
             const image = texture(dirt.texture, dirtUv) as unknown as Vec4;
@@ -93,7 +93,7 @@ export function createCameraEffects(): CameraEffectsRuntime {
                 const frame = u.frameSize as unknown as Vec2;
                 const block = f(u.block);
                 const half = vec2(0.5).div(frame);
-                const snapped = floor(uv().mul(frame).div(block)).add(0.5).mul(block).div(frame).clamp(half, vec2(1).sub(half)) as unknown as Vec2;
+                const snapped = floor(uv().mul(frame).div(block)).mul(block).add(floor(block.div(2))).add(0.5).div(frame).clamp(half, vec2(1).sub(half)) as unknown as Vec2;
                 color = source.sample(snapped);
             }
             if (active.vignetting) {

@@ -9,13 +9,20 @@ export const EFFECTS_REFERENCE_HEIGHT = 1080;
 export const LUMA: Rgb = [0.2126, 0.7152, 0.0722];
 /** The size of the dirt light pass as a part of the drawing buffer. */
 export const DIRT_RESOLUTION = 0.25;
+/**
+ * three's GaussianBlurNode uses its `sigma` argument for the tap count (3 + 2σ) and blurs with the Gaussian sigma (3 + 2σ) / 3,
+ * in steps of the direction. This gives that real sigma.
+ */
+export const nodeSigma = (sigmaArgument: number) => (3 + 2 * sigmaArgument) / 3;
 /** The Gaussian sigma of the dirt light, in texels of its pass. */
 export const DIRT_SIGMA = 6;
+/** The `sigma` argument of the dirt blur node, so that `nodeSigma(DIRT_NODE_SIGMA)` is `DIRT_SIGMA`. */
+export const DIRT_NODE_SIGMA = (3 * DIRT_SIGMA - 3) / 2;
 /** The width of the soft start above the threshold. */
 export const DIRT_KNEE = 0.25;
 /** The size of the blur pass as a part of the drawing buffer. */
 export const BLUR_RESOLUTION = 0.5;
-/** The fixed kernel sigma of the blur, in texels of its pass. The strength changes the tap distance only. */
+/** The `sigma` argument of the blur node (11 taps on each side). The strength changes the tap distance only. */
 export const BLUR_SIGMA = 4;
 /** The blur sigma in pixels of a 1080-line frame for Intensity 1. */
 export const BLUR_PIXELS_PER_INTENSITY = 3;
@@ -68,8 +75,8 @@ export const dirtCompositePixel = (c: Rgba, add: Rgb): Rgba => bloomCompositePix
 
 /** R11: the blur sigma in drawing-buffer pixels. */
 export const blurSigmaPixels = (intensity: number, height: number) => (BLUR_PIXELS_PER_INTENSITY * intensity * height) / EFFECTS_REFERENCE_HEIGHT;
-/** R11: the direction scale of the fixed blur kernel. */
-export const blurStep = (intensity: number, height: number) => (blurSigmaPixels(intensity, height) * BLUR_RESOLUTION) / BLUR_SIGMA;
+/** R11: the direction scale of the fixed blur kernel, so that the real sigma is `blurSigmaPixels`. */
+export const blurStep = (intensity: number, height: number) => (blurSigmaPixels(intensity, height) * BLUR_RESOLUTION) / nodeSigma(BLUR_SIGMA);
 
 /** R12: a mix with the tinted luminance. The alpha does not change. */
 export const nightVisionPixel = (c: Rgba, tint: Rgb, alpha: number): Rgba => {
@@ -80,9 +87,9 @@ export const nightVisionPixel = (c: Rgba, tint: Rgb, alpha: number): Rgba => {
 
 /** R13: the block size in drawing-buffer pixels. */
 export const blockSize = (intensity: number, height: number) => Math.max(1, Math.round((intensity * height) / EFFECTS_REFERENCE_HEIGHT));
-/** R13: the UV of the block centre, kept on the pixel centres of the frame. */
+/** R13: the UV of the block centre, on a pixel centre of the frame, so that a linear filter reads one pixel. */
 export const pixelateUv = (uv: Uv, size: Uv, block: number): Uv => {
-    const snap = (x: number, n: number) => clamp(((Math.floor((x * n) / block) + 0.5) * block) / n, 0.5 / n, 1 - 0.5 / n);
+    const snap = (x: number, n: number) => clamp((Math.floor((x * n) / block) * block + Math.floor(block / 2) + 0.5) / n, 0.5 / n, 1 - 0.5 / n);
     return [snap(uv[0], size[0]), snap(uv[1], size[1])];
 };
 

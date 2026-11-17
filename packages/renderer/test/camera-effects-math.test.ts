@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CAMERA_EFFECTS, type CameraEffects } from "@opensekai/contracts";
 import {
-    DIRT_KNEE, EFFECT_ORDER, activeEffects, blinkLid, blockSize, blurSigmaPixels, blurStep, dirtAdd, dirtCompositePixel, dirtUv, dirtWeight,
-    effectsKey, nightVisionPixel, pixelateUv, vignetteDistance, vignetteShape, vignetteStrength, vignettingPixel, type ActiveEffects,
+    DIRT_KNEE, DIRT_NODE_SIGMA, DIRT_SIGMA, BLUR_SIGMA, EFFECT_ORDER, activeEffects, blinkLid, blockSize, blurSigmaPixels, blurStep, dirtAdd, dirtCompositePixel, dirtUv, dirtWeight,
+    effectsKey, nightVisionPixel, nodeSigma, pixelateUv, vignetteDistance, vignetteShape, vignetteStrength, vignettingPixel, type ActiveEffects,
 } from "../src/camera-effects-math";
 import { bloomCompositePixel, type Rgb, type Rgba } from "../src/grading-math";
 
@@ -89,10 +89,16 @@ describe("lens dirt (R10)", () => {
 describe("blur (R11, R22)", () => {
     it("gives the sigma in pixels of the drawing buffer", () => {
         expect(blurSigmaPixels(1, 1080)).toBeCloseTo(3, 9);
-        expect(blurStep(1, 1080)).toBeCloseTo(0.375, 9);
+        expect(blurStep(1, 1080)).toBeCloseTo(1.5 / (11 / 3), 9);
         expect(blurSigmaPixels(4, 540)).toBeCloseTo(6, 9);
         expect(blurSigmaPixels(0, 1080)).toBe(0);
         expect(blurStep(0, 1080)).toBe(0);
+    });
+    it("gives the real sigma of the blur node, (3 + 2σ) / 3 texels at each step", () => {
+        // The real sigma in pass texels is the step times nodeSigma; the pass is BLUR_RESOLUTION of the buffer.
+        expect(blurStep(1, 1080) * nodeSigma(BLUR_SIGMA) / 0.5).toBeCloseTo(blurSigmaPixels(1, 1080), 9);
+        expect(nodeSigma(DIRT_NODE_SIGMA)).toBeCloseTo(DIRT_SIGMA, 9);
+        expect(Number.isInteger(3 + 2 * DIRT_NODE_SIGMA)).toBe(true);
     });
 });
 
@@ -116,7 +122,15 @@ describe("pixelate (R13, R22)", () => {
         const centre = pixelateUv([(64 + 0.5) / 1920, (128 + 0.5) / 1080], size, 64);
         for (const [x, y] of [[64, 128], [100, 150], [127, 191]])
             close(pixelateUv([(x + 0.5) / 1920, (y + 0.5) / 1080], size, 64), centre);
-        close(centre, [96 / 1920, 160 / 1080]);
+        close(centre, [96.5 / 1920, 160.5 / 1080]);
+    });
+    it("reads a pixel centre for an even and an odd block", () => {
+        const size = [1920, 1080] as const;
+        for (const block of [2, 3, 16, 64]) {
+            const [a, b] = pixelateUv([0.3, 0.6], size, block);
+            expect((a * 1920) % 1).toBeCloseTo(0.5, 9);
+            expect((b * 1080) % 1).toBeCloseTo(0.5, 9);
+        }
     });
     it("stays inside the frame", () => {
         const size = [1920, 1080] as const;
