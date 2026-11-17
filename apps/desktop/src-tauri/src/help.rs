@@ -24,6 +24,30 @@ pub enum HelpTopic {
     Settings,
 }
 
+impl HelpTopic {
+    /// Every topic, in the order of `fixtures/protocol/help-topics.json`. The test `position`
+    /// match keeps this list complete. Only the tests read it.
+    #[cfg(test)]
+    pub const ALL: [HelpTopic; 16] = [
+        HelpTopic::GettingStarted,
+        HelpTopic::Scene,
+        HelpTopic::Character,
+        HelpTopic::MotionCapture,
+        HelpTopic::VmcSender,
+        HelpTopic::Environment,
+        HelpTopic::Prop,
+        HelpTopic::Light,
+        HelpTopic::Haze,
+        HelpTopic::Screen,
+        HelpTopic::FpsCounter,
+        HelpTopic::Camera,
+        HelpTopic::Output,
+        HelpTopic::Blueprints,
+        HelpTopic::Resources,
+        HelpTopic::Settings,
+    ];
+}
+
 /// Reads the topic name from the window. A name outside the enum gives `INVALID_INPUT`, so the
 /// window gets the same error shape as every other command.
 pub fn parse_topic(name: &str) -> Result<HelpTopic, AppError> {
@@ -77,11 +101,42 @@ mod tests {
         .unwrap()
     }
 
+    /// The exhaustive match makes a new variant fail to compile here until it has a position.
+    /// The test below then requires the variant at that position in `HelpTopic::ALL`.
+    fn position(topic: HelpTopic) -> usize {
+        match topic {
+            HelpTopic::GettingStarted => 0,
+            HelpTopic::Scene => 1,
+            HelpTopic::Character => 2,
+            HelpTopic::MotionCapture => 3,
+            HelpTopic::VmcSender => 4,
+            HelpTopic::Environment => 5,
+            HelpTopic::Prop => 6,
+            HelpTopic::Light => 7,
+            HelpTopic::Haze => 8,
+            HelpTopic::Screen => 9,
+            HelpTopic::FpsCounter => 10,
+            HelpTopic::Camera => 11,
+            HelpTopic::Output => 12,
+            HelpTopic::Blueprints => 13,
+            HelpTopic::Resources => 14,
+            HelpTopic::Settings => 15,
+        }
+    }
+
     fn topics() -> Vec<HelpTopic> {
         fixture()
             .iter()
             .map(|name| parse_topic(name).unwrap())
             .collect()
+    }
+
+    #[test]
+    fn all_topics_are_complete_and_equal_the_fixture() {
+        for (index, topic) in HelpTopic::ALL.into_iter().enumerate() {
+            assert_eq!(position(topic), index, "{topic:?}");
+        }
+        assert_eq!(topics(), HelpTopic::ALL.to_vec());
     }
 
     /// GitHub makes a heading anchor in lower case, with a hyphen for each space, and drops
