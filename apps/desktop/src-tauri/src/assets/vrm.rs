@@ -424,6 +424,35 @@ fn cut_units(name: &str, units: usize) -> &str {
     }
     name
 }
+/// The B26 R1 name rule (B38 R13 reuses it for materials): trim, the fallback when empty, cut to `max` units, then
+/// ` (2)`, ` (3)` against the names already taken. It adds the result to `taken`. Keep in step with `uniqueName` in
+/// `packages/contracts/src/meshes.ts`.
+pub(super) fn unique_name(
+    raw: &Value,
+    fallback: &str,
+    max: usize,
+    taken: &mut HashSet<String>,
+) -> String {
+    let trimmed = raw.as_str().unwrap_or("").trim_matches(js_space);
+    let base = cut_units(
+        if trimmed.is_empty() {
+            fallback
+        } else {
+            trimmed
+        },
+        max,
+    )
+    .to_string();
+    let mut name = base.clone();
+    let mut n = 2;
+    while taken.contains(&name) {
+        let suffix = format!(" ({n})");
+        name = format!("{}{suffix}", cut_units(&base, max - suffix.len()));
+        n += 1;
+    }
+    taken.insert(name.clone());
+    name
+}
 /// The mesh nodes of a glTF document in node order, each with a unique name (B26 R1).
 /// Keep in step with `meshEntries` in `packages/contracts/src/meshes.ts`; `fixtures/protocol/mesh-names.json` pins both.
 pub(super) fn vrm_meshes(json: &Value) -> Vec<AssetMesh> {
@@ -442,21 +471,12 @@ pub(super) fn vrm_meshes(json: &Value) -> Vec<AssetMesh> {
         let Ok(node) = u32::try_from(node) else {
             continue;
         };
-        let trimmed = value["name"].as_str().unwrap_or("").trim_matches(js_space);
-        let base = if trimmed.is_empty() {
-            format!("Mesh {node}")
-        } else {
-            trimmed.to_string()
-        };
-        let base = cut_units(&base, MAX_MESH_NAME).to_string();
-        let mut name = base.clone();
-        let mut n = 2;
-        while taken.contains(&name) {
-            let suffix = format!(" ({n})");
-            name = format!("{}{suffix}", cut_units(&base, MAX_MESH_NAME - suffix.len()));
-            n += 1;
-        }
-        taken.insert(name.clone());
+        let name = unique_name(
+            &value["name"],
+            &format!("Mesh {node}"),
+            MAX_MESH_NAME,
+            &mut taken,
+        );
         entries.push(AssetMesh { node, name });
     }
     if found > MAX_MESHES {

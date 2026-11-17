@@ -108,9 +108,18 @@ impl AssetRegistry {
                 // Records from before B26 have no mesh list.
                 let meshless = value.get("format").and_then(Value::as_str) == Some("vrm")
                     && value.get("meshes").is_none();
+                // Records from before B38 have no material list.
+                let format = value
+                    .get("format")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_owned();
+                let materialless =
+                    matches!(format.as_str(), "vrm" | "glb") && value.get("materials").is_none();
                 let named = value.is_object()
                     && (value.get("name").is_none() || value.get("expressions").is_none() || stale);
-                let mut backfilled = named || (value.is_object() && (rigless || meshless));
+                let mut backfilled =
+                    named || (value.is_object() && (rigless || meshless || materialless));
                 if backfilled {
                     // Each field has its own flag: a field that cannot be read does not cause a write.
                     let mut written = named;
@@ -148,6 +157,24 @@ impl AssetRegistry {
                             value["meshes"] = serde_json::to_value(super::vrm::vrm_meshes(json))
                                 .unwrap_or_default();
                             written = true;
+                        }
+                    }
+                    if materialless {
+                        let json = match format.as_str() {
+                            "vrm" => vrm.as_ref().map(|(json, _)| json.clone()),
+                            _ => stored_glb(&p.with_extension("glb")),
+                        };
+                        match json {
+                            Some(json) => {
+                                value["materials"] =
+                                    serde_json::to_value(super::materials::model_materials(&json))
+                                        .unwrap_or_default();
+                                written = true;
+                            }
+                            None => eprintln!(
+                                "OpenSekai cannot read the materials of asset {}",
+                                value["id"].as_str().unwrap_or("")
+                            ),
                         }
                     }
                     backfilled = written;
@@ -301,6 +328,21 @@ impl AssetRegistry {
                         );
                     }
                 }
+                // Fixture models get the material list in memory only (B38 R16).
+                if !record.contains_key("materials") {
+                    let json = match (record.get("format").and_then(Value::as_str), &path) {
+                        (Some("vrm"), Some(path)) => stored_vrm(path).map(|(json, _)| json),
+                        (Some("glb"), Some(path)) => stored_glb(path),
+                        _ => None,
+                    };
+                    if let Some(json) = json {
+                        record.insert(
+                            "materials".into(),
+                            serde_json::to_value(super::materials::model_materials(&json))
+                                .unwrap_or_default(),
+                        );
+                    }
+                }
             }
         }
         let manifest: Manifest =
@@ -436,6 +478,7 @@ pub fn stage_image(library: &Path, path: &Path) -> Result<StagedAsset, AppError>
         eye_bones: None,
         rig: None,
         meshes: None,
+        materials: None,
         image: Some(AssetImage {
             width: header.width,
             height: header.height,
@@ -542,6 +585,7 @@ pub fn stage_video(library: &Path, path: &Path) -> Result<StagedAsset, AppError>
         eye_bones: None,
         rig: None,
         meshes: None,
+        materials: None,
         image: None,
         video: Some(header.video()),
     };
@@ -598,7 +642,8 @@ fn record_file(
     Ok((temp_file(dir, &bytes)?, format!("{}.json", record.id)))
 }
 pub fn prepare_scene(packed: PackedScene) -> Result<PreparedScene, AppError> {
-    validate_glb(&packed.glb)?;
+    let json = validate_glb(&packed.glb)?;
+    let materials = Some(super::materials::model_materials(&json));
     let sha256 = hex(&Sha256::digest(&packed.glb));
     let id = format!("scene_{sha256}");
     let credits = packed.credits;
@@ -628,6 +673,7 @@ pub fn prepare_scene(packed: PackedScene) -> Result<PreparedScene, AppError> {
         eye_bones: None,
         rig: None,
         meshes: None,
+        materials,
         image: None,
         video: None,
     };
@@ -695,6 +741,7 @@ pub fn stage_avatar(library: &Path, path: &Path) -> Result<StagedAsset, AppError
     let eye_bones = Some(super::vrm::vrm_has_eye_bones(&json));
     let rig = super::vrm::vrm_rig(&json);
     let meshes = Some(super::vrm::vrm_meshes(&json));
+    let materials = Some(super::materials::model_materials(&json));
     let sha256 = hex(&hash.finalize());
     let id = format!("avatar_{sha256}");
     let name = meta_name(&json)
@@ -719,6 +766,7 @@ pub fn stage_avatar(library: &Path, path: &Path) -> Result<StagedAsset, AppError
         eye_bones,
         rig,
         meshes,
+        materials,
         image: None,
         video: None,
     };
@@ -753,7 +801,8 @@ pub fn resolve_asset(id: &str, registry: &AssetRegistry) -> Result<PathBuf, AppE
     }
     Ok(path)
 }
-pub(super) fn validate_glb(bytes: &[u8]) -> Result<(), AppError> {
+/// Validates a self-contained GLB and returns its JSON chunk.
+pub(super) fn validate_glb(bytes: &[u8]) -> Result<Value, AppError> {
     let word = |offset: usize| -> Result<u32, AppError> {
         let raw: [u8; 4] = bytes
             .get(offset..offset + 4)
@@ -806,7 +855,7 @@ pub(super) fn validate_glb(bytes: &[u8]) -> Result<(), AppError> {
     if external(&json) {
         return Err(invalid("External GLB URI"));
     }
-    Ok(())
+    Ok(json)
 }
 #[cfg(test)]
 mod tests {
@@ -895,7 +944,10 @@ mod tests {
 mod boundary_tests {
     use super::*;
     fn glb() -> Vec<u8> {
-        let mut json = br#"{"asset":{"version":"2.0"}}"#.to_vec();
+        glb_of(r#"{"asset":{"version":"2.0"}}"#)
+    }
+    fn glb_of(json: &str) -> Vec<u8> {
+        let mut json = json.as_bytes().to_vec();
         while !json.len().is_multiple_of(4) {
             json.push(b' ');
         }
@@ -940,6 +992,53 @@ mod boundary_tests {
         assert_eq!(reopened.read(&record.id).unwrap(), glb());
     }
     #[test]
+    fn a_stored_scene_and_an_old_scene_record_get_the_material_list() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut registry = AssetRegistry::empty(dir.path()).unwrap();
+        let bytes = glb_of(
+            r#"{"asset":{"version":"2.0"},"materials":[{"name":"Floor","alphaMode":"BLEND",
+            "pbrMetallicRoughness":{"baseColorFactor":[1,0,0,0.5]}},{"name":"Floor"}]}"#,
+        );
+        let record = registry.store_scene(packed(None, bytes)).unwrap().record;
+        let names = |r: &AssetRecord| {
+            r.materials
+                .as_ref()
+                .map(|list| list.iter().map(|m| m.name.clone()).collect::<Vec<_>>())
+        };
+        let materials = record.materials.as_ref().unwrap();
+        assert_eq!(names(&record).unwrap(), ["Floor", "Floor (2)"]);
+        assert_eq!(materials[0].model.base_color.as_deref(), Some("#ff0000"));
+        assert_eq!(materials[0].model.opacity, Some(0.5));
+        // A record from before B38 gets the list from its stored GLB, and the library writes it one time.
+        let json_path = registry.library().join(format!("{}.json", record.id));
+        let mut old: Value = serde_json::from_slice(&std::fs::read(&json_path).unwrap()).unwrap();
+        old.as_object_mut().unwrap().remove("materials");
+        std::fs::write(&json_path, old.to_string()).unwrap();
+        let reopened = AssetRegistry::empty(dir.path()).unwrap();
+        assert_eq!(reopened.records(), vec![record.clone()]);
+        let written: Value = serde_json::from_slice(&std::fs::read(&json_path).unwrap()).unwrap();
+        assert_eq!(written["materials"][1]["name"], "Floor (2)");
+        // A record that has the list is not written again.
+        let pretty = serde_json::to_string_pretty(&written).unwrap();
+        std::fs::write(&json_path, &pretty).unwrap();
+        AssetRegistry::empty(dir.path()).unwrap();
+        assert_eq!(std::fs::read_to_string(&json_path).unwrap(), pretty);
+        // A stored GLB that cannot be read leaves the record without a list and does not write it.
+        std::fs::write(&json_path, old.to_string()).unwrap();
+        std::fs::write(
+            registry.library().join(format!("{}.glb", record.id)),
+            b"broken",
+        )
+        .unwrap();
+        let broken = AssetRegistry::empty(dir.path()).unwrap();
+        assert_eq!(broken.records().len(), 1);
+        assert!(broken.records()[0].materials.is_none());
+        assert_eq!(
+            std::fs::read_to_string(&json_path).unwrap(),
+            old.to_string()
+        );
+    }
+    #[test]
     fn stages_an_image_deduplicates_and_reloads_it() {
         use super::super::image::tests::{gif_bytes, png_bytes};
         let dir = tempfile::tempdir().unwrap();
@@ -966,6 +1065,10 @@ mod boundary_tests {
             .join(format!("{}.png", record.id))
             .is_file());
         assert_eq!(registry.read(&record.id).unwrap(), png_bytes(40, 20));
+        // An image has no material list, also after a library load.
+        assert!(record.materials.is_none());
+        let reloaded = AssetRegistry::empty(&dir.path().join("app")).unwrap();
+        assert!(reloaded.records().iter().all(|r| r.materials.is_none()));
         // The same bytes under another name keep the existing record.
         let copy = dir.path().join("Other.png");
         std::fs::write(&copy, png_bytes(40, 20)).unwrap();
@@ -1523,6 +1626,87 @@ mod import_tests {
         assert_eq!(mesh_names(&record).map(|m| m.len()), Some(3));
         assert_eq!(std::fs::read_to_string(&manifest).unwrap(), text);
     }
+    /// The minimal VRM 1 document with an MToon material that has an outline and a blended glTF material.
+    fn with_materials() -> String {
+        let mut json: Value =
+            serde_json::from_str(include_str!("../../tests/fixtures/minimal-vrm1.json")).unwrap();
+        json["materials"] = serde_json::json!([
+            {"name": "Skin", "extensions": {"VRMC_materials_mtoon": {"specVersion": "1.0",
+                "shadeColorFactor": [1, 0, 0], "outlineWidthMode": "worldCoordinates", "outlineWidthFactor": 0.01}}},
+            {"name": "Skin", "alphaMode": "BLEND"}
+        ]);
+        json.to_string()
+    }
+    fn material_names(record: &AssetRecord) -> Option<Vec<String>> {
+        record
+            .materials
+            .as_ref()
+            .map(|list| list.iter().map(|m| m.name.clone()).collect())
+    }
+    #[test]
+    fn import_and_library_load_fill_the_material_list() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("materials.vrm");
+        std::fs::write(&path, vrm(&with_materials())).unwrap();
+        let managed = dir.path().join("managed");
+        let mut r = AssetRegistry::empty(&managed).unwrap();
+        let imported = r.import_avatar(&path).unwrap().record;
+        assert_eq!(
+            material_names(&imported),
+            Some(vec!["Skin".to_string(), "Skin (2)".to_string()])
+        );
+        let skin = &imported.materials.as_ref().unwrap()[0];
+        assert_eq!(skin.profile, opensekai_contracts::MaterialProfile::Mtoon);
+        assert!(skin.outline);
+        assert_eq!(skin.model.shade_color.as_deref(), Some("#ff0000"));
+        assert_eq!(skin.model.outline_width, Some(0.01));
+        // A record from before B38 gets the list from its stored file, and the library writes it again.
+        let json_path = r.library().join(format!("{}.json", imported.id));
+        let mut old: Value = serde_json::from_slice(&std::fs::read(&json_path).unwrap()).unwrap();
+        old.as_object_mut().unwrap().remove("materials");
+        std::fs::write(&json_path, old.to_string()).unwrap();
+        let reopened = AssetRegistry::empty(&managed).unwrap();
+        assert_eq!(reopened.records()[0].materials, imported.materials);
+        let written: Value = serde_json::from_slice(&std::fs::read(&json_path).unwrap()).unwrap();
+        assert_eq!(written["materials"][1]["name"], "Skin (2)");
+        // A stored file that cannot be read leaves the record without a list and does not write it again.
+        std::fs::write(&json_path, old.to_string()).unwrap();
+        std::fs::write(r.library().join(format!("{}.vrm", imported.id)), b"broken").unwrap();
+        let broken = AssetRegistry::empty(&managed).unwrap();
+        assert_eq!(broken.records().len(), 1);
+        assert!(broken.records()[0].materials.is_none());
+        assert_eq!(
+            std::fs::read_to_string(&json_path).unwrap(),
+            old.to_string()
+        );
+    }
+    #[test]
+    fn fixture_manifest_records_get_the_material_list_in_memory() {
+        let dir = tempfile::tempdir().unwrap();
+        let avatar = dir.path().join("fixture.vrm");
+        let avatar_bytes = vrm(&with_materials());
+        std::fs::write(&avatar, &avatar_bytes).unwrap();
+        let stage = dir.path().join("fixture.glb");
+        let stage_bytes = vrm(r#"{"asset":{"version":"2.0"},"materials":[{"name":"Floor"}]}"#);
+        std::fs::write(&stage, &stage_bytes).unwrap();
+        let record = |id: &str, format: &str, bytes: &[u8]| {
+            serde_json::json!({"id": id, "format": format, "sha256": hex(&Sha256::digest(bytes)),
+                "bytes": bytes.len(), "sourceUrl": null, "licenseLabel": "Test", "importerVersion": 1,
+                "name": id, "expressions": []})
+        };
+        let manifest = dir.path().join("manifest.json");
+        let text = serde_json::json!({"schemaVersion": 1, "fixtureId": "smoke_v1", "assets": [
+            {"path": avatar, "record": record("fixture_avatar", "vrm", &avatar_bytes)},
+            {"path": stage, "record": record("fixture_stage", "glb", &stage_bytes)}]})
+        .to_string();
+        std::fs::write(&manifest, &text).unwrap();
+        let registry = AssetRegistry::load(&manifest).unwrap();
+        let records = registry.fixture_records();
+        let names = |id: &str| material_names(records.iter().find(|r| r.id == id).unwrap());
+        assert_eq!(names("fixture_avatar").map(|m| m.len()), Some(2));
+        assert_eq!(names("fixture_stage"), Some(vec!["Floor".to_string()]));
+        assert_eq!(std::fs::read_to_string(&manifest).unwrap(), text);
+    }
     #[test]
     fn import_and_library_load_record_expression_names() {
         let dir = tempfile::tempdir().unwrap();
@@ -1731,8 +1915,39 @@ fn stored_vrm(path: &Path) -> Option<(Value, Vec<u8>)> {
     let len = file.metadata().ok()?.len();
     validate_import_file(&mut file, len).ok()
 }
+/// The JSON chunk of a stored scene, or `None` when the file cannot be read (B38 R16).
+fn stored_glb(path: &Path) -> Option<Value> {
+    let mut file = std::fs::File::open(path).ok()?;
+    let len = file.metadata().ok()?.len();
+    read_glb_json(&mut file, len).ok().map(|(json, _)| json)
+}
 /// Validates a stored or imported VRM and returns its JSON chunk, parsed and raw.
 fn validate_import_file(file: &mut std::fs::File, len: u64) -> Result<(Value, Vec<u8>), AppError> {
+    let (json, raw) = read_glb_json(file, len)?;
+    fn external(v: &Value) -> bool {
+        match v {
+            Value::Object(o) => o.iter().any(|(k, v)| k == "uri" || external(v)),
+            Value::Array(a) => a.iter().any(external),
+            _ => false,
+        }
+    }
+    if external(&json) {
+        return Err(invalid("External GLB URI"));
+    }
+    let vrm1 = json.pointer("/extensions/VRMC_vrm");
+    let vrm0 = json.pointer("/extensions/VRM");
+    if json.pointer("/asset/version").and_then(Value::as_str) != Some("2.0")
+        || vrm1.is_some() == vrm0.is_some()
+        || vrm1.is_some_and(|v| v.get("specVersion").and_then(Value::as_str) != Some("1.0"))
+        || vrm0.is_some_and(|v| v.get("specVersion").and_then(Value::as_str) != Some("0.0"))
+    {
+        return Err(invalid("Unsupported VRM version"));
+    }
+    super::vrm::validate_humanoid(&json, vrm0.is_some())?;
+    Ok((json, raw))
+}
+/// Reads the GLB container of a file and returns its JSON chunk, parsed and raw. It skips the binary chunk.
+fn read_glb_json(file: &mut std::fs::File, len: u64) -> Result<(Value, Vec<u8>), AppError> {
     file.seek(SeekFrom::Start(0))
         .map_err(|_| invalid("Invalid avatar file"))?;
     let mut header = [0u8; 12];
@@ -1782,26 +1997,6 @@ fn validate_import_file(file: &mut std::fs::File, len: u64) -> Result<(Value, Ve
         offset += size as u64;
     }
     let json = json.ok_or_else(|| invalid("Missing GLB JSON"))?;
-    fn external(v: &Value) -> bool {
-        match v {
-            Value::Object(o) => o.iter().any(|(k, v)| k == "uri" || external(v)),
-            Value::Array(a) => a.iter().any(external),
-            _ => false,
-        }
-    }
-    if external(&json) {
-        return Err(invalid("External GLB URI"));
-    }
-    let vrm1 = json.pointer("/extensions/VRMC_vrm");
-    let vrm0 = json.pointer("/extensions/VRM");
-    if json.pointer("/asset/version").and_then(Value::as_str) != Some("2.0")
-        || vrm1.is_some() == vrm0.is_some()
-        || vrm1.is_some_and(|v| v.get("specVersion").and_then(Value::as_str) != Some("1.0"))
-        || vrm0.is_some_and(|v| v.get("specVersion").and_then(Value::as_str) != Some("0.0"))
-    {
-        return Err(invalid("Unsupported VRM version"));
-    }
-    super::vrm::validate_humanoid(&json, vrm0.is_some())?;
     Ok((json, raw))
 }
 #[cfg(test)]

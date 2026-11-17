@@ -9,6 +9,7 @@ import type { CameraGrading } from './grading';
 import type { CameraAntiAliasing, OutputFrameLimit, OutputRenderScale, QualityProfileId } from './quality';
 import type { AvatarRig, VmcPosesEnvelope, VmcSenderSettings, VmcSenderStatus } from './vmc-sender';
 import type { AssetMesh, MeshList } from './meshes';
+import type { AssetMaterial } from './material-parameters';
 import type { ArkitName, AssetExpression, ExpressionSettings, ExpressionState } from './expressions';
 import type { IntegrationsSetParams, YouTubeStatus } from './youtube';
 import type { CaptureState } from './capture';
@@ -173,6 +174,7 @@ export interface AssetRecord {
     eyeBones?: boolean;
     rig?: AvatarRig;
     meshes?: AssetMesh[];
+    materials?: AssetMaterial[];
     image?: AssetImage;
     video?: AssetVideo;
 }

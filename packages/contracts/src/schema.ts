@@ -13,6 +13,7 @@ import { CameraAntiAliasingSchema, QualityProfileIdSchema, OUTPUT_FRAME_LIMITS, 
 import { AvatarRigSchema, VmcPosesEnvelopeSchema, VmcSenderSettingsSchema, VmcSenderStatusSchema } from './vmc-sender';
 import { AssetExpressionsSchema, AvatarExpressionsSchema, ExpressionNameSchema, ExpressionSettingsSchema, ExpressionStateSchema, ARKIT_NAMES } from './expressions';
 import { AssetMeshesSchema, HiddenMeshesSchema, MeshListSchema } from './meshes';
+import { AssetMaterialsSchema } from './material-parameters';
 import { isWebScreenUrl } from './web-url';
 import { CAPTURE_STATES, CAPTURE_TEXT_LIMITS, captureTextLength, normalizeCaptureText } from './capture';
 import type { AppApi, Capability, Reply, ValidatedCall } from "./types";
@@ -411,13 +412,14 @@ export const AssetRecordSchema = z.strictObject({
     eyeBones: z.boolean().optional(),
     rig: AvatarRigSchema.optional(),
     meshes: AssetMeshesSchema.optional(),
+    materials: AssetMaterialsSchema.optional(),
     image: AssetImageSchema.optional(),
     video: AssetVideoSchema.optional()
 }).refine(record => isImageFormat(record.format)
-    ? record.image !== undefined && record.id.startsWith('image_') && record.expressions.length === 0 && record.rig === undefined && record.eyeBones === undefined && record.meshes === undefined
+    ? record.image !== undefined && record.id.startsWith('image_') && record.expressions.length === 0 && record.rig === undefined && record.eyeBones === undefined && record.meshes === undefined && record.materials === undefined
     : record.image === undefined && !record.id.startsWith('image_'), 'Image fields do not match the format')
   .refine(record => isVideoFormat(record.format)
-    ? record.video !== undefined && record.id.startsWith('video_') && record.bytes <= VIDEO_LIMITS.bytes && videoCodecsOk(record.format, record.video) && record.expressions.length === 0 && record.rig === undefined && record.eyeBones === undefined && record.meshes === undefined
+    ? record.video !== undefined && record.id.startsWith('video_') && record.bytes <= VIDEO_LIMITS.bytes && videoCodecsOk(record.format, record.video) && record.expressions.length === 0 && record.rig === undefined && record.eyeBones === undefined && record.meshes === undefined && record.materials === undefined
     : record.video === undefined && !record.id.startsWith('video_'), 'Video fields do not match the format');
 export const isImageRecord = (record: { format: string }): boolean => isImageFormat(record.format);
 export const isVideoRecord = (record: { format: string }): boolean => isVideoFormat(record.format);

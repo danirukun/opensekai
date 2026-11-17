@@ -26,6 +26,15 @@ const cut = (name: string, units: number) => {
  return name.slice(0, end);
 };
 
+// The R1 name rule (B38 R13 reuses it for materials): trim, the fallback when empty, cut to `max` units, then ` (2)`, ` (3)`
+// against the names already taken. It adds the result to `taken`.
+export const uniqueName = (raw: unknown, fallback: string, max: number, taken: Set<string>): string => {
+ const base = cut(trimmed(typeof raw === 'string' ? raw : '') || fallback, max);
+ let name = base;
+ for (let n = 2; taken.has(name); n++) name = `${cut(base, max - ` (${n})`.length)} (${n})`;
+ taken.add(name);
+ return name;
+};
 // R1: the glTF nodes that have a mesh, in node order, each with a unique name of at most 128 units. The list keeps the first 256.
 export const meshEntries = (json: unknown): AssetMesh[] => {
  const nodes = typeof json === 'object' && json !== null && Array.isArray((json as { nodes?: unknown }).nodes) ? (json as { nodes: unknown[] }).nodes : [];
@@ -34,12 +43,7 @@ export const meshEntries = (json: unknown): AssetMesh[] => {
  for (const [node, value] of nodes.entries()) {
   if (entries.length >= MAX_MESHES) break;
   if (typeof value !== 'object' || value === null || typeof (value as { mesh?: unknown }).mesh !== 'number') continue;
-  const raw = (value as { name?: unknown }).name;
-  const base = cut(trimmed(typeof raw === 'string' ? raw : '') || `Mesh ${node}`, MAX_MESH_NAME);
-  let name = base;
-  for (let n = 2; taken.has(name); n++) name = `${cut(base, MAX_MESH_NAME - ` (${n})`.length)} (${n})`;
-  taken.add(name);
-  entries.push({ node, name });
+  entries.push({ node, name: uniqueName((value as { name?: unknown }).name, `Mesh ${node}`, MAX_MESH_NAME, taken) });
  }
  return entries;
 };
