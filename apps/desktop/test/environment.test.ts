@@ -37,7 +37,7 @@ it('keeps the Add menu limits of the other kinds', () => {
     expect(addLimitReached('character', withTwo('character'))).toBe(true);
     expect(addLimitReached('haze', [...scene, makeAuthoringEntity('haze', 'h', scene)])).toBe(true);
     expect(addLimitReached('fpsCounter', [...scene, makeAuthoringEntity('fpsCounter', 'f', scene)])).toBe(true);
-    const lights = Array.from({ length: 8 }, (_, i) => makeAuthoringEntity('pointLight', `l${i}`, scene));
+    const lights = Array.from({ length: 32 }, (_, i) => makeAuthoringEntity('pointLight', `l${i}`, scene));
     expect(addLimitReached('spotLight', scene)).toBe(false);
     expect(addLimitReached('spotLight', [...scene.filter(e => e.kind !== 'light'), ...lights])).toBe(true);
     expect(addLimitReached('vmc', withTwo('vmc'))).toBe(false);

@@ -1,7 +1,7 @@
-import {AppErrorSchema,LIMITS,defaultTrackingConfig,isVideoRecord,type AssetRecord,type SceneEntity,type SceneView} from '@opensekai/contracts';
+import {AppErrorSchema,LIMITS,defaultTrackingConfig,isVideoRecord,type AssetRecord,type LightSettings,type SceneEntity,type SceneView} from '@opensekai/contracts';
 import type {AddKind} from './live-fields';
 import {vmcSenderLimitReached,vmcSenderSettings} from './vmc-sender';
-import {AMBIENT_LIGHT,DIRECTIONAL_LIGHT,FPS_COUNTER,HAZE,POINT_LIGHT,SPOT_LIGHT,fpsCounterLimitReached,hazeLimitReached,hazeTransform,lightLimitReached,lightTransform} from './lights';
+import {AMBIENT_LIGHT,DIRECTIONAL_LIGHT,FPS_COUNTER,HAZE,POINT_LIGHT,SPOT_LIGHT,fpsCounterLimitReached,hazeLimitReached,hazeTransform,lightLimitReached,lightTransform,litLightLimitReached,unlit} from './lights';
 import {cameraLimitReached} from './cameras';
 type Vec3=[number,number,number];
 const lastAvatar=(entities:readonly SceneEntity[])=>entities.filter(entity=>entity.kind==='avatar').at(-1);
@@ -17,6 +17,8 @@ export function nextAvatarTransform(entities:readonly SceneEntity[],scale:Vec3=[
 }
 const transform=()=>({position:[0,0,0] as [number,number,number],rotation:[0,0,0,1] as [number,number,number,number],scale:[1,1,1] as [number,number,number]});
 export function makeAuthoringEntity(kind:AddKind,id:string,entities:readonly SceneEntity[]):SceneEntity {
+ // At 8 lit lights a new light has its affect flags off, so it can show a beam (light limits R8).
+ const addedLight=(defaults:LightSettings):LightSettings=>structuredClone(litLightLimitReached(entities)?unlit(defaults):defaults);
  const label=({camera:'Camera',character:'Character',environment:'Environment',prop:'Prop',screen:'Screen',directionalLight:'Directional Light',pointLight:'Point Light',spotLight:'Spot Light',ambientLight:'Ambient Light',haze:'Haze',fpsCounter:'FPS Counter',vmcSender:'VMC Sender',vmc:'VMC Receiver',ifacialmocap:'iFacialMocap Receiver',openseeface:'OpenSeeFace Receiver',mediapipe:'MediaPipe Tracker',facekit:'FaceKit Tracker'} as const)[kind];
  const taken=new Set(entities.map(entity=>entity.name));
  let n=2;while(taken.has(`${label} ${n}`))n++;
@@ -26,10 +28,10 @@ export function makeAuthoringEntity(kind:AddKind,id:string,entities:readonly Sce
  if(kind==='environment')return {...base,kind,assetId:null};
  if(kind==='prop')return {...base,kind:'mesh',source:{kind:'asset',assetId:null}};
  if(kind==='screen')return {...base,kind:'screen',content:{kind:'image',assetId:null}};
- if(kind==='directionalLight')return {...base,kind:'light',transform:lightTransform('directional'),light:structuredClone(DIRECTIONAL_LIGHT)};
- if(kind==='pointLight')return {...base,kind:'light',transform:lightTransform('point'),light:structuredClone(POINT_LIGHT)};
- if(kind==='spotLight')return {...base,kind:'light',transform:lightTransform('spot'),light:structuredClone(SPOT_LIGHT)};
- if(kind==='ambientLight')return {...base,kind:'light',transform:lightTransform('ambient'),light:structuredClone(AMBIENT_LIGHT)};
+ if(kind==='directionalLight')return {...base,kind:'light',transform:lightTransform('directional'),light:addedLight(DIRECTIONAL_LIGHT)};
+ if(kind==='pointLight')return {...base,kind:'light',transform:lightTransform('point'),light:addedLight(POINT_LIGHT)};
+ if(kind==='spotLight')return {...base,kind:'light',transform:lightTransform('spot'),light:addedLight(SPOT_LIGHT)};
+ if(kind==='ambientLight')return {...base,kind:'light',transform:lightTransform('ambient'),light:addedLight(AMBIENT_LIGHT)};
  if(kind==='haze')return {...base,kind:'haze',transform:hazeTransform(),haze:{...HAZE}};
  if(kind==='fpsCounter')return {...base,kind:'fpsCounter',fpsCounter:{...FPS_COUNTER}};
  if(kind==='vmcSender')return {...base,kind:'vmcSender',vmcSender:vmcSenderSettings(entities)};

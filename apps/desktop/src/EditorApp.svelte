@@ -56,7 +56,7 @@ import { createEditorMemory } from './blueprints/editor-memory';
  function panelOut(_node: Element) {
   return { duration: reduceMotion.current ? 0 : 140, easing: cubicIn, css: (t: number) => `opacity:${t};transform:translateY(${(1 - t) * 4}px)` };
  }
- let model=$state.raw<EditorModel>(),view=$state<EditorView>({scene:null,selectedId:null,error:null,pending:false});
+ let model=$state.raw<EditorModel>(),view=$state<EditorView>({scene:null,selectedId:null,error:null,errorMessage:null,pending:false});
  let status=$state<AppStatus|null>(null),assets=$state<AssetRecord[]>([]),outputUrl=$state(''),canEdit=$state(false),available=$state(false),error=$state<string|null>(null);
  let panel=$state<'assets'|'output'|'resources'|'blueprints'|'settings'>('assets'),width=$state(224),maxWidth=$state(360),shell:HTMLDivElement;
  let api=$state.raw<AppApi|null>(null),sync=$state.raw<BlueprintSync|null>(null);

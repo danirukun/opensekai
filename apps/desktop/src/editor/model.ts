@@ -1,4 +1,4 @@
-import { ExpressionNameSchema,ExpressionSettingsSchema,TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,FitNeutralSchema,TrackingSmoothingSchema,TrackingMappingSchema,EntityNameSchema,ShowSceneSchema,IdSchema,CameraAntiAliasingSchema,CameraGradingSchema,CameraNavigationSchema,LightSettingsSchema,HazeSettingsSchema,FpsCounterSettingsSchema,VmcSenderSettingsSchema,ReflectionsIntensitySchema,PatchOpSchema,ScreenVideoSchema,WebScreenSchema,ScreenCaptureSchema } from '@opensekai/contracts';
+import { ExpressionNameSchema,ExpressionSettingsSchema,TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,FitNeutralSchema,TrackingSmoothingSchema,TrackingMappingSchema,EntityNameSchema,ShowSceneSchema,IdSchema,CameraAntiAliasingSchema,CameraGradingSchema,CameraNavigationSchema,LightSettingsSchema,HazeSettingsSchema,FpsCounterSettingsSchema,VmcSenderSettingsSchema,ReflectionsIntensitySchema,PatchOpSchema,ScreenVideoSchema,WebScreenSchema,ScreenCaptureSchema,isLightBudgetMessage } from '@opensekai/contracts';
 import type { ExpressionSettings, AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing, TrackingMapping, ArkitName, CameraAntiAliasing, CameraGrading, CameraNavigation, CameraScreenshotResult, LightSettings, HazeSettings, FpsCounterSettings, VmcSenderSettings, ScreenVideo, ScreenVideoAction, WebScreen, ScreenCapture } from '@opensekai/contracts';
 import {makeEntityCopy} from './asset-management';
 type CameraLens=Extract<SceneEntity,{kind:'camera'}>['lens'];
@@ -6,17 +6,21 @@ export interface EditorView {
  scene: SceneView | null;
  selectedId: Id | null;
  error: ErrorCode | null;
+ // The light budget message of the last refused change, shown in the Inspector alert (light limits R10).
+ errorMessage: string | null;
  pending: boolean;
  livePending?: boolean;
 }
 const failure = (code: ErrorCode): Reply<never> => ({ ok: false, error: { code, message: code, ids: [] } });
+const budgetMessage = (reply: { ok: false; error: { message: string } }): string | null => isLightBudgetMessage(reply.error.message) ? reply.error.message : null;
 export function createEditorModel(api: AppApi) {
- let view: EditorView = { scene: null, selectedId: null, error: null, pending: false, livePending: false };
+ let view: EditorView = { scene: null, selectedId: null, error: null, errorMessage: null, pending: false, livePending: false };
  let inspecting = false, inspectionEpoch = 0;
  const listeners = new Set<(view: EditorView) => void>();
  const read = (): EditorView => structuredClone(view);
  function publish(next: Partial<EditorView>) {
-  view = { ...view, ...next };
+  // Each error change clears the message, unless the reply gives a light budget message.
+  view = { ...view, ...('error' in next ? { errorMessage: null } : {}), ...next };
   for (const listener of listeners) listener(read());
  }
  // `fallbackId` is read when the scene ID does not exist, for example after a session restart (Editor and MCP fixes R3).
@@ -39,7 +43,7 @@ export function createEditorModel(api: AppApi) {
    if (reply.ok || reply.error.code === 'CONFLICT' || reinspectOnFailure) {
     try { await inspect(); } catch { publish({ error: 'UNAVAILABLE' }); }
    }
-   if (!reply.ok) publish({ error: reply.error.code });
+   if (!reply.ok) publish({ error: reply.error.code, errorMessage: budgetMessage(reply) });
    return reply;
   } catch {
    if (reinspectOnFailure) { try { await inspect(); } catch {} }
@@ -71,7 +75,7 @@ export function createEditorModel(api: AppApi) {
      publish({scene:structuredClone(reply.data),selectedId:reply.data.entities.some(entity=>entity.id===view.selectedId)?view.selectedId:null,error:null});
     }else {
      if(reply.error.code==='CONFLICT')await inspect();
-     publish({error:reply.error.code});
+     publish({error:reply.error.code,errorMessage:budgetMessage(reply)});
     }
     return reply;
    }catch{publish({error:'UNAVAILABLE'});return failure('UNAVAILABLE');}

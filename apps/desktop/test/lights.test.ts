@@ -30,9 +30,9 @@ it('groups lights after the environment and before cameras (R12)',()=>{
  const entities=[...makeEmptyScene().entities,makeAuthoringEntity('environment','stage',[])];
  expect(groupEntities(entities).map(g=>g.label)).toEqual(['Environment','Lights','Cameras']);
 });
-it('reaches the light limit at 8 lights',()=>{
- const lights=Array.from({length:8},(_,i)=>makeAuthoringEntity('pointLight',`p${i}`,[]));
- expect(lightLimitReached(lights.slice(0,7))).toBe(false);
+it('reaches the light limit at 32 lights',()=>{
+ const lights=Array.from({length:32},(_,i)=>makeAuthoringEntity('pointLight',`p${i}`,[]));
+ expect(lightLimitReached(lights.slice(0,31))).toBe(false);
  expect(lightLimitReached(lights)).toBe(true);
 });
 it('parses a color for the Inspector (R13)',()=>{
