@@ -1,0 +1,338 @@
+{
+ "date": "2026-11-17T22:56:10.113Z",
+ "backend": "webgl2",
+ "viewport": [
+  1920,
+  1080
+ ],
+ "steps": [
+  {
+   "label": "HC0 baseline",
+   "effects": null,
+   "backend": "webgl2",
+   "capture": {
+    "width": 1920,
+    "height": 1080,
+    "revision": 1
+   },
+   "sequence": 1479,
+   "warnings": [],
+   "stable": true,
+   "image": "baseline-webgl2.png"
+  },
+  {
+   "label": "HC1 vignetting alpha 1",
+   "effects": {
+    "vignetting": {
+     "enabled": true,
+     "color": "#000000",
+     "alpha": 1,
+     "fadeOut": 0,
+     "blink": 0
+    }
+   },
+   "backend": "webgl2",
+   "capture": {
+    "width": 1920,
+    "height": 1080,
+    "revision": 2
+   },
+   "sequence": 1573,
+   "warnings": [],
+   "stable": true,
+   "image": "vignetting-webgl2.png"
+  },
+  {
+   "label": "HC1 vignetting blink 1",
+   "effects": {
+    "vignetting": {
+     "enabled": true,
+     "color": "#4c4c4c",
+     "alpha": 0.051,
+     "fadeOut": 0,
+     "blink": 1
+    }
+   },
+   "backend": "webgl2",
+   "capture": {
+    "width": 1920,
+    "height": 1080,
+    "revision": 3
+   },
+   "sequence": 1672,
+   "warnings": [],
+   "stable": true,
+   "image": "vignetting-blink-webgl2.png"
+  },
+  {
+   "label": "HC2 night vision",
+   "effects": {
+    "nightVision": {
+     "enabled": true,
+     "color": "#80ff80",
+     "alpha": 0.502
+    }
+   },
+   "backend": "webgl2",
+   "capture": {
+    "width": 1920,
+    "height": 1080,
+    "revision": 4
+   },
+   "sequence": 1779,
+   "warnings": [],
+   "stable": true,
+   "image": "night-vision-webgl2.png"
+  },
+  {
+   "label": "HC3 blur 4",
+   "effects": {
+    "blur": {
+     "enabled": true,
+     "intensity": 4
+    }
+   },
+   "backend": "webgl2",
+   "capture": {
+    "width": 1920,
+    "height": 1080,
+    "revision": 5
+   },
+   "sequence": 1896,
+   "warnings": [],
+   "stable": true,
+   "image": "blur-webgl2.png"
+  },
+  {
+   "label": "HC4 pixelate 64",
+   "effects": {
+    "pixelate": {
+     "enabled": true,
+     "intensity": 64
+    }
+   },
+   "backend": "webgl2",
+   "capture": {
+    "width": 1920,
+    "height": 1080,
+    "revision": 6
+   },
+   "sequence": 2001,
+   "warnings": [],
+   "stable": true,
+   "image": "pixelate-webgl2.png"
+  },
+  {
+   "label": "HC5 lens dirt",
+   "effects": {
+    "lensDirt": {
+     "assetId": "image_dirt",
+     "intensity": 1,
+     "threshold": 0
+    }
+   },
+   "backend": "webgl2",
+   "capture": {
+    "width": 1920,
+    "height": 1080,
+    "revision": 7
+   },
+   "sequence": 2097,
+   "warnings": [],
+   "stable": true,
+   "image": "lens-dirt-webgl2.png"
+  },
+  {
+   "label": "HC6 all five effects",
+   "effects": {
+    "lensDirt": {
+     "assetId": "image_dirt",
+     "intensity": 1,
+     "threshold": 0
+    },
+    "vignetting": {
+     "enabled": true,
+     "color": "#4c4c4c",
+     "alpha": 0.6,
+     "fadeOut": 0,
+     "blink": 0
+    },
+    "nightVision": {
+     "enabled": true,
+     "color": "#80ff80",
+     "alpha": 0.502
+    },
+    "blur": {
+     "enabled": true,
+     "intensity": 2
+    },
+    "pixelate": {
+     "enabled": true,
+     "intensity": 16
+    }
+   },
+   "backend": "webgl2",
+   "capture": {
+    "width": 1920,
+    "height": 1080,
+    "revision": 8
+   },
+   "sequence": 2230,
+   "warnings": [],
+   "stable": true,
+   "image": "all-effects-webgl2.png"
+  },
+  {
+   "label": "HC7 all effects off",
+   "effects": {
+    "lensDirt": {
+     "assetId": null,
+     "intensity": 1,
+     "threshold": 0
+    },
+    "vignetting": {
+     "enabled": false,
+     "color": "#4c4c4c",
+     "alpha": 0.6,
+     "fadeOut": 0,
+     "blink": 0
+    },
+    "nightVision": {
+     "enabled": false,
+     "color": "#80ff80",
+     "alpha": 0.502
+    },
+    "blur": {
+     "enabled": false,
+     "intensity": 2
+    },
+    "pixelate": {
+     "enabled": false,
+     "intensity": 16
+    }
+   },
+   "backend": "webgl2",
+   "capture": {
+    "width": 1920,
+    "height": 1080,
+    "revision": 9
+   },
+   "sequence": 2343,
+   "warnings": [],
+   "stable": true
+  },
+  {
+   "label": "HC7 effects removed",
+   "effects": null,
+   "backend": "webgl2",
+   "capture": {
+    "width": 1920,
+    "height": 1080,
+    "revision": 10
+   },
+   "sequence": 2437,
+   "warnings": [],
+   "stable": true
+  }
+ ],
+ "errors": [],
+ "failure": null,
+ "results": [
+  {
+   "name": "HC0: the backend is webgl2",
+   "pass": true
+  },
+  {
+   "name": "HC0: the frame has no warning",
+   "pass": true
+  },
+  {
+   "name": "HC0: the screen is opaque in the middle and transparent around it",
+   "pass": true
+  },
+  {
+   "name": "HC1: outside pixels stay alpha 0",
+   "pass": true
+  },
+  {
+   "name": "HC1: each covered pixel keeps its baseline alpha (±1)",
+   "pass": true
+  },
+  {
+   "name": "HC1: covered pixels near the frame corners are darker than the baseline",
+   "pass": true
+  },
+  {
+   "name": "HC1: the frame centre is equal (±2)",
+   "pass": true
+  },
+  {
+   "name": "HC1 Blink 1: each covered pixel is 76 (±3) in each channel with its baseline alpha (±1)",
+   "pass": true
+  },
+  {
+   "name": "HC1 Blink 1: outside pixels stay alpha 0",
+   "pass": true
+  },
+  {
+   "name": "HC2: alpha equals the baseline everywhere (±1)",
+   "pass": true
+  },
+  {
+   "name": "HC2: covered pixels have G > R and G > B",
+   "pass": true
+  },
+  {
+   "name": "HC2: outside pixels stay alpha 0",
+   "pass": true
+  },
+  {
+   "name": "HC3: the top and the left screen edges each have a run of pixels with alpha from 1 to 254",
+   "pass": true
+  },
+  {
+   "name": "HC3: their straight colour is the screen colour (±8, and the 8-bit error of a low alpha)",
+   "pass": true
+  },
+  {
+   "name": "HC3: pixels more than 48 px from the screen stay alpha 0",
+   "pass": true
+  },
+  {
+   "name": "HC4: each 64 x 64 block from the frame origin has one colour (±2)",
+   "pass": true
+  },
+  {
+   "name": "HC5: the dirt image loads without a warning",
+   "pass": true
+  },
+  {
+   "name": "HC5: covered pixels in the top-left quadrant are brighter than the baseline",
+   "pass": true
+  },
+  {
+   "name": "HC5: the three other quadrants equal the baseline (±2), so the outside pixels change only in the top-left quadrant",
+   "pass": true
+  },
+  {
+   "name": "HC6: the chain builds with all five effects (no Pipeline compile failed warning)",
+   "pass": true
+  },
+  {
+   "name": "HC6: the frame changes",
+   "pass": true
+  },
+  {
+   "name": "HC7: all effects off again equals the baseline (±1)",
+   "pass": true
+  },
+  {
+   "name": "HC7: the effects removed (null) equal the baseline (±1)",
+   "pass": true
+  },
+  {
+   "name": "no page errors",
+   "pass": true
+  }
+ ]
+}

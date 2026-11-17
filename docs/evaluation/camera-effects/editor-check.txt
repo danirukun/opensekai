@@ -1,0 +1,20 @@
+renderer mode auto
+console THREE.THREE.WebGPURenderer: WebGPU Device Lost:
+
+Message: A valid external Instance reference no longer exists.
+Reason: unknown
+pageerror Instance dropped in popErrorScope
+closed the start screen
+PASS the scene of operation 7 is set null
+PASS HC8: the Effects section comes directly after Grading (R25) ["Transform","Rendering","Grading","Effects","Lens","Control","Screenshot"]
+PASS HC8: the Effects section is open (not inert) null
+PASS HC8: each effect is a group with the effect name (R26) ["Lens Dirt","Vignetting","Night Vision","Blur","Pixelate"]
+PASS HC8: Lens Dirt lists None first, then the images and Import file… (R27) ["None","Gray","Import file…"]
+PASS HC8: the Blur checkbox shows Intensity and writes the defaults (R26, R28) {"before":["Blur"],"afterOn":["Blur","Intensity"],"patches":[{"kind":"setCameraEffects","entityId":"camera_main","effects":{"blur":{"enabled":true,"intensity":1}}}]}
+PASS HC8: the Blur reset mark has the effect name ["Reset Blur"]
+PASS HC8: Import file… sets the dirt image on this camera only (R27) {"patches":[{"kind":"setCameraEffects","entityId":"camera_main","effects":{"lensDirt":{"assetId":"image_fe205d5722f33e2f6368422a232fbb1159de480789938de327e7e040cb56c950","intensity":0.9,"threshold":0.5},"blur":{"enabled":false,"intensity":1}}}]}
+PASS HC8: a dirt image shows Intensity and Threshold (R26) ["Lens Dirt","Intensity","Threshold"]
+FAIL HC8: the camera screenshots "baseline: {\"code\":\"UNAVAILABLE\",\"message\":\"Screenshot failed\",\"ids\":[]}"
+preview backend webgpu
+FAIL no page errors ["Instance dropped in popErrorScope"]
+9/11 passed

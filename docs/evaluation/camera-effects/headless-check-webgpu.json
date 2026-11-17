@@ -1,0 +1,245 @@
+{
+ "date": "2026-11-17T22:51:29.874Z",
+ "backend": "webgpu",
+ "viewport": [
+  1920,
+  1080
+ ],
+ "steps": [
+  {
+   "label": "HC0 baseline",
+   "effects": null,
+   "backend": "webgpu",
+   "sequence": 153,
+   "warnings": [
+    {
+     "code": "UNSUPPORTED",
+     "message": "Pipeline compile failed",
+     "ids": []
+    }
+   ]
+  },
+  {
+   "label": "HC1 vignetting",
+   "effects": {
+    "vignetting": {
+     "enabled": true,
+     "color": "#000000",
+     "alpha": 1,
+     "fadeOut": 0,
+     "blink": 0
+    }
+   },
+   "backend": "webgpu",
+   "sequence": 302,
+   "warnings": [
+    {
+     "code": "UNSUPPORTED",
+     "message": "Pipeline compile failed",
+     "ids": []
+    }
+   ]
+  },
+  {
+   "label": "HC2 night vision",
+   "effects": {
+    "nightVision": {
+     "enabled": true,
+     "color": "#80ff80",
+     "alpha": 0.502
+    }
+   },
+   "backend": "webgpu",
+   "sequence": 450,
+   "warnings": [
+    {
+     "code": "UNSUPPORTED",
+     "message": "Pipeline compile failed",
+     "ids": []
+    }
+   ]
+  },
+  {
+   "label": "HC3 blur 4",
+   "effects": {
+    "blur": {
+     "enabled": true,
+     "intensity": 4
+    }
+   },
+   "backend": "webgpu",
+   "sequence": 603,
+   "warnings": [
+    {
+     "code": "UNSUPPORTED",
+     "message": "Pipeline compile failed",
+     "ids": []
+    }
+   ]
+  },
+  {
+   "label": "HC4 pixelate 64",
+   "effects": {
+    "pixelate": {
+     "enabled": true,
+     "intensity": 64
+    }
+   },
+   "backend": "webgpu",
+   "sequence": 752,
+   "warnings": [
+    {
+     "code": "UNSUPPORTED",
+     "message": "Pipeline compile failed",
+     "ids": []
+    }
+   ]
+  },
+  {
+   "label": "HC5 lens dirt",
+   "effects": {
+    "lensDirt": {
+     "assetId": "image_dirt",
+     "intensity": 1,
+     "threshold": 0
+    }
+   },
+   "backend": "webgpu",
+   "sequence": 905,
+   "warnings": [
+    {
+     "code": "UNSUPPORTED",
+     "message": "Pipeline compile failed",
+     "ids": []
+    }
+   ]
+  },
+  {
+   "label": "HC6 all five effects",
+   "effects": {
+    "lensDirt": {
+     "assetId": "image_dirt",
+     "intensity": 1,
+     "threshold": 0
+    },
+    "vignetting": {
+     "enabled": true,
+     "color": "#4c4c4c",
+     "alpha": 0.6,
+     "fadeOut": 0,
+     "blink": 0
+    },
+    "nightVision": {
+     "enabled": true,
+     "color": "#80ff80",
+     "alpha": 0.502
+    },
+    "blur": {
+     "enabled": true,
+     "intensity": 2
+    },
+    "pixelate": {
+     "enabled": true,
+     "intensity": 16
+    }
+   },
+   "backend": "webgpu",
+   "sequence": 1059,
+   "warnings": [
+    {
+     "code": "UNSUPPORTED",
+     "message": "Pipeline compile failed",
+     "ids": []
+    }
+   ]
+  },
+  {
+   "label": "HC7 all effects off",
+   "effects": {
+    "lensDirt": {
+     "assetId": null,
+     "intensity": 1,
+     "threshold": 0
+    },
+    "vignetting": {
+     "enabled": false,
+     "color": "#4c4c4c",
+     "alpha": 0.6,
+     "fadeOut": 0,
+     "blink": 0
+    },
+    "nightVision": {
+     "enabled": false,
+     "color": "#80ff80",
+     "alpha": 0.502
+    },
+    "blur": {
+     "enabled": false,
+     "intensity": 2
+    },
+    "pixelate": {
+     "enabled": false,
+     "intensity": 16
+    }
+   },
+   "backend": "webgpu",
+   "sequence": 1212,
+   "warnings": [
+    {
+     "code": "UNSUPPORTED",
+     "message": "Pipeline compile failed",
+     "ids": []
+    }
+   ]
+  }
+ ],
+ "errors": [
+  "THREE.WebGPURenderer: Uncaptured WebGPU GPUValidationError: [Invalid Texture] is invalid due to a previous error.\n - While calling [Invalid Texture].CreateView([TextureViewDescriptor]).\n",
+  "THREE.WebGPURenderer: Uncaptured WebGPU GPUValidationError: [Invalid TextureView] is invalid due to a previous error.\n - While validating colorAttachments[0].\n - While encoding [CommandEncoder \"renderContext_1\"].BeginRenderPass([RenderPassDescriptor]).\n - While finishing [CommandEncoder \"renderConte",
+  "THREE.WebGPURenderer: Uncaptured WebGPU GPUValidationError: [Invalid CommandBuffer from CommandEncoder \"renderContext_1\"] is invalid due to a previous error.\n - While calling [Queue].Submit([[Invalid CommandBuffer from CommandEncoder \"renderContext_1\"]])\n",
+  "THREE.THREE.WebGPURenderer: WebGPU Device Lost:\n\nMessage: A valid external Instance reference no longer exists.\nReason: unknown",
+  "Pipeline compile failed {\"message\":\"A valid external Instance reference no longer exists.\",\"label\":\"renderPipeline_MeshBasicNodeMaterial_19\",\"maxNesting\":4,\"vertexLength\":1445,\"fragmentLength\":2507}",
+  "Failed pipeline vertex WGSL\n// Three.js r187 - Node System\n\n// directives\n\n\n// structs\n\n\n// uniforms\n\nstruct renderStruct {\n\tcameraProjectionMatrix : mat4x4<f32>,\n\tcameraViewMatrix : mat4x4<f32>,\n\tnodeUniform4 : vec3<f32>\n};\n@binding( 0 ) @group( 0 )\nvar<uniform> render : renderStruct;\n\nstruct objec",
+  "Failed pipeline fragment WGSL\n// Three.js r187 - Node System\n\n// global\ndiagnostic( off, derivative_uniformity );\n\n\n// directives\n\n\n// structs\n\nstruct OutputStruct {\n\t@location( 0 ) color: vec4<f32>\n};\nvar<private> output : OutputStruct;\n\n// uniforms\n@binding( 1 ) @group( 1 ) var nodeUniform1_sample",
+  "Instance dropped in popErrorScope"
+ ],
+ "failure": null,
+ "results": [
+  {
+   "name": "HC0 baseline: the backend is webgpu and the frame has no warning",
+   "pass": false
+  },
+  {
+   "name": "HC1 vignetting: the backend is webgpu and the frame has no warning",
+   "pass": false
+  },
+  {
+   "name": "HC2 night vision: the backend is webgpu and the frame has no warning",
+   "pass": false
+  },
+  {
+   "name": "HC3 blur 4: the backend is webgpu and the frame has no warning",
+   "pass": false
+  },
+  {
+   "name": "HC4 pixelate 64: the backend is webgpu and the frame has no warning",
+   "pass": false
+  },
+  {
+   "name": "HC5 lens dirt: the backend is webgpu and the frame has no warning",
+   "pass": false
+  },
+  {
+   "name": "HC6 all five effects: the backend is webgpu and the frame has no warning",
+   "pass": false
+  },
+  {
+   "name": "HC7 all effects off: the backend is webgpu and the frame has no warning",
+   "pass": false
+  },
+  {
+   "name": "no page errors",
+   "pass": false
+  }
+ ]
+}
