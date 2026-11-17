@@ -1,5 +1,5 @@
 {
- "date": "2026-11-17T22:56:10.113Z",
+ "date": "2026-11-17T23:23:01.981Z",
  "backend": "webgl2",
  "viewport": [
   1920,
@@ -15,7 +15,7 @@
     "height": 1080,
     "revision": 1
    },
-   "sequence": 1479,
+   "sequence": 1451,
    "warnings": [],
    "stable": true,
    "image": "baseline-webgl2.png"
@@ -37,7 +37,7 @@
     "height": 1080,
     "revision": 2
    },
-   "sequence": 1573,
+   "sequence": 1555,
    "warnings": [],
    "stable": true,
    "image": "vignetting-webgl2.png"
@@ -59,7 +59,7 @@
     "height": 1080,
     "revision": 3
    },
-   "sequence": 1672,
+   "sequence": 1655,
    "warnings": [],
    "stable": true,
    "image": "vignetting-blink-webgl2.png"
@@ -79,7 +79,7 @@
     "height": 1080,
     "revision": 4
    },
-   "sequence": 1779,
+   "sequence": 1756,
    "warnings": [],
    "stable": true,
    "image": "night-vision-webgl2.png"
@@ -98,7 +98,7 @@
     "height": 1080,
     "revision": 5
    },
-   "sequence": 1896,
+   "sequence": 1873,
    "warnings": [],
    "stable": true,
    "image": "blur-webgl2.png"
@@ -117,7 +117,7 @@
     "height": 1080,
     "revision": 6
    },
-   "sequence": 2001,
+   "sequence": 1972,
    "warnings": [],
    "stable": true,
    "image": "pixelate-webgl2.png"
@@ -137,7 +137,7 @@
     "height": 1080,
     "revision": 7
    },
-   "sequence": 2097,
+   "sequence": 2078,
    "warnings": [],
    "stable": true,
    "image": "lens-dirt-webgl2.png"
@@ -177,7 +177,7 @@
     "height": 1080,
     "revision": 8
    },
-   "sequence": 2230,
+   "sequence": 2229,
    "warnings": [],
    "stable": true,
    "image": "all-effects-webgl2.png"
@@ -217,7 +217,7 @@
     "height": 1080,
     "revision": 9
    },
-   "sequence": 2343,
+   "sequence": 2327,
    "warnings": [],
    "stable": true
   },
@@ -230,7 +230,7 @@
     "height": 1080,
     "revision": 10
    },
-   "sequence": 2437,
+   "sequence": 2418,
    "warnings": [],
    "stable": true
   }

@@ -1,6 +1,6 @@
 # Camera effects check (B37)
 
-Date: 2026-11-18. Contract: [camera effects](../../spdd/prompt/2026-11-13-camera-effects.md). Issue: #172 (CAM-15). Commit: `1a8fc97` on `claude/b37-camera-effects`.
+Date: 2026-11-18. Contract: [camera effects](../../spdd/prompt/2026-11-13-camera-effects.md). Issue: #172 (CAM-15). Commit: `64948ba` on `claude/b37-camera-effects`, rebased on `main` at `0be52bc`.
 
 GPU time: unknown.
 
@@ -10,12 +10,12 @@ These commands ran on macOS (Darwin 27.2.0, Apple silicon) in the B37 worktree, 
 
 | Command | Result |
 | --- | --- |
-| `pnpm check` | Exit 0. svelte-check: 5881 files, 0 errors, 0 warnings. |
-| `pnpm test:unit` | Exit 0. 264 files passed; 2457 tests passed, 1 skipped. |
-| `pnpm test:integration` | Exit 1. 42 files passed, 1 failed, 2 skipped; 105 tests passed, 4 failed, 4 skipped. The 4 failures are in `scripts/prepare-tracking.test.ts`. This is the known baseline without the MediaPipe models. |
+| `pnpm check` | Exit 0. svelte-check: 5882 files, 0 errors, 0 warnings. |
+| `pnpm test:unit` | Exit 0. 266 files passed; 2486 tests passed, 1 skipped. |
+| `pnpm test:integration` | Exit 1. 43 files passed, 1 failed, 3 skipped; 106 tests passed, 4 failed, 7 skipped. The 4 failures are in `scripts/prepare-tracking.test.ts`. This is the known baseline without the MediaPipe models. |
 | `cargo fmt --all -- --check` | Exit 1. One difference, in `apps/desktop/src-tauri/src/recent_shows.rs`. B37 does not change that file. |
-| `cargo clippy --workspace --all-targets` | Exit 0, 0 warnings (after `1a8fc97`, which boxes the effects group). |
-| `cargo test --workspace --no-fail-fast` | Exit 0. 56 test binaries; 601 passed, 0 failed, 2 ignored. |
+| `cargo clippy --workspace --all-targets` | Exit 0, 0 warnings (after `2590989`, which boxes the effects group). |
+| `cargo test --workspace --no-fail-fast` | Exit 101. 57 test binaries; 611 passed, 1 failed, 2 ignored. The failure is `due_clocks_progress_under_sustained_control_without_credit_accumulation` in `clock_integration.rs` ("unsolicited frames accumulated credits: 2"), in two full runs on a machine with a load average of about 10. Alone, that test binary passed 3 of 3 runs. B37 and the merged `main` changes do not change the clock code. |
 
 ## Headless checks
 
@@ -29,6 +29,8 @@ Capture method: `page.screenshot` timed out at 1920 × 1080 on this Mac (the ima
 | HC0 to HC7, OBS page, chain build only ([log](camera-effects/headless-check-webgpu.txt)) | WebGPU | 0 pass, 9 fail. Each step, the baseline without effects too, has the warning "Pipeline compile failed", and the page reports GPU validation errors. The headless WebGPU device is not usable here. This result does not tell if the effects compile on WebGPU. |
 | HC8, Editor, preview on WebGL 2 ([log](camera-effects/editor-check-webgl2.txt)) | WebGL 2 | 18 of 18 pass, which includes the HC1 and HC4 tests on the camera screenshot. |
 | HC8, Editor, automatic backend ([log](camera-effects/editor-check.txt)) | WebGPU | 9 of 11 pass. The Inspector tests pass. The camera screenshot gives UNAVAILABLE "Screenshot failed", and the page error is "Instance dropped in popErrorScope". The WebGPU device was lost at start. |
+
+The two WebGL 2 rows ran again at `64948ba`, after the review fixes (render target disposal, blur sigma, pixelate sample point) and the rebase. The two WebGPU rows are from before the fixes and were not run again.
 
 Images (WebGL 2):
 
