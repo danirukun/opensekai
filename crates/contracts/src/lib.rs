@@ -104,6 +104,46 @@ object!(CameraGrading {
     tint: String,
     bloom: CameraBloom
 });
+// Camera effects (CAM-15, B37 R1). Each group is optional; a missing group is off.
+object!(CameraLensDirt {
+    /// Required, and null for no dirt (as the TypeScript schema).
+    #[serde(deserialize_with = "nullable")]
+    asset_id: Option<Id>,
+    intensity: f64,
+    threshold: f64
+});
+object!(CameraVignetting {
+    enabled: bool,
+    color: String,
+    alpha: f64,
+    fade_out: f64,
+    blink: f64
+});
+object!(CameraNightVision {
+    enabled: bool,
+    color: String,
+    alpha: f64
+});
+object!(CameraBlur {
+    enabled: bool,
+    intensity: f64
+});
+object!(CameraPixelate {
+    enabled: bool,
+    intensity: u16
+});
+object!(CameraEffects {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    lens_dirt: Option<CameraLensDirt>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    vignetting: Option<CameraVignetting>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    night_vision: Option<CameraNightVision>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    blur: Option<CameraBlur>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pixelate: Option<CameraPixelate>
+});
 strings!(LightType { Directional=>"directional", Point=>"point", Spot=>"spot", Ambient=>"ambient" });
 strings!(MimeType { ImagePng=>"image/png" });
 object!(AppError {code:ErrorCode,message:String,ids:Vec<Id>});
@@ -306,6 +346,39 @@ impl Validate for CameraGrading {
                 && within(self.bloom.threshold, 0., 4.)
                 && within(self.bloom.radius, 0., 1.),
             "invalid camera grading",
+        )
+    }
+}
+impl Validate for CameraEffects {
+    fn validate(&self) -> Result<(), AppError> {
+        let dirt = self.lens_dirt.as_ref().is_none_or(|d| {
+            d.asset_id
+                .as_ref()
+                .is_none_or(|id| !id.is_empty() && id.chars().count() <= 256)
+                && within(d.intensity, 0., 1.)
+                && within(d.threshold, 0., 1.)
+        });
+        let vignetting = self.vignetting.as_ref().is_none_or(|v| {
+            light_color_ok(&v.color)
+                && within(v.alpha, 0., 1.)
+                && within(v.fade_out, 0., 1.)
+                && within(v.blink, 0., 1.)
+        });
+        let night_vision = self
+            .night_vision
+            .as_ref()
+            .is_none_or(|n| light_color_ok(&n.color) && within(n.alpha, 0., 1.));
+        let blur = self
+            .blur
+            .as_ref()
+            .is_none_or(|b| within(b.intensity, 0., 4.));
+        let pixelate = self
+            .pixelate
+            .as_ref()
+            .is_none_or(|p| (1..=256).contains(&p.intensity));
+        require(
+            dirt && vignetting && night_vision && blur && pixelate,
+            "invalid camera effects",
         )
     }
 }
@@ -586,6 +659,8 @@ pub enum SceneEntity {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         grading: Option<CameraGrading>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
+        effects: Option<CameraEffects>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         navigation: Option<CameraNavigation>,
     },
 }
@@ -811,6 +886,13 @@ pub enum PatchOp {
         #[serde(rename = "entityId")]
         entity_id: Id,
         grading: Option<CameraGrading>,
+    },
+    SetCameraEffects {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+        /// Required; null removes the group.
+        #[serde(deserialize_with = "nullable")]
+        effects: Option<CameraEffects>,
     },
     SetCameraNavigation {
         #[serde(rename = "entityId")]
@@ -2838,6 +2920,10 @@ pub fn validate_patch_ops(ops: &[PatchOp], max: usize) -> Result<(), AppError> {
                 grading: Some(grading),
                 ..
             } => grading.validate()?,
+            PatchOp::SetCameraEffects {
+                effects: Some(effects),
+                ..
+            } => effects.validate()?,
             PatchOp::SetLight { light, .. } => light.validate()?,
             PatchOp::SetHaze { haze, .. } => haze.validate()?,
             PatchOp::SetFpsCounter { fps_counter, .. } => fps_counter.validate()?,
@@ -3662,12 +3748,16 @@ impl Validate for SceneEntity {
             lens,
             navigation,
             grading,
+            effects,
             ..
         } = self
         {
             lens.validate()?;
             if let Some(grading) = grading {
                 grading.validate()?;
+            }
+            if let Some(effects) = effects {
+                effects.validate()?;
             }
             if let Some(navigation) = navigation {
                 navigation.validate()?;
