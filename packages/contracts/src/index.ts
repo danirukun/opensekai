@@ -27,6 +27,7 @@ export * from './meshes';
 export * from './fingerprint';
 export * from './proposal';
 export * from './materials';
+export * from './material-parameters';
 export * from './web-url';
 export * from './camera-orbit';
 export * from './capture';

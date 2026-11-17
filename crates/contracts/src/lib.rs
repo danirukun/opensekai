@@ -903,6 +903,8 @@ pub struct AssetRecord {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub meshes: Option<Vec<AssetMesh>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub materials: Option<Vec<AssetMaterial>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub image: Option<AssetImage>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub video: Option<AssetVideo>,
@@ -999,6 +1001,155 @@ impl Validate for MeshList {
         require(
             mesh_names_ok(self.meshes.iter().map(|m| &m.name)) && mesh_names_ok(&self.unknown),
             "invalid mesh list",
+        )
+    }
+}
+// The material list of B38 R13–R14. Keep in step with `packages/contracts/src/material-parameters.ts`.
+pub const MAX_MATERIALS: usize = 256;
+pub const MAX_MATERIAL_NAME: usize = 64;
+strings!(MaterialProfile { Mtoon=>"mtoon", Pbr=>"pbr", Unlit=>"unlit" });
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct MaterialModel {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opacity: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub emission_color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub emission_strength: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shade_color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rim_color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outline_color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outline_width: Option<f64>,
+}
+/// A model value: a lowercase `#rrggbb` color or a number.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum MaterialValue {
+    Number(f64),
+    Color(String),
+}
+/// R14: each parameter key with its number range (`None` for a color), in R14 order.
+pub const MATERIAL_PARAMETERS: [(&str, Option<(f64, f64)>); 8] = [
+    ("baseColor", None),
+    ("opacity", Some((0.0, 1.0))),
+    ("emissionColor", None),
+    ("emissionStrength", Some((0.0, 100.0))),
+    ("shadeColor", None),
+    ("rimColor", None),
+    ("outlineColor", None),
+    ("outlineWidth", Some((0.0, 0.05))),
+];
+impl MaterialModel {
+    /// The values in R14 order, each with its key.
+    pub fn entries(&self) -> Vec<(&'static str, MaterialValue)> {
+        let color = |v: &Option<String>| v.clone().map(MaterialValue::Color);
+        let number = |v: &Option<f64>| v.map(MaterialValue::Number);
+        [
+            color(&self.base_color),
+            number(&self.opacity),
+            color(&self.emission_color),
+            number(&self.emission_strength),
+            color(&self.shade_color),
+            color(&self.rim_color),
+            color(&self.outline_color),
+            number(&self.outline_width),
+        ]
+        .into_iter()
+        .zip(MATERIAL_PARAMETERS)
+        .filter_map(|(value, (key, _))| value.map(|v| (key, v)))
+        .collect()
+    }
+}
+object!(AssetMaterial {
+    index: u32,
+    name: String,
+    profile: MaterialProfile,
+    blend: bool,
+    outline: bool,
+    model: MaterialModel
+});
+impl AssetMaterial {
+    /// R14 "Applies to".
+    pub fn applies(&self, parameter: &str) -> bool {
+        match parameter {
+            "baseColor" => true,
+            "opacity" => self.blend,
+            "emissionColor" | "emissionStrength" => self.profile != MaterialProfile::Unlit,
+            "shadeColor" | "rimColor" => self.profile == MaterialProfile::Mtoon,
+            "outlineColor" | "outlineWidth" => self.outline,
+            _ => false,
+        }
+    }
+}
+pub fn material_value_ok(parameter: &str, value: &MaterialValue) -> bool {
+    match (
+        MATERIAL_PARAMETERS
+            .iter()
+            .find(|(key, _)| *key == parameter),
+        value,
+    ) {
+        (Some((_, None)), MaterialValue::Color(color)) => light_color_ok(color),
+        (Some((_, Some((min, max)))), MaterialValue::Number(n)) => within(*n, *min, *max),
+        _ => false,
+    }
+}
+pub fn material_name_ok(name: &str) -> bool {
+    (1..=MAX_MATERIAL_NAME).contains(&name.encode_utf16().count())
+}
+/// At most 256 materials with unique names; each model value applies and is in range.
+pub fn asset_materials_ok(materials: &[AssetMaterial]) -> bool {
+    let mut seen = HashSet::new();
+    materials.len() <= MAX_MATERIALS
+        && materials.iter().all(|m| {
+            material_name_ok(&m.name)
+                && seen.insert(m.name.as_str())
+                && (!m.outline || m.profile == MaterialProfile::Mtoon)
+                && m.model
+                    .entries()
+                    .iter()
+                    .all(|(key, value)| m.applies(key) && material_value_ok(key, value))
+        })
+}
+// The `materialList` call of B38 R18. Keep in step with `MaterialListSchema`.
+object!(MaterialParameterView {
+    parameter: String,
+    model: MaterialValue
+});
+object!(MaterialListEntry {
+    name: String,
+    profile: MaterialProfile,
+    parameters: Vec<MaterialParameterView>
+});
+object!(MaterialList {
+    materials: Vec<MaterialListEntry>
+});
+object!(MaterialListParams { entity_id: Id });
+impl Validate for MaterialList {
+    fn validate(&self) -> Result<(), AppError> {
+        let value_ok = |view: &MaterialParameterView| {
+            MATERIAL_PARAMETERS
+                .iter()
+                .any(|(key, _)| *key == view.parameter)
+                && match &view.model {
+                    MaterialValue::Color(color) => light_color_ok(color),
+                    MaterialValue::Number(n) => n.is_finite(),
+                }
+        };
+        require(
+            self.materials.len() <= MAX_MATERIALS
+                && self.materials.iter().all(|m| {
+                    material_name_ok(&m.name)
+                        && m.parameters.len() <= MATERIAL_PARAMETERS.len()
+                        && m.parameters.iter().all(value_ok)
+                }),
+            "invalid material list",
         )
     }
 }
@@ -2913,6 +3064,9 @@ impl Validate for AssetRecord {
                 "invalid mesh list",
             )?;
         }
+        if let Some(materials) = &self.materials {
+            require(asset_materials_ok(materials), "invalid material list")?;
+        }
         // B28 R1: the same cross-field rules as `AssetRecordSchema`.
         if self.format.is_image() {
             let image = self
@@ -2929,7 +3083,8 @@ impl Validate for AssetRecord {
                     && self.expressions.is_empty()
                     && self.rig.is_none()
                     && self.eye_bones.is_none()
-                    && self.meshes.is_none(),
+                    && self.meshes.is_none()
+                    && self.materials.is_none(),
                 "invalid image record",
             )?;
         } else {
@@ -2951,7 +3106,8 @@ impl Validate for AssetRecord {
                     && self.expressions.is_empty()
                     && self.rig.is_none()
                     && self.eye_bones.is_none()
-                    && self.meshes.is_none(),
+                    && self.meshes.is_none()
+                    && self.materials.is_none(),
                 "invalid video record",
             )?;
         } else {
@@ -2996,6 +3152,10 @@ pub fn validate_call(method: &str, params: &Value) -> Result<(), AppError> {
         "meshList" => {
             let p = decode::<MeshListParams>(params)?;
             require(id_text_ok(&p.avatar_id), "invalid avatar ID")
+        }
+        "materialList" => {
+            let p = decode::<MaterialListParams>(params)?;
+            require(id_text_ok(&p.entity_id), "invalid entity ID")
         }
         "expressionSet" => {
             let p = decode::<ExpressionSetParams>(params)?;
@@ -3077,6 +3237,7 @@ pub fn validate_result(method: &str, result: &Value) -> Result<(), AppError> {
             | "expressionGet"
             | "expressionSet"
             | "meshList"
+            | "materialList"
             | "cameraScreenshot"
             | "integrationsSet"
     );
@@ -3109,6 +3270,7 @@ pub fn validate_result(method: &str, result: &Value) -> Result<(), AppError> {
         "assetList" => decode::<AssetList>(data)?.validate(),
         "expressionGet" | "expressionSet" => decode::<ExpressionState>(data)?.validate(),
         "meshList" => decode::<MeshList>(data)?.validate(),
+        "materialList" => decode::<MaterialList>(data)?.validate(),
         "cameraScreenshot" => decode::<CameraScreenshotResult>(data)?.validate(),
         "integrationsSet" => decode::<YouTubeStatus>(data)?.validate(),
         _ => unreachable!(),

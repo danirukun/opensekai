@@ -211,7 +211,7 @@ Sources: [Warudo Pro](https://docs.warudo.app/docs/pro), [Character](https://doc
   - NiloToon research (parked, applies to MAT-04 to MAT-06): NiloToonURP is closed source, and its license permits embedding only when users cannot access the shader source. A three.js port sends shader text to the client, so it needs written permission from NiloCat. The public example repository is a separate MIT tutorial shader. See the [NiloToon research findings](superpowers/specs/2026-10-17-nilotoon-research.md).
 - [ ] MAT-07 — Post-processing volumes and blending. Later. [GitHub #79](https://github.com/danirukun/opensekai/issues/79)
   - Workshop study: 6 of 7 sampled environments carry Post Processing Stack v2 resources and a profile, and 5 have a volume. The effects are bloom, color grading, vignette, motion blur, and ambient occlusion.
-- [ ] MAT-08 — Material parameter control from graphs. Later. [GitHub #80](https://github.com/danirukun/opensekai/issues/80)
+- [ ] MAT-08 — Material parameter control from graphs. Later. Partial (B38 PR 3, tests only): the VRM and scene imports record the material list of each model with the model value of each parameter that applies, the registry fills the list for an older record, and MCP `material_list` reads it. A fixture test on macOS (Node, no GPU) matches the list with the materials that three.js and three-vrm load for the three fixture models ([check](evaluation/material-list.md), [contract](../spdd/prompt/2026-11-16-material-parameter-control.md)). Saved values, the renderer override, the Inspector, and the Blueprint nodes remain. [GitHub #80](https://github.com/danirukun/opensekai/issues/80)
 
 ## Blueprints and interaction
 

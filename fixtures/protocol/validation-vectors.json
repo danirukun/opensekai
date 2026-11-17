@@ -21714,6 +21714,22 @@
     }
   },
   {
+    "name": "material-list-call",
+    "target": "wireText",
+    "valid": true,
+    "payload": "{\"kind\": \"call\", \"requestId\": \"r\", \"method\": \"materialList\", \"params\": {\"entityId\": \"reference\"}}"
+  },
+  {
+    "name": "material-list-avatar-id",
+    "target": "call",
+    "method": "materialList",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "avatarId": "performer"
+    }
+  },
+  {
     "name": "mesh-asset-duplicate",
     "target": "asset",
     "valid": false,
@@ -22783,6 +22799,120 @@
         {
           "node": 256,
           "name": "m256"
+        }
+      ]
+    }
+  },
+  {
+    "name": "material-asset-valid",
+    "target": "asset",
+    "valid": true,
+    "payload": {
+      "id": "avatar_x",
+      "format": "vrm",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bytes": 1,
+      "sourceUrl": null,
+      "licenseLabel": "User supplied",
+      "importerVersion": 1,
+      "name": "Avatar",
+      "expressions": [],
+      "materials": [
+        {
+          "index": 0,
+          "name": "Body",
+          "profile": "mtoon",
+          "blend": true,
+          "outline": true,
+          "model": {
+            "baseColor": "#ffffff",
+            "opacity": 0.5,
+            "emissionColor": "#000000",
+            "emissionStrength": 1,
+            "shadeColor": "#e6cfd6",
+            "rimColor": "#000000",
+            "outlineColor": "#000000",
+            "outlineWidth": 0.002
+          }
+        },
+        {
+          "index": 1,
+          "name": "Face",
+          "profile": "unlit",
+          "blend": false,
+          "outline": false,
+          "model": {
+            "baseColor": "#ffeedd"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "material-asset-duplicate",
+    "target": "asset",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "id": "avatar_x",
+      "format": "vrm",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bytes": 1,
+      "sourceUrl": null,
+      "licenseLabel": "User supplied",
+      "importerVersion": 1,
+      "name": "Avatar",
+      "expressions": [],
+      "materials": [
+        {
+          "index": 1,
+          "name": "Face",
+          "profile": "unlit",
+          "blend": false,
+          "outline": false,
+          "model": {
+            "baseColor": "#ffeedd"
+          }
+        },
+        {
+          "index": 2,
+          "name": "Face",
+          "profile": "unlit",
+          "blend": false,
+          "outline": false,
+          "model": {
+            "baseColor": "#ffeedd"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "material-asset-opacity-without-blend",
+    "target": "asset",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "id": "avatar_x",
+      "format": "vrm",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bytes": 1,
+      "sourceUrl": null,
+      "licenseLabel": "User supplied",
+      "importerVersion": 1,
+      "name": "Avatar",
+      "expressions": [],
+      "materials": [
+        {
+          "index": 1,
+          "name": "Face",
+          "profile": "unlit",
+          "blend": false,
+          "outline": false,
+          "model": {
+            "baseColor": "#ffeedd",
+            "opacity": 0.5
+          }
         }
       ]
     }

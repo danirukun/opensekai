@@ -219,6 +219,7 @@ impl Shared {
                 | "expressionGet"
                 | "expressionSet"
                 | "meshList"
+                | "materialList"
         ) {
             return Reply::failure(err(ErrorCode::Unsupported, "Not a scene command"));
         }
@@ -413,6 +414,7 @@ impl Shared {
                 | "expressionGet"
                 | "expressionSet"
                 | "meshList"
+                | "materialList"
         ) {
             return self.route_scene_call(call, client_id).await;
         }

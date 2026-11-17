@@ -1,4 +1,5 @@
 mod image;
+mod materials;
 mod registry;
 mod scene_import;
 mod video;

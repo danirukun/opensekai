@@ -218,6 +218,30 @@ async fn mesh_list_reaches_the_session_publisher_and_checks_the_reply() {
     service.shutdown().await.unwrap();
 }
 #[tokio::test]
+async fn material_list_reaches_the_session_publisher_and_checks_the_reply() {
+    let (_dir, service) = service(false).await;
+    let mut publisher = auth(&service.publisher_descriptor()).await;
+    let mut operator = auth(&service.operator_descriptor()).await;
+    let entry = |parameter: &str, model: serde_json::Value| json!({"materials":[{"name":"Skin","profile":"mtoon","parameters":[{"parameter":parameter,"model":model}]}]});
+    for (id, data, ok) in [
+        ("good", entry("shadeColor", json!("#ff0000")), true),
+        ("width", entry("outlineWidth", json!(0.01)), true),
+        ("key", entry("gloss", json!(1)), false),
+        ("color", entry("baseColor", json!("#FF0000")), false),
+    ] {
+        let params = json!({"entityId":"performer"});
+        send(&mut operator, call(id, "materialList", params.clone())).await;
+        let relayed = recv(&mut publisher).await;
+        assert_eq!(relayed["method"], "materialList");
+        assert_eq!(relayed["params"], params);
+        send(&mut publisher, json!({"kind":"reply","requestId":relayed["requestId"],"result":{"ok":true,"data":data}})).await;
+        let response = recv(&mut operator).await;
+        assert_eq!(response["requestId"], id);
+        assert_eq!(response["result"]["ok"], ok, "{response}");
+    }
+    service.shutdown().await.unwrap();
+}
+#[tokio::test]
 async fn blueprint_debug_reaches_the_session_publisher_and_checks_the_reply() {
     let (_dir, service) = service(false).await;
     let mut publisher = auth(&service.publisher_descriptor()).await;
