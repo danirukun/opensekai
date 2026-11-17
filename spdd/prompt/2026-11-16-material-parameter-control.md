@@ -93,7 +93,8 @@ R14 [PR3]. The parameters (the shared registry `material-parameters.ts`):
 R15 [PR3]. Model values:
 - A glTF or VRM 1 color factor is linear. It becomes hex through the sRGB transfer of three.js `ColorManagement`, rounded to the nearest byte.
 - A VRM 0 color first gets `pow(v, 2.2)`.
-- `opacity` is the alpha of the base color. A VRM 0 MToon alpha stays linear. A VRM 0 Unlit alpha also gets `pow(v, 2.2)` (three-vrm v0compat applies the gamma to all four channels of the Unlit form).
+- `opacity` is the alpha of the base color. A VRM 0 MToon alpha stays linear. A VRM 0 Unlit alpha is clamped to 0–1 and then gets `pow(v, 2.2)` (three-vrm v0compat applies the gamma to all four channels of the Unlit form; the clamp first prevents a NaN from a negative alpha).
+- A VRM 0 MToon outline mode is `["none", "worldCoordinates", "screenCoordinates"]` indexed by `_OutlineWidthMode` (default 0), as three-vrm v0compat does. The numbers 0, 1, 2 and the strings `"0"`, `"1"`, `"2"` give a mode. Another value gives no mode and no outline.
 - `emissionStrength` is `VRMC_materials_hdr_emissiveMultiplier.emissiveMultiplier` when the material has it, else `KHR_materials_emissive_strength.emissiveStrength`, else 1. The three-vrm multiplier plugin runs after the GLTFLoader strength plugin, so the multiplier wins for each profile. A VRM 0 MToon material keeps no glTF extension, so its strength is 1.
 - A VRM 0 outline width is multiplied by 0.01.
 - Each number is clamped to its range.

@@ -89,10 +89,10 @@ fn v0_values(props: &Value, shader: &str) -> Values {
     let floats = &props["floatProperties"];
     let color = |key: &str, fallback: Rgb| factor(&vectors[key], fallback).map(gamma);
     if shader != "VRM/MToon" {
-        // The Unlit form applies the gamma to the alpha too.
+        // The Unlit form applies the gamma to the alpha too. The clamp first keeps a negative alpha from a NaN.
         return Values {
             base: color("_Color", WHITE),
-            opacity: gamma(alpha(&vectors["_Color"])),
+            opacity: gamma(alpha(&vectors["_Color"]).clamp(0.0, 1.0)),
             blend: shader == "VRM/UnlitTransparent" || shader == "VRM/UnlitTransparentZWrite",
             emission: BLACK,
             strength: 1.0,
@@ -103,8 +103,15 @@ fn v0_values(props: &Value, shader: &str) -> Values {
             outline_color: BLACK,
         };
     }
+    // v0compat indexes the mode array with the raw value, so the strings "0" to "2" also give a mode.
     let mode = match &floats["_OutlineWidthMode"] {
         Value::Null => Some(0.0),
+        Value::String(text) => match text.as_str() {
+            "0" => Some(0.0),
+            "1" => Some(1.0),
+            "2" => Some(2.0),
+            _ => None,
+        },
         value => value.as_f64(),
     };
     let outline_mode = match mode {

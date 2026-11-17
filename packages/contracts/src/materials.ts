@@ -117,9 +117,9 @@ const v0Values = (props: Json, shader: string): Values => {
     const vectors = object(props.vectorProperties) ?? {}, floats = object(props.floatProperties) ?? {}, keywords = object(props.keywordMap) ?? {};
     const color = (key: string, fallback: Factor) => factor(vectors[key], 3, fallback).slice(0, 3).map(gamma);
     if (shader !== 'VRM/MToon') {
-        // The Unlit form applies the gamma to the alpha too.
+        // The Unlit form applies the gamma to the alpha too. The clamp first keeps a negative alpha from a NaN.
         const blend = shader === 'VRM/UnlitTransparent' || shader === 'VRM/UnlitTransparentZWrite';
-        return { base: color('_Color', [1, 1, 1]), opacity: gamma(alpha(vectors._Color)), blend, emission: black, strength: 1, shade: black, rim: black, outlineMode: 'none', outlineWidth: 0, outlineColor: black };
+        return { base: color('_Color', [1, 1, 1]), opacity: gamma(clamp(alpha(vectors._Color), 0, 1)), blend, emission: black, strength: 1, shade: black, rim: black, outlineMode: 'none', outlineWidth: 0, outlineColor: black };
     }
     const mode = floats._OutlineWidthMode ?? 0;
     return {
@@ -131,7 +131,8 @@ const v0Values = (props: Json, shader: string): Values => {
         strength: 1,
         shade: color('_ShadeColor', [0.97, 0.81, 0.86]),
         rim: color('_RimColor', black),
-        outlineMode: typeof mode === 'number' ? OUTLINE_MODES[mode] : undefined,
+        // v0compat indexes the mode array with the raw value, so the strings "0" to "2" also give a mode.
+        outlineMode: (typeof mode === 'number' || typeof mode === 'string') && ['0', '1', '2'].includes(String(mode)) ? OUTLINE_MODES[Number(mode)] : undefined,
         outlineWidth: 0.01 * numberOr(floats._OutlineWidth, 0),
         outlineColor: color('_OutlineColor', black),
     };

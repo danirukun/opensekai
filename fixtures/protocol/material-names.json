@@ -1,6 +1,6 @@
 {
  "description": "Material list vectors (B38 R13, R15, R17). Rust `model_materials` and TypeScript `materialEntries` both read this file.",
- "_note": "Hex = three.js Color.setRGB(r, g, b, LinearSRGBColorSpace).getHexString(): each channel c becomes s = c < 0.0031308 ? 12.92 c : 1.055 c^0.41666 - 0.055, then round(clamp(255 s, 0, 255)). A VRM 0 color channel first gets c^2.2 (three-vrm v0compat gammaEOTF); the VRM 0 MToon alpha does not, the VRM 0 Unlit alpha does. A VRM 0 outline width is 0.01 * _OutlineWidth. Numbers are clamped: opacity 0-1, emissionStrength 0-100, outlineWidth 0-0.05.",
+ "_note": "Hex = three.js Color.setRGB(r, g, b, LinearSRGBColorSpace).getHexString(): each channel c becomes s = c < 0.0031308 ? 12.92 c : 1.055 c^0.41666 - 0.055, then round(clamp(255 s, 0, 255)). A VRM 0 color channel first gets c^2.2 (three-vrm v0compat gammaEOTF); the VRM 0 MToon alpha does not, the VRM 0 Unlit alpha does, after a clamp to 0-1. A VRM 0 outline width is 0.01 * _OutlineWidth. A VRM 0 _OutlineWidthMode of 0, 1, 2, \"0\", \"1\", or \"2\" gives a mode; another value gives none. The HDR emissive multiplier wins over KHR_materials_emissive_strength; a VRM 0 MToon strength is 1. Numbers are clamped: opacity 0-1, emissionStrength 0-100, outlineWidth 0-0.05.",
  "cases": [
   {
    "name": "glTF PBR: base color, emission, and KHR_materials_emissive_strength; a material without factors takes the glTF defaults; strength is clamped to 100",
@@ -505,6 +505,366 @@
       "opacity": 0.25,
       "emissionColor": "#000000",
       "emissionStrength": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "emission strength: with both extensions, the HDR multiplier wins over KHR_materials_emissive_strength, for VRM 1 MToon and for glTF PBR",
+   "json": {
+    "materials": [
+     {
+      "name": "Glow",
+      "emissiveFactor": [
+       1,
+       0,
+       0
+      ],
+      "extensions": {
+       "VRMC_materials_mtoon": {
+        "specVersion": "1.0"
+       },
+       "KHR_materials_emissive_strength": {
+        "emissiveStrength": 5
+       },
+       "VRMC_materials_hdr_emissiveMultiplier": {
+        "emissiveMultiplier": 3
+       }
+      }
+     },
+     {
+      "name": "Sign",
+      "emissiveFactor": [
+       0,
+       1,
+       0
+      ],
+      "extensions": {
+       "KHR_materials_emissive_strength": {
+        "emissiveStrength": 5
+       },
+       "VRMC_materials_hdr_emissiveMultiplier": {
+        "emissiveMultiplier": 3
+       }
+      }
+     }
+    ]
+   },
+   "expected": [
+    {
+     "index": 0,
+     "name": "Glow",
+     "profile": "mtoon",
+     "blend": false,
+     "outline": false,
+     "model": {
+      "baseColor": "#ffffff",
+      "emissionColor": "#ff0000",
+      "emissionStrength": 3,
+      "shadeColor": "#000000",
+      "rimColor": "#000000"
+     }
+    },
+    {
+     "index": 1,
+     "name": "Sign",
+     "profile": "pbr",
+     "blend": false,
+     "outline": false,
+     "model": {
+      "baseColor": "#ffffff",
+      "emissionColor": "#00ff00",
+      "emissionStrength": 3
+     }
+    }
+   ]
+  },
+  {
+   "name": "VRM 0 VRM/MToon with KHR_materials_emissive_strength on its glTF material: v0compat keeps only the MToon extension, so the strength is 1",
+   "json": {
+    "materials": [
+     {
+      "name": "Lamp",
+      "emissiveFactor": [
+       1,
+       1,
+       1
+      ],
+      "extensions": {
+       "KHR_materials_emissive_strength": {
+        "emissiveStrength": 8
+       }
+      }
+     }
+    ],
+    "extensions": {
+     "VRM": {
+      "materialProperties": [
+       {
+        "name": "Lamp",
+        "shader": "VRM/MToon",
+        "vectorProperties": {
+         "_EmissionColor": [
+          0.5,
+          0,
+          0,
+          1
+         ]
+        }
+       }
+      ]
+     }
+    }
+   },
+   "expected": [
+    {
+     "index": 0,
+     "name": "Lamp",
+     "profile": "mtoon",
+     "blend": false,
+     "outline": false,
+     "model": {
+      "baseColor": "#ffffff",
+      "emissionColor": "#800000",
+      "emissionStrength": 1,
+      "shadeColor": "#f8d0dc",
+      "rimColor": "#000000"
+     }
+    }
+   ]
+  },
+  {
+   "name": "VRM 0 VRM/UnlitTransparent: the alpha is clamped to 0-1 before pow(v, 2.2), so -0.5 gives 0 (not NaN) and 1.5 gives 1",
+   "json": {
+    "materials": [
+     {
+      "name": "Below"
+     },
+     {
+      "name": "Above"
+     }
+    ],
+    "extensions": {
+     "VRM": {
+      "materialProperties": [
+       {
+        "name": "Below",
+        "shader": "VRM/UnlitTransparent",
+        "vectorProperties": {
+         "_Color": [
+          1,
+          1,
+          1,
+          -0.5
+         ]
+        }
+       },
+       {
+        "name": "Above",
+        "shader": "VRM/UnlitTransparent",
+        "vectorProperties": {
+         "_Color": [
+          1,
+          1,
+          1,
+          1.5
+         ]
+        }
+       }
+      ]
+     }
+    }
+   },
+   "expected": [
+    {
+     "index": 0,
+     "name": "Below",
+     "profile": "unlit",
+     "blend": true,
+     "outline": false,
+     "model": {
+      "baseColor": "#ffffff",
+      "opacity": 0
+     }
+    },
+    {
+     "index": 1,
+     "name": "Above",
+     "profile": "unlit",
+     "blend": true,
+     "outline": false,
+     "model": {
+      "baseColor": "#ffffff",
+      "opacity": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "VRM 0 _OutlineWidthMode: v0compat indexes the mode array with the raw value, so \"1\" and \"2\" give an outline like 1 and 2; \"0\", \"x\", 3, and 1.5 give none",
+   "json": {
+    "materials": [
+     {
+      "name": "Mode0"
+     },
+     {
+      "name": "Mode1"
+     },
+     {
+      "name": "Mode2"
+     },
+     {
+      "name": "Mode3"
+     },
+     {
+      "name": "Mode4"
+     },
+     {
+      "name": "Mode5"
+     }
+    ],
+    "extensions": {
+     "VRM": {
+      "materialProperties": [
+       {
+        "name": "Mode0",
+        "shader": "VRM/MToon",
+        "floatProperties": {
+         "_OutlineWidth": 0.5,
+         "_OutlineWidthMode": "1"
+        }
+       },
+       {
+        "name": "Mode1",
+        "shader": "VRM/MToon",
+        "floatProperties": {
+         "_OutlineWidth": 0.5,
+         "_OutlineWidthMode": "2"
+        }
+       },
+       {
+        "name": "Mode2",
+        "shader": "VRM/MToon",
+        "floatProperties": {
+         "_OutlineWidth": 0.5,
+         "_OutlineWidthMode": "0"
+        }
+       },
+       {
+        "name": "Mode3",
+        "shader": "VRM/MToon",
+        "floatProperties": {
+         "_OutlineWidth": 0.5,
+         "_OutlineWidthMode": "x"
+        }
+       },
+       {
+        "name": "Mode4",
+        "shader": "VRM/MToon",
+        "floatProperties": {
+         "_OutlineWidth": 0.5,
+         "_OutlineWidthMode": 3
+        }
+       },
+       {
+        "name": "Mode5",
+        "shader": "VRM/MToon",
+        "floatProperties": {
+         "_OutlineWidth": 0.5,
+         "_OutlineWidthMode": 1.5
+        }
+       }
+      ]
+     }
+    }
+   },
+   "expected": [
+    {
+     "index": 0,
+     "name": "Mode0",
+     "profile": "mtoon",
+     "blend": false,
+     "outline": true,
+     "model": {
+      "baseColor": "#ffffff",
+      "emissionColor": "#000000",
+      "emissionStrength": 1,
+      "shadeColor": "#f8d0dc",
+      "rimColor": "#000000",
+      "outlineColor": "#000000",
+      "outlineWidth": 0.005
+     }
+    },
+    {
+     "index": 1,
+     "name": "Mode1",
+     "profile": "mtoon",
+     "blend": false,
+     "outline": true,
+     "model": {
+      "baseColor": "#ffffff",
+      "emissionColor": "#000000",
+      "emissionStrength": 1,
+      "shadeColor": "#f8d0dc",
+      "rimColor": "#000000",
+      "outlineColor": "#000000",
+      "outlineWidth": 0.005
+     }
+    },
+    {
+     "index": 2,
+     "name": "Mode2",
+     "profile": "mtoon",
+     "blend": false,
+     "outline": false,
+     "model": {
+      "baseColor": "#ffffff",
+      "emissionColor": "#000000",
+      "emissionStrength": 1,
+      "shadeColor": "#f8d0dc",
+      "rimColor": "#000000"
+     }
+    },
+    {
+     "index": 3,
+     "name": "Mode3",
+     "profile": "mtoon",
+     "blend": false,
+     "outline": false,
+     "model": {
+      "baseColor": "#ffffff",
+      "emissionColor": "#000000",
+      "emissionStrength": 1,
+      "shadeColor": "#f8d0dc",
+      "rimColor": "#000000"
+     }
+    },
+    {
+     "index": 4,
+     "name": "Mode4",
+     "profile": "mtoon",
+     "blend": false,
+     "outline": false,
+     "model": {
+      "baseColor": "#ffffff",
+      "emissionColor": "#000000",
+      "emissionStrength": 1,
+      "shadeColor": "#f8d0dc",
+      "rimColor": "#000000"
+     }
+    },
+    {
+     "index": 5,
+     "name": "Mode5",
+     "profile": "mtoon",
+     "blend": false,
+     "outline": false,
+     "model": {
+      "baseColor": "#ffffff",
+      "emissionColor": "#000000",
+      "emissionStrength": 1,
+      "shadeColor": "#f8d0dc",
+      "rimColor": "#000000"
      }
     }
    ]

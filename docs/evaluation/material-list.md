@@ -12,6 +12,8 @@ Date: 2026-11-17. Contract: [material parameter control](../../spdd/prompt/2026-
 
 `packages/renderer/test/material-values.integration.test.ts` reads the JSON chunk of each fixture file with `materialEntries`. It then loads the same file with the loader plugins of `createAssetLoader` (`VRMLoaderPlugin` with `MToonMaterialLoaderPlugin` and `MToonNodeMaterial`). A test plugin replaces each texture, because Node has no image decoder. The test finds each loaded surface material by `parser.associations` and compares the profile, `blend` with `transparent`, `outline` with an outline material on the same mesh, and each model value. A color can differ by 1 in each byte (`Color.getHexString`). A number can differ by 1e-6.
 
+The test skips each model whose file is not in `fixtures/local` (the files are private and not in Git). A CI run without these files does not run it. The shared rule below is the check that runs everywhere.
+
 | Model | SHA-256 (first 12) | Materials | Profiles | Blend | Outline | Loaded surfaces checked | Differences |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `fixture_vrm_1` (VRM 1) | `12c2b97e95e7` | 13 | 13 MToon | 0 | 7 | 13 | 0 |
@@ -33,7 +35,7 @@ fixture_glb_stage: 25 materials, 25 loaded surfaces checked, 0 with outline
 
 ## Shared rule
 
-`fixtures/protocol/material-names.json` has 10 cases. Rust (`assets/materials.rs`, `model_materials`) and TypeScript (`materialEntries`) give the same list for each case. The expected colors come from three.js `Color` (`setRGB` in the linear working space, then `getHexString`), so the vectors pin the three.js transfer and rounding. The cases include glTF PBR, unlit, BLEND, and MASK materials, the emissive strength and the HDR multiplier, VRM 1 MToon with and without an outline, the VRM 0.x MToon and Unlit forms, `VRM_USE_GLTFSHADER`, the defaults of a material without factors, values out of range, repeated and empty names, the 64-unit cut at a surrogate pair, 257 materials, and a document without materials.
+`fixtures/protocol/material-names.json` has 14 cases. Rust (`assets/materials.rs`, `model_materials`) and TypeScript (`materialEntries`) give the same list for each case. The expected colors come from three.js `Color` (`setRGB` in the linear working space, then `getHexString`), so the vectors pin the three.js transfer and rounding. The cases include glTF PBR, unlit, BLEND, and MASK materials, the emissive strength and the HDR multiplier (alone and together), VRM 1 MToon with and without an outline, the VRM 0.x MToon and Unlit forms, a VRM 0.x MToon material with `KHR_materials_emissive_strength`, a VRM 0.x Unlit alpha below 0 and above 1, `_OutlineWidthMode` as a number, a numeric string, and another value, `VRM_USE_GLTFSHADER`, the defaults of a material without factors, values out of range, repeated and empty names, the 64-unit cut at a surrogate pair, 257 materials, and a document without materials.
 
 ## three-vrm and three.js facts
 
@@ -45,10 +47,10 @@ The rule follows the installed libraries. The line numbers are in the `lib/*.mod
 | A VRM 0.x MToon material blends when `keywordMap._ALPHABLEND_ON` is truthy | v0compat l.107, l.112 |
 | The MToon base color alpha stays linear | v0compat l.117–120 |
 | VRM 0.x MToon defaults: emission `[0,0,0]`, shade `[0.97,0.81,0.86]`, outline color `[0,0,0]`, outline width `0.01 × _OutlineWidth` (default 0) | v0compat l.133, l.141, l.172–173, l.179 |
-| `_OutlineWidthMode` 0, 1, 2 gives `none`, `worldCoordinates`, `screenCoordinates`; another value gives no mode | v0compat l.171 |
+| `_OutlineWidthMode` indexes `["none", "worldCoordinates", "screenCoordinates"]` with the raw value (default 0). So 0, 1, 2 and the strings `"0"`, `"1"`, `"2"` give a mode, and another value gives no mode | v0compat l.171 |
 | The VRM 0.x MToon form keeps only `VRMC_materials_mtoon`, so `KHR_materials_emissive_strength` has no effect | v0compat l.232–235 |
 | A VRM 0.x Unlit material blends for `VRM/UnlitTransparent` and `VRM/UnlitTransparentZWrite` | v0compat l.240–241 |
-| The Unlit form applies the gamma to all four channels, the alpha too | v0compat l.247 |
+| The Unlit form applies the gamma to all four channels, the alpha too. A negative alpha gives NaN there, so the importer clamps the alpha to 0–1 before the gamma | v0compat l.247 |
 | A VRM 0.x Unlit material loads as MToon, with `shadeColorFactor` equal to the base color | v0compat l.253–270 |
 | An outline exists when the mode is a string other than `none` and the width is a number above 0; the outline is a clone with `isOutline` | mtoon l.792–794, l.800–818 |
 | `MToonNodeMaterial` defaults: emissive black, emissive intensity 1, shade black, rim black, outline width 0, outline color black | mtoon `lib/nodes` l.246–267 |
