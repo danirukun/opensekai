@@ -18,6 +18,7 @@
     "evaluate:smoke": "tsx tools/evaluation/src/run-smoke.ts",
     "evaluate:blueprints": "tsx tools/evaluation/src/run-blueprints.ts",
     "evaluate:vmc-feed": "tsx tools/evaluation/src/vmc-feed.ts",
+    "evaluate:tracking-feed": "tsx tools/evaluation/src/tracking-feed.ts",
     "build:test-stage": "tsx scripts/build-test-stage.ts"
   },
   "devDependencies": {
