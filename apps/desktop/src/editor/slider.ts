@@ -47,5 +47,7 @@ export const SLIDERS={
  bloomThreshold:{min:0,max:4,step:0.01,curve:'linear',sliderMax:1.5},
  bloomRadius:{min:0,max:1,step:0.01,curve:'linear'},
  bodyMovementIntensity:{min:0,max:2,step:0.01,curve:'linear'},
+ beamIntensity:{min:0,max:4,step:0.01,curve:'linear'},
+ beamSoftness:{min:0,max:1,step:0.01,curve:'linear'},
 } as const satisfies Record<string,SliderRange>;
 export const lightIntensitySlider=(type:LightSettings['type']):SliderRange=>({min:0,max:1000,step:0.01,curve:'cubic',sliderMax:type==='directional'?10:type==='ambient'?2:100});

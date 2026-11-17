@@ -1,4 +1,4 @@
-import {LIMITS,LightColorSchema,type FpsCounterSettings,type HazeSettings,type LightSettings,type Quat,type SceneEntity,type SceneView,type Transform} from '@opensekai/contracts';
+import {LIMITS,LightColorSchema,type FpsCounterSettings,type HazeSettings,type LightBeam,type LightSettings,type Quat,type SceneEntity,type SceneView,type Transform} from '@opensekai/contracts';
 // −Z along the normalized −[2, 4, 3], no roll: the direction of the built-in light (R10).
 export const BUILTIN_LIGHT_ROTATION:Quat=[-0.389047,0.264763,0.117794,0.874453];
 const shadow:LightSettings['shadow']={enabled:false,intensity:1,soft:true,bias:-0.0005,normalBias:0.02};
@@ -9,6 +9,9 @@ export const POINT_LIGHT:LightSettings={type:'point',intensity:20,range:10,...co
 // A spot light and an ambient fill for a stage (B13 R11).
 export const SPOT_LIGHT:LightSettings={type:'spot',intensity:60,range:15,...common,cone:{angleDegrees:40,penumbra:0.3},volumetric:true};
 export const AMBIENT_LIGHT:LightSettings={type:'ambient',intensity:0.3,range:0,...common};
+// The first switch-on of Beam writes these values; a new spot light has no beam group (stage beams R20, R22).
+export const BEAM:LightBeam={enabled:false,intensity:1,softness:0.5};
+export const withBeam=(light:LightSettings,patch:Partial<LightBeam>):LightSettings=>({...light,beam:{...(light.beam??BEAM),...patch}});
 // −Z from (0, 3, 2) toward (0, 1, 0): 45° down, no roll.
 export const SPOT_LIGHT_ROTATION:Quat=[-0.382683,0,0,0.92388];
 const LIGHT_DEFAULTS:Record<LightSettings['type'],LightSettings>={directional:DIRECTIONAL_LIGHT,point:POINT_LIGHT,spot:SPOT_LIGHT,ambient:AMBIENT_LIGHT};
@@ -28,11 +31,11 @@ export const fpsCounterCornerOptions=[{value:'topLeft',label:'Top Left'},{value:
 export const lightLimitReached=(entities:readonly SceneEntity[]):boolean=>entities.filter(entity=>entity.kind==='light').length>=LIMITS.lights;
 export const lightTypeOptions=[{value:'directional',label:'Directional'},{value:'point',label:'Point'},{value:'spot',label:'Spot'},{value:'ambient',label:'Ambient'}];
 export const isLightType=(value:string):value is LightSettings['type']=>value in LIGHT_DEFAULTS;
-// A type change keeps the color, the affect flags, and the shadow (off for ambient); intensity, range, and cone take the type default (B13 R12).
+// A type change keeps the color, the affect flags, and the shadow (off for ambient); intensity, range, and cone take the type default (B13 R12). The beam group goes (stage beams R23).
 export function lightForType(type:LightSettings['type'],current:LightSettings):LightSettings {
  if(type===current.type)return current;
  const base=LIGHT_DEFAULTS[type];
- const {cone,volumetric,...rest}=current;
+ const {cone,volumetric,beam:_,...rest}=current;
  const next:LightSettings={...rest,type,intensity:base.intensity,range:base.range,shadow:type==='ambient'?{...current.shadow,enabled:false}:current.shadow};
  if(type==='spot')next.cone=cone??base.cone;
  const scatter=volumetric??base.volumetric;

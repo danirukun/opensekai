@@ -14,10 +14,12 @@ import { createLoadJobs, type AssetLoadStatus, type LoadReport, type LoadRequest
 import { createEnvironmentLight, roomEnvironmentMap, type InstanceMaterials } from "./environment-light";
 import { createSceneLights, groupOf, roomLight, withDrafts, type LightGroup } from "./scene-lights";
 import { logPipelineFailure, watchPipelineErrors, type PipelineDevice } from "./pipeline-diagnostics";
+import { afterRebuild, blameFrame, initialBlame } from "./pipeline-blame";
 import { freshModulePerPipeline, isWebKit } from "./webkit-shader-modules";
 import { createDiagnosticMarker } from "./diagnostic-marker";
 import { createPostChain } from "./post-chain";
 import { createHaze, type Haze } from "./haze";
+import { createBeams } from "./beam";
 import { renderScreenshot, SCREENSHOT_HEIGHT, SCREENSHOT_WIDTH } from "./screenshot";
 import { createScreenImagePool, createScreenMesh, loadScreenImage } from "./screen";
 import { createWebLayers, createWebQuad, webQuadWidth, webScreenPlan, type WebLayers } from "./web-screen";
@@ -78,14 +80,20 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     const sceneLights = createSceneLights(scene, renderer);
     // A failed pipeline compile is logged with its WGSL and named in frame warnings until the next light-set rebuild.
     let pipelineFailed = false;
+    // The labels of the failure reports since the last drawn frame, and the state that gives each one to a pass (R15a).
+    let failureReports: (string | null)[] = [], blame = initialBlame();
     const device = backend === "webgpu" ? (renderer.backend as unknown as { device?: PipelineDevice }).device : undefined;
-    const unwatchPipelines = device ? watchPipelineErrors(device, (failure, first) => { pipelineFailed = true; if (first) logPipelineFailure(failure); }) : null;
+    const unwatchPipelines = device ? watchPipelineErrors(device, (failure, first) => { pipelineFailed = true; failureReports.push(failure.label ?? null); if (first) logPipelineFailure(failure); }) : null;
     // After the watch, so that each new module still has its WGSL for the failure log (R9b).
     const restoreModules = device && isWebKit(navigator.userAgent) ? freshModulePerPipeline(device) : null;
     const loadAsset = createAssetLoader(options.resources, {maxTextureSize: quality.maxTextureSize});
     const postChain = createPostChain(renderer);
     // The haze volume (B13 R7). A pipeline failure while it draws stops it until the next node-set rebuild (R9).
     let haze: Haze | null = null, hazeFailed = false;
+    // The cone beams of spot lights (stage beams R10). A new failure that `pipeline-blame.ts` gives to the beams stops them (R15, R15a).
+    // The cone root is in the scene only while a beam draws, so a scene without a beam keeps its objects.
+    const beams = createBeams();
+    let beamsFailed = false;
     const assets = createAssetCache(loadAsset);
     // One texture for each image asset in this client, shared by all screens that show it (B28 R12). Each quad holds a
     // lease, so the texture closes only when no quad uses it.
@@ -206,6 +214,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         unwatchPipelines?.();
         postChain.dispose();
         haze?.dispose();
+        beams.dispose();
         marker?.dispose();
         scene.clear();
         renderer.dispose();
@@ -230,7 +239,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         // A dragged light or haze follows the gizmo on each frame, between the throttled commits (B12 R7).
         const drawn = editor ? withDrafts(frame.scene.entities, id => editor.draftTransform(id)) : frame.scene.entities;
         const lightsRebuilt = sceneLights.apply(drawn);
-        if (lightsRebuilt) { pipelineFailed = false; hazeFailed = false; }
+        if (lightsRebuilt) { pipelineFailed = false; hazeFailed = false; beamsFailed = false; blame = afterRebuild(blame); }
         environmentLight.room(roomLight(drawn));
         // Cameras, lights, and the haze have a scene object only in the editor viewport, as a pick target and helper (R14, B13 R13).
         // An FPS counter is a DOM overlay and a VMC sender sends UDP; neither has a scene object (B19 R7, B21).
@@ -408,6 +417,10 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             haze.setLights(sceneLights.node("haze"));
         } else if (haze) { haze.dispose(); haze = null; }
         const hazeDrawn = haze && hazeEntity?.visible && !hazeFailed ? haze : null;
+        // `drawn` has the gizmo drafts, so a dragged light moves its beam.
+        const beamsDrawn = beams.update(drawn) && !beamsFailed ? beams : null;
+        if (!beamsDrawn) beams.root.removeFromParent();
+        else if (!beams.root.parent) scene.add(beams.root);
         // A change of the light set gives each lit material its new group node set (R6, R7).
         const generation = sceneLights.generation();
         for (const value of objects.values()) if (value.group && value.lit !== generation) { sceneLights.assign(value.root, value.group); value.lit = generation; }
@@ -425,8 +438,12 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         try {
             // three.js 0.180: on WebGPU a shadow first set up during a draw stays empty, so compile first; on WebGL 2 this compile leaves the shadow empty.
             if (lightsRebuilt && sceneLights.shadows() && backend === "webgpu") await renderer.compileAsync(scene, camera);
-            await postChain.render(scene, camera, cameraEntity.antiAliasing, hazeDrawn, cameraEntity.grading ?? null);
-            if (hazeDrawn && pipelineFailed) hazeFailed = true;
+            await postChain.render(scene, camera, cameraEntity.antiAliasing, hazeDrawn, cameraEntity.grading ?? null, beamsDrawn);
+            const blamed = blameFrame(blame, { haze: hazeDrawn !== null, beams: beamsDrawn !== null }, failureReports);
+            blame = blamed.state;
+            failureReports = [];
+            if (blamed.stop.includes("haze")) hazeFailed = true;
+            if (blamed.stop.includes("beams")) beamsFailed = true;
             if (marker) {
                 marker.update(frame, cameraEntity.id, width, height);
                 renderer.autoClear = false;
@@ -482,7 +499,8 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             }
             // The haze draws in the screenshot as in the output (B13 R10).
             const shotHaze = haze && !hazeFailed && frame.scene.entities.some(x => x.kind === "haze" && x.visible) ? haze : null;
-            const png = await renderScreenshot({ renderer, backend, scene, camera: shotCamera, show, antiAliasing: entity.antiAliasing ?? "none", msaaSamples: quality.msaaSamples, haze: shotHaze, grading: entity.grading ?? null });
+            const shotBeams = beams.root.parent && !beamsFailed ? beams : null;
+            const png = await renderScreenshot({ renderer, backend, scene, camera: shotCamera, show, antiAliasing: entity.antiAliasing ?? "none", msaaSamples: quality.msaaSamples, haze: shotHaze, grading: entity.grading ?? null, beams: shotBeams });
             if (disposed) throw failure("CANCELLED", "Renderer disposed");
             if (png.byteLength > LIMITS.screenshotPngBytes) throw failure("INVALID_INPUT", "Screenshot PNG exceeds 8 MiB");
             return { sessionId: frame.sessionId, revision: expectedRevision, cameraId, width: SCREENSHOT_WIDTH, height: SCREENSHOT_HEIGHT, png };

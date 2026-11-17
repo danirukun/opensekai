@@ -1,0 +1,54 @@
+import { describe, expect, it } from 'vitest';
+import { afterRebuild, blameFrame, initialBlame, type BlameState, type Pass } from '../src/pipeline-blame';
+
+type Step = { haze?: boolean; beams?: boolean; reports?: (string | null)[] };
+// Runs the frames in order and returns the passes stopped in each one.
+const run = (steps: Step[], start: BlameState = initialBlame()) => {
+    let state = start;
+    const stops: Pass[][] = [];
+    for (const { haze = false, beams = false, reports = [] } of steps) {
+        const next = blameFrame(state, { haze, beams }, reports);
+        state = next.state;
+        stops.push(next.stop);
+    }
+    return { stops, state };
+};
+const composite = 'renderPipeline_NodeMaterial_12';
+
+describe('pipeline failure blame (stage beams R15a)', () => {
+    it('does not stop a beam for a failure that arrived before the beam drew', () => {
+        const { stops } = run([{ reports: ['renderPipeline_MToonNodeMaterial_4'] }, {}, { beams: true }, { beams: true }]);
+        expect(stops).toEqual([[], [], [], []]);
+    });
+    it('stops only the beams when a beam starts while a haze draws without failure', () => {
+        const { stops } = run([{ haze: true }, { haze: true }, { haze: true, beams: true }, { haze: true, beams: true, reports: [composite] }]);
+        expect(stops.at(-1)).toEqual(['beams']);
+    });
+    it('stops only the beams for a beam material label, also when the haze started later', () => {
+        const { stops } = run([{ beams: true }, { haze: true, beams: true, reports: ['renderPipeline_beam_31'] }]);
+        expect(stops.at(-1)).toEqual(['beams']);
+    });
+    it('stops the haze when only the haze draws (B13 R9)', () => {
+        const { stops } = run([{ haze: true }, { haze: true, reports: [null] }]);
+        expect(stops.at(-1)).toEqual(['haze']);
+    });
+    it('stops the haze when the haze starts while beams draw', () => {
+        const { stops } = run([{ beams: true }, { haze: true, beams: true }, { haze: true, beams: true, reports: [composite] }]);
+        expect(stops.at(-1)).toEqual(['haze']);
+    });
+    it('stops both when both started in the same frame', () => {
+        const { stops } = run([{ haze: true, beams: true }, { haze: true, beams: true, reports: [composite] }]);
+        expect(stops.at(-1)).toEqual(['haze', 'beams']);
+    });
+    it('gives a late report to a pass that drew in the frame before', () => {
+        const { stops } = run([{ beams: true }, { reports: [composite] }]);
+        expect(stops.at(-1)).toEqual(['beams']);
+        expect(run([{ beams: true }, {}, { reports: [composite] }]).stops.at(-1)).toEqual([]);
+    });
+    it('ignores a repeat report of a failed label until a rebuild', () => {
+        const first = run([{ beams: true, reports: [composite] }]);
+        expect(first.stops).toEqual([['beams']]);
+        expect(run([{ beams: true, reports: [composite] }], first.state).stops).toEqual([[]]);
+        expect(run([{ beams: true, reports: [composite] }], afterRebuild(first.state)).stops).toEqual([['beams']]);
+    });
+});

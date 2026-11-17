@@ -111,7 +111,8 @@ export type ScreenContent = { kind: "image"; assetId: Id | null } | ({ kind: "we
 export interface ScreenPlayback { entityId: Id; playing: boolean; positionMs: number; }
 export interface LightShadow { enabled: boolean; intensity: number; soft: boolean; bias: number; normalBias: number; }
 export interface LightCone { angleDegrees: number; penumbra: number; }
-export interface LightSettings { type: "directional" | "point" | "spot" | "ambient"; color: string; intensity: number; range: number; affectCharacters: boolean; affectProps: boolean; affectEnvironment: boolean; shadow: LightShadow; cone?: LightCone; volumetric?: boolean; }
+export interface LightBeam { enabled: boolean; intensity: number; softness: number; }
+export interface LightSettings { type: "directional" | "point" | "spot" | "ambient"; color: string; intensity: number; range: number; affectCharacters: boolean; affectProps: boolean; affectEnvironment: boolean; shadow: LightShadow; cone?: LightCone; volumetric?: boolean; beam?: LightBeam; }
 export interface HazeSettings { density: number; smoke: number; intensity: number; drift: number; }
 export type FpsCounterCorner = "topLeft" | "topRight" | "bottomLeft" | "bottomRight";
 export interface FpsCounterSettings { corner: FpsCounterCorner; size: number; color: string; }
