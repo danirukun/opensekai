@@ -37,14 +37,16 @@ Date: 2026-11-16. Analysis: [guided setup sources](../analysis/2026-11-16-guided
 10. `resolveSetup(choice)` gives zero, one, or two parts. Each part is `{ preset, roles: ('face'|'body'|'fingers')[], config }`.
     - A webcam part sets `face`, `upperBody`, and `hands` from its roles. It keeps `mirror` and `deviceId` from a reused source.
     - When Face and Body resolve to the same preset, the result is one part with both roles.
-    - Fingers go to the body part when the body is SelfReflect, Other VMC app, or Webcam with Hands on. Otherwise, the fingers slot is `null`.
+    - Fingers go to the body part when the body is Webcam with Hands on.
+    - A SelfReflect or Other VMC app body part also fills the fingers slot when that slot is empty, holds a source that does not exist, or holds the source of the body slot before the run. When the fingers slot holds a separate hand source, `planSetup` keeps the slot and that source.
+    - Keep unused slots (owner decision, 2026-11-17). A slot that no part fills keeps its binding and its source. Face None, Body None, and Hands off do not clear a slot. The run changes only the slots that its parts fill. The `body` group stays.
 11. `planSetup(scene, avatarId, parts, phoneAddress, eyeBones, newId)` gives one patch for all parts. For each part, the plan selects a source in this order:
-    1. a source of the same kind that this avatar binds in any slot and that no other avatar binds. First, each part takes a source of its own preset (SelfReflect for `positions: 'rotationsOnly'`), in the part's own slots. Then, each part takes a source in its own slots. Then, each part takes a source in any slot of this avatar;
+    1. a source of the same kind that this avatar binds in any slot and that no other avatar binds. First, each part takes a source of its own preset (SelfReflect for `positions: 'rotationsOnly'`), in the part's own slots. Then, each part takes a source in its own slots. Then, each part takes a source in any slot of this avatar, but not a source that fills a slot that no part fills;
     2. a source of the same kind that no avatar binds (for VMC, OpenSeeFace, and iFacialMocap, one on the preset port first);
     3. a new source.
 
     The plan never selects a source that another avatar binds, also when this avatar binds it too. The endpoint rules of `planConnect` stay the same. One source never serves two parts. The port of each enabled VMC sender that sends to a local address (`127.0.0.1`, `localhost`, or `::1`) is in use: a part does not take that port, and a moved part skips it.
-12. Each source that this avatar bound before the run, that no avatar binds after the run, and that is enabled gets `setTrackingConfig` with `enabled: false` in the same patch.
+12. Each source that this avatar bound before the run, that fills no slot of this avatar after the run, that no other avatar binds, and that is enabled gets `setTrackingConfig` with `enabled: false` in the same patch.
 13. When the patch would make more than 4 tracking sources, `planSetup` gives `blocked: 'sourceLimit'`. The guide shows the alert "Tracking source limit reached" on Step 1 and sends no patch.
 
 ### Connect

@@ -125,6 +125,8 @@ The owner accepted these items on 2026-11-13:
 1. Step 1 has a Face select and a Body select. The Body options are Same as face, Webcam, SelfReflect, Other VMC app, and None. A Hands checkbox shows for a webcam body. The app tiles go.
 2. OpenSeeFace is in the guide.
 3. The run stops each source that it unbinds when no character uses that source after the run. The run reuses an unbound source of the same kind.
+
+The owner decided on 2026-11-17: keep unused slots. A slot that no chosen part (Face, Body, Hands) fills keeps its binding and its source. The run changes only the slots that the chosen parts fill. A source stays bound and enabled while it fills a slot of this character after the run. Only a source that fills no slot of this character, and that no other character binds, stops (`enabled: false`).
 4. The tip text is "No character uses this source. Use Set up tracking on a character." It is text only.
 5. "Body follows head" is deferred.
 6. The orchestrator checks the VMC and iFacialMocap paths with a fake sender. The webcam paths stay `accept:local`.
