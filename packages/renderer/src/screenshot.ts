@@ -3,6 +3,7 @@ import { renderOutput, texture, uniform } from "three/tsl";
 import { fxaa } from "three/addons/tsl/display/FXAANode.js";
 import { gaussianBlur } from "three/addons/tsl/display/GaussianBlurNode.js";
 import { HAZE_BLUR, HAZE_LAYER, HAZE_RESOLUTION, hazeComposite, type Haze } from "./haze";
+import { BEAM_LAYER, BEAM_RESOLUTION, type Beams } from "./beam";
 import { isNeutralGrading, type Backend, type CameraAntiAliasing, type CameraGrading } from "@opensekai/contracts";
 import { bloomComposite, createGrading } from "./grading";
 
@@ -109,14 +110,17 @@ export interface ScreenshotRender {
     haze?: Haze | null;
     /** The grading of the screenshot camera, applied as in the output (CAM-06 R12). */
     grading?: CameraGrading | null;
+    /** The beams draw as in the output: their own pass with the screenshot depth, added after the haze (stage beams R16). */
+    beams?: Beams | null;
 }
 
 /** Renders one 1920 × 1080 frame to offscreen targets with a transparent clear, reads it once, and returns the PNG. The canvas is not drawn. */
-export async function renderScreenshot({ renderer, backend, scene, camera, show, antiAliasing, msaaSamples, haze = null, grading = null }: ScreenshotRender): Promise<Uint8Array> {
+export async function renderScreenshot({ renderer, backend, scene, camera, show, antiAliasing, msaaSamples, haze = null, grading = null, beams = null }: ScreenshotRender): Promise<Uint8Array> {
     const width = SCREENSHOT_WIDTH, height = SCREENSHOT_HEIGHT;
     const sceneTarget = new RenderTarget(width, height, { type: HalfFloatType, samples: msaaSamples, depthBuffer: true });
-    if (haze) sceneTarget.depthTexture = new DepthTexture(width, height);
+    if (haze || beams) sceneTarget.depthTexture = new DepthTexture(width, height);
     const hazeTarget = haze ? new RenderTarget(Math.round(width * HAZE_RESOLUTION), Math.round(height * HAZE_RESOLUTION), { type: HalfFloatType, depthBuffer: false }) : null;
+    const beamTarget = beams ? new RenderTarget(Math.round(width * BEAM_RESOLUTION), Math.round(height * BEAM_RESOLUTION), { type: HalfFloatType, depthBuffer: false }) : null;
     const blur = hazeTarget ? gaussianBlur(texture(hazeTarget.texture), uniform(HAZE_BLUR)) : null;
     const colorTarget = new RenderTarget(width, height, { type: UnsignedByteType, depthBuffer: false });
     const fxaaTarget = antiAliasing === "fxaa" ? new RenderTarget(width, height, { type: UnsignedByteType, depthBuffer: false }) : null;
@@ -138,6 +142,15 @@ export async function renderScreenshot({ renderer, backend, scene, camera, show,
             try { renderer.setRenderTarget(hazeTarget); await renderer.renderAsync(scene, camera); }
             finally { camera.layers.mask = mask; }
             color = hazeComposite(color, blur as unknown as typeof color, haze.intensity) as unknown as typeof color;
+        }
+        if (beams && beamTarget && sceneTarget.depthTexture) {
+            const mask = camera.layers.mask;
+            beams.root.visible = true;
+            beams.setDepth(sceneTarget.depthTexture);
+            camera.layers.set(BEAM_LAYER);
+            try { renderer.setRenderTarget(beamTarget); await renderer.renderAsync(scene, camera); }
+            finally { camera.layers.mask = mask; }
+            color = hazeComposite(color, texture(beamTarget.texture) as unknown as typeof color, uniform(1)) as unknown as typeof color;
         }
         if (grading && !isNeutralGrading(grading)) {
             const grade = createGrading();
@@ -163,6 +176,6 @@ export async function renderScreenshot({ renderer, backend, scene, camera, show,
         renderer.setRenderTarget(previousTarget);
         for (const [child, visible] of saved) child.visible = visible;
         for (const material of materials) material.dispose();
-        sceneTarget.dispose(); colorTarget.dispose(); fxaaTarget?.dispose(); hazeTarget?.dispose(); blur?.dispose(); glow?.dispose();
+        sceneTarget.dispose(); colorTarget.dispose(); fxaaTarget?.dispose(); hazeTarget?.dispose(); beamTarget?.dispose(); blur?.dispose(); glow?.dispose();
     }
 }

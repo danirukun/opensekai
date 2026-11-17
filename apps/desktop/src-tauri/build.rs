@@ -59,6 +59,7 @@ fn main() {
             "export_blueprint_file",
             "take_blueprint_link",
             "finish_blueprint_link",
+            "open_help",
         ]),
     ))
     .expect("OpenSekai build configuration failed");

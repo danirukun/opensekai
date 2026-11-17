@@ -136,6 +136,12 @@ Each merge to `main` publishes an Apple Silicon build on the [releases page](htt
 
 In a Linux cloud container, run `bash scripts/cloud-setup.sh` to do the setup and the build. See [Cloud agent intake](docs/agent-intake.md).
 
+## OBS output
+
+In the Editor, open the Output panel and drag **Drag to OBS** into an OBS scene. OBS makes a Browser Source with the transparent output page.
+
+Set the Blending Method of that Browser Source to **SRGB Off**: right-click the source in OBS, then select Blending Method › SRGB Off. With the default blending method, a spot light beam or a haze over a light background shows as a gray veil. With SRGB Off, it keeps its color.
+
 ## Checks
 
 ```sh

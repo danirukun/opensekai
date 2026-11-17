@@ -1,14 +1,16 @@
 <script lang="ts">
  import {Button,Select} from '@oshi-connect/ui';
  import type {LightSettings,Reply} from '@opensekai/contracts';
- import {isLightType,lightForType,lightTypeOptions} from '../editor/lights';
+ import {isLightType,lightForType,lightTypeOptions,withBeam} from '../editor/lights';
  import {lightIntensitySlider,SLIDERS} from '../editor/slider';
  import ColorField from './ColorField.svelte';
  import SliderField from './SliderField.svelte';
  import ResetMark from './ResetMark.svelte';
  import {NO_MARKS,type ResetMarks} from '../editor/property-defaults';
  let {entityId,light,revision,disabled=false,part,marks=NO_MARKS,oncommit,onlive,onliveend,ondirection}:{entityId:string;light:LightSettings;part:'light'|'affect'|'shadow';marks?:ResetMarks;revision:number;disabled?:boolean;oncommit?:(id:string,light:LightSettings,revision:number)=>Promise<Reply<unknown>|undefined>;onlive?:(id:string,light:LightSettings)=>void;onliveend?:()=>void;ondirection?:(id:string,revision:number)=>Promise<Reply<unknown>|undefined>}=$props();
- type Field='intensity'|'range'|'shadowIntensity'|'bias'|'normalBias'|'angleDegrees'|'penumbra';
+ // The labels of the beam controls and of the haze scatter switch, in one place (stage beams L1 to L4).
+ const LABELS={beam:'Beam',beamIntensity:'Beam Intensity',beamSoftness:'Beam Softness',volumetric:'Scatter In Haze'};
+ type Field='intensity'|'range'|'shadowIntensity'|'bias'|'normalBias'|'angleDegrees'|'penumbra'|'beamIntensity'|'beamSoftness';
  // Enter fires change and then submit; one commit at a time keeps the second from failing as BUSY.
  let committing=false;
  async function commit(next:LightSettings,control?:HTMLInputElement|HTMLSelectElement){
@@ -20,21 +22,21 @@
   if(control instanceof HTMLInputElement&&control.type==='checkbox')control.checked=checkedValue(control.name);
   else if(control instanceof HTMLSelectElement)control.value=light.type;
  }
- function checkedValue(name:string){return name==='shadow'?light.shadow.enabled:name==='soft'?light.shadow.soft:Boolean(light[name as 'affectCharacters'|'affectProps'|'affectEnvironment'|'volumetric']);}
+ function checkedValue(name:string){return name==='shadow'?light.shadow.enabled:name==='soft'?light.shadow.soft:name==='beam'?light.beam?.enabled===true:Boolean(light[name as 'affectCharacters'|'affectProps'|'affectEnvironment'|'volumetric']);}
  const withValue=(field:Field,value:number):LightSettings=>field==='intensity'||field==='range'?{...light,[field]:value}
   :field==='angleDegrees'||field==='penumbra'?{...light,cone:{...(light.cone??{angleDegrees:40,penumbra:0}),[field]:value}}
+  :field==='beamIntensity'||field==='beamSoftness'?withBeam(light,{[field==='beamIntensity'?'intensity':'softness']:value})
   :{...light,shadow:{...light.shadow,[field==='shadowIntensity'?'intensity':field]:value}};
  // Point and spot lights have a place and a range; spot lights have a cone; only they scatter in haze (B13 R12).
  const placed=$derived(light.type==='point'||light.type==='spot');
  const slider=(field:Field)=>({disabled:disabled||!oncommit,onlive:(value:number)=>onlive?.(entityId,withValue(field,value)),onend:onliveend,oncommit:(value:number)=>{void commit(withValue(field,value));}});
  function toggle(event:Event){
   const box=event.currentTarget as HTMLInputElement;
-  const next=box.name==='shadow'||box.name==='soft'?{...light,shadow:{...light.shadow,[box.name==='shadow'?'enabled':'soft']:box.checked}}:{...light,[box.name]:box.checked};
-  void commit(next,box);
+  void commit(toggled(box.name as Toggle,box.checked),box);
  }
  // A reset commits the scene light with one field at its default (B17 R6).
- type Toggle='volumetric'|'affectCharacters'|'affectProps'|'affectEnvironment'|'shadow'|'soft';
- const toggled=(name:Toggle,value:boolean):LightSettings=>name==='shadow'||name==='soft'?{...light,shadow:{...light.shadow,[name==='shadow'?'enabled':'soft']:value}}:{...light,[name]:value};
+ type Toggle='volumetric'|'affectCharacters'|'affectProps'|'affectEnvironment'|'shadow'|'soft'|'beam';
+ const toggled=(name:Toggle,value:boolean):LightSettings=>name==='shadow'||name==='soft'?{...light,shadow:{...light.shadow,[name==='shadow'?'enabled':'soft']:value}}:name==='beam'?withBeam(light,{enabled:value}):{...light,[name]:value};
  function reset(id:string){
   const value=marks.defaults[id];
   if(id==='color')void commit({...light,color:String(value)});
@@ -52,8 +54,13 @@
   {#if light.type==='spot'}
    <div class="resettable"><SliderField label="Angle (°)" value={light.cone?.angleDegrees??40} range={SLIDERS.angle} {...slider('angleDegrees')}/>{@render mark('angleDegrees','Angle (°)')}</div>
    <div class="resettable"><SliderField label="Penumbra" value={light.cone?.penumbra??0} range={SLIDERS.penumbra} {...slider('penumbra')}/>{@render mark('penumbra','Penumbra')}</div>
+   <div class="resettable"><label class="visibility-control"><input type="checkbox" name="beam" checked={light.beam?.enabled===true} onchange={toggle}/>{LABELS.beam}</label>{@render mark('beam',LABELS.beam)}</div>
+   {#if light.beam?.enabled}
+    <div class="resettable"><SliderField label={LABELS.beamIntensity} value={light.beam.intensity} range={SLIDERS.beamIntensity} {...slider('beamIntensity')}/>{@render mark('beamIntensity',LABELS.beamIntensity)}</div>
+    <div class="resettable"><SliderField label={LABELS.beamSoftness} value={light.beam.softness} range={SLIDERS.beamSoftness} {...slider('beamSoftness')}/>{@render mark('beamSoftness',LABELS.beamSoftness)}</div>
+   {/if}
   {/if}
-  {#if placed}<div class="resettable"><label class="visibility-control"><input type="checkbox" name="volumetric" checked={light.volumetric===true} onchange={toggle}/>Volumetric</label>{@render mark('volumetric','Volumetric')}</div>{/if}
+  {#if placed}<div class="resettable"><label class="visibility-control"><input type="checkbox" name="volumetric" checked={light.volumetric===true} onchange={toggle}/>{LABELS.volumetric}</label>{@render mark('volumetric',LABELS.volumetric)}</div>{/if}
   {#if light.type==='directional'||light.type==='spot'}<div class="light-actions"><Button variant="secondary" disabled={disabled||!ondirection} onclick={()=>{void ondirection?.(entityId,revision);}}>Set Direction From Main Camera</Button></div>{/if}
  {:else if part==='affect'}
   {#each [['affectCharacters','Affect Characters'],['affectProps','Affect Props'],['affectEnvironment','Affect Environment']] as const as [name,label] (name)}

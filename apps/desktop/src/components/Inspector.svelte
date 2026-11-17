@@ -28,6 +28,8 @@
  import CameraGradingFields from './CameraGradingFields.svelte';
  import FpsCounterFields from './FpsCounterFields.svelte';
  import VmcSenderFields from './VmcSenderFields.svelte';
+ import HelpButton from './HelpButton.svelte';
+ import {topicForKind} from '../editor/help';
  import {senderStatus} from '../editor/vmc-sender';
  import {directionFromMainCamera} from '../editor/lights';
  import type {LiveRequest} from '../editor/live-edit';
@@ -110,7 +112,7 @@
  }
 </script>
 <section class="editor-panel inspector" aria-labelledby="inspector-heading" bind:this={panel}>
- <h2 id="inspector-heading">Properties</h2>
+ <div class="panel-heading"><h2 id="inspector-heading">Properties</h2><HelpButton topic={topicForKind(entity?.kind??null)}/></div>
  {#if entity && view.scene && marks}<h3>{entity.name}</h3>{#if entity.kind!=='tracking'&&entity.kind!=='vmcSender'}<div class="resettable"><label class="visibility-control"><input type="checkbox" checked={entity.visible} disabled={view.pending||disabled} onchange={async event=>{const box=event.currentTarget;const reply=await model.setVisibility(entity.id,box.checked,view.scene?.revision);settleCheckbox(box,reply,entity?.visible);}}/>Visible</label>{#if marks.changed.has('visible')}<ResetMark label="Visible" disabled={marks.disabled} onreset={()=>{void model.setVisibility(entity!.id,true,view.scene?.revision);}}/>{/if}</div>{/if}
  {@const scene=view.scene}
  {#snippet body(id:string)}

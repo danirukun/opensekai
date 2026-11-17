@@ -31,7 +31,7 @@ it('lists the reset fields of each kind and light type, and none of R4 (R3, R4)'
  expect(ids('camera')).toEqual([...base,'renderEnvironment','antiAliasing','toneMapping','exposure','brightness','contrast','vibrance','tint','bloomIntensity','bloomThreshold','bloomRadius','fovDegrees','near','far','controlMode','sensitivity']);
  expect(ids('directionalLight')).toEqual([...base,'color','intensity','affectCharacters','affectProps','affectEnvironment','shadow']);
  expect(ids('pointLight')).toEqual([...base,'color','intensity','range','volumetric','affectCharacters','affectProps','affectEnvironment','shadow']);
- expect(ids('spotLight')).toEqual([...base,'color','intensity','range','angleDegrees','penumbra','volumetric','affectCharacters','affectProps','affectEnvironment','shadow']);
+ expect(ids('spotLight')).toEqual([...base,'color','intensity','range','angleDegrees','penumbra','beam','volumetric','affectCharacters','affectProps','affectEnvironment','shadow']);
  expect(ids('ambientLight')).toEqual([...base,'color','intensity','affectCharacters','affectProps','affectEnvironment']);
  expect(ids('haze')).toEqual([...base,'density','smoke','intensity','drift']);
  expect(ids('environment')).toEqual([...base,'reflectionsIntensity']);

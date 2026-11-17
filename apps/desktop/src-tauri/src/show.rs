@@ -296,6 +296,10 @@ mod tests {
                 include_str!("../../../../fixtures/shows/stage-lights.osekai"),
             ),
             (
+                "stage-beams.osekai",
+                include_str!("../../../../fixtures/shows/stage-beams.osekai"),
+            ),
+            (
                 "test-stage.osekai",
                 include_str!("../../../../fixtures/shows/test-stage.osekai"),
             ),
