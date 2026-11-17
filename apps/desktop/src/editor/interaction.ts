@@ -24,6 +24,12 @@ export function menuPosition(x:number,y:number,width:number,height:number,viewpo
  return {x:clamp(x,4,Math.max(4,viewportWidth-width-4)),y:clamp(y,4,Math.max(4,viewportHeight-height-4))};
 }
 
+// Give focus back only while the menu still has it, or when closing the menu left focus on the document.
+// An action that already moved focus, such as asset rename, keeps that focus.
+export function shouldRestoreMenuFocus(state:{previousConnected:boolean;activeInsideMenu:boolean;activeIsDocument:boolean}):boolean {
+ return state.previousConnected && (state.activeInsideMenu || state.activeIsDocument);
+}
+
 export function transformFromRow(base:Transform,row:TransformRow,values:Vec3):Transform|null {
  if(values.some(v=>!Number.isFinite(v))||(row==='scale'&&values.some(v=>v<=0)))return null;
  return {...copyTransform(base),[row]:row==='rotation'?eulerToQuaternion(values):[...values]};
