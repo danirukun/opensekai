@@ -14,6 +14,7 @@ R1. `LightSettings.type` is `'directional' | 'point' | 'spot' | 'ambient'`. `Lig
 
 An `ambient` light must have `shadow.enabled: false`. TypeScript (zod) and Rust accept and reject the same shapes, with shared vectors. A B9 or B12 show loads without change.
 R2. The limits stay: at most 8 light entities and at most 2 lights with `shadow.enabled: true`, of any type. A haze does not count as a light.
+(Changed by [light limits](2026-11-17-light-limits.md) R2: at most 32 lights, at most 8 lit lights (an affect flag on), and at most 2 shadow lights. A haze still does not count.)
 R3. A spot light shines along its local −Z axis from its position. The renderer uses a three.js `SpotLight` with `angle = angleDegrees / 2` in radians, `penumbra`, `distance = range`, and `decay = 2`. Its `target` is at the position + the direction, and it updates on each frame. A spot shadow uses a 1024 px map, near 0.1 m, far = range (or 50 m when the range is 0), and `shadow.focus = 1`. The bias, normal bias, intensity, and soft values map as for other lights.
 R4. An ambient light is a three.js `AmbientLight` with the entity color and intensity, in the node sets of the groups whose affect flag is on. When a scene has at least one ambient entity, the node sets contain the ambient entities and not the fixed ambient light. When a scene has light entities and no ambient entity, the fixed ambient light (white, intensity 1) stays, as in B9. When a scene has no light entity, the built-in rule of light entities R5 stays. A hidden ambient light has intensity 0 and stays in its sets (R7 of light entities).
 R4a. The room map of an environment (environment import R17) gives two parts: a diffuse fill that has no shadows, and reflections. When a scene has at least one ambient entity:
@@ -61,6 +62,7 @@ R11. The Add menu adds **Spot Light**, **Ambient Light**, and **Haze**:
 - Haze: position (0, 4, 0), scale (20, 8, 20), density 1, smoke 1, intensity 2.5, drift 0.2. (Owner choice after the macOS check: at intensity 1 a beam over a dark background was faint.)
 
 The light items are disabled at 8 lights. Haze is disabled when a haze exists. The Hierarchy shows the haze in the Lights group.
+(Changed by [light limits](2026-11-17-light-limits.md) R7, R8: the light items are disabled at 32 lights; at 8 lit lights, Add makes the light with the three affect flags off.)
 R12. The light Inspector:
 - Type adds Spot and Ambient. A type change keeps the color, the affect flags, and the shadow (off for ambient), and takes the default intensity, range, and cone of the new type.
 - Spot shows Range, **Angle** (slider 1–170°), **Penumbra** (slider 0–1), and **Volumetric**.
