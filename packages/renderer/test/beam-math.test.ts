@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LightSettings, SceneEntity } from '@opensekai/contracts';
-import { BEAM_DEFAULT_LENGTH, BEAM_DEPTH_FADE, BEAM_MAX_GAIN, BEAM_NEAR_FADE, axisFade, beamDraws, beamGain, beamShape, depthFade, edgeFade, nearFade } from '../src/beam-math';
+import { BEAM_DEFAULT_LENGTH, BEAM_DEPTH_FADE, BEAM_MAX_GAIN, BEAM_NEAR_FADE, axisFade, beamConeNormal, beamDraws, beamGain, beamShape, depthFade, edgeFade, nearFade } from '../src/beam-math';
 import { SPOT_HELPER_LENGTH } from '../src/editor-viewport';
 
 const shadow = { enabled: false, intensity: 1, soft: true, bias: -0.0005, normalBias: 0.02 };
@@ -71,5 +71,28 @@ describe('fades (R9)', () => {
         expect(fade(distance)).toBe(1);
         expect(fade(distance * 3)).toBe(1);
         expect(fade(-1)).toBe(0);
+    });
+});
+
+describe('beamConeNormal (R9a)', () => {
+    const dot = (a: readonly number[], b: readonly number[]) => a.reduce((sum, v, i) => sum + v * b[i]!, 0);
+    it('is a unit normal of the cone surface that points out of the cone', () => {
+        for (const angle of [0, 7.5, 33, 90, 181, 300])
+            for (const z of [-0.01, -0.4, -1]) {
+                const r = -z, p = [r * Math.cos(deg(angle)), r * Math.sin(deg(angle)), z] as [number, number, number];
+                const n = beamConeNormal(p);
+                expect(Math.hypot(...n)).toBeCloseTo(1, 12);
+                // The generator line from the apex through p lies in the surface.
+                expect(dot(n, p)).toBeCloseTo(0, 12);
+                expect(dot(n, [p[0], p[1], 0])).toBeGreaterThan(0);
+            }
+    });
+    it('changes continuously around the cone, also across a segment edge', () => {
+        const edge = deg(7.5), step = 1e-4;
+        const at = (a: number): [number, number, number] => [0.05 * Math.cos(a), 0.05 * Math.sin(a), -0.05];
+        expect(Math.acos(Math.min(1, dot(beamConeNormal(at(edge - step)), beamConeNormal(at(edge + step)))))).toBeLessThan(1e-3);
+    });
+    it('is the axis direction at the apex', () => {
+        expect(beamConeNormal([0, 0, 0])).toEqual([0, 0, 1]);
     });
 });

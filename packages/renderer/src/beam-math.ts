@@ -32,6 +32,18 @@ export const beamShape = (light: LightSettings): { length: number; radius: numbe
     return { length, radius: length * Math.tan((angle / 2) * Math.PI / 180) };
 };
 
+/** The radial length below which the cone normal is the axis direction, so the apex has a normal. */
+export const BEAM_APEX_RADIUS = 1e-6;
+/**
+ * The exact outward normal of the cone x² + y² = z² (z ≤ 0) of `beamGeometry` at a local position (R9a). The material
+ * uses this instead of the vertex normal, which is discontinuous at each segment edge of a three.js cone with a 0 top radius.
+ */
+export const beamConeNormal = ([x, y]: readonly [number, number, number]): [number, number, number] => {
+    const radial = Math.max(Math.hypot(x, y), BEAM_APEX_RADIUS);
+    const length = Math.hypot(x, y, radial);
+    return [x / length, y / length, radial / length];
+};
+
 /** `t` is 0 at the light and 1 at the end of the cone. */
 export const axisFade = (t: number): number => (1 - saturate(t)) ** 2;
 /** `c` is the cosine between the surface normal and the view direction; a softer beam fades sooner toward its silhouette. */

@@ -10,7 +10,7 @@ vi.mock('../src/pipeline-diagnostics', async original => ({ ...await original<ty
 import { createRenderer } from '../src/renderer';
 import { chainKey, needsChain } from '../src/post-chain';
 import { BEAM_LAYER, beamGeometry, createBeams } from '../src/beam';
-import { beamGain, beamShape } from '../src/beam-math';
+import { beamConeNormal, beamGain, beamShape } from '../src/beam-math';
 import { lightSignature } from '../src/scene-lights';
 
 const shadow = { enabled: false, intensity: 1, soft: true, bias: -0.0005, normalBias: 0.02 };
@@ -57,6 +57,19 @@ describe('beam cones (stage beams R7, R10)', () => {
         const apex = Array.from({ length: p.count }, (_, i) => new Vector3().fromBufferAttribute(p, i)).filter(v => v.z > -1e-6);
         expect(apex.length).toBeGreaterThan(0);
         for (const v of apex) expect(v.length()).toBeCloseTo(0, 6);
+    });
+    it('has vertex normals that jump at a segment edge near the apex, so the material uses the cone normal (R9a)', () => {
+        const geometry = beamGeometry();
+        const index = geometry.getIndex()!, p = geometry.getAttribute('position'), n = geometry.getAttribute('normal');
+        const v = (attribute: typeof p, i: number) => new Vector3().fromBufferAttribute(attribute, index.getX(i));
+        const s = 0.9;
+        // Each segment is one triangle (bottom x, bottom x + 1, apex with the normal of x + 1).
+        const [cA, dA, bB, dB] = [1, 2, 3, 5];
+        expect(v(p, cA).lerp(v(p, dA), s).distanceTo(v(p, bB).lerp(v(p, dB), s))).toBeLessThan(1e-6);
+        const left = v(n, cA).lerp(v(n, dA), s).normalize(), right = v(n, bB).lerp(v(n, dB), s).normalize();
+        expect(left.angleTo(right) * 180 / Math.PI).toBeGreaterThan(2);
+        const point = v(p, cA).lerp(v(p, dA), s).toArray();
+        expect(beamConeNormal(point)).toEqual(beamConeNormal(v(p, bB).lerp(v(p, dB), s).toArray()));
     });
     it('places one cone for each beam, with the light pose, the cone scale, and the gain color', () => {
         const beams = createBeams();

@@ -1,7 +1,7 @@
 import { AdditiveBlending, Color, ConeGeometry, DepthTexture, DoubleSide, Group, Layers, Mesh, NodeMaterial, type BufferGeometry, type Node, type Texture } from "three/webgpu";
-import { cameraFar, cameraNear, float, normalView, perspectiveDepthToViewZ, positionLocal, positionView, screenUV, texture, userData, vec4 } from "three/tsl";
+import { cameraFar, cameraNear, float, perspectiveDepthToViewZ, positionLocal, positionView, screenUV, texture, transformNormalToView, userData, vec3, vec4 } from "three/tsl";
 import { LIMITS, type SceneEntity } from "@opensekai/contracts";
-import { BEAM_BASE, BEAM_DEPTH_FADE, BEAM_NEAR_FADE, BEAM_RESOLUTION, beamDraws, beamGain, beamShape } from "./beam-math";
+import { BEAM_APEX_RADIUS, BEAM_BASE, BEAM_DEPTH_FADE, BEAM_NEAR_FADE, BEAM_RESOLUTION, beamDraws, beamGain, beamShape } from "./beam-math";
 
 export { BEAM_RESOLUTION };
 /** The layer of the beam cones. The scene pass, the haze pass, and the shadow passes do not draw it (stage beams R10). */
@@ -32,7 +32,10 @@ function beamMaterial(depth: ReturnType<typeof texture>): NodeMaterial {
     const softness = userData("beamSoftness", "float") as unknown as Node<"float">;
     const axis = float(1).sub(positionLocal.z.negate().saturate()).pow(2);
     const toCamera = positionView.negate().normalize();
-    const edge = normalView.dot(toCamera).abs().pow(softness.mul(3.75).add(0.25));
+    // The exact cone normal from the local position (`beamConeNormal`, R9a). The vertex normal makes bands.
+    const radial = positionLocal.xy.length().max(BEAM_APEX_RADIUS);
+    const coneNormal = transformNormalToView(vec3(positionLocal.x, positionLocal.y, radial)).normalize();
+    const edge = coneNormal.dot(toCamera).abs().pow(softness.mul(3.75).add(0.25));
     const distance = positionView.length();
     const near = distance.div(BEAM_NEAR_FADE).saturate();
     const sceneZ = perspectiveDepthToViewZ((depth as unknown as Node<"vec4">).x, cameraNear, cameraFar);
