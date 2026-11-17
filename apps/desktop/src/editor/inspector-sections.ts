@@ -1,4 +1,5 @@
 import type {SceneEntity} from '@opensekai/contracts';
+import {EFFECT_LABELS} from './camera-effects';
 // Inspector sections, their collapse state, and the section that the index marks as current (B17 R10–R16).
 export interface InspectorSection {id:string;label:string}
 export interface SectionState {version:1;collapsed:string[]}
@@ -7,7 +8,7 @@ const MAX_STATE_BYTES=4096;
 const section=(id:string,label:string):InspectorSection=>({id,label});
 const transform=section('transform','Transform');
 export function sectionsFor(entity:SceneEntity,options:{expressions:boolean;meshes?:boolean}):InspectorSection[] {
- if(entity.kind==='camera')return [transform,section('rendering','Rendering'),section('grading','Grading'),section('lens','Lens'),section('control','Control'),section('screenshot','Screenshot')];
+ if(entity.kind==='camera')return [transform,section('rendering','Rendering'),section('grading','Grading'),section('effects',EFFECT_LABELS.section),section('lens','Lens'),section('control','Control'),section('screenshot','Screenshot')];
  if(entity.kind==='light')return [transform,section('light','Light'),section('affect','Affect'),...(entity.light.type!=='ambient'?[section('shadow','Shadow')]:[])];
  if(entity.kind==='haze')return [transform,section('haze','Haze')];
  if(entity.kind==='fpsCounter')return [section('fpsCounter','FPS Counter')];

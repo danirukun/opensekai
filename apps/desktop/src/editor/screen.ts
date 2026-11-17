@@ -2,10 +2,10 @@ import { LIMITS, isCaptureScreen, isImageRecord, isVideoRecord, isVideoScreen, i
 import { IMPORT_SCENE } from './environment';
 import type { SliderRange } from './slider';
 // The Screen Image select (B28 R19): only image records, a missing image, and the import row.
-export function imageSourceOptions(assetId: string | null, assets: readonly AssetRecord[]) {
+export function imageSourceOptions(assetId: string | null, assets: readonly AssetRecord[], emptyLabel = 'Choose image…') {
     const images = assets.filter(isImageRecord).map(asset => ({ value: asset.id, label: asset.name }));
     const missing = assetId !== null && !images.some(image => image.value === assetId) ? [{ value: assetId, label: 'Missing image' }] : [];
-    return [{ value: '', label: 'Choose image…' }, ...images, ...missing, { value: IMPORT_SCENE, label: 'Import file…' }];
+    return [{ value: '', label: emptyLabel }, ...images, ...missing, { value: IMPORT_SCENE, label: 'Import file…' }];
 }
 // The Screen Video select (B29 R19): only video records, a missing video, and the import row.
 export function videoSourceOptions(assetId: string | null, assets: readonly AssetRecord[]) {
