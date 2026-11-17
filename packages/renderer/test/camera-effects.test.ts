@@ -8,7 +8,9 @@ vi.mock('../src/post-chain', async original => ({ ...await original<typeof impor
 vi.mock('../src/pipeline-diagnostics', async original => ({ ...await original<typeof import('../src/pipeline-diagnostics')>(), watchPipelineErrors: () => () => {}, logPipelineFailure: vi.fn() }));
 import { createRenderer } from '../src/renderer';
 import { chainKey, needsChain } from '../src/post-chain';
-import { createDirtSource } from '../src/camera-effects';
+import { createCameraEffects, createDirtSource } from '../src/camera-effects';
+import { activeEffects, effectsKey } from '../src/camera-effects-math';
+import { PerspectiveCamera, PostProcessing, RenderTarget, Scene, type WebGPURenderer } from 'three/webgpu';
 import type { ScreenImage, ScreenImageLease } from '../src/screen';
 
 const D = DEFAULT_CAMERA_EFFECTS;
@@ -134,5 +136,41 @@ describe('dirt source (R20)', () => {
         expect(source.texture('image_b')).toBeNull();
         expect(source.texture('image_a')).toBeNull();
         expect(pool.acquire).toHaveBeenCalledTimes(3);
+    });
+});
+
+// The real chain with a stand-in renderer: a rebuild must free each render target of the old chain (B37 review).
+describe('chain rebuild with the effects', () => {
+    it('disposes each render target that a chain with Blur or Lens Dirt made', async () => {
+        const { createPostChain } = await vi.importActual<typeof import('../src/post-chain')>('../src/post-chain');
+        const made = vi.spyOn(RenderTarget.prototype as unknown as { _setTextureOptions(o?: unknown): void }, '_setTextureOptions');
+        const freed = vi.spyOn(RenderTarget.prototype, 'dispose');
+        const draw = vi.spyOn(PostProcessing.prototype, 'renderAsync').mockResolvedValue(undefined as never);
+        try {
+            const chain = createPostChain({} as WebGPURenderer);
+            const runtime = createCameraEffects();
+            const dirt = { texture: { isTexture: true }, width: 64, height: 64 } as unknown as ScreenImage;
+            const scene = new Scene(), camera = new PerspectiveCamera();
+            const fx = (effects: CameraEffects) => {
+                const active = activeEffects(effects, true);
+                return { key: effectsKey(active, effects.lensDirt?.assetId), active, runtime, dirt };
+            };
+            const steps: CameraEffects[] = [
+                { blur: { enabled: true, intensity: 1 } },
+                { blur: { enabled: true, intensity: 1 }, lensDirt: { ...D.lensDirt, assetId: 'image_dirt' } },
+                { blur: { enabled: true, intensity: 1 }, pixelate: { enabled: true, intensity: 16 } },
+            ];
+            let before = 0;
+            for (const effects of steps) {
+                // With a grading, the blur input is a colour node, not the scene pass texture.
+                await chain.render(scene, camera, 'none', null, { ...DEFAULT_CAMERA_GRADING, exposure: 1 }, null, fx(effects));
+                const built = made.mock.contexts.slice(before);
+                expect(built.length).toBeGreaterThan(2);
+                before = made.mock.contexts.length;
+            }
+            chain.dispose();
+            const leaked = made.mock.contexts.filter(target => !freed.mock.contexts.includes(target as RenderTarget));
+            expect(leaked).toHaveLength(0);
+        } finally { made.mockRestore(); freed.mockRestore(); draw.mockRestore(); }
     });
 });

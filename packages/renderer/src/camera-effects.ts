@@ -61,7 +61,8 @@ export function createCameraEffects(): CameraEffectsRuntime {
             const lum = dot(color.rgb, luma) as unknown as Float;
             const weight = smoothstep(f(u.dirtThreshold), f(u.dirtThreshold).add(DIRT_KNEE), lum);
             const bright = vec4(color.rgb.mul(weight), 0) as unknown as Vec4;
-            const source = size ? toTexture(bright, size) : bright;
+            // The blur node does not dispose a texture that it makes from a colour node, so the step makes it and owns it.
+            const source = toTexture(bright, size);
             const glow = gaussianBlur(source as never, uniform(1) as never, DIRT_SIGMA, { resolutionScale: DIRT_RESOLUTION });
             const k = f(u.frameAspect).div(f(u.dirtAspect));
             const dirtUv = uv().sub(0.5).mul(vec2(min(k, 1), min(k.reciprocal(), 1))).add(0.5) as unknown as Vec2;
@@ -69,7 +70,7 @@ export function createCameraEffects(): CameraEffectsRuntime {
             const add = image.rgb.mul(image.a).mul((glow as unknown as Vec4).rgb).mul(f(u.dirtIntensity)) as unknown as Vec3;
             const coverage = max(add.r, max(add.g, add.b)).saturate();
             const out = vec4(color.rgb.add(add), color.a.add(color.a.oneMinus().mul(coverage))) as unknown as Vec4;
-            const owned = [glow as unknown as { dispose(): void }, ...(size ? [source as unknown as { dispose(): void }] : [])];
+            const owned = [glow as unknown as { dispose(): void }, ...(source.isRTTNode ? [source as unknown as { dispose(): void }] : [])];
             return { color: out, dispose() { for (const node of owned) node.dispose(); } };
         },
         stylize(input, active, size) {
@@ -77,9 +78,9 @@ export function createCameraEffects(): CameraEffectsRuntime {
             let color = input;
             if (active.blur) {
                 // The colour is already premultiplied, so the blur does not premultiply again (R11).
-                const source = size ? toTexture(color, size) : color;
+                const source = toTexture(color, size);
                 const blurred = gaussianBlur(source as never, u.blurStep as never, BLUR_SIGMA, { resolutionScale: BLUR_RESOLUTION });
-                owned.push(blurred as unknown as { dispose(): void }, ...(size ? [source as unknown as { dispose(): void }] : []));
+                owned.push(blurred as unknown as { dispose(): void }, ...(source.isRTTNode ? [source as unknown as { dispose(): void }] : []));
                 color = blurred as unknown as Vec4;
             }
             if (active.nightVision) {
