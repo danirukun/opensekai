@@ -7,6 +7,7 @@ import { HAZE_LAYER } from "./haze";
 export type LightGroup = "characters" | "props" | "environment" | "haze";
 export type LightGroups = Record<LightGroup, Id[]>;
 type LightEntity = Extract<SceneEntity, { kind: "light" }>;
+const LIGHT_GROUPS: readonly LightGroup[] = ["characters", "props", "environment", "haze"];
 
 const isLight = (entity: SceneEntity): entity is LightEntity => entity.kind === "light";
 export const groupOf = (entity: SceneEntity): LightGroup | null =>
@@ -68,14 +69,14 @@ export const SPOT_SHADOW_FAR = 50;
 
 type ThreeLight = DirectionalLight | PointLight | SpotLight | AmbientLight;
 export interface SceneLights {
-    /** Reconciles the three.js lights with the frame. Returns true when the node sets were rebuilt, so the caller reassigns materials and compiles again. */
+    /** Reconciles the three.js lights with the frame. Returns true when the light signature changes, so the caller resets the failure state and compiles again. Only a group whose light list changed gets a new node (light limits R13). */
     apply(entities: readonly SceneEntity[]): boolean;
     /** Sets the group node set on each lit material of `root` and the shadow flags of its meshes. */
     assign(root: Object3D, group: LightGroup): void;
     /** The node set of one group; the haze material takes the `haze` set (B13 R7). */
     node(group: LightGroup): unknown;
     signature(): string;
-    /** Increases on each node-set rebuild, so an A → B → A change still reassigns materials that hold the old nodes. */
+    /** Increases when a group gets a new node object, so an A → B → A change still reassigns materials that hold the old nodes. */
     generation(): number;
     shadows(): boolean;
     dispose(): void;
@@ -95,7 +96,7 @@ export function createSceneLights(scene: Scene, renderer: WebGPURenderer): Scene
     scene.add(ambient, builtin, builtin.target);
     renderer.shadowMap.type = PCFShadowMap;
     const owned = new Map<Id, { type: LightSettings["type"]; light: ThreeLight }>();
-    let current = "", generation = 0, nodes: Record<LightGroup, ReturnType<typeof lights>> | null = null, shadows = false;
+    let current = "", generation = 0, nodes: Record<LightGroup, ReturnType<typeof lights>> | null = null, keys: Record<LightGroup, string> | null = null, shadows = false;
     // A placed light is also on the haze layer, so the haze pass sees it; its shadow camera keeps layer 0 and the haze
     // layer, so a shadow map drawn during the haze pass still has its casters (three.js example, B13 R7).
     const create = (settings: LightSettings): ThreeLight => {
@@ -194,11 +195,18 @@ export function createSceneLights(scene: Scene, renderer: WebGPURenderer): Scene
             const signature = lightSignature(entities);
             if (signature === current && nodes) return false;
             current = signature;
-            generation += 1;
             const groups = lightGroups(entities);
-            const fixed = usesFixedAmbient(entities) ? [ambient] : [];
-            const set = (ids: Id[]) => lights([...fixed, ...(wanted.length ? ids.map(id => owned.get(id)!.light) : [builtin])]);
-            nodes = { characters: set(groups.characters), props: set(groups.props), environment: set(groups.environment), haze: lights(groups.haze.map(id => owned.get(id)!.light)) };
+            const fixedAmbient = usesFixedAmbient(entities), builtinOn = !wanted.length;
+            const settings = new Map(wanted.map(e => [e.id, e.light]));
+            const members = (ids: Id[]) => ids.map(id => [id, settings.get(id)!.type, settings.get(id)!.shadow.enabled]);
+            // A group keeps its node object while its own light list stays the same (light limits R13).
+            const nextKeys = Object.fromEntries(LIGHT_GROUPS.map(group => [group, JSON.stringify(group === "haze" ? members(groups.haze) : [fixedAmbient, builtinOn, members(groups[group])])])) as Record<LightGroup, string>;
+            const set = (ids: Id[]) => lights([...(fixedAmbient ? [ambient] : []), ...(builtinOn ? [builtin] : ids.map(id => owned.get(id)!.light))]);
+            const build = (group: LightGroup) => group === "haze" ? lights(groups.haze.map(id => owned.get(id)!.light)) : set(groups[group]);
+            const previous = nodes;
+            nodes = Object.fromEntries(LIGHT_GROUPS.map(group => [group, previous && keys?.[group] === nextKeys[group] ? previous[group] : build(group)])) as Record<LightGroup, ReturnType<typeof lights>>;
+            if (!previous || LIGHT_GROUPS.some(group => nodes![group] !== previous[group])) generation += 1;
+            keys = nextKeys;
             shadows = shadowsOn(entities);
             renderer.shadowMap.enabled = shadows;
             return true;
@@ -237,6 +245,7 @@ export function createSceneLights(scene: Scene, renderer: WebGPURenderer): Scene
             ambient.removeFromParent(); builtin.removeFromParent(); builtin.target.removeFromParent();
             builtin.dispose();
             nodes = null;
+            keys = null;
         },
     };
 }
