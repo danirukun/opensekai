@@ -276,7 +276,7 @@ Source: the Warudo 0.15.1 UI audit. These are editor behaviors that the handbook
 - [ ] UX-03 — Gallery picker and package card. Later. UI audit 0.15.1. [GitHub #181](https://github.com/danirukun/opensekai/issues/181)
 - [ ] UX-04 — Onboarding assistant. Later. Approximate. UI audit 0.15.1. [GitHub #182](https://github.com/danirukun/opensekai/issues/182)
 - [ ] UX-05 — Interface language and dark mode. Later. UI audit 0.15.1. [GitHub #183](https://github.com/danirukun/opensekai/issues/183)
-- [ ] UX-06 — Contextual help. Later. UI audit 0.15.1. [GitHub #184](https://github.com/danirukun/opensekai/issues/184)
+- [ ] UX-06 — Contextual help. Later. UI audit 0.15.1. Partial (B40a): a Help button at the right end of the header of the Hierarchy, the Scene toolbar, Properties (the topic of the selected entity kind, or `scene`), the tracking guide, Output, Blueprints, Resources, Settings, and the start screen. The window sends only a topic name to the `open_help` command; the host opens a fixed page of the [handbook](handbook/README.md) on GitHub in the default browser, and the window has no `opener:` permission. Verified: the topic of each of the 9 buttons and the failure toast in headless Chromium on macOS, and Rust and TypeScript tests for the topic table, the URL prefix, and each page and anchor ([check](evaluation/contextual-help.md), [contract](../spdd/prompt/2026-11-16-b40a-help.md)). Not verified: the browser open in the Tauri app, translated pages, offline help, and Windows. [GitHub #184](https://github.com/danirukun/opensekai/issues/184)
 
 ## Additional OpenSekai acceptance requirements
 

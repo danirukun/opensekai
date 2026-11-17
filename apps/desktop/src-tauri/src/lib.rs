@@ -3,6 +3,7 @@ pub mod blueprint_file;
 mod bootstrap;
 pub mod capture;
 pub mod evaluation;
+mod help;
 pub mod input;
 pub mod link;
 mod local_file;
@@ -217,6 +218,23 @@ fn open_camera_settings(window: tauri::WebviewWindow) -> Result<(), AppError> {
         &window,
         "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera",
     )
+}
+/// Opens the handbook page of a topic in the default browser (B40a). The window sends only the
+/// topic name; the URL comes from the fixed table in `help.rs`.
+#[tauri::command]
+fn open_help(window: tauri::WebviewWindow, topic: String) -> Result<(), AppError> {
+    use tauri_plugin_opener::OpenerExt;
+    require_window_label(window.label(), "main")?;
+    let url = help::help_url(help::parse_topic(&topic)?);
+    window
+        .app_handle()
+        .opener()
+        .open_url(url, None::<&str>)
+        .map_err(|_| AppError {
+            code: ErrorCode::Unavailable,
+            message: "Help unavailable".into(),
+            ids: vec![],
+        })
 }
 fn open_privacy_settings(window: &tauri::WebviewWindow, url: &str) -> Result<(), AppError> {
     let unavailable = || AppError {
@@ -764,7 +782,8 @@ pub fn run() {
             import_blueprint_file,
             export_blueprint_file,
             take_blueprint_link,
-            finish_blueprint_link
+            finish_blueprint_link,
+            open_help
         ])
         .build(tauri::generate_context!())
         .expect("OpenSekai failed to start");
@@ -844,13 +863,14 @@ mod command_boundary_tests {
             "allow-export-blueprint-file",
             "allow-take-blueprint-link",
             "allow-finish-blueprint-link",
+            "allow-open-help",
             "core:event:allow-listen",
             "core:event:allow-unlisten",
         ]
         .into_iter()
         .collect();
         assert_eq!(permissions, expected);
-        // The window opens the screenshot folder only through the command; it gets no `opener:` permission.
+        // The window opens the screenshot folder and help pages only through commands; it gets no `opener:` permission.
         assert!(!permissions.iter().any(|p| p.starts_with("opener:")));
         // B39: the window gets a link only through the two link commands, not the plugin API.
         assert!(!permissions.iter().any(|p| p.starts_with("deep-link:")));

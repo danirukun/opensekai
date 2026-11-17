@@ -27,6 +27,7 @@
  import BlueprintSocketView from './BlueprintSocketView.svelte';
  import BlueprintConnectionView from './BlueprintConnectionView.svelte';
  import BlueprintDebugOutput from './BlueprintDebugOutput.svelte';
+ import HelpButton from './HelpButton.svelte';
  import { debugTime, EMPTY_DEBUG_FEED, type DebugFeed, type DebugFeedState } from '../blueprints/debug-feed';
 
  let { api, sync, debug = null, memory, scene, assets = [], status, disabled, selectedEntityId = null, onrun, arrival = null }: {
@@ -381,7 +382,7 @@
 </script>
 
 <section class="blueprint-panel" aria-label="Blueprint editor">
- <header class="blueprint-toolbar"><h2>Blueprints</h2><span class="blueprint-state" role="status">{problem}</span><div class="spacer"></div>{#if trigger}<Button variant="secondary" disabled={disabled || busy || !graph} onclick={() => run()}><Play size={14}/>Run</Button>{/if}</header>
+ <header class="blueprint-toolbar"><h2>Blueprints</h2><span class="blueprint-state" role="status">{problem}</span><div class="spacer"></div>{#if trigger}<Button variant="secondary" disabled={disabled || busy || !graph} onclick={() => run()}><Play size={14}/>Run</Button>{/if}<HelpButton topic="blueprints"/></header>
  {#if inputWarning}<div class="blueprint-warning" role="alert">{inputWarning.message}{#if inputWarning.code === 'FORBIDDEN'}<Button variant="secondary" onclick={openInputSettings}>Open Settings</Button>{/if}</div>{/if}
  {#each deviceWarnings as warning (warning.ids[0])}<div class="blueprint-warning" role="alert">{warning.message}</div>{/each}
  <div class="blueprint-workspace">

@@ -3,6 +3,7 @@
  import {Input} from '@oshi-connect/ui';
  import type {AppApi,YouTubeStatus} from '@opensekai/contracts';
  import {youtubeStatusText} from '../editor/youtube';
+ import HelpButton from './HelpButton.svelte';
  let {api,youtube,disabled=false,onchange}:{api:AppApi|null;youtube?:YouTubeStatus;disabled?:boolean;onchange?:(status:YouTubeStatus)=>void}=$props();
  const stored=$derived(youtube?.link??'');
  let draft=$state(''),focused=$state(false),rejected=$state<string|null>(null),busy=$state(false);
@@ -18,7 +19,7 @@
  }
 </script>
 <section class="settings-panel">
- <h2>Settings</h2>
+ <div class="panel-heading"><h2>Settings</h2><HelpButton topic="settings"/></div>
  <h3>Integrations</h3>
  <form onsubmit={event=>{event.preventDefault();void commit();}} onfocusin={()=>{focused=true;}} onfocusout={()=>{focused=false;}}><fieldset disabled={disabled||!api}>
   <legend>YouTube</legend>
@@ -26,4 +27,4 @@
   <p class={{ status: true, 'status-positive': rejected===null&&youtube?.state==='live' }} role="status">{rejected===null?youtubeStatusText(youtube):`Error: ${rejected}`}</p>
  </fieldset></form>
 </section>
-<style>.settings-panel{padding:24px;flex:1;max-width:560px}.settings-panel h2{margin-bottom:24px}.settings-panel h3{font-size:11px;color:var(--ds-color-text-muted);margin-bottom:12px}fieldset{display:grid;gap:10px;border:0;padding:0;margin:0;min-width:0}legend{font-size:12px;color:var(--ds-color-text-muted);margin-bottom:10px;padding:0}.status{margin:0;font-size:12px;color:var(--ds-color-text-muted)}.status.status-positive{background:var(--ds-color-lime);color:var(--ds-color-text)}</style>
+<style>.settings-panel{padding:24px;flex:1;max-width:560px}.settings-panel .panel-heading{margin-bottom:24px}.settings-panel h3{font-size:11px;color:var(--ds-color-text-muted);margin-bottom:12px}fieldset{display:grid;gap:10px;border:0;padding:0;margin:0;min-width:0}legend{font-size:12px;color:var(--ds-color-text-muted);margin-bottom:10px;padding:0}.status{margin:0;font-size:12px;color:var(--ds-color-text-muted)}.status.status-positive{background:var(--ds-color-lime);color:var(--ds-color-text)}</style>

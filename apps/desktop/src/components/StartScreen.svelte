@@ -7,6 +7,7 @@
  import type {RecentShow,ShowTemplate} from '@opensekai/contracts';
  import {currentPlatform,menuShortcut} from '../blueprints/keystroke-format';
  import logo from '../assets/opensekai-logo-full.png';
+ import HelpButton from './HelpButton.svelte';
  let {recent,templates,disabled,onaddcharacter,onopen,ontemplate,onrecent,onclose}:{
   recent:RecentShow[];templates:ShowTemplate[];disabled:boolean;
   onaddcharacter:()=>void;onopen:()=>void;ontemplate:(id:string)=>void;onrecent:(index:number)=>void;onclose:()=>void;
@@ -17,7 +18,7 @@
  onMount(()=>{column.querySelector<HTMLButtonElement>('.start-primary')?.focus();});
 </script>
 <section class="start-screen" aria-label="Start" in:fadeIn>
- <div class="start-close"><Button variant="ghost" title="Close" onclick={onclose}><X size={16}/><span class="sr-only">Close</span></Button></div>
+ <div class="start-close"><HelpButton topic="gettingStarted"/><Button variant="ghost" title="Close" onclick={onclose}><X size={16}/><span class="sr-only">Close</span></Button></div>
  <div class="start-column" bind:this={column}>
   <img class="start-logo" src={logo} alt="OpenSekai"/>
   <p class="start-subtitle">Create your dream VTuber world</p>
@@ -29,7 +30,7 @@
 </section>
 <style>
  .start-screen{position:absolute;inset:0;z-index:4;display:flex;align-items:center;justify-content:center;overflow:auto;background:var(--ds-color-surface)}
- .start-close{position:absolute;top:10px;right:10px}
+ .start-close{position:absolute;top:10px;right:10px;display:flex;align-items:center;gap:8px}
  .start-column{width:min(320px,100% - 48px);display:flex;flex-direction:column;align-items:stretch;gap:2px;padding:24px 0}
  .start-logo{width:112px;height:auto;align-self:center;margin-bottom:12px}
  .start-subtitle{margin:0 0 28px;text-align:center;font-size:13px;color:var(--ds-color-text-muted)}

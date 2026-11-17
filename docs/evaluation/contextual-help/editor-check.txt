@@ -1,0 +1,44 @@
+console THREE.WebGPURenderer: Uncaptured WebGPU GPUValidationError: [Invalid Texture] is invalid due to a previous error.
+ - While calling [Invalid Texture].CreateView([TextureViewDescriptor]).
+
+console THREE.WebGPURenderer: Uncaptured WebGPU GPUValidationError: [Invalid TextureView] is invalid due to a previous error.
+ - While validating colorAttachments[0].
+ - While encoding [CommandEncoder "renderContext_1"].BeginRenderPass([RenderPassDescriptor]).
+ - While finishing [CommandEncoder "renderContext_1"].
+
+console THREE.WebGPURenderer: Uncaptured WebGPU GPUValidationError: [Invalid CommandBuffer from CommandEncoder "renderContext_1"] is invalid due to a previous error.
+ - While calling [Queue].Submit([[Invalid CommandBuffer from CommandEncoder "renderContext_1"]])
+
+console THREE.THREE.WebGPURenderer: WebGPU Device Lost:
+
+Message: A valid external Instance reference no longer exists.
+Reason: unknown
+PASS Start screen: one Help button in the header sends one topic {"count":1,"topics":["gettingStarted"]}
+PASS R4: start screen Help opens gettingStarted 
+PASS Properties (no selection): one Help button in the header sends one topic {"count":1,"topics":["scene"]}
+PASS R3: Properties Help with no selection opens scene {"selected":0}
+PASS the scene has a character and a light [["camera","camera_main"],["light","light_main"],["avatar","d53eb704-7973-44bc-acaa-2151ebe111a6"]]
+PASS Hierarchy: one Help button in the header sends one topic {"count":1,"topics":["scene"]}
+PASS R1: Hierarchy Help opens scene 
+PASS Scene: one Help button in the header sends one topic {"count":1,"topics":["scene"]}
+PASS R1: Scene toolbar Help opens scene 
+PASS Properties (light): one Help button in the header sends one topic {"count":1,"topics":["light"]}
+PASS R3: Properties Help with a light selected opens light 
+PASS Properties (character): one Help button in the header sends one topic {"count":1,"topics":["character"]}
+PASS R3: Properties Help with a character selected opens character 
+PASS Tracking guide: one Help button in the header sends one topic {"count":1,"topics":["motionCapture"]}
+PASS R1: tracking guide Help opens motionCapture 
+PASS Output: one Help button in the header sends one topic {"count":1,"topics":["output"]}
+PASS R1: Output Help opens output 
+PASS Blueprints: one Help button in the header sends one topic {"count":1,"topics":["blueprints"]}
+PASS R1: Blueprints Help opens blueprints 
+PASS Resources: one Help button in the header sends one topic {"count":1,"topics":["resources"]}
+PASS R1: Resources Help opens resources 
+PASS Settings: one Help button in the header sends one topic {"count":1,"topics":["settings"]}
+PASS R1: Settings Help opens settings 
+PASS Settings (failed open): one Help button in the header sends one topic {"count":1,"topics":["settings"]}
+PASS R6: a rejected open shows "Could not open help" 
+PASS R5: each call sends only a topic [{"topic":"gettingStarted"},{"topic":"scene"},{"topic":"scene"},{"topic":"scene"},{"topic":"light"},{"topic":"character"},{"topic":"motionCapture"},{"topic":"output"},{"topic":"blueprints"},{"topic":"resources"},{"topic":"settings"},{"topic":"settings"}]
+PASS no page error []
+topics ["gettingStarted","scene","scene","scene","light","character","motionCapture","output","blueprints","resources","settings","settings"]
+27/27 passed

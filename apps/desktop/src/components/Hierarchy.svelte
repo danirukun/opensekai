@@ -10,6 +10,7 @@
  import {fpsCounterLimitReached,hazeLimitReached,lightLimitReached} from '../editor/lights';
  import {copyTransform} from '../editor/interaction';
  import {vmcSenderLimitReached} from '../editor/vmc-sender';
+ import HelpButton from './HelpButton.svelte';
  import {addLimitReached,screenLimitReached} from '../editor/authoring';
  import {addMenuEntries} from '../editor/add-menu';
  import {currentPlatform} from '../blueprints/keystroke-format';
@@ -70,7 +71,7 @@
  function openAdd(event:MouseEvent&{currentTarget:HTMLButtonElement}){const revision=view.scene?.revision;if(revision===undefined)return;const box=event.currentTarget.getBoundingClientRect();menu={x:box.left,y:box.bottom,actions:addMenuEntries(currentPlatform()).map(entry=>{const full=addLimitReached(entry.kind,view.scene?.entities??[]);return {label:entry.label,icon:addIcon[entry.kind],group:entry.group,disabled:full,title:full?'Scene asset limit reached':undefined,run:()=>{if(view.scene?.revision===revision&&!view.pending&&!disabled)void onadd?.(entry.kind,revision);}};})};}
 
 </script>
-<section class="editor-panel hierarchy" aria-labelledby="hierarchy-heading"><div class="asset-heading"><h2 id="hierarchy-heading">Assets</h2><div class="asset-actions"><Button variant="ghost" disabled={disabled||view.pending||!view.scene||!onadd} onclick={openAdd} title="Add asset"><Plus size={14}/></Button></div></div><div class="asset-search"><Search size={14}/><Input label="Search assets" placeholder="Search" bind:value={search}/></div>
+<section class="editor-panel hierarchy" aria-labelledby="hierarchy-heading"><div class="asset-heading"><h2 id="hierarchy-heading">Assets</h2><div class="asset-actions"><Button variant="ghost" disabled={disabled||view.pending||!view.scene||!onadd} onclick={openAdd} title="Add asset"><Plus size={14}/></Button><HelpButton topic="scene"/></div></div><div class="asset-search"><Search size={14}/><Input label="Search assets" placeholder="Search" bind:value={search}/></div>
  <div class="entity-list" role="toolbar" aria-label="Scene assets" tabindex="0" onkeydown={navigate}>
   {#each groups as group (group.key)}
    <div class="asset-group">
