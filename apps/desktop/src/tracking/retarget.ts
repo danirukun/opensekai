@@ -27,6 +27,10 @@ function point(p:Landmark|undefined):Vec3|null{return p&&[p.x,p.y,p.z].every(Num
 // MediaPipe camera space and the converted pose landmarks share one frame (x image right, y up, z to the camera),
 // so the face matrix needs no reflection. `mirror` is the only reflection.
 function faceRotation(m:number[]|undefined):Quat|null {if(!m||m.length!==16||!m.every(Number.isFinite))return null;const x=unit([m[0],m[1],m[2]]);if(!x)return null;const z=unit(cross(x,[m[4],m[5],m[6]]));if(!z)return null;return fromBasis(x,cross(z,x),z);}
+// MediaPipe face geometry is in centimeters; the head position is kept in meters.
+export const MEDIAPIPE_POSITION_SCALE=.01;
+// Translation of a column-major 4x4 matrix, in the same camera frame as faceRotation.
+export function faceTranslation(m:number[]|undefined):Vec3|null {if(!m||m.length!==16||!m.every(Number.isFinite))return null;return [m[12],m[13],m[14]].map(v=>v*MEDIAPIPE_POSITION_SCALE) as Vec3;}
 const sideName=(name:string)=>name.startsWith('left')?'right'+name.slice(4):name.startsWith('right')?'left'+name.slice(5):name.endsWith('Left')?name.slice(0,-4)+'Right':name.endsWith('Right')?name.slice(0,-5)+'Left':name;
 export function createRetargeter(){
  return {
@@ -34,8 +38,8 @@ export function createRetargeter(){
    const bones:Record<string,TrackingBone>={},expressions:Record<string,number>={},global:Record<string,Quat>={};
    const set=(name:string,q:Quat|null)=>{if(q)bones[name]={rotation:normalize(q),space:'normalized'};};
    // The face rotation stays in camera space; the session applies the saved calibration (B6 R6).
-   let faceWorld:Quat|null=null;
-   if(config.face&&observation.face){const q=faceRotation(observation.face.matrix);if(q)faceWorld=q;
+   let faceWorld:Quat|null=null,headPosition:Vec3|null=null;
+   if(config.face&&observation.face){const q=faceRotation(observation.face.matrix);if(q)faceWorld=q;headPosition=faceTranslation(observation.face.matrix);
     for(const b of observation.face.blendshapes??[])if(b.categoryName!=='_neutral'&&/^[a-zA-Z][a-zA-Z0-9]{0,63}$/.test(b.categoryName)&&Number.isFinite(b.score)&&Object.keys(expressions).length<64)expressions[b.categoryName]=Math.max(0,Math.min(1,b.score));
    }
    if(config.upperBody&&observation.pose){const p=observation.pose.map(point),ls=p[11],rs=p[12],lh=p[23],rh=p[24];
@@ -57,8 +61,8 @@ export function createRetargeter(){
     const x=unit(sub(middle,w).map(v=>v*sign) as Vec3),across=unit(sub(index,little)),z=x&&across?unit(cross(x,across)):null;if(!x||!z)continue;const palm=fromBasis(x,cross(z,x),z);set(side+'Hand',mul(inverse(global[side+'LowerArm']??I),palm));
     for(const [start,names] of [[1,['ThumbMetacarpal','ThumbProximal','ThumbDistal']],[5,['IndexProximal','IndexIntermediate','IndexDistal']],[9,['MiddleProximal','MiddleIntermediate','MiddleDistal']],[13,['RingProximal','RingIntermediate','RingDistal']],[17,['LittleProximal','LittleIntermediate','LittleDistal']]] as const){let parent=palm;for(let j=0;j<3;j++){const a=p[start+j],b=p[start+j+1];if(!a||!b)break;const q=fromTo([sign,0,0],rotate(inverse(parent),sub(b,a)));if(!q)break;set(side+names[j],q);parent=mul(parent,q);}}
    }
-   if(config.mirror){const mirrored:Record<string,TrackingBone>={};for(const [name,b] of Object.entries(bones))mirrored[sideName(name)]={space:'normalized',rotation:[b.rotation[0],-b.rotation[1],-b.rotation[2],b.rotation[3]]};const e:Record<string,number>={};for(const [name,v] of Object.entries(expressions))e[sideName(name)]=v;return {sourceId,generation,receivedAtMs,bones:mirrored,expressions:e};}
-   return {sourceId,generation,receivedAtMs,bones,expressions};
+   if(config.mirror){const mirrored:Record<string,TrackingBone>={};for(const [name,b] of Object.entries(bones))mirrored[sideName(name)]={space:'normalized',rotation:[b.rotation[0],-b.rotation[1],-b.rotation[2],b.rotation[3]]};const e:Record<string,number>={};for(const [name,v] of Object.entries(expressions))e[sideName(name)]=v;return {sourceId,generation,receivedAtMs,bones:mirrored,expressions:e,...(headPosition&&{headPosition:[-headPosition[0],headPosition[1],headPosition[2]] as Vec3})};}
+   return {sourceId,generation,receivedAtMs,bones,expressions,...(headPosition&&{headPosition})};
   }
  };
 }
