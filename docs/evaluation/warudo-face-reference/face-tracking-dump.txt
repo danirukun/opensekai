@@ -1,0 +1,221 @@
+== ASSET Character 1
+  [] Enabled (Enabled) = true
+  [] Transform (Transform) = {"header":null,"collapsed":false,"id":"ab3072d3-2dc8-4b76-b389-cdfc21e5cbd8","version":0,"dataInputs":{"Position":{"type":"UnityEngine.Vector3","typeKind":"Valu  *CHANGED* default={"header":null,"collapsed":false,"id":"366d0313-c782-44ee-a265-347f89d3b21c","ve
+  [] Source (Source) = "character://data/Characters/RORO_fixed_v8.vrm"  *CHANGED* default=None
+  [Motion Capture] Enabled (TrackingEnabled) = true  *CHANGED* default=false
+  [] Quick Calibration (QuickCalibration) = {"header":null,"collapsed":false,"id":"be6a271f-bc44-4c54-8719-48b7c18ce76d","version":0,"dataInputs":{},"triggers":{"iFacialMocap Receiver":{"properties":{"ord  *CHANGED* default={"header":null,"collapsed":false,"id":"859c14ab-c0e6-4f68-add4-1e257a5a7858","ve
+  [] Blueprint Navigation (BlueprintNavigation) = {"header":null,"collapsed":false,"id":"855e38aa-d303-44b5-8f7e-40d035c74cc7","version":0,"dataInputs":{},"triggers":{"ConfigureIdleHeadAnimation":{"properties":  *CHANGED* default={"header":null,"collapsed":false,"id":"0dc9a755-c03b-440e-ae17-118e6bb4df41","ve
+  [] Expressions (Expressions) = []
+  [] Default BlendShapes (DefaultBlendShapes) = []
+  [] Default Material Properties (DefaultMaterialProperties) = []
+  [] Idle Animation (DefaultIdleAnimation) = "character-animation://resources/Animations/AGIA/01_Idles/AGIA_Idle_cat_01"  *CHANGED* default="character-animation://resources/Animations/AGIA/01_Idles/AGIA_Idle_generic_01"
+  [] Overlaying Animations (OverlappingAnimations) = []
+  [] Override Hand Poses (OverrideHandPoses) = {"header":null,"collapsed":false,"id":"d87b68d4-00f5-4701-93b6-47f7a690a974","version":0,"dataInputs":{"LeftHand":{"type":"Warudo.Plugins.Core.Assets.Character.  *CHANGED* default={"header":null,"collapsed":false,"id":"a5224222-abe7-4c3c-9c13-8f619147fd61","ve
+  [] Breathing Animation (BreathingEnabled) = false
+  [] Breathing Exertion (BreathingExertion) = 0.1
+  [] Breathing Rate (BreathingRate) = 0.25
+  [] Swaying Animation (SwayingEnabled) = false
+  [] Swaying Intensity (SwayingIntensity) = 0.25
+  [] Overlaying Animations Transition Time (OverlappingAnimationTransitionTime) = 1.0
+  [] Additional Bone Offsets (AdditionalBoneOffsets) = []
+  [] Apply Foot IK (ApplyFootIK) = false
+  [] Disable Unity Retargeting (DisableUnityRetargeting) = true
+  [Look At IK] Enabled (LookAtEnabled) = false
+  [] Target (LookAtTarget) = None
+  [] Overall Weight (LookAtWeight) = 0.5
+  [] Eyes Weight (LookAtEyesWeight) = 1.0
+  [] Head Weight (LookAtHeadWeight) = 1.0
+  [] Body Weight (LookAtBodyWeight) = 1.0
+  [] Clamp Eyes Weight (LookAtClampEyesWeight) = 0.8
+  [] Clamp Head Weight (LookAtClampHeadWeight) = 0.7
+  [] Clamp Body Weight (LookAtClampBodyWeight) = 0.6
+  [Body IK] Spine (SpineIK) = {"header":"Disabled","collapsed":true,"id":"707fc429-9465-4281-862c-348ba0241476","version":0,"dataInputs":{"IkTarget":{"type":"Warudo.Plugins.Core.Assets.GameO  *CHANGED* default={"header":null,"collapsed":false,"id":"fde5ac5f-26dd-43e1-8a8b-5caa681bc592","ve
+  [] Left Hand (LeftHandIK) = {"header":"Disabled","collapsed":true,"id":"25a59dfa-64f2-4a25-b18a-6d76792da8df","version":0,"dataInputs":{"BendGoalTarget":{"type":"Warudo.Plugins.Core.Assets  *CHANGED* default={"header":null,"collapsed":false,"id":"ece9ef61-d629-47ca-aa73-3cefa1b78167","ve
+  [] Right Hand (RightHandIK) = {"header":"Disabled","collapsed":true,"id":"eec1a651-99c7-43e7-a36d-c36ccd163df8","version":0,"dataInputs":{"BendGoalTarget":{"type":"Warudo.Plugins.Core.Assets  *CHANGED* default={"header":null,"collapsed":false,"id":"72ac730a-f0b3-402c-a271-51ec864c921b","ve
+  [] Left Foot (LeftFootIK) = {"header":"Disabled","collapsed":true,"id":"0424dc95-954f-4231-a089-7ec387298355","version":0,"dataInputs":{"BendGoalTarget":{"type":"Warudo.Plugins.Core.Assets  *CHANGED* default={"header":null,"collapsed":false,"id":"df1a7d6f-e662-439b-a4c5-769ee8c4c5f6","ve
+  [] Right Foot (RightFootIK) = {"header":"Disabled","collapsed":true,"id":"0169df9e-ea3e-4766-a596-5ddd00dc4ca5","version":0,"dataInputs":{"BendGoalTarget":{"type":"Warudo.Plugins.Core.Assets  *CHANGED* default={"header":null,"collapsed":false,"id":"1168d634-7afc-42da-9b47-64bf32541003","ve
+  [Ragdoll] Always Enabled (RagdollEnabled) = false
+  [] Joint Angular Limits (AngularLimits) = false
+  [] Internal Collisions (InternalCollisions) = false
+  [] Muscle Spring (MuscleSpring) = 100.0
+  [] Muscle Damper (MuscleDamper) = 50.0
+  [] High Quality (RagdollHighQuality) = false
+  [] Smooth Time (RagdollSmoothTime) = 0.2
+  [] Ragdoll Muscles (RagdollMuscles) = [{"header":"Hips","collapsed":true,"id":"f8061df8-84d7-44ad-9dd7-f1b2bf91ce84","version":0,"dataInputs":{"Bone":{"type":"UnityEngine.HumanBodyBones","typeKind":  *CHANGED* default=[]
+  [Meshes] Meshes (Meshes) = [{"header":"Body","collapsed":true,"id":"46fa3283-6e68-411c-996a-4cabe277bfb4","version":0,"dataInputs":{"Path":{"type":"string","typeKind":"Value","defaultValu  *CHANGED* default=[]
+  [] Use Mesh Original Bounds (UseMeshBounds) = false
+  [VRM] Use VRM1.0 Features (UseVrm10Instances) = false
+  [] Tracking Asset Ids (TrackingAssetIds) = ["0613f95b-94c6-4451-a195-e7a3df27775a"]  *CHANGED* default=[]
+  [] Tracking Graph Ids (TrackingGraphIds) = ["183f4e90-c5ec-4c67-8a0f-5bf4efa19263"]  *CHANGED* default=[]
+  [] Expression Key Binding Graph Id (ExpressionKeyBindingGraphId) = None
+== ASSET iFacialMocap Receiver
+  [] Character (Character) = {"id":"29399e49-1c26-41bb-b40f-294dc0590f68","name":"Character 1"}  *CHANGED* default=None
+  [] Show Character Daemon (ShowCharacterDaemon) = false
+  [] Port (Port) = 49983
+  [] Mirrored Tracking (MirroredTracking) = false
+  [] Calibrate Eye Movement (CalibrateEyeMovement) = true
+  [] Blend Shapes Mapping (BlendShapesMapping) = {"header":null,"collapsed":false,"id":"9877e554-de58-4b3e-8f77-7388f3beb494","version":0,"dataInputs":{"TypeId":{"type":"string","typeKind":"Value","defaultValu  *CHANGED* default={"header":null,"collapsed":false,"id":"a235ac3f-98a1-49d7-a098-e93fb3cda121","ve
+  [] Global BlendShape Sensitivity (BlendShapeSensitivity) = 1.0
+  [] Head Movement Intensity (HeadMovementIntensity) = {"x":2.0,"y":2.0,"z":2.0}
+  [] Maximal Head Translation (MaximalHeadTranslation) = {"x":0.5,"y":0.5,"z":0.5}
+  [] Body Movement Intensity (BodyMovementIntensity) = 0.5
+  [] Body Rotation Type (BodyRotationType) = {"label":"Inverted","value":2,"description":null,"icon":null}
+  [] Body Rotation Intensity (BodyRotationIntensity) = 0.5
+  [] Body Rotation Direction (BodyRotationDirection) = {"x":0.5,"y":1.0,"z":0.5}
+  [] Body Rotation Neck Compensation (BodyRotationNeckCompensation) = 0.75
+  [] Body Rotation Chest Rotation Intensity (BodyRotationChestRotationIntensity) = 0.25
+  [] Body Rotation Spine Rotation Intensity (BodyRotationSpineRotationIntensity) = 0.5
+  [] Body Rotation Hips Rotation Intensity (BodyRotationHipsRotationIntensity) = 0.0
+  [] Body Rotation Delay Duration (BodyRotationDelayDuration) = 0.0
+  [] Body Rotation Smoothing Duration (BodyRotationSmoothingDuration) = 0.0
+  [] Head Rotation Intensity (HeadRotationIntensity) = {"x":1.0,"y":1.0,"z":1.0}
+  [] Head Rotation Offset (HeadRotationOffset) = {"x":0.0,"y":0.0,"z":0.0}
+  [] Eye Movement Intensity (EyeMovementIntensity) = {"x":1.0,"y":1.0}
+  [] Eye Movement Compensation (EyeMovementHeadRotationCompensation) = {"x":0.0,"y":0.0}
+  [] Eye Blink Sensitivity (EyeBlinkSensitivity) = 1.2
+  [] Linked Eye Blinking (LinkedEyeBlinking) = false
+  [] Limit Eye Squint (LimitEyeSquint) = false
+  [] Use Bones For Eye Movement (UseBonesForEyeMovement) = true
+  [] Average Eye Rotations (AverageEyeRotations) = false
+  [] Use BlendShapes For Eye Movement (UseBlendShapesForEyeMovement) = false
+  [] Convert ARKit Look BlendShapes To VRM (ConvertToVRMEyeBlendShapes) = false
+  [] Clamp All BlendShapes (ClampAllBlendShapes) = true
+  [] Calculate Eye Bone Rotations From BlendShapes (CalculateEyeBoneRotationsFromBlendShapes) = true  *CHANGED* default=false
+  [] Enabled (PendulumPhysicsEnabled) = false  *CHANGED* default=true
+  [] Pendulum Physics Intensity (PendulumPhysicsIntensity) = 0.5
+  [] Pendulum Physics Settings (PendulumPhysics) = [{"header":"Arm Movements","collapsed":true,"id":"bb487e5e-2f4a-4a7e-9d96-0afa48dfc904","version":0,"dataInputs":{"Name":{"type":"string","typeKind":"Value","de  *CHANGED* default=[]
+== GRAPH Face Tracking - iFacialMocap
+-- NODE On Disable Blueprint 5265a669 (12, 12)
+-- NODE Reset Character Tracking BlendShapes a121d65f (412, 12)
+    [] Character (Character) = {"id":"29399e49-1c26-41bb-b40f-294dc0590f68","name":"Character 1"}  *CHANGED* default=None
+    [] Apply To All Skinned Meshes (ApplyToAllSkinnedMeshes) = true
+    [] Target Skinned Mesh (TargetSkinnedMesh) = "Body"
+-- NODE Reset Overridden Character Bones a6be78bd (812, 12)
+    [] Character (Character) = {"id":"29399e49-1c26-41bb-b40f-294dc0590f68","name":"Character 1"}  *CHANGED* default=None
+-- NODE Get iFacialMocap Receiver Data 847a0982 (1312, 12)
+    [] Receiver (Receiver) = {"id":"0613f95b-94c6-4451-a195-e7a3df27775a","name":"iFacialMocap Receiver"}  *CHANGED* default=None
+-- NODE Empty BlendShape List 995a0686 (1312, 854)
+-- NODE Default Character Bone Rotation List 41eb906a (1312, 1649)
+-- NODE Switch BlendShape List 747b6a4d (1712, 854)
+    [] Condition (Condition) = true  *CHANGED* default=false
+    [] If True (IfTrue) = None
+    [] If False (IfFalse) = None
+    [] To True Transition Time (ToTrueTransitionTime) = 0.4
+    [] To True Transition Delay (ToTrueTransitionDelay) = 0.0
+    [] To True Transition Easing (ToTrueTransitionEasing) = {"label":"InOutSine","value":4,"description":null,"icon":null}
+    [] To False Transition Time (ToFalseTransitionTime) = 0.4
+    [] To False Transition Delay (ToFalseTransitionDelay) = 0.0
+    [] To False Transition Easing (ToFalseTransitionEasing) = {"label":"InOutSine","value":4,"description":null,"icon":null}
+-- NODE Switch Rotation List 6ba842dd (1712, 1649)
+    [] Condition (Condition) = true  *CHANGED* default=false
+    [] To True Transition Time (ToTrueTransitionTime) = 0.4
+    [] To True Transition Delay (ToTrueTransitionDelay) = 0.0
+    [] To True Transition Easing (ToTrueTransitionEasing) = {"label":"InOutSine","value":4,"description":null,"icon":null}
+    [] To False Transition Time (ToFalseTransitionTime) = 0.4
+    [] To False Transition Delay (ToFalseTransitionDelay) = 0.0
+    [] To False Transition Easing (ToFalseTransitionEasing) = {"label":"InOutSine","value":4,"description":null,"icon":null}
+-- NODE Switch Float ef6094b0 (2112, 12)
+    [] Condition (Condition) = true  *CHANGED* default=false
+    [] If True (IfTrue) = 1.0  *CHANGED* default=0.0
+    [] If False (IfFalse) = 0.0
+    [] To True Transition Time (ToTrueTransitionTime) = 2.0  *CHANGED* default=0.4
+    [] To True Transition Delay (ToTrueTransitionDelay) = 0.0
+    [] To True Transition Easing (ToTrueTransitionEasing) = {"label":"InOutSine","value":4,"description":null,"icon":null}
+    [] To False Transition Time (ToFalseTransitionTime) = 2.0  *CHANGED* default=0.4
+    [] To False Transition Delay (ToFalseTransitionDelay) = 0.0
+    [] To False Transition Easing (ToFalseTransitionEasing) = {"label":"InOutSine","value":4,"description":null,"icon":null}
+-- NODE Merge Character Bone Rotation List 400e8597 (2112, 1649)
+-- NODE Float Subtraction 168c3055 (2512, 23)
+    [] A (A) = 1.0  *CHANGED* default=0.0
+    [] B (B) = 1.0  *CHANGED* default=0.0
+-- NODE Smooth BlendShape List ca7f1178 (2512, 854)
+    [] BlendShape List (BlendShapes) = None
+    [] Smooth Time (SmoothTime) = 0.2  *CHANGED* default=0.4
+-- NODE Smooth Rotation List 05ce547b (2512, 1649)
+    [] Smooth Time (SmoothTime) = 0.6  *CHANGED* default=0.4
+-- NODE On Update 13fe2d4b (2912, 23)
+-- NODE Generate Idle Head Animation b6ead76b (2912, 854)
+    [] BlendShape List (BlendShapes) = None
+    [] Weight (Weight) = 0.0  *CHANGED* default=1.0
+    [] Character (Character) = {"id":"29399e49-1c26-41bb-b40f-294dc0590f68","name":"Character 1"}  *CHANGED* default=None
+    [] Show Character Daemon (ShowCharacterDaemon) = false
+    [] Enabled (Enabled) = true
+    [] Auto Blinking (AutoBlinking) = false  *CHANGED* default=true
+    [] Auto Eye Movements (AutoEyeMovements) = false  *CHANGED* default=true
+    [] Auto Head Movements (AutoHeadMovements) = false  *CHANGED* default=true
+    [] Blink BlendShapes (BlinkBlendShapes) = ["eyeBlinkLeft","eyeBlinkRight"]  *CHANGED* default=[]
+    [] Look Weight (LookWeight) = 0.5
+    [] Max Look Angles (MaxLookAngles) = {"header":"4° / 10° / 15° / 15°","collapsed":true,"id":"c617e44e-9432-4825-b472-4f5a1fed0a77","version":0,"dataInputs":{"Up":{"type":"float","typeKind":"Val  *CHANGED* default={"header":null,"collapsed":false,"id":"2dc0e688-c915-4fc8-af4d-522400836e77","ve
+    [] Blink Interval (BlinkInterval) = {"x":1.0,"y":10.0}
+    [] Blink Speed (BlinkSpeed) = 1.0
+    [] Squint Eyes (SquintEyes) = 0.0
+    [] Remove Input Eye BlendShapes (RemoveInputEyeBlendShapes) = true
+    [] Head Tilt (HeadTilt) = {"header":"0° / 0° / 0°","collapsed":true,"id":"90791a6a-56ff-481f-b126-7a4619dc6aad","version":0,"dataInputs":{"X":{"type":"float","typeKind":"Value","defau  *CHANGED* default={"header":null,"collapsed":false,"id":"345a9cdd-1f96-432a-997c-41b3b49f0fa4","ve
+    [] Look Around Interval (LookAroundInterval) = {"x":8.0,"y":30.0}
+    [] Max Look Around Angle (MaxLookAroundAngle) = 10.0
+-- NODE Set Character Tracking BlendShapes f4ea471d (3312, 23)
+    [] Character (Character) = {"id":"29399e49-1c26-41bb-b40f-294dc0590f68","name":"Character 1"}  *CHANGED* default=None
+    [] BlendShape List (BlendShapes) = None
+    [] Apply To All Skinned Meshes (ApplyToAllSkinnedMeshes) = true
+    [] Target Skinned Mesh (TargetSkinnedMesh) = "Body"
+    [] Use VRM BlendShape Proxy (UseVRMBlendShapeProxy) = true  *CHANGED* default=false
+    [] Additive VRM BlendShape Clips (AdditiveVRMBlendShapeClips) = []
+    [] Clamp All BlendShapes (ClampAllBlendShapes) = true
+    [] Clamped BlendShapes (ClampedBlendShapes) = []
+    [] Unclamped BlendShapes (UnclampedBlendShapes) = []
+-- NODE Character Look At Target 7c7f27c2 (3312, 854)
+    [] Character (Character) = {"id":"29399e49-1c26-41bb-b40f-294dc0590f68","name":"Character 1"}  *CHANGED* default=None
+    [] Target (Target) = {"id":"bc77a8de-5252-4bb9-bbfa-ec65adb66c66","name":"Camera 1"}  *CHANGED* default=None
+    [] Enabled (Enabled) = true
+    [] Weight (Weight) = 1.0
+    [] Head Weight (HeadWeight) = 0.66
+    [] Eyes Weight (EyesWeight) = 0.33
+    [] Maximum Look At Angle (MaximumLookAtAngle) = 135.0
+    [] Maximal Head Rotation (MaximalHeadRotation) = {"x":30.0,"y":30.0,"z":30.0}
+    [] Maximal Eye Rotation (MaximalEyeRotation) = {"x":10.0,"y":5.0}
+    [] Smooth Head Time (SmoothHeadTime) = 3.5
+    [] Smooth Eyes Time (SmoothEyesTime) = 2.0
+-- NODE Override Character Bone Rotation Offsets 04961613 (3712, 23)
+    [] Character (Character) = {"id":"29399e49-1c26-41bb-b40f-294dc0590f68","name":"Character 1"}  *CHANGED* default=None
+    [] Immediate (Immediate) = false
+-- NODE Smooth Position 03b0a4f9 (3712, 2654)
+    [] Position (InputPosition) = {"x":0.1179721,"y":1.04708922,"z":-0.13537775}  *CHANGED* default={"x":0.0,"y":0.0,"z":0.0}
+    [] Smooth Time (SmoothTime) = 0.6  *CHANGED* default=0.4
+-- NODE Override Character Root Position 46ac5bd6 (4112, 23)
+    [] Character (Character) = {"id":"29399e49-1c26-41bb-b40f-294dc0590f68","name":"Character 1"}  *CHANGED* default=None
+    [] Root Position (RootPosition) = {"x":0.118132204,"y":1.0473851,"z":-0.135280132}  *CHANGED* default={"x":0.0,"y":0.0,"z":0.0}
+    [] Weight (RootPositionWeight) = 1.0  *CHANGED* default=0.0
+    [] Immediate (Immediate) = false
+    [] Allow Floating (AllowFloating) = false
+== DATA CONNECTIONS
+  Get iFacialMocap Receiver Data . IsTracked -> Switch Float . Condition
+  Get iFacialMocap Receiver Data . BlendShapes -> Switch BlendShape List . IfTrue
+  Get iFacialMocap Receiver Data . IsTracked -> Switch BlendShape List . Condition
+  Empty BlendShape List . Output -> Switch BlendShape List . IfFalse
+  Switch BlendShape List . Output -> Smooth BlendShape List . BlendShapes
+  Switch Float . Output -> Float Subtraction . B
+  Float Subtraction . Result -> Generate Idle Head Animation . Weight
+  Smooth BlendShape List . SmoothedBlendShapes -> Generate Idle Head Animation . BlendShapes
+  Smooth Rotation List . SmoothedRotations -> Generate Idle Head Animation . BoneRotations
+  Generate Idle Head Animation . OutputBlendShapes -> Set Character Tracking BlendShapes . BlendShapes
+  Default Character Bone Rotation List . Output -> Switch Rotation List . IfFalse
+  Get iFacialMocap Receiver Data . IsTracked -> Switch Rotation List . Condition
+  Get iFacialMocap Receiver Data . BoneRotations -> Switch Rotation List . IfTrue
+  Switch Rotation List . Output -> Merge Character Bone Rotation List . Face
+  Switch Rotation List . Output -> Merge Character Bone Rotation List . Head
+  Switch Rotation List . Output -> Merge Character Bone Rotation List . Pelvis
+  Switch Rotation List . Output -> Merge Character Bone Rotation List . LeftLeg
+  Switch Rotation List . Output -> Merge Character Bone Rotation List . RightLeg
+  Merge Character Bone Rotation List . BoneRotations -> Smooth Rotation List . Rotations
+  Switch Float . Output -> Character Look At Target . Weight
+  Generate Idle Head Animation . OutputBoneRotations -> Character Look At Target . BoneRotations
+  Character Look At Target . OutputBoneRotations -> Override Character Bone Rotation Offsets . BoneRotationOffsets
+  Get iFacialMocap Receiver Data . RootPosition -> Smooth Position . InputPosition
+  Switch Float . Output -> Override Character Root Position . RootPositionWeight
+  Smooth Position . SmoothedPosition -> Override Character Root Position . RootPosition
+== FLOW CONNECTIONS
+  On Disable Blueprint . Exit -> Reset Character Tracking BlendShapes . Enter
+  On Update . Exit -> Set Character Tracking BlendShapes . Enter
+  Set Character Tracking BlendShapes . Exit -> Override Character Bone Rotation Offsets . Enter
+  Reset Character Tracking BlendShapes . Exit -> Reset Overridden Character Bones . Enter
+  Override Character Bone Rotation Offsets . Exit -> Override Character Root Position . Enter
