@@ -22,7 +22,7 @@ OBS: an isolated QA scene with one Browser Source on the `output_main` page. [`o
 | # | Check | Result | Evidence |
 | --- | --- | --- | --- |
 | 1 | Editor with tracking: hair and accessories move with head and body motion | Pass | Below |
-| 2 | OBS at the 60 and 30 FPS output limit: same motion, correct alpha around the hair | Pass (alpha, motion); Needs owner (the feel of 30 against 60) | Below |
+| 2 | OBS at the 60 and 30 FPS output limit: same motion, correct alpha around the hair | Pass (alpha, motion); the owner accepted the feel of 30 FPS (2026-11-18) | Below |
 | 3 | Editor minimized: the OBS hair keeps its motion | Pass | Below |
 | 4 | Move 0.3 m and 2 m, turn 45°, scale 1 to 1.5: no whip or flip; gizmo drag fast and slow | Pass (Inspector values); Needs owner (the feel of a fast drag) | Below |
 | 5 | Renderer CPU time with and without spring bones, 1 and 2 avatars | Measured (debug build): about +0.6 ms mean with 2 avatars, about +0.3 ms with 1 avatar. The target for 3 avatars is not checked | Below |
