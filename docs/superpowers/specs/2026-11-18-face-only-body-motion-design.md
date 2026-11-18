@@ -72,8 +72,8 @@ Warudo body rotation type Inverted: the body turns in the same direction as the 
 
 ### New data: tracked head position
 
-- The iFacialMocap parser keeps the head translation (values 4 to 6 of the `head#` field) as `position` of the `head` bone. The MediaPipe face path keeps the translation of the face matrix in the same field.
-- The renderer does not apply a head bone position. A test proves this.
+- The iFacialMocap parser keeps the head translation (values 4 to 6 of the `head#` field) in a new optional sample field `headPosition`. The MediaPipe face path keeps the translation of the face matrix in the same field. The compose step copies it into a new optional `AvatarPose.headPosition`.
+- It is not a bone position: the renderer applies the `position` of a normalized bone, so a head bone position would move the head. The renderer and the VMC send pose do not read `headPosition`. (Changed in planning, 2026-11-18.)
 - Calibrate also captures the neutral head position. The graph reads the head position relative to that neutral, in meters, in the pose frame. With no calibration, the head position input is 0.
 - OpenSeeFace and FaceKit give no head position in this slice. Their head position input is 0, so Body Lean and the position part of the arm sway do nothing for them. The node Inspector does not need to state this; the parity entry records it.
 
@@ -83,7 +83,7 @@ Warudo body rotation type Inverted: the body turns in the same direction as the 
   - `rotation`: vector3, Euler degrees (pitch, yaw, roll), the same values as `character.getBoneRotation` on `head`. This includes calibration, the head intensity and offset, smoothing, and the compose fade on loss.
   - `position`: vector3, meters from the calibrated neutral. Zero with no calibration or no head position.
   - `tracked`: number, the compose weight of the face source (1 while it receives, falls to 0 in the compose stale fade, 0 with no face source).
-- `motion.pendulum` (data, stateful). Settings:
+- `tracking.pendulum` (data, stateful; palette category Tracking). Settings:
   - `inputs`: a list. Each entry: `kind` (head pitch, head yaw, head roll, head position X, Y, Z, or an ARKit blend shape name), `weight`, `scale`, `absolute`, and `clamp` (min, max; default −1..1). Each input is scaled, made absolute when set, and clamped, then multiplied by its weight; the node adds the results. The node reads the inputs from the same composed pose as `tracking.getHeadPose`. The unit of each head input is set by the Warudo measurement in "Left to the builder", so the Warudo scale values keep their meaning.
   - `inputSmoothing` (seconds).
   - `arms`: a list of 0 to 4 links, each with `length`, `mass`, `drag`, `spring`, `damping`, `gravity`.
@@ -91,7 +91,8 @@ Warudo body rotation type Inverted: the body turns in the same direction as the 
   - Step: mix the inputs (sum of weight × scale × value, with absolute value and clamp), smooth the mix over `inputSmoothing`, then drive the arm chain with it. The output is the angle of the last link, in the input units. With no arms, the output is the smoothed mix.
   - The step uses the session `deltaSeconds`. It is stable for a step from 1 ms to 100 ms. A longer step is cut into steps of at most 16 ms. A step of 0 keeps the state.
   - The chain model is the builder's call (see "Left to the builder"). It must settle with no input and must not overshoot without bound.
-- `character.offsetBones` (flow). Settings: character and a list of outputs. Each output: `bones` (one or more humanoid bones), `axis` (X, Y, or Z), `intensity` (degrees for each unit), and `offset` (degrees). Inputs: `value` (number) and `weight` (number, 0..1, default 1). For each bone, it emits one `offsetBone` effect with an angle of `weight × (value × intensity + offset)` on the axis.
+- `character.offsetBones` (flow). Settings: character and one output group: `bones` (one or more humanoid bones), `axis` (X, Y, or Z), `intensity` (degrees for each unit), and `offset` (degrees). Inputs: `value` (number) and `weight` (number, 0..1, default 1). For each bone, it emits one `offsetBone` effect with an angle of `weight × (value × intensity + offset)` on the axis, clamped to ±360. The template uses one node for each Warudo output group. (Planning made this one group for each node, 2026-11-18, so the Inspector needs no nested list.)
+- The pendulum `inputs` and `arms` lists use a new generic `rows` field kind (a table of rows with number, boolean, and choice columns). The `bones` setting uses a new `bones` field kind, like the `meshes` field.
 
 All three nodes appear in the node palette and work in any graph, not only in the template.
 
