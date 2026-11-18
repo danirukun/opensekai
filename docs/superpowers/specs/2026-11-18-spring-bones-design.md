@@ -1,6 +1,6 @@
 # Spring bones (hair and cloth secondary motion)
 
-Date: 2026-11-18. Status: draft for owner approval. Issue: [#14](https://github.com/danirukun/opensekai/issues/14). Parity: CHR-08 (first subset). Research evidence: [spring-bones research](../../evaluation/spring-bones/research/README.md).
+Date: 2026-11-18. Status: approved by the owner on 2026-11-18. Issue: [#14](https://github.com/danirukun/opensekai/issues/14). Parity: CHR-08 (first subset). Research evidence: [spring-bones research](../../evaluation/spring-bones/research/README.md).
 
 ## Intent
 
@@ -40,6 +40,7 @@ The owner wants the spring bones of the model to move in the editor preview and 
 | --- | --- | --- | --- |
 | O1 | Each renderer runs the same fixed-step spring solver. The session owns the inputs (option 2) | The session runs the solver and streams joint rotations (option 1); both modes (option 3), which stays a later option for clients that cannot simulate | 2026-11-18 |
 | O2 | Design for 2 to 3 avatars and for a later relay to about 100 client devices from one Rust hub | Design for the local editor and OBS only | 2026-11-18 |
+| O3 | A scaled avatar scales its joint and collider values (C8) | A reset on a scale change, and correct spring bones only at scale 1 | 2026-11-18 |
 
 O1 changes an architecture rule. See "Architecture amendment".
 
