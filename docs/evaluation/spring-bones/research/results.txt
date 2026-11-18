@@ -1,0 +1,145 @@
+# Recorded 2026-11-18T17:24Z on Apple M3 Pro, macOS 27.2.1, Node v26.13.0, three 0.187.0, @pixiv/three-vrm 3.5.5 (patched)
+
+## springcount.py (all library VRMs; VRM 1.0 joint count includes the tail joint, see the rerun at the end)
+avatar_07d241961632a	v0	Nina                        	nodes=329	chains=57	joints=242	colliders=73	caps=0	centers=0	collisionChecks/step=12670
+avatar_12c2b97e95e70	v1	VRM1_Constraint_Twist_Sample	nodes=171	chains=22	joints=79	colliders=13	caps=7	centers=0	collisionChecks/step=673
+avatar_395ee92841ceb	v0	Rem Kanashibari             	nodes=206	chains=30	joints=125	colliders=63	caps=0	centers=0	collisionChecks/step=3265
+avatar_5022a93e24f62	v0	Xiulang Long VRM            	nodes=566	chains=68	joints=395	colliders=52	caps=0	centers=0	collisionChecks/step=4586
+avatar_635ce23488a47	v0	Nemimi Yane （VRM0）          	nodes=366	chains=76	joints=287	colliders=12	caps=0	centers=0	collisionChecks/step=1401
+avatar_7b7c689e4e2ad	v0	Catboy with black hoodie    	nodes=179	chains=20	joints=56	colliders=22	caps=0	centers=1	collisionChecks/step=1012
+avatar_81654d2eae61e	v0	RORO_vrm_arkit_02           	nodes=129	chains=10	joints=30	colliders=3	caps=0	centers=0	collisionChecks/step=60
+avatar_9634f4119a916	v0	RORO_vrm_arkit_02           	nodes=129	chains=10	joints=30	colliders=3	caps=0	centers=0	collisionChecks/step=60
+avatar_b357422fc6129	v0	RORO_vrm_arkit_02           	nodes=129	chains=10	joints=30	colliders=3	caps=0	centers=0	collisionChecks/step=60
+avatar_c116520b93150	v0	RORO_vrm_arkit_02           	nodes=129	chains=10	joints=30	colliders=3	caps=0	centers=0	collisionChecks/step=60
+avatar_f0ebcbdf5b2d4	v0	止丸式初音ミクNT                   	nodes=343	chains=35	joints=214	colliders=7	caps=0	centers=0	collisionChecks/step=698
+avatar_f16f7e966a481	v0	RORO_vrm_arkit_02           	nodes=124	chains=0	joints=0	colliders=0	caps=0	centers=0	collisionChecks/step=0
+
+## bench-threevrm.mjs (V8, one process, 7 models then 3 together)
+Nina                       joints= 242 colliders= 73  mean=0.349ms p50=0.343 p99=0.429
+Xiulang Long VRM           joints= 395 colliders= 50  mean=0.473ms p50=0.436 p99=0.724
+Nemimi Yane （VRM0）         joints= 287 colliders= 12  mean=0.286ms p50=0.282 p99=0.380
+Catboy with black hoodie   joints=  56 colliders= 22  mean=0.145ms p50=0.143 p99=0.213
+RORO_vrm_arkit_02          joints=  30 colliders=  3  mean=0.057ms p50=0.055 p99=0.071
+VRM1_Constraint_Twist_Samp joints=  57 colliders= 13  mean=0.148ms p50=0.145 p99=0.220
+止丸式初音ミクNT                  joints= 214 colliders=  7  mean=0.339ms p50=0.334 p99=0.432
+3 heavy together (Nina, Xiulang, Nemimi): mean=1.738ms p50=1.718 p99=2.048
+
+## bench-flat.mjs EXACT=1 (flat prototype vs three-vrm with exact bone length)
+flat vs three-vrm: max 0.000 deg, median 0.0000 deg (242 joints, 24 duplicated bones skipped)
+flat vs three-vrm: max 0.000 deg, median 0.0000 deg (395 joints, 0 duplicated bones skipped)
+flat vs three-vrm: max 0.000 deg, median 0.0000 deg (287 joints, 0 duplicated bones skipped)
+flat solver, 3 avatars together: mean=0.418ms p50=0.412 p99=0.499
+
+## bench-flat.mjs (flat prototype vs stock three-vrm)
+flat vs three-vrm: max 37.207 deg, median 0.0567 deg (242 joints, 24 duplicated bones skipped)
+   worst: Longhair_A006(37.2deg parentJoint=true kids=0 child=virtual cols=53)
+          Longhair_A005(36.9deg parentJoint=true kids=1 child=Longhair_A006 cols=53)
+          Longhair_F006(31.7deg parentJoint=true kids=0 child=virtual cols=53)
+          Longhair_A004(23.5deg parentJoint=true kids=1 child=Longhair_A005 cols=53)
+flat vs three-vrm: max 4.063 deg, median 0.0088 deg (395 joints, 0 duplicated bones skipped)
+   worst: BackBigRibbon003_3(4.1deg parentJoint=true kids=0 child=virtual cols=16)
+          Skirt9_1L006(2.2deg parentJoint=true kids=1 child=Skirt9_1L007 cols=17)
+          Skirt5_1R007(2.2deg parentJoint=true kids=0 child=virtual cols=17)
+          Skirt10_1R006(2.2deg parentJoint=true kids=1 child=Skirt10_1R007 cols=17)
+flat vs three-vrm: max 14.023 deg, median 0.0075 deg (287 joints, 0 duplicated bones skipped)
+   worst: W008(14.0deg parentJoint=true kids=1 child=W009 cols=0)
+          W007(10.6deg parentJoint=true kids=1 child=W008 cols=0)
+          W009(9.2deg parentJoint=true kids=0 child=virtual cols=0)
+          W006(6.0deg parentJoint=true kids=1 child=W007 cols=0)
+flat solver, 3 avatars together: mean=0.416ms p50=0.410 p99=0.502
+
+## jsc-entry.mjs, one solver per fresh process (3 heavy: Nina, Xiulang, Nemimi)
+[JavaScriptCore] 3 heavy avatars: skeleton pose mean=0.091ms p50=0.100 p99=0.120
+[JavaScriptCore] 3 heavy avatars: three-vrm springs mean=0.381ms p50=0.380 p99=0.440
+[V8/Node] 3 heavy avatars: skeleton pose mean=0.121ms p50=0.089 p99=0.703
+[V8/Node] 3 heavy avatars: three-vrm springs mean=0.503ms p50=0.460 p99=1.425
+[JavaScriptCore] 3 heavy avatars: skeleton pose mean=0.090ms p50=0.080 p99=0.120
+[JavaScriptCore] 3 heavy avatars: three-vrm springs mean=0.377ms p50=0.380 p99=0.420
+[V8/Node] 3 heavy avatars: skeleton pose mean=0.086ms p50=0.082 p99=0.137
+[V8/Node] 3 heavy avatars: three-vrm springs mean=0.449ms p50=0.444 p99=0.514
+[JavaScriptCore] 3 heavy avatars: skeleton pose mean=0.090ms p50=0.100 p99=0.120
+[JavaScriptCore] 3 heavy avatars: flat springs mean=0.296ms p50=0.300 p99=0.320
+[V8/Node] 3 heavy avatars: skeleton pose mean=0.081ms p50=0.079 p99=0.103
+[V8/Node] 3 heavy avatars: flat springs mean=0.412ms p50=0.403 p99=0.480
+[JavaScriptCore] 3 heavy avatars: skeleton pose mean=0.089ms p50=0.080 p99=0.120
+[JavaScriptCore] 3 heavy avatars: flat springs mean=0.295ms p50=0.300 p99=0.320
+[V8/Node] 3 heavy avatars: skeleton pose mean=0.085ms p50=0.083 p99=0.104
+[V8/Node] 3 heavy avatars: flat springs mean=0.406ms p50=0.398 p99=0.476
+
+## chaos.mjs (three-vrm vs itself with 1e-9 m perturbation)
+(failed: the run passed skeleton JSON files, but chaos.mjs reads .vrm files; see the rerun at the end)
+
+## converge.mjs (displaced start; naive variable-dt stepping; motion has a 0.5 m jump every 2 s; the 0.5 m jumps dominate the skipped-frame numbers, see the fixedstep2.mjs naive rows for smooth motion)
+Nina: displaced start converges below 5deg after 1.85s, 1deg after 2.10s, stays below 0.1deg from 2.78s
+Nina: stepping every 2 ticks (dt=2/60) vs every tick: median 31.70deg, p95 173.68deg, max 179.95deg
+Nina: stepping every 4 ticks (dt=4/60) vs every tick: median 45.68deg, p95 177.43deg, max 179.84deg
+Xiulang Long VRM: displaced start converges below 5deg after 0.90s, 1deg after 1.27s, stays below 0.1deg from 2.05s
+Xiulang Long VRM: stepping every 2 ticks (dt=2/60) vs every tick: median 7.16deg, p95 163.83deg, max 179.92deg
+Xiulang Long VRM: stepping every 4 ticks (dt=4/60) vs every tick: median 63.86deg, p95 173.69deg, max 179.93deg
+Nemimi Yane （VRM0）: displaced start converges below 5deg after 0.72s, 1deg after 0.77s, stays below 0.1deg from 0.85s
+Nemimi Yane （VRM0）: stepping every 2 ticks (dt=2/60) vs every tick: median 11.96deg, p95 171.45deg, max 179.99deg
+Nemimi Yane （VRM0）: stepping every 4 ticks (dt=4/60) vs every tick: median 39.98deg, p95 173.20deg, max 179.51deg
+
+## fixedstep.mjs (fixed 1/60 substeps; motion has a 0.5 m jump every 2 s)
+Nina             receives 1/2 frames, fixed 1/60 substeps, hold  : median 25.20deg p95 170.40deg max 179.98deg
+Nina             receives 1/2 frames, fixed 1/60 substeps, interp: median 55.03deg p95 176.91deg max 179.85deg
+Nina             receives 1/4 frames, fixed 1/60 substeps, hold  : median 37.96deg p95 175.99deg max 179.69deg
+Nina             receives 1/4 frames, fixed 1/60 substeps, interp: median 65.48deg p95 178.60deg max 179.86deg
+Xiulang Long VRM receives 1/2 frames, fixed 1/60 substeps, hold  : median 31.28deg p95 170.70deg max 179.87deg
+Xiulang Long VRM receives 1/2 frames, fixed 1/60 substeps, interp: median 65.66deg p95 166.06deg max 179.65deg
+Xiulang Long VRM receives 1/4 frames, fixed 1/60 substeps, hold  : median 60.06deg p95 167.54deg max 179.92deg
+Xiulang Long VRM receives 1/4 frames, fixed 1/60 substeps, interp: median 66.24deg p95 164.17deg max 179.58deg
+Nemimi Yane （VRM receives 1/2 frames, fixed 1/60 substeps, hold  : median 14.40deg p95 176.28deg max 179.99deg
+Nemimi Yane （VRM receives 1/2 frames, fixed 1/60 substeps, interp: median 1.27deg p95 166.28deg max 179.82deg
+Nemimi Yane （VRM receives 1/4 frames, fixed 1/60 substeps, hold  : median 27.22deg p95 165.76deg max 179.95deg
+Nemimi Yane （VRM receives 1/4 frames, fixed 1/60 substeps, interp: median 1.89deg p95 145.88deg max 179.95deg
+
+## fixedstep2.mjs (fixed 1/60 substeps; smooth motion)
+Nina             1/1 frames exact : mean-over-joints median 0.00deg p95 0.00deg | worst joint median 0.00deg p95 0.00deg
+Nina             1/2 frames hold  : mean-over-joints median 1.58deg p95 3.78deg | worst joint median 9.12deg p95 25.41deg
+Nina             1/2 frames interp: mean-over-joints median 0.03deg p95 0.04deg | worst joint median 0.16deg p95 0.29deg
+Nina             1/4 frames hold  : mean-over-joints median 3.79deg p95 8.37deg | worst joint median 20.30deg p95 51.46deg
+Nina             1/4 frames interp: mean-over-joints median 0.13deg p95 0.20deg | worst joint median 0.77deg p95 1.32deg
+Xiulang Long VRM 1/1 frames exact : mean-over-joints median 0.00deg p95 0.00deg | worst joint median 0.00deg p95 0.00deg
+Xiulang Long VRM 1/2 frames hold  : mean-over-joints median 2.02deg p95 4.59deg | worst joint median 25.61deg p95 65.64deg
+Xiulang Long VRM 1/2 frames interp: mean-over-joints median 0.04deg p95 0.06deg | worst joint median 0.44deg p95 0.91deg
+Xiulang Long VRM 1/4 frames hold  : mean-over-joints median 4.68deg p95 10.81deg | worst joint median 40.85deg p95 89.73deg
+Xiulang Long VRM 1/4 frames interp: mean-over-joints median 0.18deg p95 0.28deg | worst joint median 1.39deg p95 2.15deg
+Nemimi Yane （VRM 1/1 frames exact : mean-over-joints median 0.00deg p95 0.00deg | worst joint median 0.00deg p95 0.00deg
+Nemimi Yane （VRM 1/2 frames hold  : mean-over-joints median 2.22deg p95 5.18deg | worst joint median 11.69deg p95 27.10deg
+Nemimi Yane （VRM 1/2 frames interp: mean-over-joints median 0.04deg p95 0.07deg | worst joint median 0.21deg p95 0.33deg
+Nemimi Yane （VRM 1/4 frames hold  : mean-over-joints median 5.50deg p95 11.46deg | worst joint median 23.57deg p95 46.15deg
+Nemimi Yane （VRM 1/4 frames interp: mean-over-joints median 0.20deg p95 0.32deg | worst joint median 1.01deg p95 1.92deg
+
+# Rerun 2026-11-18, same machine and versions
+
+## springcount.py rerun (VRM 1.0 counts simulated joints: len(joints)-1)
+avatar_12c2b97e95e70	v1	VRM1_Constraint_Twist_Sample	nodes=171	chains=22	joints=57	colliders=13	caps=7	centers=0	collisionChecks/step=529
+
+## chaos.mjs rerun on the .vrm files (three-vrm vs itself with 1e-9 m perturbation)
+three-vrm vs itself (+1e-9 m): max 0.000 deg, median 0.00000 deg
+three-vrm vs itself (+1e-9 m): max 0.000 deg, median 0.00000 deg
+three-vrm vs itself (+1e-9 m): max 0.000 deg, median 0.00000 deg
+
+## fixedstep2.mjs rerun with naive mode (smooth motion)
+Nina             1/1 frames exact : mean-over-joints median 0.00deg p95 0.00deg | worst joint median 0.00deg p95 0.00deg
+Nina             1/2 frames naive : mean-over-joints median 0.48deg p95 1.03deg | worst joint median 8.16deg p95 25.80deg
+Nina             1/2 frames hold  : mean-over-joints median 1.58deg p95 3.78deg | worst joint median 9.12deg p95 25.41deg
+Nina             1/2 frames interp: mean-over-joints median 0.03deg p95 0.04deg | worst joint median 0.16deg p95 0.29deg
+Nina             1/4 frames naive : mean-over-joints median 1.41deg p95 2.76deg | worst joint median 23.67deg p95 58.15deg
+Nina             1/4 frames hold  : mean-over-joints median 3.79deg p95 8.37deg | worst joint median 20.30deg p95 51.46deg
+Nina             1/4 frames interp: mean-over-joints median 0.13deg p95 0.20deg | worst joint median 0.77deg p95 1.32deg
+Xiulang Long VRM 1/1 frames exact : mean-over-joints median 0.00deg p95 0.00deg | worst joint median 0.00deg p95 0.00deg
+Xiulang Long VRM 1/2 frames naive : mean-over-joints median 0.21deg p95 0.29deg | worst joint median 2.21deg p95 3.42deg
+Xiulang Long VRM 1/2 frames hold  : mean-over-joints median 2.02deg p95 4.59deg | worst joint median 25.61deg p95 65.64deg
+Xiulang Long VRM 1/2 frames interp: mean-over-joints median 0.04deg p95 0.06deg | worst joint median 0.44deg p95 0.91deg
+Xiulang Long VRM 1/4 frames naive : mean-over-joints median 0.63deg p95 0.86deg | worst joint median 6.60deg p95 9.84deg
+Xiulang Long VRM 1/4 frames hold  : mean-over-joints median 4.68deg p95 10.81deg | worst joint median 40.85deg p95 89.73deg
+Xiulang Long VRM 1/4 frames interp: mean-over-joints median 0.18deg p95 0.28deg | worst joint median 1.39deg p95 2.15deg
+Nemimi Yane （VRM 1/1 frames exact : mean-over-joints median 0.00deg p95 0.00deg | worst joint median 0.00deg p95 0.00deg
+Nemimi Yane （VRM 1/2 frames naive : mean-over-joints median 0.06deg p95 0.08deg | worst joint median 0.94deg p95 4.67deg
+Nemimi Yane （VRM 1/2 frames hold  : mean-over-joints median 2.22deg p95 5.18deg | worst joint median 11.69deg p95 27.10deg
+Nemimi Yane （VRM 1/2 frames interp: mean-over-joints median 0.04deg p95 0.07deg | worst joint median 0.21deg p95 0.33deg
+Nemimi Yane （VRM 1/4 frames naive : mean-over-joints median 0.20deg p95 0.27deg | worst joint median 3.70deg p95 16.14deg
+Nemimi Yane （VRM 1/4 frames hold  : mean-over-joints median 5.50deg p95 11.46deg | worst joint median 23.57deg p95 46.15deg
+Nemimi Yane （VRM 1/4 frames interp: mean-over-joints median 0.20deg p95 0.32deg | worst joint median 1.01deg p95 1.92deg

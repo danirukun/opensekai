@@ -3,6 +3,9 @@ import type {VRM, VRMHumanBoneName, VRMPose} from '@pixiv/three-vrm';
 import type {AvatarPose} from '@opensekai/contracts';
 import {canonicalArkitName,createArkitMorphBinding} from './arkit-expressions';
 import {createUvAnimation} from './mtoon-uv';
+import type {SpringClock} from './spring-grid';
+import {createSpringRig} from './spring-rig';
+import {createSpringStage} from './spring-stage';
 
 const aliases: Record<string,string> = {Joy:'happy',Angry:'angry',Sorrow:'sad',Fun:'relaxed',A:'aa',I:'ih',U:'ou',E:'ee',O:'oh',Blink:'blink',Blink_L:'blinkLeft',Blink_R:'blinkRight',eyeBlink_L:'blinkLeft',eyeBlink_R:'blinkRight',eyeBlinkLeft:'blinkLeft',eyeBlinkRight:'blinkRight',jawOpen:'aa',mouthSmile_L:'happy',mouthSmile_R:'happy',mouthSmileLeft:'happy',mouthSmileRight:'happy'};
 export function expressionWeights(expressions: Record<string,number>, names: ReadonlySet<string>) {
@@ -23,6 +26,11 @@ export function createAvatarBinding(vrm: VRM) {
         const node = bone.node;
         rest.set(node,{position:node.position.toArray(),rotation:node.quaternion.toArray()});
     }
+    // The spring rig records its rest state from the local matrices, so they must be current (B43 R10).
+    root.updateMatrixWorld(true);
+    const rig=createSpringRig(vrm);
+    const bones=[...rest.keys()];
+    const springs=rig && createSpringStage(rig,root,[root,motion,...bones.filter(bone=>!rig.joints.has(bone))],bones.filter(bone=>rig.joints.has(bone)));
     const resolveChest=(normalized:VRMPose) => {
         if (normalized.chest && !vrm.humanoid.getNormalizedBoneNode('chest')) {
             // A chestless humanoid uses the spine to carry the same torso delta.
@@ -63,7 +71,7 @@ export function createAvatarBinding(vrm: VRM) {
     const morphs=createArkitMorphBinding(vrm.scene);
     // The surface materials and their outline clones; the clones have the same speeds (R5).
     const uv=createUvAnimation(vrm.materials ?? []);
-    return {root, uv, apply(pose?: AvatarPose) {
+    return {root, uv, advanceSprings(clock: SpringClock) { springs?.advance(clock); }, apply(pose?: AvatarPose) {
         // Reset raw state before normalized deltas so lost channels return to rest.
         for (const [node, transform] of rest) {node.position.fromArray(transform.position);node.quaternion.fromArray(transform.rotation);}
         vrm.humanoid.resetNormalizedPose();

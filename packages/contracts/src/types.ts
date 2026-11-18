@@ -112,6 +112,7 @@ export type CaptureSource = { kind: "display"; name: string; ordinal: number } |
 export interface ScreenCapture { target: "display" | "window"; source: CaptureSource | null; cursor: boolean; }
 export type ScreenContent = { kind: "image"; assetId: Id | null } | ({ kind: "web" } & WebScreen) | ({ kind: "video" } & ScreenVideo) | ({ kind: "capture" } & ScreenCapture);
 export interface ScreenPlayback { entityId: Id; playing: boolean; positionMs: number; }
+export interface SpringReset { avatarId: Id; count: number; }
 export interface LightShadow { enabled: boolean; intensity: number; soft: boolean; bias: number; normalBias: number; }
 export interface LightCone { angleDegrees: number; penumbra: number; }
 export interface LightBeam { enabled: boolean; intensity: number; softness: number; }
@@ -207,6 +208,7 @@ export interface RuntimeFrame {
     trackingStatus?: TrackingStatus[];
     blueprintRevision?: number;
     screenPlayback?: ScreenPlayback[];
+    springResets?: SpringReset[];
 }
 export interface FrameApplied {
     outputId: Id;

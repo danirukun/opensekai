@@ -9,6 +9,13 @@ import { createTexturePool } from "./texture-sharing";
 import { createImageResizePolicy } from "./image-resize";
 import { supportNodeMaterialColorBinds } from "./mtoon-binds";
 supportNodeMaterialColorBinds();
+// B43 R14: spring bones run in the renderer; node constraints and spring bone limits do not.
+export function extensionWarnings(extensions: readonly string[], id: string): AppError[] {
+    return extensions.flatMap((extension): AppError[] =>
+        extension === "VRMC_node_constraint" ? [{ code: "UNSUPPORTED", message: "VRMC_node_constraint simulation is disabled in renderer", ids: [id] }]
+        : extension === "VRMC_springBone_limit" ? [{ code: "UNSUPPORTED", message: "VRMC_springBone_limit is not supported; spring bones move without limits", ids: [id] }]
+        : []);
+}
 export function createAssetCache<T extends {
     dispose(): void;
 }>(load: (id: string) => Promise<T>) {
@@ -145,10 +152,7 @@ export function createAssetLoader(resources: ResourceHost, options: { maxTexture
             const vrm = gltf.userData.vrm as VRM | undefined;
             if (vrm) VRMUtils.rotateVRM0(vrm);
             const warnings: AppError[] = [];
-            for (const extension of extensions) {
-                if (extension === "VRMC_node_constraint" || extension === "VRMC_springBone")
-                    warnings.push({ code: "UNSUPPORTED", message: extension + " simulation is disabled in renderer", ids: [id] });
-            }
+            warnings.push(...extensionWarnings(extensions, id));
             if (material) warnings.push({ code: "UNSUPPORTED", message: material, ids: [id] });
             let disposed = false;
             return { scene: gltf.scene, vrm, meshes: vrm ? meshObjects(gltf) : undefined, warnings, dispose() { if (disposed)

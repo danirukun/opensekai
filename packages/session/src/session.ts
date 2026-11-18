@@ -18,6 +18,7 @@ import { advanceTweens, dropGraphTweens, dropTweens, EMPTY_TWEENS, transitionSta
 import { advanceBlendShapes, blendShapeOwners, composeBlendShapes, dropGraphBlendShapes, EMPTY_BLEND_SHAPES, setBlendShape, type BlendShapeStates } from './blend-shapes';
 import { vmcPosesFor, withSendersStopped } from './vmc-send';
 import { dropGraphLookAts, EMPTY_LOOK_AT, lookAtOwners, sceneLookup, setLookAt, stepLookAt, type LookAtStates } from './look-at';
+import { advanceSpringResets, type SpringResetState } from './spring-resets';
 import { applyControls as applyVideoControls, checkControl, isControlOp, reconcilePlayback, screenPlayback, type ControlOp, type VideoPlaybacks } from './video-playback';
 export interface Session {
     inspect(): SceneView;
@@ -72,6 +73,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
     let tweens: TweenLayer = EMPTY_TWEENS;
     let blendShapes: BlendShapeStates = EMPTY_BLEND_SHAPES;
     let lookAts: LookAtStates = EMPTY_LOOK_AT;
+    let springResets: SpringResetState = new Map();
     // Transition ends that run on the next clock step: the ends of writes without a tween, and of tweens that reached their end.
     let pendingEnds: readonly TransitionEnd[] = [];
     // Never committed or saved: rebuilt by the Blueprint step of each tick.
@@ -553,8 +555,10 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             previousPoses = new Map(live.avatarPoses.map(pose => [pose.avatarId, structuredClone(pose)]));
             const faces = composeBlendShapes(composeExpressions(live.avatarPoses, expressions, persistent, record), blendShapes);
             const avatarPoses = composeBoneOffsets(faces, looked.offsets);
+            const springs = advanceSpringResets(springResets, scene, avatarPoses);
+            springResets = springs.state;
             const playback = screenPlayback(videoPlayback, persistent, elapsedMs);
-            return { schemaVersion: 1, sessionId, sequence, tick, elapsedMs, scene, blueprintRevision: store.revision(), ...(avatarPoses.length?{avatarPoses}:{}),...(live.trackingStatus.length?{trackingStatus:live.trackingStatus}:{}),...(playback.length?{screenPlayback:playback}:{}) };
+            return { schemaVersion: 1, sessionId, sequence, tick, elapsedMs, scene, blueprintRevision: store.revision(), ...(avatarPoses.length?{avatarPoses}:{}),...(live.trackingStatus.length?{trackingStatus:live.trackingStatus}:{}),...(playback.length?{screenPlayback:playback}:{}),...(springs.resets.length?{springResets:springs.resets}:{}) };
         },
     };
     return api;

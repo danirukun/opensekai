@@ -1,0 +1,15 @@
+{
+ "valid": [
+  { "name": "one avatar", "springResets": [{ "avatarId": "performer", "count": 1 }] },
+  { "name": "two avatars", "springResets": [{ "avatarId": "a", "count": 3 }, { "avatarId": "b", "count": 1 }] }
+ ],
+ "invalid": [
+  { "name": "duplicate avatar", "springResets": [{ "avatarId": "a", "count": 1 }, { "avatarId": "a", "count": 2 }] },
+  { "name": "zero count", "springResets": [{ "avatarId": "a", "count": 0 }] },
+  { "name": "fraction", "springResets": [{ "avatarId": "a", "count": 1.5 }] },
+  { "name": "negative", "springResets": [{ "avatarId": "a", "count": -1 }] },
+  { "name": "three entries", "springResets": [{ "avatarId": "a", "count": 1 }, { "avatarId": "b", "count": 1 }, { "avatarId": "c", "count": 1 }] },
+  { "name": "missing count", "springResets": [{ "avatarId": "a" }] },
+  { "name": "extra field", "springResets": [{ "avatarId": "a", "count": 1, "tick": 4 }] }
+ ]
+}

@@ -7,6 +7,7 @@ import { LIMITS, RuntimeFrameSchema } from "@opensekai/contracts";
 import { selectFrame, failure, createRenderQueue } from "./apply-frame";
 import { applyHiddenMeshes, createAssetCache, createAssetLoader, disposeObject } from "./assets";
 import { createAvatarBinding } from "./avatar-pose";
+import type { SpringClock } from "./spring-grid";
 import { countLiveMaterials } from "./diagnostics";
 import { initializeBackend } from "./backend";
 import { createCapturePolicy, readPng } from "./capture";
@@ -386,6 +387,8 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             value.avatar?.uv(frame.elapsedMs);
             value.materials?.reflections(reflections);
             if (!editor?.frozen(entity.id)) place(value.root, entity);
+            // After place, also for a dragged avatar: the stage reads the root transform (B43 R11).
+            value.avatar?.advanceSprings(springClock(frame, entity.id));
             if (value.video && videoContent) syncVideo(value.video, entity.id, videoContent, entity.visible, assetId!);
         }
         jobs.reconcile(needed, frame.scene.revision, new Set(frame.scene.entities.filter(entity => entity.kind === "screen" && entity.content.kind === "video").map(entity => entity.id)));
@@ -404,6 +407,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             installed.avatar?.uv(frame.elapsedMs);
             installed.materials?.reflections(reflections);
             if (!editor?.frozen(entityId)) place(installed.root, entity);
+            installed.avatar?.advanceSprings(springClock(frame, entityId));
             if (installed.video && installedVideo) syncVideo(installed.video, entityId, installedVideo, entity.visible, request.assetId);
             warnings.push(...ready.warnings);
         }
@@ -549,6 +553,9 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             return Promise.reject(failure(selected.error.code, selected.error.message)); accepted = frame; return queue.enqueue("frame", () => submit(frame)); }, capture() { return queue.enqueue("capture", async () => { policy.reserve(performance.now()); if (!displayed || !displayFrame)
             throw failure("UNAVAILABLE", "No displayed frame"); const metadata = structuredClone(displayed); await submit(displayFrame); const png = await readPng(options.canvas); policy.checkBytes(png.byteLength); return { frame: metadata, png, width: options.canvas.width, height: options.canvas.height }; }); }, dispose() { if (disposed)
             return; disposed = true; for (const waiter of [...revisionWaiters]) waiter.cancel(); editor?.dispose(); queue.dispose(); } };
+}
+function springClock(frame: RuntimeFrame, avatarId: Id): SpringClock {
+    return { sessionId: frame.sessionId, tick: frame.tick, elapsedMs: frame.elapsedMs, resets: frame.springResets?.find(entry => entry.avatarId === avatarId)?.count ?? 0 };
 }
 function applyTransform(object: Object3D, entity: SceneEntity) { object.position.fromArray(entity.transform.position); object.quaternion.fromArray(entity.transform.rotation); object.scale.fromArray(entity.transform.scale); object.visible = entity.visible; object.updateMatrixWorld(true); }
 function disposeInstance(root: Object3D) { root.traverse(object => { const skeleton = (object as import("three/webgpu").SkinnedMesh).skeleton; if (skeleton)
