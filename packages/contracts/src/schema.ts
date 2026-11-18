@@ -480,6 +480,8 @@ export const ConnectionDescriptorSchema = z.strictObject({
 }).refine(d => new URL(d.wsUrl).host === new URL(d.httpOrigin).host).refine(d => d.role !== "renderer" || (d.outputId !== null && d.capabilities.every(c => c === "read")));
 // B29 R11: the session-owned position of each video screen. It is not wrapped by the duration.
 export const ScreenPlaybackSchema = z.strictObject({ entityId: IdSchema, playing: z.boolean(), positionMs: u });
+// B43 R1: the session-owned spring reset count of each avatar that had a teleport.
+export const SpringResetSchema = z.strictObject({ avatarId: IdSchema, count: u.min(1) });
 export const RuntimeFrameSchema = z.strictObject({
     schemaVersion: z.literal(1),
     sessionId: IdSchema,
@@ -490,7 +492,8 @@ export const RuntimeFrameSchema = z.strictObject({
     blueprintRevision: u.optional(),
     avatarPoses:z.array(AvatarPoseSchema).max(2).optional(),
     trackingStatus:z.array(TrackingStatusSchema).max(4).refine(values=>new Set(values.map(value=>value.sourceId)).size===values.length).optional(),
-    screenPlayback:z.array(ScreenPlaybackSchema).max(LIMITS.videoScreens).refine(values=>new Set(values.map(value=>value.entityId)).size===values.length).optional()
+    screenPlayback:z.array(ScreenPlaybackSchema).max(LIMITS.videoScreens).refine(values=>new Set(values.map(value=>value.entityId)).size===values.length).optional(),
+    springResets:z.array(SpringResetSchema).max(2).refine(values=>new Set(values.map(value=>value.avatarId)).size===values.length).optional()
 });
 export const FrameAppliedSchema = z.strictObject({
     outputId: IdSchema,
