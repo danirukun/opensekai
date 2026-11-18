@@ -9,12 +9,16 @@ const unit = z.number().min(0).max(1);
 const Threshold = z.strictObject({ entityId: IdSchema, blendShape: z.enum(ARKIT_NAMES), threshold: unit, release: unit }).refine(settings => settings.release < settings.threshold, { message: 'Release must be below threshold', path: ['release'] });
 const Lost = z.strictObject({ sourceId: IdSchema, after: z.number().min(0.1).max(60) });
 const Found = z.strictObject({ sourceId: IdSchema });
+const HeadPose = z.strictObject({ entityId: IdSchema });
 const flowOut = (): PortShape => ({ inputs: {}, outputs: { flow: 'flow' } });
 const sourceField = { key: 'sourceId', label: 'Source', kind: 'trackingSource' } as const;
 export const TRACKING_NODES = [
  defineNode({ type: 'tracking.getBlendShape', label: 'Get Tracking Blend Shape', category: 'Tracking', keywords: ['tracking', 'blendshape', 'blend shape', 'face', 'arkit', 'blink', 'mouth', 'read'], settings: blendShape, ports: () => ({ inputs: {}, outputs: { value: 'number' } }),
   defaults: refs => refs.avatarId ? { entityId: refs.avatarId, blendShape: 'eyeBlinkLeft' as const } : null,
   fields: [{ key: 'entityId', label: 'Character', kind: 'avatar' }, { key: 'blendShape', label: 'Blend shape', kind: 'choice', options: ARKIT_NAMES.map(name => ({ value: name, label: name })) }] }),
+ defineNode({ type: 'tracking.getHeadPose', label: 'Get Head Pose', category: 'Tracking', keywords: ['tracking', 'head', 'pose', 'rotation', 'position', 'tracked', 'face', 'read'], settings: HeadPose, ports: () => ({ inputs: {}, outputs: { rotation: 'vector3', position: 'vector3', tracked: 'number' } }),
+  defaults: refs => refs.avatarId ? { entityId: refs.avatarId } : null,
+  fields: [{ key: 'entityId', label: 'Character', kind: 'avatar' }] }),
  defineNode({ type: 'tracking.onBlendShapeThreshold', label: 'On Blend Shape Threshold', category: 'Tracking', keywords: ['tracking', 'blendshape', 'blend shape', 'threshold', 'trigger', 'face', 'arkit', 'blink', 'mouth', 'cross'], settings: Threshold, ports: (): PortShape => ({ inputs: {}, outputs: { rise: 'flow', fall: 'flow', value: 'number' } }),
   defaults: refs => refs.avatarId ? { entityId: refs.avatarId, blendShape: 'jawOpen' as const, threshold: 0.5, release: 0.4 } : null,
   fields: [{ key: 'entityId', label: 'Character', kind: 'avatar' }, { key: 'blendShape', label: 'Blend shape', kind: 'choice', options: ARKIT_NAMES.map(name => ({ value: name, label: name })) }, { key: 'threshold', label: 'Threshold', kind: 'number', min: 0, max: 1 }, { key: 'release', label: 'Release', kind: 'number', min: 0, max: 1 }] }),

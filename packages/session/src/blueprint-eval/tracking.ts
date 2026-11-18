@@ -1,4 +1,5 @@
 import { canonicalArkitName, type ArkitName, type AvatarPose, type BlueprintNodeOf, type Id, type TrackingStatus, TRACKING_LOST_AFTER_SECONDS } from '@opensekai/contracts';
+import { boneEuler } from '../bone-offsets';
 import type { StepEnv } from '../blueprint-runtime';
 import type { EvaluatorTable } from './types';
 
@@ -39,6 +40,15 @@ export const TRACKING_EVALUATORS = {
   const avatar = env.scene()?.entities.find(item => item.id === node.settings.entityId);
   if (avatar?.kind !== 'avatar') throw new RangeError('Character is unavailable');
   return trackedBlendShape(env.previousPose?.(avatar.id) ?? null, node.settings.blendShape);
+ } },
+ 'tracking.getHeadPose': { data: (node, output, _r, _s, env) => {
+  const avatar = env.scene()?.entities.find(item => item.id === node.settings.entityId);
+  if (avatar?.kind !== 'avatar') throw new RangeError('Character is unavailable');
+  const pose = env.previousPose?.(avatar.id) ?? null;
+  if (output === 'rotation') return boneEuler(pose, 'head');
+  if (output === 'position') return pose?.headPosition ? [...pose.headPosition] : [0, 0, 0];
+  const head = pose && Object.hasOwn(pose.bones, 'head') ? pose.bones.head : undefined;
+  return head ? head.weight ?? 1 : 0;
  } },
  'tracking.onBlendShapeThreshold': { data: (node, _o, _r, _s, env) => trackedBlendShape(env.previousPose?.(node.settings.entityId) ?? null, node.settings.blendShape) },
  'tracking.onLost': {},

@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest';
-import { defaultBlueprintSettings, makeSmokeScene, NODE_DEFINITIONS, nodeDefinition, type AvatarPose, type BlueprintGraph, type BlueprintNodeOf, type TrackingStatus } from '@opensekai/contracts';
+import { blueprintPorts, defaultBlueprintSettings, makeSmokeScene, NODE_DEFINITIONS, nodeDefinition, type AvatarPose, type BlueprintGraph, type BlueprintNode, type BlueprintNodeOf, type TrackingStatus } from '@opensekai/contracts';
+import { boneEuler } from '../src/bone-offsets';
 import { EVALUATORS, NO_ENV } from '../src/blueprint-eval';
 import { trackedBlendShape, trackingTrigger, type TrackingEdge } from '../src/blueprint-eval/tracking';
 import { createBlueprintRuntime } from '../src/blueprint-runtime';
@@ -132,4 +133,43 @@ it('a reinstall with unchanged logic keeps its edges', () => {
  expect(step(0)).toEqual(['jaw']);
  runtime.install([graph()]);
  expect(step(16)).toEqual([]);
+});
+
+const headNode = { id: 'h', version: 1, position: { x: 0, y: 0 }, type: 'tracking.getHeadPose', settings: { entityId: avatar.id } } as BlueprintNodeOf<'tracking.getHeadPose'>;
+const headOutput = (output: 'rotation' | 'position' | 'tracked', previous: AvatarPose | null, entities = scene) =>
+ (EVALUATORS['tracking.getHeadPose'] as unknown as { data: (...args: unknown[]) => unknown }).data(headNode, output, {}, {}, { ...NO_ENV, scene: () => entities, previousPose: () => previous });
+const headPose = (extra: Partial<AvatarPose>): AvatarPose => ({ avatarId: avatar.id, bones: {}, expressions: {}, ...extra });
+const turned: AvatarPose['bones'] = { head: { space: 'normalized', rotation: [0, Math.sin(Math.PI / 8), 0, Math.cos(Math.PI / 8)] } };
+
+it('reads the head rotation as Get Bone Rotation does for the head', () => {
+ const previous = headPose({ bones: turned });
+ expect(headOutput('rotation', previous)).toEqual(boneEuler(previous, 'head'));
+ expect((headOutput('rotation', previous) as number[])[1]).toBeCloseTo(45);
+ expect(headOutput('rotation', null)).toEqual(boneEuler(null, 'head'));
+});
+
+it('reads the head position from the previous pose, and zero without one', () => {
+ expect(headOutput('position', headPose({ headPosition: [0.01, -0.02, 0.03] }))).toEqual([0.01, -0.02, 0.03]);
+ expect(headOutput('position', headPose({}))).toEqual([0, 0, 0]);
+ expect(headOutput('position', null)).toEqual([0, 0, 0]);
+});
+
+it('reads tracked as the weight of the head bone, 1 without a weight, 0 without a head bone or a pose', () => {
+ expect(headOutput('tracked', headPose({ bones: { head: { ...turned.head!, weight: 0.4 } } }))).toBe(0.4);
+ expect(headOutput('tracked', headPose({ bones: { head: { ...turned.head!, weight: 0 } } }))).toBe(0);
+ expect(headOutput('tracked', headPose({ bones: turned }))).toBe(1);
+ expect(headOutput('tracked', headPose({ bones: { chest: turned.head! } }))).toBe(0);
+ expect(headOutput('tracked', null)).toBe(0);
+});
+
+it('throws when the character is not in the scene', () => {
+ expect(() => headOutput('tracked', null, { ...scene, entities: [] })).toThrow('Character is unavailable');
+});
+
+it('Get Head Pose parses its defaults and sits in the Tracking category with three outputs', () => {
+ const settings = defaultBlueprintSettings('tracking.getHeadPose', { avatarId: 'a', keystroke });
+ expect(nodeDefinition('tracking.getHeadPose').settings.safeParse(settings).success).toBe(true);
+ expect(defaultBlueprintSettings('tracking.getHeadPose', { keystroke })).toBeNull();
+ expect(NODE_DEFINITIONS.find(d => d.type === 'tracking.getHeadPose')).toMatchObject({ label: 'Get Head Pose', category: 'Tracking' });
+ expect(blueprintPorts({ ...headNode, settings } as BlueprintNode).outputs).toEqual({ rotation: 'vector3', position: 'vector3', tracked: 'number' });
 });
