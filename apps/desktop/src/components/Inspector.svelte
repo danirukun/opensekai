@@ -31,7 +31,7 @@
  import HelpButton from './HelpButton.svelte';
  import {topicForKind} from '../editor/help';
  import {senderStatus} from '../editor/vmc-sender';
- import {directionFromMainCamera} from '../editor/lights';
+ import {affectAlert,directionFromMainCamera} from '../editor/lights';
  import type {LiveRequest} from '../editor/live-edit';
  import AvatarSourceFields from './AvatarSourceFields.svelte';
  import TrackingDiagnostics from './TrackingDiagnostics.svelte';
@@ -64,6 +64,7 @@
  const storedExpressions=$derived(new Set(entity?.kind==='avatar'?Object.keys(entity.expressions??{}):[]));
  // The collapse state is per user in the Editor window storage, never in the show (R12).
  let sectionState=$state.raw<SectionState>(readSections());
+ const alertInAffect=$derived(affectAlert(entity,view.errorMessage,!isCollapsed(sectionState,'light','affect')));
  function readSections(){try{return parseSectionState(localStorage.getItem(SECTION_STORAGE_KEY));}catch{return parseSectionState(null);}}
  function saveSections(next:SectionState){sectionState=next;try{localStorage.setItem(SECTION_STORAGE_KEY,JSON.stringify(next));}catch{}}
  let panel=$state<HTMLElement>(),scroller=$state<HTMLElement|null>(null),indexed=$state(false),current=$state(0);
@@ -123,7 +124,7 @@
    {:else if id==='lens'}<CameraLensFields entityId={entity.id} lens={entity.lens} revision={scene.revision} marks={marks!} disabled={busy||disabled} oncommit={onlens} onlive={(id,lens)=>live(id,revision=>model.setCameraLens(id,lens,revision,true))} onliveend={onlivefieldend}/>
    {:else if id==='control'}<CameraNavigationFields entityId={entity.id} navigation={entity.navigation} entities={scene.entities} revision={scene.revision} marks={marks!} disabled={busy||disabled} oncommit={onnavigation} onlive={(id,navigation)=>live(id,revision=>model.setCameraNavigation(id,navigation,revision,true))} onliveend={onlivefieldend}/>
    {:else if id==='screenshot'}<div class="screenshot-actions"><Button variant="secondary" disabled={shooting||disabled||!onscreenshot} onclick={()=>screenshot(entity!.id)}>Take Screenshot</Button><Button variant="ghost" disabled={!onopenscreenshots} onclick={openFolder}>Open Screenshots Folder</Button></div>{#if shot?.entityId===entity.id}<p class="screenshot-file">{shot.fileName}</p>{/if}{#if shotError}<p role="alert">{shotError}</p>{/if}{/if}
-  {:else if entity.kind==='light'}<LightFields part={id==='affect'?'affect':id==='shadow'?'shadow':'light'} entityId={entity.id} light={entity.light} revision={scene.revision} marks={marks!} disabled={busy||disabled} oncommit={(id,light,revision)=>model.setLight(id,light,revision)} onlive={(id,light)=>live(id,revision=>model.setLight(id,light,revision,true))} onliveend={onlivefieldend} ondirection={async (id,revision)=>{const transform=view.scene?directionFromMainCamera(view.scene,id):null;return transform?model.setTransform?.(id,transform,revision):undefined;}}/>
+  {:else if entity.kind==='light'}<LightFields part={id==='affect'?'affect':id==='shadow'?'shadow':'light'} entityId={entity.id} light={entity.light} revision={scene.revision} marks={marks!} disabled={busy||disabled} oncommit={(id,light,revision)=>model.setLight(id,light,revision)} onlive={(id,light)=>live(id,revision=>model.setLight(id,light,revision,true))} onliveend={onlivefieldend} ondirection={async (id,revision)=>{const transform=view.scene?directionFromMainCamera(view.scene,id):null;return transform?model.setTransform?.(id,transform,revision):undefined;}}/>{#if id==='affect'&&alertInAffect}<p role="alert">{view.errorMessage}</p>{/if}
   {:else if entity.kind==='haze'}<HazeFields entityId={entity.id} haze={entity.haze} revision={scene.revision} marks={marks!} disabled={busy||disabled} oncommit={(id,haze,revision)=>model.setHaze(id,haze,revision)} onlive={(id,haze)=>live(id,revision=>model.setHaze(id,haze,revision,true))} onliveend={onlivefieldend}/>
   {:else if entity.kind==='fpsCounter'}<FpsCounterFields entityId={entity.id} fpsCounter={entity.fpsCounter} revision={scene.revision} marks={marks!} disabled={busy||disabled} oncommit={(id,fpsCounter,revision)=>model.setFpsCounter(id,fpsCounter,revision)} onlive={(id,fpsCounter)=>live(id,revision=>model.setFpsCounter(id,fpsCounter,revision,true))} onliveend={onlivefieldend}/>
   {:else if entity.kind==='vmcSender'}<VmcSenderFields marks={marks!} entityId={entity.id} settings={entity.vmcSender} entities={scene.entities} revision={scene.revision} disabled={view.pending||disabled} status={senderStatus(vmcSenders,entity.id)} oncommit={(id,settings,revision)=>model.setVmcSender(id,settings,revision)}/>
@@ -151,6 +152,6 @@
   <div class="inspector-sections">{#each sections as section (section.id)}<InspectorSection id={section.id} label={section.label} collapsed={isCollapsed(sectionState,entity.kind,section.id)} ontoggle={()=>toggle(section.id)}>{@render body(section.id)}</InspectorSection>{/each}</div>
  </div>
  {/if}
- {#if view.error}<p role="alert">{view.errorMessage??(view.error==='CONFLICT'?'Scene changed. Review values and retry.':view.error)}</p>{/if}
+ {#if view.error&&!alertInAffect}<p role="alert">{view.errorMessage??(view.error==='CONFLICT'?'Scene changed. Review values and retry.':view.error)}</p>{/if}
 </section>
 <style>.screenshot-actions{display:flex;flex-wrap:wrap;gap:8px}.screenshot-file{margin:6px 0 0;font-size:12px;color:var(--ds-color-text-muted);overflow-wrap:anywhere}.field-stack{display:grid;gap:10px}</style>

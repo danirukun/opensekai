@@ -72,6 +72,6 @@ Each case is Stage Rig with the character and an FPS Counter, the Wide camera, a
 
 ### Other findings
 
-- The M1 message for a refused Affect tick shows at the bottom of the Inspector, and the window edge cuts half of it off. It is far from the checkbox.
-- Each Add of a lit light stops the Editor for about 8 to 10 s while the lit materials compile again. MCP returns `UNAVAILABLE` ("Publisher disconnected") during that time. An Add of an unlit light at 8 lit lights does not stop the Editor (T3).
+- The M1 message for a refused Affect tick shows at the bottom of the Inspector, and the window edge cuts half of it off. It is far from the checkbox. Fixed after the owner QA: when the light's Affect section is open, M1 shows directly below the Affect checkboxes (R10). Linux cloud check: `editor-check.mjs` in the built Editor window in headless Chromium, 5 of 5 pass ([output](light-limits/editor-check.txt)). In that harness a later scene inspection clears the alert in about 150 ms, on the base commit too, so the check records the alert when it renders. Repeat on macOS: tick Affect Props on an unlit light at 8 lit lights; M1 shows under the checkboxes and is not cut off.
+- Each Add of a lit light stops the Editor for about 8 to 10 s while the lit materials compile again. This is the three.js recompile of each lit material when the light set changes; #316 (batched lights) owns it. MCP returns `UNAVAILABLE` ("Publisher disconnected") during that time. An Add of an unlit light at 8 lit lights does not stop the Editor (T3).
 - A right-click on a Hierarchy row also selects a word of the row name. This is not a B34b change.

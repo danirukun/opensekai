@@ -1,7 +1,7 @@
 import {expect,it,vi} from 'vitest';
 import {LIGHT_BUDGET_MESSAGES as M,makeSmokeScene,type AppApi,type LightSettings,type Reply,type SceneEntity} from '@opensekai/contracts';
 import {addLimitReached,makeAuthoringEntity} from '../src/editor/authoring';
-import {AMBIENT_LIGHT,DIRECTIONAL_LIGHT,POINT_LIGHT,SPOT_LIGHT,lightCopyLimitReached,lightLimitReached,litLightLimitReached} from '../src/editor/lights';
+import {AMBIENT_LIGHT,DIRECTIONAL_LIGHT,POINT_LIGHT,SPOT_LIGHT,affectAlert,lightCopyLimitReached,lightLimitReached,litLightLimitReached} from '../src/editor/lights';
 import {createEditorModel} from '../src/editor/model';
 
 const off={affectCharacters:false,affectProps:false,affectEnvironment:false};
@@ -68,4 +68,13 @@ it('keeps the light budget message of a refused patch for the Inspector alert (R
  scenePatch.mockResolvedValueOnce({ok:true,data:{revision:0}});
  expect((await model.setLight('beam_only',{...POINT_LIGHT,...off,color:'#ff0000'},0)).ok).toBe(true);
  expect(model.read()).toMatchObject({error:null,errorMessage:null});
+});
+it('shows M1 below the Affect checkboxes of the selected light when that section is open (R10)',()=>{
+ const light=point('l1'),camera=makeSmokeScene().entities.find(e=>e.kind!=='light');
+ expect(affectAlert(light,M.litLights,true)).toBe(true);
+ expect(affectAlert(light,M.litLights,false)).toBe(false);
+ expect(affectAlert(light,M.lights,true)).toBe(false);
+ expect(affectAlert(light,null,true)).toBe(false);
+ expect(affectAlert(camera,M.litLights,true)).toBe(false);
+ expect(affectAlert(undefined,M.litLights,true)).toBe(false);
 });

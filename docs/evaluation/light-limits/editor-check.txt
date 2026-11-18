@@ -1,0 +1,6 @@
+PASS setup through Add: 8 lit lights, then an unlit Spot Light [["Directional Light",true],["Point Light",true],["Point Light 2",true],["Point Light 3",true],["Point Light 4",true],["Point Light 5",true],["Point Light 6",true],["Point Light 7",true],["Spot Light",false]]
+PASS a refused Affect tick at 8 lit lights shows M1 in the Affect section, and not at the bottom (R10) [{"text":"Scene has the maximum of 8 lit lights","section":"affect","inView":true}]
+PASS the M1 alert is inside the window [{"text":"Scene has the maximum of 8 lit lights","section":"affect","inView":true}]
+PASS the checkbox shows the scene value again (off) (R10) 
+PASS no page error []
+5 of 5 pass
