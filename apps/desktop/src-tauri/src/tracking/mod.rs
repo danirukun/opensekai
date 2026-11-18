@@ -651,6 +651,7 @@ async fn serve(
                         bones: decoder.bones.clone(),
                         expressions: decoder.expressions.clone(),
                         root: decoder.root.clone(),
+                        head_position: decoder.head_position,
                     },
                 );
             }

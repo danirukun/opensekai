@@ -105,7 +105,9 @@ object!(CalibrationNeutral {
     space: BoneSpace
 });
 object!(TrackingCalibration {
-    bones: BTreeMap<String, CalibrationNeutral>
+    bones: BTreeMap<String, CalibrationNeutral>,
+    #[serde(rename = "headPosition", skip_serializing_if = "Option::is_none", default)]
+    head_position: Option<Vec3>
 });
 object!(BlendShapeRange {
     input_min: f64,
@@ -151,6 +153,12 @@ pub struct TrackingSample {
     pub expressions: BTreeMap<String, f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub root: Option<TrackingRoot>,
+    #[serde(
+        rename = "headPosition",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
+    pub head_position: Option<Vec3>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -232,6 +240,12 @@ pub struct AvatarPose {
     pub root: Option<TrackingRoot>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bone_offsets: Option<BTreeMap<String, Quat>>,
+    #[serde(
+        rename = "headPosition",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
+    pub head_position: Option<Vec3>,
 }
 /// The humanoid bones in the order of `HUMANOID_BONES` in TypeScript (the VMC sender sends them in this order).
 pub const HUMANOID_BONES: [&str; 55] = [
@@ -447,8 +461,15 @@ fn channels(
     }
     Ok(())
 }
+fn head_position_ok(position: &Option<Vec3>) -> Result<(), AppError> {
+    require(
+        position.is_none_or(|p| p.iter().all(|n| n.is_finite())),
+        "invalid head position",
+    )
+}
 impl Validate for TrackingSample {
     fn validate(&self) -> Result<(), AppError> {
+        head_position_ok(&self.head_position)?;
         scalar_checks(&serde_json::to_value(self).map_err(|e| invalid(e.to_string()))?)?;
         require(
             self.received_at_ms.is_finite()
@@ -460,6 +481,7 @@ impl Validate for TrackingSample {
 }
 impl Validate for AvatarPose {
     fn validate(&self) -> Result<(), AppError> {
+        head_position_ok(&self.head_position)?;
         scalar_checks(&serde_json::to_value(self).map_err(|e| invalid(e.to_string()))?)?;
         channels(&self.bones, &self.expressions, &self.root)?;
         if let Some(base) = &self.base_bones {
@@ -550,6 +572,7 @@ impl Validate for TrackingSmoothing {
 }
 impl Validate for TrackingCalibration {
     fn validate(&self) -> Result<(), AppError> {
+        head_position_ok(&self.head_position)?;
         require(
             (1..=6).contains(&self.bones.len()),
             "invalid calibration bone count",
@@ -600,8 +623,50 @@ impl Validate for TrackingMapping {
 
 #[cfg(test)]
 mod tests {
-    use super::{TrackingConfig, TrackingMapping};
+    use super::{AvatarPose, TrackingCalibration, TrackingConfig, TrackingMapping, TrackingSample};
     use serde_json::json;
+
+    #[test]
+    fn head_position_must_be_finite() {
+        use crate::Validate;
+        let mut sample: TrackingSample = serde_json::from_value(
+            json!({"sourceId":"s","generation":1,"receivedAtMs":0.0,"bones":{},"expressions":{}}),
+        )
+        .unwrap();
+        assert!(sample.validate().is_ok());
+        sample.head_position = Some([0., f64::NAN, 0.]);
+        assert!(sample.validate().is_err());
+    }
+
+    #[test]
+    fn head_position_round_trips_present_and_absent() {
+        let sample =
+            json!({"sourceId":"s","generation":1,"receivedAtMs":0.0,"bones":{},"expressions":{}});
+        let pose = json!({"avatarId":"a","bones":{},"expressions":{}});
+        let calibration = json!({"bones":{"head":{"rotation":[0.0,0.0,0.0,1.0],"space":"raw"}}});
+        for base in [sample, pose, calibration] {
+            let mut with = base.clone();
+            with["headPosition"] = json!([0.0, 0.02, 0.05]);
+            let round = |value: &serde_json::Value| {
+                if value.get("sourceId").is_some() {
+                    serde_json::to_value(
+                        serde_json::from_value::<TrackingSample>(value.clone()).unwrap(),
+                    )
+                } else if value.get("avatarId").is_some() {
+                    serde_json::to_value(
+                        serde_json::from_value::<AvatarPose>(value.clone()).unwrap(),
+                    )
+                } else {
+                    serde_json::to_value(
+                        serde_json::from_value::<TrackingCalibration>(value.clone()).unwrap(),
+                    )
+                }
+                .unwrap()
+            };
+            assert_eq!(round(&base), base);
+            assert_eq!(round(&with), with);
+        }
+    }
 
     #[test]
     fn vmc_positions_round_trip_present_and_absent() {

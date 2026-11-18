@@ -6,6 +6,7 @@ pub struct Decoder {
     pub bones: BTreeMap<String, TrackingBone>,
     pub expressions: BTreeMap<String, f64>,
     pub root: Option<TrackingRoot>,
+    pub head_position: Option<Vec3>,
     staged: BTreeMap<String, f64>,
 }
 
@@ -174,6 +175,8 @@ fn unity_pose(args: &[Arg]) -> Result<TrackingRoot, AppError> {
         rotation: normalized([-values[3], -values[4], values[5], values[6]])?,
     })
 }
+/// iFacialMocap sends the head translation in centimeters.
+const IFACIAL_POSITION_SCALE: f64 = 0.01;
 fn euler(degrees: &[f64]) -> Quat {
     let x = degrees[0].to_radians() / 2.;
     let y = degrees[1].to_radians() / 2.;
@@ -394,6 +397,13 @@ impl Decoder {
                 if values.len() != if name == "head" { 6 } else { 3 } {
                     return Err(invalid("Invalid IFacial transform"));
                 }
+                if name == "head" {
+                    next.head_position = Some([
+                        -values[3] * IFACIAL_POSITION_SCALE,
+                        -values[4] * IFACIAL_POSITION_SCALE,
+                        values[5] * IFACIAL_POSITION_SCALE,
+                    ]);
+                }
                 next.bones.insert(
                     name.into(),
                     TrackingBone {
@@ -563,6 +573,23 @@ mod tests {
         }
     }
     #[test]
+    fn ifacial_keeps_head_translation() {
+        let mut d = Decoder::default();
+        d.ifacial(b"=head#0,0,0,1,2,5|").unwrap();
+        let [x, y, z] = d.head_position.unwrap();
+        assert_eq!(
+            [x, y, z],
+            [
+                -1. * IFACIAL_POSITION_SCALE,
+                -2. * IFACIAL_POSITION_SCALE,
+                5. * IFACIAL_POSITION_SCALE
+            ]
+        );
+        assert_eq!(d.bones["head"].position, None);
+        d.ifacial(b"jawOpen&10|").unwrap();
+        assert_eq!(d.head_position, None);
+    }
+    #[test]
     fn ifacial_v2_legacy_degree_and_bounds() {
         let mut d = Decoder::default();
         d.ifacial(b"jawOpen&150|eyeBlink_L&-4|=head#0,90,0,1,2,3|leftEye#0,0,0|")
@@ -570,6 +597,7 @@ mod tests {
         assert_eq!(d.expressions["jawOpen"], 1.);
         assert_eq!(d.expressions["eyeBlink_L"], 0.);
         assert!((d.bones["head"].rotation[1] + std::f64::consts::FRAC_1_SQRT_2).abs() < 1e-8);
+        assert!(d.head_position.is_some());
         d.ifacial(b"jawOpen-50|").unwrap();
         assert_eq!(d.expressions["jawOpen"], 0.5);
         assert!(d.ifacial(b"jawOpen&NaN|").is_err());
