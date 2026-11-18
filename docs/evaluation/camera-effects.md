@@ -44,14 +44,14 @@ Images (WebGL 2):
 
 ## Local checks
 
-LC1 ran on 2026-11-18 at `69b497e`: macOS 27.2.1 (Apple silicon), debug build (`pnpm dev:desktop`, `OPENSEKAI_EVALUATION=1`), OBS 33.0.1 (browser source, 1920 × 1080 at 60 FPS), WebGPU, `production_v1`. The other local checks did not run.
+LC1 ran on 2026-11-18 at `69b497e`: macOS 27.2.1 (Apple silicon), debug build (`pnpm dev:desktop`, `OPENSEKAI_EVALUATION=1`), OBS 33.0.1 (browser source, 1920 × 1080 at 60 FPS), WebGPU, `production_v1`. LC2 is the owner review of the look. LC3 to LC5 did not run.
 
 LC1 method: the app scene got the scene of operation 7 (the cameras `camera_wide` and `camera_close` of the smoke scene and the gray image screen, no environment) through `scene_replace`, and `camera_select` put `camera_wide` on `output_main`. The two test images of `pixels.mjs` were added to the app library as records. Each step is an MCP `scene_patch` with `setCameraEffects`. After each step, OBS `GetSourceScreenshot` was taken until two PNGs in sequence were equal. The pixel tests are the tests of `pixels.mjs`. OBS gives a premultiplied colour, so the colour of each partly transparent pixel was divided by its alpha before the tests. Without the division, 2 tests fail only on edge pixels (HC1 Blink at the antialiased screen edge, and HC3 at the blur edge), for example `[1, 1, 1, 2]`, which is gray 128 with alpha 2.
 
 | Check | Result |
 | --- | --- |
 | LC1, WebGPU: HC1 to HC5 on OBS source screenshots | Pass. HC0 to HC7: 19 pass, 0 fail ([log](camera-effects/obs-webgpu.txt)). Each of the 10 steps reports `webgpu` on `output_main` and has no warning, which includes HC6 with all five effects. HC4: the pixel blocks start at the top-left corner of the frame. [Images](camera-effects/obs-webgpu.png), over #303040, in the order baseline, vignetting, vignetting with Blink 1, night vision; blur 4, pixelate 64, lens dirt, all five effects. HC8 on WebGPU (the Editor camera screenshot) did not run. |
-| LC2, the look of each effect, from the HC images | Not checked. For the owner, in review. |
+| LC2, the look of each effect, from the HC images | Pass. The owner accepted the look of each effect from the [OBS WebGPU images](camera-effects/obs-webgpu.png) on 2026-11-18. V1 to V9 do not change. |
 | LC3, the WebKit preview compiles each effect | Not checked. Only on owner request. |
 | LC4, OBS alpha over dark, light, and checker backgrounds with all five effects | Not checked. Only on owner request. |
 | LC5, cost at `production_v1` and output with the Editor minimized | Not checked. Only on owner request. GPU time: unknown. |
