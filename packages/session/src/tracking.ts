@@ -113,6 +113,7 @@ export function createTrackingComposer(){
    if(fingers)for(const[name,bone]of Object.entries(fingers.sample.bones)){if(!fingerBones.has(name))continue;const index=boneEntries.findIndex(([key])=>key===name);if(index>=0)boneEntries.splice(index,1);boneEntries.push([name,{...copy(bone),weight:fingers.weight}]);}
    const bodyTracking=entity.tracking?.body;
    const pose:AvatarPose={avatarId:entity.id,...(baseBones?{baseBones}:{}),bones:Object.fromEntries(applyBodyTracking(boneEntries,bodyTracking)),expressions:Object.fromEntries(face?Object.entries(face.sample.expressions).map(([name,value])=>[name,value*face.weight]):[])};
+   if(face?.sample.headPosition)pose.headPosition=face.sample.headPosition.map(value=>value*face.weight)as[number,number,number];
    if(body?.sample.root&&(!bodyTracking||bodyTracking.trackedParts.includes('body')))pose.root={position:body.sample.root.position.map(value=>value*body.weight)as[number,number,number],rotation:scaleRotation(body.sample.root.rotation,body.weight)};
    avatarPoses.push(pose);
   }

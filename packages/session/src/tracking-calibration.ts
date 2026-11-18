@@ -1,4 +1,4 @@
-import { CALIBRATION_BONES, type Quat, type TrackingCalibration, type TrackingSample } from '@opensekai/contracts';
+import { CALIBRATION_BONES, type Quat, type TrackingCalibration, type TrackingSample, type Vec3 } from '@opensekai/contracts';
 import { multiplyQuat } from './bone-offsets';
 
 const inverse = (q: Quat): Quat => [-q[0], -q[1], -q[2], q[3]];
@@ -10,12 +10,14 @@ export function captureCalibration(sample: TrackingSample): TrackingCalibration 
   const bone = sample.bones[name];
   return bone ? [[name, { rotation: [...bone.rotation] as Quat, space: bone.space }]] : [];
  }));
- return Object.keys(bones).length ? { bones } : null;
+ return Object.keys(bones).length ? { bones, ...(sample.headPosition ? { headPosition: [...sample.headPosition] as Vec3 } : {}) } : null;
 }
 
 // Each calibrated bone becomes inverse(neutral) × rotation, so the captured pose reads as identity.
 export function applyCalibration(sample: TrackingSample, calibration: TrackingCalibration | undefined): TrackingSample {
- if (!calibration) return sample;
+ // The head position is a difference from the neutral. Without a neutral on both sides it is dropped, so a camera-space position never reaches the pose.
+ const { headPosition, ...rest } = sample;
+ if (!calibration) return rest;
  const bones = structuredClone(sample.bones), neutral = calibration.bones;
  const calibrated = (name: keyof TrackingCalibration['bones'], rotation: Quat): Quat | null => {
   const saved = neutral[name], bone = sample.bones[name];
@@ -31,5 +33,6 @@ export function applyCalibration(sample: TrackingSample, calibration: TrackingCa
   const face = multiplyQuat(inverse(multiplyQuat(chestN.rotation, headN.rotation)), multiplyQuat(chest.rotation, head.rotation));
   bones.head!.rotation = normalize(multiplyQuat(inverse(bones.chest!.rotation), face));
  }
- return { ...sample, bones };
+ const offset = headPosition && calibration.headPosition ? { headPosition: headPosition.map((value, i) => value - calibration.headPosition![i]!) as Vec3 } : {};
+ return { ...rest, bones, ...offset };
 }
