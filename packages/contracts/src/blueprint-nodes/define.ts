@@ -29,7 +29,13 @@ export type BlueprintField =
  // A variable of any type (or any list type); a choice also writes the variable type to `typeKey`.
  | { key: string; label: string; kind: 'typedVariable'; typeKey: string; lists?: boolean }
  // A graph of the show, by ID (Blueprint control nodes).
- | { key: string; label: string; kind: 'graph' };
+ | { key: string; label: string; kind: 'graph' }
+ // A list of `min` to `max` plain-data rows, one editor for each column. The editor adds `newRow`.
+ | { key: string; label: string; kind: 'rows'; columns: readonly RowColumn[]; min: number; max: number; newRow: Readonly<Record<string, unknown>> };
+// A `range` cell is a [min, max] pair. A choice option with a null value writes null.
+export type RowColumn =
+ | { key: string; label: string; kind: 'number' | 'boolean' | 'range' }
+ | { key: string; label: string; kind: 'choice'; options: readonly { value: string | null; label: string }[] };
 export interface NodeDefinition<T extends string = string, S extends z.ZodType = z.ZodType> {
  type: T; label: string; category: NodeCategory; keywords: readonly string[];
  settings: S;

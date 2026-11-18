@@ -1,7 +1,7 @@
-import type { Vec3 } from '@opensekai/contracts';
+import type { PENDULUM_INPUT_KINDS, Vec3 } from '@opensekai/contracts';
 import { smoothDampStep } from './blueprint-eval/math';
 
-export type PendulumInputKind = 'headPitch' | 'headYaw' | 'headRoll' | 'headPositionX' | 'headPositionY' | 'headPositionZ' | 'blendShape';
+export type PendulumInputKind = typeof PENDULUM_INPUT_KINDS[number];
 export interface PendulumInput { kind: PendulumInputKind; blendShape: string | null; weight: number; scale: number; absolute: boolean; clamp: [number, number] }
 export interface PendulumArm { length: number; mass: number; drag: number; spring: number; damping: number; gravity: number }
 export interface PendulumReading { rotation: Vec3; position: Vec3; blendShape: (name: string) => number }

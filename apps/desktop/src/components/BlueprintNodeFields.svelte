@@ -4,7 +4,7 @@
  import { blendShapeNames, DEFAULT_EASING, EASINGS, MAX_NODE_MESHES, nodeDefinition, triggerableExpressions, type AssetRecord, type BlueprintField, type BlueprintNode, type BlueprintVariable, type DataType, type KeystrokeSettings, type SceneView, type Vec3 } from '@opensekai/contracts';
  import KeystrokeField from './KeystrokeField.svelte';
  import { chooseTypedVariable, formatStringCases, parseStringCases, resizeTypes, typedVariableOptions } from '../blueprints/data-fields';
- import { boneOptions, dataTypeOptions, fitPropertySettings, formatCases, keyOptions, parseCases, parseScalar, propertyOptions, vectorParts } from '../blueprints/fields';
+ import { addRow, boneOptions, cellNumber, dataTypeOptions, fitPropertySettings, formatCases, keyOptions, parseCases, parseScalar, propertyOptions, rangePart, removeRow, setRowCell, vectorParts } from '../blueprints/fields';
 
  let { node, scene, assets = [], graphs = [], variables, platform, unavailable, onsettings }: {
   node: BlueprintNode; scene: SceneView | null; assets?: readonly AssetRecord[]; graphs?: readonly { id: string; name: string }[]; variables: readonly BlueprintVariable[]; platform: string; unavailable: boolean;
@@ -96,6 +96,18 @@
  let invalidCases = $state<string | null>(null);
  const types = (field: Extract<BlueprintField, { kind: 'types' }>) => settings[field.key] as DataType[];
  const counts = (max: number) => Array.from({ length: max + 1 }, (_, i) => ({ value: String(i), label: String(i) }));
+ type RowsField = Extract<BlueprintField, { kind: 'rows' }>;
+ const rowList = (field: RowsField) => settings[field.key] as Record<string, unknown>[];
+ // A row edit that the settings schema rejects (a clamp minimum above its maximum, a negative mass) is not sent.
+ const commit = (next: Record<string, unknown>) => {
+  const valid = nodeDefinition(node.type).settings.safeParse(next).success;
+  if (valid) onsettings(next as BlueprintNode['settings']);
+  return valid;
+ };
+ const cell = (field: RowsField, index: number, key: string, value: unknown) => commit(setRowCell(settings, field, index, key, value));
+ const optionText = (value: string | null) => value ?? '';
+ // "Inputs" names one row "input".
+ const rowName = (field: RowsField) => field.label.toLowerCase().replace(/s$/, '');
  const options = (field: BlueprintField) => {
   const list = choices(field), value = settings[field.key];
   return (field.kind === 'entity' || field.kind === 'camera' || field.kind === 'output' || field.kind === 'avatar' || field.kind === 'trackingSource' || field.kind === 'expression' || field.kind === 'blendshape' || field.kind === 'typedVariable' || field.kind === 'graph') && typeof value === 'string' && !list.some(item => item.value === value)
@@ -154,6 +166,36 @@
     </div>
    {/each}
    <Button variant="ghost" size="sm" title={`Add ${field.label.toLowerCase()}`} disabled={next === undefined} onclick={() => { if (next !== undefined) set(field.key, [...meshNames(field), next]); }}><Plus size={14}/></Button>
+  </div>
+ {:else if field.kind === 'rows'}
+  {@const list = rowList(field)}
+  <div class="blueprint-field-rows" role="group" aria-label={field.label}>
+   <div class="blueprint-field-rows-head">
+    <span>{field.label}</span>
+    <Button variant="ghost" size="sm" title={`Add ${rowName(field)}`} disabled={list.length >= field.max} onclick={() => onsettings(addRow(settings, field) as BlueprintNode['settings'])}><Plus size={14}/></Button>
+   </div>
+   {#each list as row, index (index)}
+    <div class="blueprint-field-row" class:blueprint-field-row-numbers={field.columns.every(column => column.kind === 'number')} role="group" aria-label={`${field.label} ${index + 1}`}>
+     {#each field.columns as column (column.key)}
+      {@const label = index === 0 ? column.label : undefined}
+      {#if column.kind === 'number'}
+       <Input type="number" step="any" {label} value={String(row[column.key])} oninput={event => { const value = cellNumber(event.currentTarget.value); if (value !== null) cell(field, index, column.key, value); }} onchange={event => settle(event.currentTarget, cellNumber(event.currentTarget.value) === row[column.key], row[column.key])} />
+      {:else if column.kind === 'range'}
+       {@const range = row[column.key] as [number, number]}
+       <div class="blueprint-field-range">
+        {#each range as end, part (part)}
+         <Input type="number" step="any" label={part === 0 ? label : undefined} value={String(end)} oninput={event => { const next = rangePart(range, part as 0 | 1, event.currentTarget.value); if (next) cell(field, index, column.key, next); }} onchange={event => settle(event.currentTarget, cellNumber(event.currentTarget.value) === end, end)} />
+        {/each}
+       </div>
+      {:else if column.kind === 'boolean'}
+       <label class="blueprint-checkbox"><input type="checkbox" checked={Boolean(row[column.key])} onchange={event => cell(field, index, column.key, event.currentTarget.checked)} />{column.label}</label>
+      {:else if column.kind === 'choice'}
+       <Select {label} value={optionText(row[column.key] as string | null)} options={column.options.map(option => ({ value: optionText(option.value), label: option.label }))} onchange={event => { const option = column.options.find(item => optionText(item.value) === event.currentTarget.value); if (!option || !cell(field, index, column.key, option.value)) event.currentTarget.value = optionText(row[column.key] as string | null); }} />
+      {/if}
+     {/each}
+     <Button variant="ghost" size="sm" title={`Remove ${rowName(field)} ${index + 1}`} disabled={list.length <= field.min} onclick={() => onsettings(removeRow(settings, field, index) as BlueprintNode['settings'])}><X size={14}/></Button>
+    </div>
+   {/each}
   </div>
  {:else if field.kind === 'keystroke'}
   <KeystrokeField value={settings as KeystrokeSettings} {platform} {unavailable} onchange={next => onsettings(next)} />

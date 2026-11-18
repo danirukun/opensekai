@@ -1,4 +1,4 @@
-import { DATA_TYPE_LABELS, DATA_TYPES, defaultBlueprintValue, HUMANOID_BONES, isBlueprintValue, isListType, itemType, KEYSTROKE_CODES, MAX_BLUEPRINT_LIST_LENGTH, propertiesFor, type BlueprintValue, type BlueprintVariable, type DataType, type ListType, type PropertyKey, type ScalarType, type ScalarValue, type SceneView, type Vec3 } from '@opensekai/contracts';
+import { DATA_TYPE_LABELS, type BlueprintField, DATA_TYPES, defaultBlueprintValue, HUMANOID_BONES, isBlueprintValue, isListType, itemType, KEYSTROKE_CODES, MAX_BLUEPRINT_LIST_LENGTH, propertiesFor, type BlueprintValue, type BlueprintVariable, type DataType, type ListType, type PropertyKey, type ScalarType, type ScalarValue, type SceneView, type Vec3 } from '@opensekai/contracts';
 
 export function parseCases(text: string): number[] | null {
  const parts = text.split(',').map(part => part.trim()).filter(part => part !== '');
@@ -72,3 +72,22 @@ export function fitPropertySettings<S extends { entityId: string; property: Prop
 }
 const words = (name: string) => name.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, letter => letter.toUpperCase());
 export const boneOptions = () => HUMANOID_BONES.map(bone => ({ value: bone, label: words(bone) }));
+
+type RowsField = Extract<BlueprintField, { kind: 'rows' }>;
+type Settings = Record<string, unknown>;
+type Row = Record<string, unknown>;
+const rows = (settings: Settings, field: RowsField) => settings[field.key] as Row[];
+// Add and remove give the same settings object back at the field limit.
+export const addRow = (settings: Settings, field: RowsField): Settings =>
+ rows(settings, field).length < field.max ? { ...settings, [field.key]: [...rows(settings, field), structuredClone(field.newRow)] } : settings;
+export const removeRow = (settings: Settings, field: RowsField, index: number): Settings =>
+ rows(settings, field).length > field.min ? { ...settings, [field.key]: rows(settings, field).filter((_, i) => i !== index) } : settings;
+// A pendulum input that turns into a blend shape input needs a name.
+const fitRow = (row: Row): Row => row.kind === 'blendShape' && row.blendShape === null ? { ...row, blendShape: 'jawOpen' } : row;
+export const setRowCell = (settings: Settings, field: RowsField, index: number, key: string, value: unknown): Settings =>
+ ({ ...settings, [field.key]: rows(settings, field).map((row, i) => i === index ? fitRow({ ...row, [key]: value }) : row) });
+export const cellNumber = (text: string): number | null => { const value = parseScalar('number', text); return typeof value === 'number' ? value : null; };
+export const rangePart = (range: readonly [number, number], index: 0 | 1, text: string): [number, number] | null => {
+ const part = cellNumber(text);
+ return part === null ? null : index === 0 ? [part, range[1]] : [range[0], part];
+};

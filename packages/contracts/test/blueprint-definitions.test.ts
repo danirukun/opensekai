@@ -57,7 +57,7 @@ it('returns null defaults when the scene lacks the entity, camera, or output', (
 it('publishes a catalog of every node with its ports and settings schema', () => {
  const catalog = blueprintNodeCatalog();
  expect(catalog).toHaveLength(NODE_DEFINITIONS.length);
- expect(catalog).toHaveLength(189);
+ expect(catalog).toHaveLength(190);
  expect(catalog.find(entry => entry.type === 'math.lerp')!.inputDefaults).toEqual({ b: 1, t: 0.5 });
  expect(catalog.find(entry => entry.type === 'vector3.scale')!.inputDefaults).toEqual({ factor: 1 });
  expect(catalog.find(entry => entry.type === 'math.add')!.inputDefaults).toEqual({});
@@ -67,5 +67,6 @@ it('publishes a catalog of every node with its ports and settings schema', () =>
  expect(JSON.parse(JSON.stringify(catalog))).toEqual(catalog);
  expect(catalog.find(entry => entry.type === 'character.getBoneRotation')).toMatchObject({ label: 'Get Bone Rotation', category: 'Character', ports: { inputs: {}, outputs: { euler: 'vector3' } }, settings: { required: ['entityId', 'bone'] } });
  expect(catalog.find(entry => entry.type === 'character.offsetBoneRotation')).toMatchObject({ label: 'Offset Bone Rotation', category: 'Character', ports: { inputs: { flow: 'flow', euler: 'vector3' }, outputs: { exit: 'flow' } } });
+ expect(catalog.find(entry => entry.type === 'tracking.pendulum')).toMatchObject({ label: 'Pendulum', category: 'Tracking', ports: { inputs: {}, outputs: { value: 'number' } }, settings: { required: ['entityId', 'inputs', 'inputSmoothing', 'arms'] } });
  expect(catalog.find(entry => entry.type === 'character.setExpression')).toMatchObject({ label: 'Set Expression', category: 'Character', ports: { inputs: { flow: 'flow', active: 'boolean' }, outputs: { exit: 'flow' } }, settings: { required: ['entityId', 'expression'] } });
 });
