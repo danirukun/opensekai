@@ -1,6 +1,6 @@
 # REASONS: Spring bones
 
-Date: 2026-11-18. Scope: bundle B43 (#14 CHR-08, first subset). Analysis: [spring bones](../analysis/2026-11-18-spring-bones.md). Design: [spring bones design](../../docs/superpowers/specs/2026-11-18-spring-bones-design.md). Plan: [implementation plan](../../docs/superpowers/plans/2026-11-18-spring-bones.md). Changes: the secondary motion rule of the [architecture design](../../docs/superpowers/specs/2026-10-02-opensekai-architecture-design.md) and of the [minimum live VTubing contract](2026-10-03-minimum-live-vtubing.md).
+Date: 2026-11-18. Scope: bundle B43 (#14 CHR-08, first subset). Analysis: [spring bones](../analysis/2026-11-18-spring-bones.md). Design: [spring bones design](../../docs/superpowers/specs/2026-11-18-spring-bones-design.md). Plan: [implementation plan](../../docs/superpowers/plans/2026-11-18-spring-bones.md). Evidence: [spring bones check](../../docs/evaluation/spring-bones.md) (checks 1 to 5; `TELEPORT_LIMITS` stays the same after the checks). Changes: the secondary motion rule of the [architecture design](../../docs/superpowers/specs/2026-10-02-opensekai-architecture-design.md) and of the [minimum live VTubing contract](2026-10-03-minimum-live-vtubing.md).
 
 The owner approved D1 to D3 on 2026-11-18. D4 to D12 are the design calls C1 to C9 and the builder choices; the owner can change each one in review. V1 to V4 are reversible choices of this contract.
 
