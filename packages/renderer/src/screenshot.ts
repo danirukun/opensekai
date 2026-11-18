@@ -4,8 +4,11 @@ import { fxaa } from "three/addons/tsl/display/FXAANode.js";
 import { gaussianBlur } from "three/addons/tsl/display/GaussianBlurNode.js";
 import { HAZE_BLUR, HAZE_LAYER, HAZE_RESOLUTION, hazeComposite, type Haze } from "./haze";
 import { BEAM_LAYER, BEAM_RESOLUTION, type Beams } from "./beam";
-import { isNeutralGrading, type Backend, type CameraAntiAliasing, type CameraGrading } from "@opensekai/contracts";
+import { isNeutralGrading, type Backend, type CameraAntiAliasing, type CameraEffects, type CameraGrading } from "@opensekai/contracts";
 import { bloomComposite, createGrading } from "./grading";
+import { createCameraEffects, type EffectStep } from "./camera-effects";
+import { activeEffects } from "./camera-effects-math";
+import type { ScreenImage } from "./screen";
 
 export const SCREENSHOT_WIDTH = 1920;
 export const SCREENSHOT_HEIGHT = 1080;
@@ -112,10 +115,12 @@ export interface ScreenshotRender {
     grading?: CameraGrading | null;
     /** The beams draw as in the output: their own pass with the screenshot depth, added after the haze (stage beams R16). */
     beams?: Beams | null;
+    /** The camera effects, drawn as in the output with the loaded dirt image (B37 R21). */
+    effects?: { effects: CameraEffects; dirt: ScreenImage | null } | null;
 }
 
 /** Renders one 1920 × 1080 frame to offscreen targets with a transparent clear, reads it once, and returns the PNG. The canvas is not drawn. */
-export async function renderScreenshot({ renderer, backend, scene, camera, show, antiAliasing, msaaSamples, haze = null, grading = null, beams = null }: ScreenshotRender): Promise<Uint8Array> {
+export async function renderScreenshot({ renderer, backend, scene, camera, show, antiAliasing, msaaSamples, haze = null, grading = null, beams = null, effects = null }: ScreenshotRender): Promise<Uint8Array> {
     const width = SCREENSHOT_WIDTH, height = SCREENSHOT_HEIGHT;
     const sceneTarget = new RenderTarget(width, height, { type: HalfFloatType, samples: msaaSamples, depthBuffer: true });
     if (haze || beams) sceneTarget.depthTexture = new DepthTexture(width, height);
@@ -127,6 +132,7 @@ export async function renderScreenshot({ renderer, backend, scene, camera, show,
     const materials: NodeMaterial[] = [];
     const quad = (node: NodeMaterial["fragmentNode"]) => { const material = new NodeMaterial(); material.fragmentNode = node; materials.push(material); return new QuadMesh(material); };
     let glow: { dispose(): void } | null = null;
+    const steps: EffectStep[] = [];
     const saved = scene.children.map(child => [child, child.visible] as const);
     const previousTarget = renderer.getRenderTarget();
     try {
@@ -152,15 +158,30 @@ export async function renderScreenshot({ renderer, backend, scene, camera, show,
             finally { camera.layers.mask = mask; }
             color = hazeComposite(color, texture(beamTarget.texture) as unknown as typeof color, uniform(1)) as unknown as typeof color;
         }
-        if (grading && !isNeutralGrading(grading)) {
-            const grade = createGrading();
-            grade.update(grading);
-            if (grading.bloom.intensity > 0) {
+        const graded = grading && !isNeutralGrading(grading) ? grading : null;
+        const grade = graded ? createGrading() : null;
+        if (graded && grade) {
+            grade.update(graded);
+            if (graded.bloom.intensity > 0) {
                 const bloom = grade.bloom(color, { width, height });
                 glow = bloom;
                 color = bloomComposite(color, bloom) as unknown as typeof color;
             }
-            color = grade.grade(color, grading.toneMapping) as unknown as typeof color;
+        }
+        // B37 D7: lens dirt between the bloom and the grade, the other effects after the grade. Each target is 1920 × 1080 or its part.
+        const active = activeEffects(effects?.effects, !!effects?.dirt);
+        const fx = effects && Object.values(active).some(Boolean) ? createCameraEffects() : null;
+        fx?.update(effects!.effects, { width, height }, effects!.dirt);
+        if (fx && active.lensDirt && effects?.dirt) {
+            const dirt = fx.lensDirt(color, effects.dirt, { width, height });
+            steps.push(dirt);
+            color = dirt.color as unknown as typeof color;
+        }
+        if (graded && grade) color = grade.grade(color, graded.toneMapping) as unknown as typeof color;
+        if (fx) {
+            const styled = fx.stylize(color, active, { width, height });
+            steps.push(styled);
+            color = styled.color as unknown as typeof color;
         }
         // The same display transform as the canvas output; FXAA then works on display-referred color, as in post-chain.ts.
         renderer.setRenderTarget(colorTarget);
@@ -177,5 +198,6 @@ export async function renderScreenshot({ renderer, backend, scene, camera, show,
         for (const [child, visible] of saved) child.visible = visible;
         for (const material of materials) material.dispose();
         sceneTarget.dispose(); colorTarget.dispose(); fxaaTarget?.dispose(); hazeTarget?.dispose(); beamTarget?.dispose(); blur?.dispose(); glow?.dispose();
+        for (const step of steps) step.dispose();
     }
 }

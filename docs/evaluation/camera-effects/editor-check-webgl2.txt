@@ -1,0 +1,26 @@
+renderer mode force-webgl2
+closed the start screen
+PASS the scene of operation 7 is set null
+PASS HC8: the Effects section comes directly after Grading (R25) ["Transform","Rendering","Grading","Effects","Lens","Control","Screenshot"]
+PASS HC8: the Effects section is open (not inert) null
+PASS HC8: each effect is a group with the effect name (R26) ["Lens Dirt","Vignetting","Night Vision","Blur","Pixelate"]
+PASS HC8: Lens Dirt lists None first, then the images and Import file… (R27) ["None","Gray","Import file…"]
+PASS HC8: the Blur checkbox shows Intensity and writes the defaults (R26, R28) {"before":["Blur"],"afterOn":["Blur","Intensity"],"patches":[{"kind":"setCameraEffects","entityId":"camera_main","effects":{"blur":{"enabled":true,"intensity":1}}}]}
+PASS HC8: the Blur reset mark has the effect name ["Reset Blur"]
+PASS HC8: Import file… sets the dirt image on this camera only (R27) {"patches":[{"kind":"setCameraEffects","entityId":"camera_main","effects":{"lensDirt":{"assetId":"image_fe205d5722f33e2f6368422a232fbb1159de480789938de327e7e040cb56c950","intensity":0.9,"threshold":0.5},"blur":{"enabled":false,"intensity":1}}}]}
+PASS HC8: a dirt image shows Intensity and Threshold (R26) ["Lens Dirt","Intensity","Threshold"]
+SCREENSHOT baseline {"width":1920,"height":1080,"previewBackend":"webgl2"}
+PASS HC8 screenshot: HC0: the screen is opaque in the middle and transparent around it {"box":{"x0":69,"y0":95,"x1":1850,"y1":984,"covered":1585980},"centre":[128,128,128,255],"outside":[[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]]}
+SCREENSHOT vignetting alpha 1 {"width":1920,"height":1080,"previewBackend":"webgl2"}
+PASS HC8 screenshot: HC1: outside pixels stay alpha 0 {"changed":0,"first":null}
+PASS HC8 screenshot: HC1: each covered pixel keeps its baseline alpha (±1) {"changed":0,"first":null}
+PASS HC8 screenshot: HC1: covered pixels near the frame corners are darker than the baseline [{"at":[81,107],"base":[128,128,128,255],"image":[46,46,46,255]},{"at":[1838,107],"base":[128,128,128,255],"image":[46,46,46,255]},{"at":[81,972],"base":[128,128,128,255],"image":[46,46,46,255]},{"at":[1838,972],"base":[128,128,128,255],"image":[46,46,46,255]}]
+PASS HC8 screenshot: HC1: the frame centre is equal (±2) {"largest":0}
+SCREENSHOT vignetting blink 1 {"width":1920,"height":1080,"previewBackend":"webgl2"}
+PASS HC8 screenshot: HC1 Blink 1: each covered pixel is 76 (±3) in each channel with its baseline alpha (±1) {"checked":1585980,"bad":0,"first":null,"sample":[76,76,76,255]}
+PASS HC8 screenshot: HC1 Blink 1: outside pixels stay alpha 0 {"changed":0,"first":null}
+SCREENSHOT pixelate 64 {"width":1920,"height":1080,"previewBackend":"webgl2"}
+PASS HC8 screenshot: HC4: each 64 x 64 block from the frame origin has one colour (±2) {"origin":"top-left","fromTopLeft":{"mixed":0,"first":null,"edges":82},"fromBottomLeft":{"mixed":56,"first":{"x0":64,"y0":952},"edges":82}}
+preview backend webgl2
+PASS no page errors []
+18/18 passed

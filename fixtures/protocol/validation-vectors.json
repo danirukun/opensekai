@@ -31041,5 +31041,958 @@
         }
       ]
     }
+  },
+  {
+    "name": "camera-effects-empty",
+    "target": "scene",
+    "valid": true,
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "box"
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1"
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          },
+          "antiAliasing": "fxaa",
+          "effects": {}
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "camera-effects-defaults",
+    "target": "scene",
+    "valid": true,
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "box"
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1"
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          },
+          "antiAliasing": "fxaa",
+          "effects": {
+            "lensDirt": {
+              "assetId": null,
+              "intensity": 0.9,
+              "threshold": 0.5
+            },
+            "vignetting": {
+              "enabled": false,
+              "color": "#4c4c4c",
+              "alpha": 0.051,
+              "fadeOut": 0,
+              "blink": 0
+            },
+            "nightVision": {
+              "enabled": false,
+              "color": "#80ff80",
+              "alpha": 0.502
+            },
+            "blur": {
+              "enabled": false,
+              "intensity": 1
+            },
+            "pixelate": {
+              "enabled": false,
+              "intensity": 16
+            }
+          }
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "camera-effects-pixelate-min",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": true,
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setCameraEffects",
+          "entityId": "camera_wide",
+          "effects": {
+            "pixelate": {
+              "enabled": true,
+              "intensity": 1
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "camera-effects-pixelate-max",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": true,
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setCameraEffects",
+          "entityId": "camera_wide",
+          "effects": {
+            "pixelate": {
+              "enabled": true,
+              "intensity": 256
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "camera-effects-unknown-key",
+    "target": "scene",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "box"
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1"
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          },
+          "antiAliasing": "fxaa",
+          "effects": {
+            "chromaticAberration": {
+              "enabled": true
+            }
+          }
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "camera-effects-unknown-field",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setCameraEffects",
+          "entityId": "camera_wide",
+          "effects": {
+            "blur": {
+              "enabled": false,
+              "intensity": 1,
+              "radius": 1
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "camera-effects-missing-field",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setCameraEffects",
+          "entityId": "camera_wide",
+          "effects": {
+            "vignetting": {
+              "enabled": false,
+              "color": "#4c4c4c",
+              "alpha": 0.051,
+              "fadeOut": 0
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "camera-effects-vignetting-alpha-over",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setCameraEffects",
+          "entityId": "camera_wide",
+          "effects": {
+            "vignetting": {
+              "enabled": false,
+              "color": "#4c4c4c",
+              "alpha": 1.01,
+              "fadeOut": 0,
+              "blink": 0
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "camera-effects-fade-out-under",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setCameraEffects",
+          "entityId": "camera_wide",
+          "effects": {
+            "vignetting": {
+              "enabled": false,
+              "color": "#4c4c4c",
+              "alpha": 0.051,
+              "fadeOut": -0.01,
+              "blink": 0
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "camera-effects-lens-dirt-intensity-over",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setCameraEffects",
+          "entityId": "camera_wide",
+          "effects": {
+            "lensDirt": {
+              "assetId": null,
+              "intensity": 1.01,
+              "threshold": 0.5
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "camera-effects-lens-dirt-threshold-under",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setCameraEffects",
+          "entityId": "camera_wide",
+          "effects": {
+            "lensDirt": {
+              "assetId": null,
+              "intensity": 0.9,
+              "threshold": -0.01
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "camera-effects-blur-over",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setCameraEffects",
+          "entityId": "camera_wide",
+          "effects": {
+            "blur": {
+              "enabled": false,
+              "intensity": 4.01
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "camera-effects-pixelate-zero",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setCameraEffects",
+          "entityId": "camera_wide",
+          "effects": {
+            "pixelate": {
+              "enabled": false,
+              "intensity": 0
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "camera-effects-pixelate-over",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setCameraEffects",
+          "entityId": "camera_wide",
+          "effects": {
+            "pixelate": {
+              "enabled": false,
+              "intensity": 257
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "camera-effects-pixelate-fraction",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setCameraEffects",
+          "entityId": "camera_wide",
+          "effects": {
+            "pixelate": {
+              "enabled": false,
+              "intensity": 16.5
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "camera-effects-color-upper-case",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setCameraEffects",
+          "entityId": "camera_wide",
+          "effects": {
+            "vignetting": {
+              "enabled": false,
+              "color": "#4C4C4C",
+              "alpha": 0.051,
+              "fadeOut": 0,
+              "blink": 0
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "camera-effects-color-with-alpha",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setCameraEffects",
+          "entityId": "camera_wide",
+          "effects": {
+            "nightVision": {
+              "enabled": false,
+              "color": "#4c4c4c80",
+              "alpha": 0.502
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "set-camera-effects",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": true,
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setCameraEffects",
+          "entityId": "camera_wide",
+          "effects": {
+            "lensDirt": {
+              "assetId": "image_dirt",
+              "intensity": 1,
+              "threshold": 0
+            },
+            "vignetting": {
+              "enabled": true,
+              "color": "#000000",
+              "alpha": 1,
+              "fadeOut": 0.5,
+              "blink": 0.2
+            },
+            "nightVision": {
+              "enabled": true,
+              "color": "#80ff80",
+              "alpha": 0.502
+            },
+            "blur": {
+              "enabled": true,
+              "intensity": 4
+            },
+            "pixelate": {
+              "enabled": true,
+              "intensity": 64
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "set-camera-effects-null",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": true,
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setCameraEffects",
+          "entityId": "camera_wide",
+          "effects": null
+        }
+      ]
+    }
+  },
+  {
+    "name": "set-camera-effects-blur-over",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setCameraEffects",
+          "entityId": "camera_wide",
+          "effects": {
+            "blur": {
+              "enabled": true,
+              "intensity": 4.01
+            }
+          }
+        }
+      ]
+    }
   }
 ]

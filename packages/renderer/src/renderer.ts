@@ -21,7 +21,9 @@ import { createPostChain } from "./post-chain";
 import { createHaze, type Haze } from "./haze";
 import { createBeams } from "./beam";
 import { renderScreenshot, SCREENSHOT_HEIGHT, SCREENSHOT_WIDTH } from "./screenshot";
-import { createScreenImagePool, createScreenMesh, loadScreenImage } from "./screen";
+import { IMAGE_LOAD_FAILED, createScreenImagePool, createScreenMesh, loadScreenImage } from "./screen";
+import { createCameraEffects, createDirtSource } from "./camera-effects";
+import { activeEffects, effectsKey } from "./camera-effects-math";
 import { createWebLayers, createWebQuad, webQuadWidth, webScreenPlan, type WebLayers } from "./web-screen";
 import { loadVideoSource, openScreenVideo, type ScreenVideoPlayer, type VideoSource } from "./video-screen";
 import { createCaptureScreens, probeVideoDecoder, type CaptureHost } from "./capture-screen";
@@ -101,6 +103,9 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     // One object URL for each video asset in this client (B29 R13). Each screen has its own element, so two screens with
     // one asset keep their own positions; the URL is revoked when no screen holds it.
     const videos = createScreenImagePool<VideoSource>(id => loadVideoSource(() => options.resources.readAsset(id)));
+    // The camera effects of the output camera (B37 R17), and its lens dirt image with one lease from the image pool (R20).
+    const cameraEffects = createCameraEffects();
+    const dirt = createDirtSource(images);
     const audio = options.audio === true;
     // One socket and one decoder for each capture stream (B31 R14). WebGL 2 uploads the VideoFrame; WebGPU an ImageBitmap.
     const captures = createCaptureScreens({ host: options.capture, upload: backend === "webgpu" ? "bitmap" : "frame" });
@@ -206,6 +211,8 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         objects.clear();
         jobs.dispose();
         assets.dispose();
+        dirt.dispose();
+        cameraEffects.dispose();
         images.dispose();
         videos.dispose();
         environmentLight.dispose();
@@ -428,6 +435,17 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         const used = new Set([...objects.values()].flatMap(x => x.assetId ? [x.assetId] : []));
         for (const id of jobs.assetIds()) used.add(id);
         assets.retainOnly(used);
+        const dirtId = cameraEntity.effects?.lensDirt?.assetId ?? null;
+        const dirtState = dirt.texture(dirtId);
+        if (dirtState === "failed" && dirtId !== null) {
+            const message = "Asset load failed: " + IMAGE_LOAD_FAILED;
+            if (!warnings.some(x => x.message === message && x.ids[0] === dirtId)) warnings.push({ code: "UNAVAILABLE", message, ids: [dirtId] });
+        }
+        const dirtImage = dirtState === "failed" ? null : dirtState;
+        const active = activeEffects(cameraEntity.effects, dirtImage !== null);
+        const fxKey = effectsKey(active, dirtId);
+        if (fxKey !== "") cameraEffects.update(cameraEntity.effects, { width, height }, dirtImage);
+        const effectsDrawn = fxKey === "" ? null : { key: fxKey, active, runtime: cameraEffects, dirt: dirtImage };
         camera.fov = cameraEntity.lens.fovDegrees;
         camera.aspect = width / height;
         camera.near = cameraEntity.lens.near;
@@ -438,7 +456,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         try {
             // three.js 0.180: on WebGPU a shadow first set up during a draw stays empty, so compile first; on WebGL 2 this compile leaves the shadow empty.
             if (lightsRebuilt && sceneLights.shadows() && backend === "webgpu") await renderer.compileAsync(scene, camera);
-            await postChain.render(scene, camera, cameraEntity.antiAliasing, hazeDrawn, cameraEntity.grading ?? null, beamsDrawn);
+            await postChain.render(scene, camera, cameraEntity.antiAliasing, hazeDrawn, cameraEntity.grading ?? null, beamsDrawn, effectsDrawn);
             const blamed = blameFrame(blame, { haze: hazeDrawn !== null, beams: beamsDrawn !== null }, failureReports);
             blame = blamed.state;
             failureReports = [];
@@ -500,7 +518,14 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             // The haze draws in the screenshot as in the output (B13 R10).
             const shotHaze = haze && !hazeFailed && frame.scene.entities.some(x => x.kind === "haze" && x.visible) ? haze : null;
             const shotBeams = beams.root.parent && !beamsFailed ? beams : null;
-            const png = await renderScreenshot({ renderer, backend, scene, camera: shotCamera, show, antiAliasing: entity.antiAliasing ?? "none", msaaSamples: quality.msaaSamples, haze: shotHaze, grading: entity.grading ?? null, beams: shotBeams });
+            // The camera effects as in the output (B37 R21). A dirt image that the output does not hold gets its own lease for this shot.
+            const shotDirtId = entity.effects?.lensDirt?.assetId ?? null;
+            const held = shotDirtId === null ? null : dirt.peek(shotDirtId);
+            const lease = shotDirtId !== null && !held ? await images.acquire(shotDirtId).catch(() => null) : null;
+            const shotEffects = entity.effects ? { effects: entity.effects, dirt: held ?? lease?.image ?? null } : null;
+            let png: Uint8Array;
+            try { png = await renderScreenshot({ renderer, backend, scene, camera: shotCamera, show, antiAliasing: entity.antiAliasing ?? "none", msaaSamples: quality.msaaSamples, haze: shotHaze, grading: entity.grading ?? null, beams: shotBeams, effects: shotEffects }); }
+            finally { lease?.release(); }
             if (disposed) throw failure("CANCELLED", "Renderer disposed");
             if (png.byteLength > LIMITS.screenshotPngBytes) throw failure("INVALID_INPUT", "Screenshot PNG exceeds 8 MiB");
             return { sessionId: frame.sessionId, revision: expectedRevision, cameraId, width: SCREENSHOT_WIDTH, height: SCREENSHOT_HEIGHT, png };

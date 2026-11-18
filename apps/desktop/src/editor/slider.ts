@@ -49,5 +49,13 @@ export const SLIDERS={
  bodyMovementIntensity:{min:0,max:2,step:0.01,curve:'linear'},
  beamIntensity:{min:0,max:4,step:0.01,curve:'linear'},
  beamSoftness:{min:0,max:1,step:0.01,curve:'linear'},
+ lensDirtIntensity:{min:0,max:1,step:0.01,curve:'linear'},
+ lensDirtThreshold:{min:0,max:1,step:0.01,curve:'linear'},
+ vignettingAlpha:{min:0,max:1,step:0.001,curve:'linear'},
+ vignettingFadeOut:{min:0,max:1,step:0.01,curve:'linear'},
+ vignettingBlink:{min:0,max:1,step:0.01,curve:'linear'},
+ nightVisionAlpha:{min:0,max:1,step:0.001,curve:'linear'},
+ blurIntensity:{min:0,max:4,step:0.01,curve:'linear'},
+ pixelateIntensity:{min:1,max:256,step:1,curve:'linear'},
 } as const satisfies Record<string,SliderRange>;
 export const lightIntensitySlider=(type:LightSettings['type']):SliderRange=>({min:0,max:1000,step:0.01,curve:'cubic',sliderMax:type==='directional'?10:type==='ambient'?2:100});

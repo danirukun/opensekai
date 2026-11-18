@@ -1,0 +1,35 @@
+STEP HC0 baseline {"backend":"webgl2","warnings":[],"stable":true}
+PASS HC0: the backend is webgl2 "webgl2"
+PASS HC0: the frame has no warning []
+PASS HC0: the screen is opaque in the middle and transparent around it {"box":{"x0":177,"y0":149,"x1":1742,"y1":931,"covered":1226176},"centre":[128,128,128,255],"outside":[[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]]}
+STEP HC1 vignetting alpha 1 {"backend":"webgl2","warnings":[],"stable":true}
+PASS HC1: outside pixels stay alpha 0 {"changed":0,"first":null}
+PASS HC1: each covered pixel keeps its baseline alpha (±1) {"changed":0,"first":null}
+PASS HC1: covered pixels near the frame corners are darker than the baseline [{"at":[189,161],"base":[128,128,128,255],"image":[84,84,84,255]},{"at":[1730,161],"base":[128,128,128,255],"image":[84,84,84,255]},{"at":[189,919],"base":[128,128,128,255],"image":[84,84,84,255]},{"at":[1730,919],"base":[128,128,128,255],"image":[84,84,84,255]}]
+PASS HC1: the frame centre is equal (±2) {"largest":0}
+STEP HC1 vignetting blink 1 {"backend":"webgl2","warnings":[],"stable":true}
+PASS HC1 Blink 1: each covered pixel is 76 (±3) in each channel with its baseline alpha (±1) {"checked":1226176,"bad":0,"first":null,"sample":[76,76,76,255]}
+PASS HC1 Blink 1: outside pixels stay alpha 0 {"changed":0,"first":null}
+STEP HC2 night vision {"backend":"webgl2","warnings":[],"stable":true}
+PASS HC2: alpha equals the baseline everywhere (±1) {"changed":0,"first":null}
+PASS HC2: covered pixels have G > R and G > B {"bad":0,"first":null,"sample":[101,128,101,255]}
+PASS HC2: outside pixels stay alpha 0 {"changed":0,"first":null}
+STEP HC3 blur 4 {"backend":"webgl2","warnings":[],"stable":true}
+PASS HC3: the top and the left screen edges each have a run of pixels with alpha from 1 to 254 {"top":64,"left":63,"topAlphas":[1,1,1,2,2,3,4,5,6,7,9,11,13,16,18,21,25,29,34,37,42,49,55,62,68,75,82,91,99,105,113,123,132,142,150,156,164,173,180,187,193,200,206,213,218,221,226,230,234,237,239,242,244,246,248,249,250,251,252,253,253,254,254,254]}
+PASS HC3: their straight colour is the screen colour (±8, and the 8-bit error of a low alpha) {"screen":[128,128,128,255],"fringe":[]}
+PASS HC3: pixels more than 48 px from the screen stay alpha 0 {"far":0,"first":null}
+STEP HC4 pixelate 64 {"backend":"webgl2","warnings":[],"stable":true}
+PASS HC4: each 64 x 64 block from the frame origin has one colour (±2) {"origin":"top-left","fromTopLeft":{"mixed":0,"first":null,"edges":74},"fromBottomLeft":{"mixed":48,"first":{"x0":192,"y0":952},"edges":74}}
+STEP HC5 lens dirt {"backend":"webgl2","warnings":[],"stable":true}
+PASS HC5: the dirt image loads without a warning []
+PASS HC5: covered pixels in the top-left quadrant are brighter than the baseline {"brighter":261536,"notBrighter":0,"firstDim":null,"sample":[[128,128,128,255],[174,174,174,255]]}
+PASS HC5: the three other quadrants equal the baseline (±2), so the outside pixels change only in the top-left quadrant {"changed":0,"first":null}
+STEP HC6 all five effects {"backend":"webgl2","warnings":[],"stable":true}
+PASS HC6: the chain builds with all five effects (no Pipeline compile failed warning) []
+PASS HC6: the frame changes null
+STEP HC7 all effects off {"backend":"webgl2","warnings":[],"stable":true}
+PASS HC7: all effects off again equals the baseline (±1) {"changed":0,"first":null}
+STEP HC7 effects removed {"backend":"webgl2","warnings":[],"stable":true}
+PASS HC7: the effects removed (null) equal the baseline (±1) {"changed":0,"first":null}
+PASS no page errors []
+24 pass, 0 fail

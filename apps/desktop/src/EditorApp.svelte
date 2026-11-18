@@ -20,6 +20,7 @@ import { createEditorMemory } from './blueprints/editor-memory';
  import { createDebugFeed, planToasts, type DebugFeed } from './blueprints/debug-feed';
  import { compileBlueprint } from '@opensekai/session';
  import {cycleCamera} from './editor/cameras';
+ import {withLensDirt} from './editor/camera-effects';
  import {previewActive} from './editor/preview-gate';
  import {toolForKey} from './editor/scene-keys';
  import {collectWarnings} from './editor/warnings';
@@ -160,13 +161,18 @@ import { createEditorMemory } from './blueprints/editor-memory';
    await setSceneModel(entityId,record.id);
   }catch(cause){importError={entityId,message:importFailure(cause,'Could not import model')};}finally{importingId=null;}
  }
- // The returned record goes only to the screen that asked for it (B28 R19).
+ // A screen shows the image; a camera takes it as its lens dirt (B37 R27). The effects are read at the time of the change.
+ function setImage(entityId:string,assetId:string){
+  if(!model)return;const scene=model.read().scene;const entity=scene?.entities.find(item=>item.id===entityId);
+  return entity?.kind==='camera'?model.setCameraEffects(entityId,withLensDirt(entity.effects,assetId),scene?.revision):model.setScreenImage(entityId,assetId,scene?.revision);
+ }
+ // The returned record goes only to the screen or the camera that asked for it (B28 R19, B37 R27).
  async function chooseImage(entityId:string){
   if(importingId||!model||!view.scene)return;importingId=entityId;importError=null;
   try{
    const result=await invoke<{record:AssetRecord;name:string}|null>('import_image');if(!result)return;
    const record=AssetRecordSchema.parse(result.record);assets=[...assets.filter(asset=>asset.id!==record.id),record];
-   await model.setScreenImage(entityId,record.id,model.read().scene?.revision);
+   await setImage(entityId,record.id);
   }catch(cause){importError={entityId,message:importFailure(cause,'Could not import image')};}finally{importingId=null;}
  }
  async function chooseVideo(entityId:string){

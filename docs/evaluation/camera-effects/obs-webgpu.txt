@@ -1,0 +1,36 @@
+# LC1, 2026-11-18, commit 69b497e, macOS 27.2.1, OBS 33.0.1 browser source 1920 x 1080, WebGPU, production_v1
+# Steps (scene_patch setCameraEffects on camera_wide, then OBS GetSourceScreenshot until two equal PNGs)
+STEP HC0 baseline {"revision": 4, "backend": "webgpu", "seq": 3821, "warnings": [], "stable": true, "file": "hc0-baseline.png"}
+STEP HC1 vignetting alpha 1 {"revision": 5, "backend": "webgpu", "seq": 4717, "warnings": [], "stable": true, "file": "hc1-vignetting.png"}
+STEP HC1 vignetting blink 1 {"revision": 6, "backend": "webgpu", "seq": 5597, "warnings": [], "stable": true, "file": "hc1-blink.png"}
+STEP HC2 night vision {"revision": 7, "backend": "webgpu", "seq": 6490, "warnings": [], "stable": true, "file": "hc2-night-vision.png"}
+STEP HC3 blur 4 {"revision": 8, "backend": "webgpu", "seq": 7389, "warnings": [], "stable": true, "file": "hc3-blur.png"}
+STEP HC4 pixelate 64 {"revision": 9, "backend": "webgpu", "seq": 8271, "warnings": [], "stable": true, "file": "hc4-pixelate.png"}
+STEP HC5 lens dirt {"revision": 10, "backend": "webgpu", "seq": 9153, "warnings": [], "stable": true, "file": "hc5-lens-dirt.png"}
+STEP HC6 all five effects {"revision": 11, "backend": "webgpu", "seq": 10050, "warnings": [], "stable": true, "file": "hc6-all.png"}
+STEP HC7 all effects off {"revision": 12, "backend": "webgpu", "seq": 10932, "warnings": [], "stable": true, "file": "hc7-off.png"}
+STEP HC7 effects removed {"revision": 13, "backend": "webgpu", "seq": 11811, "warnings": [], "stable": true, "file": "hc7-null.png"}
+# Pixel tests (pixels.mjs). OBS gives premultiplied colour; partial-alpha pixels are divided by alpha first
+PASS HC0: the screen is opaque in the middle and transparent around it {"box":{"x0":177,"y0":149,"x1":1742,"y1":930,"covered":1224612},"centre":[128,128,128,255],"outside":[[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]]}
+PASS HC1: outside pixels stay alpha 0 {"changed":0,"first":null}
+PASS HC1: each covered pixel keeps its baseline alpha (±1) {"changed":0,"first":null}
+PASS HC1: covered pixels near the frame corners are darker than the baseline [{"at":[189,161],"base":[128,128,128,255],"image":[84,84,84,255]},{"at":[1730,161],"base":[128,128,128,255],"image":[84,84,84,255]},{"at":[189,918],"base":[128,128,128,255],"image":[84,84,84,255]},{"at":[1730,918],"base":[128,128,128,255],"image":[84,84,84,255]}]
+PASS HC1: the frame centre is equal (±2) {"largest":0}
+PASS HC1 Blink 1: each covered pixel is 76 (±3) in each channel with its baseline alpha (±1) {"checked":1224612,"bad":0,"first":null,"sample":[76,76,76,255]}
+PASS HC1 Blink 1: outside pixels stay alpha 0 {"changed":0,"first":null}
+PASS HC2: alpha equals the baseline everywhere (±1) {"changed":0,"first":null}
+PASS HC2: covered pixels have G > R and G > B {"bad":0,"first":null,"sample":[101,128,101,255]}
+PASS HC2: outside pixels stay alpha 0 {"changed":0,"first":null}
+PASS HC3: the top and the left screen edges each have a run of pixels with alpha from 1 to 254 {"top":64,"left":64,"topAlphas":[1,1,1,2,2,3,4,5,6,7,9,11,13,16,18,21,25,29,34,37,42,49,55,62,68,75,82,91,99,105,113,123,132,142,150,156,164,173,180,187,193,200,206,213,218,222,225,230,234,237,239,242,244,246,248,249,250,251,252,253,253,254,254,254]}
+PASS HC3: their straight colour is the screen colour (±8, and the 8-bit error of a low alpha) {"screen":[128,128,128,255],"fringe":[]}
+PASS HC3: pixels more than 48 px from the screen stay alpha 0 {"far":0,"first":null}
+PASS HC4: each 64 x 64 block from the frame origin has one colour (±2) {"origin":"top-left","fromTopLeft":{"mixed":0,"first":null,"edges":74},"fromBottomLeft":{"mixed":48,"first":{"x0":192,"y0":952},"edges":74}}
+PASS HC5: covered pixels in the top-left quadrant are brighter than the baseline {"brighter":261536,"notBrighter":0,"firstDim":null,"sample":[[128,128,128,255],[173,173,173,255]]}
+PASS HC5: the three other quadrants equal the baseline (±2), so the outside pixels change only in the top-left quadrant {"changed":0,"first":null}
+PASS HC6: the frame changes ""
+PASS HC7: all effects off again equals the baseline (±1) {"changed":0,"first":null}
+PASS HC7: the effects removed (null) equal the baseline (±1) {"changed":0,"first":null}
+# Same tests without the division (premultiplied colour read as straight)
+PASS count: 17
+FAIL HC1 Blink 1: each covered pixel is 76 (±3) in each channel with its baseline alpha (±1) {"checked":1224612,"bad":1564,"first":[177,149,64,[19,19,19,64]],"sample":[76,76,76,255]}
+FAIL HC3: their straight colour is the screen colour (±8, and the 8-bit error of a low alpha) {"screen":[128,128,128,255],"fringe":[{"at":[960,120],"p":[1,1,1,2]},{"at":[960,121],"p":[1,1,1,2]},{"at":
