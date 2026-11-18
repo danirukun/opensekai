@@ -97,13 +97,14 @@ Each run has a 30 s warmup and then 3 windows of 120 s, one after the other. The
 - 1 avatar (Roro, 30 joints, 3 colliders): the branch mean is 2.48 ms and the baseline mean is 2.20 ms, a difference of +0.27 ms. That is smaller than the spread of the baseline windows (0.33 ms), and the lowest branch window (2.378) is only a little higher than the highest baseline window (2.361). The mean difference is at the edge of the noise. The p95 difference (3.6 to 3.8 against 3.1 to 3.3) is outside the noise.
 - The baseline windows go down in each run (4.49 to 4.15, 2.36 to 2.03). The branch windows do not. The cause is unknown.
 
-The design target is 1 ms or less for each renderer for each 60 Hz step with 3 heavy avatars. This check did not use 3 avatars, a release build, or the `preview_main` renderer (it also runs the springs), so the target is not checked. With 2 avatars in a debug build, the increase is 0.61 ms.
+The design target is 1 ms or less for each renderer for each 60 Hz step with 3 heavy avatars. This check did not use 3 avatars, a release build, or the `preview_main` renderer (it also runs the springs), so the target is not checked. With 2 avatars in a debug build, the increase is 0.61 ms. This is an open risk: a linear estimate from these values for 3 heavy avatars can be more than 1 ms. Measure 3 heavy avatars in a release build, in both renderers, before the target is used.
 
 OBS timing, kept separate: in each run OBS rendered 23,447 to 23,462 frames and skipped 0 frames for rendering. [`cost-runs.jsonl`](spring-bones/cost-runs.jsonl) has one line for each window and one OBS line for each run.
 
 ## Not verified
 
 - Camera tracking. All motion came from the generated VMC feed.
+- Tracked root positions against the teleport limits. The feed sent rotations only.
 - A release build, Windows, a phone, and a low-end Mac.
 - The cost with 3 avatars, the cost in `preview_main`, and GPU time.
 - A file that uses `VRMC_springBone_limit` (unit test only).

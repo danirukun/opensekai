@@ -79,7 +79,7 @@ The builder choices of the design are set here:
 ## Risks
 
 - **Gizmo drag.** A fast drag can reset the hair on each commit (C9). The acceptance check records what the hair does.
-- **Teleport limits.** Live tracking can be faster than the expected half of each limit. The acceptance check uses live tracking. A change of a limit goes into the contract with its reason.
+- **Teleport limits.** Live tracking can be faster than the expected half of each limit. The acceptance checks used a generated feed with rotations only; tracked root motion is not verified. A change of a limit goes into the contract with its reason.
 - **JIT shape.** One V8 process that first ran 7 models was 3 times slower for the same 3 avatars. The stage must not add avoidable polymorphism.
 - **Non-uniform scale.** It gives an approximate result. This is a known limit.
 

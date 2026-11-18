@@ -167,7 +167,7 @@ The same commit changes the three documents. A decision record in this file keep
 - a rotation of more than 30°,
 - a scale ratio of more than 1.25 (larger to smaller or smaller to larger).
 
-A spring bone tail moves less than the root in one tick, so a short jump also whips the hair. Tracking and idle animation are expected to move the root less than half of these limits in one tick (3 m/s and 900°/s). The acceptance checks confirm this with live tracking. The session keeps the last root world transform of each avatar. A new avatar entity, or an avatar whose asset changed, starts without a previous value and does not count as a teleport. The renderer resets an avatar it installs in any case.
+A spring bone tail moves less than the root in one tick, so a short jump also whips the hair. Tracking and idle animation are expected to move the root less than half of these limits in one tick (3 m/s and 900°/s). The acceptance checks used a generated feed with rotations only, so tracked root motion against these limits is not verified. The session keeps the last root world transform of each avatar. A new avatar entity, or an avatar whose asset changed, starts without a previous value and does not count as a teleport. The renderer resets an avatar it installs in any case.
 
 A fast gizmo drag can move the avatar more than 0.1 m between two commits. Then each commit resets the spring bones, in OBS and in the editor. The editor viewport moves the avatar smoothly with the drag, but the hair snaps back to rest at each commit (every 33 ms) until the drag slows down. This is accepted: the alternative is a whip on each commit.
 
