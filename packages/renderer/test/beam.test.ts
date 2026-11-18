@@ -97,14 +97,43 @@ describe('beam cones (stage beams R7, R10)', () => {
     });
     it('keeps each cone on the beam layer only, with no shadow and one shared material', () => {
         const beams = createBeams();
+        beams.update([spot('a'), spot('b'), spot('c')]);
         const meshes = beams.root.children as Mesh[];
-        expect(meshes).toHaveLength(8);
+        expect(meshes).toHaveLength(3);
         for (const mesh of meshes) {
             expect(mesh.layers.mask).toBe(1 << BEAM_LAYER);
             expect(mesh.castShadow).toBe(false);
             expect(mesh.receiveShadow).toBe(false);
             expect(mesh.material).toBe(meshes[0]!.material);
         }
+        beams.dispose();
+    });
+    it('grows the pool on demand to the drawn beam count and does not shrink it (light limits R12)', () => {
+        const beams = createBeams();
+        const many = (count: number) => Array.from({ length: count }, (_, i) => spot(`s${i}`));
+        expect(beams.root.children).toHaveLength(0);
+        beams.update(many(20));
+        expect(beams.root.children).toHaveLength(20);
+        beams.update(many(3));
+        expect(beams.root.children).toHaveLength(20);
+        expect(visible(beams.root)).toHaveLength(3);
+        beams.update(many(32));
+        const meshes = beams.root.children as Mesh[];
+        expect(meshes).toHaveLength(32);
+        expect(visible(beams.root)).toHaveLength(32);
+        for (const mesh of meshes) {
+            expect(mesh.geometry).toBe(meshes[0]!.geometry);
+            expect(mesh.material).toBe(meshes[0]!.material);
+            expect(mesh.layers.mask).toBe(1 << BEAM_LAYER);
+            expect(mesh.castShadow || mesh.receiveShadow).toBe(false);
+        }
+        beams.dispose();
+    });
+    it('makes no more than 32 meshes for more beam lights (light limits R12)', () => {
+        const beams = createBeams();
+        expect(beams.update(Array.from({ length: 40 }, (_, i) => spot(`s${i}`)))).toBe(true);
+        expect(beams.root.children).toHaveLength(32);
+        expect(visible(beams.root)).toHaveLength(32);
         beams.dispose();
     });
     it('does not put the beam in the light signature (R11)', () => {

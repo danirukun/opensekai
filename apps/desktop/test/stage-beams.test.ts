@@ -1,7 +1,7 @@
 import {describe,expect,it} from 'vitest';
 import {readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
-import {LightSettingsSchema,ShowDocumentSchema,rotateByQuaternion,type LightSettings,type SceneEntity} from '@opensekai/contracts';
+import {LightSettingsSchema,ShowDocumentSchema,isLitLight,lightBudgetError,rotateByQuaternion,type LightSettings,type SceneEntity} from '@opensekai/contracts';
 import {makeAuthoringEntity} from '../src/editor/authoring';
 import {BEAM,POINT_LIGHT,SPOT_LIGHT,lightForType,withBeam} from '../src/editor/lights';
 import {changedFields,defaultsFor,resetFieldIds} from '../src/editor/property-defaults';
@@ -61,16 +61,26 @@ const AIMS:Record<string,[number,number,number]>={
  beam_front_1:[-1.5,0,-1],beam_front_2:[-0.5,1.2,0],beam_front_3:[0.5,1.2,0],beam_front_4:[1.5,0,-1],
  beam_back_1:[-2,0,1.5],beam_back_2:[-1,0,2.5],beam_back_3:[1,0,2.5],beam_back_4:[2,0,1.5],
 };
-const showText=readFileSync(fileURLToPath(new URL('../../../fixtures/shows/stage-beams.osekai',import.meta.url)),'utf8');
+const readShow=(name:string)=>JSON.parse(readFileSync(fileURLToPath(new URL(`../../../fixtures/shows/${name}`,import.meta.url)),'utf8'));
 
-describe('stage beams fixture show (R29)',()=>{
- const show=ShowDocumentSchema.parse(JSON.parse(showText));
- const spots=show.scene.entities.filter(e=>e.kind==='light'&&e.light.type==='spot') as Extract<SceneEntity,{kind:'light'}>[];
- it('has 8 spot lights with the beam on, 2 of them with a shadow, and no haze and no avatar',()=>{
+describe('stage beams fixture show (R29, light limits R18)',()=>{
+ const show=ShowDocumentSchema.parse(readShow('stage-beams.osekai'));
+ const lights=show.scene.entities.filter(e=>e.kind==='light') as Extract<SceneEntity,{kind:'light'}>[];
+ const spots=lights.filter(e=>e.light.type==='spot');
+ it('has the stage lights directional and ambient lights, 8 beams, 6 lit lights, and no haze and no avatar',()=>{
+  const stageLights=ShowDocumentSchema.parse(readShow('stage-lights.osekai')).scene.entities;
+  expect(lights).toHaveLength(10);
+  for(const id of ['light_main','stage_ambient'])expect(lights.find(e=>e.id===id)).toEqual(stageLights.find(e=>e.id===id));
   expect(spots.map(e=>e.id).sort()).toEqual(Object.keys(AIMS).sort());
   expect(spots.every(e=>e.light.beam?.enabled===true&&e.light.volumetric===undefined)).toBe(true);
-  expect(spots.filter(e=>e.light.shadow.enabled).map(e=>e.id)).toEqual(['beam_front_2','beam_front_3']);
+  expect(lights.filter(e=>isLitLight(e.light))).toHaveLength(6);
+  expect(spots.filter(e=>!isLitLight(e.light)).map(e=>e.id)).toEqual(['beam_back_1','beam_back_2','beam_back_3','beam_back_4']);
+  expect(lights.filter(e=>e.light.shadow.enabled).map(e=>e.id)).toEqual(['beam_front_2','beam_front_3']);
   expect(show.scene.entities.some(e=>e.kind==='haze'||e.kind==='avatar')).toBe(false);
+ });
+ it('is valid and has no light budget error',()=>{
+  expect(ShowDocumentSchema.safeParse(readShow('stage-beams.osekai')).success).toBe(true);
+  expect(lightBudgetError(show.scene.entities)).toBeNull();
  });
  it('aims each spot light at its point of the plan table, within 0.05 m',()=>{
   for(const e of spots){

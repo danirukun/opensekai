@@ -32,7 +32,8 @@ export const LIMITS = {
     screenshotEnvelopeBytes: 12582912,
     screenshotTimeoutMs: 5000,
     cameras: 8,
-    lights: 8,
+    lights: 32,
+    litLights: 8,
     shadowLights: 2,
     hazes: 1,
     fpsCounters: 1,
@@ -42,6 +43,23 @@ export const LIMITS = {
     videoScreens: 4,
     captureScreens: 2
 } as const;
+// B34b R3: the one place for each light budget message, in check order.
+export const LIGHT_BUDGET_MESSAGES = {
+    lights: `Scene has the maximum of ${LIMITS.lights} lights`,
+    litLights: `Scene has the maximum of ${LIMITS.litLights} lit lights`,
+    shadowLights: `Scene has the maximum of ${LIMITS.shadowLights} shadow lights`
+} as const;
+type LightFlags = { affectCharacters: boolean; affectProps: boolean; affectEnvironment: boolean };
+export const isLitLight = (light: LightFlags): boolean => light.affectCharacters || light.affectProps || light.affectEnvironment;
+export function lightBudgetError(entities: readonly { kind: string; light?: LightFlags & { shadow: { enabled: boolean } } }[]): string | null {
+    const lights = entities.flatMap(e => e.kind === 'light' && e.light ? [e.light] : []);
+    if (lights.length > LIMITS.lights) return LIGHT_BUDGET_MESSAGES.lights;
+    if (lights.filter(isLitLight).length > LIMITS.litLights) return LIGHT_BUDGET_MESSAGES.litLights;
+    if (lights.filter(l => l.shadow.enabled).length > LIMITS.shadowLights) return LIGHT_BUDGET_MESSAGES.shadowLights;
+    return null;
+}
+export const isLightBudgetMessage = (text: string): boolean => (Object.values(LIGHT_BUDGET_MESSAGES) as string[]).includes(text);
+export const lightBudgetIssue = (error: z.ZodError): string | null => error.issues.find(issue => isLightBudgetMessage(issue.message))?.message ?? null;
 export const IdSchema = z.string().min(1).max(256);
 const n = z.number().finite(), u = n.int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 export const Vec3Schema = z.tuple([
@@ -263,7 +281,8 @@ export const OutputSpecSchema = z.strictObject({
     fps: z.union(OUTPUT_FRAME_LIMITS.map(fps => z.literal(fps))),
     renderScale: z.union(OUTPUT_RENDER_SCALES.map(scale => z.literal(scale))).optional()
 }).refine(isOutputSize, 'Invalid output size');
-export const SceneViewSchema = z.strictObject({
+// The scene shape and reference checks without the light budget; SceneViewSchema adds the budget.
+const SceneViewShapeSchema = z.strictObject({
     schemaVersion: z.literal(1),
     sceneId: IdSchema,
     revision: u,
@@ -273,8 +292,6 @@ export const SceneViewSchema = z.strictObject({
  const sources=s.entities.filter(e=>e.kind==='tracking');
  if(s.entities.filter(e=>e.kind==='environment').length>1)return false;
  if(sources.length>4||s.entities.filter(e=>e.kind==='avatar').length>2||s.entities.filter(e=>e.kind==='camera').length>LIMITS.cameras)return false;
- const lights=s.entities.filter(e=>e.kind==='light');
- if(lights.length>LIMITS.lights||lights.filter(e=>e.light.shadow.enabled).length>LIMITS.shadowLights)return false;
  if(s.entities.filter(e=>e.kind==='haze').length>LIMITS.hazes)return false;
  if(s.entities.filter(e=>e.kind==='fpsCounter').length>LIMITS.fpsCounters)return false;
  if(s.entities.filter(e=>e.kind==='screen').length>LIMITS.screens||s.entities.filter(isVideoScreen).length>LIMITS.videoScreens)return false;
@@ -288,9 +305,12 @@ export const SceneViewSchema = z.strictObject({
  // Only the face slot (index 1) accepts an iFacialMocap source.
  return s.entities.every(e=>e.kind!=='avatar'||!e.tracking||[e.tracking.bodySourceId,e.tracking.faceSourceId,e.tracking.fingersSourceId??null].every((id,index)=>id===null||sources.some(source=>source.id===id&&(index===1||!FACE_ONLY_TRACKING_KINDS.includes(source.config.kind)))));
 }, 'Duplicate ID, budget or invalid reference');
-export const ShowSceneSchema = SceneViewSchema.refine(scene =>
-    ['output_main', 'preview_main'].every(id => scene.outputs.some(output => output.id === id)),
-    'Show requires main and preview outputs');
+export const SceneViewSchema = SceneViewShapeSchema.superRefine((s, ctx) => {
+    const message = lightBudgetError(s.entities);
+    if (message) ctx.addIssue({ code: 'custom', message, path: ['entities'] });
+});
+const hasShowOutputs = (scene: { outputs: { id: string }[] }) => ['output_main', 'preview_main'].every(id => scene.outputs.some(output => output.id === id));
+export const ShowSceneSchema = SceneViewSchema.refine(hasShowOutputs, 'Show requires main and preview outputs');
 export const ShowDocumentSchema = z.strictObject({
     schemaVersion: z.literal(1),
     name: z.string().trim().min(1).max(128),
@@ -726,6 +746,9 @@ export const MethodSchema = z.enum([
     "cameraScreenshot",
     "integrationsSet"
 ]);
+// The MCP input schema of scene_replace: ParamSchemas.sceneReplace without the light budget check.
+// The MCP SDK checks the input schema before the tool runs, so the budget check stays in validateCall, which gives the budget message as a structured INVALID_INPUT reply.
+export const SceneReplaceInputSchema = z.strictObject({ scene: SceneViewShapeSchema.refine(hasShowOutputs, 'Show requires main and preview outputs'), expectedRevision: u });
 export function validateCall(method: unknown, params: unknown): Reply<ValidatedCall> {
     const m = MethodSchema.safeParse(method);
     if (m.success) {
@@ -738,6 +761,8 @@ export function validateCall(method: unknown, params: unknown): Reply<ValidatedC
                     params: p.data
                 } as ValidatedCall
             };
+        const budget = lightBudgetIssue(p.error);
+        if (budget) return { ok: false, error: { code: "INVALID_INPUT", message: budget, ids: [] } };
     }
     return {
         ok: false,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LightSettingsSchema, PatchOpSchema, PROPOSAL_LIMITS, quaternionFromEuler, rotateByQuaternion, SceneViewSchema, type SceneEntity, type SceneView, type Vec3 } from '@opensekai/contracts';
+import { LIGHT_BUDGET_MESSAGES, LightSettingsSchema, PatchOpSchema, PROPOSAL_LIMITS, quaternionFromEuler, rotateByQuaternion, SceneViewSchema, type SceneEntity, type SceneView, type Vec3 } from '@opensekai/contracts';
 import { applyToWorking, assignRefs, compileIntents, targetPoint, WORDS, type Intent, type Proposal } from '../src';
 import { assets, ctx, data, lightEntity, scene, summaryRefs } from './context';
 
@@ -120,14 +120,34 @@ describe('compileIntents: lights', () => {
  it('fails at the light limit with a message that names it', () => {
   const eight = withEntities(...Array.from({ length: 7 }, (_, i) => lightEntity(`l${i}`)));
   const r = compileIntents([{ tool: 'light_setup', role: 'key' }], ctx({ scene: eight }));
-  expect(r).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', message: expect.stringMatching(/8 lights/) } });
+  expect(r).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', message: LIGHT_BUDGET_MESSAGES.litLights } });
  });
 
  it('checks the light limit on the working copy across intents', () => {
   const seven = withEntities(...Array.from({ length: 6 }, (_, i) => lightEntity(`l${i}`)));
   expect(compileIntents(threePoint.slice(0, 1), ctx({ scene: seven })).ok).toBe(true);
   const r = compileIntents(threePoint.slice(0, 2), ctx({ scene: seven }));
-  expect(r).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', message: expect.stringMatching(/8 lights/) } });
+  expect(r).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', message: LIGHT_BUDGET_MESSAGES.litLights } });
+ });
+
+ const unlit = (id: string): SceneEntity => { const e = lightEntity(id); return e.kind === 'light' ? { ...e, light: { ...e.light, affectCharacters: false, affectProps: false, affectEnvironment: false } } : e; };
+ it('fails at 32 lights without replace with the light message (light limits R17)', () => {
+  const full = withEntities(...Array.from({ length: 7 }, (_, i) => lightEntity(`l${i}`)), ...Array.from({ length: 24 }, (_, i) => unlit(`u${i}`)));
+  expect(compileIntents([{ tool: 'light_setup', role: 'key' }], ctx({ scene: full }))).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', message: LIGHT_BUDGET_MESSAGES.lights } });
+ });
+
+ it('fails at 8 lit lights with unlit lights in the scene (light limits R17)', () => {
+  const eight = withEntities(...Array.from({ length: 3 }, (_, i) => unlit(`u${i}`)), ...Array.from({ length: 7 }, (_, i) => lightEntity(`l${i}`)));
+  expect(compileIntents([{ tool: 'light_setup', role: 'fill' }], ctx({ scene: eight }))).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', message: LIGHT_BUDGET_MESSAGES.litLights } });
+ });
+
+ it('refuses to replace an unlit light at 8 lit lights and replaces a lit light (light limits R17)', () => {
+  // @e7 is the unlit light; @e3 is the lit lamp.
+  const eight = withEntities(unlit('beam_only'), ...Array.from({ length: 7 }, (_, i) => lightEntity(`l${i}`)));
+  const refs = assignRefs(summaryRefs, { entities: ['beam_only'], blueprints: [], assets: [] });
+  expect(compileIntents([{ tool: 'light_setup', role: 'rim', replace: '@e7' }], ctx({ scene: eight, refs }))).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', message: LIGHT_BUDGET_MESSAGES.litLights } });
+  const p = data(compileIntents([{ tool: 'light_setup', role: 'rim', replace: '@e3' }], ctx({ scene: eight, refs })));
+  expect(p.sceneOps.map(o => o.kind)).toEqual(['setLight', 'setTransform']);
  });
 
  it('replaces an existing light in place', () => {

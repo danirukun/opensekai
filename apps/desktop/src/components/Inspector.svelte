@@ -153,6 +153,6 @@
   <div class="inspector-sections">{#each sections as section (section.id)}<InspectorSection id={section.id} label={section.label} collapsed={isCollapsed(sectionState,entity.kind,section.id)} ontoggle={()=>toggle(section.id)}>{@render body(section.id)}</InspectorSection>{/each}</div>
  </div>
  {/if}
- {#if view.error}<p role="alert">{view.error==='CONFLICT'?'Scene changed. Review values and retry.':view.error}</p>{/if}
+ {#if view.error}<p role="alert">{view.errorMessage??(view.error==='CONFLICT'?'Scene changed. Review values and retry.':view.error)}</p>{/if}
 </section>
 <style>.screenshot-actions{display:flex;flex-wrap:wrap;gap:8px}.screenshot-file{margin:6px 0 0;font-size:12px;color:var(--ds-color-text-muted);overflow-wrap:anywhere}.field-stack{display:grid;gap:10px}</style>

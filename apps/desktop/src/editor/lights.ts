@@ -1,4 +1,4 @@
-import {LIMITS,LightColorSchema,type FpsCounterSettings,type HazeSettings,type LightBeam,type LightSettings,type Quat,type SceneEntity,type SceneView,type Transform} from '@opensekai/contracts';
+import {LIMITS,LightColorSchema,isLitLight,type FpsCounterSettings,type HazeSettings,type LightBeam,type LightSettings,type Quat,type SceneEntity,type SceneView,type Transform} from '@opensekai/contracts';
 // −Z along the normalized −[2, 4, 3], no roll: the direction of the built-in light (R10).
 export const BUILTIN_LIGHT_ROTATION:Quat=[-0.389047,0.264763,0.117794,0.874453];
 const shadow:LightSettings['shadow']={enabled:false,intensity:1,soft:true,bias:-0.0005,normalBias:0.02};
@@ -29,6 +29,12 @@ export const FPS_COUNTER:FpsCounterSettings={corner:'topRight',size:32,color:'#f
 export const fpsCounterLimitReached=(entities:readonly SceneEntity[]):boolean=>entities.filter(entity=>entity.kind==='fpsCounter').length>=LIMITS.fpsCounters;
 export const fpsCounterCornerOptions=[{value:'topLeft',label:'Top Left'},{value:'topRight',label:'Top Right'},{value:'bottomLeft',label:'Bottom Left'},{value:'bottomRight',label:'Bottom Right'}];
 export const lightLimitReached=(entities:readonly SceneEntity[]):boolean=>entities.filter(entity=>entity.kind==='light').length>=LIMITS.lights;
+// Hidden lights count (light limits R2).
+export const litLightLimitReached=(entities:readonly SceneEntity[]):boolean=>entities.filter(entity=>entity.kind==='light'&&isLitLight(entity.light)).length>=LIMITS.litLights;
+export const unlit=(light:LightSettings):LightSettings=>({...light,affectCharacters:false,affectProps:false,affectEnvironment:false});
+// A copy is equal to its source, so Duplicate is disabled when the copy would break a light limit (light limits R9).
+export const lightCopyLimitReached=(entity:Extract<SceneEntity,{kind:'light'}>,entities:readonly SceneEntity[]):boolean=>
+ lightLimitReached(entities)||(isLitLight(entity.light)&&litLightLimitReached(entities))||(entity.light.shadow.enabled&&entities.filter(item=>item.kind==='light'&&item.light.shadow.enabled).length>=LIMITS.shadowLights);
 export const lightTypeOptions=[{value:'directional',label:'Directional'},{value:'point',label:'Point'},{value:'spot',label:'Spot'},{value:'ambient',label:'Ambient'}];
 export const isLightType=(value:string):value is LightSettings['type']=>value in LIGHT_DEFAULTS;
 // A type change keeps the color, the affect flags, and the shadow (off for ambient); intensity, range, and cone take the type default (B13 R12). The beam group goes (stage beams R23).

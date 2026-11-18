@@ -105,8 +105,11 @@ for (const vector of vectors)
             expect(AssetListSchema.safeParse(vector.payload).success).toBe(false);
         else if (vector.target === "captureRecord")
             expect(CaptureRecordSchema.safeParse(vector.payload).success).toBe(false);
-        else if (vector.target === "scene")
-            expect(SceneViewSchema.safeParse(vector.payload).success).toBe(false);
+        else if (vector.target === "scene") {
+            const parsed = SceneViewSchema.safeParse(vector.payload);
+            expect(parsed.success).toBe(false);
+            if ("message" in vector) expect(parsed.error?.issues.map(issue => issue.message)).toContain(vector.message);
+        }
         else if (vector.target === "call")
             expect(validateCall("method" in vector ? vector.method : undefined, vector.payload)).toMatchObject({
                 ok: false,

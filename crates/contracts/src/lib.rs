@@ -15,8 +15,13 @@ pub const MAX_SCREENSHOT_PNG_BYTES: usize = 8 * 1024 * 1024;
 pub const MAX_SCREENSHOT_MESSAGE_BYTES: usize = 12 * 1024 * 1024;
 pub const SCREENSHOT_TIMEOUT_MS: u64 = 5000;
 pub const MAX_CAMERAS: usize = 8;
-pub const MAX_LIGHTS: usize = 8;
+pub const MAX_LIGHTS: usize = 32;
+pub const MAX_LIT_LIGHTS: usize = 8;
 pub const MAX_SHADOW_LIGHTS: usize = 2;
+/// B34b R3. Keep in step with `LIGHT_BUDGET_MESSAGES` in `schema.ts`.
+pub const LIGHT_BUDGET_LIGHTS_MESSAGE: &str = "Scene has the maximum of 32 lights";
+pub const LIGHT_BUDGET_LIT_MESSAGE: &str = "Scene has the maximum of 8 lit lights";
+pub const LIGHT_BUDGET_SHADOW_MESSAGE: &str = "Scene has the maximum of 2 shadow lights";
 pub const MAX_HAZES: usize = 1;
 pub const MAX_FPS_COUNTERS: usize = 1;
 pub const MAX_SCREENS: usize = 16;
@@ -266,6 +271,27 @@ pub struct LightSettings {
     pub volumetric: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub beam: Option<LightBeam>,
+}
+impl LightSettings {
+    /// B34b R1: a lit light has at least one affect flag on.
+    pub fn is_lit(&self) -> bool {
+        self.affect_characters || self.affect_props || self.affect_environment
+    }
+}
+/// B34b R2: the first broken light limit, in the order lights, lit lights, shadow lights.
+pub fn light_budget_error<'a>(
+    lights: impl IntoIterator<Item = &'a LightSettings>,
+) -> Option<&'static str> {
+    let lights: Vec<_> = lights.into_iter().collect();
+    if lights.len() > MAX_LIGHTS {
+        Some(LIGHT_BUDGET_LIGHTS_MESSAGE)
+    } else if lights.iter().filter(|l| l.is_lit()).count() > MAX_LIT_LIGHTS {
+        Some(LIGHT_BUDGET_LIT_MESSAGE)
+    } else if lights.iter().filter(|l| l.shadow.enabled).count() > MAX_SHADOW_LIGHTS {
+        Some(LIGHT_BUDGET_SHADOW_MESSAGE)
+    } else {
+        None
+    }
 }
 object!(HazeSettings {
     density: f64,
@@ -2733,19 +2759,12 @@ impl Validate for SceneView {
             "too many environments",
         )?;
         require(cameras.len() <= MAX_CAMERAS, "too many cameras")?;
-        let lights: Vec<_> = self
-            .entities
-            .iter()
-            .filter_map(|e| match e {
-                SceneEntity::Light { light, .. } => Some(light),
-                _ => None,
-            })
-            .collect();
-        require(
-            lights.len() <= MAX_LIGHTS
-                && lights.iter().filter(|l| l.shadow.enabled).count() <= MAX_SHADOW_LIGHTS,
-            "too many lights",
-        )?;
+        if let Some(message) = light_budget_error(self.entities.iter().filter_map(|e| match e {
+            SceneEntity::Light { light, .. } => Some(light),
+            _ => None,
+        })) {
+            return Err(invalid(message));
+        }
         // A haze does not count as a light (B13 R2).
         require(
             self.entities
