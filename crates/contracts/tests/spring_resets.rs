@@ -11,7 +11,9 @@ fn frame(resets: &Value) -> Value {
 // B43 R1: the same vectors as packages/contracts/test/spring-resets.test.ts.
 #[test]
 fn spring_resets_match_the_shared_vectors() {
-    let vectors = json(include_str!("../../../fixtures/protocol/spring-resets.json"));
+    let vectors = json(include_str!(
+        "../../../fixtures/protocol/spring-resets.json"
+    ));
     for vector in vectors["valid"].as_array().unwrap() {
         let value = frame(&vector["springResets"]);
         let parsed: RuntimeFrame = serde_json::from_value(value.clone())
@@ -33,5 +35,8 @@ fn spring_resets_match_the_shared_vectors() {
 fn frames_without_resets_omit_the_field() {
     let parsed: RuntimeFrame =
         serde_json::from_str(include_str!("../../../fixtures/protocol/valid-frame.json")).unwrap();
-    assert!(serde_json::to_value(&parsed).unwrap().get("springResets").is_none());
+    assert!(serde_json::to_value(&parsed)
+        .unwrap()
+        .get("springResets")
+        .is_none());
 }
