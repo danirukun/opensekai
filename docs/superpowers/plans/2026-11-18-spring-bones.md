@@ -349,7 +349,7 @@ it('lists the joint bones',()=>{const {vrm,hair}=springAvatar();expect([...creat
 
 - [ ] **Step 2: Run the tests and see them fail.** Run: `direnv exec . pnpm vitest run --project unit packages/renderer/test/spring-rig.test.ts`. Expected: FAIL, module not found.
 
-- [ ] **Step 3: Implement `spring-rig.ts` and `spring-fixture.ts`.**
+- [ ] **Step 3: Implement `spring-rig.ts` and `spring-fixture.ts`.** The three-vrm loader already calls `setInitState()` at the end of an import, so the rig call is a second capture. This is safe: only `VRMUtils.rotateVRM0` (on the scene root) runs between the load and `createAvatarBinding`, and the first `advance` resets the tails.
 
 - [ ] **Step 4: Run the tests and see them pass.** Same command. Expected: PASS.
 
@@ -378,7 +378,7 @@ git commit -m "Add the spring rig, which scales the joint and collider values wi
 - Consumes: `planSpringSteps`, `SpringClock`, `SPRING_STEP_SECONDS` (Task 4); `capturePose`, `applyPose` (Task 4); `createSpringRig`, `SpringRig` (Task 5); `springAvatar` (Task 5).
 - Produces:
   - `export function createSpringStage(rig: SpringRig, root: Object3D, posed: readonly Object3D[], held: readonly Object3D[]): { advance(clock: SpringClock): void }`
-  - `createAvatarBinding(vrm)` returns `{ root, uv, apply, advanceSprings(clock: SpringClock): void }`. `advanceSprings` does nothing for a model without spring joints. `posed` is `[root, motion, ...raw humanoid bones that are not in rig.joints]`. `held` is the raw humanoid bones that are in `rig.joints` (empty for most models).
+  - `createAvatarBinding(vrm)` returns `{ root, uv, apply, advanceSprings(clock: SpringClock): void }`. `advanceSprings` does nothing for a model without spring joints. `posed` is `[root, motion, ...raw humanoid bones that are not in rig.joints]`. `held` is the raw humanoid bones that are in `rig.joints` (empty for most models). The stage sets `kept = capturePose(held)` when it is created, `lastClock = null`, and `previous = null`.
   - `export function extensionWarnings(extensions: readonly string[], id: string): AppError[]` in `assets.ts`.
 
 `advance(clock)` order:
