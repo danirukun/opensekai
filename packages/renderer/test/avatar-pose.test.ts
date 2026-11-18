@@ -33,7 +33,7 @@ it('maps explicit aliases, combines smile halves and preserves exact custom name
  expect(expressionWeights({mouthSmile_L:.3,mouthSmile_R:.8,jawOpen:.4,eyeBlink_L:.6,Joy:.2,Custom:.7,missing:1},new Set(['happy','aa','blinkLeft','Custom']))).toEqual({happy:.8,aa:.4,blinkLeft:.6,Custom:.7});
  expect(expressionWeights({Joy:.2},new Set(['Joy','happy']))).toEqual({Joy:.2});
 });
-it('never runs spring or constraint simulation',()=>{
+it('apply never calls vrm.update',()=>{
  const {vrm,binding}=fixture();const update=vi.spyOn(vrm,'update');binding.apply();expect(update).not.toHaveBeenCalled();
 });
 

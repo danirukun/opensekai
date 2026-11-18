@@ -15,6 +15,8 @@ export function springAvatar({springs=true,humanoidJoint=false}:{springs?:boolea
  const manager=new VRMSpringBoneManager();
  hair.forEach((bone,index)=>manager.addJoint(new VRMSpringBoneJoint(bone,hair[index+1]??null,SETTINGS,groups)));
  if(humanoidJoint)manager.addJoint(new VRMSpringBoneJoint(hand,null,SETTINGS,groups));
- const vrm=new VRM({scene,humanoid:new VRMHumanoid(bones),expressionManager:new VRMExpressionManager(),meta:{metaVersion:'1',name:'generated',authors:['tests'],licenseUrl:'https://example.com'},...(springs?{springBoneManager:manager}:{})});
+ // As the loader does, so the hips copy does not depend on the avatar root.
+ const humanoid=new VRMHumanoid(bones);scene.add(humanoid.normalizedHumanBonesRoot);
+ const vrm=new VRM({scene,humanoid,expressionManager:new VRMExpressionManager(),meta:{metaVersion:'1',name:'generated',authors:['tests'],licenseUrl:'https://example.com'},...(springs?{springBoneManager:manager}:{})});
  return {vrm,head,hair,hand};
 }
