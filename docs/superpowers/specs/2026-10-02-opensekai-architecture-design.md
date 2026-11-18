@@ -53,7 +53,7 @@ flowchart LR
 
 The Rust host owns network sockets, asset access, local endpoint lifetime, and desktop integration. The session owns scene state, animation mixing, tracking application, physics, and blueprint operations. Renderers own GPU resources and draw evaluated state. The editor owns selection, panels, tools, and interaction.
 
-Renderer clients can use different cameras. They share the same authoritative pose and simulation tick. Do not run separate avatar physics in OBS and the editor. Two GPU contexts still mean duplicate rendering and resource cost. Measure both clients active and provide a low-rate preview.
+Renderer clients can use different cameras. They share the same authoritative pose and simulation tick. Do not run separate avatar physics in OBS and the editor. The exception is secondary motion (VRM spring bones): each renderer computes it from session-owned inputs on a fixed time grid in session time (amended 2026-11-18, see the [spring bones design](2026-11-18-spring-bones-design.md)). Two GPU contexts still mean duplicate rendering and resource cost. Measure both clients active and provide a low-rate preview.
 
 Start with a dedicated worker in the app. A worker is not proof that macOS continues to schedule it while the host is hidden. If minimized, occluded, or background execution fails the benchmark, move the session into an independent runtime process behind the same API. Do not hide failure with a preview-only result. An independent process needs its own runtime and deployment review before selection.
 
@@ -71,7 +71,7 @@ OBS loads a local renderer page and prepared assets from a loopback service. Use
 
 Send an initial snapshot, then bounded batches of dirty state. Use a documented binary layout for high-rate rig data when the measured JSON baseline needs improvement. Coalesce superseded pose updates. Do not coalesce event triggers. Apply backpressure, reject incompatible versions, and recover through a fresh snapshot after a sequence gap. A reconnect must release stale assets and subscriptions.
 
-Settle animation, expression, retargeting, and spring-bone state in the session. VRM loader utilities must not silently duplicate those updates in each renderer. Interpolation may smooth display between session ticks without advancing authoritative physics.
+Settle animation, expression, and retargeting state in the session. Secondary motion (VRM spring bones) is a deterministic function of session-owned inputs: the evaluated pose, the session time, and the reset count of each avatar. Each renderer computes it with the same solver on a fixed time grid in session time. A renderer never advances it with its own clock. Interpolation between received frames is permitted for the solver input. Other avatar physics (ragdoll, collision with props, cloth with its own state) stays in the session until a design changes it (amended 2026-11-18, see the [spring bones design](2026-11-18-spring-bones-design.md)). VRM loader utilities must not silently duplicate those updates in each renderer. Interpolation may smooth display between session ticks without advancing authoritative physics.
 
 ## Renderer and material strategy
 
