@@ -1,0 +1,1694 @@
+{
+  "schemaVersion": 1,
+  "name": "Stage Rig",
+  "scene": {
+    "schemaVersion": 1,
+    "sceneId": "scene_smoke",
+    "revision": 0,
+    "entities": [
+      {
+        "id": "camera_main",
+        "name": "Wide",
+        "visible": true,
+        "transform": {
+          "position": [
+            0,
+            1.8,
+            7
+          ],
+          "rotation": [
+            -0.014281,
+            0,
+            0,
+            0.999898
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "camera",
+        "lens": {
+          "fovDegrees": 36,
+          "near": 0.05,
+          "far": 100
+        },
+        "navigation": {
+          "mode": "freeLook",
+          "sensitivity": 1
+        }
+      },
+      {
+        "id": "camera_stage",
+        "name": "Stage",
+        "visible": true,
+        "transform": {
+          "position": [
+            0,
+            1.4,
+            4
+          ],
+          "rotation": [
+            -0.012497,
+            0,
+            0,
+            0.999922
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "camera",
+        "lens": {
+          "fovDegrees": 40,
+          "near": 0.05,
+          "far": 100
+        }
+      },
+      {
+        "id": "camera_close",
+        "name": "Close",
+        "visible": true,
+        "transform": {
+          "position": [
+            0.6,
+            1.5,
+            1.6
+          ],
+          "rotation": [
+            -0.043062,
+            0.178254,
+            0.007809,
+            0.983011
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "camera",
+        "lens": {
+          "fovDegrees": 30,
+          "near": 0.05,
+          "far": 100
+        }
+      },
+      {
+        "id": "stage",
+        "name": "Test Stage",
+        "visible": true,
+        "transform": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "environment",
+        "assetId": "scene_6eb170021aa3c791a7f1665b25076754f9d2c2262568f9fdd720b6c4f381d1ee"
+      },
+      {
+        "id": "light_main",
+        "name": "Directional Light",
+        "visible": true,
+        "transform": {
+          "position": [
+            2,
+            4,
+            3
+          ],
+          "rotation": [
+            -0.389047,
+            0.264763,
+            0.117794,
+            0.874453
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#ffffff",
+          "range": 0,
+          "affectCharacters": true,
+          "affectProps": true,
+          "affectEnvironment": true,
+          "shadow": {
+            "enabled": false,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "directional",
+          "intensity": 0.2
+        }
+      },
+      {
+        "id": "stage_ambient",
+        "name": "Ambient Light",
+        "visible": true,
+        "transform": {
+          "position": [
+            0,
+            2.5,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#8090ff",
+          "range": 0,
+          "affectCharacters": true,
+          "affectProps": true,
+          "affectEnvironment": true,
+          "shadow": {
+            "enabled": false,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "ambient",
+          "intensity": 0.15
+        }
+      },
+      {
+        "id": "beam_front_1",
+        "name": "Beam Front 1",
+        "visible": true,
+        "transform": {
+          "position": [
+            -3,
+            3.6,
+            3
+          ],
+          "rotation": [
+            -0.337506,
+            -0.1676,
+            -0.061201,
+            0.924259
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#ff5a5a",
+          "range": 12,
+          "affectCharacters": true,
+          "affectProps": true,
+          "affectEnvironment": true,
+          "shadow": {
+            "enabled": false,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "spot",
+          "intensity": 60,
+          "cone": {
+            "angleDegrees": 14,
+            "penumbra": 0.4
+          },
+          "beam": {
+            "enabled": true,
+            "intensity": 1,
+            "softness": 0.5
+          }
+        }
+      },
+      {
+        "id": "beam_front_2",
+        "name": "Beam Front 2",
+        "visible": true,
+        "transform": {
+          "position": [
+            -1,
+            3.6,
+            3
+          ],
+          "rotation": [
+            -0.32674,
+            -0.077922,
+            -0.027042,
+            0.941508
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#ffd2a0",
+          "range": 12,
+          "affectCharacters": true,
+          "affectProps": true,
+          "affectEnvironment": true,
+          "shadow": {
+            "enabled": true,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "spot",
+          "intensity": 80,
+          "cone": {
+            "angleDegrees": 14,
+            "penumbra": 0.4
+          },
+          "beam": {
+            "enabled": true,
+            "intensity": 1,
+            "softness": 0.5
+          }
+        }
+      },
+      {
+        "id": "beam_front_3",
+        "name": "Beam Front 3",
+        "visible": true,
+        "transform": {
+          "position": [
+            1,
+            3.6,
+            3
+          ],
+          "rotation": [
+            -0.32674,
+            0.077922,
+            0.027042,
+            0.941508
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#a0c8ff",
+          "range": 12,
+          "affectCharacters": true,
+          "affectProps": true,
+          "affectEnvironment": true,
+          "shadow": {
+            "enabled": true,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "spot",
+          "intensity": 80,
+          "cone": {
+            "angleDegrees": 14,
+            "penumbra": 0.4
+          },
+          "beam": {
+            "enabled": true,
+            "intensity": 1,
+            "softness": 0.5
+          }
+        }
+      },
+      {
+        "id": "beam_front_4",
+        "name": "Beam Front 4",
+        "visible": true,
+        "transform": {
+          "position": [
+            3,
+            3.6,
+            3
+          ],
+          "rotation": [
+            -0.337506,
+            0.1676,
+            0.061201,
+            0.924259
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#5a8cff",
+          "range": 12,
+          "affectCharacters": true,
+          "affectProps": true,
+          "affectEnvironment": true,
+          "shadow": {
+            "enabled": false,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "spot",
+          "intensity": 60,
+          "cone": {
+            "angleDegrees": 14,
+            "penumbra": 0.4
+          },
+          "beam": {
+            "enabled": true,
+            "intensity": 1,
+            "softness": 0.5
+          }
+        }
+      },
+      {
+        "id": "beam_back_2",
+        "name": "Beam Back 2",
+        "visible": true,
+        "transform": {
+          "position": [
+            -1,
+            3.8,
+            -4
+          ],
+          "rotation": [
+            0,
+            0.965219,
+            0.261441,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#40e0d0",
+          "range": 12,
+          "affectCharacters": true,
+          "affectProps": true,
+          "affectEnvironment": true,
+          "shadow": {
+            "enabled": false,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "spot",
+          "intensity": 60,
+          "cone": {
+            "angleDegrees": 14,
+            "penumbra": 0.4
+          },
+          "beam": {
+            "enabled": true,
+            "intensity": 1,
+            "softness": 0.5
+          }
+        }
+      },
+      {
+        "id": "beam_back_3",
+        "name": "Beam Back 3",
+        "visible": true,
+        "transform": {
+          "position": [
+            1,
+            3.8,
+            -4
+          ],
+          "rotation": [
+            0,
+            0.965219,
+            0.261441,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#ff9040",
+          "range": 12,
+          "affectCharacters": true,
+          "affectProps": true,
+          "affectEnvironment": true,
+          "shadow": {
+            "enabled": false,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "spot",
+          "intensity": 60,
+          "cone": {
+            "angleDegrees": 14,
+            "penumbra": 0.4
+          },
+          "beam": {
+            "enabled": true,
+            "intensity": 1,
+            "softness": 0.5
+          }
+        }
+      },
+      {
+        "id": "head_back_01",
+        "name": "Head Back 1",
+        "visible": true,
+        "transform": {
+          "position": [
+            -4.4,
+            4.4,
+            -4.5
+          ],
+          "rotation": [
+            -0.036052,
+            0.957491,
+            0.25099,
+            0.137535
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#40e0d0",
+          "range": 12,
+          "affectCharacters": false,
+          "affectProps": false,
+          "affectEnvironment": false,
+          "shadow": {
+            "enabled": false,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "spot",
+          "intensity": 60,
+          "cone": {
+            "angleDegrees": 10,
+            "penumbra": 0.4
+          },
+          "beam": {
+            "enabled": true,
+            "intensity": 1,
+            "softness": 0.5
+          }
+        }
+      },
+      {
+        "id": "head_back_02",
+        "name": "Head Back 2",
+        "visible": true,
+        "transform": {
+          "position": [
+            -3.6,
+            4.4,
+            -4.5
+          ],
+          "rotation": [
+            -0.030117,
+            0.959897,
+            0.254542,
+            0.113575
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#c070ff",
+          "range": 12,
+          "affectCharacters": false,
+          "affectProps": false,
+          "affectEnvironment": false,
+          "shadow": {
+            "enabled": false,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "spot",
+          "intensity": 60,
+          "cone": {
+            "angleDegrees": 10,
+            "penumbra": 0.4
+          },
+          "beam": {
+            "enabled": true,
+            "intensity": 1,
+            "softness": 0.5
+          }
+        }
+      },
+      {
+        "id": "head_back_03",
+        "name": "Head Back 3",
+        "visible": true,
+        "transform": {
+          "position": [
+            -2.8,
+            4.4,
+            -4.5
+          ],
+          "rotation": [
+            -0.023826,
+            0.961879,
+            0.257485,
+            0.089007
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#40e0d0",
+          "range": 12,
+          "affectCharacters": false,
+          "affectProps": false,
+          "affectEnvironment": false,
+          "shadow": {
+            "enabled": false,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "spot",
+          "intensity": 60,
+          "cone": {
+            "angleDegrees": 10,
+            "penumbra": 0.4
+          },
+          "beam": {
+            "enabled": true,
+            "intensity": 1,
+            "softness": 0.5
+          }
+        }
+      },
+      {
+        "id": "head_back_04",
+        "name": "Head Back 4",
+        "visible": true,
+        "transform": {
+          "position": [
+            -2,
+            4.4,
+            -4.5
+          ],
+          "rotation": [
+            -0.017241,
+            0.963401,
+            0.259755,
+            0.063944
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#c070ff",
+          "range": 12,
+          "affectCharacters": false,
+          "affectProps": false,
+          "affectEnvironment": false,
+          "shadow": {
+            "enabled": false,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "spot",
+          "intensity": 60,
+          "cone": {
+            "angleDegrees": 10,
+            "penumbra": 0.4
+          },
+          "beam": {
+            "enabled": true,
+            "intensity": 1,
+            "softness": 0.5
+          }
+        }
+      },
+      {
+        "id": "head_back_05",
+        "name": "Head Back 5",
+        "visible": true,
+        "transform": {
+          "position": [
+            -1.2,
+            4.4,
+            -4.5
+          ],
+          "rotation": [
+            -0.010435,
+            0.964433,
+            0.261299,
+            0.038516
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#40e0d0",
+          "range": 12,
+          "affectCharacters": false,
+          "affectProps": false,
+          "affectEnvironment": false,
+          "shadow": {
+            "enabled": false,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "spot",
+          "intensity": 60,
+          "cone": {
+            "angleDegrees": 10,
+            "penumbra": 0.4
+          },
+          "beam": {
+            "enabled": true,
+            "intensity": 1,
+            "softness": 0.5
+          }
+        }
+      },
+      {
+        "id": "head_back_06",
+        "name": "Head Back 6",
+        "visible": true,
+        "transform": {
+          "position": [
+            -0.4,
+            4.4,
+            -4.5
+          ],
+          "rotation": [
+            -0.003494,
+            0.964954,
+            0.26208,
+            0.012864
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#c070ff",
+          "range": 12,
+          "affectCharacters": false,
+          "affectProps": false,
+          "affectEnvironment": false,
+          "shadow": {
+            "enabled": false,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "spot",
+          "intensity": 60,
+          "cone": {
+            "angleDegrees": 10,
+            "penumbra": 0.4
+          },
+          "beam": {
+            "enabled": true,
+            "intensity": 1,
+            "softness": 0.5
+          }
+        }
+      },
+      {
+        "id": "head_back_07",
+        "name": "Head Back 7",
+        "visible": true,
+        "transform": {
+          "position": [
+            0.4,
+            4.4,
+            -4.5
+          ],
+          "rotation": [
+            -0.003494,
+            -0.964954,
+            -0.26208,
+            0.012864
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#40e0d0",
+          "range": 12,
+          "affectCharacters": false,
+          "affectProps": false,
+          "affectEnvironment": false,
+          "shadow": {
+            "enabled": false,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "spot",
+          "intensity": 60,
+          "cone": {
+            "angleDegrees": 10,
+            "penumbra": 0.4
+          },
+          "beam": {
+            "enabled": true,
+            "intensity": 1,
+            "softness": 0.5
+          }
+        }
+      },
+      {
+        "id": "head_back_08",
+        "name": "Head Back 8",
+        "visible": true,
+        "transform": {
+          "position": [
+            1.2,
+            4.4,
+            -4.5
+          ],
+          "rotation": [
+            -0.010435,
+            -0.964433,
+            -0.261299,
+            0.038516
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#c070ff",
+          "range": 12,
+          "affectCharacters": false,
+          "affectProps": false,
+          "affectEnvironment": false,
+          "shadow": {
+            "enabled": false,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "spot",
+          "intensity": 60,
+          "cone": {
+            "angleDegrees": 10,
+            "penumbra": 0.4
+          },
+          "beam": {
+            "enabled": true,
+            "intensity": 1,
+            "softness": 0.5
+          }
+        }
+      },
+      {
+        "id": "head_back_09",
+        "name": "Head Back 9",
+        "visible": true,
+        "transform": {
+          "position": [
+            2,
+            4.4,
+            -4.5
+          ],
+          "rotation": [
+            -0.017241,
+            -0.963401,
+            -0.259755,
+            0.063944
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#40e0d0",
+          "range": 12,
+          "affectCharacters": false,
+          "affectProps": false,
+          "affectEnvironment": false,
+          "shadow": {
+            "enabled": false,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "spot",
+          "intensity": 60,
+          "cone": {
+            "angleDegrees": 10,
+            "penumbra": 0.4
+          },
+          "beam": {
+            "enabled": true,
+            "intensity": 1,
+            "softness": 0.5
+          }
+        }
+      },
+      {
+        "id": "head_back_10",
+        "name": "Head Back 10",
+        "visible": true,
+        "transform": {
+          "position": [
+            2.8,
+            4.4,
+            -4.5
+          ],
+          "rotation": [
+            -0.023826,
+            -0.961879,
+            -0.257485,
+            0.089007
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#c070ff",
+          "range": 12,
+          "affectCharacters": false,
+          "affectProps": false,
+          "affectEnvironment": false,
+          "shadow": {
+            "enabled": false,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "spot",
+          "intensity": 60,
+          "cone": {
+            "angleDegrees": 10,
+            "penumbra": 0.4
+          },
+          "beam": {
+            "enabled": true,
+            "intensity": 1,
+            "softness": 0.5
+          }
+        }
+      },
+      {
+        "id": "head_back_11",
+        "name": "Head Back 11",
+        "visible": true,
+        "transform": {
+          "position": [
+            3.6,
+            4.4,
+            -4.5
+          ],
+          "rotation": [
+            -0.030117,
+            -0.959897,
+            -0.254542,
+            0.113575
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#40e0d0",
+          "range": 12,
+          "affectCharacters": false,
+          "affectProps": false,
+          "affectEnvironment": false,
+          "shadow": {
+            "enabled": false,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "spot",
+          "intensity": 60,
+          "cone": {
+            "angleDegrees": 10,
+            "penumbra": 0.4
+          },
+          "beam": {
+            "enabled": true,
+            "intensity": 1,
+            "softness": 0.5
+          }
+        }
+      },
+      {
+        "id": "head_back_12",
+        "name": "Head Back 12",
+        "visible": true,
+        "transform": {
+          "position": [
+            4.4,
+            4.4,
+            -4.5
+          ],
+          "rotation": [
+            -0.036052,
+            -0.957491,
+            -0.25099,
+            0.137535
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#c070ff",
+          "range": 12,
+          "affectCharacters": false,
+          "affectProps": false,
+          "affectEnvironment": false,
+          "shadow": {
+            "enabled": false,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "spot",
+          "intensity": 60,
+          "cone": {
+            "angleDegrees": 10,
+            "penumbra": 0.4
+          },
+          "beam": {
+            "enabled": true,
+            "intensity": 1,
+            "softness": 0.5
+          }
+        }
+      },
+      {
+        "id": "head_front_01",
+        "name": "Head Front 1",
+        "visible": true,
+        "transform": {
+          "position": [
+            -4.4,
+            4.8,
+            2.5
+          ],
+          "rotation": [
+            -0.363227,
+            -0.209155,
+            -0.084036,
+            0.904024
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#ffd2a0",
+          "range": 12,
+          "affectCharacters": false,
+          "affectProps": false,
+          "affectEnvironment": false,
+          "shadow": {
+            "enabled": false,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "spot",
+          "intensity": 60,
+          "cone": {
+            "angleDegrees": 10,
+            "penumbra": 0.4
+          },
+          "beam": {
+            "enabled": true,
+            "intensity": 1,
+            "softness": 0.5
+          }
+        }
+      },
+      {
+        "id": "head_front_02",
+        "name": "Head Front 2",
+        "visible": true,
+        "transform": {
+          "position": [
+            -3.6,
+            4.8,
+            2.5
+          ],
+          "rotation": [
+            -0.373584,
+            -0.174887,
+            -0.071946,
+            0.908115
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#ff60b0",
+          "range": 12,
+          "affectCharacters": false,
+          "affectProps": false,
+          "affectEnvironment": false,
+          "shadow": {
+            "enabled": false,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "spot",
+          "intensity": 60,
+          "cone": {
+            "angleDegrees": 10,
+            "penumbra": 0.4
+          },
+          "beam": {
+            "enabled": true,
+            "intensity": 1,
+            "softness": 0.5
+          }
+        }
+      },
+      {
+        "id": "head_front_03",
+        "name": "Head Front 3",
+        "visible": true,
+        "transform": {
+          "position": [
+            -2.8,
+            4.8,
+            2.5
+          ],
+          "rotation": [
+            -0.382525,
+            -0.138537,
+            -0.05813,
+            0.911649
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#ffd2a0",
+          "range": 12,
+          "affectCharacters": false,
+          "affectProps": false,
+          "affectEnvironment": false,
+          "shadow": {
+            "enabled": false,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "spot",
+          "intensity": 60,
+          "cone": {
+            "angleDegrees": 10,
+            "penumbra": 0.4
+          },
+          "beam": {
+            "enabled": true,
+            "intensity": 1,
+            "softness": 0.5
+          }
+        }
+      },
+      {
+        "id": "head_front_04",
+        "name": "Head Front 4",
+        "visible": true,
+        "transform": {
+          "position": [
+            -2,
+            4.8,
+            2.5
+          ],
+          "rotation": [
+            -0.38966,
+            -0.100384,
+            -0.042774,
+            0.914472
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#ff60b0",
+          "range": 12,
+          "affectCharacters": false,
+          "affectProps": false,
+          "affectEnvironment": false,
+          "shadow": {
+            "enabled": false,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "spot",
+          "intensity": 60,
+          "cone": {
+            "angleDegrees": 10,
+            "penumbra": 0.4
+          },
+          "beam": {
+            "enabled": true,
+            "intensity": 1,
+            "softness": 0.5
+          }
+        }
+      },
+      {
+        "id": "head_front_05",
+        "name": "Head Front 5",
+        "visible": true,
+        "transform": {
+          "position": [
+            -1.2,
+            4.8,
+            2.5
+          ],
+          "rotation": [
+            -0.394642,
+            -0.060827,
+            -0.026194,
+            0.916445
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#ffd2a0",
+          "range": 12,
+          "affectCharacters": false,
+          "affectProps": false,
+          "affectEnvironment": false,
+          "shadow": {
+            "enabled": false,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "spot",
+          "intensity": 60,
+          "cone": {
+            "angleDegrees": 10,
+            "penumbra": 0.4
+          },
+          "beam": {
+            "enabled": true,
+            "intensity": 1,
+            "softness": 0.5
+          }
+        }
+      },
+      {
+        "id": "head_front_06",
+        "name": "Head Front 6",
+        "visible": true,
+        "transform": {
+          "position": [
+            -0.4,
+            4.8,
+            2.5
+          ],
+          "rotation": [
+            -0.397205,
+            -0.020378,
+            -0.008822,
+            0.917461
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#ff60b0",
+          "range": 12,
+          "affectCharacters": false,
+          "affectProps": false,
+          "affectEnvironment": false,
+          "shadow": {
+            "enabled": false,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "spot",
+          "intensity": 60,
+          "cone": {
+            "angleDegrees": 10,
+            "penumbra": 0.4
+          },
+          "beam": {
+            "enabled": true,
+            "intensity": 1,
+            "softness": 0.5
+          }
+        }
+      },
+      {
+        "id": "head_front_07",
+        "name": "Head Front 7",
+        "visible": true,
+        "transform": {
+          "position": [
+            0.4,
+            4.8,
+            2.5
+          ],
+          "rotation": [
+            -0.397205,
+            0.020378,
+            0.008822,
+            0.917461
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#ffd2a0",
+          "range": 12,
+          "affectCharacters": false,
+          "affectProps": false,
+          "affectEnvironment": false,
+          "shadow": {
+            "enabled": false,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "spot",
+          "intensity": 60,
+          "cone": {
+            "angleDegrees": 10,
+            "penumbra": 0.4
+          },
+          "beam": {
+            "enabled": true,
+            "intensity": 1,
+            "softness": 0.5
+          }
+        }
+      },
+      {
+        "id": "head_front_08",
+        "name": "Head Front 8",
+        "visible": true,
+        "transform": {
+          "position": [
+            1.2,
+            4.8,
+            2.5
+          ],
+          "rotation": [
+            -0.394642,
+            0.060827,
+            0.026194,
+            0.916445
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#ff60b0",
+          "range": 12,
+          "affectCharacters": false,
+          "affectProps": false,
+          "affectEnvironment": false,
+          "shadow": {
+            "enabled": false,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "spot",
+          "intensity": 60,
+          "cone": {
+            "angleDegrees": 10,
+            "penumbra": 0.4
+          },
+          "beam": {
+            "enabled": true,
+            "intensity": 1,
+            "softness": 0.5
+          }
+        }
+      },
+      {
+        "id": "head_front_09",
+        "name": "Head Front 9",
+        "visible": true,
+        "transform": {
+          "position": [
+            2,
+            4.8,
+            2.5
+          ],
+          "rotation": [
+            -0.38966,
+            0.100384,
+            0.042774,
+            0.914472
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#ffd2a0",
+          "range": 12,
+          "affectCharacters": false,
+          "affectProps": false,
+          "affectEnvironment": false,
+          "shadow": {
+            "enabled": false,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "spot",
+          "intensity": 60,
+          "cone": {
+            "angleDegrees": 10,
+            "penumbra": 0.4
+          },
+          "beam": {
+            "enabled": true,
+            "intensity": 1,
+            "softness": 0.5
+          }
+        }
+      },
+      {
+        "id": "head_front_10",
+        "name": "Head Front 10",
+        "visible": true,
+        "transform": {
+          "position": [
+            2.8,
+            4.8,
+            2.5
+          ],
+          "rotation": [
+            -0.382525,
+            0.138537,
+            0.05813,
+            0.911649
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#ff60b0",
+          "range": 12,
+          "affectCharacters": false,
+          "affectProps": false,
+          "affectEnvironment": false,
+          "shadow": {
+            "enabled": false,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "spot",
+          "intensity": 60,
+          "cone": {
+            "angleDegrees": 10,
+            "penumbra": 0.4
+          },
+          "beam": {
+            "enabled": true,
+            "intensity": 1,
+            "softness": 0.5
+          }
+        }
+      },
+      {
+        "id": "head_front_11",
+        "name": "Head Front 11",
+        "visible": true,
+        "transform": {
+          "position": [
+            3.6,
+            4.8,
+            2.5
+          ],
+          "rotation": [
+            -0.373584,
+            0.174887,
+            0.071946,
+            0.908115
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#ffd2a0",
+          "range": 12,
+          "affectCharacters": false,
+          "affectProps": false,
+          "affectEnvironment": false,
+          "shadow": {
+            "enabled": false,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "spot",
+          "intensity": 60,
+          "cone": {
+            "angleDegrees": 10,
+            "penumbra": 0.4
+          },
+          "beam": {
+            "enabled": true,
+            "intensity": 1,
+            "softness": 0.5
+          }
+        }
+      },
+      {
+        "id": "head_front_12",
+        "name": "Head Front 12",
+        "visible": true,
+        "transform": {
+          "position": [
+            4.4,
+            4.8,
+            2.5
+          ],
+          "rotation": [
+            -0.363227,
+            0.209155,
+            0.084036,
+            0.904024
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#ff60b0",
+          "range": 12,
+          "affectCharacters": false,
+          "affectProps": false,
+          "affectEnvironment": false,
+          "shadow": {
+            "enabled": false,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "spot",
+          "intensity": 60,
+          "cone": {
+            "angleDegrees": 10,
+            "penumbra": 0.4
+          },
+          "beam": {
+            "enabled": true,
+            "intensity": 1,
+            "softness": 0.5
+          }
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "id": "output_main",
+        "cameraId": "camera_main",
+        "width": 1920,
+        "height": 1080,
+        "fps": 60
+      },
+      {
+        "id": "preview_main",
+        "cameraId": "camera_main",
+        "width": 1920,
+        "height": 1080,
+        "fps": 60
+      }
+    ]
+  },
+  "blueprints": []
+}

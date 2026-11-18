@@ -300,6 +300,10 @@ mod tests {
                 include_str!("../../../../fixtures/shows/stage-beams.osekai"),
             ),
             (
+                "stage-rig.osekai",
+                include_str!("../../../../fixtures/shows/stage-rig.osekai"),
+            ),
+            (
                 "test-stage.osekai",
                 include_str!("../../../../fixtures/shows/test-stage.osekai"),
             ),
@@ -308,6 +312,17 @@ mod tests {
             std::fs::write(&path, text).unwrap();
             assert!(read_show(&path).is_ok(), "{name}");
         }
+    }
+
+    #[test]
+    fn a_show_with_nine_lit_lights_gives_the_lit_light_message() {
+        let mut document = show();
+        let entities = document["scene"]["entities"].as_array_mut().unwrap();
+        for i in 0..9 {
+            entities.push(json!({"id":format!("light_{i}"),"name":"Light","visible":true,"transform":{"position":[0,3,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"kind":"light","light":{"type":"point","color":"#ffffff","intensity":3,"range":10,"affectCharacters":true,"affectProps":false,"affectEnvironment":false,"shadow":{"enabled":false,"intensity":1,"soft":true,"bias":-0.0005,"normalBias":0.02}}}));
+        }
+        let error = validate_show(&document).unwrap_err();
+        assert_eq!(error.message, opensekai_contracts::LIGHT_BUDGET_LIT_MESSAGE);
     }
 
     #[test]

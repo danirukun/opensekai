@@ -264,3 +264,61 @@ describe('stage lights (B13)', () => {
         expect((set[0] as SpotLight).isSpotLight).toBe(true);
     });
 });
+
+describe('unlit lights and group nodes (light limits R13, R14)', () => {
+    const cone = { angleDegrees: 40, penumbra: 0.3 };
+    const off = { affectCharacters: false, affectProps: false, affectEnvironment: false };
+    const spot = (id: string, patch: Partial<LightSettings> = {}) => light(id, { type: 'spot', intensity: 60, range: 15, cone, ...patch });
+    const beam = { enabled: true, intensity: 1, softness: 0.5 };
+    const GROUPS = ['characters', 'props', 'environment', 'haze'] as const;
+    const nodes = (lights: ReturnType<typeof createSceneLights>) => GROUPS.map(group => lights.node(group));
+    const lit = [light('d'), spot('s', { volumetric: true })];
+    it('keeps an unlit light out of the material groups and in the haze group when it scatters (R14)', () => {
+        const groups = lightGroups([...lit, spot('u', { ...off, beam }), spot('v', { ...off, volumetric: true })]);
+        expect(groups).toEqual({ characters: ['d', 's'], props: ['d', 's'], environment: ['d', 's'], haze: ['s', 'v'] });
+    });
+    it('keeps each node and the generation when an unlit light without haze scatter changes (R13)', () => {
+        const scene = new Scene(), lights = createSceneLights(scene, fake());
+        lights.apply(lit);
+        const before = nodes(lights), generation = lights.generation(), base = lights.signature();
+        // The second value is the apply result: true when the signature changes, so the renderer resets the failure state.
+        for (const [entities, changed] of [
+            [[...lit, spot('u', off)], true],
+            [[...lit, spot('u', { ...off, color: '#ff0000' })], false],
+            [[...lit, spot('u', { ...off, beam })], false],
+            [[...lit, light('u', { ...off, type: 'point' })], true],
+            [[...lit, spot('u', off), spot('w', off)], true],
+            [lit, true],
+        ] as const) {
+            expect(lights.apply(entities)).toBe(changed);
+            nodes(lights).forEach((node, i) => expect(node).toBe(before[i]));
+            expect(lights.generation()).toBe(generation);
+        }
+        lights.apply([...lit, spot('u', off)]);
+        expect(lights.signature()).not.toBe(base);
+        expect(lights.generation()).toBe(generation);
+    });
+    it('replaces only the node of a group whose light list changes (R13, R14)', () => {
+        const scene = new Scene(), lights = createSceneLights(scene, fake());
+        lights.apply([...lit, spot('u', off)]);
+        let before = nodes(lights), generation = lights.generation();
+        lights.apply([...lit, spot('u', { ...off, affectCharacters: true })]);
+        expect(lights.node('characters')).not.toBe(before[0]);
+        nodes(lights).slice(1).forEach((node, i) => expect(node).toBe(before[i + 1]));
+        expect(lights.generation()).toBe(generation + 1);
+
+        lights.apply([...lit, spot('u', off)]);
+        before = nodes(lights); generation = lights.generation();
+        lights.apply([...lit, spot('u', off), light('amb', { ...off, type: 'ambient' })]);
+        const after = nodes(lights);
+        for (const i of [0, 1, 2]) expect(after[i]).not.toBe(before[i]);
+        expect(after[3]).toBe(before[3]);
+        expect(lights.generation()).toBe(generation + 1);
+
+        before = after; generation = lights.generation();
+        lights.apply([...lit, spot('u', { ...off, volumetric: true }), light('amb', { ...off, type: 'ambient' })]);
+        for (const i of [0, 1, 2]) expect(after[i]).toBe(lights.node(GROUPS[i]!));
+        expect(lights.node('haze')).not.toBe(before[3]);
+        expect(lights.generation()).toBe(generation + 1);
+    });
+});

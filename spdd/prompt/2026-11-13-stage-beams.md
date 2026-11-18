@@ -9,7 +9,7 @@ The owner approved the decisions below on 2026-11-13. "Stage lights" is the cont
 | # | Decided | Rejected alternative |
 | --- | --- | --- |
 | D1 | A cone beam on each spot light, in its own pass at half resolution, with a fixture show and cost evidence | Evidence only for the haze; beams above the light limit |
-| D2 | The target is 8 beams, the light limit. A larger rig is a follow-up issue | A higher limit or a beam entity kind in this bundle |
+| D2 | The target is 8 beams, the light limit. A larger rig is a follow-up issue. (Changed by [light limits](2026-11-17-light-limits.md) R2, R12: at most 32 beams; the beam pool grows on demand.) | A higher limit or a beam entity kind in this bundle |
 | D3 | Explicit controls (labels L1 to L3) in the Light section, after Penumbra; the sliders show only while the beam is on | No control: the `volumetric` switch draws a cone when no haze exists |
 | D4 | The beam follows the color and the Intensity of its light | A brightness that does not depend on the light |
 | D5 | The existing checkbox gets label L4. The data field `volumetric` does not change | Keep the label "Volumetric" |
@@ -53,6 +53,7 @@ R2. TypeScript (zod) and Rust accept and reject the same shapes, with shared vec
 R3. Rust omits the group when it is missing, so a show without a beam saves with the same bytes as before. The show file version does not change.
 R4. No new patch operation. `setLight` replaces the light group. A `setLight` that gives a point light `beam.enabled: true` fails with `INVALID_INPUT` and does not change the scene.
 R5. The limits do not change (8 lights, 2 shadow lights, 1 haze). A beam is not a light and is not a haze. The quality profiles do not change.
+(Changed by [light limits](2026-11-17-light-limits.md) R2: 32 lights, 8 lit lights, 2 shadow lights, and 1 haze.)
 
 ### Beam values (pure functions)
 
@@ -122,6 +123,7 @@ R29. `fixtures/shows/stage-beams.osekai` is a valid show on both sides (the Type
 - no character, no haze, and no Blueprint.
 
 The positions, the aim points, and the colors are in the plan. The −Z axis of each spot light passes within 0.05 m of its aim point.
+(Changed by [light limits](2026-11-17-light-limits.md) R18: the show gets `light_main` and `stage_ambient`, and the four `beam_back_*` spot lights have all affect flags off.)
 
 ### Documents and evidence
 

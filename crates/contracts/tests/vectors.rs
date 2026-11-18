@@ -145,6 +145,9 @@ fn expanded_shared_vectors() {
         );
         if let Err(error) = result {
             assert_eq!(error.code, ErrorCode::InvalidInput, "{}", vector["name"]);
+            if let Some(message) = vector["message"].as_str() {
+                assert_eq!(error.message, message, "{}", vector["name"]);
+            }
         }
     }
 }

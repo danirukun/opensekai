@@ -60,9 +60,11 @@ export function createBeams(): Beams {
     const material = beamMaterial(depth);
     const root = new Group();
     root.name = "beams";
-    const meshes = Array.from({ length: LIMITS.lights }, (_, i) => {
+    // The pool grows to the drawn count, up to LIMITS.lights, and does not shrink before dispose (light limits R12).
+    const meshes: Mesh[] = [];
+    const addMesh = () => {
         const mesh = new Mesh(geometry, material);
-        mesh.name = `beam-${i}`;
+        mesh.name = `beam-${meshes.length}`;
         mesh.layers.disableAll();
         mesh.layers.enable(BEAM_LAYER);
         mesh.castShadow = false;
@@ -71,12 +73,13 @@ export function createBeams(): Beams {
         mesh.userData.beamColor = new Color(0, 0, 0);
         mesh.userData.beamSoftness = 0.5;
         root.add(mesh);
-        return mesh;
-    });
+        meshes.push(mesh);
+    };
     return {
         root,
         update(entities) {
-            const lights = entities.filter(beamDraws).slice(0, meshes.length);
+            const lights = entities.filter(beamDraws).slice(0, LIMITS.lights);
+            while (meshes.length < lights.length) addMesh();
             meshes.forEach((mesh, i) => {
                 const entity = lights[i];
                 mesh.visible = entity?.kind === "light";

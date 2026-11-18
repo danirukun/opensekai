@@ -123,6 +123,86 @@
         "assetId": "scene_6eb170021aa3c791a7f1665b25076754f9d2c2262568f9fdd720b6c4f381d1ee"
       },
       {
+        "id": "light_main",
+        "name": "Directional Light",
+        "visible": true,
+        "transform": {
+          "position": [
+            2,
+            4,
+            3
+          ],
+          "rotation": [
+            -0.389047,
+            0.264763,
+            0.117794,
+            0.874453
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#ffffff",
+          "range": 0,
+          "affectCharacters": true,
+          "affectProps": true,
+          "affectEnvironment": true,
+          "shadow": {
+            "enabled": false,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "directional",
+          "intensity": 0.2
+        }
+      },
+      {
+        "id": "stage_ambient",
+        "name": "Ambient Light",
+        "visible": true,
+        "transform": {
+          "position": [
+            0,
+            2.5,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "kind": "light",
+        "light": {
+          "color": "#8090ff",
+          "range": 0,
+          "affectCharacters": true,
+          "affectProps": true,
+          "affectEnvironment": true,
+          "shadow": {
+            "enabled": false,
+            "intensity": 1,
+            "soft": true,
+            "bias": -0.0005,
+            "normalBias": 0.02
+          },
+          "type": "ambient",
+          "intensity": 0.15
+        }
+      },
+      {
         "id": "beam_front_1",
         "name": "Beam Front 1",
         "visible": true,
@@ -344,9 +424,9 @@
         "light": {
           "color": "#c070ff",
           "range": 12,
-          "affectCharacters": true,
-          "affectProps": true,
-          "affectEnvironment": true,
+          "affectCharacters": false,
+          "affectProps": false,
+          "affectEnvironment": false,
           "shadow": {
             "enabled": false,
             "intensity": 1,
@@ -393,9 +473,9 @@
         "light": {
           "color": "#40e0d0",
           "range": 12,
-          "affectCharacters": true,
-          "affectProps": true,
-          "affectEnvironment": true,
+          "affectCharacters": false,
+          "affectProps": false,
+          "affectEnvironment": false,
           "shadow": {
             "enabled": false,
             "intensity": 1,
@@ -442,9 +522,9 @@
         "light": {
           "color": "#ff9040",
           "range": 12,
-          "affectCharacters": true,
-          "affectProps": true,
-          "affectEnvironment": true,
+          "affectCharacters": false,
+          "affectProps": false,
+          "affectEnvironment": false,
           "shadow": {
             "enabled": false,
             "intensity": 1,
@@ -491,9 +571,9 @@
         "light": {
           "color": "#ff60b0",
           "range": 12,
-          "affectCharacters": true,
-          "affectProps": true,
-          "affectEnvironment": true,
+          "affectCharacters": false,
+          "affectProps": false,
+          "affectEnvironment": false,
           "shadow": {
             "enabled": false,
             "intensity": 1,
