@@ -30,9 +30,8 @@ export const CHARACTER_EVALUATORS = {
   if (!scene) throw new RangeError('Character is unavailable');
   const { entityId, bones, axis, intensity, offset } = node.settings;
   const angle = Math.min(360, Math.max(-360, Number(c.read('weight')) * (Number(c.read('value')) * intensity + offset)));
-  const euler: Vec3 = [0, 0, 0];
-  euler[AXIS_INDEX[axis]] = angle;
-  c.emitEach(bones.filter(bone => !offsetBonesSkipped(scene, entityId, bone)).map(bone => ({ kind: 'offsetBone', entityId, bone, euler: [...euler] })));
+  const euler = (): Vec3 => [0, 1, 2].map(index => index === AXIS_INDEX[axis] ? angle : 0) as Vec3;
+  c.emitEach(bones.filter(bone => !offsetBonesSkipped(scene, entityId, bone)).map(bone => ({ kind: 'offsetBone', entityId, bone, euler: euler() })));
  } },
  'character.setBlendShape': { flow: (node, c) => c.emit({ kind: 'setBlendShape', entityId: node.settings.entityId, blendShape: node.settings.blendShape, weight: Number(c.read('weight')), ...withTransition(node.settings) }) },
  'character.toggleMeshes': { flow: (node, c) => c.emit({ kind: 'toggleMeshes', entityId: node.settings.entityId, names: [...node.settings.meshes] }) },

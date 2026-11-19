@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { makeSmokeScene, type AvatarPose, type AvatarTracking, type BlueprintNodeOf, type Quat, type SceneEntity, type SceneView, type Vec3 } from '@opensekai/contracts';
-import type { BlueprintEffect } from '../src/blueprint';
-import { EVALUATORS, NO_ENV, type FlowContext } from '../src/blueprint-eval';
+import { compileBlueprint, runFlow, type BlueprintEffect } from '../src/blueprint';
+import { emptyState, EVALUATORS, NO_ENV, type FlowContext } from '../src/blueprint-eval';
 import { createSession } from '../src/session';
 import { offsetBonesSkipped } from '../src/blueprint-eval/character';
 import { boneEuler, composeBoneOffsets, EMPTY_BONE_OFFSETS, eulerToQuat, multiplyQuat, quatToEuler, writeBoneOffset } from '../src/bone-offsets';
@@ -154,5 +154,40 @@ describe('Offset Bones in a graph', () => {
   const result = offsets(['spine', 'chest'], { bodySourceId: 'body', faceSourceId: null, body: { movementIntensity: 1, trackedParts: ['body'] } });
   expect(result.errors).toEqual([]);
   expect(Object.keys(result.offsets ?? {})).toEqual(['leftUpperArm']);
+ });
+});
+
+describe('Offset Bones against the effect budget', () => {
+ const at = { x: 0, y: 0 };
+ const node = (id: string, type: string, settings: object = {}) => ({ id, version: 1, type, settings, position: at });
+ const wire = (id: string, from: string, fromPort: string, to: string, toPort: string) => ({ id, sourceNodeId: from, sourcePort: fromPort, targetNodeId: to, targetPort: toPort });
+ const bones = ['spine', 'chest', 'upperChest', 'neck', 'head'];
+ const run = (effects: number, tracking?: AvatarTracking, tail = true) => {
+  const scene = makeSmokeScene();
+  scene.entities = scene.entities.map(entity => entity.kind === 'avatar' && entity.id === 'performer' ? { ...entity, tracking } : entity);
+  const graph = { schemaVersion: 1, id: 'g', name: 'g', nodes: [node('start', 'event.update'), node('bones', 'character.offsetBones', { entityId: 'performer', bones, axis: 'y', intensity: 1, offset: 0 }), ...(tail ? [node('after', 'scene.toggleVisibility', { entityId: 'marker' })] : [])], connections: [wire('1', 'start', 'flow', 'bones', 'flow'), ...(tail ? [wire('2', 'bones', 'exit', 'after', 'flow')] : [])] };
+  const compiled = compileBlueprint(graph);
+  if (!compiled.ok) throw new Error(compiled.error.message);
+  const budget = { visits: 256, effects };
+  return { budget, result: runFlow(compiled.data, { nodeId: 'start', port: 'flow' }, emptyState(), budget, 0, { ...NO_ENV, scene: () => scene }) };
+ };
+ const trackedBody: AvatarTracking = { bodySourceId: 'body', faceSourceId: null };
+
+ it('charges one unit for a run with five bones', () => {
+  const { budget, result } = run(10);
+  expect(result.ok && result.data.effects.map(effect => effect.kind)).toEqual([...bones.map(() => 'offsetBone'), 'toggleVisibility']);
+  expect(budget.effects).toBe(8);
+ });
+
+ it('fails at the limit like another effect and writes nothing', () => {
+  const { result } = run(0);
+  expect(result).toMatchObject({ ok: false, error: { message: 'Blueprint run exceeded its operation limit' } });
+ });
+
+ it('continues at the exit without a charge when every bone is skipped, also with an exhausted budget', () => {
+  const { budget, result } = run(1, trackedBody);
+  expect(result.ok && result.data.effects.map(effect => effect.kind)).toEqual(['toggleVisibility']);
+  expect(budget.effects).toBe(0);
+  expect(run(0, trackedBody, false).result).toMatchObject({ ok: true, data: { effects: [] } });
  });
 });

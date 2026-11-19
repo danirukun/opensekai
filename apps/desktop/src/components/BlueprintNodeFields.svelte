@@ -4,7 +4,7 @@
  import { blendShapeNames, DEFAULT_EASING, EASINGS, MAX_NODE_MESHES, nodeDefinition, triggerableExpressions, type AssetRecord, type BlueprintField, type BlueprintNode, type BlueprintVariable, type DataType, type KeystrokeSettings, type SceneView, type Vec3 } from '@opensekai/contracts';
  import KeystrokeField from './KeystrokeField.svelte';
  import { chooseTypedVariable, formatStringCases, parseStringCases, resizeTypes, typedVariableOptions } from '../blueprints/data-fields';
- import { addBone, addRow, boneEntryOptions, boneOptions, cellNumber, dataTypeOptions, fitPropertySettings, formatCases, keyOptions, parseCases, parseScalar, propertyOptions, rangePart, removeBone, removeRow, setRowCell, vectorParts } from '../blueprints/fields';
+ import { addBone, addRow, boneEntryOptions, boneLabel, boneOptions, cellNumber, dataTypeOptions, fitPropertySettings, formatCases, keyOptions, parseCases, parseScalar, propertyOptions, rangePart, removeBone, removeRow, setRowCell, vectorParts } from '../blueprints/fields';
 
  let { node, scene, assets = [], graphs = [], variables, platform, unavailable, onsettings }: {
   node: BlueprintNode; scene: SceneView | null; assets?: readonly AssetRecord[]; graphs?: readonly { id: string; name: string }[]; variables: readonly BlueprintVariable[]; platform: string; unavailable: boolean;
@@ -173,7 +173,7 @@
    {#each bones as name, index (name)}
     <div class="blueprint-field-entry">
      <Select label={index === 0 ? field.label : undefined} value={name} options={boneEntryOptions(bones, index)} onchange={event => set(field.key, bones.map((item, i) => i === index ? event.currentTarget.value : item))} />
-     <Button variant="ghost" size="sm" title={`Remove ${name}`} disabled={bones.length === 1} onclick={() => set(field.key, removeBone(bones, index))}><X size={14}/></Button>
+     <Button variant="ghost" size="sm" title={`Remove ${boneLabel(name)}`} disabled={bones.length === 1} onclick={() => set(field.key, removeBone(bones, index))}><X size={14}/></Button>
     </div>
    {/each}
    <Button variant="ghost" size="sm" title="Add bone" disabled={addBone(bones) === bones} onclick={() => set(field.key, addBone(bones))}><Plus size={14}/></Button>

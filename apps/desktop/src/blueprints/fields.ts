@@ -71,6 +71,7 @@ export function fitPropertySettings<S extends { entityId: string; property: Prop
  return options.length === 0 || options.some(option => option.value === settings.property) ? settings : { ...settings, property: 'position' };
 }
 const words = (name: string) => name.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, letter => letter.toUpperCase());
+export const boneLabel = words;
 export const boneOptions = () => HUMANOID_BONES.map(bone => ({ value: bone, label: words(bone) }));
 // Each entry of a bones list offers the bones that no other entry uses.
 export const boneEntryOptions = (bones: readonly string[], index: number) => boneOptions().filter(option => option.value === bones[index] || !bones.includes(option.value));

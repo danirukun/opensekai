@@ -172,9 +172,9 @@ export function runFlow(compiled: CompiledBlueprint, start: { nodeId: Id; port: 
      if (!isDebugEffect(effect) && --budget.effects < 0) { failure ??= fail('Blueprint run exceeded its operation limit', [node.id]); return; }
      effects.push(effect); follow(node.id, ['exit']);
     },
+    // One effect unit for each call, not for each effect: the list is bounded by the schema (32 bones), and a unit for each bone would starve the other graphs of the tick budget.
     emitEach: list => {
-     budget.effects -= list.filter(effect => !isDebugEffect(effect)).length;
-     if (budget.effects < 0) { failure ??= fail('Blueprint run exceeded its operation limit', [node.id]); return; }
+     if (list.some(effect => !isDebugEffect(effect)) && --budget.effects < 0) { failure ??= fail('Blueprint run exceeded its operation limit', [node.id]); return; }
      effects.push(...list); follow(node.id, ['exit']);
     },
     delay: seconds => { delays.push({ nodeId: node.id, dueMs: nowMs + seconds * 1000 }); },
