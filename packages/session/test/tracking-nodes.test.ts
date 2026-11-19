@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { blueprintPorts, defaultBlueprintSettings, makeSmokeScene, NODE_DEFINITIONS, nodeDefinition, type AvatarPose, type BlueprintGraph, type BlueprintNode, type BlueprintNodeOf, type TrackingStatus } from '@opensekai/contracts';
+import { blueprintPorts, defaultBlueprintSettings, PENDULUM_DEFAULT_INPUT, makeSmokeScene, NODE_DEFINITIONS, nodeDefinition, type AvatarPose, type BlueprintGraph, type BlueprintNode, type BlueprintNodeOf, type TrackingStatus } from '@opensekai/contracts';
 import { boneEuler } from '../src/bone-offsets';
 import { emptyState, EVALUATORS, NO_ENV, type RunEnv, type RunState } from '../src/blueprint-eval';
 import { trackedBlendShape, trackingTrigger, type TrackingEdge } from '../src/blueprint-eval/tracking';
@@ -236,7 +236,7 @@ it('Pendulum keeps its state with a time delta of 0, and limits a long delta to 
  expect(long.value).toBe(second.value);
  expect(long.state).toEqual(second.state);
  expect(Number.isFinite(long.value)).toBe(true);
- expect(Math.abs(long.value)).toBeLessThanOrEqual(10);
+ expect(Math.abs(long.value)).toBeLessThanOrEqual(2 * PENDULUM_DEFAULT_INPUT.scale);
 });
 
 it('Pendulum starts again when the arm count changes', () => {

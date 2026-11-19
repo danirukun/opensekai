@@ -37,6 +37,7 @@
  } = $props();
  const platform = currentPlatform();
  let canvas: HTMLDivElement;
+ let inspector = $state<HTMLElement>();
  let editor: ReteBlueprintEditor | null = null;
  let graphs = $state.raw<BlueprintGraph[]>([]);
  let errors = $state.raw<BlueprintStatus[]>([]);
@@ -79,6 +80,9 @@
  const graph = $derived(graphs.find(item => item.id === selectedId) ?? null);
  const node = $derived(graph?.nodes.find(item => item.id === nodeId) ?? null);
  const comment = $derived(!node && commentIds.length === 1 ? graph?.comments?.find(item => item.id === commentIds[0]) ?? null : null);
+ // A new selection opens the Inspector at its top.
+ const inspectedId = $derived(node?.id ?? comment?.id ?? null);
+ $effect(() => { void inspectedId; inspector?.scrollTo({ top: 0 }); });
  const trigger = $derived(graph?.nodes.find(item => item.type === 'event.manual') ?? null);
  const targets = $derived(scene?.entities.filter(entity => entity.kind !== 'tracking') ?? []);
  const trackingSources = $derived(scene?.entities.filter(entity => entity.kind === 'tracking') ?? []);
@@ -400,14 +404,14 @@
   <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
   <div class="blueprint-canvas" bind:this={canvas} tabindex="0" role="application" aria-label="Blueprint canvas" onkeydown={shortcut} onpointerdown={() => canvas.focus()}></div>
   {#if node}
-  <aside class="blueprint-inspector" aria-label="Node properties" use:plainText>
+  <aside class="blueprint-inspector" aria-label="Node properties" bind:this={inspector} use:plainText>
     <strong>{BLUEPRINT_LABELS[node.type]}</strong>
     <span class="blueprint-inspector-category" data-category={nodeDefinition(node.type).category.toLowerCase()}>{nodeDefinition(node.type).category}</span>
     <BlueprintNodeFields {node} {scene} {assets} {graphs} variables={graph?.variables ?? []} {platform} unavailable={node.type === 'event.keystroke' && taken.has(keystrokeAccelerator(node.settings))} onsettings={settings} />
     <Button variant="ghost" {disabled} onclick={remove}><Trash2 size={14}/>Delete node</Button>
   </aside>
   {:else if comment}
-  <aside class="blueprint-inspector" aria-label="Comment">
+  <aside class="blueprint-inspector" aria-label="Comment" bind:this={inspector}>
    {#key comment.id}<Textarea id={commentField} label="Comment" value={comment.text} rows={6} maxlength={512} resize="vertical" {disabled} oninput={event => commentInput(comment.id, event.currentTarget.value)} onchange={flushComment} />{/key}
    <Button variant="ghost" {disabled} onclick={removeComment}><Trash2 size={14}/>Delete comment</Button>
   </aside>

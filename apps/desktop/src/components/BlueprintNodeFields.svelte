@@ -201,7 +201,7 @@
       {:else if column.kind === 'boolean'}
        <label class="blueprint-checkbox"><input type="checkbox" checked={Boolean(row[column.key])} onchange={event => cell(field, index, column.key, event.currentTarget.checked)} />{column.label}</label>
       {:else if column.kind === 'choice'}
-       <Select {label} value={optionText(row[column.key] as string | null)} options={column.options.map(option => ({ value: optionText(option.value), label: option.label }))} onchange={event => { const option = column.options.find(item => optionText(item.value) === event.currentTarget.value); if (!option || !cell(field, index, column.key, option.value)) event.currentTarget.value = optionText(row[column.key] as string | null); }} />
+       <Select class="blueprint-field-row-wide" {label} value={optionText(row[column.key] as string | null)} options={column.options.map(option => ({ value: optionText(option.value), label: option.label }))} onchange={event => { const option = column.options.find(item => optionText(item.value) === event.currentTarget.value); if (!option || !cell(field, index, column.key, option.value)) event.currentTarget.value = optionText(row[column.key] as string | null); }} />
       {/if}
      {/each}
      <Button variant="ghost" size="sm" title={`Remove ${rowName(field)} ${index + 1}`} disabled={list.length <= field.min} onclick={() => onsettings(removeRow(settings, field, index) as BlueprintNode['settings'])}><X size={14}/></Button>
