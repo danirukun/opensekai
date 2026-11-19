@@ -1,8 +1,8 @@
-import { expect, it } from 'vitest';
-import { DEFAULT_TRACKING_MAPPING, PatchOpSchema, SceneViewSchema, TRACKING_PRESETS, type PatchOp, type SceneEntity, type SceneView, type TrackingConfig, type TrackingPreset } from '@opensekai/contracts';
+import { describe, expect, it } from 'vitest';
+import { DEFAULT_TRACKING_MAPPING, PatchOpSchema, faceOnlyBodyMotionTemplate, type BlueprintGraph, SceneViewSchema, TRACKING_PRESETS, type PatchOp, type SceneEntity, type SceneView, type TrackingConfig, type TrackingPreset } from '@opensekai/contracts';
 import { applyOperations } from '../../../packages/session/src/scene-ops';
 import { makeAuthoringEntity, makeEmptyScene } from '../src/editor/authoring';
-import { planCancel, planSetup, setupSnapshot, type GuideSnapshot, type SetupPlan } from '../src/editor/tracking-guide-plan';
+import { faceOnlyMotionNeeded, planCancel, planSetup, setupSnapshot, type GuideSnapshot, type SetupPlan } from '../src/editor/tracking-guide-plan';
 import { resolveSetup, type SetupPart, type SetupRole } from '../src/editor/tracking-guide-setup';
 
 const selfReflect = TRACKING_PRESETS[0]!;
@@ -510,4 +510,43 @@ it('keep unused slots: cancel after a run that keeps the hand source restores th
  for (const id of ['b', 'h']) expect(restorable(find(out, id, 'tracking'))).toEqual(restorable(find(scene, id, 'tracking')));
  expect(find(out, 'h', 'tracking')).toEqual(find(scene, 'h', 'tracking'));
  expect(out.entities.filter(e => e.kind === 'tracking').map(e => e.id)).toEqual(['b', 'h']);
+});
+
+describe('faceOnlyMotionNeeded', () => {
+ const template = (avatarId: string, name = 'Character'): BlueprintGraph => faceOnlyBodyMotionTemplate({ id: avatarId, name }).graph;
+ const filler = (count: number): BlueprintGraph[] => Array.from({ length: count }, (_, i) => ({ ...template('a'), id: `g${i}`, name: `Graph ${i}` }));
+ const faceOnly = (scene: SceneView) => ready(planSetup(scene, 'a', resolveSetup({ face: 'vmc', body: 'none', hands: false }), null, undefined, 'new'));
+ const scene = sceneOf(avatar('a'), avatar('b'));
+
+ it('is true for a face part with no body part, fewer than 8 graphs, and no such graph for the character', () => {
+  expect(faceOnlyMotionNeeded(scene, 'a', faceOnly(scene), [])).toBe(true);
+  expect(faceOnlyMotionNeeded(scene, 'a', faceOnly(scene), filler(7))).toBe(true);
+ });
+ it('is false with a body part, even when the body shares the face source', () => {
+  for (const body of ['webcam', 'vmc'] as const) {
+   const plan = ready(planSetup(scene, 'a', resolveSetup({ face: 'vmc', body, hands: false }), null, undefined, 'new'));
+   expect(faceOnlyMotionNeeded(scene, 'a', plan, [])).toBe(false);
+  }
+  const same = ready(planSetup(scene, 'a', resolveSetup({ face: 'vmc', body: 'same', hands: true }), null, undefined, 'new'));
+  expect(faceOnlyMotionNeeded(scene, 'a', same, [])).toBe(false);
+ });
+ it('is false when the character keeps a body source that the plan does not replace', () => {
+  const held = sceneOf(source('mine', 'vmc', {}, vmc39539({ port: 40000 })), avatar('a', { bodySourceId: 'mine', faceSourceId: null }));
+  expect(faceOnlyMotionNeeded(held, 'a', ready(planSetup(held, 'a', [part(otherVmc, ['face'])], null, undefined, 'new')), [])).toBe(false);
+ });
+ it('is false with no face part', () => {
+  const plan = ready(planSetup(scene, 'a', [part(selfReflect, ['body'])], null, undefined, 'new'));
+  expect(faceOnlyMotionNeeded(scene, 'a', plan, [])).toBe(false);
+ });
+ it('is false with 8 graphs', () => {
+  expect(faceOnlyMotionNeeded(scene, 'a', faceOnly(scene), filler(8))).toBe(false);
+ });
+ it('is false when a graph of that name targets the character, and true when it targets another character or has another name', () => {
+  expect(faceOnlyMotionNeeded(scene, 'a', faceOnly(scene), [template('a')])).toBe(false);
+  expect(faceOnlyMotionNeeded(scene, 'a', faceOnly(scene), [template('b')])).toBe(true);
+  expect(faceOnlyMotionNeeded(scene, 'a', faceOnly(scene), [{ ...template('a'), name: 'Mine' }])).toBe(true);
+ });
+ it('is false when the character is not in the scene', () => {
+  expect(faceOnlyMotionNeeded(scene, 'gone', faceOnly(scene), [])).toBe(false);
+ });
 });
