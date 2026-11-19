@@ -18,7 +18,7 @@ const PendulumInput = z.strictObject({ kind: z.enum(PENDULUM_INPUT_KINDS), blend
  .refine(input => input.kind !== 'blendShape' || input.blendShape !== null, { message: 'Blend shape is required', path: ['blendShape'] });
 const PendulumArm = z.strictObject({ length: physical, mass: physical, drag: physical, spring: physical, damping: physical, gravity: signed });
 const Pendulum = z.strictObject({ entityId: IdSchema, inputs: z.array(PendulumInput).min(1).max(8), inputSmoothing: z.number().min(0).max(5), arms: z.array(PendulumArm).max(4) });
-export const PENDULUM_DEFAULT_INPUT: Readonly<z.output<typeof PendulumInput>> = { kind: 'headYaw', blendShape: null, weight: 1, scale: 1, absolute: false, clamp: [-1, 1] };
+export const PENDULUM_DEFAULT_INPUT: Readonly<z.output<typeof PendulumInput>> = { kind: 'headYaw', blendShape: null, weight: 1, scale: 5, absolute: false, clamp: [-100, 100] };
 const defaultInput = (): z.output<typeof PendulumInput> => ({ ...PENDULUM_DEFAULT_INPUT, clamp: [...PENDULUM_DEFAULT_INPUT.clamp] });
 // The Warudo arm values.
 export const PENDULUM_DEFAULT_ARM: Readonly<z.output<typeof PendulumArm>> = { length: 10, mass: 0.25, drag: 0.25, spring: 0.5, damping: 0.5, gravity: 1 };

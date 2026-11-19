@@ -123,7 +123,7 @@ The graph name is "Face-Only Body Motion". All values come from the Warudo table
 
 - Unit: pendulum input mixing, smoothing, settle with no input, step-size stability, zero step; Offset Bones angle and weight; head position relative to the neutral; iFacialMocap translation decode; MediaPipe translation; renderer ignores a head bone position.
 - Integration: the template imports through `importBlueprint` with a valid catalog; the guide plan adds it for a face-only assignment and not for a body assignment; MCP adds it.
-- Headless editor check: a mock face sample turns and leans the head; the spine, arms, and fingers get offsets; tracking lost fades them to zero in about 2 s.
+- Headless editor check: a mock face sample turns and leans the head; the spine, arms, and fingers get offsets; tracking lost returns the motion to rest. The body turn follows the head back to rest. The other motion returns to rest in about 2 s. No pop shows.
 - macOS: the Catboy avatar, a real face source (iFacialMocap on a phone, or the webcam with upper body off), the WebGPU OBS output. Record the backend, quality profile, fixture revision, and commit. Owner look review side by side with Warudo in the VM with the same pendulum presets on.
 - Concert benchmark: no regression in frame time.
 - Motion continues with the editor minimized.

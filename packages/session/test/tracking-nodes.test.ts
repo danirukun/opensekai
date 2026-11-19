@@ -184,7 +184,7 @@ const pendulumValue = (node: BlueprintNodeOf<'tracking.pendulum'>, state: RunSta
 
 it('Pendulum defaults to one head yaw input and no arms, and limits inputs and arms', () => {
  const settings = pendulumSettings();
- expect(settings).toEqual({ entityId: avatar.id, inputs: [{ kind: 'headYaw', blendShape: null, weight: 1, scale: 1, absolute: false, clamp: [-1, 1] }], inputSmoothing: 0.1, arms: [] });
+ expect(settings).toEqual({ entityId: avatar.id, inputs: [{ kind: 'headYaw', blendShape: null, weight: 1, scale: 5, absolute: false, clamp: [-100, 100] }], inputSmoothing: 0.1, arms: [] });
  const schema = nodeDefinition('tracking.pendulum').settings;
  expect(schema.safeParse(settings).success).toBe(true);
  expect(defaultBlueprintSettings('tracking.pendulum', { keystroke })).toBeNull();
@@ -225,7 +225,7 @@ it('Pendulum keeps its state with a time delta of 0, and limits a long delta to 
  const stored = state.nodes.get('p');
  expect(read(0, 16, 90)).toBe(0);
  expect(state.nodes.get('p')).toBe(stored);
- expect(read(1 / 60, 32, 90)).toBeCloseTo(0.5);
+ expect(read(1 / 60, 32, 90)).toBeCloseTo(2.5);
  const armed = pendulumNode(pendulumSettings({ arms: [arm] }));
  const stepped = (deltaSeconds: number) => {
   const other = emptyState();
@@ -236,7 +236,7 @@ it('Pendulum keeps its state with a time delta of 0, and limits a long delta to 
  expect(long.value).toBe(second.value);
  expect(long.state).toEqual(second.state);
  expect(Number.isFinite(long.value)).toBe(true);
- expect(Math.abs(long.value)).toBeLessThanOrEqual(2);
+ expect(Math.abs(long.value)).toBeLessThanOrEqual(10);
 });
 
 it('Pendulum starts again when the arm count changes', () => {

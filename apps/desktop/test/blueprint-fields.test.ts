@@ -109,7 +109,7 @@ it('adds a row up to the field maximum, removes one down to the minimum, and edi
  const edited = setRowCell(two, inputs, 1, 'weight', 0.5);
  expect((edited.inputs as Record<string, unknown>[]).map(row => row.weight)).toEqual([1, 0.5]);
  expect(definition.settings.safeParse(edited).success).toBe(true);
- expect(settings.inputs).toEqual([{ kind: 'headYaw', blendShape: null, weight: 1, scale: 1, absolute: false, clamp: [-1, 1] }]);
+ expect(settings.inputs).toEqual([{ kind: 'headYaw', blendShape: null, weight: 1, scale: 5, absolute: false, clamp: [-100, 100] }]);
  expect(removeRow(two, inputs, 0).inputs).toEqual([(edited.inputs as unknown[])[0]]);
 });
 
