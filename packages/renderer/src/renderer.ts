@@ -21,6 +21,7 @@ import { logPipelineFailure, watchPipelineErrors, type PipelineDevice } from "./
 import { afterRebuild, blameFrame, initialBlame } from "./pipeline-blame";
 import { freshModulePerPipeline, isWebKit } from "./webkit-shader-modules";
 import { createDiagnosticMarker } from "./diagnostic-marker";
+import { serialize } from "./serial";
 import { createPostChain } from "./post-chain";
 import { createHaze, type Haze } from "./haze";
 import { createBeams } from "./beam";
@@ -120,12 +121,14 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     const characterShare: CharacterShare = { fill: uniform(new Color(1, 1, 1)), map: null };
     type Ready = { root: Object3D; video?: ScreenVideoPlayer; avatar?: ReturnType<typeof createAvatarBinding>; meshes?: ReadonlyMap<string, Object3D>; assetId?: string; assetDispose?: () => void; instanceDispose?: () => void; materials?: InstanceMaterials; lit: number; warnings: AppError[]; dispose(): void };
     const loadListeners = new Set<(entries: AssetLoadStatus[]) => void>();
+    // three r187 keeps one precompile state per renderer across awaits; overlapping compileAsync calls clear it.
+    const compileOnce = serialize();
     const prepare = async (root: Object3D, report: (r: LoadReport) => void, cancelled: () => boolean) => {
         if (cancelled() || disposed) throw failure("CANCELLED", "Asset load cancelled");
         report({ stage: "prepare", progress: null });
         const culled: Object3D[] = [];
         root.traverse(object => { if (object.frustumCulled) { culled.push(object); object.frustumCulled = false; } });
-        try { await renderer.compileAsync(root, camera, scene); }
+        try { await compileOnce(() => renderer.compileAsync(root, camera, scene)); }
         finally { for (const object of culled) object.frustumCulled = true; }
     };
     const build = async (request: LoadRequest, report: (r: LoadReport) => void, cancelled: () => boolean): Promise<Ready> => {
@@ -470,7 +473,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         applyTransform(camera, navigated ? { ...cameraEntity, transform: navigated } : cameraEntity);
         try {
             // three.js 0.180: on WebGPU a shadow first set up during a draw stays empty, so compile first; on WebGL 2 this compile leaves the shadow empty.
-            if (lightsRebuilt && sceneLights.shadows() && backend === "webgpu") await renderer.compileAsync(scene, camera);
+            if (lightsRebuilt && sceneLights.shadows() && backend === "webgpu") await compileOnce(() => renderer.compileAsync(scene, camera));
             await postChain.render(scene, camera, cameraEntity.antiAliasing, hazeDrawn, cameraEntity.grading ?? null, beamsDrawn, effectsDrawn);
             const blamed = blameFrame(blame, { haze: hazeDrawn !== null, beams: beamsDrawn !== null }, failureReports);
             blame = blamed.state;
