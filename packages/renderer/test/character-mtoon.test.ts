@@ -142,8 +142,9 @@ it('floors the toon feather, so the step is finite at toony 1', () => {
     expect(withValue(added.directDiffuse[0]!, FEATHER_MIN)).toBe(1);
 });
 
-it('scales the parent ambient term by CHARACTER_AMBIENT, also for an outline', () => {
+it('scales the parent ambient term by CHARACTER_AMBIENT on an avatar surface, an outline too', () => {
     const material = new CharacterMToonMaterial();
+    material.characterShare = createCharacterShare();
     const {added} = lighting(material, false);
     expect(withValue(added.indirectDiffuse[0]!, CHARACTER_AMBIENT)).toBe(1);
     const outline = material.clone();
@@ -151,6 +152,12 @@ it('scales the parent ambient term by CHARACTER_AMBIENT, also for an outline', (
     const {added: outlined} = lighting(outline, false);
     expect(outlined.indirectDiffuse).toHaveLength(1);
     expect(withValue(outlined.indirectDiffuse[0]!, CHARACTER_AMBIENT)).toBe(1);
+});
+
+it('keeps the parent ambient term unscaled on a material with no share (an MToon prop or environment)', () => {
+    const {added} = lighting(new CharacterMToonMaterial(), false);
+    expect(added.indirectDiffuse).toHaveLength(1);
+    expect(withValue(added.indirectDiffuse[0]!, CHARACTER_AMBIENT)).toBe(0);
 });
 
 it('ignores the shadow node of a light whose shadow this build does not receive', () => {

@@ -29,7 +29,7 @@ type LightNode = {baseColorNode: Vec3 | null; shadowNode: Float | null};
 type Direct = {lightDirection: Vec3; lightColor: Vec3; lightNode: LightNode; reflectedLight: Reflected};
 type Variants = {shade: Vec3; shift: Float; toony: Float; rimMix: Float; rimMultiply: Vec3; matcap: Vec3; parametricRim: Vec3};
 type Values = {rimStrength: Float; rimWidth: Float; rimTint: Vec3; shadowStrength: Float; environmentFill: Float};
-type Build = {variants: Variants; values: Values; shadowed: ReadonlySet<object>; extras: boolean; fill: UniformNode<'color'> | null};
+type Build = {variants: Variants; values: Values; shadowed: ReadonlySet<object>; extras: boolean; fill: UniformNode<'color'> | null; ambient: number};
 // The private node setups of the three-vrm 3.5.5 material. Its own variants are module values that it does not export.
 type MToonSetups = Record<'_setupShadeColorNode' | '_setupShadingShiftNode' | '_setupShadingToonyNode' | '_setupRimLightingMixNode' | '_setupRimMultiplyNode' | '_setupMatcapNode' | '_setupParametricRimNode', () => Node<'vec3'> & Node<'float'>>;
 type Parameters = ConstructorParameters<typeof MToonNodeMaterial>[0] & {giEqualizationFactor?: number};
@@ -61,8 +61,9 @@ export class CharacterLightingModel extends MToonLightingModel {
     }
     indirectDiffuse(lighting: LightingContext) {
         const context = lighting as unknown as Context, fill = this.build.fill;
-        // The parent term at CHARACTER_AMBIENT of the scene ambient: with the fill, the total at the defaults is the scene ambient.
-        context.reflectedLight.indirectDiffuse.addAssign(context.irradiance.mul(CHARACTER_AMBIENT).mul(lambert(diffuse)));
+        // An avatar surface (it has the share, an outline too) keeps CHARACTER_AMBIENT of the scene ambient: with the fill, the total at
+        // the defaults is the scene ambient. A prop or environment MToon material has no share and no fill, so it keeps all of it.
+        context.reflectedLight.indirectDiffuse.addAssign(context.irradiance.mul(this.build.ambient).mul(lambert(diffuse)));
         if (!fill) return;
         // `iblIrradiance` holds only the normalized room irradiance of `CharacterEnvironmentNode`. The term has the units of an
         // ambient light (irradiance × Lambert, no π), at CHARACTER_FILL of its intensity.
@@ -128,7 +129,7 @@ export class CharacterMToonMaterial extends MToonNodeMaterial {
     setupLightingModel() {
         // One uniform of each value for all lights of this build.
         const values: Values = {rimStrength: reference('rimStrength'), rimWidth: reference('rimWidth'), rimTint: materialReference('rimTint', 'color') as unknown as Vec3, shadowStrength: reference('shadowStrength'), environmentFill: reference('environmentFill')};
-        return new CharacterLightingModel({variants: this.#variants!, values, shadowed: this.#shadowed, extras: !this.isOutline, fill: this.#share()?.fill ?? null});
+        return new CharacterLightingModel({variants: this.#variants!, values, shadowed: this.#shadowed, extras: !this.isOutline, fill: this.#share()?.fill ?? null, ambient: this.characterShare ? CHARACTER_AMBIENT : 1});
     }
     setupEnvironment() {
         const share = this.#share();
