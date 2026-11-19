@@ -132,7 +132,7 @@ it('a failed connect creates no graph', async () => {
  expect(graphNames(sync)).toEqual([]);
 });
 
-it('a run with a body part creates no graph, and a second face-only run does not add a second one', async () => {
+it('a run with a body part creates no graph, and a later face-only run that keeps that body source creates none', async () => {
  const { model, sync, edit } = await graphFixture();
  const first = scene(model);
  const withBody = ready(planSetup(first, 'performer', resolveSetup({ face: 'vmc', body: 'webcam', hands: false }), null, true, 'a'));
@@ -141,4 +141,19 @@ it('a run with a body part creates no graph, and a second face-only run does not
  const second = scene(model);
  const faceOnly = ready(planSetup(second, 'performer', resolveSetup({ face: 'vmc', body: 'none', hands: false }), null, true, 'b'));
  expect((await applySetup(model, sync, second, 'performer', faceOnly, () => crypto.randomUUID())).graphId).toBeUndefined();
+ expect(avatarOf(scene(model), 'performer').tracking?.bodySourceId).not.toBeNull();
+ expect(edit).not.toHaveBeenCalled();
+});
+
+it('a face-only run on the second character makes a graph that targets that character', async () => {
+ const { model, sync } = await graphFixture();
+ const second = makeAuthoringEntity('character', 'b', scene(model).entities);
+ expect((await model.applyOperations([{ kind: 'createEntity', entity: second }], scene(model).revision)).ok).toBe(true);
+ const before = scene(model);
+ const plan = ready(planSetup(before, 'b', resolveSetup({ face: 'vmc', body: 'none', hands: false }), null, true, 'face-b'));
+ const applied = await applySetup(model, sync, before, 'b', plan, () => crypto.randomUUID());
+ expect(applied.graphError).toBeUndefined();
+ const graph = sync.view().find(g => g.id === applied.graphId)!;
+ const targets = new Set(graph.nodes.flatMap(n => 'entityId' in n.settings ? [n.settings.entityId] : []));
+ expect([...targets]).toEqual(['b']);
 });
