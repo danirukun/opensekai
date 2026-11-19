@@ -19,7 +19,8 @@
     "evaluate:blueprints": "tsx tools/evaluation/src/run-blueprints.ts",
     "evaluate:vmc-feed": "tsx tools/evaluation/src/vmc-feed.ts",
     "evaluate:tracking-feed": "tsx tools/evaluation/src/tracking-feed.ts",
-    "build:test-stage": "tsx scripts/build-test-stage.ts"
+    "build:test-stage": "tsx scripts/build-test-stage.ts",
+    "build:lighting-stage": "mkdir -p fixtures/local/cache/lighting-stage && \"${BLENDER:-/Applications/Blender.app/Contents/MacOS/Blender}\" --background --factory-startup --python-exit-code 1 --python scripts/lighting-stage/build_lighting_stage.py -- --out fixtures/local/cache/lighting-stage/lighting-stage.glb && tsx scripts/gltf-validate.ts fixtures/local/cache/lighting-stage/lighting-stage.glb"
   },
   "devDependencies": {
     "@gltf-transform/cli": "4.5.1",

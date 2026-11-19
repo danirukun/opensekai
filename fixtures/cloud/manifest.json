@@ -69,6 +69,26 @@
           "sourceUrl": null
         }
       }
+    },
+    {
+      "file": "lighting-stage.glb",
+      "key": "sha256/30454b7140040a0fa86f979e01ad1fb5b06117e11724db68c09b3675f0c0ce3d.glb",
+      "record": {
+        "id": "fixture_lighting_stage",
+        "format": "glb",
+        "sha256": "30454b7140040a0fa86f979e01ad1fb5b06117e11724db68c09b3675f0c0ce3d",
+        "bytes": 23148,
+        "sourceUrl": null,
+        "licenseLabel": "CC0-1.0",
+        "importerVersion": 1,
+        "name": "OpenSekai Lighting Stage",
+        "credits": {
+          "title": "OpenSekai Lighting Stage",
+          "author": "Oshi Connect",
+          "license": "CC0-1.0",
+          "sourceUrl": null
+        }
+      }
     }
   ]
 }
