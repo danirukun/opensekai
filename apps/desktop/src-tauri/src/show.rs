@@ -307,6 +307,10 @@ mod tests {
                 "test-stage.osekai",
                 include_str!("../../../../fixtures/shows/test-stage.osekai"),
             ),
+            (
+                "lighting-demo.osekai",
+                include_str!("../../../../fixtures/shows/lighting-demo.osekai"),
+            ),
         ] {
             let path = dir.path().join(name);
             std::fs::write(&path, text).unwrap();

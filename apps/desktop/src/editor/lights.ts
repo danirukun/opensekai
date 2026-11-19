@@ -14,6 +14,12 @@ export const BEAM:LightBeam={enabled:false,intensity:1,softness:0.5};
 export const withBeam=(light:LightSettings,patch:Partial<LightBeam>):LightSettings=>({...light,beam:{...(light.beam??BEAM),...patch}});
 // −Z from (0, 3, 2) toward (0, 1, 0): 45° down, no roll.
 export const SPOT_LIGHT_ROTATION:Quat=[-0.382683,0,0,0.92388];
+// The rig of a new scene: a warm key with a soft shadow, a cool back light, and a low ambient fill.
+export const KEY_LIGHT:LightSettings={...DIRECTIONAL_LIGHT,color:'#fff1e0',shadow:{...shadow,enabled:true}};
+export const BACK_LIGHT:LightSettings={...DIRECTIONAL_LIGHT,color:'#cfe0ff',intensity:2};
+export const FILL_LIGHT:LightSettings={...AMBIENT_LIGHT,intensity:0.4};
+// −Z from (-1.5, 3, -3) toward (0, 1.2, 0), no roll.
+export const BACK_LIGHT_ROTATION:Quat=[-0.056011,-0.943885,-0.237267,0.222821];
 const LIGHT_DEFAULTS:Record<LightSettings['type'],LightSettings>={directional:DIRECTIONAL_LIGHT,point:POINT_LIGHT,spot:SPOT_LIGHT,ambient:AMBIENT_LIGHT};
 export function lightTransform(type:LightSettings['type']):Transform {
  if(type==='directional')return {position:[2,4,3],rotation:[...BUILTIN_LIGHT_ROTATION],scale:[1,1,1]};

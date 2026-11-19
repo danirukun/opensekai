@@ -1,5 +1,5 @@
-import { ExpressionNameSchema,ExpressionSettingsSchema,TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,FitNeutralSchema,TrackingSmoothingSchema,TrackingMappingSchema,EntityNameSchema,ShowSceneSchema,IdSchema,CameraAntiAliasingSchema,CameraGradingSchema,CameraEffectsSchema,CameraNavigationSchema,LightSettingsSchema,HazeSettingsSchema,FpsCounterSettingsSchema,VmcSenderSettingsSchema,ReflectionsIntensitySchema,PatchOpSchema,ScreenVideoSchema,WebScreenSchema,ScreenCaptureSchema,isLightBudgetMessage } from '@opensekai/contracts';
-import type { ExpressionSettings, AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing, TrackingMapping, ArkitName, CameraAntiAliasing, CameraGrading, CameraEffects, CameraNavigation, CameraScreenshotResult, LightSettings, HazeSettings, FpsCounterSettings, VmcSenderSettings, ScreenVideo, ScreenVideoAction, WebScreen, ScreenCapture } from '@opensekai/contracts';
+import { ExpressionNameSchema,ExpressionSettingsSchema,TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,FitNeutralSchema,TrackingSmoothingSchema,TrackingMappingSchema,EntityNameSchema,ShowSceneSchema,IdSchema,CameraAntiAliasingSchema,CameraGradingSchema,AvatarLightingSchema,CameraEffectsSchema,CameraNavigationSchema,LightSettingsSchema,HazeSettingsSchema,FpsCounterSettingsSchema,VmcSenderSettingsSchema,ReflectionsIntensitySchema,PatchOpSchema,ScreenVideoSchema,WebScreenSchema,ScreenCaptureSchema,isLightBudgetMessage } from '@opensekai/contracts';
+import type { ExpressionSettings, AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing, TrackingMapping, ArkitName, CameraAntiAliasing, CameraGrading, AvatarLighting, CameraEffects, CameraNavigation, CameraScreenshotResult, LightSettings, HazeSettings, FpsCounterSettings, VmcSenderSettings, ScreenVideo, ScreenVideoAction, WebScreen, ScreenCapture } from '@opensekai/contracts';
 import {makeEntityCopy} from './asset-management';
 type CameraLens=Extract<SceneEntity,{kind:'camera'}>['lens'];
 export interface EditorView {
@@ -187,6 +187,10 @@ export function createEditorModel(api: AppApi) {
   setCameraGrading(entityId:Id,grading:CameraGrading|null,expectedRevision?:number,live=false):Promise<Reply<{revision:number}>> {
    const parsed=CameraGradingSchema.nullable().safeParse(grading);if(!ofKind(entityId,'camera')||!parsed.success)return invalid();
    return patch({kind:'setCameraGrading',entityId,grading:parsed.data},expectedRevision,live);
+  },
+  setAvatarLighting(entityId:Id,lighting:AvatarLighting|null,expectedRevision?:number,live=false):Promise<Reply<{revision:number}>> {
+   const parsed=AvatarLightingSchema.nullable().safeParse(lighting);if(!ofKind(entityId,'avatar')||!parsed.success)return invalid();
+   return patch({kind:'setAvatarLighting',entityId,lighting:parsed.data},expectedRevision,live);
   },
   setCameraEffects(entityId:Id,effects:CameraEffects|null,expectedRevision?:number,live=false):Promise<Reply<{revision:number}>> {
    const parsed=CameraEffectsSchema.nullable().safeParse(effects);if(!ofKind(entityId,'camera')||!parsed.success)return invalid();

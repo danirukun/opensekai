@@ -4,7 +4,8 @@ import {QUALITY_PROFILES,makeSmokeFrame,type RuntimeFrame} from '@opensekai/cont
 const ports=vi.hoisted(()=>({load:vi.fn(),render:vi.fn(),compile:vi.fn()}));
 vi.mock('../src/backend',()=>({initializeBackend:async()=>({backend:'webgl2',renderer:{shadowMap:{enabled:false},info:{memory:{geometries:0,textures:0}},setSize:vi.fn(),renderAsync:ports.render,compileAsync:ports.compile,dispose:vi.fn()}})}));
 vi.mock('../src/assets',async original=>({...await original<typeof import('../src/assets')>(),createAssetLoader:()=>ports.load}));
-vi.mock('../src/avatar-pose',()=>({createAvatarBinding:(vrm:{root:Group})=>({root:vrm.root,apply:vi.fn(),uv:vi.fn(),advanceSprings:vi.fn()})}));
+vi.mock('../src/avatar-pose',()=>({createAvatarBinding:(vrm:{root:Group})=>({root:vrm.root,apply:vi.fn(),uv:vi.fn(),lighting:vi.fn(),characters:[],advanceSprings:vi.fn()})}));
+vi.mock('../src/environment-light',async original=>({...await original<typeof import('../src/environment-light')>(),roomEnvironmentMap:()=>()=>({texture:null,dispose(){}}),roomIrradiance:async()=>[[1,1,1],...Array.from({length:8},()=>[0,0,0])]}));
 import {createRenderer} from '../src/renderer';
 const settle=()=>new Promise(r=>setTimeout(r,0));
 let sequence=0;
@@ -154,6 +155,25 @@ it('skips GPU preparation for a load whose character was removed',async()=>{
  pending.resolve(a.value);await settle();
  expect(ports.compile).not.toHaveBeenCalled();
  expect(a.value.dispose).toHaveBeenCalledOnce();
+ r.dispose();
+});
+it('skips the queued GPU preparation of a load that was cancelled while it waited',async()=>{
+ const a=asset(),b=asset(),compiling=deferred();
+ ports.load.mockImplementation(async(assetId:string)=>assetId==='avatar_a'?a.value:b.value);
+ ports.compile.mockReturnValueOnce(compiling.promise);
+ const two=(second:boolean)=>{
+  const f=frame('avatar_a');
+  const first=f.scene.entities.find(e=>e.kind==='avatar')!;
+  if(second)f.scene.entities.push({...structuredClone(first),id:'performer_b',assetId:'avatar_b'});
+  return f;
+ };
+ const r=await make();
+ await r.applyFrame(two(true));await settle();
+ // The compile of the first load is pending; the second load waits behind it. Its character goes away.
+ await r.applyFrame(two(false));
+ compiling.resolve(undefined);await settle();
+ expect(ports.compile).toHaveBeenCalledTimes(1);
+ expect(ports.compile).toHaveBeenCalledWith(a.root,expect.anything(),expect.anything());
  r.dispose();
 });
 it('applies a scene with an FPS counter without a scene object for it (B19 R7)',async()=>{

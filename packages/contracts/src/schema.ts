@@ -9,6 +9,7 @@ import { IntegrationsSetParamsSchema, YouTubeInputSchema, YouTubeStatusSchema } 
 import { ScalarValueSchema } from './blueprint-values';
 import { z } from "zod";
 import { CameraGradingSchema } from './grading';
+import { AvatarLightingSchema } from './avatar-lighting';
 import { CameraEffectsSchema } from './camera-effects';
 import { CameraAntiAliasingSchema, QualityProfileIdSchema, OUTPUT_FRAME_LIMITS, OUTPUT_RENDER_SCALES, isOutputSize, isDefaultOutputFormat } from './quality';
 import { AvatarRigSchema, VmcPosesEnvelopeSchema, VmcSenderSettingsSchema, VmcSenderStatusSchema } from './vmc-sender';
@@ -235,7 +236,8 @@ export const SceneEntitySchema = z.discriminatedUnion("kind", [
         tracking: AvatarTrackingSchema.optional(),
         idleAnimation: AvatarIdleSchema.optional(),
         expressions: AvatarExpressionsSchema.optional(),
-        hiddenMeshes: HiddenMeshesSchema.optional()
+        hiddenMeshes: HiddenMeshesSchema.optional(),
+        lighting: AvatarLightingSchema.optional()
     }),
     EntityBaseSchema.extend({kind:z.literal('tracking'),config:TrackingConfigSchema,generation:u,smoothing:TrackingSmoothingSchema.optional(),calibration:TrackingCalibrationSchema.optional(),mapping:TrackingMappingSchema.optional()}),
     EntityBaseSchema.extend({
@@ -343,6 +345,7 @@ export const PatchOpSchema = z.discriminatedUnion("kind", [
     z.strictObject({kind:z.literal('setOutputFormat'),outputId:IdSchema,width:u.positive(),height:u.positive(),fps:OutputSpecSchema.shape.fps,renderScale:z.union(OUTPUT_RENDER_SCALES.map(scale => z.literal(scale)))}).refine(isOutputSize, 'Invalid output size'),
     z.strictObject({kind:z.literal('setVmcSender'),entityId:IdSchema,vmcSender:VmcSenderSettingsSchema}),
     z.strictObject({kind:z.literal('setHiddenMeshes'),entityId:IdSchema,hiddenMeshes:HiddenMeshesSchema}),
+    z.strictObject({kind:z.literal('setAvatarLighting'),entityId:IdSchema,lighting:AvatarLightingSchema.nullable()}),
     z.strictObject({kind:z.literal('setAvatarExpression'),entityId:IdSchema,name:ExpressionNameSchema,settings:ExpressionSettingsSchema.nullable()}),
     z.strictObject({kind:z.literal('setCameraRenderEnvironment'),entityId:IdSchema,renderEnvironment:z.boolean()}),
     z.strictObject({kind:z.literal('setCameraAntiAliasing'),entityId:IdSchema,antiAliasing:CameraAntiAliasingSchema}),

@@ -3,7 +3,7 @@ import type { EditorOptions, EditorHandle } from './editor-viewport';
 import { Scene, Mesh, BoxGeometry, MeshStandardNodeMaterial, PerspectiveCamera, Object3D } from "three/webgpu";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
 import type { RuntimeFrame, FrameApplied, RendererDiagnostics, CaptureBytes, Id, ResourceHost, AppError, SceneEntity, QualityProfile, ScreenshotBytes, OutputSpec } from "@opensekai/contracts";
-import { LIMITS, RuntimeFrameSchema } from "@opensekai/contracts";
+import { LIMITS, RuntimeFrameSchema, avatarLighting } from "@opensekai/contracts";
 import { selectFrame, failure, createRenderQueue } from "./apply-frame";
 import { applyHiddenMeshes, createAssetCache, createAssetLoader, disposeObject } from "./assets";
 import { createAvatarBinding } from "./avatar-pose";
@@ -12,12 +12,15 @@ import { countLiveMaterials } from "./diagnostics";
 import { initializeBackend } from "./backend";
 import { createCapturePolicy, readPng } from "./capture";
 import { createLoadJobs, type AssetLoadStatus, type LoadReport, type LoadRequest } from "./load-jobs";
-import { createEnvironmentLight, roomEnvironmentMap, type InstanceMaterials } from "./environment-light";
+import { createEnvironmentLight, roomEnvironmentMap, roomIrradiance, type InstanceMaterials } from "./environment-light";
 import { createSceneLights, groupOf, roomLight, withDrafts, type LightGroup } from "./scene-lights";
+import { characterFill, normalizeRoom } from "./character-lighting-math";
+import { createCharacterShare, setRoomFill } from "./character-mtoon";
 import { logPipelineFailure, watchPipelineErrors, type PipelineDevice } from "./pipeline-diagnostics";
 import { afterRebuild, blameFrame, initialBlame } from "./pipeline-blame";
 import { freshModulePerPipeline, isWebKit } from "./webkit-shader-modules";
 import { createDiagnosticMarker } from "./diagnostic-marker";
+import { serialize } from "./serial";
 import { createPostChain } from "./post-chain";
 import { createHaze, type Haze } from "./haze";
 import { createBeams } from "./beam";
@@ -113,14 +116,27 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     let decoderSupport: VideoDecoderSupport | null = null;
     void probeVideoDecoder().then(value => { decoderSupport = value; });
     const environmentLight = createEnvironmentLight(roomEnvironmentMap(renderer));
+    // The fill color and the room irradiance of all avatars of this renderer (character lighting R4). The share starts with the flat
+    // fill. The room irradiance is made once, on the first avatar build, and is never tried again. The promise gives the reason
+    // when it fails, or null.
+    const characterShare = createCharacterShare();
+    let roomFill: Promise<string | null> | null = null;
+    const loadRoomFill = () => roomFill ??= roomIrradiance(renderer).then(coefficients => {
+        if (!coefficients.every(c => c.every(Number.isFinite)) || coefficients.every(c => c.every(x => x === 0))) throw new Error("the room irradiance is zero or not finite");
+        setRoomFill(characterShare, normalizeRoom(coefficients));
+        return null;
+    }).catch((error: unknown) => error instanceof Error ? error.message : String(error));
     type Ready = { root: Object3D; video?: ScreenVideoPlayer; avatar?: ReturnType<typeof createAvatarBinding>; meshes?: ReadonlyMap<string, Object3D>; assetId?: string; assetDispose?: () => void; instanceDispose?: () => void; materials?: InstanceMaterials; lit: number; warnings: AppError[]; dispose(): void };
     const loadListeners = new Set<(entries: AssetLoadStatus[]) => void>();
+    // three r187 keeps one precompile state per renderer across awaits; overlapping compileAsync calls clear it.
+    const compileOnce = serialize();
     const prepare = async (root: Object3D, report: (r: LoadReport) => void, cancelled: () => boolean) => {
         if (cancelled() || disposed) throw failure("CANCELLED", "Asset load cancelled");
         report({ stage: "prepare", progress: null });
         const culled: Object3D[] = [];
         root.traverse(object => { if (object.frustumCulled) { culled.push(object); object.frustumCulled = false; } });
-        try { await renderer.compileAsync(root, camera, scene); }
+        // The load can end while this run waits in the queue behind another compile.
+        try { await compileOnce(() => { if (cancelled() || disposed) throw failure("CANCELLED", "Asset load cancelled"); return renderer.compileAsync(root, camera, scene); }); }
         finally { for (const object of culled) object.frustumCulled = true; }
     };
     const build = async (request: LoadRequest, report: (r: LoadReport) => void, cancelled: () => boolean): Promise<Ready> => {
@@ -152,11 +168,14 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             try {
                 if (!asset.vrm) throw failure("INVALID_INPUT", "Avatar asset has no VRM");
                 const avatar = createAvatarBinding(asset.vrm);
+                // The material builds read the share, so it goes on before GPU preparation, with the room irradiance in its uniforms.
+                const unavailable = await loadRoomFill();
+                for (const material of avatar.characters) material.characterShare = characterShare;
                 // The group node set goes on before GPU preparation, so the compiled pipelines are the ones the frame draws (R6).
                 sceneLights.assign(avatar.root, "characters");
                 const lit = sceneLights.generation();
                 await prepare(avatar.root, report, cancelled);
-                return { root: avatar.root, avatar, meshes: asset.meshes, assetDispose: asset.dispose, lit, warnings: asset.warnings, dispose: asset.dispose };
+                return { root: avatar.root, avatar, meshes: asset.meshes, assetDispose: asset.dispose, lit, warnings: unavailable ? [...asset.warnings, { code: "UNAVAILABLE", message: "Room fill unavailable: " + unavailable, ids: [request.assetId] }] : asset.warnings, dispose: asset.dispose };
             } catch (error) { asset.dispose(); throw error; }
         }
         const asset = await assets.get(request.assetId);
@@ -249,6 +268,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         const lightsRebuilt = sceneLights.apply(drawn);
         if (lightsRebuilt) { pipelineFailed = false; hazeFailed = false; beamsFailed = false; blame = afterRebuild(blame); }
         environmentLight.room(roomLight(drawn));
+        characterShare.fill.value.setRGB(...characterFill(drawn));
         // Cameras, lights, and the haze have a scene object only in the editor viewport, as a pick target and helper (R14, B13 R13).
         // An FPS counter is a DOM overlay and a VMC sender sends UDP; neither has a scene object (B19 R7, B21).
         const wanted = new Set(frame.scene.entities.filter(x => x.kind !== "tracking" && x.kind !== "fpsCounter" && x.kind !== "vmcSender" && (editor || (x.kind !== "camera" && x.kind !== "light" && x.kind !== "haze"))).map(x => x.id));
@@ -385,6 +405,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             value.avatar?.apply(frame.avatarPoses?.find(pose => pose.avatarId === entity.id));
             if (value.meshes && entity.kind === "avatar") applyHiddenMeshes(value.meshes, entity.hiddenMeshes);
             value.avatar?.uv(frame.elapsedMs);
+            value.avatar?.lighting(avatarLighting(entity));
             value.materials?.reflections(reflections);
             if (!editor?.frozen(entity.id)) place(value.root, entity);
             // After place, also for a dragged avatar: the stage reads the root transform (B43 R11).
@@ -405,6 +426,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             installed.avatar?.apply(frame.avatarPoses?.find(pose => pose.avatarId === entityId));
             if (installed.meshes && entity.kind === "avatar") applyHiddenMeshes(installed.meshes, entity.hiddenMeshes);
             installed.avatar?.uv(frame.elapsedMs);
+            installed.avatar?.lighting(avatarLighting(entity));
             installed.materials?.reflections(reflections);
             if (!editor?.frozen(entityId)) place(installed.root, entity);
             installed.avatar?.advanceSprings(springClock(frame, entityId));
@@ -459,7 +481,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         applyTransform(camera, navigated ? { ...cameraEntity, transform: navigated } : cameraEntity);
         try {
             // three.js 0.180: on WebGPU a shadow first set up during a draw stays empty, so compile first; on WebGL 2 this compile leaves the shadow empty.
-            if (lightsRebuilt && sceneLights.shadows() && backend === "webgpu") await renderer.compileAsync(scene, camera);
+            if (lightsRebuilt && sceneLights.shadows() && backend === "webgpu") await compileOnce(() => renderer.compileAsync(scene, camera));
             await postChain.render(scene, camera, cameraEntity.antiAliasing, hazeDrawn, cameraEntity.grading ?? null, beamsDrawn, effectsDrawn);
             const blamed = blameFrame(blame, { haze: hazeDrawn !== null, beams: beamsDrawn !== null }, failureReports);
             blame = blamed.state;

@@ -21,10 +21,10 @@ it('makes a point light with intensity 20 and range 10 (R10)',()=>{
  if(light.kind==='light'&&second.kind==='light'){light.light.shadow.enabled=true;expect(second.light.shadow.enabled).toBe(false);}
  expect(second.name).toBe('Point Light 2');
 });
-it('starts a new scene with one Directional Light (R11)',()=>{
+it('starts a new scene with a Key, Back, and Fill Light (R11)',()=>{
  const scene=makeEmptyScene();
  expect(SceneViewSchema.safeParse(scene).success).toBe(true);
- expect(scene.entities.filter(e=>e.kind==='light').map(e=>e.name)).toEqual(['Directional Light']);
+ expect(scene.entities.filter(e=>e.kind==='light').map(e=>e.name)).toEqual(['Key Light','Back Light','Fill Light']);
 });
 it('groups lights after the environment and before cameras (R12)',()=>{
  const entities=[...makeEmptyScene().entities,makeAuthoringEntity('environment','stage',[])];

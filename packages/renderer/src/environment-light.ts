@@ -1,6 +1,8 @@
-import { Color, EnvironmentNode, MeshPhysicalNodeMaterial, MeshStandardNodeMaterial, PMREMGenerator, type Material, type Node, type NodeBuilder, type Object3D, type Texture, type UniformNode, type WebGPURenderer } from 'three/webgpu';
+import { Color, CubeCamera, CubeRenderTarget, EnvironmentNode, HalfFloatType, MeshPhysicalNodeMaterial, MeshStandardNodeMaterial, PMREMGenerator, type Material, type Node, type NodeBuilder, type Object3D, type Texture, type UniformNode, type WebGPURenderer } from 'three/webgpu';
 import { uniform, vec3 } from 'three/tsl';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { LightProbeGenerator } from 'three/addons/lights/LightProbeGenerator.js';
+import type { Vec3 } from '@opensekai/contracts';
 import { isLitMaterial, type RoomLight } from './scene-lights';
 export interface EnvironmentMap { texture: Texture; dispose(): void }
 type Share = { fill: UniformNode<'float'>; reflections: UniformNode<'color'> };
@@ -65,9 +67,10 @@ export interface EnvironmentLight {
 export function createEnvironmentLight(makeMap: () => EnvironmentMap): EnvironmentLight {
     let map: EnvironmentMap | null = null;
     const share: Share = { fill: uniform(1), reflections: uniform(new Color(1, 1, 1)) };
+    const texture = () => (map ??= makeMap()).texture;
     return {
         apply(root) {
-            const texture = (map ??= makeMap()).texture;
+            const room = texture();
             const copies = new Map<Material, Material>();
             const reflective: (Material & { envMapIntensity: number })[] = [];
             const copy = (material: Material) => {
@@ -76,7 +79,7 @@ export function createEnvironmentLight(makeMap: () => EnvironmentMap): Environme
                 if (!made) {
                     if ((material as { isMeshStandardMaterial?: boolean }).isMeshStandardMaterial === true) {
                         made = roomMaterial(material, share);
-                        (made as Material & { envMap: Texture | null }).envMap = texture;
+                        (made as Material & { envMap: Texture | null }).envMap = room;
                         reflective.push(made as Material & { envMapIntensity: number });
                     } else made = material.clone();
                     copies.set(material, made);
@@ -111,4 +114,14 @@ export function roomEnvironmentMap(renderer: WebGPURenderer): () => EnvironmentM
             return { texture: target.texture, dispose: () => target.dispose() };
         } finally { room.dispose(); generator.dispose(); }
     };
+}
+// The nine SH coefficients of the room, from a 32 px half-float cube render (character lighting R4). The caller normalizes them.
+export async function roomIrradiance(renderer: WebGPURenderer): Promise<Vec3[]> {
+    // 32 px × RGBA16F is 256-byte rows, the WebGPU bytesPerRow alignment; a smaller size reads padded rows.
+    const room = new RoomEnvironment(), target = new CubeRenderTarget(32, { type: HalfFloatType });
+    try {
+        new CubeCamera(0.1, 100, target).update(renderer, room);
+        const probe = await LightProbeGenerator.fromCubeRenderTarget(renderer, target);
+        return probe.sh.coefficients.map(({ x, y, z }): Vec3 => [x, y, z]);
+    } finally { room.dispose(); target.dispose(); }
 }

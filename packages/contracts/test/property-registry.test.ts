@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { eulerFromQuaternion, makeSmokeScene, propertiesFor, quaternionFromEuler, readProperty, rotateByQuaternion, writeProperty, type SceneEntity } from '../src';
+import { DEFAULT_AVATAR_LIGHTING, eulerFromQuaternion, makeSmokeScene, propertiesFor, quaternionFromEuler, readProperty, rotateByQuaternion, writeProperty, type SceneEntity } from '../src';
 
 const entity = (id: string): SceneEntity => makeSmokeScene().entities.find(e => e.id === id)!;
 const close = (actual: readonly number[], expected: readonly number[]) => actual.forEach((v, i) => expect(v).toBeCloseTo(expected[i]!, 6));
@@ -7,7 +7,7 @@ const close = (actual: readonly number[], expected: readonly number[]) => actual
 it('lists the properties of each entity kind', () => {
  expect(propertiesFor('camera').map(p => p.key)).toEqual(['position', 'rotation', 'scale', 'visible', 'fovDegrees', 'renderEnvironment']);
  expect(propertiesFor('environment').map(p => p.key)).toEqual(['position', 'rotation', 'scale', 'visible']);
- expect(propertiesFor('avatar').map(p => p.key)).toEqual(['position', 'rotation', 'scale', 'visible']);
+ expect(propertiesFor('avatar').map(p => p.key)).toEqual(['position', 'rotation', 'scale', 'visible', 'rimStrength']);
  expect(propertiesFor('mesh').map(p => p.key)).toEqual(['position', 'rotation', 'scale', 'visible']);
  expect(propertiesFor('screen').map(p => p.key)).toEqual(['position', 'rotation', 'scale', 'visible']);
  expect(propertiesFor('tracking')).toEqual([]);
@@ -78,4 +78,21 @@ it('reads and writes the placed properties of a screen (B28 R10)', () => {
  expect(hidden.ok && hidden.data.visible).toBe(false);
  expect(readProperty(screen, 'fovDegrees')).toBeUndefined();
  expect(writeProperty(screen, 'intensity', 1).ok).toBe(false);
+});
+
+it('reads the default Rim Strength of an avatar without lighting and writes the full group', () => {
+ const performer = entity('performer');
+ expect(readProperty(performer, 'rimStrength')).toBe(DEFAULT_AVATAR_LIGHTING.rimStrength);
+ expect(readProperty(entity('camera_wide'), 'rimStrength')).toBeUndefined();
+ const written = writeProperty(performer, 'rimStrength', 1.5);
+ expect(written.ok && written.data.kind === 'avatar' && written.data.lighting).toEqual({ ...DEFAULT_AVATAR_LIGHTING, rimStrength: 1.5 });
+ const lit = { ...performer, lighting: { ...DEFAULT_AVATAR_LIGHTING, rimTint: '#ff0000', rimStrength: 0.5 } } as SceneEntity;
+ expect(readProperty(lit, 'rimStrength')).toBe(0.5);
+ const next = writeProperty(lit, 'rimStrength', 2);
+ expect(next.ok && next.data.kind === 'avatar' && next.data.lighting).toEqual({ ...DEFAULT_AVATAR_LIGHTING, rimTint: '#ff0000', rimStrength: 2 });
+ const same = writeProperty(performer, 'rimStrength', DEFAULT_AVATAR_LIGHTING.rimStrength);
+ expect(same.ok && same.data).toEqual(performer);
+ expect(writeProperty(performer, 'rimStrength', 2.1).ok).toBe(false);
+ expect(writeProperty(performer, 'rimStrength', -0.1).ok).toBe(false);
+ expect(writeProperty(entity('camera_wide'), 'rimStrength', 1)).toMatchObject({ ok: false, error: { message: 'Property does not apply to this entity' } });
 });

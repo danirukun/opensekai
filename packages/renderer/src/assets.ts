@@ -1,7 +1,7 @@
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import type { LoadReport } from "./load-jobs";
 import { MToonMaterialLoaderPlugin, VRMLoaderPlugin, VRMUtils, type VRM } from "@pixiv/three-vrm";
-import { MToonNodeMaterial } from "@pixiv/three-vrm/nodes";
+import { CharacterMToonMaterial } from "./character-mtoon";
 import { materialReport, materialWarning, meshEntries, type ResourceHost, type AppError } from "@opensekai/contracts";
 import type { Object3D, Mesh, SkinnedMesh, Material, Texture } from "three/webgpu";
 import { failure } from "./apply-frame";
@@ -132,7 +132,7 @@ export function createAssetLoader(resources: ResourceHost, options: { maxTexture
             }).catch(error => { imageFailure = error; throw error; });
             return { name: "OPENSEKAI_shared_images" };
         });
-        loader.register(parser => new VRMLoaderPlugin(parser, { mtoonMaterialPlugin: new MToonMaterialLoaderPlugin(parser, { materialType: MToonNodeMaterial }) }));
+        loader.register(parser => new VRMLoaderPlugin(parser, { mtoonMaterialPlugin: new MToonMaterialLoaderPlugin(parser, { materialType: CharacterMToonMaterial }) }));
         try {
             let percent = -1;
             report({ stage: 'download', progress: null });

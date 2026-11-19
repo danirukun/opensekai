@@ -1,7 +1,7 @@
 import {AppErrorSchema,LIMITS,defaultTrackingConfig,isVideoRecord,type AssetRecord,type LightSettings,type SceneEntity,type SceneView} from '@opensekai/contracts';
 import type {AddKind} from './live-fields';
 import {vmcSenderLimitReached,vmcSenderSettings} from './vmc-sender';
-import {AMBIENT_LIGHT,DIRECTIONAL_LIGHT,FPS_COUNTER,HAZE,POINT_LIGHT,SPOT_LIGHT,fpsCounterLimitReached,hazeLimitReached,hazeTransform,lightLimitReached,lightTransform,litLightLimitReached,unlit} from './lights';
+import {AMBIENT_LIGHT,BACK_LIGHT,BACK_LIGHT_ROTATION,DIRECTIONAL_LIGHT,FILL_LIGHT,FPS_COUNTER,KEY_LIGHT,HAZE,POINT_LIGHT,SPOT_LIGHT,fpsCounterLimitReached,hazeLimitReached,hazeTransform,lightLimitReached,lightTransform,litLightLimitReached,unlit} from './lights';
 import {cameraLimitReached} from './cameras';
 type Vec3=[number,number,number];
 const lastAvatar=(entities:readonly SceneEntity[])=>entities.filter(entity=>entity.kind==='avatar').at(-1);
@@ -59,8 +59,13 @@ export function modelLabel(assetId:string|null,assets:readonly AssetRecord[]):st
  // A video record is never a character model (B29 R20).
  return assets.find(asset=>asset.id===assetId&&!isVideoRecord(asset))?.name??'Missing model';
 }
+const rigLight=(id:string,name:string,light:LightSettings,tf:SceneEntity['transform']):SceneEntity=>({id,name,visible:true,kind:'light',transform:tf,light:structuredClone(light)});
 export function makeEmptyScene():SceneView {
- return {schemaVersion:1,sceneId:'scene_smoke',revision:0,entities:[makeAuthoringEntity('camera','camera_main',[]),makeAuthoringEntity('directionalLight','light_main',[])],outputs:['output_main','preview_main'].map(id=>({id,cameraId:'camera_main',width:1920,height:1080,fps:60}))};
+ const entities=[makeAuthoringEntity('camera','camera_main',[]),
+  rigLight('light_key','Key Light',KEY_LIGHT,lightTransform('directional')),
+  rigLight('light_back','Back Light',BACK_LIGHT,{position:[-1.5,3,-3],rotation:[...BACK_LIGHT_ROTATION],scale:[1,1,1]}),
+  rigLight('light_fill','Fill Light',FILL_LIGHT,lightTransform('ambient'))];
+ return {schemaVersion:1,sceneId:'scene_smoke',revision:0,entities,outputs:['output_main','preview_main'].map(id=>({id,cameraId:'camera_main',width:1920,height:1080,fps:60}))};
 }
 
 export function importFailure(cause:unknown,fallback='Could not import avatar'):string {const parsed=AppErrorSchema.safeParse(cause);return parsed.success?parsed.data.message.slice(0,160):fallback;}

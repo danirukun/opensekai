@@ -10,9 +10,9 @@ it('lists the sections of each kind in field order (R11)',()=>{
  expect(ids('ambientLight')).toEqual(['Transform','Light','Affect']);
  expect(ids('haze')).toEqual(['Transform','Haze']);
  expect(ids('environment')).toEqual(['Transform','Environment']);
- expect(ids('character')).toEqual(['Transform','Model','Tracking']);
- expect(ids('character',true)).toEqual(['Transform','Model','Expressions','Tracking']);
- expect(sectionsFor(makeAuthoringEntity('character','id',[]),{expressions:true,meshes:true}).map(section=>section.label)).toEqual(['Transform','Model','Expressions','Meshes','Tracking']);
+ expect(ids('character')).toEqual(['Transform','Model','Lighting','Tracking']);
+ expect(ids('character',true)).toEqual(['Transform','Model','Expressions','Lighting','Tracking']);
+ expect(sectionsFor(makeAuthoringEntity('character','id',[]),{expressions:true,meshes:true}).map(section=>section.label)).toEqual(['Transform','Model','Expressions','Meshes','Lighting','Tracking']);
  expect(ids('mediapipe')).toEqual(['Receiver','Smoothing','Face','Diagnostics']);
 });
 it('starts with the former Advanced sections collapsed and the rest expanded (R12)',()=>{

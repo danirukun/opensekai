@@ -1,11 +1,25 @@
 import {expect,it} from 'vitest';
-import {SceneViewSchema,SceneEntitySchema} from '@opensekai/contracts';
+import {SceneViewSchema,SceneEntitySchema,isLitLight} from '@opensekai/contracts';
 import {addLimitReached,makeEmptyScene,makeAuthoringEntity,modelLabel,importFailure,nextAvatarPosition} from '../src/editor/authoring';
+import {BACK_LIGHT_ROTATION} from '../src/editor/lights';
 it('starts with a useful camera and creates all source kinds stopped without fixture assets',()=>{
- const scene=makeEmptyScene();expect(SceneViewSchema.safeParse(scene).success).toBe(true);expect(scene.entities.map(e=>e.kind)).toEqual(['camera','light']);expect(scene.outputs.map(o=>o.cameraId)).toEqual(['camera_main','camera_main']);
+ const scene=makeEmptyScene();expect(SceneViewSchema.safeParse(scene).success).toBe(true);expect(scene.entities.map(e=>e.kind)).toEqual(['camera','light','light','light']);expect(scene.outputs.map(o=>o.cameraId)).toEqual(['camera_main','camera_main']);
  for(const kind of ['camera','vmc','ifacialmocap','openseeface','mediapipe'] as const){const entity=makeAuthoringEntity(kind,'new',scene.entities);expect(SceneEntitySchema.safeParse(entity).success).toBe(true);if(entity.kind==='tracking')expect(entity.config.enabled).toBe(false);}
  expect(makeAuthoringEntity('camera','new',scene.entities).name).toBe('Camera 2');
  expect(makeAuthoringEntity('openseeface','new',scene.entities).name).toBe('OpenSeeFace Receiver');
+});
+it('starts a new scene with a key, back, and fill light',()=>{
+ const scene=makeEmptyScene(),lights=scene.entities.flatMap(e=>e.kind==='light'?[e]:[]);
+ expect(scene.entities.map(e=>e.id)).toEqual(['camera_main','light_key','light_back','light_fill']);
+ expect(lights.filter(e=>isLitLight(e.light))).toHaveLength(3);
+ expect(lights.filter(e=>e.light.shadow.enabled).map(e=>e.id)).toEqual(['light_key']);
+ expect(lights.find(e=>e.id==='light_key')?.light).toMatchObject({type:'directional',color:'#fff1e0',intensity:3,shadow:{enabled:true,soft:true}});
+ expect(lights.find(e=>e.id==='light_back')?.light).toMatchObject({type:'directional',color:'#cfe0ff',intensity:2,shadow:{enabled:false}});
+ expect(lights.find(e=>e.id==='light_fill')?.light).toMatchObject({type:'ambient',color:'#ffffff',intensity:0.4});
+ const [x,y,z,w]=BACK_LIGHT_ROTATION,forward=[-2*(x*z+w*y),-2*(y*z-w*x),-(1-2*(x*x+y*y))],length=Math.hypot(1.5,1.8,3);
+ [1.5/length,-1.8/length,3/length].forEach((axis,i)=>expect(Math.abs(forward[i]-axis)).toBeLessThan(1e-5));
+ expect(lights.find(e=>e.id==='light_back')?.transform).toMatchObject({position:[-1.5,3,-3],rotation:BACK_LIGHT_ROTATION});
+ expect(SceneViewSchema.safeParse(scene).success).toBe(true);
 });
 it('adds a stopped FaceKit tracker within the limit of 4 tracking entities',()=>{
  const facekit=makeAuthoringEntity('facekit','id',[]);

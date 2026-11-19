@@ -1,9 +1,10 @@
 import {expect,it} from 'vitest';
-import {DEFAULT_CAMERA_GRADING,DEFAULT_TRACKING_SMOOTHING,type SceneEntity} from '@opensekai/contracts';
+import {DEFAULT_AVATAR_LIGHTING,DEFAULT_CAMERA_GRADING,DEFAULT_TRACKING_SMOOTHING,type SceneEntity} from '@opensekai/contracts';
 import {makeAuthoringEntity} from '../src/editor/authoring';
 import type {AddKind} from '../src/editor/live-fields';
 import {changedFields,defaultsFor,resetFieldIds,sameValue,valuesFor} from '../src/editor/property-defaults';
 import {GRADING_FIELD_IDS,withGradingValue} from '../src/editor/grading';
+import {LIGHTING_FIELD_IDS,lightingValues,withLightingValue} from '../src/editor/avatar-lighting';
 
 const KINDS:AddKind[]=['camera','character','environment','directionalLight','pointLight','spotLight','ambientLight','haze','vmc','ifacialmocap','openseeface','mediapipe','facekit'];
 const add=(kind:AddKind)=>makeAuthoringEntity(kind,`id_${kind}`,[]);
@@ -35,7 +36,7 @@ it('lists the reset fields of each kind and light type, and none of R4 (R3, R4)'
  expect(ids('ambientLight')).toEqual([...base,'color','intensity','affectCharacters','affectProps','affectEnvironment']);
  expect(ids('haze')).toEqual([...base,'density','smoke','intensity','drift']);
  expect(ids('environment')).toEqual([...base,'reflectionsIntensity']);
- expect(ids('character')).toEqual([...base,'idleAnimation','bodyMovementIntensity','trackedParts']);
+ expect(ids('character')).toEqual([...base,'idleAnimation','rimStrength','rimWidth','rimTint','shadowStrength','environmentFill','bodyMovementIntensity','trackedParts']);
  const tracking=['smoothing','minCutoff','beta','derivativeCutoff','headIntensity','headOffsetX','headOffsetY','headOffsetZ','eyeIntensity','blendShapeSensitivity','linkedBlink'];
  expect(ids('vmc')).toEqual(['bindAddress','port','address',...tracking]);
  expect(ids('ifacialmocap')).toEqual(['bindAddress','port','address',...tracking]);
@@ -87,6 +88,18 @@ it('treats a missing optional field as its fallback (R2)',()=>{
  if(avatar.kind!=='avatar')throw new Error('avatar');
  // A missing idle animation shows off; the add default is on.
  expect(changedFields(atOrigin({...avatar,idleAnimation:undefined}))).toEqual(new Set(['idleAnimation']));
+});
+it('shows the default lighting for an avatar without the group and marks only the changed fields',()=>{
+ const avatar=atOrigin(add('character'));
+ if(avatar.kind!=='avatar')throw new Error('avatar');
+ expect(valuesFor(avatar)).toMatchObject(lightingValues(DEFAULT_AVATAR_LIGHTING));
+ expect(defaultsFor(avatar)).toMatchObject(lightingValues(DEFAULT_AVATAR_LIGHTING));
+ expect(resetFieldIds(avatar)).toEqual(expect.arrayContaining([...LIGHTING_FIELD_IDS]));
+ expect([...changedFields(avatar)].filter(id=>LIGHTING_FIELD_IDS.includes(id as never))).toEqual([]);
+ const lit={...avatar,lighting:{...DEFAULT_AVATAR_LIGHTING,rimStrength:1.5,rimTint:'#FFEEDD'}};
+ expect([...changedFields(lit)].filter(id=>LIGHTING_FIELD_IDS.includes(id as never))).toEqual(['rimStrength','rimTint']);
+ expect(withLightingValue(lit.lighting,'shadowStrength',0.2)).toEqual({...lit.lighting,shadowStrength:0.2});
+ expect(Object.isFrozen(withLightingValue(DEFAULT_AVATAR_LIGHTING,'rimWidth',0.1))).toBe(false);
 });
 it('compares a sender address that is empty with the stored null (R3)',()=>{
  const source=add('ifacialmocap');

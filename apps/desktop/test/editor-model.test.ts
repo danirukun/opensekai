@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import { DEFAULT_CAMERA_GRADING, makeSmokeScene, type AppApi, type Reply,defaultTrackingConfig,type SceneEntity } from '@opensekai/contracts';
+import { DEFAULT_AVATAR_LIGHTING, DEFAULT_CAMERA_GRADING, makeSmokeScene, type AppApi, type Reply,defaultTrackingConfig,type SceneEntity } from '@opensekai/contracts';
 import { createSession } from '@opensekai/session';
 import { createEditorModel } from '../src/editor/model';
 import { makeAuthoringEntity } from '../src/editor/authoring';
@@ -252,6 +252,22 @@ it('sets and removes a camera grading through a patch and rejects other kinds an
  const calls = vi.mocked(api.scenePatch).mock.calls.length;
  expect(await model.setCameraGrading('performer', grading)).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
  expect(await model.setCameraGrading('camera_wide', { ...grading, exposure: 9 })).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+ expect(vi.mocked(api.scenePatch).mock.calls.length).toBe(calls);
+});
+it('sets and removes the lighting of an avatar through a patch and rejects other kinds and values out of range', async () => {
+ const { model, session, api } = fixture();
+ await model.load();
+ const lighting = { ...DEFAULT_AVATAR_LIGHTING, rimStrength: 1.5, rimTint: '#ffeedd' };
+ const before = vi.mocked(api.scenePatch).mock.calls.length;
+ expect((await model.setAvatarLighting('performer', lighting, model.read().scene!.revision)).ok).toBe(true);
+ expect(vi.mocked(api.scenePatch).mock.calls.length).toBe(before + 1);
+ expect(vi.mocked(api.scenePatch).mock.calls.at(-1)![0].operations).toEqual([{ kind: 'setAvatarLighting', entityId: 'performer', lighting }]);
+ expect(session.inspect().entities.find(e => e.id === 'performer')).toMatchObject({ lighting });
+ expect((await model.setAvatarLighting('performer', null, model.read().scene!.revision)).ok).toBe(true);
+ expect(session.inspect().entities.find(e => e.id === 'performer')).not.toHaveProperty('lighting');
+ const calls = vi.mocked(api.scenePatch).mock.calls.length;
+ expect(await model.setAvatarLighting('camera_wide', lighting)).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+ expect(await model.setAvatarLighting('performer', { ...lighting, rimStrength: 3 })).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
  expect(vi.mocked(api.scenePatch).mock.calls.length).toBe(calls);
 });
 it('sets a camera anti-aliasing mode through a patch and rejects other kinds and unknown modes', async () => {

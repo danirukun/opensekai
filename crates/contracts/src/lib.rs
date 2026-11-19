@@ -149,6 +149,14 @@ object!(CameraEffects {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pixelate: Option<CameraPixelate>
 });
+// Avatar lighting: rim, shade shadows, and environment fill for MToon avatars.
+object!(AvatarLighting {
+    rim_strength: f64,
+    rim_width: f64,
+    rim_tint: String,
+    shadow_strength: f64,
+    environment_fill: f64
+});
 strings!(LightType { Directional=>"directional", Point=>"point", Spot=>"spot", Ambient=>"ambient" });
 strings!(MimeType { ImagePng=>"image/png" });
 object!(AppError {code:ErrorCode,message:String,ids:Vec<Id>});
@@ -408,6 +416,18 @@ impl Validate for CameraEffects {
         )
     }
 }
+impl Validate for AvatarLighting {
+    fn validate(&self) -> Result<(), AppError> {
+        require(
+            within(self.rim_strength, 0., 2.)
+                && within(self.rim_width, 0., 1.)
+                && light_color_ok(&self.rim_tint)
+                && within(self.shadow_strength, 0., 1.)
+                && within(self.environment_fill, 0., 2.),
+            "invalid avatar lighting",
+        )
+    }
+}
 impl Validate for HazeSettings {
     fn validate(&self) -> Result<(), AppError> {
         require(
@@ -603,6 +623,8 @@ pub enum SceneEntity {
             rename = "hiddenMeshes"
         )]
         hidden_meshes: Option<Vec<String>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        lighting: Option<Box<AvatarLighting>>,
     },
     Tracking {
         id: Id,
@@ -942,6 +964,11 @@ pub enum PatchOp {
         entity_id: Id,
         #[serde(rename = "hiddenMeshes")]
         hidden_meshes: Vec<String>,
+    },
+    SetAvatarLighting {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+        lighting: Option<Box<AvatarLighting>>,
     },
     SetTrackingSmoothing {
         #[serde(rename = "entityId")]
@@ -2947,6 +2974,10 @@ pub fn validate_patch_ops(ops: &[PatchOp], max: usize) -> Result<(), AppError> {
                 grading: Some(grading),
                 ..
             } => grading.validate()?,
+            PatchOp::SetAvatarLighting {
+                lighting: Some(lighting),
+                ..
+            } => lighting.validate()?,
             PatchOp::SetCameraEffects {
                 effects: Some(effects),
                 ..
@@ -3846,6 +3877,13 @@ impl Validate for SceneEntity {
         } = self
         {
             require(mesh_names_ok(hidden), "invalid hidden meshes")?;
+        }
+        if let Self::Avatar {
+            lighting: Some(lighting),
+            ..
+        } = self
+        {
+            lighting.validate()?;
         }
         if let Self::Avatar {
             tracking: Some(tracking),
