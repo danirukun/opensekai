@@ -11,17 +11,18 @@
  const current=$derived(lighting??DEFAULT_AVATAR_LIGHTING);
  const values=$derived(lightingValues(current));
  const off=$derived(disabled||!oncommit);
- const sliders:[Exclude<LightingFieldId,'rimTint'>,string,SliderRange][]=[['rimStrength','Rim Strength',SLIDERS.rimStrength],['rimWidth','Rim Width',SLIDERS.rimWidth],['shadowStrength','Shadow Strength',SLIDERS.shadowStrength],['environmentFill','Environment Fill',SLIDERS.environmentFill]];
+ type SliderId=Exclude<LightingFieldId,'rimTint'>;
+ const rims:[SliderId,string,SliderRange][]=[['rimStrength','Rim Strength',SLIDERS.rimStrength],['rimWidth','Rim Width',SLIDERS.rimWidth]];
+ const shades:[SliderId,string,SliderRange][]=[['shadowStrength','Shadow Strength',SLIDERS.shadowStrength],['environmentFill','Environment Fill',SLIDERS.environmentFill]];
  const commit=(id:LightingFieldId,value:unknown)=>oncommit?.(entityId,withLightingValue(current,id,value),revision);
  const reset=(id:LightingFieldId)=>{void commit(id,marks.defaults[id]);};
 </script>
+{#snippet slider(id:SliderId,label:string,range:SliderRange)}
+ <div class="resettable"><SliderField {label} value={values[id]} {range} disabled={off} onlive={value=>onlive?.(entityId,withLightingValue(current,id,value))} onend={onliveend} oncommit={value=>{void commit(id,value);}}/>{#if marks.changed.has(id)}<ResetMark {label} disabled={marks.disabled} onreset={()=>reset(id)}/>{/if}</div>
+{/snippet}
 <fieldset class="lighting" disabled={off}>
- {#each sliders.slice(0,2) as [id,label,range] (id)}
-  <div class="resettable"><SliderField {label} value={values[id]} {range} disabled={off} onlive={value=>onlive?.(entityId,withLightingValue(current,id,value))} onend={onliveend} oncommit={value=>{void commit(id,value);}}/>{#if marks.changed.has(id)}<ResetMark {label} disabled={marks.disabled} onreset={()=>reset(id)}/>{/if}</div>
- {/each}
+ {#each rims as [id,label,range] (id)}{@render slider(id,label,range)}{/each}
  <div class="resettable"><ColorField label="Rim Tint" value={current.rimTint} disabled={off} onlive={tint=>onlive?.(entityId,withLightingValue(current,'rimTint',tint))} onend={onliveend} oncommit={tint=>{void commit('rimTint',tint);}}/>{#if marks.changed.has('rimTint')}<ResetMark label="Rim Tint" disabled={marks.disabled} onreset={()=>reset('rimTint')}/>{/if}</div>
- {#each sliders.slice(2) as [id,label,range] (id)}
-  <div class="resettable"><SliderField {label} value={values[id]} {range} disabled={off} onlive={value=>onlive?.(entityId,withLightingValue(current,id,value))} onend={onliveend} oncommit={value=>{void commit(id,value);}}/>{#if marks.changed.has(id)}<ResetMark {label} disabled={marks.disabled} onreset={()=>reset(id)}/>{/if}</div>
- {/each}
+ {#each shades as [id,label,range] (id)}{@render slider(id,label,range)}{/each}
 </fieldset>
 <style>.lighting{border:0;padding:0;margin:0;min-width:0;display:grid;gap:10px}</style>

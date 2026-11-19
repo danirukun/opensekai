@@ -16,7 +16,9 @@ it('sets, validates, and restores the lighting of a character through scene_patc
   expect(tools.tools.find(tool => tool.name === 'scene_patch')?.description).toMatch(/setAvatarLighting.*rimStrength 0 to 2.*null restores the defaults/s);
   expect(await patch(0, [{ kind: 'setAvatarLighting', entityId: 'performer', lighting }])).toMatchObject({ ok: true, data: { revision: 1 } });
   expect(await performer()).toMatchObject({ lighting });
-  expect((await client.callTool({ name: 'scene_patch', arguments: { sceneId: 'scene_smoke', expectedRevision: 1, operations: [{ kind: 'setAvatarLighting', entityId: 'performer', lighting: { ...lighting, rimStrength: 2.5 } }] } })).isError).toBe(true);
+   const outOfRange = await client.callTool({ name: 'scene_patch', arguments: { sceneId: 'scene_smoke', expectedRevision: 1, operations: [{ kind: 'setAvatarLighting', entityId: 'performer', lighting: { ...lighting, rimStrength: 2.5 } }] } });
+  expect(outOfRange.isError).toBe(true);
+  expect(JSON.stringify(outOfRange.content)).toMatch(/operations\.0\.lighting\.rimStrength: Too big: expected number to be <=2/);
   expect(await patch(1, [{ kind: 'setAvatarLighting', entityId: 'camera_wide', lighting }])).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
   expect(await patch(1, [{ kind: 'setAvatarLighting', entityId: 'performer', lighting: null }])).toMatchObject({ ok: true, data: { revision: 2 } });
   expect(await performer()).not.toHaveProperty('lighting');
