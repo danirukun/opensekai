@@ -9,7 +9,7 @@ export type LightGroups = Record<LightGroup, Id[]>;
 type LightEntity = Extract<SceneEntity, { kind: "light" }>;
 const LIGHT_GROUPS: readonly LightGroup[] = ["characters", "props", "environment", "haze"];
 
-const isLight = (entity: SceneEntity): entity is LightEntity => entity.kind === "light";
+export const isLight = (entity: SceneEntity): entity is LightEntity => entity.kind === "light";
 export const groupOf = (entity: SceneEntity): LightGroup | null =>
     entity.kind === "avatar" ? "characters" : entity.kind === "mesh" ? "props" : entity.kind === "environment" ? "environment" : null;
 
