@@ -81,17 +81,37 @@ The motion stops smoothly with no jump. The body turn goes back to rest with the
 
 The first check found three problems: the whole editor body scrolled instead of the Inspector, long bone names went under the select arrow, and a new input row had scale 1 and clamp −1..1 (Warudo: scale 5, no clamp). Commit `f44d493` corrected them. A re-check at `f44d493` found that the input selects in the Pendulum rows cut "Head pitch" to "Head …". Commit `ec9c811` puts each select of a row on its own full-width line. At `ec9c811` the input selects show "Head pitch", "Head yaw", and "Head Z" in full, and long bone names stop with an ellipsis before the arrow. The Inspector goes back to the top when the user selects a different node. It does not move when the user changes a field of the same node.
 
+### Check after the final review fixes
+
+Commits: `32eb27b` (implicit pendulum step, a tick budget for each graph, the Warudo pendulum intensity 0.5, smoothed `headPosition`) and `d29c760` (send queue). Date: 2026-11-19. Same computer, backend, and profiles as above. Debug build.
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| Lean at tz +5 | Pass. Spine X 5.63° (5.28° at about 1.0 s), neck −1.88°, head −5.0°. | `14-obs-lean.png` |
+| Yaw ±20° | Pass. Spine ±5°, chest ±2.5°, neck ∓7.5°. These do not change. | — |
+| Sway after ry 0° → 25° → 0° | Pass. The hand has its maximum of 4.17° about 0.94 s after the step (10.42° before the intensity). It is less than 0.1° from about 2.6 s after the head goes back. | `14-sway.png` |
+| Two characters, each with a template graph and its own iFacialMocap source | Pass at `d29c760`. Both bodies turn with the head in OBS. No graph reports an operation limit. A VMC sender on each character sends for more than 60 s with the correct values. | `14-two-characters-yaw.png` |
+| The template graph opens on the canvas | Pass. No nodes overlap. | `14-template-graph.png` |
+| Concert benchmark | Unknown. `benchmark_start` replied `CONFLICT` ("Smoke fixture registration mismatch"): the app did not start with the fixture manifest, so no benchmark number exists. | — |
+
+A scene can have at most 2 characters, so 3 characters were not checked.
+
+At `32eb27b`, the VMC sender stopped when a second face-tracked character was in the scene. The cause was in the browser client send queue, not in this feature: a VMC poses message was dropped when the frame of the same tick was larger. The rule came from an earlier change and is also on main. This branch makes the frame larger, so the problem occurred more easily (one character with the graph had about 129 bytes of margin). Commit `d29c760` counts the frame and the VMC poses of one tick together.
+
+When OpenSekai is in the background, the app stopped for about 2 s every 20 to 40 s, and then ran the missed ticks. This also occurred with the graph off and did not occur with the app in front. It is probably not caused by this branch. It was not examined further.
+
 ### Not checked
 
 - A real iPhone with iFacialMocap. The translation unit and the live pitch sign are not known.
 - A side-by-side comparison with Warudo for the pendulum spring, damping, and gravity values.
 - The look of the motion. The owner did not examine it.
 - An OBS recording. The sway evidence is an OBS screenshot series.
-- The concert benchmark. It was not run for this slice yet.
+- The concert benchmark. It needs the fixture manifest (see above).
+- A release build. All checks used a debug build.
 
 ### Other observations
 
-- After this check, the template got the Warudo Pendulum Physics Intensity (0.5) on each Pendulum value. The lean and sway values above (commit `bb8069b`) are 2 times the current template output: for tz +5 the spine lean is now 5.625°, not 11.25°. The body turn values do not change.
+- The lean and sway tables in the first check (commit `bb8069b`) come from before the Warudo Pendulum Physics Intensity (0.5). The check after the final review fixes gives the current values.
 - A calibration saved before this branch has no `headPosition` neutral. With such a calibration, the compose step gives no `headPosition`, so the lean and the position part of the sway stay off until the user calibrates again.
 - With phone address 127.0.0.1, the receiver gets its own handshake and counts it as an invalid packet (about one each second while stale). This occurs only with a test peer on the same computer.
 - Each Pendulum node and each Offset Bones node shows only the node type as its heading. On the canvas, the user cannot see which node is "Arm Movements" and which is "Finger Movements" without opening it.
