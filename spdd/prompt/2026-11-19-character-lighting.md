@@ -30,10 +30,10 @@ Status: contract; not implemented.
      - When the material is not `isOutline`, it adds `rimFactor(N·V, L·V, rimWidth) × rimStrength × rimTint × lightColor` to `directSpecular`.
      - The shadow does not remove the added rim. The rim is not multiplied by the shadow, because a back light is behind the shadow casters.
      - It uses `normalView`, not `transformedNormalView`. The patch `patches/@pixiv__three-vrm@3.5.5.patch` stays.
-     - It reads `rimStrength`, `rimWidth`, `shadowStrength`, `environmentFill`, and `giEqualizationFactor` through `materialReference`.
+     - It reads `rimStrength`, `rimWidth`, `shadowStrength`, `environmentFill`, and `giEqualizationFactor` through `materialReference`. Each build makes one reference node of each value, and all lights of the build share it.
    - `indirectDiffuse` is the parent term. When the material is not `isOutline`, it adds `equalize(iblIrradiance, average, giEqualizationFactor) × characterShare.fill × environmentFill × BRDF_Lambert(diffuseColor)`. `average` is the mean of the room irradiance at world up and world down (two samples). The environment node does the equalization and writes the result to `iblIrradiance`; the lighting model multiplies it.
    - The lighting model uses its own copies of the MToon variants (shade color, shading shift, toony, rim mix, rim multiply, matcap, parametric rim). three-vrm 3.5.5 does not export its module variants, so `setupVariants` makes them from the private `_setup*Node` methods of the parent.
-   - `setupEnvironment` returns an environment node for `characterShare.map`, with no specular part (the `RoomEnvironmentNode` pattern of `environment-light.ts`). It returns none when the share or the map is missing.
+   - `setupEnvironment` returns an environment node for `characterShare.map`, with no specular part (the `RoomEnvironmentNode` pattern of `environment-light.ts`). It returns none when the share or the map is missing, or for an outline.
    - The VRM loader plugin in `assets.ts` gets `materialType: CharacterMToonMaterial`, so an outline clone has the same type.
    - A VRM 0.x material with `_IndirectLightIntensity` 0.3 gives `giEqualizationFactor 0.7`. The v0compat plugin writes `1 − _IndirectLightIntensity`. A material without the property gives `0.9`.
    - The class does not change `isLitMaterial`, `mtoon-binds.ts`, or `mtoon-uv.ts` results.

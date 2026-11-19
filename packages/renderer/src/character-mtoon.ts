@@ -15,7 +15,8 @@ type Context = {reflectedLight: Reflected; iblIrradiance: Vec3 & Sum};
 type LightNode = {baseColorNode: Vec3 | null; shadowNode: Float | null};
 type Direct = {lightDirection: Vec3; lightColor: Vec3; lightNode: LightNode; reflectedLight: Reflected};
 type Variants = {shade: Vec3; shift: Float; toony: Float; rimMix: Float; rimMultiply: Vec3; matcap: Vec3; parametricRim: Vec3};
-type Build = {variants: Variants; shadowed: ReadonlySet<object>; extras: boolean; fill: UniformNode<'color'> | null};
+type Values = {rimStrength: Float; rimWidth: Float; rimTint: Vec3; shadowStrength: Float; environmentFill: Float};
+type Build = {variants: Variants; values: Values; shadowed: ReadonlySet<object>; extras: boolean; fill: UniformNode<'color'> | null};
 // The private node setups of the three-vrm 3.5.5 material. Its own variants are module values that it does not export.
 type MToonSetups = Record<'_setupShadeColorNode' | '_setupShadingShiftNode' | '_setupShadingToonyNode' | '_setupRimLightingMixNode' | '_setupRimMultiplyNode' | '_setupMatcapNode' | '_setupParametricRimNode', () => Node<'vec3'> & Node<'float'>>;
 type Parameters = ConstructorParameters<typeof MToonNodeMaterial>[0] & {giEqualizationFactor?: number};
@@ -30,26 +31,26 @@ export class CharacterLightingModel extends MToonLightingModel {
     direct(input: LightingModelDirectInput) {
         const {lightDirection, lightColor, lightNode, reflectedLight} = input as unknown as Direct;
         const {shade, shift, toony, rimMix, rimMultiply, matcap, parametricRim} = this.build.variants;
+        const {rimStrength, rimWidth, rimTint, shadowStrength} = this.build.values;
         const dotNL = normalView.dot(lightDirection).clamp(-1, 1);
         const feather = float(1).sub(toony);
         const shadow = this.build.shadowed.has(lightNode) && lightNode.shadowNode ? lightNode.shadowNode : float(1);
         // toonShading of character-lighting-math.ts.
-        const shading = dotNL.add(shift).add(feather).div(feather.mul(2)).clamp().mul(mix(float(1), shadow, reference('shadowStrength')));
+        const shading = dotNL.add(shift).add(feather).div(feather.mul(2)).clamp().mul(mix(float(1), shadow, shadowStrength));
         reflectedLight.directDiffuse.addAssign(lightColor.mul(lambert(mix(shade, diffuse, shading))));
         reflectedLight.directSpecular.addAssign(parametricRim.add(matcap).mul(rimMultiply).mul(mix(vec3(0), lambert(lightColor), rimMix)));
         if (!this.build.extras) return;
         // rimFactor of character-lighting-math.ts. The rim is not shadowed: a back light is behind the shadow casters.
-        const edge = float(1).sub(normalView.dot(positionViewDirection)).clamp().pow(mix(float(EXPONENT.narrow), float(EXPONENT.wide), reference('rimWidth')));
+        const edge = float(1).sub(normalView.dot(positionViewDirection)).clamp().pow(mix(float(EXPONENT.narrow), float(EXPONENT.wide), rimWidth));
         const back = smoothstep(RIM.backStart, RIM.backEnd, lightDirection.dot(positionViewDirection).negate());
-        const tint = materialReference('rimTint', 'color') as unknown as Vec3;
-        reflectedLight.directSpecular.addAssign(lightColor.mul(tint).mul(edge.mul(back).mul(reference('rimStrength'))));
+        reflectedLight.directSpecular.addAssign(lightColor.mul(rimTint).mul(edge.mul(back).mul(rimStrength)));
     }
     indirectDiffuse(lighting: LightingContext) {
         super.indirectDiffuse(lighting);
         const context = lighting as unknown as Context, fill = this.build.fill;
         if (!fill) return;
         // `iblIrradiance` holds only the equalized room irradiance of `CharacterEnvironmentNode`.
-        context.reflectedLight.indirectDiffuse.addAssign(context.iblIrradiance.mul(fill).mul(reference('environmentFill')).mul(lambert(diffuse)));
+        context.reflectedLight.indirectDiffuse.addAssign(context.iblIrradiance.mul(fill).mul(this.build.values.environmentFill).mul(lambert(diffuse)));
     }
     indirectSpecular(lighting: LightingContext) {
         const {rimMix, rimMultiply, matcap, parametricRim} = this.build.variants;
@@ -106,7 +107,9 @@ export class CharacterMToonMaterial extends MToonNodeMaterial {
         return (super.setupLighting(builder) as Vec3).context({getShadow});
     }
     setupLightingModel() {
-        return new CharacterLightingModel({variants: this.#variants!, shadowed: this.#shadowed, extras: !this.isOutline, fill: this.#share()?.fill ?? null});
+        // One uniform of each value for all lights of this build.
+        const values: Values = {rimStrength: reference('rimStrength'), rimWidth: reference('rimWidth'), rimTint: materialReference('rimTint', 'color') as unknown as Vec3, shadowStrength: reference('shadowStrength'), environmentFill: reference('environmentFill')};
+        return new CharacterLightingModel({variants: this.#variants!, values, shadowed: this.#shadowed, extras: !this.isOutline, fill: this.#share()?.fill ?? null});
     }
     setupEnvironment() {
         const share = this.#share();

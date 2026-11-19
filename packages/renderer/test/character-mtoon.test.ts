@@ -95,20 +95,24 @@ function build(material: CharacterMToonMaterial, shadowed: boolean) {
     (environment as unknown as {setup(builder: NodeBuilder): void} | null)?.setup(builder);
     model.direct({lightDirection: vec3(0, 0, -1), lightColor, lightNode, reflectedLight} as never);
     model.indirect(builder);
-    return {added, lightColor, shadowNode, environment};
+    return {added, lightColor, shadowNode, environment, model, reflectedLight};
 }
-// Whether a node graph reads the target node. Node.traverse does not go into the inputs of a TSL function call.
-const uses = (root: Node, target: Node) => {
-    const seen = new Set<unknown>();
-    const walk = (value: unknown): boolean => {
-        if (value === null || typeof value !== 'object' || seen.has(value)) return false;
+// The nodes of a graph that match. Node.traverse does not go into the inputs of a TSL function call.
+const find = (root: Node, match: (node: Node) => boolean) => {
+    const seen = new Set<unknown>(), found = new Set<Node>();
+    const walk = (value: unknown): void => {
+        if (value === null || typeof value !== 'object' || seen.has(value)) return;
         seen.add(value);
-        if (value === target) return true;
         const node = value as Node & {rawInputs?: unknown};
-        return node.isNode ? node.getChildren().some(walk) || walk(node.rawInputs) : Object.values(value).some(walk);
+        if (node.isNode && match(node)) found.add(node);
+        if (node.isNode) { node.getChildren().forEach(walk); walk(node.rawInputs); } else Object.values(value).forEach(walk);
     };
-    return walk(root);
+    walk(root);
+    return found;
 };
+const uses = (root: Node, target: Node) => find(root, node => node === target).size > 0;
+// The material reference nodes of one property in a graph.
+const references = (root: Node, property: string) => [...find(root, node => (node as Node & {property?: string}).property === property)];
 
 it('puts the shadow into the shading and adds a back-light rim that follows the light color, not the shadow', () => {
     const material = new CharacterMToonMaterial();
@@ -134,10 +138,28 @@ it('adds the equalized environment fill from the share of its renderer', () => {
     const {added, environment} = lighting(material, false);
     expect(environment).not.toBeNull();
     expect(added.iblIrradiance).toHaveLength(1);
+    // The room irradiance is mixed toward the up and down mean by the GI equalization factor of the file.
+    expect(references(added.iblIrradiance[0]!, 'giEqualizationFactor')).toHaveLength(1);
     // The MToon term, then the fill.
     expect(added.indirectDiffuse).toHaveLength(2);
     expect(uses(added.indirectDiffuse[1]!, fill)).toBe(true);
     expect(material.clone().characterShare).toBe(material.characterShare);
+});
+
+it('shares one uniform of each lighting value across the lights of one build', () => {
+    const {added, model, reflectedLight} = lighting(new CharacterMToonMaterial(), true);
+    const lightColor = uniform(new Color(1, 0, 0)), lightNode = {baseColorNode: lightColor, shadowNode: null};
+    setCurrentStack(new StackNode());
+    try { model.direct({lightDirection: vec3(0, 1, 0), lightColor, lightNode, reflectedLight} as never); } finally { setCurrentStack(null); }
+    expect(added.directSpecular).toHaveLength(4);
+    for (const property of ['rimStrength', 'rimWidth', 'rimTint']) {
+        const [first, second] = [added.directSpecular[1]!, added.directSpecular[3]!].map(node => references(node, property));
+        expect(first).toHaveLength(1);
+        expect(second![0]).toBe(first![0]);
+    }
+    const [first, second] = [added.directDiffuse[0]!, added.directDiffuse[1]!].map(node => references(node, 'shadowStrength'));
+    expect(first).toHaveLength(1);
+    expect(second![0]).toBe(first![0]);
 });
 
 it('gives an outline neither the added rim nor the environment fill', () => {
