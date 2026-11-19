@@ -1,10 +1,10 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { LIMITS, makeSmokeFrame } from '@opensekai/contracts';
-import type { BrowserClient, ConnectionDescriptor, PublisherClient } from '@opensekai/contracts';
+import type { BrowserClient, ConnectionDescriptor, PublisherClient, VmcPosesEnvelope } from '@opensekai/contracts';
 import { connectWithPorts } from '../src/client';
 class Socket extends EventTarget {
- bufferedAmount = 0; sent: string[] = []; closed = false; throws = false;
- send(text: string) { if (this.throws) throw new Error('send failed'); this.sent.push(text); }
+ bufferedAmount = 0; sent: string[] = []; closed = false; throws = false; counts = false;
+ send(text: string) { if (this.throws) throw new Error('send failed'); this.sent.push(text); if (this.counts) this.bufferedAmount += new TextEncoder().encode(text).length; }
  close() { this.closed = true; }
  message(value: unknown) { this.dispatchEvent(new MessageEvent('message', { data: JSON.stringify(value) })); }
 }
@@ -23,6 +23,26 @@ it('bounds state by encoded frame bytes and resumes with the next full frame', a
  socket.bufferedAmount = bytes; publisher.publishFrame(frame); expect(socket.sent).toHaveLength(2);
  socket.bufferedAmount = bytes + 1; publisher.publishFrame(makeSmokeFrame({ sequence: 2 })); expect(socket.sent).toHaveLength(2); expect(socket.closed).toBe(false);
  socket.bufferedAmount = 0; publisher.publishFrame(makeSmokeFrame({ sequence: 3 })); expect(JSON.parse(socket.sent[2]).frame.sequence).toBe(3);
+ publisher.close();
+});
+const poses = (tick: number): VmcPosesEnvelope => ({ kind: 'vmcPoses', sessionId: descriptor.sessionId, tick, poses: [{ senderId: 'vmc', root: { position: [0, 0, 0], rotation: [0, 0, 0, 1] }, bones: { head: { position: [0, 0.1, 0], rotation: [0, 0, 0, 1] } }, blends: {} }] });
+const kinds = (socket: Socket, from: number) => socket.sent.slice(from).map(text => JSON.parse(text).kind);
+it('sends the VMC poses of a tick after a larger frame of the same tick', async () => {
+ const { sockets, client } = await start(); const publisher = client as PublisherClient; const socket = sockets[0]; socket.counts = true;
+ const before = socket.sent.length;
+ publisher.publishFrame(makeSmokeFrame({ sequence: 1 })); publisher.publishVmcPoses!(poses(1));
+ expect(kinds(socket, before)).toEqual(['frame', 'vmcPoses']); expect(socket.closed).toBe(false);
+ publisher.close();
+});
+it('drops both state kinds of a tick on a real backlog and does not disconnect', async () => {
+ const { sockets, client } = await start(); const publisher = client as PublisherClient; const socket = sockets[0];
+ const frame = makeSmokeFrame({ sequence: 1 }); const size = (value: unknown) => new TextEncoder().encode(JSON.stringify(value)).length;
+ publisher.publishFrame(frame); publisher.publishVmcPoses!(poses(1)); socket.bufferedAmount = 0;
+ const tick = size({ kind: 'frame', frame }) + size(poses(1)); const before = socket.sent.length;
+ socket.bufferedAmount = LIMITS.queuedFrames * tick + 1; publisher.publishFrame(makeSmokeFrame({ sequence: 2 })); publisher.publishVmcPoses!(poses(2));
+ expect(kinds(socket, before)).toEqual([]); expect(socket.closed).toBe(false);
+ socket.bufferedAmount = 0; publisher.publishFrame(makeSmokeFrame({ sequence: 3 })); publisher.publishVmcPoses!(poses(3));
+ expect(kinds(socket, before)).toEqual(['frame', 'vmcPoses']);
  publisher.close();
 });
 it.each(['backpressure', 'throw', 'size'] as const)('disconnects a failed publisher reply (%s), retains listener and does not replay', async failure => {
