@@ -121,6 +121,8 @@ Cause of problem 1: when the owner leaned toward the phone, the phone measured t
 
 Problem 2 is the Warudo default. Body Rotation Type Inverted turns the body in the opposite direction to the head roll. The template copies it (`axis-z-signed`, × −1).
 
+After the decoder change, a synthetic source compared the two roll directions and the lean in the editor preview (head roll ±20°; tz 0.16 with the head level and with the head 30° up). With Inverted, the shoulders tip opposite to the head. With the same direction (`axis-z-signed` input b = +1), the upper body tilts with the head. The owner kept Inverted as the default. With the head level, tz 0.16 leans the spine forward clearly. With the head 30° up, the face points up and the lean is less visible, so a calibration in the real rest pose is necessary.
+
 ### Not checked
 
 - The live pitch sign with a real iPhone (nod down).
@@ -135,4 +137,5 @@ Problem 2 is the Warudo default. Body Rotation Type Inverted turns the body in t
 - The lean and sway tables in the first check (commit `bb8069b`) come from before the Warudo Pendulum Physics Intensity (0.5). The check after the final review fixes gives the current values.
 - A calibration saved before this branch has no `headPosition` neutral. With such a calibration, the compose step gives no `headPosition`, so the lean and the position part of the sway stay off until the user calibrates again.
 - With phone address 127.0.0.1, the receiver gets its own handshake and counts it as an invalid packet (about one each second while stale). This occurs only with a test peer on the same computer.
+- When OpenSekai is not the frontmost app, MCP `camera_screenshot` can return an old pose. Keep the app in front for screenshot evidence.
 - Each Pendulum node and each Offset Bones node shows only the node type as its heading. On the canvas, the user cannot see which node is "Arm Movements" and which is "Finger Movements" without opening it.
