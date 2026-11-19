@@ -157,6 +157,25 @@ it('skips GPU preparation for a load whose character was removed',async()=>{
  expect(a.value.dispose).toHaveBeenCalledOnce();
  r.dispose();
 });
+it('skips the queued GPU preparation of a load that was cancelled while it waited',async()=>{
+ const a=asset(),b=asset(),compiling=deferred();
+ ports.load.mockImplementation(async(assetId:string)=>assetId==='avatar_a'?a.value:b.value);
+ ports.compile.mockReturnValueOnce(compiling.promise);
+ const two=(second:boolean)=>{
+  const f=frame('avatar_a');
+  const first=f.scene.entities.find(e=>e.kind==='avatar')!;
+  if(second)f.scene.entities.push({...structuredClone(first),id:'performer_b',assetId:'avatar_b'});
+  return f;
+ };
+ const r=await make();
+ await r.applyFrame(two(true));await settle();
+ // The compile of the first load is pending; the second load waits behind it. Its character goes away.
+ await r.applyFrame(two(false));
+ compiling.resolve(undefined);await settle();
+ expect(ports.compile).toHaveBeenCalledTimes(1);
+ expect(ports.compile).toHaveBeenCalledWith(a.root,expect.anything(),expect.anything());
+ r.dispose();
+});
 it('applies a scene with an FPS counter without a scene object for it (B19 R7)',async()=>{
  const r=await make();
  await r.applyFrame(frame(null,false));const before=rendered().children.length;

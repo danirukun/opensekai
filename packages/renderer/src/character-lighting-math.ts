@@ -3,6 +3,8 @@ import type { SceneEntity, Vec3 } from '@opensekai/contracts';
 import { isLight, usesFixedAmbient } from './scene-lights';
 
 export const RIM = Object.freeze({ backStart: -0.1, backEnd: 0.6 });
+// The rim fades out where the normal faces away from the light: no rim on all edges.
+export const SIDE = Object.freeze({ start: -0.1, end: 0.4 });
 export const EXPONENT = Object.freeze({ narrow: 16, wide: 4 });
 // The environment fill at environmentFill 1 and a white fill color, in the units of an ambient light intensity.
 export const CHARACTER_FILL = 0.5;
@@ -14,15 +16,18 @@ const mix = (a: number, b: number, t: number): number => a + (b - a) * t;
 const linearstep = (a: number, b: number, x: number): number => clamp01((x - a) / (b - a));
 const smoothstep = (a: number, b: number, x: number): number => { const t = linearstep(a, b, x); return t * t * (3 - 2 * t); };
 
+// Keeps the step of the shading finite at toony 1.
+export const FEATHER_MIN = 1e-4;
+
 export const toonShading = (dotNL: number, shift: number, toony: number, shadow: number, shadowStrength: number): number => {
-    const f = 1 - toony;
+    const f = Math.max(1 - toony, FEATHER_MIN);
     return linearstep(-f, f, dotNL + shift) * mix(1, shadow, shadowStrength);
 };
 
 export const rimExponent = (width: number): number => mix(EXPONENT.narrow, EXPONENT.wide, width);
 
-export const rimFactor = (nDotV: number, lDotV: number, width: number): number =>
-    Math.pow(clamp01(1 - nDotV), rimExponent(width)) * smoothstep(RIM.backStart, RIM.backEnd, -lDotV);
+export const rimFactor = (nDotV: number, lDotV: number, nDotL: number, width: number): number =>
+    Math.pow(clamp01(1 - nDotV), rimExponent(width)) * smoothstep(RIM.backStart, RIM.backEnd, -lDotV) * smoothstep(SIDE.start, SIDE.end, nDotL);
 
 export const equalize = (sample: Vec3, average: Vec3, factor: number): Vec3 =>
     [mix(sample[0], average[0], factor), mix(sample[1], average[1], factor), mix(sample[2], average[2], factor)];

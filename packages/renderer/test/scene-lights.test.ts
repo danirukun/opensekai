@@ -245,17 +245,18 @@ describe('stage lights (B13)', () => {
         lights.apply([light('d')]);
         expect(lightsOf(lights.node('props'))).toContain(fixed);
     });
-    it('lowers the fixed ambient light for the character group only (character lighting R4)', () => {
+    it('gives the character group the same ambient as the props, so a lit avatar material that is not MToon keeps the ambient of main (character lighting R4)', () => {
         const scene = new Scene(), lights = createSceneLights(scene, fake());
         const ambients = (group: 'characters' | 'props' | 'environment') => (lightsOf(lights.node(group)) as AmbientLight[]).filter(l => l.isAmbientLight);
         for (const entities of [[], [light('d')]]) {
             lights.apply(entities);
-            expect(ambients('characters').map(l => l.intensity)).toEqual([CHARACTER_AMBIENT]);
-            expect(CHARACTER_AMBIENT).toBe(0.5);
-            for (const group of ['props', 'environment'] as const) expect(ambients(group).map(l => l.intensity)).toEqual([1]);
+            for (const group of ['characters', 'props', 'environment'] as const) expect(ambients(group).map(l => l.intensity)).toEqual([1]);
+            expect(ambients('characters')).toEqual(ambients('props'));
         }
         lights.apply([light('d'), light('amb', { type: 'ambient', intensity: 0.3 })]);
         for (const group of ['characters', 'props', 'environment'] as const) expect(ambients(group).map(l => l.intensity)).toEqual([0.3]);
+        // The MToon lighting model scales the ambient term by this share (character-mtoon.test.ts).
+        expect(CHARACTER_AMBIENT).toBe(0.5);
     });
     it('puts placed lights and their shadow cameras on the haze layer, so the haze pass sees them and keeps the shadow casters (R7)', () => {
         const scene = new Scene(), lights = createSceneLights(scene, fake());

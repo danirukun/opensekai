@@ -135,7 +135,8 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         report({ stage: "prepare", progress: null });
         const culled: Object3D[] = [];
         root.traverse(object => { if (object.frustumCulled) { culled.push(object); object.frustumCulled = false; } });
-        try { await compileOnce(() => renderer.compileAsync(root, camera, scene)); }
+        // The load can end while this run waits in the queue behind another compile.
+        try { await compileOnce(() => { if (cancelled() || disposed) throw failure("CANCELLED", "Asset load cancelled"); return renderer.compileAsync(root, camera, scene); }); }
         finally { for (const object of culled) object.frustumCulled = true; }
     };
     const build = async (request: LoadRequest, report: (r: LoadReport) => void, cancelled: () => boolean): Promise<Ready> => {

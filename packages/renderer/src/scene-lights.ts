@@ -30,7 +30,7 @@ export function lightGroups(entities: readonly SceneEntity[]): LightGroups {
 /** An ambient light entity replaces the fixed ambient light in the node sets (B13 R4). */
 export const usesFixedAmbient = (entities: readonly SceneEntity[]): boolean => !entities.some(e => isLight(e) && e.light.type === "ambient");
 
-/** The fixed ambient light share of the character group; the environment fill of an avatar adds the rest (character lighting R4). */
+/** The share of the scene ambient that the MToon lighting model of an avatar keeps; the environment fill adds the rest (character lighting R4). */
 export const CHARACTER_AMBIENT = 0.5;
 
 /** What the room map of the environment gives (B13 R4a): its diffuse fill (0 or 1) and the linear multiplier of its reflections. */
@@ -93,8 +93,6 @@ export const isLitMaterial = (material: Material): boolean => {
 
 export function createSceneLights(scene: Scene, renderer: WebGPURenderer): SceneLights {
     const ambient = new AmbientLight(0xffffff, 1);
-    // An ambient light needs no place in the scene. Out of the scene, a material without a group node set does not get it.
-    const characterAmbient = new AmbientLight(0xffffff, CHARACTER_AMBIENT);
     // The built-in light (R5): it lights all materials when the scene has no light entity.
     const builtin = new DirectionalLight(0xffffff, 3);
     builtin.position.set(2, 4, 3);
@@ -206,8 +204,8 @@ export function createSceneLights(scene: Scene, renderer: WebGPURenderer): Scene
             const members = (ids: Id[]) => ids.map(id => [id, settings.get(id)!.type, settings.get(id)!.shadow.enabled]);
             // A group keeps its node object while its own light list stays the same (light limits R13).
             const nextKeys = Object.fromEntries(LIGHT_GROUPS.map(group => [group, JSON.stringify(group === "haze" ? members(groups.haze) : [fixedAmbient, builtinOn, members(groups[group])])])) as Record<LightGroup, string>;
-            const fixed = (group: LightGroup) => fixedAmbient ? [group === "characters" ? characterAmbient : ambient] : [];
-            const set = (group: LightGroup) => lights([...fixed(group), ...(builtinOn ? [builtin] : groups[group].map(id => owned.get(id)!.light))]);
+            const fixed = () => fixedAmbient ? [ambient] : [];
+            const set = (group: LightGroup) => lights([...fixed(), ...(builtinOn ? [builtin] : groups[group].map(id => owned.get(id)!.light))]);
             const build = (group: LightGroup) => group === "haze" ? lights(groups.haze.map(id => owned.get(id)!.light)) : set(group);
             const previous = nodes;
             nodes = Object.fromEntries(LIGHT_GROUPS.map(group => [group, previous && keys?.[group] === nextKeys[group] ? previous[group] : build(group)])) as Record<LightGroup, ReturnType<typeof lights>>;

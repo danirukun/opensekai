@@ -5,8 +5,8 @@ import {setCurrentStack, uniform, vec3} from 'three/tsl';
 import {DEFAULT_AVATAR_LIGHTING} from '@opensekai/contracts';
 import {createAssetLoader} from '../src/assets';
 import {CharacterMToonMaterial, createCharacterShare, type CharacterLightingModel} from '../src/character-mtoon';
-import {isLitMaterial} from '../src/scene-lights';
-import {CHARACTER_FILL} from '../src/character-lighting-math';
+import {CHARACTER_AMBIENT, isLitMaterial} from '../src/scene-lights';
+import {CHARACTER_FILL, FEATHER_MIN, RIM, SIDE} from '../src/character-lighting-math';
 
 // A GLB with a JSON chunk and a binary chunk.
 function glb(json: object, bin: Uint8Array): ArrayBuffer {
@@ -124,6 +124,33 @@ it('puts the shadow into the shading and adds a back-light rim that follows the 
     expect(added.directSpecular).toHaveLength(2);
     expect(uses(added.directSpecular[1]!, lightColor)).toBe(true);
     expect(uses(added.directSpecular[1]!, shadowNode)).toBe(false);
+});
+
+const withValue = (root: Node, value: number) => find(root, node => (node as Node & {value?: unknown}).value === value).size;
+
+it('masks the added rim to the lit side with the SIDE constants of the CPU reference', () => {
+    const {added} = lighting(new CharacterMToonMaterial(), false);
+    // RIM.backStart is also -0.1: one constant node for each smoothstep.
+    expect(withValue(added.directSpecular[1]!, SIDE.start)).toBe(RIM.backStart === SIDE.start ? 2 : 1);
+    expect(withValue(added.directSpecular[1]!, SIDE.end)).toBe(1);
+    // The authored rim has no light-side mask.
+    expect(withValue(added.directSpecular[0]!, SIDE.end)).toBe(0);
+});
+
+it('floors the toon feather, so the step is finite at toony 1', () => {
+    const {added} = lighting(new CharacterMToonMaterial(), false);
+    expect(withValue(added.directDiffuse[0]!, FEATHER_MIN)).toBe(1);
+});
+
+it('scales the parent ambient term by CHARACTER_AMBIENT, also for an outline', () => {
+    const material = new CharacterMToonMaterial();
+    const {added} = lighting(material, false);
+    expect(withValue(added.indirectDiffuse[0]!, CHARACTER_AMBIENT)).toBe(1);
+    const outline = material.clone();
+    outline.isOutline = true;
+    const {added: outlined} = lighting(outline, false);
+    expect(outlined.indirectDiffuse).toHaveLength(1);
+    expect(withValue(outlined.indirectDiffuse[0]!, CHARACTER_AMBIENT)).toBe(1);
 });
 
 it('ignores the shadow node of a light whose shadow this build does not receive', () => {

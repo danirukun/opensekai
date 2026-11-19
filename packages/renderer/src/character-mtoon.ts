@@ -3,7 +3,8 @@ import {Color, LightingNode, type LightingContext, type LightingModelDirectInput
 import {BRDF_Lambert, diffuseColor, float, materialReference, mix, normalView, normalWorld, positionViewDirection, smoothstep, uniform, uniformArray, vec3, getShIrradianceAt, renderGroup} from 'three/tsl';
 import {MToonLightingModel, MToonNodeMaterial} from '@pixiv/three-vrm/nodes';
 import {DEFAULT_AVATAR_LIGHTING} from '@opensekai/contracts';
-import {CHARACTER_FILL, EXPONENT, FLAT_ROOM, RIM} from './character-lighting-math';
+import {CHARACTER_FILL, EXPONENT, FEATHER_MIN, FLAT_ROOM, RIM, SIDE} from './character-lighting-math';
+import {CHARACTER_AMBIENT} from './scene-lights';
 
 /** One object for each renderer; the renderer sets it on each character material. */
 export type CharacterShare = {fill: UniformNode<'color'>; sh: UniformArrayNode<'vec3'>; average: UniformNode<'vec3'>};
@@ -23,7 +24,7 @@ type Vec3 = Node<'vec3'>;
 type Float = Node<'float'>;
 type Sum = {addAssign(node: Vec3): unknown};
 type Reflected = Record<'directDiffuse' | 'directSpecular' | 'indirectDiffuse' | 'indirectSpecular', Sum>;
-type Context = {reflectedLight: Reflected; iblIrradiance: Vec3 & Sum};
+type Context = {reflectedLight: Reflected; irradiance: Vec3; iblIrradiance: Vec3 & Sum};
 type LightNode = {baseColorNode: Vec3 | null; shadowNode: Float | null};
 type Direct = {lightDirection: Vec3; lightColor: Vec3; lightNode: LightNode; reflectedLight: Reflected};
 type Variants = {shade: Vec3; shift: Float; toony: Float; rimMix: Float; rimMultiply: Vec3; matcap: Vec3; parametricRim: Vec3};
@@ -45,7 +46,7 @@ export class CharacterLightingModel extends MToonLightingModel {
         const {shade, shift, toony, rimMix, rimMultiply, matcap, parametricRim} = this.build.variants;
         const {rimStrength, rimWidth, rimTint, shadowStrength} = this.build.values;
         const dotNL = normalView.dot(lightDirection).clamp(-1, 1);
-        const feather = float(1).sub(toony);
+        const feather = float(1).sub(toony).max(FEATHER_MIN);
         const shadow = this.build.shadowed.has(lightNode) && lightNode.shadowNode ? lightNode.shadowNode : float(1);
         // toonShading of character-lighting-math.ts.
         const shading = dotNL.add(shift).add(feather).div(feather.mul(2)).clamp().mul(mix(float(1), shadow, shadowStrength));
@@ -55,11 +56,13 @@ export class CharacterLightingModel extends MToonLightingModel {
         // rimFactor of character-lighting-math.ts. The rim is not shadowed: a back light is behind the shadow casters.
         const edge = float(1).sub(normalView.dot(positionViewDirection)).clamp().pow(mix(float(EXPONENT.narrow), float(EXPONENT.wide), rimWidth));
         const back = smoothstep(RIM.backStart, RIM.backEnd, lightDirection.dot(positionViewDirection).negate());
-        reflectedLight.directSpecular.addAssign(lightColor.mul(rimTint).mul(edge.mul(back).mul(rimStrength)));
+        const lit = smoothstep(SIDE.start, SIDE.end, dotNL);
+        reflectedLight.directSpecular.addAssign(lightColor.mul(rimTint).mul(edge.mul(back).mul(lit).mul(rimStrength)));
     }
     indirectDiffuse(lighting: LightingContext) {
-        super.indirectDiffuse(lighting);
         const context = lighting as unknown as Context, fill = this.build.fill;
+        // The parent term at CHARACTER_AMBIENT of the scene ambient: with the fill, the total at the defaults is the scene ambient.
+        context.reflectedLight.indirectDiffuse.addAssign(context.irradiance.mul(CHARACTER_AMBIENT).mul(lambert(diffuse)));
         if (!fill) return;
         // `iblIrradiance` holds only the normalized room irradiance of `CharacterEnvironmentNode`. The term has the units of an
         // ambient light (irradiance × Lambert, no π), at CHARACTER_FILL of its intensity.
@@ -86,6 +89,8 @@ class CharacterEnvironmentNode extends LightingNode {
 export class CharacterMToonMaterial extends MToonNodeMaterial {
     static get type() { return 'CharacterMToonMaterial'; }
     get isCharacterMToonMaterial(): true { return true; }
+    // r187 getMaterialCacheKey reduces an own number to 0 or 1: a value that moves to or from 0 makes a new node build at the next
+    // light-set rebuild (the same WGSL, so a program cache hit). Other changes are uniform writes.
     rimStrength = DEFAULT_AVATAR_LIGHTING.rimStrength;
     rimWidth = DEFAULT_AVATAR_LIGHTING.rimWidth;
     rimTint = new Color(DEFAULT_AVATAR_LIGHTING.rimTint);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LightSettings, SceneEntity, Vec3 } from '@opensekai/contracts';
-import { CHARACTER_FILL, characterFill, equalize, FLAT_ROOM, normalizeRoom, rimFactor, shIrradiance, toonShading, type Sh } from '../src/character-lighting-math';
+import { CHARACTER_FILL, characterFill, equalize, FLAT_ROOM, normalizeRoom, rimFactor, SIDE, shIrradiance, toonShading, type Sh } from '../src/character-lighting-math';
 
 const settings = (patch: Partial<LightSettings> = {}): LightSettings => ({ type: 'ambient', color: '#ffffff', intensity: 1, range: 0, affectCharacters: true, affectProps: true, affectEnvironment: true, shadow: { enabled: false, intensity: 1, soft: true, bias: -0.0005, normalBias: 0.02 }, ...patch });
 const light = (id: string, patch: Partial<LightSettings> = {}, visible = true): SceneEntity => ({ id, name: id, visible, transform: { position: [0, 2, 1], rotation: [0, 0, 0, 1], scale: [1, 1, 1] }, kind: 'light', light: settings(patch) });
@@ -10,13 +10,19 @@ describe('toonShading', () => {
     it('keeps the lit value at zero strength', () => expect(toonShading(0.5, 0, 0.9, 0, 0)).toBe(1));
     it('mixes the shade by the strength', () => expect(toonShading(0.5, 0, 0.9, 0, 0.6)).toBeCloseTo(0.4, 10));
     it('is shade on the unlit side', () => expect(toonShading(-0.5, 0, 0.9, 1, 1)).toBe(0));
+    it('is finite at toony 1, also at the edge of the step', () => {
+        for (const dotNL of [-0.5, 0, 0.5]) expect(Number.isFinite(toonShading(dotNL, 0, 1, 1, 0))).toBe(true);
+    });
 });
 
 describe('rimFactor', () => {
-    it('is strong at a grazing angle from behind', () => expect(rimFactor(0.05, -1, 0.5)).toBeGreaterThan(0.5));
-    it('is zero when the light is in front', () => expect(rimFactor(0.05, 1, 0.5)).toBe(0));
-    it('is zero at the face center', () => expect(rimFactor(1, -1, 0.5)).toBe(0));
-    it('is wider with a larger width', () => expect(rimFactor(0.5, -1, 1)).toBeGreaterThan(rimFactor(0.5, -1, 0)));
+    it('is strong at a grazing angle from behind', () => expect(rimFactor(0.05, -1, 1, 0.5)).toBeGreaterThan(0.5));
+    it('is zero when the light is in front', () => expect(rimFactor(0.05, 1, 1, 0.5)).toBe(0));
+    it('is zero at the face center', () => expect(rimFactor(1, -1, 1, 0.5)).toBe(0));
+    it('is wider with a larger width', () => expect(rimFactor(0.5, -1, 1, 1)).toBeGreaterThan(rimFactor(0.5, -1, 1, 0)));
+    it('is zero when the normal faces away from the light', () => expect(rimFactor(0.05, -1, -0.5, 0.5)).toBe(0));
+    it('keeps the unmasked value on the lit side', () => expect(rimFactor(0.05, -1, 1, 0.5)).toBeCloseTo(Math.pow(0.95, 10), 10));
+    it('is half in the mask half-way between SIDE.start and SIDE.end', () => expect(rimFactor(0.05, -1, (SIDE.start + SIDE.end) / 2, 0.5)).toBeCloseTo(Math.pow(0.95, 10) * 0.5, 10));
 });
 
 describe('equalize', () => {

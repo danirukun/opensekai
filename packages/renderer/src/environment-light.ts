@@ -117,6 +117,7 @@ export function roomEnvironmentMap(renderer: WebGPURenderer): () => EnvironmentM
 }
 // The nine SH coefficients of the room, from a 32 px half-float cube render (character lighting R4). The caller normalizes them.
 export async function roomIrradiance(renderer: WebGPURenderer): Promise<Vec3[]> {
+    // 32 px × RGBA16F is 256-byte rows, the WebGPU bytesPerRow alignment; a smaller size reads padded rows.
     const room = new RoomEnvironment(), target = new CubeRenderTarget(32, { type: HalfFloatType });
     try {
         new CubeCamera(0.1, 100, target).update(renderer, room);
