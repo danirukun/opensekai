@@ -162,7 +162,16 @@ export function createBlueprintRuntime(): BlueprintRuntime {
   step(events, nowMs, gate = () => null, base: StepEnv = { held: new Set<string>(), scene: () => null }, transitionEnds = []) {
    // Requests of an earlier step that threw before the session took them are stale.
    controls = [];
-   const budget: FlowBudget = { visits: TICK_VISITS, effects: TICK_EFFECTS };
+   // Each graph has its own budget for the step: all its runs charge it, so a runaway graph fails alone.
+   const budgets = new Map<Id, FlowBudget>();
+   const budgetOf = (entry: Active): FlowBudget => {
+    const id = entry.compiled.graph.id;
+    const found = budgets.get(id);
+    if (found) return found;
+    const made = { visits: TICK_VISITS, effects: TICK_EFFECTS };
+    budgets.set(id, made);
+    return made;
+   };
    const enabled = new Map(active.map(entry => [entry.compiled.graph.id, entry.compiled.graph.enabled] as const));
    base = { ...base, nowMs, graphEnabled: graphId => enabled.get(graphId) ?? false };
    const instant: RunEnv = { ...base, deltaSeconds: 0 };
@@ -175,12 +184,12 @@ export function createBlueprintRuntime(): BlueprintRuntime {
     for (let event = queued.queue.shift(); event; event = queued.queue.shift())
      for (const entry of active)
       for (const node of entry.compiled.graph.enabled ? entry.listeners.get(event.name) ?? [] : []) {
-       const result = run(entry, { nodeId: node.id, port: 'flow' }, budget, nowMs, gate, instant, queued, event, seedPayload(node, event.payload));
+       const result = run(entry, { nodeId: node.id, port: 'flow' }, budgetOf(entry), nowMs, gate, instant, queued, event, seedPayload(node, event.payload));
        runs.push({ ...result, nodeId: node.id, ...(event.external ? { external: true as const } : {}) });
       }
     queued.draining = false;
    };
-   const fire = (entry: Active, start: { nodeId: Id; port: string }, env: RunEnv, runBudget = budget) => {
+   const fire = (entry: Active, start: { nodeId: Id; port: string }, env: RunEnv, runBudget = budgetOf(entry)) => {
     runs.push({ ...run(entry, start, runBudget, nowMs, gate, env, queued), nodeId: start.nodeId });
     if (queued.live) drain();
    };

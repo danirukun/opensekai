@@ -79,3 +79,34 @@ it('runs On Enable before a due delay in the same step', () => {
  expect(runtime.install([...set(), setup]).ok).toBe(true);
  expect(runtime.step([], 2000).map(run => run.graphId)).toEqual(['setup', 'flash-marker']);
 });
+
+// An On Update graph that toggles `marker` `count` times in one chain: each toggle is one effect of the tick budget (64).
+const toggles = (id: string, count: number) => ({ schemaVersion: 1, id, name: id, enabled: true, variables: [],
+ nodes: [{ id: 'tick', version: 1, type: 'event.update', settings: {}, position: { x: 0, y: 0 } },
+  ...Array.from({ length: count }, (_, i) => ({ id: `t${i}`, version: 1, type: 'scene.toggleVisibility', settings: { entityId: 'marker' }, position: { x: 0, y: 0 } }))],
+ connections: Array.from({ length: count }, (_, i) => ({ id: `w${i}`, sourceNodeId: i === 0 ? 'tick' : `t${i - 1}`, sourcePort: i === 0 ? 'flow' : 'exit', targetNodeId: `t${i}`, targetPort: 'flow' })) });
+
+it('gives each graph its own tick budget, so three graphs with 22 effects each all apply in one step', () => {
+ const runtime = createBlueprintRuntime();
+ expect(runtime.install(['a', 'b', 'c'].map(id => toggles(id, 22))).ok).toBe(true);
+ const runs = runtime.step([{ kind: 'update' }], 0);
+ expect(runs.map(run => [run.graphId, run.effects.length, run.error])).toEqual([['a', 22, null], ['b', 22, null], ['c', 22, null]]);
+});
+
+it('fails a graph that exceeds its tick budget alone, and the other graphs still run', () => {
+ const runtime = createBlueprintRuntime();
+ expect(runtime.install([toggles('a', 40), toggles('runaway', 65), toggles('c', 40)]).ok).toBe(true);
+ const runs = runtime.step([{ kind: 'update' }], 0);
+ expect(runs.map(run => [run.graphId, run.effects.length, run.error?.message ?? null])).toEqual([['a', 40, null], ['runaway', 0, 'Blueprint run exceeded its operation limit'], ['c', 40, null]]);
+});
+
+it('charges every run of a graph in a step to the budget of that graph', () => {
+ const runtime = createBlueprintRuntime();
+ const graph = toggles('a', 40);
+ // A second On Update node on the same chain start runs the chain again in the same step: 80 effects in all.
+ graph.nodes.push({ id: 'again', version: 1, type: 'event.update', settings: {}, position: { x: 0, y: 0 } });
+ graph.connections.push({ id: 'again-wire', sourceNodeId: 'again', sourcePort: 'flow', targetNodeId: 't0', targetPort: 'flow' });
+ expect(runtime.install([graph, toggles('b', 40)]).ok).toBe(true);
+ const runs = runtime.step([{ kind: 'update' }], 0);
+ expect(runs.map(run => [run.graphId, run.error?.message ?? null])).toEqual([['a', null], ['a', 'Blueprint run exceeded its operation limit'], ['b', null]]);
+});
