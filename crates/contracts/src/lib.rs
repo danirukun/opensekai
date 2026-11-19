@@ -624,7 +624,7 @@ pub enum SceneEntity {
         )]
         hidden_meshes: Option<Vec<String>>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        lighting: Option<AvatarLighting>,
+        lighting: Option<Box<AvatarLighting>>,
     },
     Tracking {
         id: Id,
@@ -968,7 +968,7 @@ pub enum PatchOp {
     SetAvatarLighting {
         #[serde(rename = "entityId")]
         entity_id: Id,
-        lighting: Option<AvatarLighting>,
+        lighting: Option<Box<AvatarLighting>>,
     },
     SetTrackingSmoothing {
         #[serde(rename = "entityId")]
