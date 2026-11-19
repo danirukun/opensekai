@@ -7,7 +7,7 @@ export interface PendulumArm { length: number; mass: number; drag: number; sprin
 export interface PendulumReading { rotation: Vec3; position: Vec3; blendShape: (name: string) => number }
 export interface PendulumState { mix: number; mixVelocity: number; angles: number[]; velocities: number[] }
 
-// Degrees to the input unit. Task 8 measures it.
+// Degrees to the input unit, measured in Warudo 0.15.1 (docs/evaluation/warudo-face-reference).
 export const PENDULUM_ROTATION_UNIT = 1 / 180;
 export const PENDULUM_MAX_STEP_SECONDS = 0.016;
 // Start values; Task 11 tunes them against Warudo.

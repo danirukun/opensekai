@@ -18,14 +18,14 @@ Warudo makes face-only motion from four layers:
 
 | Preset | Inputs (weight, scale, other) | Pendulum arms | Outputs (rotation, degrees per unit) |
 |---|---|---|---|
-| Arm Movements | head rotation X (0.33, ×20); head rotation Y (0.33, ×20, absolute value); head position Z (0.5, ×20); input clamp −1..1; input smoothing 0.1 s | 4 arms, each length 10, mass 0.25, drag 0.25, spring 0.5, damping 0.5, gravity 1 | right shoulder Z +2 (offset +5°); left shoulder Z −2 (offset −5°); right upper and lower arm Z +2; left upper and lower arm Z −2; right hand Z +10; left hand Z −10 |
+| Arm Movements | head rotation X (0.33, ×20); head rotation Y (0.33, ×20, absolute value); head position Z (0.5, ×20); no input clamp (Clamp Override off); input smoothing 0.1 s | 4 arms, each length 10, mass 0.25, drag 0.25, spring 0.5, damping 0.5, gravity 1 | right shoulder Z +2 (offset +5°); left shoulder Z −2 (offset −5°); right upper and lower arm Z +2; left upper and lower arm Z −2; right hand Z +10; left hand Z −10 |
 | Finger Movements | same as Arm Movements | same as Arm Movements | 12 right finger bones Z +10; 3 right thumb bones Y +10; 12 left finger bones Z −10; 3 left thumb bones Y −10 |
 | Body Lean | head position Z (1.0, ×5, clamp 0..1.5); input smoothing 0.4 s | none | spine X +45; neck X −15; head X −40 |
 | Blink Receptors | eyeBlinkLeft and eyeBlinkRight (0.5 each, ×1) | 2 arms as above | none (the preset has no output in Warudo) |
 
 4. The generated face blueprint: smoothing (blend shapes 0.2 s, rotations and root position 0.6 s), a 0.4 s fade to neutral and a 2 s fade to the idle head animation when tracking is lost, and a slow look-at-camera layer.
 
-The raw values are in [the Warudo face reference](../../evaluation/warudo-face-reference/README.md). In Warudo, each pendulum input has its own clamp (default −1..1), applied before the weighted sum. The unit of a head rotation or head position input is not known (see "Left to the builder").
+The raw values are in [the Warudo face reference](../../evaluation/warudo-face-reference/README.md). In Warudo, a pendulum input has a clamp (default −1..1). Warudo applies it after the scale, and only when Clamp Override is on. The template uses the node limit (−100..100) where Clamp Override is off. A head rotation input is the head angle in degrees ÷ 180. A head position input is the iFacialMocap translation × Head Movement Intensity (2), clamped to ±Maximal Head Translation (0.5). The reference README has the measurement (2026-11-19).
 
 Warudo body rotation type Inverted: the body turns in the same direction as the head on X and Y, and in the opposite direction on Z. Warudo replaced its own Upper Body Rotation blueprint with this built-in feature in 0.12.0.
 
@@ -138,6 +138,6 @@ The graph name is "Face-Only Body Motion". All values come from the Warudo table
 ## Left to the builder
 
 - The pendulum chain model: map length, mass, drag, spring, damping, and gravity to a damped-spring chain. Tune it by side-by-side comparison with Warudo in the VM. Record it as "Different".
-- The unit of each pendulum head input (degrees, radians, or a normalized value) and the body rotation spread. Measure them in Warudo in the VM: with the owner's agreement, turn on pendulum physics for a short time while the phone sends, and read the input values that each preset header shows ("33% Head Rotation X a → b") and the bone rotations, through the editor API. Do not save the scene.
+- The unit of each pendulum head input (degrees, radians, or a normalized value) and the body rotation spread. Measure them in Warudo in the VM: with the owner's agreement, turn on pendulum physics for a short time while the phone sends, and read the input values that each preset header shows ("33% Head Rotation X a → b") and the bone rotations, through the editor API. Do not save the scene. Done 2026-11-19 for the inputs (see the reference README). The iFacialMocap translation unit and the body rotation spread stay open for the macOS check.
 - Node categories, port names, and Inspector layout, within the UI kit and the constitution rules.
 - The MediaPipe face matrix translation units and axes.

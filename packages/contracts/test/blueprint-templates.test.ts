@@ -83,9 +83,9 @@ it('builds Face-Only Body Motion for one character with the Warudo reference val
  expect(nodes.get('fade')?.inputs).toEqual({ smoothTime: 2 });
  const arm = { length: 10, mass: 0.25, drag: 0.25, spring: 0.5, damping: 0.5, gravity: 1 };
  const sway = { entityId: 'performer', inputSmoothing: 0.1, arms: [arm, arm, arm, arm], inputs: [
-  { kind: 'headPitch', blendShape: null, weight: 0.33, scale: 20, absolute: false, clamp: [-1, 1] },
-  { kind: 'headYaw', blendShape: null, weight: 0.33, scale: 20, absolute: true, clamp: [-1, 1] },
-  { kind: 'headPositionZ', blendShape: null, weight: 0.5, scale: 20, absolute: false, clamp: [-1, 1] }] };
+  { kind: 'headPitch', blendShape: null, weight: 0.33, scale: 20, absolute: false, clamp: [-100, 100] },
+  { kind: 'headYaw', blendShape: null, weight: 0.33, scale: 20, absolute: true, clamp: [-100, 100] },
+  { kind: 'headPositionZ', blendShape: null, weight: 0.5, scale: 20, absolute: false, clamp: [-100, 100] }] };
  expect(nodes.get('arms')?.settings).toEqual(sway);
  expect(nodes.get('fingers')?.settings).toEqual(sway);
  expect(nodes.get('lean')?.settings).toEqual({ entityId: 'performer', inputSmoothing: 0.4, arms: [], inputs: [{ kind: 'headPositionZ', blendShape: null, weight: 1, scale: 5, absolute: false, clamp: [0, 1.5] }] });
