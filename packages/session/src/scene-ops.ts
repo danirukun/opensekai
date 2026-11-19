@@ -90,6 +90,7 @@ export function applyOperations(scene: SceneView, operations: ScenePatch["operat
                   break;
                  }
                  case 'setHiddenMeshes':if(entity.kind!=='avatar')return failure('INVALID_INPUT','Entity is not an avatar',[entity.id]);if(operation.hiddenMeshes.length)entity.hiddenMeshes=[...operation.hiddenMeshes];else delete entity.hiddenMeshes;break;
+                 case 'setAvatarLighting':if(entity.kind!=='avatar')return failure('INVALID_INPUT','Entity is not an avatar',[entity.id]);if(operation.lighting===null)delete entity.lighting;else entity.lighting=structuredClone(operation.lighting);break;
                  case 'setCameraRenderEnvironment':if(entity.kind!=='camera')return failure('INVALID_INPUT','Entity is not a camera',[entity.id]);entity.renderEnvironment=operation.renderEnvironment;break;
                  case 'setCameraAntiAliasing':if(entity.kind!=='camera')return failure('INVALID_INPUT','Entity is not a camera',[entity.id]);entity.antiAliasing=operation.antiAliasing;break;
                  case 'setCameraGrading':if(entity.kind!=='camera')return failure('INVALID_INPUT','Entity is not a camera',[entity.id]);if(operation.grading===null)delete entity.grading;else entity.grading=structuredClone(operation.grading);break;

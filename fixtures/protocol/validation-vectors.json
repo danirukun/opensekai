@@ -31994,5 +31994,94 @@
         }
       ]
     }
+  },
+  {
+    "name": "set-avatar-lighting-ok",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": true,
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setAvatarLighting",
+          "entityId": "performer",
+          "lighting": {
+            "rimStrength": 1.5,
+            "rimWidth": 0.5,
+            "rimTint": "#ffeedd",
+            "shadowStrength": 0.6,
+            "environmentFill": 1
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "set-avatar-lighting-null",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": true,
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setAvatarLighting",
+          "entityId": "performer",
+          "lighting": null
+        }
+      ]
+    }
+  },
+  {
+    "name": "set-avatar-lighting-rim-over",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setAvatarLighting",
+          "entityId": "performer",
+          "lighting": {
+            "rimStrength": 2.01,
+            "rimWidth": 0.5,
+            "rimTint": "#ffeedd",
+            "shadowStrength": 0.6,
+            "environmentFill": 1
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "avatar-lighting-extra-key",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setAvatarLighting",
+          "entityId": "performer",
+          "lighting": {
+            "rimStrength": 1.5,
+            "rimWidth": 0.5,
+            "rimTint": "#ffeedd",
+            "shadowStrength": 0.6,
+            "environmentFill": 1,
+            "lut": "x"
+          }
+        }
+      ]
+    }
   }
 ]
