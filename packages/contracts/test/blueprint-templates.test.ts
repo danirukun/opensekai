@@ -1,7 +1,8 @@
 import { expect, it } from 'vitest';
 import template from '../src/blueprint-templates/upper-body-rotation.json';
 import swayTemplate from '../src/blueprint-templates/camera-sway.json';
-import { BlueprintFileSchema, blueprintPorts, cameraSwayTemplate, connectionType, exportBlueprint, importBlueprint, makeSmokeScene, upperBodyRotationTemplate } from '../src';
+import faceTemplate from '../src/blueprint-templates/face-only-body-motion.json';
+import { BlueprintFileSchema, blueprintPorts, cameraSwayTemplate, connectionType, exportBlueprint, faceOnlyBodyMotionTemplate, importBlueprint, makeSmokeScene, upperBodyRotationTemplate } from '../src';
 
 it('validates the Upper Body Rotation template against the current catalog', () => {
  const parsed = BlueprintFileSchema.safeParse(template);
@@ -56,4 +57,49 @@ it('imports Camera Sway enabled with no missing reference, and remaps the camera
  const again = importBlueprint(exported, renamed, () => 'g2');
  expect(again).toMatchObject({ ok: true, data: { report: { missing: [], remapped: [{ name: camera.name, kind: 'camera', from: camera.id, to: 'cam2' }] } } });
  expect(again.ok && again.data.graph.nodes.filter(node => node.type === 'property.set').every(node => (node.settings as { entityId: string }).entityId === 'cam2')).toBe(true);
+});
+
+it('builds Face-Only Body Motion for one character with the Warudo reference values', () => {
+ const parsed = BlueprintFileSchema.safeParse(faceTemplate);
+ expect(parsed.success).toBe(true);
+ const file = faceOnlyBodyMotionTemplate({ id: 'performer', name: 'performer' });
+ expect(BlueprintFileSchema.safeParse(file).success).toBe(true);
+ const graph = file.graph;
+ expect(graph).toMatchObject({ name: 'Face-Only Body Motion', enabled: true });
+ expect(graph.nodes.length).toBeLessThanOrEqual(128);
+ expect(graph.connections.length).toBeLessThanOrEqual(256);
+ expect(file.references).toEqual([{ id: 'performer', kind: 'avatar', name: 'performer' }]);
+ const targeted = graph.nodes.filter(node => 'entityId' in node.settings);
+ expect(targeted.length).toBeGreaterThan(0);
+ expect(targeted.every(node => (node.settings as { entityId: string }).entityId === 'performer')).toBe(true);
+ const nodes = new Map(graph.nodes.map(node => [node.id, node]));
+ for (const wire of graph.connections) expect(connectionType(nodes.get(wire.sourceNodeId)!, wire.sourcePort, nodes.get(wire.targetNodeId)!, wire.targetPort)).not.toBeNull();
+ const offsets = graph.nodes.filter(node => node.type === 'character.offsetBones');
+ // Every Offset Bones node runs on the one update chain and fades with the head.
+ for (const node of offsets) {
+  expect(graph.connections.filter(wire => wire.targetNodeId === node.id && wire.targetPort === 'flow')).toHaveLength(1);
+  expect(graph.connections.find(wire => wire.targetNodeId === node.id && wire.targetPort === 'weight')?.sourceNodeId).toBe('fade');
+ }
+ expect(nodes.get('fade')?.inputs).toEqual({ smoothTime: 2 });
+ const arm = { length: 10, mass: 0.25, drag: 0.25, spring: 0.5, damping: 0.5, gravity: 1 };
+ const sway = { entityId: 'performer', inputSmoothing: 0.1, arms: [arm, arm, arm, arm], inputs: [
+  { kind: 'headPitch', blendShape: null, weight: 0.33, scale: 20, absolute: false, clamp: [-1, 1] },
+  { kind: 'headYaw', blendShape: null, weight: 0.33, scale: 20, absolute: true, clamp: [-1, 1] },
+  { kind: 'headPositionZ', blendShape: null, weight: 0.5, scale: 20, absolute: false, clamp: [-1, 1] }] };
+ expect(nodes.get('arms')?.settings).toEqual(sway);
+ expect(nodes.get('fingers')?.settings).toEqual(sway);
+ expect(nodes.get('lean')?.settings).toEqual({ entityId: 'performer', inputSmoothing: 0.4, arms: [], inputs: [{ kind: 'headPositionZ', blendShape: null, weight: 1, scale: 5, absolute: false, clamp: [0, 1.5] }] });
+ const group = (source: string) => offsets.filter(node => graph.connections.some(wire => wire.targetNodeId === node.id && wire.targetPort === 'value' && wire.sourceNodeId === source))
+  .map(node => { const { bones, axis, intensity, offset } = node.settings as { bones: string[]; axis: string; intensity: number; offset: number }; return [bones.join(' '), axis, intensity, offset]; });
+ expect(group('lean')).toEqual([['spine', 'x', 45, 0], ['neck', 'x', -15, 0], ['head', 'x', -40, 0]]);
+ expect(group('arms')).toEqual([['rightShoulder', 'z', 2, 5], ['leftShoulder', 'z', -2, -5], ['rightUpperArm rightLowerArm', 'z', 2, 0], ['leftUpperArm leftLowerArm', 'z', -2, 0], ['rightHand', 'z', 10, 0], ['leftHand', 'z', -10, 0]]);
+ const fingers = (side: string) => ['Index', 'Middle', 'Ring', 'Little'].flatMap(finger => ['Proximal', 'Intermediate', 'Distal'].map(segment => side + finger + segment)).join(' ');
+ expect(group('fingers')).toEqual([[fingers('right'), 'z', 10, 0], ['rightThumbMetacarpal rightThumbProximal rightThumbDistal', 'y', 10, 0], [fingers('left'), 'z', -10, 0], ['leftThumbMetacarpal leftThumbProximal leftThumbDistal', 'y', -10, 0]]);
+ // Body follows head: direction (0.5, 1, 0.5) × intensity 0.5 × sign (+1, +1, -1) × share (spine 0.5, chest 0.25, neck -0.75).
+ const follow = offsets.filter(node => graph.connections.some(wire => wire.targetNodeId === node.id && wire.targetPort === 'value' && wire.sourceNodeId === 'head-angles'))
+  .map(node => { const wire = graph.connections.find(item => item.targetNodeId === node.id && item.targetPort === 'value')!; const { bones, axis, intensity } = node.settings as { bones: string[]; axis: string; intensity: number }; return [bones.join(' '), axis, wire.sourcePort, intensity]; });
+ expect(follow).toEqual([['spine', 'x', 'x', 0.125], ['spine', 'y', 'y', 0.25], ['spine', 'z', 'z', -0.125], ['chest', 'x', 'x', 0.0625], ['chest', 'y', 'y', 0.125], ['chest', 'z', 'z', -0.0625], ['neck', 'x', 'x', -0.1875], ['neck', 'y', 'y', -0.375], ['neck', 'z', 'z', 0.1875]]);
+ expect(offsets).toHaveLength(22);
+ expect(faceTemplate.references[0]!.id).toBe('character');
+ expect(importBlueprint(file, makeSmokeScene(), () => 'g1')).toMatchObject({ ok: true, data: { report: { enabled: true, missing: [], remapped: [] } } });
 });

@@ -22,7 +22,7 @@ export function createMcpServer(api: AppApi, readResource: (uri: string) => Prom
   });
   if (name === 'blueprint_inspect') {
    server.registerTool('blueprint_export', {description:'Export a stored Blueprint as an OpenSekai Blueprint file object, with the name and kind of each referenced entity.', inputSchema:BlueprintExportParams}, async (params: unknown) => respond(await exportBlueprintTool(api, params)));
-   server.registerTool('blueprint_import', {description:'Import an OpenSekai Blueprint file object as a new Blueprint. References match by ID, then by unique name and kind. A Blueprint with a missing reference is imported disabled.', inputSchema:BlueprintImportParams}, async (params: unknown) => respond(await importBlueprintTool(api, params)));
+   server.registerTool('blueprint_import', {description:'Import an OpenSekai Blueprint file object (file) as a new Blueprint. References match by ID, then by unique name and kind. A Blueprint with a missing reference is imported disabled. Instead of file, template face-only-body-motion with avatarId adds the Face-Only Body Motion Blueprint for that character: its body follows the head, leans, and sways the arms and fingers from a face source only.', inputSchema:BlueprintImportParams}, async (params: unknown) => respond(await importBlueprintTool(api, params)));
   }
  }
  server.registerTool('youtube_link_set', {description:descriptions.youtube_link_set!, inputSchema:YouTubeLinkParams}, async (params: unknown) => respond(await youtubeLinkTool(api, params)));

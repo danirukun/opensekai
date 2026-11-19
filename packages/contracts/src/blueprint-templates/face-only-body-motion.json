@@ -1,0 +1,1158 @@
+{
+  "format": "opensekai.blueprint",
+  "formatVersion": 1,
+  "graph": {
+    "schemaVersion": 1,
+    "id": "face-only-body-motion",
+    "name": "Face-Only Body Motion",
+    "enabled": true,
+    "nodes": [
+      {
+        "id": "update",
+        "version": 1,
+        "type": "event.update",
+        "settings": {},
+        "position": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      {
+        "id": "head",
+        "version": 1,
+        "type": "tracking.getHeadPose",
+        "settings": {
+          "entityId": "character"
+        },
+        "position": {
+          "x": 0,
+          "y": 200
+        }
+      },
+      {
+        "id": "fade",
+        "version": 1,
+        "type": "math.smoothDamp",
+        "settings": {},
+        "position": {
+          "x": 260,
+          "y": 120
+        },
+        "inputs": {
+          "smoothTime": 2
+        }
+      },
+      {
+        "id": "head-angles",
+        "version": 1,
+        "type": "vector3.break",
+        "settings": {},
+        "position": {
+          "x": 260,
+          "y": 280
+        }
+      },
+      {
+        "id": "lean",
+        "version": 1,
+        "type": "tracking.pendulum",
+        "settings": {
+          "entityId": "character",
+          "inputs": [
+            {
+              "kind": "headPositionZ",
+              "blendShape": null,
+              "weight": 1,
+              "scale": 5,
+              "absolute": false,
+              "clamp": [
+                0,
+                1.5
+              ]
+            }
+          ],
+          "inputSmoothing": 0.4,
+          "arms": []
+        },
+        "position": {
+          "x": 260,
+          "y": 2600
+        }
+      },
+      {
+        "id": "arms",
+        "version": 1,
+        "type": "tracking.pendulum",
+        "settings": {
+          "entityId": "character",
+          "inputs": [
+            {
+              "kind": "headPitch",
+              "blendShape": null,
+              "weight": 0.33,
+              "scale": 20,
+              "absolute": false,
+              "clamp": [
+                -1,
+                1
+              ]
+            },
+            {
+              "kind": "headYaw",
+              "blendShape": null,
+              "weight": 0.33,
+              "scale": 20,
+              "absolute": true,
+              "clamp": [
+                -1,
+                1
+              ]
+            },
+            {
+              "kind": "headPositionZ",
+              "blendShape": null,
+              "weight": 0.5,
+              "scale": 20,
+              "absolute": false,
+              "clamp": [
+                -1,
+                1
+              ]
+            }
+          ],
+          "inputSmoothing": 0.1,
+          "arms": [
+            {
+              "length": 10,
+              "mass": 0.25,
+              "drag": 0.25,
+              "spring": 0.5,
+              "damping": 0.5,
+              "gravity": 1
+            },
+            {
+              "length": 10,
+              "mass": 0.25,
+              "drag": 0.25,
+              "spring": 0.5,
+              "damping": 0.5,
+              "gravity": 1
+            },
+            {
+              "length": 10,
+              "mass": 0.25,
+              "drag": 0.25,
+              "spring": 0.5,
+              "damping": 0.5,
+              "gravity": 1
+            },
+            {
+              "length": 10,
+              "mass": 0.25,
+              "drag": 0.25,
+              "spring": 0.5,
+              "damping": 0.5,
+              "gravity": 1
+            }
+          ]
+        },
+        "position": {
+          "x": 260,
+          "y": 3700
+        }
+      },
+      {
+        "id": "fingers",
+        "version": 1,
+        "type": "tracking.pendulum",
+        "settings": {
+          "entityId": "character",
+          "inputs": [
+            {
+              "kind": "headPitch",
+              "blendShape": null,
+              "weight": 0.33,
+              "scale": 20,
+              "absolute": false,
+              "clamp": [
+                -1,
+                1
+              ]
+            },
+            {
+              "kind": "headYaw",
+              "blendShape": null,
+              "weight": 0.33,
+              "scale": 20,
+              "absolute": true,
+              "clamp": [
+                -1,
+                1
+              ]
+            },
+            {
+              "kind": "headPositionZ",
+              "blendShape": null,
+              "weight": 0.5,
+              "scale": 20,
+              "absolute": false,
+              "clamp": [
+                -1,
+                1
+              ]
+            }
+          ],
+          "inputSmoothing": 0.1,
+          "arms": [
+            {
+              "length": 10,
+              "mass": 0.25,
+              "drag": 0.25,
+              "spring": 0.5,
+              "damping": 0.5,
+              "gravity": 1
+            },
+            {
+              "length": 10,
+              "mass": 0.25,
+              "drag": 0.25,
+              "spring": 0.5,
+              "damping": 0.5,
+              "gravity": 1
+            },
+            {
+              "length": 10,
+              "mass": 0.25,
+              "drag": 0.25,
+              "spring": 0.5,
+              "damping": 0.5,
+              "gravity": 1
+            },
+            {
+              "length": 10,
+              "mass": 0.25,
+              "drag": 0.25,
+              "spring": 0.5,
+              "damping": 0.5,
+              "gravity": 1
+            }
+          ]
+        },
+        "position": {
+          "x": 260,
+          "y": 5000
+        }
+      },
+      {
+        "id": "follow-spine-x",
+        "version": 1,
+        "type": "character.offsetBones",
+        "settings": {
+          "entityId": "character",
+          "bones": [
+            "spine"
+          ],
+          "axis": "x",
+          "intensity": 0.125,
+          "offset": 0
+        },
+        "position": {
+          "x": 560,
+          "y": 0
+        }
+      },
+      {
+        "id": "follow-spine-y",
+        "version": 1,
+        "type": "character.offsetBones",
+        "settings": {
+          "entityId": "character",
+          "bones": [
+            "spine"
+          ],
+          "axis": "y",
+          "intensity": 0.25,
+          "offset": 0
+        },
+        "position": {
+          "x": 560,
+          "y": 260
+        }
+      },
+      {
+        "id": "follow-spine-z",
+        "version": 1,
+        "type": "character.offsetBones",
+        "settings": {
+          "entityId": "character",
+          "bones": [
+            "spine"
+          ],
+          "axis": "z",
+          "intensity": -0.125,
+          "offset": 0
+        },
+        "position": {
+          "x": 560,
+          "y": 520
+        }
+      },
+      {
+        "id": "follow-chest-x",
+        "version": 1,
+        "type": "character.offsetBones",
+        "settings": {
+          "entityId": "character",
+          "bones": [
+            "chest"
+          ],
+          "axis": "x",
+          "intensity": 0.0625,
+          "offset": 0
+        },
+        "position": {
+          "x": 560,
+          "y": 780
+        }
+      },
+      {
+        "id": "follow-chest-y",
+        "version": 1,
+        "type": "character.offsetBones",
+        "settings": {
+          "entityId": "character",
+          "bones": [
+            "chest"
+          ],
+          "axis": "y",
+          "intensity": 0.125,
+          "offset": 0
+        },
+        "position": {
+          "x": 560,
+          "y": 1040
+        }
+      },
+      {
+        "id": "follow-chest-z",
+        "version": 1,
+        "type": "character.offsetBones",
+        "settings": {
+          "entityId": "character",
+          "bones": [
+            "chest"
+          ],
+          "axis": "z",
+          "intensity": -0.0625,
+          "offset": 0
+        },
+        "position": {
+          "x": 560,
+          "y": 1300
+        }
+      },
+      {
+        "id": "follow-neck-x",
+        "version": 1,
+        "type": "character.offsetBones",
+        "settings": {
+          "entityId": "character",
+          "bones": [
+            "neck"
+          ],
+          "axis": "x",
+          "intensity": -0.1875,
+          "offset": 0
+        },
+        "position": {
+          "x": 560,
+          "y": 1560
+        }
+      },
+      {
+        "id": "follow-neck-y",
+        "version": 1,
+        "type": "character.offsetBones",
+        "settings": {
+          "entityId": "character",
+          "bones": [
+            "neck"
+          ],
+          "axis": "y",
+          "intensity": -0.375,
+          "offset": 0
+        },
+        "position": {
+          "x": 560,
+          "y": 1820
+        }
+      },
+      {
+        "id": "follow-neck-z",
+        "version": 1,
+        "type": "character.offsetBones",
+        "settings": {
+          "entityId": "character",
+          "bones": [
+            "neck"
+          ],
+          "axis": "z",
+          "intensity": 0.1875,
+          "offset": 0
+        },
+        "position": {
+          "x": 560,
+          "y": 2080
+        }
+      },
+      {
+        "id": "lean-spine",
+        "version": 1,
+        "type": "character.offsetBones",
+        "settings": {
+          "entityId": "character",
+          "bones": [
+            "spine"
+          ],
+          "axis": "x",
+          "intensity": 45,
+          "offset": 0
+        },
+        "position": {
+          "x": 560,
+          "y": 2340
+        }
+      },
+      {
+        "id": "lean-neck",
+        "version": 1,
+        "type": "character.offsetBones",
+        "settings": {
+          "entityId": "character",
+          "bones": [
+            "neck"
+          ],
+          "axis": "x",
+          "intensity": -15,
+          "offset": 0
+        },
+        "position": {
+          "x": 560,
+          "y": 2600
+        }
+      },
+      {
+        "id": "lean-head",
+        "version": 1,
+        "type": "character.offsetBones",
+        "settings": {
+          "entityId": "character",
+          "bones": [
+            "head"
+          ],
+          "axis": "x",
+          "intensity": -40,
+          "offset": 0
+        },
+        "position": {
+          "x": 560,
+          "y": 2860
+        }
+      },
+      {
+        "id": "arm-right-shoulder",
+        "version": 1,
+        "type": "character.offsetBones",
+        "settings": {
+          "entityId": "character",
+          "bones": [
+            "rightShoulder"
+          ],
+          "axis": "z",
+          "intensity": 2,
+          "offset": 5
+        },
+        "position": {
+          "x": 560,
+          "y": 3120
+        }
+      },
+      {
+        "id": "arm-left-shoulder",
+        "version": 1,
+        "type": "character.offsetBones",
+        "settings": {
+          "entityId": "character",
+          "bones": [
+            "leftShoulder"
+          ],
+          "axis": "z",
+          "intensity": -2,
+          "offset": -5
+        },
+        "position": {
+          "x": 560,
+          "y": 3380
+        }
+      },
+      {
+        "id": "arm-right",
+        "version": 1,
+        "type": "character.offsetBones",
+        "settings": {
+          "entityId": "character",
+          "bones": [
+            "rightUpperArm",
+            "rightLowerArm"
+          ],
+          "axis": "z",
+          "intensity": 2,
+          "offset": 0
+        },
+        "position": {
+          "x": 560,
+          "y": 3640
+        }
+      },
+      {
+        "id": "arm-left",
+        "version": 1,
+        "type": "character.offsetBones",
+        "settings": {
+          "entityId": "character",
+          "bones": [
+            "leftUpperArm",
+            "leftLowerArm"
+          ],
+          "axis": "z",
+          "intensity": -2,
+          "offset": 0
+        },
+        "position": {
+          "x": 560,
+          "y": 3900
+        }
+      },
+      {
+        "id": "arm-right-hand",
+        "version": 1,
+        "type": "character.offsetBones",
+        "settings": {
+          "entityId": "character",
+          "bones": [
+            "rightHand"
+          ],
+          "axis": "z",
+          "intensity": 10,
+          "offset": 0
+        },
+        "position": {
+          "x": 560,
+          "y": 4160
+        }
+      },
+      {
+        "id": "arm-left-hand",
+        "version": 1,
+        "type": "character.offsetBones",
+        "settings": {
+          "entityId": "character",
+          "bones": [
+            "leftHand"
+          ],
+          "axis": "z",
+          "intensity": -10,
+          "offset": 0
+        },
+        "position": {
+          "x": 560,
+          "y": 4420
+        }
+      },
+      {
+        "id": "fingers-right",
+        "version": 1,
+        "type": "character.offsetBones",
+        "settings": {
+          "entityId": "character",
+          "bones": [
+            "rightIndexProximal",
+            "rightIndexIntermediate",
+            "rightIndexDistal",
+            "rightMiddleProximal",
+            "rightMiddleIntermediate",
+            "rightMiddleDistal",
+            "rightRingProximal",
+            "rightRingIntermediate",
+            "rightRingDistal",
+            "rightLittleProximal",
+            "rightLittleIntermediate",
+            "rightLittleDistal"
+          ],
+          "axis": "z",
+          "intensity": 10,
+          "offset": 0
+        },
+        "position": {
+          "x": 560,
+          "y": 4680
+        }
+      },
+      {
+        "id": "thumb-right",
+        "version": 1,
+        "type": "character.offsetBones",
+        "settings": {
+          "entityId": "character",
+          "bones": [
+            "rightThumbMetacarpal",
+            "rightThumbProximal",
+            "rightThumbDistal"
+          ],
+          "axis": "y",
+          "intensity": 10,
+          "offset": 0
+        },
+        "position": {
+          "x": 560,
+          "y": 4940
+        }
+      },
+      {
+        "id": "fingers-left",
+        "version": 1,
+        "type": "character.offsetBones",
+        "settings": {
+          "entityId": "character",
+          "bones": [
+            "leftIndexProximal",
+            "leftIndexIntermediate",
+            "leftIndexDistal",
+            "leftMiddleProximal",
+            "leftMiddleIntermediate",
+            "leftMiddleDistal",
+            "leftRingProximal",
+            "leftRingIntermediate",
+            "leftRingDistal",
+            "leftLittleProximal",
+            "leftLittleIntermediate",
+            "leftLittleDistal"
+          ],
+          "axis": "z",
+          "intensity": -10,
+          "offset": 0
+        },
+        "position": {
+          "x": 560,
+          "y": 5200
+        }
+      },
+      {
+        "id": "thumb-left",
+        "version": 1,
+        "type": "character.offsetBones",
+        "settings": {
+          "entityId": "character",
+          "bones": [
+            "leftThumbMetacarpal",
+            "leftThumbProximal",
+            "leftThumbDistal"
+          ],
+          "axis": "y",
+          "intensity": -10,
+          "offset": 0
+        },
+        "position": {
+          "x": 560,
+          "y": 5460
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "head.tracked-fade.target",
+        "sourceNodeId": "head",
+        "sourcePort": "tracked",
+        "targetNodeId": "fade",
+        "targetPort": "target"
+      },
+      {
+        "id": "head.rotation-head-angles.value",
+        "sourceNodeId": "head",
+        "sourcePort": "rotation",
+        "targetNodeId": "head-angles",
+        "targetPort": "value"
+      },
+      {
+        "id": "update.flow-follow-spine-x.flow",
+        "sourceNodeId": "update",
+        "sourcePort": "flow",
+        "targetNodeId": "follow-spine-x",
+        "targetPort": "flow"
+      },
+      {
+        "id": "head-angles.x-follow-spine-x.value",
+        "sourceNodeId": "head-angles",
+        "sourcePort": "x",
+        "targetNodeId": "follow-spine-x",
+        "targetPort": "value"
+      },
+      {
+        "id": "fade.result-follow-spine-x.weight",
+        "sourceNodeId": "fade",
+        "sourcePort": "result",
+        "targetNodeId": "follow-spine-x",
+        "targetPort": "weight"
+      },
+      {
+        "id": "follow-spine-x.exit-follow-spine-y.flow",
+        "sourceNodeId": "follow-spine-x",
+        "sourcePort": "exit",
+        "targetNodeId": "follow-spine-y",
+        "targetPort": "flow"
+      },
+      {
+        "id": "head-angles.y-follow-spine-y.value",
+        "sourceNodeId": "head-angles",
+        "sourcePort": "y",
+        "targetNodeId": "follow-spine-y",
+        "targetPort": "value"
+      },
+      {
+        "id": "fade.result-follow-spine-y.weight",
+        "sourceNodeId": "fade",
+        "sourcePort": "result",
+        "targetNodeId": "follow-spine-y",
+        "targetPort": "weight"
+      },
+      {
+        "id": "follow-spine-y.exit-follow-spine-z.flow",
+        "sourceNodeId": "follow-spine-y",
+        "sourcePort": "exit",
+        "targetNodeId": "follow-spine-z",
+        "targetPort": "flow"
+      },
+      {
+        "id": "head-angles.z-follow-spine-z.value",
+        "sourceNodeId": "head-angles",
+        "sourcePort": "z",
+        "targetNodeId": "follow-spine-z",
+        "targetPort": "value"
+      },
+      {
+        "id": "fade.result-follow-spine-z.weight",
+        "sourceNodeId": "fade",
+        "sourcePort": "result",
+        "targetNodeId": "follow-spine-z",
+        "targetPort": "weight"
+      },
+      {
+        "id": "follow-spine-z.exit-follow-chest-x.flow",
+        "sourceNodeId": "follow-spine-z",
+        "sourcePort": "exit",
+        "targetNodeId": "follow-chest-x",
+        "targetPort": "flow"
+      },
+      {
+        "id": "head-angles.x-follow-chest-x.value",
+        "sourceNodeId": "head-angles",
+        "sourcePort": "x",
+        "targetNodeId": "follow-chest-x",
+        "targetPort": "value"
+      },
+      {
+        "id": "fade.result-follow-chest-x.weight",
+        "sourceNodeId": "fade",
+        "sourcePort": "result",
+        "targetNodeId": "follow-chest-x",
+        "targetPort": "weight"
+      },
+      {
+        "id": "follow-chest-x.exit-follow-chest-y.flow",
+        "sourceNodeId": "follow-chest-x",
+        "sourcePort": "exit",
+        "targetNodeId": "follow-chest-y",
+        "targetPort": "flow"
+      },
+      {
+        "id": "head-angles.y-follow-chest-y.value",
+        "sourceNodeId": "head-angles",
+        "sourcePort": "y",
+        "targetNodeId": "follow-chest-y",
+        "targetPort": "value"
+      },
+      {
+        "id": "fade.result-follow-chest-y.weight",
+        "sourceNodeId": "fade",
+        "sourcePort": "result",
+        "targetNodeId": "follow-chest-y",
+        "targetPort": "weight"
+      },
+      {
+        "id": "follow-chest-y.exit-follow-chest-z.flow",
+        "sourceNodeId": "follow-chest-y",
+        "sourcePort": "exit",
+        "targetNodeId": "follow-chest-z",
+        "targetPort": "flow"
+      },
+      {
+        "id": "head-angles.z-follow-chest-z.value",
+        "sourceNodeId": "head-angles",
+        "sourcePort": "z",
+        "targetNodeId": "follow-chest-z",
+        "targetPort": "value"
+      },
+      {
+        "id": "fade.result-follow-chest-z.weight",
+        "sourceNodeId": "fade",
+        "sourcePort": "result",
+        "targetNodeId": "follow-chest-z",
+        "targetPort": "weight"
+      },
+      {
+        "id": "follow-chest-z.exit-follow-neck-x.flow",
+        "sourceNodeId": "follow-chest-z",
+        "sourcePort": "exit",
+        "targetNodeId": "follow-neck-x",
+        "targetPort": "flow"
+      },
+      {
+        "id": "head-angles.x-follow-neck-x.value",
+        "sourceNodeId": "head-angles",
+        "sourcePort": "x",
+        "targetNodeId": "follow-neck-x",
+        "targetPort": "value"
+      },
+      {
+        "id": "fade.result-follow-neck-x.weight",
+        "sourceNodeId": "fade",
+        "sourcePort": "result",
+        "targetNodeId": "follow-neck-x",
+        "targetPort": "weight"
+      },
+      {
+        "id": "follow-neck-x.exit-follow-neck-y.flow",
+        "sourceNodeId": "follow-neck-x",
+        "sourcePort": "exit",
+        "targetNodeId": "follow-neck-y",
+        "targetPort": "flow"
+      },
+      {
+        "id": "head-angles.y-follow-neck-y.value",
+        "sourceNodeId": "head-angles",
+        "sourcePort": "y",
+        "targetNodeId": "follow-neck-y",
+        "targetPort": "value"
+      },
+      {
+        "id": "fade.result-follow-neck-y.weight",
+        "sourceNodeId": "fade",
+        "sourcePort": "result",
+        "targetNodeId": "follow-neck-y",
+        "targetPort": "weight"
+      },
+      {
+        "id": "follow-neck-y.exit-follow-neck-z.flow",
+        "sourceNodeId": "follow-neck-y",
+        "sourcePort": "exit",
+        "targetNodeId": "follow-neck-z",
+        "targetPort": "flow"
+      },
+      {
+        "id": "head-angles.z-follow-neck-z.value",
+        "sourceNodeId": "head-angles",
+        "sourcePort": "z",
+        "targetNodeId": "follow-neck-z",
+        "targetPort": "value"
+      },
+      {
+        "id": "fade.result-follow-neck-z.weight",
+        "sourceNodeId": "fade",
+        "sourcePort": "result",
+        "targetNodeId": "follow-neck-z",
+        "targetPort": "weight"
+      },
+      {
+        "id": "follow-neck-z.exit-lean-spine.flow",
+        "sourceNodeId": "follow-neck-z",
+        "sourcePort": "exit",
+        "targetNodeId": "lean-spine",
+        "targetPort": "flow"
+      },
+      {
+        "id": "lean.value-lean-spine.value",
+        "sourceNodeId": "lean",
+        "sourcePort": "value",
+        "targetNodeId": "lean-spine",
+        "targetPort": "value"
+      },
+      {
+        "id": "fade.result-lean-spine.weight",
+        "sourceNodeId": "fade",
+        "sourcePort": "result",
+        "targetNodeId": "lean-spine",
+        "targetPort": "weight"
+      },
+      {
+        "id": "lean-spine.exit-lean-neck.flow",
+        "sourceNodeId": "lean-spine",
+        "sourcePort": "exit",
+        "targetNodeId": "lean-neck",
+        "targetPort": "flow"
+      },
+      {
+        "id": "lean.value-lean-neck.value",
+        "sourceNodeId": "lean",
+        "sourcePort": "value",
+        "targetNodeId": "lean-neck",
+        "targetPort": "value"
+      },
+      {
+        "id": "fade.result-lean-neck.weight",
+        "sourceNodeId": "fade",
+        "sourcePort": "result",
+        "targetNodeId": "lean-neck",
+        "targetPort": "weight"
+      },
+      {
+        "id": "lean-neck.exit-lean-head.flow",
+        "sourceNodeId": "lean-neck",
+        "sourcePort": "exit",
+        "targetNodeId": "lean-head",
+        "targetPort": "flow"
+      },
+      {
+        "id": "lean.value-lean-head.value",
+        "sourceNodeId": "lean",
+        "sourcePort": "value",
+        "targetNodeId": "lean-head",
+        "targetPort": "value"
+      },
+      {
+        "id": "fade.result-lean-head.weight",
+        "sourceNodeId": "fade",
+        "sourcePort": "result",
+        "targetNodeId": "lean-head",
+        "targetPort": "weight"
+      },
+      {
+        "id": "lean-head.exit-arm-right-shoulder.flow",
+        "sourceNodeId": "lean-head",
+        "sourcePort": "exit",
+        "targetNodeId": "arm-right-shoulder",
+        "targetPort": "flow"
+      },
+      {
+        "id": "arms.value-arm-right-shoulder.value",
+        "sourceNodeId": "arms",
+        "sourcePort": "value",
+        "targetNodeId": "arm-right-shoulder",
+        "targetPort": "value"
+      },
+      {
+        "id": "fade.result-arm-right-shoulder.weight",
+        "sourceNodeId": "fade",
+        "sourcePort": "result",
+        "targetNodeId": "arm-right-shoulder",
+        "targetPort": "weight"
+      },
+      {
+        "id": "arm-right-shoulder.exit-arm-left-shoulder.flow",
+        "sourceNodeId": "arm-right-shoulder",
+        "sourcePort": "exit",
+        "targetNodeId": "arm-left-shoulder",
+        "targetPort": "flow"
+      },
+      {
+        "id": "arms.value-arm-left-shoulder.value",
+        "sourceNodeId": "arms",
+        "sourcePort": "value",
+        "targetNodeId": "arm-left-shoulder",
+        "targetPort": "value"
+      },
+      {
+        "id": "fade.result-arm-left-shoulder.weight",
+        "sourceNodeId": "fade",
+        "sourcePort": "result",
+        "targetNodeId": "arm-left-shoulder",
+        "targetPort": "weight"
+      },
+      {
+        "id": "arm-left-shoulder.exit-arm-right.flow",
+        "sourceNodeId": "arm-left-shoulder",
+        "sourcePort": "exit",
+        "targetNodeId": "arm-right",
+        "targetPort": "flow"
+      },
+      {
+        "id": "arms.value-arm-right.value",
+        "sourceNodeId": "arms",
+        "sourcePort": "value",
+        "targetNodeId": "arm-right",
+        "targetPort": "value"
+      },
+      {
+        "id": "fade.result-arm-right.weight",
+        "sourceNodeId": "fade",
+        "sourcePort": "result",
+        "targetNodeId": "arm-right",
+        "targetPort": "weight"
+      },
+      {
+        "id": "arm-right.exit-arm-left.flow",
+        "sourceNodeId": "arm-right",
+        "sourcePort": "exit",
+        "targetNodeId": "arm-left",
+        "targetPort": "flow"
+      },
+      {
+        "id": "arms.value-arm-left.value",
+        "sourceNodeId": "arms",
+        "sourcePort": "value",
+        "targetNodeId": "arm-left",
+        "targetPort": "value"
+      },
+      {
+        "id": "fade.result-arm-left.weight",
+        "sourceNodeId": "fade",
+        "sourcePort": "result",
+        "targetNodeId": "arm-left",
+        "targetPort": "weight"
+      },
+      {
+        "id": "arm-left.exit-arm-right-hand.flow",
+        "sourceNodeId": "arm-left",
+        "sourcePort": "exit",
+        "targetNodeId": "arm-right-hand",
+        "targetPort": "flow"
+      },
+      {
+        "id": "arms.value-arm-right-hand.value",
+        "sourceNodeId": "arms",
+        "sourcePort": "value",
+        "targetNodeId": "arm-right-hand",
+        "targetPort": "value"
+      },
+      {
+        "id": "fade.result-arm-right-hand.weight",
+        "sourceNodeId": "fade",
+        "sourcePort": "result",
+        "targetNodeId": "arm-right-hand",
+        "targetPort": "weight"
+      },
+      {
+        "id": "arm-right-hand.exit-arm-left-hand.flow",
+        "sourceNodeId": "arm-right-hand",
+        "sourcePort": "exit",
+        "targetNodeId": "arm-left-hand",
+        "targetPort": "flow"
+      },
+      {
+        "id": "arms.value-arm-left-hand.value",
+        "sourceNodeId": "arms",
+        "sourcePort": "value",
+        "targetNodeId": "arm-left-hand",
+        "targetPort": "value"
+      },
+      {
+        "id": "fade.result-arm-left-hand.weight",
+        "sourceNodeId": "fade",
+        "sourcePort": "result",
+        "targetNodeId": "arm-left-hand",
+        "targetPort": "weight"
+      },
+      {
+        "id": "arm-left-hand.exit-fingers-right.flow",
+        "sourceNodeId": "arm-left-hand",
+        "sourcePort": "exit",
+        "targetNodeId": "fingers-right",
+        "targetPort": "flow"
+      },
+      {
+        "id": "fingers.value-fingers-right.value",
+        "sourceNodeId": "fingers",
+        "sourcePort": "value",
+        "targetNodeId": "fingers-right",
+        "targetPort": "value"
+      },
+      {
+        "id": "fade.result-fingers-right.weight",
+        "sourceNodeId": "fade",
+        "sourcePort": "result",
+        "targetNodeId": "fingers-right",
+        "targetPort": "weight"
+      },
+      {
+        "id": "fingers-right.exit-thumb-right.flow",
+        "sourceNodeId": "fingers-right",
+        "sourcePort": "exit",
+        "targetNodeId": "thumb-right",
+        "targetPort": "flow"
+      },
+      {
+        "id": "fingers.value-thumb-right.value",
+        "sourceNodeId": "fingers",
+        "sourcePort": "value",
+        "targetNodeId": "thumb-right",
+        "targetPort": "value"
+      },
+      {
+        "id": "fade.result-thumb-right.weight",
+        "sourceNodeId": "fade",
+        "sourcePort": "result",
+        "targetNodeId": "thumb-right",
+        "targetPort": "weight"
+      },
+      {
+        "id": "thumb-right.exit-fingers-left.flow",
+        "sourceNodeId": "thumb-right",
+        "sourcePort": "exit",
+        "targetNodeId": "fingers-left",
+        "targetPort": "flow"
+      },
+      {
+        "id": "fingers.value-fingers-left.value",
+        "sourceNodeId": "fingers",
+        "sourcePort": "value",
+        "targetNodeId": "fingers-left",
+        "targetPort": "value"
+      },
+      {
+        "id": "fade.result-fingers-left.weight",
+        "sourceNodeId": "fade",
+        "sourcePort": "result",
+        "targetNodeId": "fingers-left",
+        "targetPort": "weight"
+      },
+      {
+        "id": "fingers-left.exit-thumb-left.flow",
+        "sourceNodeId": "fingers-left",
+        "sourcePort": "exit",
+        "targetNodeId": "thumb-left",
+        "targetPort": "flow"
+      },
+      {
+        "id": "fingers.value-thumb-left.value",
+        "sourceNodeId": "fingers",
+        "sourcePort": "value",
+        "targetNodeId": "thumb-left",
+        "targetPort": "value"
+      },
+      {
+        "id": "fade.result-thumb-left.weight",
+        "sourceNodeId": "fade",
+        "sourcePort": "result",
+        "targetNodeId": "thumb-left",
+        "targetPort": "weight"
+      }
+    ],
+    "variables": []
+  },
+  "references": [
+    {
+      "id": "character",
+      "kind": "avatar",
+      "name": "Character"
+    }
+  ]
+}

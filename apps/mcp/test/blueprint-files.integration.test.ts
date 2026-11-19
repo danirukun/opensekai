@@ -38,3 +38,19 @@ it('reports an ambiguous name as missing', async () => {
   expect(await call('blueprint_import', { sceneId: 'scene_smoke', file: load('ambiguous-ref') })).toMatchObject({ ok: true, data: { report: { enabled: false, missing: [{ name: 'camera_wide', kind: 'camera', id: 'old-camera' }] } } });
  } finally { await client.close(); }
 }, 15000);
+
+it('imports the Face-Only Body Motion template for a character', async () => {
+ const { client, call } = await connect();
+ try {
+  const imported = await call('blueprint_import', { sceneId: 'scene_smoke', template: 'face-only-body-motion', avatarId: 'performer' });
+  expect(imported).toMatchObject({ ok: true, data: { revision: 1, report: { enabled: true, remapped: [], missing: [] } } });
+  const exported = await call('blueprint_export', { sceneId: 'scene_smoke', graphId: imported.data.report.graphId });
+  expect(exported).toMatchObject({ ok: true, data: { file: { graph: { name: 'Face-Only Body Motion' }, references: [{ id: 'performer', kind: 'avatar' }] } } });
+  expect(await call('blueprint_import', { sceneId: 'scene_smoke', template: 'face-only-body-motion', avatarId: 'ghost' })).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', ids: ['ghost'] } });
+  expect(await call('blueprint_import', { sceneId: 'scene_smoke', template: 'face-only-body-motion', avatarId: 'camera_wide' })).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+  const both = await client.callTool({ name: 'blueprint_import', arguments: { sceneId: 'scene_smoke', file: load('nudge'), template: 'face-only-body-motion', avatarId: 'performer' } });
+  expect(both.isError).toBe(true);
+  expect((await client.callTool({ name: 'blueprint_import', arguments: { sceneId: 'scene_smoke', template: 'upper-body-rotation', avatarId: 'performer' } })).isError).toBe(true);
+  expect((await call('blueprint_inspect', {})).data.blueprints).toHaveLength(1);
+ } finally { await client.close(); }
+}, 15000);
