@@ -94,7 +94,7 @@
 
 **Interfaces:**
 - Consumes: Task 2 constants and formulas.
-- Produces: `class CharacterMToonMaterial extends MToonNodeMaterial` with numeric properties `rimStrength`, `rimWidth`, `shadowStrength`, `environmentFill`, `giEqualizationFactor`, and `rimTint: Color`; `isCharacterMToonMaterial === true`; `type === 'CharacterMToonMaterial'`. `characterFillUniform: UniformNode<'color'>` (module-level, shared). `setRoomMap(texture: Texture | null)` (module-level; the env node of all character materials).
+- Produces: `class CharacterMToonMaterial extends MToonNodeMaterial` with numeric properties `rimStrength`, `rimWidth`, `shadowStrength`, `environmentFill`, `giEqualizationFactor`, and `rimTint: Color`; `isCharacterMToonMaterial === true`; `type === 'CharacterMToonMaterial'`; `characterShare?: CharacterShare`. `type CharacterShare = {fill: UniformNode<'color'>; map: Texture | null}`, one object for each renderer, set on each material by the renderer (Task 4), as `RoomStandardMaterial.roomShare` in `environment-light.ts`. No module-level state: a PMREM texture belongs to one renderer, and one page can have more than one renderer.
 
 - [ ] **Step 1: Failing tests** (no GPU draw, like the MAT-01 renderer tests):
   - Loading a small VRM 0.x MToon GLB built in the test through `createAssetLoader` gives `CharacterMToonMaterial` for the surface and its outline clone; `isMToonNodeMaterial` is true; `isLitMaterial` is true.
@@ -106,8 +106,8 @@
   - Constructor reads `parameters.giEqualizationFactor` before `super()` deletes it; `copy()` copies the new fields.
   - `setupLighting(builder)`: set `builder.context.getShadow = lightNode => lightNode.baseColorNode`, call super, restore the previous value. This keeps the shadow out of the light color.
   - `CharacterLightingModel.direct({lightDirection, lightColor, lightNode, reflectedLight})`: `shadow = lightNode.shadowNode ?? float(1)`; shading per `toonShading`; diffuse as the parent (`mix(shadeColor, diffuseColor, shading)`); authored rim as the parent; then, when not `isOutline`, add `rimFactor(N·V, L·V, rimWidth) × rimStrength × rimTint × lightColor` to `directSpecular`. Use `normalView`. Read the five values through `materialReference`.
-  - `indirectDiffuse`: parent term, plus (not for outlines) `equalize(iblIrradiance, average, giEqualizationFactor) × characterFillUniform × environmentFill × BRDF_Lambert(diffuseColor)`. `average` = mean of the room irradiance at world up and world down (two samples).
-  - `setupEnvironment` returns the room map env node from `setRoomMap`, with the specular part dropped (the `RoomEnvironmentNode` pattern in `environment-light.ts`).
+  - `indirectDiffuse`: parent term, plus (not for outlines) `equalize(iblIrradiance, average, giEqualizationFactor) × characterShare.fill × environmentFill × BRDF_Lambert(diffuseColor)`. `average` = mean of the room irradiance at world up and world down (two samples).
+  - `setupEnvironment` returns an env node for `characterShare.map` (none when the share or map is missing), with the specular part dropped (the `RoomEnvironmentNode` pattern in `environment-light.ts`).
 - [ ] **Step 4:** Run the new test and `pnpm vitest run packages/renderer` → PASS.
 - [ ] **Step 5:** Run the MAT-01 headless check `docs/evaluation/material-profiles/headless-check.mjs` (WebGPU and WebGL 2) → each fixture loads, no pipeline compile failure.
 - [ ] **Step 6:** Commit: `Light MToon avatars with shadows to the shade color, a back-light rim, and an environment fill.`
@@ -115,7 +115,7 @@
 ### Task 4: Renderer wiring
 
 **Files:**
-- Modify: `packages/renderer/src/avatar-pose.ts` (binding gets `lighting(values: AvatarLighting): void`), `renderer.ts` (call it near `value.avatar?.uv(...)` at :387 and :407; set `characterFillUniform` from `characterFill(entities)` where `sceneLights.apply` runs; call `setRoomMap` with the room map that `createEnvironmentLight` makes), `environment-light.ts` (expose the map texture without changing prop behavior)
+- Modify: `packages/renderer/src/avatar-pose.ts` (binding gets `lighting(values: AvatarLighting): void`), `renderer.ts` (call it near `value.avatar?.uv(...)` at :387 and :407; create one `CharacterShare` for each renderer, set its `fill` from `characterFill(entities)` where `sceneLights.apply` runs, and its `map` from the room map that `createEnvironmentLight` makes; set `characterShare` on each `CharacterMToonMaterial` of an avatar when it is installed), `environment-light.ts` (expose the map texture without changing prop behavior)
 - Test: `packages/renderer/test/character-lighting-frame.test.ts`
 
 - [ ] **Step 1: Failing tests** through the renderer frame path, as the MAT-01 UV test does:
