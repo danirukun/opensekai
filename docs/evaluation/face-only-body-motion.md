@@ -45,7 +45,7 @@ The spine and the chest turn in the same direction as the head. The neck turns i
 | +5 | (0, 0, 0.05) | 11.25 | −3.75 | −10 |
 | +0.05 | (0, 0, 0.0005) | 0.11 | −0.04 | −0.10 |
 
-The decoder multiplies the raw value by 0.01 (centimeters to meters). For tz +5: 0.05 × input scale 5 = 0.25, and spine 45 × 0.25 = 11.25°. The rise took about 2 s because of the 0.4 s input smoothing. If the phone sends meters, the lean is almost zero. A phone check must find the unit.
+The decoder multiplies the raw value by 0.01 (centimeters to meters). For tz +5: 0.05 × input scale 5 = 0.25, and spine 45 × 0.25 = 11.25°. The rise took about 2 s because of the 0.4 s input smoothing. If the phone sends meters, the lean is almost zero. A phone check must find the unit. (The phone check found meters. See "Phone check".)
 
 ### Sway
 
@@ -100,9 +100,30 @@ At `32eb27b`, the VMC sender stopped when a second face-tracked character was in
 
 When OpenSekai is in the background, the app stopped for about 2 s every 20 to 40 s, and then ran the missed ticks. This also occurred with the graph off and did not occur with the app in front. It is probably not caused by this branch. It was not examined further.
 
+### Phone check
+
+Date: 2026-11-19. The owner used iFacialMocap on an iPhone, on the same Wi-Fi network as the Mac, with the guide graph on Catboy. Debug build at `fb754d4`. A temporary Blueprint graph read `tracking.getHeadPose` through `blueprint_debug_log`, and a temporary VMC sender gave the final bone rotations to a local listener. The show was not saved.
+
+The owner reported two problems:
+
+1. When the owner leaned forward, the character leaned back.
+2. When the owner tilted the head to the left, the body tilted to the right.
+
+The owner held a forward lean for 10 s:
+
+| Value | Rest | Forward lean |
+| --- | --- | --- |
+| `headPosition` (decoded, × 0.01), mm | (0, 0, 0) | (0.1, −0.6, 1.6) |
+| Head pitch from the phone | 0° | −31° (head up) |
+| VMC Head X / Neck X / Chest X / Spine X | 0 / 0 / 0 / 0 | −34 / +6.4 / −2.6 / −4.1 |
+
+Cause of problem 1: when the owner leaned toward the phone, the phone measured the head about 31° up. The body follows the head pitch, so the spine and the chest turned back. The lean from the head position did not move the body: the decoder divided the translation by 100 (centimeters assumed), so a lean of about 16 cm became 1.6 mm. iFacialMocap sends meters: tz was 0.16. The forward sign was correct: a forward lean gave a positive Z. The decoder now keeps the translation in meters. With this unit, the same lean gives a spine lean of about 18° forward (0.16 × 5 × 45 × 0.5), more than the 4° back from the head pitch. The owner must look at the result again.
+
+Problem 2 is the Warudo default. Body Rotation Type Inverted turns the body in the opposite direction to the head roll. The template copies it (`axis-z-signed`, × −1).
+
 ### Not checked
 
-- A real iPhone with iFacialMocap. The translation unit and the live pitch sign are not known.
+- The live pitch sign with a real iPhone (nod down).
 - A side-by-side comparison with Warudo for the pendulum spring, damping, and gravity values.
 - The look of the motion. The owner did not examine it.
 - An OBS recording. The sway evidence is an OBS screenshot series.

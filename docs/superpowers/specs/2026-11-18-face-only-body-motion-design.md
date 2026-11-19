@@ -111,7 +111,7 @@ The Warudo Pendulum Physics Intensity (0.5) multiplies the value of each Pendulu
 
 The graph name is "Face-Only Body Motion". All values come from the Warudo table above.
 
-Known difference (head position): Warudo multiplies the head translation by Head Movement Intensity (2) and clamps it to ±Maximal Head Translation (0.5) before the pendulum input. The template gives the calibrated `headPosition` to the pendulum without this stage. This is "Different" until the phone check finds the iFacialMocap translation unit; then the template can add the stage.
+Known difference (head position): Warudo multiplies the head translation by Head Movement Intensity (2) and clamps it to ±Maximal Head Translation (0.5) before the pendulum input. The template gives the calibrated `headPosition` to the pendulum without this stage. This is "Different". The phone check (2026-11-19) found that iFacialMocap sends the translation in meters: a forward lean of about 16 cm sent tz 0.16. The decoder keeps the value in meters (it divided by 100 before). The template can add the stage after the owner judges the lean without it.
 
 ### Where the template is added
 
