@@ -5,7 +5,7 @@ const ports=vi.hoisted(()=>({load:vi.fn(),render:vi.fn(),compile:vi.fn()}));
 vi.mock('../src/backend',()=>({initializeBackend:async()=>({backend:'webgl2',renderer:{shadowMap:{enabled:false},info:{memory:{geometries:0,textures:0}},setSize:vi.fn(),renderAsync:ports.render,compileAsync:ports.compile,dispose:vi.fn()}})}));
 vi.mock('../src/assets',async original=>({...await original<typeof import('../src/assets')>(),createAssetLoader:()=>ports.load}));
 vi.mock('../src/avatar-pose',()=>({createAvatarBinding:(vrm:{root:Group})=>({root:vrm.root,apply:vi.fn(),uv:vi.fn(),lighting:vi.fn(),characters:[],advanceSprings:vi.fn()})}));
-vi.mock('../src/environment-light',async original=>({...await original<typeof import('../src/environment-light')>(),roomEnvironmentMap:()=>()=>({texture:null,dispose(){}})}));
+vi.mock('../src/environment-light',async original=>({...await original<typeof import('../src/environment-light')>(),roomEnvironmentMap:()=>()=>({texture:null,dispose(){}}),roomIrradiance:async()=>[[1,1,1],...Array.from({length:8},()=>[0,0,0])]}));
 import {createRenderer} from '../src/renderer';
 const settle=()=>new Promise(r=>setTimeout(r,0));
 let sequence=0;

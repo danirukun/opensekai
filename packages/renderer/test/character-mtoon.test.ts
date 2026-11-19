@@ -1,10 +1,10 @@
 // The character MToon material on the real loader path and its lighting node graph, with no GPU draw (character lighting R3).
 import {expect, it, vi} from 'vitest';
-import {Color, Mesh, StackNode, Texture, type Material, type Node, type NodeBuilder} from 'three/webgpu';
+import {Color, Mesh, StackNode, type Material, type Node, type NodeBuilder} from 'three/webgpu';
 import {setCurrentStack, uniform, vec3} from 'three/tsl';
 import {DEFAULT_AVATAR_LIGHTING} from '@opensekai/contracts';
 import {createAssetLoader} from '../src/assets';
-import {CharacterMToonMaterial, type CharacterLightingModel} from '../src/character-mtoon';
+import {CharacterMToonMaterial, createCharacterShare, type CharacterLightingModel} from '../src/character-mtoon';
 import {isLitMaterial} from '../src/scene-lights';
 import {CHARACTER_FILL} from '../src/character-lighting-math';
 
@@ -131,18 +131,21 @@ it('ignores the shadow node of a light whose shadow this build does not receive'
     expect(uses(added.directDiffuse[0]!, shadowNode)).toBe(false);
 });
 
-it('adds the equalized environment fill from the share of its renderer', () => {
+it('adds the equalized environment fill from the SH uniforms of the share of its renderer', () => {
     const material = new CharacterMToonMaterial();
     expect(lighting(material, false).environment).toBeNull();
-    const fill = uniform(new Color(1, 1, 1));
-    material.characterShare = {fill, map: new Texture()};
+    const share = createCharacterShare(), {fill} = share;
+    material.characterShare = share;
     const {added, environment} = lighting(material, false);
     expect(environment).not.toBeNull();
     expect(added.iblIrradiance).toHaveLength(1);
     // The room irradiance is mixed toward the up and down mean by the GI equalization factor of the file.
     expect(references(added.iblIrradiance[0]!, 'giEqualizationFactor')).toHaveLength(1);
-    // The room map gives direction and tint, not level: the irradiance is divided by the luminance of the up and down mean.
-    expect(find(added.iblIrradiance[0]!, node => (node as Node & {op?: string}).op === '/').size).toBe(1);
+    // The SH coefficients and their up and down mean are uniforms of the share. The shader has no texture sample and no division.
+    expect(uses(added.iblIrradiance[0]!, share.sh)).toBe(true);
+    expect(uses(added.iblIrradiance[0]!, share.average)).toBe(true);
+    expect(find(added.iblIrradiance[0]!, node => (node as Node & {isTextureNode?: boolean}).isTextureNode === true).size).toBe(0);
+    expect(find(added.iblIrradiance[0]!, node => (node as Node & {op?: string}).op === '/').size).toBe(0);
     // The fill has the units of an ambient light, scaled by CHARACTER_FILL.
     expect(find(added.indirectDiffuse[1]!, node => (node as Node & {value?: unknown}).value === CHARACTER_FILL).size).toBe(1);
     // The MToon term, then the fill.
@@ -169,7 +172,7 @@ it('shares one uniform of each lighting value across the lights of one build', (
 
 it('gives an outline neither the added rim nor the environment fill', () => {
     const material = new CharacterMToonMaterial();
-    material.characterShare = {fill: uniform(new Color(1, 1, 1)), map: new Texture()};
+    material.characterShare = createCharacterShare();
     const outline = material.clone();
     outline.isOutline = true;
     const {added, environment} = lighting(outline, true);

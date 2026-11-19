@@ -1,6 +1,8 @@
-import { Color, EnvironmentNode, MeshPhysicalNodeMaterial, MeshStandardNodeMaterial, PMREMGenerator, type Material, type Node, type NodeBuilder, type Object3D, type Texture, type UniformNode, type WebGPURenderer } from 'three/webgpu';
+import { Color, CubeCamera, CubeRenderTarget, EnvironmentNode, HalfFloatType, MeshPhysicalNodeMaterial, MeshStandardNodeMaterial, PMREMGenerator, type Material, type Node, type NodeBuilder, type Object3D, type Texture, type UniformNode, type WebGPURenderer } from 'three/webgpu';
 import { uniform, vec3 } from 'three/tsl';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { LightProbeGenerator } from 'three/addons/lights/LightProbeGenerator.js';
+import type { Vec3 } from '@opensekai/contracts';
 import { isLitMaterial, type RoomLight } from './scene-lights';
 export interface EnvironmentMap { texture: Texture; dispose(): void }
 type Share = { fill: UniformNode<'float'>; reflections: UniformNode<'color'> };
@@ -57,8 +59,6 @@ export interface EnvironmentLight {
     apply(root: Object3D): InstanceMaterials;
     /** Sets the share of the room map on all environment and prop copies: its diffuse fill and its reflections (B13 R4a). */
     room(light: RoomLight): void;
-    /** The room map, made on first use; avatars take it for their environment fill (character lighting R4). */
-    map(): Texture;
     dispose(): void;
 }
 // A prop or environment instance gets its own copy of each lit material, because the cached asset shares materials with other
@@ -69,7 +69,6 @@ export function createEnvironmentLight(makeMap: () => EnvironmentMap): Environme
     const share: Share = { fill: uniform(1), reflections: uniform(new Color(1, 1, 1)) };
     const texture = () => (map ??= makeMap()).texture;
     return {
-        map: texture,
         apply(root) {
             const room = texture();
             const copies = new Map<Material, Material>();
@@ -115,4 +114,13 @@ export function roomEnvironmentMap(renderer: WebGPURenderer): () => EnvironmentM
             return { texture: target.texture, dispose: () => target.dispose() };
         } finally { room.dispose(); generator.dispose(); }
     };
+}
+// The nine SH coefficients of the room, from a 32 px half-float cube render (character lighting R4). The caller normalizes them.
+export async function roomIrradiance(renderer: WebGPURenderer): Promise<Vec3[]> {
+    const room = new RoomEnvironment(), target = new CubeRenderTarget(32, { type: HalfFloatType });
+    try {
+        new CubeCamera(0.1, 100, target).update(renderer, room);
+        const probe = await LightProbeGenerator.fromCubeRenderTarget(renderer, target);
+        return probe.sh.coefficients.map(({ x, y, z }): Vec3 => [x, y, z]);
+    } finally { room.dispose(); target.dispose(); }
 }

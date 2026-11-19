@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { LightSettings, SceneEntity } from '@opensekai/contracts';
-import { CHARACTER_FILL, characterFill, equalize, normalizeFill, rimFactor, toonShading } from '../src/character-lighting-math';
+import type { LightSettings, SceneEntity, Vec3 } from '@opensekai/contracts';
+import { CHARACTER_FILL, characterFill, equalize, FLAT_ROOM, normalizeRoom, rimFactor, shIrradiance, toonShading, type Sh } from '../src/character-lighting-math';
 
 const settings = (patch: Partial<LightSettings> = {}): LightSettings => ({ type: 'ambient', color: '#ffffff', intensity: 1, range: 0, affectCharacters: true, affectProps: true, affectEnvironment: true, shadow: { enabled: false, intensity: 1, soft: true, bias: -0.0005, normalBias: 0.02 }, ...patch });
 const light = (id: string, patch: Partial<LightSettings> = {}, visible = true): SceneEntity => ({ id, name: id, visible, transform: { position: [0, 2, 1], rotation: [0, 0, 0, 1], scale: [1, 1, 1] }, kind: 'light', light: settings(patch) });
@@ -24,12 +24,32 @@ describe('equalize', () => {
     it('keeps the sample at factor 0', () => expect(equalize([1, 0, 0], [0, 0, 1], 0)).toEqual([1, 0, 0]));
 });
 
-describe('normalizeFill', () => {
+describe('room irradiance', () => {
     const close = (actual: readonly number[], expected: readonly number[]) => actual.forEach((x, i) => expect(x).toBeCloseTo(expected[i]!, 6));
-    it('gives white for a uniform white room', () => close(normalizeFill([3, 3, 3], [3, 3, 3]), [1, 1, 1]));
-    it('does not change with the room level', () => close(normalizeFill([8, 4, 2], [4, 4, 4]), normalizeFill([0.8, 0.4, 0.2], [0.4, 0.4, 0.4])));
-    it('keeps the direction and tint of the sample', () => close(normalizeFill([2, 1, 0], [1, 1, 1]), [2, 1, 0]));
-    it('does not divide by zero in a black room', () => expect(normalizeFill([0, 0, 0], [0, 0, 0])).toEqual([0, 0, 0]));
+    const luminance = (v: readonly number[]) => v[0]! * 0.2126 + v[1]! * 0.7152 + v[2]! * 0.0722;
+    const zero = (): [number, number, number][] => Array.from({ length: 9 }, () => [0, 0, 0]);
+    // A bright top and a dim bottom: band 0 plus a +Y band-1 term, with tint.
+    const room: Sh = zero().map((c, i) => (i === 0 ? [2, 1.5, 1] : i === 1 ? [0.5, 0.4, 0.3] : c) as [number, number, number]);
+    it('is a flat fill of 1 in all directions for FLAT_ROOM', () => {
+        for (const n of [[1, 0, 0], [0, -1, 0], [0, 0, 1]] as Vec3[]) close(shIrradiance(FLAT_ROOM.sh, n), [1, 1, 1]);
+        expect(FLAT_ROOM.average).toEqual([1, 1, 1]);
+    });
+    it('is brighter at +Y than at -Y for a positive +Y band-1 term', () => expect(shIrradiance(room, [0, 1, 0])[0]).toBeGreaterThan(shIrradiance(room, [0, -1, 0])[0]!));
+    it('gives an average of luminance 1 after normalization', () => expect(luminance(normalizeRoom(room).average)).toBeCloseTo(1, 6));
+    it('keeps the up and down ratio and the tint after normalization', () => {
+        const raw = [shIrradiance(room, [0, 1, 0]), shIrradiance(room, [0, -1, 0])], {sh} = normalizeRoom(room);
+        const [up, down] = [shIrradiance(sh, [0, 1, 0]), shIrradiance(sh, [0, -1, 0])];
+        for (let i = 0; i < 3; i++) expect(up[i]! / down[i]!).toBeCloseTo(raw[0]![i]! / raw[1]![i]!, 6);
+        expect(up[0]! / up[2]!).toBeCloseTo(raw[0]![0]! / raw[0]![2]!, 6);
+    });
+    it('does not change with the room level', () => close(normalizeRoom(room.map(c => c.map(x => x * 10) as [number, number, number])).average, normalizeRoom(room).average));
+    it('gives finite numbers for a black room', () => {
+        const { sh, average } = normalizeRoom(zero());
+        for (const x of [...sh.flat(), ...average]) expect(Number.isFinite(x)).toBe(true);
+    });
+});
+
+describe('CHARACTER_FILL', () => {
     it('has the level of half an ambient light', () => expect(CHARACTER_FILL).toBe(0.5));
 });
 

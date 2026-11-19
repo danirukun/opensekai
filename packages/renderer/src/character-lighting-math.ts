@@ -27,11 +27,30 @@ export const rimFactor = (nDotV: number, lDotV: number, width: number): number =
 export const equalize = (sample: Vec3, average: Vec3, factor: number): Vec3 =>
     [mix(sample[0], average[0], factor), mix(sample[1], average[1], factor), mix(sample[2], average[2], factor)];
 
-// The room irradiance divided by the luminance of the room average: the room gives direction and tint, not level.
-export const normalizeFill = (sample: Vec3, average: Vec3): Vec3 => {
-    const level = Math.max(average[0] * LUMINANCE[0] + average[1] * LUMINANCE[1] + average[2] * LUMINANCE[2], 1e-4);
-    return [sample[0] / level, sample[1] / level, sample[2] / level];
+// Nine RGB triples, in the order of `SphericalHarmonics3.coefficients`.
+export type Sh = readonly Vec3[];
+
+// `SphericalHarmonics3.getIrradianceAt` and `getShIrradianceAt` of three r187.
+export const shIrradiance = (sh: Sh, [x, y, z]: Vec3): Vec3 => {
+    const basis = [0.886227, 2 * 0.511664 * y, 2 * 0.511664 * z, 2 * 0.511664 * x, 2 * 0.429043 * x * y, 2 * 0.429043 * y * z, 0.743125 * z * z - 0.247708, 2 * 0.429043 * x * z, 0.429043 * (x * x - y * y)];
+    return [0, 1, 2].map(c => sh.reduce((sum, coefficient, i) => sum + coefficient[c]! * basis[i]!, 0)) as unknown as Vec3;
 };
+
+// The room gives direction and tint, not level: the coefficients and the average of the irradiance at world up and world down
+// are divided by the luminance of that average.
+export const normalizeRoom = (sh: Sh): { sh: Vec3[]; average: Vec3 } => {
+    const [up, down] = [shIrradiance(sh, [0, 1, 0]), shIrradiance(sh, [0, -1, 0])];
+    const average: Vec3 = [(up[0] + down[0]) / 2, (up[1] + down[1]) / 2, (up[2] + down[2]) / 2];
+    const level = Math.max(average[0] * LUMINANCE[0] + average[1] * LUMINANCE[1] + average[2] * LUMINANCE[2], 1e-4);
+    const scale = (v: Vec3): Vec3 => [v[0] / level, v[1] / level, v[2] / level];
+    return { sh: sh.map(scale), average: scale(average) };
+};
+
+// An irradiance of 1 in all directions: only coefficient 0 is non-zero.
+export const FLAT_ROOM: { sh: Vec3[]; average: Vec3 } = Object.freeze({
+    sh: Array.from({ length: 9 }, (_, i): Vec3 => (i === 0 ? [1 / 0.886227, 1 / 0.886227, 1 / 0.886227] : [0, 0, 0])),
+    average: [1, 1, 1] as Vec3,
+});
 
 export function characterFill(entities: readonly SceneEntity[]): Vec3 {
     if (usesFixedAmbient(entities)) return [1, 1, 1];

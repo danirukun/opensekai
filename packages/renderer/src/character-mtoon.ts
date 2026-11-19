@@ -1,12 +1,24 @@
 // MToon avatars with shadows to the shade color, a back-light rim, and an environment fill (character lighting R3).
-import {Color, LightingNode, type LightingContext, type LightingModelDirectInput, type Node, type NodeBuilder, type Texture, type UniformNode} from 'three/webgpu';
-import {BRDF_Lambert, diffuseColor, float, materialReference, mix, normalView, normalWorld, pmremTexture, positionViewDirection, smoothstep, vec3} from 'three/tsl';
+import {Color, LightingNode, type LightingContext, type LightingModelDirectInput, type Node, type NodeBuilder, type UniformArrayNode, type UniformNode, Vector3} from 'three/webgpu';
+import {BRDF_Lambert, diffuseColor, float, materialReference, mix, normalView, normalWorld, positionViewDirection, smoothstep, uniform, uniformArray, vec3, getShIrradianceAt, renderGroup} from 'three/tsl';
 import {MToonLightingModel, MToonNodeMaterial} from '@pixiv/three-vrm/nodes';
 import {DEFAULT_AVATAR_LIGHTING} from '@opensekai/contracts';
-import {CHARACTER_FILL, EXPONENT, LUMINANCE, RIM} from './character-lighting-math';
+import {CHARACTER_FILL, EXPONENT, FLAT_ROOM, RIM} from './character-lighting-math';
 
 /** One object for each renderer; the renderer sets it on each character material. */
-export type CharacterShare = {fill: UniformNode<'color'>; map: Texture | null};
+export type CharacterShare = {fill: UniformNode<'color'>; sh: UniformArrayNode<'vec3'>; average: UniformNode<'vec3'>};
+type Share = Pick<CharacterShare, 'sh' | 'average'>;
+/** The share of a renderer before its room irradiance is known: the flat fill. */
+export const createCharacterShare = (): CharacterShare => ({
+    fill: uniform(new Color(1, 1, 1)),
+    sh: uniformArray(FLAT_ROOM.sh.map(([x, y, z]) => new Vector3(x, y, z)), 'vec3').setGroup(renderGroup) as UniformArrayNode<'vec3'>,
+    average: uniform(new Vector3(...FLAT_ROOM.average)),
+});
+/** A uniform write, not a recompile. */
+export const setRoomFill = (share: CharacterShare, room: {sh: readonly (readonly number[])[]; average: readonly number[]}) => {
+    room.sh.forEach((c, i) => (share.sh.array[i] as Vector3).set(c[0]!, c[1]!, c[2]!));
+    share.average.value.set(room.average[0]!, room.average[1]!, room.average[2]!);
+};
 type Vec3 = Node<'vec3'>;
 type Float = Node<'float'>;
 type Sum = {addAssign(node: Vec3): unknown};
@@ -59,16 +71,15 @@ export class CharacterLightingModel extends MToonLightingModel {
     }
 }
 
-// The diffuse part of the room map only, mixed toward the mean of its irradiance at world up and world down (MToon GI equalization),
-// then divided by the luminance of that mean (`normalizeFill` of character-lighting-math.ts). The level cancels, so no π.
+// The room irradiance of the nine SH uniforms, mixed toward the mean at world up and world down (MToon GI equalization). The
+// coefficients and the mean are normalized on the CPU (`normalizeRoom` of character-lighting-math.ts), so the shader has no
+// texture sample and no division.
 class CharacterEnvironmentNode extends LightingNode {
-    private readonly map: Texture;
-    constructor(map: Texture) { super(); this.map = map; }
+    private readonly share: Share;
+    constructor(share: Share) { super(); this.share = share; }
     setup(builder: NodeBuilder): undefined {
-        const irradiance = (direction: Vec3) => pmremTexture(this.map, direction, float(1)) as unknown as Vec3;
-        const average = irradiance(vec3(0, 1, 0)).add(irradiance(vec3(0, -1, 0))).mul(0.5);
-        const level = average.dot(vec3(...LUMINANCE)).max(1e-4);
-        (builder.context as unknown as Context).iblIrradiance.addAssign(mix(irradiance(normalWorld), average, reference('giEqualizationFactor')).div(level));
+        const irradiance = getShIrradianceAt(normalWorld, this.share.sh) as unknown as Vec3;
+        (builder.context as unknown as Context).iblIrradiance.addAssign(mix(irradiance, this.share.average as unknown as Vec3, reference('giEqualizationFactor')));
     }
 }
 
@@ -116,10 +127,10 @@ export class CharacterMToonMaterial extends MToonNodeMaterial {
     }
     setupEnvironment() {
         const share = this.#share();
-        return share ? new CharacterEnvironmentNode(share.map) : null;
+        return share ? new CharacterEnvironmentNode(share) : null;
     }
     // An outline gets neither the added rim nor the environment fill.
-    #share() { const share = this.characterShare; return share?.map && !this.isOutline ? {fill: share.fill, map: share.map} : null; }
+    #share() { return this.isOutline ? null : this.characterShare ?? null; }
     copy(source: MToonNodeMaterial) {
         const from = source as CharacterMToonMaterial;
         if (from.isCharacterMToonMaterial) {

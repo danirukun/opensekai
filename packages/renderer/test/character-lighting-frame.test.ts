@@ -1,13 +1,14 @@
 // The renderer frame path applies each character's lighting values and the scene fill (character lighting R4).
-import {afterEach, expect, it, vi} from 'vitest';
-import {Color, Group, Object3D, Texture} from 'three/webgpu';
+import {afterEach, beforeEach, expect, it, vi} from 'vitest';
+import {Color, Group, Object3D, Texture, type Vector3} from 'three/webgpu';
 import {VRM, VRMHumanoid, type VRMHumanBones} from '@pixiv/three-vrm';
 import {CharacterMToonMaterial} from '../src/character-mtoon';
+import {FLAT_ROOM, normalizeRoom} from '../src/character-lighting-math';
 import {DEFAULT_AVATAR_LIGHTING, QUALITY_PROFILES, makeSmokeFrame, type AvatarLighting, type LightSettings, type RuntimeFrame, type SceneEntity} from '@opensekai/contracts';
-const ports = vi.hoisted(() => ({load: vi.fn()}));
+const ports = vi.hoisted(() => ({load: vi.fn(), room: vi.fn()}));
 vi.mock('../src/backend', () => ({initializeBackend: async () => ({backend: 'webgl2', renderer: {shadowMap: {enabled: false}, info: {memory: {geometries: 0, textures: 0}}, setSize: vi.fn(), renderAsync: vi.fn(async () => {}), compileAsync: vi.fn(async () => {}), dispose: vi.fn()}})}));
 vi.mock('../src/assets', async original => ({...await original<typeof import('../src/assets')>(), createAssetLoader: () => ports.load}));
-vi.mock('../src/environment-light', async original => ({...await original<typeof import('../src/environment-light')>(), roomEnvironmentMap: () => () => ({texture: new Texture(), dispose() {}})}));
+vi.mock('../src/environment-light', async original => ({...await original<typeof import('../src/environment-light')>(), roomEnvironmentMap: () => () => ({texture: new Texture(), dispose() {}}), roomIrradiance: ports.room}));
 import {createRenderer} from '../src/renderer';
 
 function avatar() {
@@ -24,7 +25,10 @@ function avatar() {
 type Avatar = ReturnType<typeof avatar>;
 const loaded: Avatar[] = [];
 ports.load.mockImplementation(async () => { const a = avatar(); loaded.push(a); return {scene: a.vrm.scene, vrm: a.vrm, warnings: [], dispose: vi.fn()}; });
-afterEach(() => { loaded.length = 0; });
+// Band 0 and a +Y band-1 term: bright above, dim below.
+const SKY = [[2, 2, 2], [0.5, 0.5, 0.5], ...Array.from({length: 7}, () => [0, 0, 0])];
+beforeEach(() => ports.room.mockResolvedValue(SKY));
+afterEach(() => { loaded.length = 0; ports.room.mockReset(); });
 
 let sequence = 0;
 const frame = (lighting: Record<string, AvatarLighting | undefined> = {}, extra: SceneEntity[] = []): RuntimeFrame => {
@@ -51,7 +55,7 @@ it('gives an avatar without lighting the default values on each character materi
     expect(loaded).toHaveLength(2);
     for (const {surface, outline} of loaded) {
         surface.rimStrength = 0; outline.rimTint.set('#000000');
-        expect(surface.characterShare?.map).toBeInstanceOf(Texture);
+        expect(surface.characterShare?.sh.array).toHaveLength(9);
         expect(outline.characterShare).toBe(surface.characterShare);
     }
     await r.applyFrame(frame());
@@ -89,4 +93,30 @@ it('fills with white without a light entity, and with the visible ambient light 
     expect(fill(surface)).toEqual([0, 0, 0]);
     expect(outline.characterShare).toBe(surface.characterShare);
     r.dispose();
+});
+
+const room = (m: CharacterMToonMaterial) => ({sh: m.characterShare!.sh.array.map(v => (v as Vector3).toArray()), average: m.characterShare!.average.value.toArray()});
+
+it('writes the normalized room irradiance of one capture into the share before the first avatar compiles', async () => {
+    const r = await start();
+    await r.applyFrame(frame());
+    expect(ports.room).toHaveBeenCalledTimes(1);
+    const {surface} = loaded[0]!;
+    expect(room(surface)).toEqual(JSON.parse(JSON.stringify(normalizeRoom(SKY as never))));
+    expect(room(surface)).not.toEqual(JSON.parse(JSON.stringify(FLAT_ROOM)));
+    r.dispose();
+});
+
+it('keeps the flat fill and warns on each avatar when the room irradiance is unavailable, without a second try', async () => {
+    for (const bad of [() => Promise.reject(new Error('read failed')), () => Promise.resolve(SKY.map(() => [0, 0, 0])), () => Promise.resolve(SKY.map(() => [NaN, 0, 0]))]) {
+        ports.room.mockReset();
+        ports.room.mockImplementation(bad);
+        const r = await start();
+        const applied = await r.applyFrame(frame());
+        expect(room(loaded[0]!.surface)).toEqual(JSON.parse(JSON.stringify(FLAT_ROOM)));
+        expect(applied.warnings.filter(w => w.message.startsWith('Room fill unavailable: ')).map(w => w.code)).toEqual(['UNAVAILABLE', 'UNAVAILABLE']);
+        expect(ports.room).toHaveBeenCalledTimes(1);
+        r.dispose();
+        loaded.length = 0;
+    }
 });
