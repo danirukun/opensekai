@@ -1,6 +1,7 @@
 import {Object3D,Quaternion,Vector3} from 'three/webgpu';
 import type {VRM, VRMHumanBoneName, VRMPose} from '@pixiv/three-vrm';
-import type {AvatarPose} from '@opensekai/contracts';
+import type {AvatarLighting, AvatarPose} from '@opensekai/contracts';
+import type {CharacterMToonMaterial} from './character-mtoon';
 import {canonicalArkitName,createArkitMorphBinding} from './arkit-expressions';
 import {createUvAnimation} from './mtoon-uv';
 import type {SpringClock} from './spring-grid';
@@ -71,7 +72,15 @@ export function createAvatarBinding(vrm: VRM) {
     const morphs=createArkitMorphBinding(vrm.scene);
     // The surface materials and their outline clones; the clones have the same speeds (R5).
     const uv=createUvAnimation(vrm.materials ?? []);
-    return {root, uv, advanceSprings(clock: SpringClock) { springs?.advance(clock); }, apply(pose?: AvatarPose) {
+    const characters=(vrm.materials ?? []).filter((material):material is CharacterMToonMaterial=>(material as Partial<CharacterMToonMaterial>).isCharacterMToonMaterial===true);
+    // Property writes only: the values are uniforms, so a change does not recompile (character lighting R4).
+    const lighting=(values:AvatarLighting) => {
+        for (const material of characters) {
+            material.rimStrength=values.rimStrength; material.rimWidth=values.rimWidth; material.rimTint.set(values.rimTint);
+            material.shadowStrength=values.shadowStrength; material.environmentFill=values.environmentFill;
+        }
+    };
+    return {root, uv, characters, lighting, advanceSprings(clock: SpringClock) { springs?.advance(clock); }, apply(pose?: AvatarPose) {
         // Reset raw state before normalized deltas so lost channels return to rest.
         for (const [node, transform] of rest) {node.position.fromArray(transform.position);node.quaternion.fromArray(transform.rotation);}
         vrm.humanoid.resetNormalizedPose();

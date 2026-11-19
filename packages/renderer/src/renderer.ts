@@ -1,9 +1,10 @@
 import { assertEditorScope, createEditorViewport, createHazeHelper, createLightHelper, updateHazeHelper, updateLightHelper } from './editor-viewport';
 import type { EditorOptions, EditorHandle } from './editor-viewport';
-import { Scene, Mesh, BoxGeometry, MeshStandardNodeMaterial, PerspectiveCamera, Object3D } from "three/webgpu";
+import { Scene, Mesh, BoxGeometry, Color, MeshStandardNodeMaterial, PerspectiveCamera, Object3D } from "three/webgpu";
+import { uniform } from "three/tsl";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
 import type { RuntimeFrame, FrameApplied, RendererDiagnostics, CaptureBytes, Id, ResourceHost, AppError, SceneEntity, QualityProfile, ScreenshotBytes, OutputSpec } from "@opensekai/contracts";
-import { LIMITS, RuntimeFrameSchema } from "@opensekai/contracts";
+import { LIMITS, RuntimeFrameSchema, avatarLighting } from "@opensekai/contracts";
 import { selectFrame, failure, createRenderQueue } from "./apply-frame";
 import { applyHiddenMeshes, createAssetCache, createAssetLoader, disposeObject } from "./assets";
 import { createAvatarBinding } from "./avatar-pose";
@@ -14,6 +15,8 @@ import { createCapturePolicy, readPng } from "./capture";
 import { createLoadJobs, type AssetLoadStatus, type LoadReport, type LoadRequest } from "./load-jobs";
 import { createEnvironmentLight, roomEnvironmentMap, type InstanceMaterials } from "./environment-light";
 import { createSceneLights, groupOf, roomLight, withDrafts, type LightGroup } from "./scene-lights";
+import { characterFill } from "./character-lighting-math";
+import type { CharacterShare } from "./character-mtoon";
 import { logPipelineFailure, watchPipelineErrors, type PipelineDevice } from "./pipeline-diagnostics";
 import { afterRebuild, blameFrame, initialBlame } from "./pipeline-blame";
 import { freshModulePerPipeline, isWebKit } from "./webkit-shader-modules";
@@ -113,6 +116,8 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     let decoderSupport: VideoDecoderSupport | null = null;
     void probeVideoDecoder().then(value => { decoderSupport = value; });
     const environmentLight = createEnvironmentLight(roomEnvironmentMap(renderer));
+    // The fill color and the room map of all avatars of this renderer (character lighting R4).
+    const characterShare: CharacterShare = { fill: uniform(new Color(1, 1, 1)), map: null };
     type Ready = { root: Object3D; video?: ScreenVideoPlayer; avatar?: ReturnType<typeof createAvatarBinding>; meshes?: ReadonlyMap<string, Object3D>; assetId?: string; assetDispose?: () => void; instanceDispose?: () => void; materials?: InstanceMaterials; lit: number; warnings: AppError[]; dispose(): void };
     const loadListeners = new Set<(entries: AssetLoadStatus[]) => void>();
     const prepare = async (root: Object3D, report: (r: LoadReport) => void, cancelled: () => boolean) => {
@@ -152,6 +157,9 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             try {
                 if (!asset.vrm) throw failure("INVALID_INPUT", "Avatar asset has no VRM");
                 const avatar = createAvatarBinding(asset.vrm);
+                // The material builds read the share, so it goes on before GPU preparation; the map is made here, also without a prop.
+                characterShare.map = environmentLight.map();
+                for (const material of avatar.characters) material.characterShare = characterShare;
                 // The group node set goes on before GPU preparation, so the compiled pipelines are the ones the frame draws (R6).
                 sceneLights.assign(avatar.root, "characters");
                 const lit = sceneLights.generation();
@@ -249,6 +257,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         const lightsRebuilt = sceneLights.apply(drawn);
         if (lightsRebuilt) { pipelineFailed = false; hazeFailed = false; beamsFailed = false; blame = afterRebuild(blame); }
         environmentLight.room(roomLight(drawn));
+        characterShare.fill.value.setRGB(...characterFill(drawn));
         // Cameras, lights, and the haze have a scene object only in the editor viewport, as a pick target and helper (R14, B13 R13).
         // An FPS counter is a DOM overlay and a VMC sender sends UDP; neither has a scene object (B19 R7, B21).
         const wanted = new Set(frame.scene.entities.filter(x => x.kind !== "tracking" && x.kind !== "fpsCounter" && x.kind !== "vmcSender" && (editor || (x.kind !== "camera" && x.kind !== "light" && x.kind !== "haze"))).map(x => x.id));
@@ -385,6 +394,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             value.avatar?.apply(frame.avatarPoses?.find(pose => pose.avatarId === entity.id));
             if (value.meshes && entity.kind === "avatar") applyHiddenMeshes(value.meshes, entity.hiddenMeshes);
             value.avatar?.uv(frame.elapsedMs);
+            value.avatar?.lighting(avatarLighting(entity));
             value.materials?.reflections(reflections);
             if (!editor?.frozen(entity.id)) place(value.root, entity);
             // After place, also for a dragged avatar: the stage reads the root transform (B43 R11).
@@ -405,6 +415,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             installed.avatar?.apply(frame.avatarPoses?.find(pose => pose.avatarId === entityId));
             if (installed.meshes && entity.kind === "avatar") applyHiddenMeshes(installed.meshes, entity.hiddenMeshes);
             installed.avatar?.uv(frame.elapsedMs);
+            installed.avatar?.lighting(avatarLighting(entity));
             installed.materials?.reflections(reflections);
             if (!editor?.frozen(entityId)) place(installed.root, entity);
             installed.avatar?.advanceSprings(springClock(frame, entityId));

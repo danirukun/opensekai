@@ -57,6 +57,8 @@ export interface EnvironmentLight {
     apply(root: Object3D): InstanceMaterials;
     /** Sets the share of the room map on all environment and prop copies: its diffuse fill and its reflections (B13 R4a). */
     room(light: RoomLight): void;
+    /** The room map, made on first use; avatars take it for their environment fill (character lighting R4). */
+    map(): Texture;
     dispose(): void;
 }
 // A prop or environment instance gets its own copy of each lit material, because the cached asset shares materials with other
@@ -65,9 +67,11 @@ export interface EnvironmentLight {
 export function createEnvironmentLight(makeMap: () => EnvironmentMap): EnvironmentLight {
     let map: EnvironmentMap | null = null;
     const share: Share = { fill: uniform(1), reflections: uniform(new Color(1, 1, 1)) };
+    const texture = () => (map ??= makeMap()).texture;
     return {
+        map: texture,
         apply(root) {
-            const texture = (map ??= makeMap()).texture;
+            const room = texture();
             const copies = new Map<Material, Material>();
             const reflective: (Material & { envMapIntensity: number })[] = [];
             const copy = (material: Material) => {
@@ -76,7 +80,7 @@ export function createEnvironmentLight(makeMap: () => EnvironmentMap): Environme
                 if (!made) {
                     if ((material as { isMeshStandardMaterial?: boolean }).isMeshStandardMaterial === true) {
                         made = roomMaterial(material, share);
-                        (made as Material & { envMap: Texture | null }).envMap = texture;
+                        (made as Material & { envMap: Texture | null }).envMap = room;
                         reflective.push(made as Material & { envMapIntensity: number });
                     } else made = material.clone();
                     copies.set(material, made);

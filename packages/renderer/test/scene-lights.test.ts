@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { AmbientLight, BackSide, DirectionalLight, DoubleSide, FrontSide, Group, Mesh, BoxGeometry, MeshBasicMaterial, MeshStandardMaterial, PointLight, Scene, SpotLight, type PerspectiveCamera, type WebGPURenderer } from 'three/webgpu';
 import type { LightSettings, SceneEntity } from '@opensekai/contracts';
 import { HAZE_LAYER } from '../src/haze';
-import { createSceneLights, lightDirection, lightGroups, lightSignature, roomLight, scattersInHaze, shadowsOn, spotAngle, usesFixedAmbient, withDrafts, DIRECTIONAL_DISTANCE, SPOT_SHADOW_FAR } from '../src/scene-lights';
+import { CHARACTER_AMBIENT, createSceneLights, lightDirection, lightGroups, lightSignature, roomLight, scattersInHaze, shadowsOn, spotAngle, usesFixedAmbient, withDrafts, DIRECTIONAL_DISTANCE, SPOT_SHADOW_FAR } from '../src/scene-lights';
 
 const settings = (patch: Partial<LightSettings> = {}): LightSettings => ({ type: 'directional', color: '#ffffff', intensity: 3, range: 0, affectCharacters: true, affectProps: true, affectEnvironment: true, shadow: { enabled: false, intensity: 1, soft: true, bias: -0.0005, normalBias: 0.02 }, ...patch });
 const light = (id: string, patch: Partial<LightSettings> = {}, visible = true, rotation: [number, number, number, number] = [0, 0, 0, 1]): SceneEntity => ({ id, name: id, visible, transform: { position: [0, 2, 1], rotation, scale: [1, 1, 1] }, kind: 'light', light: settings(patch) });
@@ -243,7 +243,19 @@ describe('stage lights (B13)', () => {
         expect(lightsOf(lights.node('props'))).not.toContain(entityAmbient);
         expect(lightsOf(lights.node('props'))).not.toContain(fixed);
         lights.apply([light('d')]);
-        expect(lightsOf(lights.node('characters'))).toContain(fixed);
+        expect(lightsOf(lights.node('props'))).toContain(fixed);
+    });
+    it('lowers the fixed ambient light for the character group only (character lighting R4)', () => {
+        const scene = new Scene(), lights = createSceneLights(scene, fake());
+        const ambients = (group: 'characters' | 'props' | 'environment') => (lightsOf(lights.node(group)) as AmbientLight[]).filter(l => l.isAmbientLight);
+        for (const entities of [[], [light('d')]]) {
+            lights.apply(entities);
+            expect(ambients('characters').map(l => l.intensity)).toEqual([CHARACTER_AMBIENT]);
+            expect(CHARACTER_AMBIENT).toBe(0.5);
+            for (const group of ['props', 'environment'] as const) expect(ambients(group).map(l => l.intensity)).toEqual([1]);
+        }
+        lights.apply([light('d'), light('amb', { type: 'ambient', intensity: 0.3 })]);
+        for (const group of ['characters', 'props', 'environment'] as const) expect(ambients(group).map(l => l.intensity)).toEqual([0.3]);
     });
     it('puts placed lights and their shadow cameras on the haze layer, so the haze pass sees them and keeps the shadow casters (R7)', () => {
         const scene = new Scene(), lights = createSceneLights(scene, fake());

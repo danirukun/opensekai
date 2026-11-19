@@ -8,6 +8,7 @@ import {QUALITY_PROFILES, makeSmokeFrame, type RuntimeFrame} from '@opensekai/co
 const ports = vi.hoisted(() => ({load: vi.fn()}));
 vi.mock('../src/backend', () => ({initializeBackend: async () => ({backend: 'webgl2', renderer: {shadowMap: {enabled: false}, info: {memory: {geometries: 0, textures: 0}}, setSize: vi.fn(), renderAsync: vi.fn(async () => {}), compileAsync: vi.fn(async () => {}), dispose: vi.fn()}})}));
 vi.mock('../src/assets', async original => ({...await original<typeof import('../src/assets')>(), createAssetLoader: () => ports.load}));
+vi.mock('../src/environment-light', async original => ({...await original<typeof import('../src/environment-light')>(), roomEnvironmentMap: () => () => ({texture: null, dispose() {}})}));
 import {createRenderer} from '../src/renderer';
 
 function avatar(Material: new () => MToonNodeMaterial) {
