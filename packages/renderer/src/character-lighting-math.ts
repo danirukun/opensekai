@@ -3,7 +3,7 @@ import type { SceneEntity, Vec3 } from '@opensekai/contracts';
 import { isLight, usesFixedAmbient } from './scene-lights';
 
 export const RIM = Object.freeze({ backStart: -0.1, backEnd: 0.6 });
-export const EXPONENT = Object.freeze({ narrow: 8, wide: 1.5 });
+export const EXPONENT = Object.freeze({ narrow: 16, wide: 4 });
 // The environment fill at environmentFill 1 and a white fill color, in the units of an ambient light intensity.
 export const CHARACTER_FILL = 0.5;
 // Rec. 709 luminance of linear sRGB, the working color space.

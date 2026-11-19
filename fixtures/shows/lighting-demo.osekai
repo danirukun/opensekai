@@ -18,8 +18,8 @@
           ],
           "rotation": [
             -0.077083,
-            -0.0,
-            -0.0,
+            0,
+            0,
             0.997025
           ],
           "scale": [
@@ -79,6 +79,19 @@
           "fovDegrees": 28,
           "near": 0.05,
           "far": 100
+        },
+        "grading": {
+          "toneMapping": "aces",
+          "exposure": 0,
+          "brightness": 0,
+          "contrast": 0,
+          "vibrance": 0,
+          "tint": "#ffffff",
+          "bloom": {
+            "intensity": 0.4,
+            "threshold": 1,
+            "radius": 0.4
+          }
         }
       },
       {
@@ -212,7 +225,7 @@
             "normalBias": 0.02
           },
           "type": "point",
-          "intensity": 40
+          "intensity": 20
         }
       },
       {
@@ -252,7 +265,7 @@
             "normalBias": 0.02
           },
           "type": "point",
-          "intensity": 40
+          "intensity": 20
         }
       },
       {
@@ -319,9 +332,9 @@
         },
         "kind": "haze",
         "haze": {
-          "density": 1,
+          "density": 0.5,
           "smoke": 1,
-          "intensity": 2.5,
+          "intensity": 1.2,
           "drift": 0.2
         }
       },
