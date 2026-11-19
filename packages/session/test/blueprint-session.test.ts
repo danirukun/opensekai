@@ -375,6 +375,8 @@ it('moves the spine, the lean, and the arms from a face-only pose with Face-Only
  expect(Math.abs(euler('chest')[1] - 2.5 * fade)).toBeLessThan(0.05);
  expect(Math.abs(euler('spine')[1] - 5 * fade)).toBeLessThan(0.1);
  expect(euler('spine')[0]).toBeGreaterThan(1);
+ // Lean: head X = 0.05 m × scale 5 × −40 × Pendulum Intensity 0.5 = −5 (−10 before the intensity).
+ expect(Math.abs(euler('head')[0] - -5 * fade)).toBeLessThan(0.05);
  expect(Math.abs(euler('rightShoulder')[2])).toBeGreaterThan(1);
  expect(Math.abs(euler('leftShoulder')[2])).toBeGreaterThan(1);
  expect(session.inspectBlueprints().errors).toEqual([]);

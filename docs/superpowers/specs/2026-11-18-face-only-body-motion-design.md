@@ -14,7 +14,7 @@ Warudo makes face-only motion from four layers:
 
 1. A motion-captured idle clip on the character (`AGIA_Idle_cat_01`). Tracking replaces only the head and face.
 2. Body rotation from the head, on the tracker asset: Body Rotation Type Inverted, intensity 0.5, direction (0.5, 1, 0.5), neck compensation 0.75, chest 0.25, spine 0.5, hips 0, delay 0, smoothing 0. Head Movement Intensity 2 on each axis, Maximal Head Translation 0.5 m, Body Movement Intensity 0.5.
-3. Pendulum physics, on the tracker asset. On by default in Warudo; off in the RORO Compare scene. Four presets:
+3. Pendulum physics, on the tracker asset. On by default in Warudo; off in the RORO Compare scene. Pendulum Physics Intensity 0.5 (the class default). Four presets:
 
 | Preset | Inputs (weight, scale, other) | Pendulum arms | Outputs (rotation, degrees per unit) |
 |---|---|---|---|
@@ -84,7 +84,7 @@ Warudo body rotation type Inverted: the body turns in the same direction as the 
   - `position`: vector3, meters from the calibrated neutral. Zero with no calibration or no head position.
   - `tracked`: number, the compose weight of the face source (1 while it receives, falls to 0 in the compose stale fade, 0 with no face source).
 - `tracking.pendulum` (data, stateful; palette category Tracking). Settings:
-  - `inputs`: a list. Each entry: `kind` (head pitch, head yaw, head roll, head position X, Y, Z, or an ARKit blend shape name), `weight`, `scale`, `absolute`, and `clamp` (min, max; default −1..1). Each input is scaled, made absolute when set, and clamped, then multiplied by its weight; the node adds the results. The node reads the inputs from the same composed pose as `tracking.getHeadPose`. The unit of each head input is set by the Warudo measurement in "Left to the builder", so the Warudo scale values keep their meaning.
+  - `inputs`: a list of 1 to 8 entries. Each entry: `kind` (head pitch, head yaw, head roll, head position X, Y, Z, or an ARKit blend shape name), `weight`, `scale`, `absolute`, and `clamp` (min, max). A new input is head yaw, weight 1, scale 5, clamp −100..100 (`PENDULUM_DEFAULT_INPUT`: the Warudo default with Clamp Override off, 2026-11-19). Each input is scaled, made absolute when set, and clamped, then multiplied by its weight; the node adds the results. The node reads the inputs from the same composed pose as `tracking.getHeadPose`. The unit of each head input is set by the Warudo measurement in "Left to the builder", so the Warudo scale values keep their meaning.
   - `inputSmoothing` (seconds).
   - `arms`: a list of 0 to 4 links, each with `length`, `mass`, `drag`, `spring`, `damping`, `gravity`.
   - Input: `character`. Output: `value` (number).
@@ -107,7 +107,11 @@ All three nodes appear in the node palette and work in any graph, not only in th
 4. **Arm sway.** A Pendulum with the Arm Movements inputs and arms, then Offset Bones with the six Arm Movements outputs.
 5. **Finger sway.** A Pendulum with the Finger Movements inputs and arms, then Offset Bones with the four Finger Movements outputs.
 
+The Warudo Pendulum Physics Intensity (0.5) multiplies the value of each Pendulum (Body Lean, Arm Movements, Finger Movements) before its Offset Bones nodes. It is one graph variable, "Pendulum Intensity". It does not change the Offset Bones `offset` (the shoulder ±5°) or the body-follows-head chain. (Final review, 2026-11-19. Before this change, the lean and the sway were 2 times the Warudo value.)
+
 The graph name is "Face-Only Body Motion". All values come from the Warudo table above.
+
+Known difference (head position): Warudo multiplies the head translation by Head Movement Intensity (2) and clamps it to ±Maximal Head Translation (0.5) before the pendulum input. The template gives the calibrated `headPosition` to the pendulum without this stage. This is "Different" until the phone check finds the iFacialMocap translation unit; then the template can add the stage.
 
 ### Where the template is added
 

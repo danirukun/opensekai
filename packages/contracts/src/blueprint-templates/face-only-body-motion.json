@@ -75,7 +75,7 @@
           "arms": []
         },
         "position": {
-          "x": 1300,
+          "x": 1040,
           "y": 2600
         }
       },
@@ -157,7 +157,7 @@
           ]
         },
         "position": {
-          "x": 1300,
+          "x": 1040,
           "y": 3700
         }
       },
@@ -239,7 +239,7 @@
           ]
         },
         "position": {
-          "x": 1300,
+          "x": 1040,
           "y": 5000
         }
       },
@@ -325,6 +325,18 @@
         "position": {
           "x": 260,
           "y": 1240
+        }
+      },
+      {
+        "id": "pendulum-intensity",
+        "version": 1,
+        "type": "variable.getNumber",
+        "settings": {
+          "variableId": "pendulum-intensity"
+        },
+        "position": {
+          "x": 780,
+          "y": 2340
         }
       },
       {
@@ -666,6 +678,16 @@
         }
       },
       {
+        "id": "lean-scaled",
+        "version": 1,
+        "type": "math.multiply",
+        "settings": {},
+        "position": {
+          "x": 1300,
+          "y": 2600
+        }
+      },
+      {
         "id": "lean-spine",
         "version": 1,
         "type": "character.offsetBones",
@@ -717,6 +739,16 @@
         "position": {
           "x": 1560,
           "y": 2860
+        }
+      },
+      {
+        "id": "arms-scaled",
+        "version": 1,
+        "type": "math.multiply",
+        "settings": {},
+        "position": {
+          "x": 1300,
+          "y": 3700
         }
       },
       {
@@ -827,6 +859,16 @@
         "position": {
           "x": 1560,
           "y": 4420
+        }
+      },
+      {
+        "id": "fingers-scaled",
+        "version": 1,
+        "type": "math.multiply",
+        "settings": {},
+        "position": {
+          "x": 1300,
+          "y": 5000
         }
       },
       {
@@ -1364,9 +1406,23 @@
         "targetPort": "flow"
       },
       {
-        "id": "lean.value-lean-spine.value",
+        "id": "lean.value-lean-scaled.a",
         "sourceNodeId": "lean",
         "sourcePort": "value",
+        "targetNodeId": "lean-scaled",
+        "targetPort": "a"
+      },
+      {
+        "id": "pendulum-intensity.value-lean-scaled.b",
+        "sourceNodeId": "pendulum-intensity",
+        "sourcePort": "value",
+        "targetNodeId": "lean-scaled",
+        "targetPort": "b"
+      },
+      {
+        "id": "lean-scaled.result-lean-spine.value",
+        "sourceNodeId": "lean-scaled",
+        "sourcePort": "result",
         "targetNodeId": "lean-spine",
         "targetPort": "value"
       },
@@ -1385,9 +1441,9 @@
         "targetPort": "flow"
       },
       {
-        "id": "lean.value-lean-neck.value",
-        "sourceNodeId": "lean",
-        "sourcePort": "value",
+        "id": "lean-scaled.result-lean-neck.value",
+        "sourceNodeId": "lean-scaled",
+        "sourcePort": "result",
         "targetNodeId": "lean-neck",
         "targetPort": "value"
       },
@@ -1406,9 +1462,9 @@
         "targetPort": "flow"
       },
       {
-        "id": "lean.value-lean-head.value",
-        "sourceNodeId": "lean",
-        "sourcePort": "value",
+        "id": "lean-scaled.result-lean-head.value",
+        "sourceNodeId": "lean-scaled",
+        "sourcePort": "result",
         "targetNodeId": "lean-head",
         "targetPort": "value"
       },
@@ -1427,9 +1483,23 @@
         "targetPort": "flow"
       },
       {
-        "id": "arms.value-arm-right-shoulder.value",
+        "id": "arms.value-arms-scaled.a",
         "sourceNodeId": "arms",
         "sourcePort": "value",
+        "targetNodeId": "arms-scaled",
+        "targetPort": "a"
+      },
+      {
+        "id": "pendulum-intensity.value-arms-scaled.b",
+        "sourceNodeId": "pendulum-intensity",
+        "sourcePort": "value",
+        "targetNodeId": "arms-scaled",
+        "targetPort": "b"
+      },
+      {
+        "id": "arms-scaled.result-arm-right-shoulder.value",
+        "sourceNodeId": "arms-scaled",
+        "sourcePort": "result",
         "targetNodeId": "arm-right-shoulder",
         "targetPort": "value"
       },
@@ -1448,9 +1518,9 @@
         "targetPort": "flow"
       },
       {
-        "id": "arms.value-arm-left-shoulder.value",
-        "sourceNodeId": "arms",
-        "sourcePort": "value",
+        "id": "arms-scaled.result-arm-left-shoulder.value",
+        "sourceNodeId": "arms-scaled",
+        "sourcePort": "result",
         "targetNodeId": "arm-left-shoulder",
         "targetPort": "value"
       },
@@ -1469,9 +1539,9 @@
         "targetPort": "flow"
       },
       {
-        "id": "arms.value-arm-right.value",
-        "sourceNodeId": "arms",
-        "sourcePort": "value",
+        "id": "arms-scaled.result-arm-right.value",
+        "sourceNodeId": "arms-scaled",
+        "sourcePort": "result",
         "targetNodeId": "arm-right",
         "targetPort": "value"
       },
@@ -1490,9 +1560,9 @@
         "targetPort": "flow"
       },
       {
-        "id": "arms.value-arm-left.value",
-        "sourceNodeId": "arms",
-        "sourcePort": "value",
+        "id": "arms-scaled.result-arm-left.value",
+        "sourceNodeId": "arms-scaled",
+        "sourcePort": "result",
         "targetNodeId": "arm-left",
         "targetPort": "value"
       },
@@ -1511,9 +1581,9 @@
         "targetPort": "flow"
       },
       {
-        "id": "arms.value-arm-right-hand.value",
-        "sourceNodeId": "arms",
-        "sourcePort": "value",
+        "id": "arms-scaled.result-arm-right-hand.value",
+        "sourceNodeId": "arms-scaled",
+        "sourcePort": "result",
         "targetNodeId": "arm-right-hand",
         "targetPort": "value"
       },
@@ -1532,9 +1602,9 @@
         "targetPort": "flow"
       },
       {
-        "id": "arms.value-arm-left-hand.value",
-        "sourceNodeId": "arms",
-        "sourcePort": "value",
+        "id": "arms-scaled.result-arm-left-hand.value",
+        "sourceNodeId": "arms-scaled",
+        "sourcePort": "result",
         "targetNodeId": "arm-left-hand",
         "targetPort": "value"
       },
@@ -1553,9 +1623,23 @@
         "targetPort": "flow"
       },
       {
-        "id": "fingers.value-fingers-right.value",
+        "id": "fingers.value-fingers-scaled.a",
         "sourceNodeId": "fingers",
         "sourcePort": "value",
+        "targetNodeId": "fingers-scaled",
+        "targetPort": "a"
+      },
+      {
+        "id": "pendulum-intensity.value-fingers-scaled.b",
+        "sourceNodeId": "pendulum-intensity",
+        "sourcePort": "value",
+        "targetNodeId": "fingers-scaled",
+        "targetPort": "b"
+      },
+      {
+        "id": "fingers-scaled.result-fingers-right.value",
+        "sourceNodeId": "fingers-scaled",
+        "sourcePort": "result",
         "targetNodeId": "fingers-right",
         "targetPort": "value"
       },
@@ -1574,9 +1658,9 @@
         "targetPort": "flow"
       },
       {
-        "id": "fingers.value-thumb-right.value",
-        "sourceNodeId": "fingers",
-        "sourcePort": "value",
+        "id": "fingers-scaled.result-thumb-right.value",
+        "sourceNodeId": "fingers-scaled",
+        "sourcePort": "result",
         "targetNodeId": "thumb-right",
         "targetPort": "value"
       },
@@ -1595,9 +1679,9 @@
         "targetPort": "flow"
       },
       {
-        "id": "fingers.value-fingers-left.value",
-        "sourceNodeId": "fingers",
-        "sourcePort": "value",
+        "id": "fingers-scaled.result-fingers-left.value",
+        "sourceNodeId": "fingers-scaled",
+        "sourcePort": "result",
         "targetNodeId": "fingers-left",
         "targetPort": "value"
       },
@@ -1616,9 +1700,9 @@
         "targetPort": "flow"
       },
       {
-        "id": "fingers.value-thumb-left.value",
-        "sourceNodeId": "fingers",
-        "sourcePort": "value",
+        "id": "fingers-scaled.result-thumb-left.value",
+        "sourceNodeId": "fingers-scaled",
+        "sourcePort": "result",
         "targetNodeId": "thumb-left",
         "targetPort": "value"
       },
@@ -1672,6 +1756,12 @@
         "name": "Neck Compensation",
         "type": "number",
         "default": 0.75
+      },
+      {
+        "id": "pendulum-intensity",
+        "name": "Pendulum Intensity",
+        "type": "number",
+        "default": 0.5
       }
     ]
   },

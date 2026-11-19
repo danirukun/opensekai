@@ -91,12 +91,21 @@ it('builds Face-Only Body Motion for one character with the Warudo reference val
  expect(nodes.get('lean')?.settings).toEqual({ entityId: 'performer', inputSmoothing: 0.4, arms: [], inputs: [{ kind: 'headPositionZ', blendShape: null, weight: 1, scale: 5, absolute: false, clamp: [0, 1.5] }] });
  const group = (source: string) => offsets.filter(node => graph.connections.some(wire => wire.targetNodeId === node.id && wire.targetPort === 'value' && wire.sourceNodeId === source))
   .map(node => { const { bones, axis, intensity, offset } = node.settings as { bones: string[]; axis: string; intensity: number; offset: number }; return [bones.join(' '), axis, intensity, offset]; });
- expect(group('lean')).toEqual([['spine', 'x', 45, 0], ['neck', 'x', -15, 0], ['head', 'x', -40, 0]]);
- expect(group('arms')).toEqual([['rightShoulder', 'z', 2, 5], ['leftShoulder', 'z', -2, -5], ['rightUpperArm rightLowerArm', 'z', 2, 0], ['leftUpperArm leftLowerArm', 'z', -2, 0], ['rightHand', 'z', 10, 0], ['leftHand', 'z', -10, 0]]);
+ // Warudo Pendulum Physics Intensity (0.5) multiplies each pendulum value before its Offset Bones nodes; the body-follows-head chain does not use it.
+ for (const pendulum of ['lean', 'arms', 'fingers']) {
+  const scaled = `${pendulum}-scaled`;
+  expect(nodes.get(scaled)?.type).toBe('math.multiply');
+  expect(graph.connections.filter(wire => wire.targetNodeId === scaled).map(wire => [wire.sourceNodeId, wire.sourcePort, wire.targetPort]).sort()).toEqual([[pendulum, 'value', 'a'], ['pendulum-intensity', 'value', 'b']]);
+  expect(graph.connections.filter(wire => wire.sourceNodeId === pendulum).map(wire => wire.targetNodeId)).toEqual([scaled]);
+ }
+ expect(nodes.get('pendulum-intensity')?.settings).toEqual({ variableId: 'pendulum-intensity' });
+ expect(graph.connections.filter(wire => wire.sourceNodeId === 'pendulum-intensity').map(wire => wire.targetNodeId)).toEqual(['lean-scaled', 'arms-scaled', 'fingers-scaled']);
+ expect(group('lean-scaled')).toEqual([['spine', 'x', 45, 0], ['neck', 'x', -15, 0], ['head', 'x', -40, 0]]);
+ expect(group('arms-scaled')).toEqual([['rightShoulder', 'z', 2, 5], ['leftShoulder', 'z', -2, -5], ['rightUpperArm rightLowerArm', 'z', 2, 0], ['leftUpperArm leftLowerArm', 'z', -2, 0], ['rightHand', 'z', 10, 0], ['leftHand', 'z', -10, 0]]);
  const fingers = (side: string) => ['Index', 'Middle', 'Ring', 'Little'].flatMap(finger => ['Proximal', 'Intermediate', 'Distal'].map(segment => side + finger + segment)).join(' ');
- expect(group('fingers')).toEqual([[fingers('right'), 'z', 10, 0], ['rightThumbMetacarpal rightThumbProximal rightThumbDistal', 'y', 10, 0], [fingers('left'), 'z', -10, 0], ['leftThumbMetacarpal leftThumbProximal leftThumbDistal', 'y', -10, 0]]);
+ expect(group('fingers-scaled')).toEqual([[fingers('right'), 'z', 10, 0], ['rightThumbMetacarpal rightThumbProximal rightThumbDistal', 'y', 10, 0], [fingers('left'), 'z', -10, 0], ['leftThumbMetacarpal leftThumbProximal leftThumbDistal', 'y', -10, 0]]);
  // Body follows head: direction (0.5, 1, 0.5) × intensity 0.5 × sign (+1, +1, -1) × share (spine 0.5, chest 0.25, neck -0.75), from graph variables.
- expect(graph.variables.map(variable => [variable.name, variable.type, variable.default])).toEqual([['Body Intensity', 'number', 0.5], ['Body Direction X', 'number', 0.5], ['Body Direction Y', 'number', 1], ['Body Direction Z', 'number', 0.5], ['Spine', 'number', 0.5], ['Chest', 'number', 0.25], ['Neck Compensation', 'number', 0.75]]);
+ expect(graph.variables.map(variable => [variable.name, variable.type, variable.default])).toEqual([['Body Intensity', 'number', 0.5], ['Body Direction X', 'number', 0.5], ['Body Direction Y', 'number', 1], ['Body Direction Z', 'number', 0.5], ['Spine', 'number', 0.5], ['Chest', 'number', 0.25], ['Neck Compensation', 'number', 0.75], ['Pendulum Intensity', 'number', 0.5]]);
  const defaults = new Map(graph.variables.map(variable => [variable.id, variable.default as number]));
  // The value of a data output for a head angle vector, from variable defaults, inline inputs, and products.
  const evaluate = (nodeId: string, port: string, head: number[]): number => {

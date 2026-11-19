@@ -87,8 +87,11 @@ The first check found three problems: the whole editor body scrolled instead of 
 - A side-by-side comparison with Warudo for the pendulum spring, damping, and gravity values.
 - The look of the motion. The owner did not examine it.
 - An OBS recording. The sway evidence is an OBS screenshot series.
+- The concert benchmark. It was not run for this slice yet.
 
 ### Other observations
 
+- After this check, the template got the Warudo Pendulum Physics Intensity (0.5) on each Pendulum value. The lean and sway values above (commit `bb8069b`) are 2 times the current template output: for tz +5 the spine lean is now 5.625°, not 11.25°. The body turn values do not change.
+- A calibration saved before this branch has no `headPosition` neutral. With such a calibration, the compose step gives no `headPosition`, so the lean and the position part of the sway stay off until the user calibrates again.
 - With phone address 127.0.0.1, the receiver gets its own handshake and counts it as an invalid packet (about one each second while stale). This occurs only with a test peer on the same computer.
 - Each Pendulum node and each Offset Bones node shows only the node type as its heading. On the canvas, the user cannot see which node is "Arm Movements" and which is "Finger Movements" without opening it.
