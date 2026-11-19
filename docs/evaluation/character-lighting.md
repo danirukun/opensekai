@@ -18,8 +18,6 @@ GPU time: unknown (#305).
 
 Camera at [0, 1.3, 1.6], field of view 35°, idle animation off, 30 s after `scene_replace` so that a large avatar has loaded. "Before" is `main` with its default rig (one white directional light, intensity 3, and the fixed ambient light). "After" is `3671526` (the avatar path is the same at `ec02109`) with the new default rig (key, back, and fill lights). The value is the mean luminance of a head band (200 px under the top of the character) after / before, on pixels that are opaque in both images.
 
-| Avatar | Head band after / before |
-| --- | --- |
 | Avatar | New rig on the branch / `main` rig on `main` | `main` rig on the branch / `main` rig on `main` |
 | --- | --- | --- |
 | Catboy | 1.041 | 1.002 |
