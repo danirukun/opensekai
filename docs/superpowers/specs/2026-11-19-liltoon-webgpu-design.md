@@ -1,6 +1,6 @@
 # lilToon on WebGPU design
 
-Date: 2026-11-19. Issues: #269 (spike), #74 (MAT-02), #75 (MAT-03, later). Status: design, for owner approval.
+Date: 2026-11-19. Issues: #269 (spike), #74 (MAT-02), #75 (MAT-03, later). Status: approved by the owner on 2026-11-19.
 
 ## Intent
 
@@ -39,7 +39,11 @@ This is MAT-02 slice 1, and it merges to `main` with the full spec-first rules. 
 - All material compiles go through the existing serialized `compileOnce` queue.
 - lilToon and three-liltoon are MIT. The fork and the TSL port keep both license notices.
 - Avatar files are never committed. The sample avatar stays local. Only Catboy images go into the repository.
-- Unity 6000.0.71f1 is installed on the owner's Mac. lilToon and `mochiya-labs/unity-avatar-tools` (MIT) are public. The exporter needs UniGLTF and UniVRM 0.131.2 or newer, so the sample project uses that version, not the 0.115.0 package in Downloads.
+- Sample tool versions (owner requirement: a current UniVRM and a supported Unity):
+  - Unity 6000.0.71f1 (Unity 6.0 LTS), installed on the owner's Mac. UniVRM supports Unity 2022.3 LTS or later, and Mochiya Avatar Tools needs Unity 2022.3 or newer.
+  - UniGLTF and UniVRM (VRM10) 0.131.4, the latest release (2026-10-19), through the UPM Git URLs at tag `v0.131.4`. The exporter needs 0.131.2 or newer. Do not use the 0.115.0 package in Downloads.
+  - lilToon 2.4.1, the latest release. The exporter needs 2.3.4 or newer. three-liltoon was made against lilToon 2.3.4; record each property of 2.4.1 that the fork does not know.
+  - Mochiya Avatar Tools at the latest commit of `mochiya-labs/unity-avatar-tools` (MIT). Record the commit.
 - The spec-first rules of `CLAUDE.md` apply: a slice contract in `spdd/`, ARCHITECTURE.md in the same commit as a new dependency or data path, the parity checklist for MAT-02, and OBS evidence for the material change.
 
 ## Approaches
@@ -54,7 +58,7 @@ The owner selected approach 1 on 2026-11-19.
 
 ### Part A: the sample avatar
 
-- Make a Unity project outside the repository with UniVRM 0.131.2 or newer, lilToon (latest release), and Mochiya Avatar Tools.
+- Make a Unity 6000.0.71f1 project outside the repository with UniGLTF and UniVRM 0.131.4, lilToon 2.4.1, and Mochiya Avatar Tools.
 - Import `DaniruKun - Catboy - ARKit.vrm`. Change each MToon material to lilToon with an editor script. The script maps the MToon values to lilToon: main texture and color, shade color to the first shadow color, shading shift and toony to the first shadow border and blur, rim, matcap, emission, normal map, outline width and color.
 - Then set values by hand so that the sample uses each feature of the slice: a second and third shadow band on the skin and the hair, a matcap on the hair, a rim and backlight, emission on one part, a cutout material, a transparent material, and an outline.
 - Export with Mochiya Avatar Tools to VRM (the VRM 0 or VRM 1 form that the exporter writes) with `MOCHIYA_materials_liltoon` on each material. Record the versions of Unity, lilToon, UniVRM, and the exporter.
