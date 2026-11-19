@@ -178,6 +178,7 @@ const pendulumSettings = (extra: Partial<BlueprintNodeOf<'tracking.pendulum'>['s
  ({ ...defaultBlueprintSettings('tracking.pendulum', { avatarId: avatar.id, keystroke })!, ...extra }) as BlueprintNodeOf<'tracking.pendulum'>['settings'];
 const pendulumNode = (settings = pendulumSettings()) => ({ id: 'p', version: 1, position: at, type: 'tracking.pendulum', settings }) as BlueprintNodeOf<'tracking.pendulum'>;
 const yawed = (degrees: number) => headPose({ bones: { head: { space: 'normalized', rotation: [0, Math.sin(degrees * Math.PI / 360), 0, Math.cos(degrees * Math.PI / 360)] } } });
+const arm = { length: 10, mass: 0.25, drag: 0.25, spring: 0.5, damping: 0.5, gravity: 1 };
 const pendulumValue = (node: BlueprintNodeOf<'tracking.pendulum'>, state: RunState, extra: Partial<RunEnv>, entities = scene) =>
  (EVALUATORS['tracking.pendulum'] as unknown as { data: (...args: unknown[]) => unknown }).data(node, 'value', () => 0, state, { ...NO_ENV, scene: () => entities, ...extra }) as number;
 
@@ -187,7 +188,6 @@ it('Pendulum defaults to one head yaw input and no arms, and limits inputs and a
  const schema = nodeDefinition('tracking.pendulum').settings;
  expect(schema.safeParse(settings).success).toBe(true);
  expect(defaultBlueprintSettings('tracking.pendulum', { keystroke })).toBeNull();
- const arm = { length: 10, mass: 0.25, drag: 0.25, spring: 0.5, damping: 0.5, gravity: 1 };
  expect(schema.safeParse({ ...settings, inputs: Array.from({ length: 8 }, () => settings.inputs[0]), arms: Array.from({ length: 4 }, () => arm) }).success).toBe(true);
  expect(schema.safeParse({ ...settings, inputs: Array.from({ length: 9 }, () => settings.inputs[0]) }).success).toBe(false);
  expect(schema.safeParse({ ...settings, inputs: [] }).success).toBe(false);
@@ -226,11 +226,33 @@ it('Pendulum keeps its state with a time delta of 0, and limits a long delta to 
  expect(read(0, 16, 90)).toBe(0);
  expect(state.nodes.get('p')).toBe(stored);
  expect(read(1 / 60, 32, 90)).toBeCloseTo(0.5);
- const armed = pendulumNode(pendulumSettings({ arms: [{ length: 10, mass: 0.25, drag: 0.25, spring: 0.5, damping: 0.5, gravity: 1 }] })), other = emptyState();
- pendulumValue(armed, other, { deltaSeconds: 1 / 60, tickMs: 0, previousPose: () => yawed(90) });
- const long = pendulumValue(armed, other, { deltaSeconds: 3600, tickMs: 16, previousPose: () => yawed(90) });
- expect(Number.isFinite(long)).toBe(true);
- expect(Math.abs(long)).toBeLessThanOrEqual(2);
+ const armed = pendulumNode(pendulumSettings({ arms: [arm] }));
+ const stepped = (deltaSeconds: number) => {
+  const other = emptyState();
+  pendulumValue(armed, other, { deltaSeconds: 1 / 60, tickMs: 0, previousPose: () => yawed(0) });
+  return { value: pendulumValue(armed, other, { deltaSeconds, tickMs: 16, previousPose: () => yawed(90) }), state: other.nodes.get('p') };
+ };
+ const long = stepped(3600), second = stepped(1);
+ expect(long.value).toBe(second.value);
+ expect(long.state).toEqual(second.state);
+ expect(Number.isFinite(long.value)).toBe(true);
+ expect(Math.abs(long.value)).toBeLessThanOrEqual(2);
+});
+
+it('Pendulum starts again when the arm count changes', () => {
+ const state = emptyState(), env = (tickMs: number) => ({ deltaSeconds: 1 / 60, tickMs, previousPose: () => yawed(90) });
+ const two = pendulumNode(pendulumSettings({ arms: [arm, arm] }));
+ pendulumValue(two, state, env(0));
+ pendulumValue(two, state, env(16));
+ expect((state.nodes.get('p') as { angles: number[] }).angles).toHaveLength(2);
+ const value = pendulumValue(pendulumNode(pendulumSettings({ arms: [arm, arm, arm] })), state, env(32));
+ expect(Number.isFinite(value)).toBe(true);
+ expect(state.nodes.get('p')).toMatchObject({ angles: [0, 0, 0], velocities: [0, 0, 0], mixVelocity: 0 });
+ // With fewer arms, the stale angle of a removed arm would otherwise stay the output.
+ pendulumValue(pendulumNode(pendulumSettings({ arms: [arm, arm, arm] })), state, env(48));
+ const one = pendulumValue(pendulumNode(pendulumSettings({ arms: [arm] })), state, env(64));
+ expect(one).toBe(0);
+ expect(state.nodes.get('p')).toMatchObject({ angles: [0], velocities: [0], mixVelocity: 0 });
 });
 
 it('Pendulum reads blend shapes and head position from the previous pose', () => {

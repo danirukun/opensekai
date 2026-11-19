@@ -64,11 +64,7 @@ function pendulum(node: BlueprintNodeOf<'tracking.pendulum'>, state: RunState, e
 }
 
 export const TRACKING_EVALUATORS = {
- 'tracking.getBlendShape': { data: (node, _o, _r, _s, env) => {
-  const avatar = env.scene()?.entities.find(item => item.id === node.settings.entityId);
-  if (avatar?.kind !== 'avatar') throw new RangeError('Character is unavailable');
-  return trackedBlendShape(env.previousPose?.(avatar.id) ?? null, node.settings.blendShape);
- } },
+ 'tracking.getBlendShape': { data: (node, _o, _r, _s, env) => trackedBlendShape(characterPose(node.settings.entityId, env), node.settings.blendShape) },
  'tracking.getHeadPose': { data: (node, output, _r, _s, env) => {
   const pose = characterPose(node.settings.entityId, env);
   if (output === 'rotation') return boneEuler(pose, 'head');
