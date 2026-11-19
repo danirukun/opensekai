@@ -95,10 +95,24 @@ it('builds Face-Only Body Motion for one character with the Warudo reference val
  expect(group('arms')).toEqual([['rightShoulder', 'z', 2, 5], ['leftShoulder', 'z', -2, -5], ['rightUpperArm rightLowerArm', 'z', 2, 0], ['leftUpperArm leftLowerArm', 'z', -2, 0], ['rightHand', 'z', 10, 0], ['leftHand', 'z', -10, 0]]);
  const fingers = (side: string) => ['Index', 'Middle', 'Ring', 'Little'].flatMap(finger => ['Proximal', 'Intermediate', 'Distal'].map(segment => side + finger + segment)).join(' ');
  expect(group('fingers')).toEqual([[fingers('right'), 'z', 10, 0], ['rightThumbMetacarpal rightThumbProximal rightThumbDistal', 'y', 10, 0], [fingers('left'), 'z', -10, 0], ['leftThumbMetacarpal leftThumbProximal leftThumbDistal', 'y', -10, 0]]);
- // Body follows head: direction (0.5, 1, 0.5) × intensity 0.5 × sign (+1, +1, -1) × share (spine 0.5, chest 0.25, neck -0.75).
- const follow = offsets.filter(node => graph.connections.some(wire => wire.targetNodeId === node.id && wire.targetPort === 'value' && wire.sourceNodeId === 'head-angles'))
-  .map(node => { const wire = graph.connections.find(item => item.targetNodeId === node.id && item.targetPort === 'value')!; const { bones, axis, intensity } = node.settings as { bones: string[]; axis: string; intensity: number }; return [bones.join(' '), axis, wire.sourcePort, intensity]; });
- expect(follow).toEqual([['spine', 'x', 'x', 0.125], ['spine', 'y', 'y', 0.25], ['spine', 'z', 'z', -0.125], ['chest', 'x', 'x', 0.0625], ['chest', 'y', 'y', 0.125], ['chest', 'z', 'z', -0.0625], ['neck', 'x', 'x', -0.1875], ['neck', 'y', 'y', -0.375], ['neck', 'z', 'z', 0.1875]]);
+ // Body follows head: direction (0.5, 1, 0.5) × intensity 0.5 × sign (+1, +1, -1) × share (spine 0.5, chest 0.25, neck -0.75), from graph variables.
+ expect(graph.variables.map(variable => [variable.name, variable.type, variable.default])).toEqual([['Body Intensity', 'number', 0.5], ['Body Direction X', 'number', 0.5], ['Body Direction Y', 'number', 1], ['Body Direction Z', 'number', 0.5], ['Spine', 'number', 0.5], ['Chest', 'number', 0.25], ['Neck Compensation', 'number', 0.75]]);
+ const defaults = new Map(graph.variables.map(variable => [variable.id, variable.default as number]));
+ // The value of a data output for a head angle vector, from variable defaults, inline inputs, and products.
+ const evaluate = (nodeId: string, port: string, head: number[]): number => {
+  const node = nodes.get(nodeId)!;
+  const input = (name: string) => { const wire = graph.connections.find(item => item.targetNodeId === nodeId && item.targetPort === name); return wire ? evaluate(wire.sourceNodeId, wire.sourcePort, head) : node.inputs![name] as number; };
+  if (node.type === 'vector3.break') return head['xyz'.indexOf(port)]!;
+  if (node.type === 'variable.getNumber') return defaults.get((node.settings as { variableId: string }).variableId)!;
+  if (node.type === 'math.multiply') return input('a') * input('b');
+  throw new Error(node.type);
+ };
+ const follow = offsets.filter(node => node.id.startsWith('follow-')).map(node => {
+  const wire = graph.connections.find(item => item.targetNodeId === node.id && item.targetPort === 'value')!;
+  const { bones, axis, intensity, offset } = node.settings as { bones: string[]; axis: string; intensity: number; offset: number };
+  return [bones.join(' '), axis, intensity, offset, [[1, 0, 0], [0, 1, 0], [0, 0, 1]].map(head => evaluate(wire.sourceNodeId, wire.sourcePort, head) + 0)];
+ });
+ expect(follow).toEqual([['spine', 'x', 1, 0, [0.125, 0, 0]], ['spine', 'y', 1, 0, [0, 0.25, 0]], ['spine', 'z', 1, 0, [0, 0, -0.125]], ['chest', 'x', 1, 0, [0.0625, 0, 0]], ['chest', 'y', 1, 0, [0, 0.125, 0]], ['chest', 'z', 1, 0, [0, 0, -0.0625]], ['neck', 'x', 1, 0, [-0.1875, 0, 0]], ['neck', 'y', 1, 0, [0, -0.375, 0]], ['neck', 'z', 1, 0, [0, 0, 0.1875]]]);
  expect(offsets).toHaveLength(22);
  expect(faceTemplate.references[0]!.id).toBe('character');
  expect(importBlueprint(file, makeSmokeScene(), () => 'g1')).toMatchObject({ ok: true, data: { report: { enabled: true, missing: [], remapped: [] } } });

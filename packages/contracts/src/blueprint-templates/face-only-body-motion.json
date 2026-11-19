@@ -36,7 +36,7 @@
         "settings": {},
         "position": {
           "x": 260,
-          "y": 120
+          "y": 0
         },
         "inputs": {
           "smoothTime": 2
@@ -49,7 +49,7 @@
         "settings": {},
         "position": {
           "x": 260,
-          "y": 280
+          "y": 200
         }
       },
       {
@@ -75,7 +75,7 @@
           "arms": []
         },
         "position": {
-          "x": 260,
+          "x": 1300,
           "y": 2600
         }
       },
@@ -157,7 +157,7 @@
           ]
         },
         "position": {
-          "x": 260,
+          "x": 1300,
           "y": 3700
         }
       },
@@ -239,8 +239,188 @@
           ]
         },
         "position": {
-          "x": 260,
+          "x": 1300,
           "y": 5000
+        }
+      },
+      {
+        "id": "body-intensity",
+        "version": 1,
+        "type": "variable.getNumber",
+        "settings": {
+          "variableId": "body-intensity"
+        },
+        "position": {
+          "x": 260,
+          "y": 400
+        }
+      },
+      {
+        "id": "body-direction-x",
+        "version": 1,
+        "type": "variable.getNumber",
+        "settings": {
+          "variableId": "body-direction-x"
+        },
+        "position": {
+          "x": 260,
+          "y": 540
+        }
+      },
+      {
+        "id": "body-direction-y",
+        "version": 1,
+        "type": "variable.getNumber",
+        "settings": {
+          "variableId": "body-direction-y"
+        },
+        "position": {
+          "x": 260,
+          "y": 680
+        }
+      },
+      {
+        "id": "body-direction-z",
+        "version": 1,
+        "type": "variable.getNumber",
+        "settings": {
+          "variableId": "body-direction-z"
+        },
+        "position": {
+          "x": 260,
+          "y": 820
+        }
+      },
+      {
+        "id": "spine",
+        "version": 1,
+        "type": "variable.getNumber",
+        "settings": {
+          "variableId": "spine"
+        },
+        "position": {
+          "x": 260,
+          "y": 960
+        }
+      },
+      {
+        "id": "chest",
+        "version": 1,
+        "type": "variable.getNumber",
+        "settings": {
+          "variableId": "chest"
+        },
+        "position": {
+          "x": 260,
+          "y": 1100
+        }
+      },
+      {
+        "id": "neck-compensation",
+        "version": 1,
+        "type": "variable.getNumber",
+        "settings": {
+          "variableId": "neck-compensation"
+        },
+        "position": {
+          "x": 260,
+          "y": 1240
+        }
+      },
+      {
+        "id": "axis-x",
+        "version": 1,
+        "type": "math.multiply",
+        "settings": {},
+        "position": {
+          "x": 520,
+          "y": 400
+        }
+      },
+      {
+        "id": "axis-y",
+        "version": 1,
+        "type": "math.multiply",
+        "settings": {},
+        "position": {
+          "x": 520,
+          "y": 540
+        }
+      },
+      {
+        "id": "axis-z",
+        "version": 1,
+        "type": "math.multiply",
+        "settings": {},
+        "position": {
+          "x": 520,
+          "y": 680
+        }
+      },
+      {
+        "id": "axis-z-signed",
+        "version": 1,
+        "type": "math.multiply",
+        "settings": {},
+        "position": {
+          "x": 780,
+          "y": 680
+        },
+        "inputs": {
+          "b": -1
+        }
+      },
+      {
+        "id": "neck-share",
+        "version": 1,
+        "type": "math.multiply",
+        "settings": {},
+        "position": {
+          "x": 520,
+          "y": 1240
+        },
+        "inputs": {
+          "b": -1
+        }
+      },
+      {
+        "id": "body-x",
+        "version": 1,
+        "type": "math.multiply",
+        "settings": {},
+        "position": {
+          "x": 1040,
+          "y": 200
+        }
+      },
+      {
+        "id": "body-y",
+        "version": 1,
+        "type": "math.multiply",
+        "settings": {},
+        "position": {
+          "x": 1040,
+          "y": 340
+        }
+      },
+      {
+        "id": "body-z",
+        "version": 1,
+        "type": "math.multiply",
+        "settings": {},
+        "position": {
+          "x": 1040,
+          "y": 480
+        }
+      },
+      {
+        "id": "spine-x",
+        "version": 1,
+        "type": "math.multiply",
+        "settings": {},
+        "position": {
+          "x": 1300,
+          "y": 0
         }
       },
       {
@@ -253,12 +433,22 @@
             "spine"
           ],
           "axis": "x",
-          "intensity": 0.125,
+          "intensity": 1,
           "offset": 0
         },
         "position": {
-          "x": 560,
+          "x": 1560,
           "y": 0
+        }
+      },
+      {
+        "id": "spine-y",
+        "version": 1,
+        "type": "math.multiply",
+        "settings": {},
+        "position": {
+          "x": 1300,
+          "y": 260
         }
       },
       {
@@ -271,12 +461,22 @@
             "spine"
           ],
           "axis": "y",
-          "intensity": 0.25,
+          "intensity": 1,
           "offset": 0
         },
         "position": {
-          "x": 560,
+          "x": 1560,
           "y": 260
+        }
+      },
+      {
+        "id": "spine-z",
+        "version": 1,
+        "type": "math.multiply",
+        "settings": {},
+        "position": {
+          "x": 1300,
+          "y": 520
         }
       },
       {
@@ -289,12 +489,22 @@
             "spine"
           ],
           "axis": "z",
-          "intensity": -0.125,
+          "intensity": 1,
           "offset": 0
         },
         "position": {
-          "x": 560,
+          "x": 1560,
           "y": 520
+        }
+      },
+      {
+        "id": "chest-x",
+        "version": 1,
+        "type": "math.multiply",
+        "settings": {},
+        "position": {
+          "x": 1300,
+          "y": 780
         }
       },
       {
@@ -307,12 +517,22 @@
             "chest"
           ],
           "axis": "x",
-          "intensity": 0.0625,
+          "intensity": 1,
           "offset": 0
         },
         "position": {
-          "x": 560,
+          "x": 1560,
           "y": 780
+        }
+      },
+      {
+        "id": "chest-y",
+        "version": 1,
+        "type": "math.multiply",
+        "settings": {},
+        "position": {
+          "x": 1300,
+          "y": 1040
         }
       },
       {
@@ -325,12 +545,22 @@
             "chest"
           ],
           "axis": "y",
-          "intensity": 0.125,
+          "intensity": 1,
           "offset": 0
         },
         "position": {
-          "x": 560,
+          "x": 1560,
           "y": 1040
+        }
+      },
+      {
+        "id": "chest-z",
+        "version": 1,
+        "type": "math.multiply",
+        "settings": {},
+        "position": {
+          "x": 1300,
+          "y": 1300
         }
       },
       {
@@ -343,12 +573,22 @@
             "chest"
           ],
           "axis": "z",
-          "intensity": -0.0625,
+          "intensity": 1,
           "offset": 0
         },
         "position": {
-          "x": 560,
+          "x": 1560,
           "y": 1300
+        }
+      },
+      {
+        "id": "neck-x",
+        "version": 1,
+        "type": "math.multiply",
+        "settings": {},
+        "position": {
+          "x": 1300,
+          "y": 1560
         }
       },
       {
@@ -361,12 +601,22 @@
             "neck"
           ],
           "axis": "x",
-          "intensity": -0.1875,
+          "intensity": 1,
           "offset": 0
         },
         "position": {
-          "x": 560,
+          "x": 1560,
           "y": 1560
+        }
+      },
+      {
+        "id": "neck-y",
+        "version": 1,
+        "type": "math.multiply",
+        "settings": {},
+        "position": {
+          "x": 1300,
+          "y": 1820
         }
       },
       {
@@ -379,12 +629,22 @@
             "neck"
           ],
           "axis": "y",
-          "intensity": -0.375,
+          "intensity": 1,
           "offset": 0
         },
         "position": {
-          "x": 560,
+          "x": 1560,
           "y": 1820
+        }
+      },
+      {
+        "id": "neck-z",
+        "version": 1,
+        "type": "math.multiply",
+        "settings": {},
+        "position": {
+          "x": 1300,
+          "y": 2080
         }
       },
       {
@@ -397,11 +657,11 @@
             "neck"
           ],
           "axis": "z",
-          "intensity": 0.1875,
+          "intensity": 1,
           "offset": 0
         },
         "position": {
-          "x": 560,
+          "x": 1560,
           "y": 2080
         }
       },
@@ -419,7 +679,7 @@
           "offset": 0
         },
         "position": {
-          "x": 560,
+          "x": 1560,
           "y": 2340
         }
       },
@@ -437,7 +697,7 @@
           "offset": 0
         },
         "position": {
-          "x": 560,
+          "x": 1560,
           "y": 2600
         }
       },
@@ -455,7 +715,7 @@
           "offset": 0
         },
         "position": {
-          "x": 560,
+          "x": 1560,
           "y": 2860
         }
       },
@@ -473,7 +733,7 @@
           "offset": 5
         },
         "position": {
-          "x": 560,
+          "x": 1560,
           "y": 3120
         }
       },
@@ -491,7 +751,7 @@
           "offset": -5
         },
         "position": {
-          "x": 560,
+          "x": 1560,
           "y": 3380
         }
       },
@@ -510,7 +770,7 @@
           "offset": 0
         },
         "position": {
-          "x": 560,
+          "x": 1560,
           "y": 3640
         }
       },
@@ -529,7 +789,7 @@
           "offset": 0
         },
         "position": {
-          "x": 560,
+          "x": 1560,
           "y": 3900
         }
       },
@@ -547,7 +807,7 @@
           "offset": 0
         },
         "position": {
-          "x": 560,
+          "x": 1560,
           "y": 4160
         }
       },
@@ -565,7 +825,7 @@
           "offset": 0
         },
         "position": {
-          "x": 560,
+          "x": 1560,
           "y": 4420
         }
       },
@@ -594,7 +854,7 @@
           "offset": 0
         },
         "position": {
-          "x": 560,
+          "x": 1560,
           "y": 4680
         }
       },
@@ -614,7 +874,7 @@
           "offset": 0
         },
         "position": {
-          "x": 560,
+          "x": 1560,
           "y": 4940
         }
       },
@@ -643,7 +903,7 @@
           "offset": 0
         },
         "position": {
-          "x": 560,
+          "x": 1560,
           "y": 5200
         }
       },
@@ -663,7 +923,7 @@
           "offset": 0
         },
         "position": {
-          "x": 560,
+          "x": 1560,
           "y": 5460
         }
       }
@@ -684,6 +944,118 @@
         "targetPort": "value"
       },
       {
+        "id": "body-direction-x.value-axis-x.a",
+        "sourceNodeId": "body-direction-x",
+        "sourcePort": "value",
+        "targetNodeId": "axis-x",
+        "targetPort": "a"
+      },
+      {
+        "id": "body-intensity.value-axis-x.b",
+        "sourceNodeId": "body-intensity",
+        "sourcePort": "value",
+        "targetNodeId": "axis-x",
+        "targetPort": "b"
+      },
+      {
+        "id": "body-direction-y.value-axis-y.a",
+        "sourceNodeId": "body-direction-y",
+        "sourcePort": "value",
+        "targetNodeId": "axis-y",
+        "targetPort": "a"
+      },
+      {
+        "id": "body-intensity.value-axis-y.b",
+        "sourceNodeId": "body-intensity",
+        "sourcePort": "value",
+        "targetNodeId": "axis-y",
+        "targetPort": "b"
+      },
+      {
+        "id": "body-direction-z.value-axis-z.a",
+        "sourceNodeId": "body-direction-z",
+        "sourcePort": "value",
+        "targetNodeId": "axis-z",
+        "targetPort": "a"
+      },
+      {
+        "id": "body-intensity.value-axis-z.b",
+        "sourceNodeId": "body-intensity",
+        "sourcePort": "value",
+        "targetNodeId": "axis-z",
+        "targetPort": "b"
+      },
+      {
+        "id": "axis-z.result-axis-z-signed.a",
+        "sourceNodeId": "axis-z",
+        "sourcePort": "result",
+        "targetNodeId": "axis-z-signed",
+        "targetPort": "a"
+      },
+      {
+        "id": "neck-compensation.value-neck-share.a",
+        "sourceNodeId": "neck-compensation",
+        "sourcePort": "value",
+        "targetNodeId": "neck-share",
+        "targetPort": "a"
+      },
+      {
+        "id": "head-angles.x-body-x.a",
+        "sourceNodeId": "head-angles",
+        "sourcePort": "x",
+        "targetNodeId": "body-x",
+        "targetPort": "a"
+      },
+      {
+        "id": "axis-x.result-body-x.b",
+        "sourceNodeId": "axis-x",
+        "sourcePort": "result",
+        "targetNodeId": "body-x",
+        "targetPort": "b"
+      },
+      {
+        "id": "head-angles.y-body-y.a",
+        "sourceNodeId": "head-angles",
+        "sourcePort": "y",
+        "targetNodeId": "body-y",
+        "targetPort": "a"
+      },
+      {
+        "id": "axis-y.result-body-y.b",
+        "sourceNodeId": "axis-y",
+        "sourcePort": "result",
+        "targetNodeId": "body-y",
+        "targetPort": "b"
+      },
+      {
+        "id": "head-angles.z-body-z.a",
+        "sourceNodeId": "head-angles",
+        "sourcePort": "z",
+        "targetNodeId": "body-z",
+        "targetPort": "a"
+      },
+      {
+        "id": "axis-z-signed.result-body-z.b",
+        "sourceNodeId": "axis-z-signed",
+        "sourcePort": "result",
+        "targetNodeId": "body-z",
+        "targetPort": "b"
+      },
+      {
+        "id": "body-x.result-spine-x.a",
+        "sourceNodeId": "body-x",
+        "sourcePort": "result",
+        "targetNodeId": "spine-x",
+        "targetPort": "a"
+      },
+      {
+        "id": "spine.value-spine-x.b",
+        "sourceNodeId": "spine",
+        "sourcePort": "value",
+        "targetNodeId": "spine-x",
+        "targetPort": "b"
+      },
+      {
         "id": "update.flow-follow-spine-x.flow",
         "sourceNodeId": "update",
         "sourcePort": "flow",
@@ -691,9 +1063,9 @@
         "targetPort": "flow"
       },
       {
-        "id": "head-angles.x-follow-spine-x.value",
-        "sourceNodeId": "head-angles",
-        "sourcePort": "x",
+        "id": "spine-x.result-follow-spine-x.value",
+        "sourceNodeId": "spine-x",
+        "sourcePort": "result",
         "targetNodeId": "follow-spine-x",
         "targetPort": "value"
       },
@@ -705,6 +1077,20 @@
         "targetPort": "weight"
       },
       {
+        "id": "body-y.result-spine-y.a",
+        "sourceNodeId": "body-y",
+        "sourcePort": "result",
+        "targetNodeId": "spine-y",
+        "targetPort": "a"
+      },
+      {
+        "id": "spine.value-spine-y.b",
+        "sourceNodeId": "spine",
+        "sourcePort": "value",
+        "targetNodeId": "spine-y",
+        "targetPort": "b"
+      },
+      {
         "id": "follow-spine-x.exit-follow-spine-y.flow",
         "sourceNodeId": "follow-spine-x",
         "sourcePort": "exit",
@@ -712,9 +1098,9 @@
         "targetPort": "flow"
       },
       {
-        "id": "head-angles.y-follow-spine-y.value",
-        "sourceNodeId": "head-angles",
-        "sourcePort": "y",
+        "id": "spine-y.result-follow-spine-y.value",
+        "sourceNodeId": "spine-y",
+        "sourcePort": "result",
         "targetNodeId": "follow-spine-y",
         "targetPort": "value"
       },
@@ -726,6 +1112,20 @@
         "targetPort": "weight"
       },
       {
+        "id": "body-z.result-spine-z.a",
+        "sourceNodeId": "body-z",
+        "sourcePort": "result",
+        "targetNodeId": "spine-z",
+        "targetPort": "a"
+      },
+      {
+        "id": "spine.value-spine-z.b",
+        "sourceNodeId": "spine",
+        "sourcePort": "value",
+        "targetNodeId": "spine-z",
+        "targetPort": "b"
+      },
+      {
         "id": "follow-spine-y.exit-follow-spine-z.flow",
         "sourceNodeId": "follow-spine-y",
         "sourcePort": "exit",
@@ -733,9 +1133,9 @@
         "targetPort": "flow"
       },
       {
-        "id": "head-angles.z-follow-spine-z.value",
-        "sourceNodeId": "head-angles",
-        "sourcePort": "z",
+        "id": "spine-z.result-follow-spine-z.value",
+        "sourceNodeId": "spine-z",
+        "sourcePort": "result",
         "targetNodeId": "follow-spine-z",
         "targetPort": "value"
       },
@@ -747,6 +1147,20 @@
         "targetPort": "weight"
       },
       {
+        "id": "body-x.result-chest-x.a",
+        "sourceNodeId": "body-x",
+        "sourcePort": "result",
+        "targetNodeId": "chest-x",
+        "targetPort": "a"
+      },
+      {
+        "id": "chest.value-chest-x.b",
+        "sourceNodeId": "chest",
+        "sourcePort": "value",
+        "targetNodeId": "chest-x",
+        "targetPort": "b"
+      },
+      {
         "id": "follow-spine-z.exit-follow-chest-x.flow",
         "sourceNodeId": "follow-spine-z",
         "sourcePort": "exit",
@@ -754,9 +1168,9 @@
         "targetPort": "flow"
       },
       {
-        "id": "head-angles.x-follow-chest-x.value",
-        "sourceNodeId": "head-angles",
-        "sourcePort": "x",
+        "id": "chest-x.result-follow-chest-x.value",
+        "sourceNodeId": "chest-x",
+        "sourcePort": "result",
         "targetNodeId": "follow-chest-x",
         "targetPort": "value"
       },
@@ -768,6 +1182,20 @@
         "targetPort": "weight"
       },
       {
+        "id": "body-y.result-chest-y.a",
+        "sourceNodeId": "body-y",
+        "sourcePort": "result",
+        "targetNodeId": "chest-y",
+        "targetPort": "a"
+      },
+      {
+        "id": "chest.value-chest-y.b",
+        "sourceNodeId": "chest",
+        "sourcePort": "value",
+        "targetNodeId": "chest-y",
+        "targetPort": "b"
+      },
+      {
         "id": "follow-chest-x.exit-follow-chest-y.flow",
         "sourceNodeId": "follow-chest-x",
         "sourcePort": "exit",
@@ -775,9 +1203,9 @@
         "targetPort": "flow"
       },
       {
-        "id": "head-angles.y-follow-chest-y.value",
-        "sourceNodeId": "head-angles",
-        "sourcePort": "y",
+        "id": "chest-y.result-follow-chest-y.value",
+        "sourceNodeId": "chest-y",
+        "sourcePort": "result",
         "targetNodeId": "follow-chest-y",
         "targetPort": "value"
       },
@@ -789,6 +1217,20 @@
         "targetPort": "weight"
       },
       {
+        "id": "body-z.result-chest-z.a",
+        "sourceNodeId": "body-z",
+        "sourcePort": "result",
+        "targetNodeId": "chest-z",
+        "targetPort": "a"
+      },
+      {
+        "id": "chest.value-chest-z.b",
+        "sourceNodeId": "chest",
+        "sourcePort": "value",
+        "targetNodeId": "chest-z",
+        "targetPort": "b"
+      },
+      {
         "id": "follow-chest-y.exit-follow-chest-z.flow",
         "sourceNodeId": "follow-chest-y",
         "sourcePort": "exit",
@@ -796,9 +1238,9 @@
         "targetPort": "flow"
       },
       {
-        "id": "head-angles.z-follow-chest-z.value",
-        "sourceNodeId": "head-angles",
-        "sourcePort": "z",
+        "id": "chest-z.result-follow-chest-z.value",
+        "sourceNodeId": "chest-z",
+        "sourcePort": "result",
         "targetNodeId": "follow-chest-z",
         "targetPort": "value"
       },
@@ -810,6 +1252,20 @@
         "targetPort": "weight"
       },
       {
+        "id": "body-x.result-neck-x.a",
+        "sourceNodeId": "body-x",
+        "sourcePort": "result",
+        "targetNodeId": "neck-x",
+        "targetPort": "a"
+      },
+      {
+        "id": "neck-share.result-neck-x.b",
+        "sourceNodeId": "neck-share",
+        "sourcePort": "result",
+        "targetNodeId": "neck-x",
+        "targetPort": "b"
+      },
+      {
         "id": "follow-chest-z.exit-follow-neck-x.flow",
         "sourceNodeId": "follow-chest-z",
         "sourcePort": "exit",
@@ -817,9 +1273,9 @@
         "targetPort": "flow"
       },
       {
-        "id": "head-angles.x-follow-neck-x.value",
-        "sourceNodeId": "head-angles",
-        "sourcePort": "x",
+        "id": "neck-x.result-follow-neck-x.value",
+        "sourceNodeId": "neck-x",
+        "sourcePort": "result",
         "targetNodeId": "follow-neck-x",
         "targetPort": "value"
       },
@@ -831,6 +1287,20 @@
         "targetPort": "weight"
       },
       {
+        "id": "body-y.result-neck-y.a",
+        "sourceNodeId": "body-y",
+        "sourcePort": "result",
+        "targetNodeId": "neck-y",
+        "targetPort": "a"
+      },
+      {
+        "id": "neck-share.result-neck-y.b",
+        "sourceNodeId": "neck-share",
+        "sourcePort": "result",
+        "targetNodeId": "neck-y",
+        "targetPort": "b"
+      },
+      {
         "id": "follow-neck-x.exit-follow-neck-y.flow",
         "sourceNodeId": "follow-neck-x",
         "sourcePort": "exit",
@@ -838,9 +1308,9 @@
         "targetPort": "flow"
       },
       {
-        "id": "head-angles.y-follow-neck-y.value",
-        "sourceNodeId": "head-angles",
-        "sourcePort": "y",
+        "id": "neck-y.result-follow-neck-y.value",
+        "sourceNodeId": "neck-y",
+        "sourcePort": "result",
         "targetNodeId": "follow-neck-y",
         "targetPort": "value"
       },
@@ -852,6 +1322,20 @@
         "targetPort": "weight"
       },
       {
+        "id": "body-z.result-neck-z.a",
+        "sourceNodeId": "body-z",
+        "sourcePort": "result",
+        "targetNodeId": "neck-z",
+        "targetPort": "a"
+      },
+      {
+        "id": "neck-share.result-neck-z.b",
+        "sourceNodeId": "neck-share",
+        "sourcePort": "result",
+        "targetNodeId": "neck-z",
+        "targetPort": "b"
+      },
+      {
         "id": "follow-neck-y.exit-follow-neck-z.flow",
         "sourceNodeId": "follow-neck-y",
         "sourcePort": "exit",
@@ -859,9 +1343,9 @@
         "targetPort": "flow"
       },
       {
-        "id": "head-angles.z-follow-neck-z.value",
-        "sourceNodeId": "head-angles",
-        "sourcePort": "z",
+        "id": "neck-z.result-follow-neck-z.value",
+        "sourceNodeId": "neck-z",
+        "sourcePort": "result",
         "targetNodeId": "follow-neck-z",
         "targetPort": "value"
       },
@@ -1146,7 +1630,50 @@
         "targetPort": "weight"
       }
     ],
-    "variables": []
+    "variables": [
+      {
+        "id": "body-intensity",
+        "name": "Body Intensity",
+        "type": "number",
+        "default": 0.5
+      },
+      {
+        "id": "body-direction-x",
+        "name": "Body Direction X",
+        "type": "number",
+        "default": 0.5
+      },
+      {
+        "id": "body-direction-y",
+        "name": "Body Direction Y",
+        "type": "number",
+        "default": 1
+      },
+      {
+        "id": "body-direction-z",
+        "name": "Body Direction Z",
+        "type": "number",
+        "default": 0.5
+      },
+      {
+        "id": "spine",
+        "name": "Spine",
+        "type": "number",
+        "default": 0.5
+      },
+      {
+        "id": "chest",
+        "name": "Chest",
+        "type": "number",
+        "default": 0.25
+      },
+      {
+        "id": "neck-compensation",
+        "name": "Neck Compensation",
+        "type": "number",
+        "default": 0.75
+      }
+    ]
   },
   "references": [
     {
