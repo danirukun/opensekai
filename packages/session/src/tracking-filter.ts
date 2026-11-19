@@ -24,6 +24,7 @@ export function createTrackingSampleFilter(options:Partial<OneEuroOptions>={}) {
   }
   for(const [name,value]of Object.entries(sample.expressions))sample.expressions[name]=scalar(`expression:${name}`,value);
   if(sample.root){sample.root.position=vector('root:position',sample.root.position);sample.root.rotation=rotation('root:rotation',sample.root.rotation);}
+  if(sample.headPosition)sample.headPosition=vector('headPosition',sample.headPosition);
   for(const map of [scalars,vectors,rotations])for(const key of map.keys())if(!used.has(key))map.delete(key);
   previous=structuredClone(sample);return sample;
  }};

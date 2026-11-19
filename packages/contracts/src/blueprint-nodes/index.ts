@@ -24,10 +24,11 @@ import { TIMER_NODES } from './timer';
 import { GRAPH_CONTROL_NODES } from './graph-control';
 import { TRACKING_NODES } from './tracking';
 import { YOUTUBE_NODES } from './youtube';
-export { TRACKING_LOST_AFTER_SECONDS } from './tracking';
+export { MAX_NODE_BONES } from './character';
+export { PENDULUM_DEFAULT_ARM, PENDULUM_DEFAULT_INPUT, PENDULUM_INPUT_KINDS, TRACKING_LOST_AFTER_SECONDS } from './tracking';
 export { YOUTUBE_NODE_KINDS, YOUTUBE_NODE_OUTPUTS, isYouTubeNodeType, type YouTubeNodeType } from './youtube';
 
-export { defineNode, IntegerCasesSchema, MAX_SWITCH_CASES, NODE_CATEGORIES, type PortType, type PortShape, type NodeCategory, type DefaultRefs, type BlueprintField, type NodeDefinition } from './define';
+export { defineNode, IntegerCasesSchema, MAX_SWITCH_CASES, NODE_CATEGORIES, type PortType, type PortShape, type NodeCategory, type DefaultRefs, type BlueprintField, type RowColumn, type NodeDefinition } from './define';
 export { KEYSTROKE_CODES, KeystrokeSettingsSchema, keystrokeAccelerator, keystrokeHasModifier, type KeystrokeSettings } from './events';
 
 // Palette order inside a category follows this list.

@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
-import { defaultBlueprintSettings, makeSmokeScene, NODE_DEFINITIONS, nodeDefinition, type AvatarPose, type BlueprintGraph, type BlueprintNodeOf, type TrackingStatus } from '@opensekai/contracts';
-import { EVALUATORS, NO_ENV } from '../src/blueprint-eval';
+import { blueprintPorts, defaultBlueprintSettings, PENDULUM_DEFAULT_INPUT, makeSmokeScene, NODE_DEFINITIONS, nodeDefinition, type AvatarPose, type BlueprintGraph, type BlueprintNode, type BlueprintNodeOf, type TrackingStatus } from '@opensekai/contracts';
+import { boneEuler } from '../src/bone-offsets';
+import { emptyState, EVALUATORS, NO_ENV, type RunEnv, type RunState } from '../src/blueprint-eval';
 import { trackedBlendShape, trackingTrigger, type TrackingEdge } from '../src/blueprint-eval/tracking';
 import { createBlueprintRuntime } from '../src/blueprint-runtime';
 
@@ -132,4 +133,136 @@ it('a reinstall with unchanged logic keeps its edges', () => {
  expect(step(0)).toEqual(['jaw']);
  runtime.install([graph()]);
  expect(step(16)).toEqual([]);
+});
+
+const headNode = { id: 'h', version: 1, position: { x: 0, y: 0 }, type: 'tracking.getHeadPose', settings: { entityId: avatar.id } } as BlueprintNodeOf<'tracking.getHeadPose'>;
+const headOutput = (output: 'rotation' | 'position' | 'tracked', previous: AvatarPose | null, entities = scene) =>
+ (EVALUATORS['tracking.getHeadPose'] as unknown as { data: (...args: unknown[]) => unknown }).data(headNode, output, {}, {}, { ...NO_ENV, scene: () => entities, previousPose: () => previous });
+const headPose = (extra: Partial<AvatarPose>): AvatarPose => ({ avatarId: avatar.id, bones: {}, expressions: {}, ...extra });
+const turned: AvatarPose['bones'] = { head: { space: 'normalized', rotation: [0, Math.sin(Math.PI / 8), 0, Math.cos(Math.PI / 8)] } };
+
+it('reads the head rotation as Get Bone Rotation does for the head', () => {
+ const previous = headPose({ bones: turned });
+ expect(headOutput('rotation', previous)).toEqual(boneEuler(previous, 'head'));
+ expect((headOutput('rotation', previous) as number[])[1]).toBeCloseTo(45);
+ expect(headOutput('rotation', null)).toEqual(boneEuler(null, 'head'));
+});
+
+it('reads the head position from the previous pose, and zero without one', () => {
+ expect(headOutput('position', headPose({ headPosition: [0.01, -0.02, 0.03] }))).toEqual([0.01, -0.02, 0.03]);
+ expect(headOutput('position', headPose({}))).toEqual([0, 0, 0]);
+ expect(headOutput('position', null)).toEqual([0, 0, 0]);
+});
+
+it('reads tracked as the weight of the head bone, 1 without a weight, 0 without a head bone or a pose', () => {
+ expect(headOutput('tracked', headPose({ bones: { head: { ...turned.head!, weight: 0.4 } } }))).toBe(0.4);
+ expect(headOutput('tracked', headPose({ bones: { head: { ...turned.head!, weight: 0 } } }))).toBe(0);
+ expect(headOutput('tracked', headPose({ bones: turned }))).toBe(1);
+ expect(headOutput('tracked', headPose({ bones: { chest: turned.head! } }))).toBe(0);
+ expect(headOutput('tracked', null)).toBe(0);
+});
+
+it('throws when the character is not in the scene', () => {
+ expect(() => headOutput('tracked', null, { ...scene, entities: [] })).toThrow('Character is unavailable');
+});
+
+it('Get Head Pose parses its defaults and sits in the Tracking category with three outputs', () => {
+ const settings = defaultBlueprintSettings('tracking.getHeadPose', { avatarId: 'a', keystroke });
+ expect(nodeDefinition('tracking.getHeadPose').settings.safeParse(settings).success).toBe(true);
+ expect(defaultBlueprintSettings('tracking.getHeadPose', { keystroke })).toBeNull();
+ expect(NODE_DEFINITIONS.find(d => d.type === 'tracking.getHeadPose')).toMatchObject({ label: 'Get Head Pose', category: 'Tracking' });
+ expect(blueprintPorts({ ...headNode, settings } as BlueprintNode).outputs).toEqual({ rotation: 'vector3', position: 'vector3', tracked: 'number' });
+});
+
+const pendulumSettings = (extra: Partial<BlueprintNodeOf<'tracking.pendulum'>['settings']> = {}) =>
+ ({ ...defaultBlueprintSettings('tracking.pendulum', { avatarId: avatar.id, keystroke })!, ...extra }) as BlueprintNodeOf<'tracking.pendulum'>['settings'];
+const pendulumNode = (settings = pendulumSettings()) => ({ id: 'p', version: 1, position: at, type: 'tracking.pendulum', settings }) as BlueprintNodeOf<'tracking.pendulum'>;
+const yawed = (degrees: number) => headPose({ bones: { head: { space: 'normalized', rotation: [0, Math.sin(degrees * Math.PI / 360), 0, Math.cos(degrees * Math.PI / 360)] } } });
+const arm = { length: 10, mass: 0.25, drag: 0.25, spring: 0.5, damping: 0.5, gravity: 1 };
+const pendulumValue = (node: BlueprintNodeOf<'tracking.pendulum'>, state: RunState, extra: Partial<RunEnv>, entities = scene) =>
+ (EVALUATORS['tracking.pendulum'] as unknown as { data: (...args: unknown[]) => unknown }).data(node, 'value', () => 0, state, { ...NO_ENV, scene: () => entities, ...extra }) as number;
+
+it('Pendulum defaults to one head yaw input and no arms, and limits inputs and arms', () => {
+ const settings = pendulumSettings();
+ expect(settings).toEqual({ entityId: avatar.id, inputs: [{ kind: 'headYaw', blendShape: null, weight: 1, scale: 5, absolute: false, clamp: [-100, 100] }], inputSmoothing: 0.1, arms: [] });
+ const schema = nodeDefinition('tracking.pendulum').settings;
+ expect(schema.safeParse(settings).success).toBe(true);
+ expect(defaultBlueprintSettings('tracking.pendulum', { keystroke })).toBeNull();
+ expect(schema.safeParse({ ...settings, inputs: Array.from({ length: 8 }, () => settings.inputs[0]), arms: Array.from({ length: 4 }, () => arm) }).success).toBe(true);
+ expect(schema.safeParse({ ...settings, inputs: Array.from({ length: 9 }, () => settings.inputs[0]) }).success).toBe(false);
+ expect(schema.safeParse({ ...settings, inputs: [] }).success).toBe(false);
+ expect(schema.safeParse({ ...settings, arms: Array.from({ length: 5 }, () => arm) }).success).toBe(false);
+ expect(schema.safeParse({ ...settings, arms: [{ ...arm, mass: -1 }] }).success).toBe(false);
+ expect(schema.safeParse({ ...settings, inputSmoothing: 6 }).success).toBe(false);
+ expect(schema.safeParse({ ...settings, inputs: [{ ...settings.inputs[0], clamp: [1, -1] }] }).success).toBe(false);
+ expect(schema.safeParse({ ...settings, inputs: [{ ...settings.inputs[0], kind: 'blendShape' }] }).success).toBe(false);
+ expect(schema.safeParse({ ...settings, inputs: [{ ...settings.inputs[0], kind: 'blendShape', blendShape: 'jawOpen' }] }).success).toBe(true);
+ expect(schema.safeParse({ ...settings, inputs: [{ ...settings.inputs[0], kind: 'blendShape', blendShape: 'notAShape' }] }).success).toBe(false);
+ expect(NODE_DEFINITIONS.find(d => d.type === 'tracking.pendulum')).toMatchObject({ label: 'Pendulum', category: 'Tracking' });
+ expect(blueprintPorts({ ...pendulumNode(settings) } as BlueprintNode).outputs).toEqual({ value: 'number' });
+});
+
+it('Pendulum steps once for each tick: a second read in the same tick gives the stored value', () => {
+ const node = pendulumNode(), state = emptyState();
+ let previous = yawed(0);
+ const read = (tickMs: number) => pendulumValue(node, state, { deltaSeconds: 1 / 60, tickMs, previousPose: () => previous });
+ expect(read(0)).toBe(0);
+ previous = yawed(90);
+ const first = read(16), stored = state.nodes.get('p');
+ expect(first).toBeGreaterThan(0);
+ expect(first).toBeLessThan(0.5);
+ expect(read(16)).toBe(first);
+ expect(state.nodes.get('p')).toBe(stored);
+ const next = read(32);
+ expect(next).toBeGreaterThan(first);
+ expect(state.nodes.get('p')).not.toBe(stored);
+});
+
+it('Pendulum keeps its state with a time delta of 0, and limits a long delta to 1 s', () => {
+ const node = pendulumNode(pendulumSettings({ inputSmoothing: 0 })), state = emptyState();
+ const read = (deltaSeconds: number, tickMs: number, degrees: number) => pendulumValue(node, state, { deltaSeconds, tickMs, previousPose: () => yawed(degrees) });
+ expect(read(0, 0, 0)).toBe(0);
+ const stored = state.nodes.get('p');
+ expect(read(0, 16, 90)).toBe(0);
+ expect(state.nodes.get('p')).toBe(stored);
+ expect(read(1 / 60, 32, 90)).toBeCloseTo(2.5);
+ const armed = pendulumNode(pendulumSettings({ arms: [arm] }));
+ const stepped = (deltaSeconds: number) => {
+  const other = emptyState();
+  pendulumValue(armed, other, { deltaSeconds: 1 / 60, tickMs: 0, previousPose: () => yawed(0) });
+  return { value: pendulumValue(armed, other, { deltaSeconds, tickMs: 16, previousPose: () => yawed(90) }), state: other.nodes.get('p') };
+ };
+ const long = stepped(3600), second = stepped(1);
+ expect(long.value).toBe(second.value);
+ expect(long.state).toEqual(second.state);
+ expect(Number.isFinite(long.value)).toBe(true);
+ expect(Math.abs(long.value)).toBeLessThanOrEqual(2 * PENDULUM_DEFAULT_INPUT.scale);
+});
+
+it('Pendulum starts again when the arm count changes', () => {
+ const state = emptyState(), env = (tickMs: number) => ({ deltaSeconds: 1 / 60, tickMs, previousPose: () => yawed(90) });
+ const two = pendulumNode(pendulumSettings({ arms: [arm, arm] }));
+ pendulumValue(two, state, env(0));
+ pendulumValue(two, state, env(16));
+ expect((state.nodes.get('p') as { angles: number[] }).angles).toHaveLength(2);
+ const value = pendulumValue(pendulumNode(pendulumSettings({ arms: [arm, arm, arm] })), state, env(32));
+ expect(Number.isFinite(value)).toBe(true);
+ expect(state.nodes.get('p')).toMatchObject({ angles: [0, 0, 0], velocities: [0, 0, 0], mixVelocity: 0 });
+ // With fewer arms, the stale angle of a removed arm would otherwise stay the output.
+ pendulumValue(pendulumNode(pendulumSettings({ arms: [arm, arm, arm] })), state, env(48));
+ const one = pendulumValue(pendulumNode(pendulumSettings({ arms: [arm] })), state, env(64));
+ expect(one).toBe(0);
+ expect(state.nodes.get('p')).toMatchObject({ angles: [0], velocities: [0], mixVelocity: 0 });
+});
+
+it('Pendulum reads blend shapes and head position from the previous pose', () => {
+ const blend = pendulumNode(pendulumSettings({ inputSmoothing: 0, inputs: [{ kind: 'blendShape', blendShape: 'jawOpen', weight: 1, scale: 1, absolute: false, clamp: [-1, 1] }] }));
+ expect(pendulumValue(blend, emptyState(), { previousPose: () => pose({ jawOpen: 0.4 }) })).toBeCloseTo(0.4);
+ const position = pendulumNode(pendulumSettings({ inputSmoothing: 0, inputs: [{ kind: 'headPositionZ', blendShape: null, weight: 0.5, scale: 20, absolute: false, clamp: [-1, 1] }] }));
+ expect(pendulumValue(position, emptyState(), { previousPose: () => headPose({ headPosition: [0, 0, 0.01] }) })).toBeCloseTo(0.1);
+ expect(pendulumValue(position, emptyState(), { previousPose: () => null })).toBe(0);
+});
+
+it('Pendulum throws when the character is not in the scene', () => {
+ expect(() => pendulumValue(pendulumNode(), emptyState(), {}, { ...scene, entities: [] })).toThrow('Character is unavailable');
 });

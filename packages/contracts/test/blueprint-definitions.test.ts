@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { BLUEPRINT_LABELS, BlueprintNodeSchema, NODE_DEFINITIONS, blueprintNodeCatalog, blueprintPorts, defaultBlueprintSettings, type BlueprintKind, type BlueprintNode, type DefaultRefs } from '../src';
+import { BLUEPRINT_LABELS, BlueprintNodeSchema, NODE_DEFINITIONS, blueprintNodeCatalog, blueprintPorts, defaultBlueprintSettings, nodeDefinition, type BlueprintKind, type BlueprintNode, type DefaultRefs } from '../src';
 
 const refs: DefaultRefs = { entityId: 'e', avatarId: 'a', expression: 'happy', mesh: 'Hair', cameraId: 'c', outputId: 'o', trackingSourceId: 's', keystroke: { code: 'KeyH', control: true, alt: true, shift: false, meta: false }, variables: [{ id: 'n', type: 'number' }, { id: 'b', type: 'boolean' }, { id: 'i', type: 'integer' }, { id: 'l', type: 'string[]' }], graphId: 'g' };
 const nodeOf = (type: string, settings: unknown) => ({ id: 'x', version: 1, type, settings, position: { x: 0, y: 0 } });
@@ -57,7 +57,7 @@ it('returns null defaults when the scene lacks the entity, camera, or output', (
 it('publishes a catalog of every node with its ports and settings schema', () => {
  const catalog = blueprintNodeCatalog();
  expect(catalog).toHaveLength(NODE_DEFINITIONS.length);
- expect(catalog).toHaveLength(188);
+ expect(catalog).toHaveLength(191);
  expect(catalog.find(entry => entry.type === 'math.lerp')!.inputDefaults).toEqual({ b: 1, t: 0.5 });
  expect(catalog.find(entry => entry.type === 'vector3.scale')!.inputDefaults).toEqual({ factor: 1 });
  expect(catalog.find(entry => entry.type === 'math.add')!.inputDefaults).toEqual({});
@@ -67,5 +67,12 @@ it('publishes a catalog of every node with its ports and settings schema', () =>
  expect(JSON.parse(JSON.stringify(catalog))).toEqual(catalog);
  expect(catalog.find(entry => entry.type === 'character.getBoneRotation')).toMatchObject({ label: 'Get Bone Rotation', category: 'Character', ports: { inputs: {}, outputs: { euler: 'vector3' } }, settings: { required: ['entityId', 'bone'] } });
  expect(catalog.find(entry => entry.type === 'character.offsetBoneRotation')).toMatchObject({ label: 'Offset Bone Rotation', category: 'Character', ports: { inputs: { flow: 'flow', euler: 'vector3' }, outputs: { exit: 'flow' } } });
+ expect(catalog.find(entry => entry.type === 'character.offsetBones')).toMatchObject({ label: 'Offset Bones', category: 'Character', ports: { inputs: { flow: 'flow', value: 'number', weight: 'number' }, outputs: { exit: 'flow' } }, inputDefaults: { weight: 1 }, settings: { required: ['entityId', 'bones', 'axis', 'intensity', 'offset'] } });
+ expect(defaultBlueprintSettings('character.offsetBones', { avatarId: 'a', keystroke: refs.keystroke })).toEqual({ entityId: 'a', bones: ['spine'], axis: 'y', intensity: 1, offset: 0 });
+ expect(nodeDefinition('character.offsetBones').settings.safeParse({ entityId: 'a', bones: [], axis: 'y', intensity: 1, offset: 0 }).success).toBe(false);
+ expect(nodeDefinition('character.offsetBones').settings.safeParse({ entityId: 'a', bones: ['spine', 'spine'], axis: 'y', intensity: 1, offset: 0 }).success).toBe(false);
+ expect(nodeDefinition('character.offsetBones').settings.safeParse({ entityId: 'a', bones: ['spine'], axis: 'w', intensity: 1, offset: 0 }).success).toBe(false);
+ expect(nodeDefinition('character.offsetBones').settings.safeParse({ entityId: 'a', bones: ['spine'], axis: 'y', intensity: 361, offset: 0 }).success).toBe(false);
+ expect(catalog.find(entry => entry.type === 'tracking.pendulum')).toMatchObject({ label: 'Pendulum', category: 'Tracking', ports: { inputs: {}, outputs: { value: 'number' } }, settings: { required: ['entityId', 'inputs', 'inputSmoothing', 'arms'] } });
  expect(catalog.find(entry => entry.type === 'character.setExpression')).toMatchObject({ label: 'Set Expression', category: 'Character', ports: { inputs: { flow: 'flow', active: 'boolean' }, outputs: { exit: 'flow' } }, settings: { required: ['entityId', 'expression'] } });
 });

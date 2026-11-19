@@ -1,6 +1,7 @@
 import {it,expect} from 'vitest';
 import {defaultTrackingConfig,makeSmokeScene,type TrackingSample,type SceneEntity} from '@opensekai/contracts';
 import {createTrackingComposer} from '../src/tracking';
+import {createTrackingSampleFilter} from '../src/tracking-filter';
 const sample=(id:string,time:number,value:number,space:'raw'|'normalized'='raw',generation=1):TrackingSample=>({sourceId:id,generation,receivedAtMs:time,bones:{head:{space,rotation:[0,Math.sin(value/2),0,Math.cos(value/2)],position:[value,0,0]}},expressions:{jawOpen:value},root:{position:[value,0,0],rotation:[0,Math.sin(value/2),0,Math.cos(value/2)]}});
 function fixture(kind:'vmc'|'ifacialmocap'|'mediapipe'){
  const scene=makeSmokeScene(),config=defaultTrackingConfig(kind);config.enabled=true;
@@ -15,3 +16,12 @@ it.each(['vmc','ifacialmocap','mediapipe'] as const)('filters %s once per receip
 it('resets on gap, coordinate change and omitted channels',()=>{const f=fixture('vmc');f.ingest(sample('source',0,0));f.ingest(sample('source',100,1));expect(f.pose(100).expressions.jawOpen).toBeLessThan(1);f.ingest(sample('source',601,.8));expect(f.pose(601).expressions.jawOpen).toBe(.8);f.ingest(sample('source',602,.3,'normalized'));expect(f.pose(602).bones.head.position).toEqual([.3,0,0]);f.ingest({...sample('source',603,0),bones:{},expressions:{},root:undefined});expect(f.pose(603).bones).toEqual({});f.ingest(sample('source',604,.7));expect(f.pose(604).expressions.jawOpen).toBe(.7);expect(f.pose(604).bones.head.position).toEqual([.7,0,0]);});
 it('resets stopped and replaced source history and preserves stale fade',()=>{const f=fixture('vmc');f.ingest(sample('source',0,0));f.ingest(sample('source',100,.8));const value=f.pose(100).expressions.jawOpen;expect(f.pose(725).expressions.jawOpen).toBeCloseTo(value*.5);f.composer.ingest({samples:[],statuses:[{sourceId:'source',generation:1,state:'stopped',packets:2,invalidPackets:0,lastReceivedAtMs:null,error:null}]},f.scene);f.ingest(sample('source',101,.4));expect(f.pose(101).expressions.jawOpen).toBe(.4);const source=f.scene.entities.find(e=>e.id==='source')!;if(source.kind==='tracking')source.generation=2;f.ingest(sample('source',102,.9,'raw',2));expect(f.pose(102).expressions.jawOpen).toBe(.9);});
 it('isolates channels and separate composer instances',()=>{const a=fixture('vmc'),b=fixture('vmc');a.ingest(sample('source',0,0));a.ingest(sample('source',100,1));b.ingest(sample('source',100,.5));expect(b.pose(100).expressions.jawOpen).toBe(.5);expect(a.pose(100).expressions.jawOpen).not.toBe(.5);});
+it('smooths the head position as a vector channel and adds none to a sample without it',()=>{
+ const filter=createTrackingSampleFilter(),at=(time:number,headPosition?:[number,number,number]):TrackingSample=>({sourceId:'source',generation:1,receivedAtMs:time,bones:{},expressions:{},...(headPosition?{headPosition}:{})});
+ filter.filter(at(0,[0,0,0]));
+ const noisy=filter.filter(at(16,[0.02,-0.01,0.05])).headPosition!;
+ expect(noisy[0]).toBeGreaterThan(0);expect(noisy[0]).toBeLessThan(0.02);
+ expect(noisy[1]).toBeLessThan(0);expect(noisy[1]).toBeGreaterThan(-0.01);
+ expect(noisy[2]).toBeGreaterThan(0);expect(noisy[2]).toBeLessThan(0.05);
+ expect('headPosition' in filter.filter(at(32))).toBe(false);
+});

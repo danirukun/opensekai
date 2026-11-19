@@ -3,9 +3,11 @@
  import {Button,Input,Select,Spinner} from '@oshi-connect/ui';
  import {X} from '@lucide/svelte';
  import {DEFAULT_TRACKING_MAPPING,EXPRESSION_STEPS,FAILED_TRACKING_STATES,type AppApi,type AssetRecord,type ExpressionStepId,type Id,type TrackingProbe,type TrackingStatus} from '@opensekai/contracts';
+ import type {BlueprintSync} from '../blueprints/blueprint-sync';
  import type {EditorModel,EditorView} from '../editor/model';
  import {facePart,guideStep,initialGuide,mainValue,type GuideEffect,type GuideEvent,type GuideStep} from '../editor/tracking-guide';
  import {planCancel,planSetup,setupSnapshot,type GuideSnapshot,type PlannedPart} from '../editor/tracking-guide-plan';
+ import {applySetup,removeGuideGraph} from '../editor/tracking-guide-graph';
  import {bodyOptions,canContinue,changeFace,faceOptions,initialChoice,resolveSetup,showsHands,type ChoiceOption,type FaceChoice,type SetupChoice,type SetupPart} from '../editor/tracking-guide-setup';
  import {groupLevel,rankAddresses,relaxHeading,relaxSecondsLeft,stepProgress,waitsForNext} from '../editor/tracking-guide-view';
  import {parseCameraList,trackingStateLabel,type FaceKitCommands} from '../editor/facekit';
@@ -15,7 +17,7 @@
  import CoachFace from './CoachFace.svelte';
  import GuideMeter from './GuideMeter.svelte';
  import HelpButton from './HelpButton.svelte';
- let {avatarId,model,view,api,assets=[],localAddresses=[],trackingStatus=[],devices=[],faceKit=null,isMac=false,disabled=false,onclose}:{avatarId:string;model:EditorModel;view:EditorView;api:AppApi;assets?:AssetRecord[];localAddresses?:string[];trackingStatus?:TrackingStatus[];devices?:CameraDevice[];faceKit?:FaceKitCommands|null;isMac?:boolean;disabled?:boolean;onclose:()=>void}=$props();
+ let {avatarId,model,view,api,sync=null,assets=[],localAddresses=[],trackingStatus=[],devices=[],faceKit=null,isMac=false,disabled=false,onclose}:{avatarId:string;model:EditorModel;view:EditorView;api:AppApi;sync?:BlueprintSync|null;assets?:AssetRecord[];localAddresses?:string[];trackingStatus?:TrackingStatus[];devices?:CameraDevice[];faceKit?:FaceKitCommands|null;isMac?:boolean;disabled?:boolean;onclose:()=>void}=$props();
 
  const STEPS:GuideStep[]=['pick','connect','relax','expressions','review'];
  const PROMPTS:Record<ExpressionStepId,string>={blink:'Blink',mouthWide:'Open your mouth wide',browsUp:'Raise your brows',smile:'Smile',frown:'Frown',pucker:'Pucker your lips',puffCheeks:'Puff your cheeks',tongueOut:'Stick out your tongue',lookAround:'Look around'};
@@ -76,11 +78,14 @@
   phoneTaken=plan.needsPhone&&phoneAddress!==null;
   retry=false;
   if(plan.needsPhone){askPhone=true;return;}
-  snapshot=setupSnapshot(scene,avatarId,plan);
+  const base=setupSnapshot(scene,avatarId,plan);
+  snapshot=base;
   connecting=true;error=null;
-  const reply=await model.applyOperations(plan.ops,scene.revision);
+  const {reply,graphId,graphError}=await applySetup(model,sync,scene,avatarId,plan,()=>crypto.randomUUID());
   connecting=false;
   if(!reply.ok){snapshot=null;error=reply.error.message;retry=phoneAddress===null;return;}
+  if(graphId)snapshot={...base,graphId};
+  if(graphError)error=graphError;
   askPhone=false;planned=plan.parts;
   dispatch({kind:'connected',sourceIds:plan.parts.map(part=>part.sourceId)});
  }
@@ -130,6 +135,8 @@
    const reply=await model.applyOperations(operations);
    if(!reply.ok){error=reply.error.message;closing=false;start();return false;}
   }
+  const removed=snapshot?.graphId&&sync?removeGuideGraph(sync,snapshot.graphId):null;
+  if(removed&&!removed.ok){error=removed.error.message;closing=false;start();return false;}
   return true;
  }
  async function close(){if(await cancel())onclose();}

@@ -119,6 +119,7 @@ fn on_event(state: &mut State, token: u64, now_ms: f64, event: FaceEvent, parts:
                 bones: BTreeMap::from([("head".to_string(), bone)]),
                 expressions,
                 root: None,
+                head_position: None,
             });
             None
         }

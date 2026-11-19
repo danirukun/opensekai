@@ -1,0 +1,352 @@
+## Arm Movements
+  Name = "Arm Movements"   (default "")
+  Enabled = true
+  Weight = 1.0
+  Inputs: list 3
+    - 33% Head Rotation X 0.00 → 0.00
+       Weight = 0.33   (default 1.0)
+       Input Type = {"label": "Head Rotation X", "value": 3, "description": null, "icon": null}   (default {"label": "Head Position X", "value": 0, "description": null)
+       UnsupportedTracker = "This tracker does not support this input type."
+       BlendShape = null
+       Use Absolute Value = false
+       × = 20.0   (default 5.0)
+       + = 0.0
+       Clamp Override = false
+       Clamp = {"x": -1.0, "y": 1.0}
+    - 33% Head Rotation Y 0.00 → 0.00
+       Weight = 0.33   (default 1.0)
+       Input Type = {"label": "Head Rotation Y", "value": 4, "description": null, "icon": null}   (default {"label": "Head Position X", "value": 0, "description": null)
+       UnsupportedTracker = "This tracker does not support this input type."
+       BlendShape = null
+       Use Absolute Value = true   (default false)
+       × = 20.0   (default 5.0)
+       + = 0.0
+       Clamp Override = false
+       Clamp = {"x": -1.0, "y": 1.0}
+    - 50% Head Position Z 0.00 → 0.00
+       Weight = 0.5   (default 1.0)
+       Input Type = {"label": "Head Position Z", "value": 2, "description": null, "icon": null}   (default {"label": "Head Position X", "value": 0, "description": null)
+       UnsupportedTracker = "This tracker does not support this input type."
+       BlendShape = null
+       Use Absolute Value = false
+       × = 20.0   (default 5.0)
+       + = 0.0
+       Clamp Override = false
+       Clamp = {"x": -1.0, "y": 1.0}
+  Input Smoothing Duration = 0.1
+  Arms: list 4
+    - 10/0.25/0.25/0.5/0.5/1
+       Length = 10.0
+       Mass = 0.25
+       Drag = 0.25
+       Spring = 0.5
+       Damping = 0.5
+       Gravity = 1.0
+    - 10/0.25/0.25/0.5/0.5/1
+       Length = 10.0
+       Mass = 0.25
+       Drag = 0.25
+       Spring = 0.5
+       Damping = 0.5
+       Gravity = 1.0
+    - 10/0.25/0.25/0.5/0.5/1
+       Length = 10.0
+       Mass = 0.25
+       Drag = 0.25
+       Spring = 0.5
+       Damping = 0.5
+       Gravity = 1.0
+    - 10/0.25/0.25/0.5/0.5/1
+       Length = 10.0
+       Mass = 0.25
+       Drag = 0.25
+       Spring = 0.5
+       Damping = 0.5
+       Gravity = 1.0
+  Affected Bones & Child Transforms: list 6
+    - Right Shoulder Z +2
+       Bones = [{"label": "Right Shoulder", "value": 12, "description": null, "icon": null}]   (default [])
+       Child Transforms = []
+       Output Type = {"label": "Rotation", "value": 1, "description": null, "icon": null}
+       Reset Child Transforms = false
+       Axes = {"label": "Z", "value": 2, "description": null, "icon": null}
+       Intensity = 2.0   (default 5.0)
+       Intensity = {"x": 100.0, "y": 100.0}   (default {"x": 5.0, "y": 5.0})
+       Intensity = {"x": 100.0, "y": 100.0, "z": 100.0}   (default {"x": 5.0, "y": 5.0, "z": 5.0})
+       Angle Offset = 5.0   (default 0.0)
+       Angle Offset = {"x": 0.0, "y": 0.0}
+       Angle Offset = {"x": 0.0, "y": 0.0, "z": 0.0}
+    - Left Shoulder Z -2
+       Bones = [{"label": "Left Shoulder", "value": 11, "description": null, "icon": null}]   (default [])
+       Child Transforms = []
+       Output Type = {"label": "Rotation", "value": 1, "description": null, "icon": null}
+       Reset Child Transforms = false
+       Axes = {"label": "Z", "value": 2, "description": null, "icon": null}
+       Intensity = -2.0   (default 5.0)
+       Intensity = {"x": 100.0, "y": 100.0}   (default {"x": 5.0, "y": 5.0})
+       Intensity = {"x": 100.0, "y": 100.0, "z": 100.0}   (default {"x": 5.0, "y": 5.0, "z": 5.0})
+       Angle Offset = -5.0   (default 0.0)
+       Angle Offset = {"x": 0.0, "y": 0.0}
+       Angle Offset = {"x": 0.0, "y": 0.0, "z": 0.0}
+    - 2 Bones Z +2
+       Bones = [{"label": "Right Upper Arm", "value": 14, "description": null, "icon": null}, {"label": "Right Lower Arm", "value": 16,   (default [])
+       Child Transforms = []
+       Output Type = {"label": "Rotation", "value": 1, "description": null, "icon": null}
+       Reset Child Transforms = false
+       Axes = {"label": "Z", "value": 2, "description": null, "icon": null}
+       Intensity = 2.0   (default 5.0)
+       Intensity = {"x": 100.0, "y": 100.0}   (default {"x": 5.0, "y": 5.0})
+       Intensity = {"x": 100.0, "y": 100.0, "z": 100.0}   (default {"x": 5.0, "y": 5.0, "z": 5.0})
+       Angle Offset = 0.0
+       Angle Offset = {"x": 0.0, "y": 0.0}
+       Angle Offset = {"x": 0.0, "y": 0.0, "z": 0.0}
+    - 2 Bones Z -2
+       Bones = [{"label": "Left Upper Arm", "value": 13, "description": null, "icon": null}, {"label": "Left Lower Arm", "value": 15, "   (default [])
+       Child Transforms = []
+       Output Type = {"label": "Rotation", "value": 1, "description": null, "icon": null}
+       Reset Child Transforms = false
+       Axes = {"label": "Z", "value": 2, "description": null, "icon": null}
+       Intensity = -2.0   (default 5.0)
+       Intensity = {"x": 100.0, "y": 100.0}   (default {"x": 5.0, "y": 5.0})
+       Intensity = {"x": 100.0, "y": 100.0, "z": 100.0}   (default {"x": 5.0, "y": 5.0, "z": 5.0})
+       Angle Offset = 0.0
+       Angle Offset = {"x": 0.0, "y": 0.0}
+       Angle Offset = {"x": 0.0, "y": 0.0, "z": 0.0}
+    - Right Hand Z +10
+       Bones = [{"label": "Right Hand", "value": 18, "description": null, "icon": null}]   (default [])
+       Child Transforms = []
+       Output Type = {"label": "Rotation", "value": 1, "description": null, "icon": null}
+       Reset Child Transforms = false
+       Axes = {"label": "Z", "value": 2, "description": null, "icon": null}
+       Intensity = 10.0   (default 5.0)
+       Intensity = {"x": 100.0, "y": 100.0}   (default {"x": 5.0, "y": 5.0})
+       Intensity = {"x": 100.0, "y": 100.0, "z": 100.0}   (default {"x": 5.0, "y": 5.0, "z": 5.0})
+       Angle Offset = 0.0
+       Angle Offset = {"x": 0.0, "y": 0.0}
+       Angle Offset = {"x": 0.0, "y": 0.0, "z": 0.0}
+    - Left Hand Z -10
+       Bones = [{"label": "Left Hand", "value": 17, "description": null, "icon": null}]   (default [])
+       Child Transforms = []
+       Output Type = {"label": "Rotation", "value": 1, "description": null, "icon": null}
+       Reset Child Transforms = false
+       Axes = {"label": "Z", "value": 2, "description": null, "icon": null}
+       Intensity = -10.0   (default 5.0)
+       Intensity = {"x": 100.0, "y": 100.0}   (default {"x": 5.0, "y": 5.0})
+       Intensity = {"x": 100.0, "y": 100.0, "z": 100.0}   (default {"x": 5.0, "y": 5.0, "z": 5.0})
+       Angle Offset = 0.0
+       Angle Offset = {"x": 0.0, "y": 0.0}
+       Angle Offset = {"x": 0.0, "y": 0.0, "z": 0.0}
+  Affected BlendShapes = []
+## Finger Movements
+  Name = "Finger Movements"   (default "")
+  Enabled = true
+  Weight = 1.0
+  Inputs: list 3
+    - 33% Head Rotation X 0.00 → 0.00
+       Weight = 0.33   (default 1.0)
+       Input Type = {"label": "Head Rotation X", "value": 3, "description": null, "icon": null}   (default {"label": "Head Position X", "value": 0, "description": null)
+       UnsupportedTracker = "This tracker does not support this input type."
+       BlendShape = null
+       Use Absolute Value = false
+       × = 20.0   (default 5.0)
+       + = 0.0
+       Clamp Override = false
+       Clamp = {"x": -1.0, "y": 1.0}
+    - 33% Head Rotation Y 0.00 → 0.00
+       Weight = 0.33   (default 1.0)
+       Input Type = {"label": "Head Rotation Y", "value": 4, "description": null, "icon": null}   (default {"label": "Head Position X", "value": 0, "description": null)
+       UnsupportedTracker = "This tracker does not support this input type."
+       BlendShape = null
+       Use Absolute Value = true   (default false)
+       × = 20.0   (default 5.0)
+       + = 0.0
+       Clamp Override = false
+       Clamp = {"x": -1.0, "y": 1.0}
+    - 50% Head Position Z 0.00 → 0.00
+       Weight = 0.5   (default 1.0)
+       Input Type = {"label": "Head Position Z", "value": 2, "description": null, "icon": null}   (default {"label": "Head Position X", "value": 0, "description": null)
+       UnsupportedTracker = "This tracker does not support this input type."
+       BlendShape = null
+       Use Absolute Value = false
+       × = 20.0   (default 5.0)
+       + = 0.0
+       Clamp Override = false
+       Clamp = {"x": -1.0, "y": 1.0}
+  Input Smoothing Duration = 0.1
+  Arms: list 4
+    - 10/0.25/0.25/0.5/0.5/1
+       Length = 10.0
+       Mass = 0.25
+       Drag = 0.25
+       Spring = 0.5
+       Damping = 0.5
+       Gravity = 1.0
+    - 10/0.25/0.25/0.5/0.5/1
+       Length = 10.0
+       Mass = 0.25
+       Drag = 0.25
+       Spring = 0.5
+       Damping = 0.5
+       Gravity = 1.0
+    - 10/0.25/0.25/0.5/0.5/1
+       Length = 10.0
+       Mass = 0.25
+       Drag = 0.25
+       Spring = 0.5
+       Damping = 0.5
+       Gravity = 1.0
+    - 10/0.25/0.25/0.5/0.5/1
+       Length = 10.0
+       Mass = 0.25
+       Drag = 0.25
+       Spring = 0.5
+       Damping = 0.5
+       Gravity = 1.0
+  Affected Bones & Child Transforms: list 4
+    - 12 Bones Z +10
+       Bones = [{"label": "Right Index Proximal", "value": 42, "description": null, "icon": null}, {"label": "Right Middle Proximal", "   (default [])
+       Child Transforms = []
+       Output Type = {"label": "Rotation", "value": 1, "description": null, "icon": null}
+       Reset Child Transforms = false
+       Axes = {"label": "Z", "value": 2, "description": null, "icon": null}
+       Intensity = 10.0   (default 5.0)
+       Intensity = {"x": 5.0, "y": 5.0}
+       Intensity = {"x": 5.0, "y": 5.0, "z": 5.0}
+       Angle Offset = 0.0
+       Angle Offset = {"x": 0.0, "y": 0.0}
+       Angle Offset = {"x": 0.0, "y": 0.0, "z": 0.0}
+    - 3 Bones Y +10
+       Bones = [{"label": "Right Thumb Proximal", "value": 39, "description": null, "icon": null}, {"label": "Right Thumb Intermediate"   (default [])
+       Child Transforms = []
+       Output Type = {"label": "Rotation", "value": 1, "description": null, "icon": null}
+       Reset Child Transforms = false
+       Axes = {"label": "Y", "value": 1, "description": null, "icon": null}   (default {"label": "Z", "value": 2, "description": null, "icon": null)
+       Intensity = 10.0   (default 5.0)
+       Intensity = {"x": 5.0, "y": 5.0}
+       Intensity = {"x": 5.0, "y": 5.0, "z": 5.0}
+       Angle Offset = 0.0
+       Angle Offset = {"x": 0.0, "y": 0.0}
+       Angle Offset = {"x": 0.0, "y": 0.0, "z": 0.0}
+    - 12 Bones Z -10
+       Bones = [{"label": "Left Index Proximal", "value": 27, "description": null, "icon": null}, {"label": "Left Index Intermediate",    (default [])
+       Child Transforms = []
+       Output Type = {"label": "Rotation", "value": 1, "description": null, "icon": null}
+       Reset Child Transforms = false
+       Axes = {"label": "Z", "value": 2, "description": null, "icon": null}
+       Intensity = -10.0   (default 5.0)
+       Intensity = {"x": 5.0, "y": 5.0}
+       Intensity = {"x": 5.0, "y": 5.0, "z": 5.0}
+       Angle Offset = 0.0
+       Angle Offset = {"x": 0.0, "y": 0.0}
+       Angle Offset = {"x": 0.0, "y": 0.0, "z": 0.0}
+    - 3 Bones Y -10
+       Bones = [{"label": "Left Thumb Proximal", "value": 24, "description": null, "icon": null}, {"label": "Left Thumb Intermediate",    (default [])
+       Child Transforms = []
+       Output Type = {"label": "Rotation", "value": 1, "description": null, "icon": null}
+       Reset Child Transforms = false
+       Axes = {"label": "Y", "value": 1, "description": null, "icon": null}   (default {"label": "Z", "value": 2, "description": null, "icon": null)
+       Intensity = -10.0   (default 5.0)
+       Intensity = {"x": 5.0, "y": 5.0}
+       Intensity = {"x": 5.0, "y": 5.0, "z": 5.0}
+       Angle Offset = 0.0
+       Angle Offset = {"x": 0.0, "y": 0.0}
+       Angle Offset = {"x": 0.0, "y": 0.0, "z": 0.0}
+  Affected BlendShapes = []
+## Blink Receptors
+  Name = "Blink Receptors"   (default "")
+  Enabled = true
+  Weight = 1.0
+  Inputs: list 2
+    - 50% eyeBlinkLeft 0.00 → 0.00
+       Weight = 0.5   (default 1.0)
+       Input Type = {"label": "BlendShape", "value": 6, "description": null, "icon": null}   (default {"label": "Head Position X", "value": 0, "description": null)
+       UnsupportedTracker = "This tracker does not support this input type."
+       BlendShape = "eyeBlinkLeft"   (default null)
+       Use Absolute Value = false
+       × = 1.0   (default 5.0)
+       + = 0.0
+       Clamp Override = false
+       Clamp = {"x": -1.0, "y": 1.0}
+    - 50% eyeBlinkRight 0.00 → 0.00
+       Weight = 0.5   (default 1.0)
+       Input Type = {"label": "BlendShape", "value": 6, "description": null, "icon": null}   (default {"label": "Head Position X", "value": 0, "description": null)
+       UnsupportedTracker = "This tracker does not support this input type."
+       BlendShape = "eyeBlinkRight"   (default null)
+       Use Absolute Value = false
+       × = 1.0   (default 5.0)
+       + = 0.0
+       Clamp Override = false
+       Clamp = {"x": -1.0, "y": 1.0}
+  Input Smoothing Duration = 0.1
+  Arms: list 2
+    - 10/0.25/0.25/0.5/0.5/1
+       Length = 10.0
+       Mass = 0.25
+       Drag = 0.25
+       Spring = 0.5
+       Damping = 0.5
+       Gravity = 1.0
+    - 10/0.25/0.25/0.5/0.5/1
+       Length = 10.0
+       Mass = 0.25
+       Drag = 0.25
+       Spring = 0.5
+       Damping = 0.5
+       Gravity = 1.0
+  Affected Bones & Child Transforms = []
+  Affected BlendShapes = []
+## Body Lean
+  Name = "Body Lean"   (default "")
+  Enabled = true
+  Weight = 1.0
+  Inputs: list 1
+    - 100% Head Position Z 0.00 → 0.00
+       Weight = 1.0
+       Input Type = {"label": "Head Position Z", "value": 2, "description": null, "icon": null}   (default {"label": "Head Position X", "value": 0, "description": null)
+       UnsupportedTracker = "This tracker does not support this input type."
+       BlendShape = null
+       Use Absolute Value = false
+       × = 5.0
+       + = 0.0
+       Clamp Override = true   (default false)
+       Clamp = {"x": 0.0, "y": 1.5}   (default {"x": -1.0, "y": 1.0})
+  Input Smoothing Duration = 0.4   (default 0.1)
+  Arms = []
+  Affected Bones & Child Transforms: list 3
+    - Spine X +45
+       Bones = [{"label": "Spine", "value": 7, "description": null, "icon": null}]   (default [])
+       Child Transforms = []
+       Output Type = {"label": "Rotation", "value": 1, "description": null, "icon": null}
+       Reset Child Transforms = false
+       Axes = {"label": "X", "value": 0, "description": null, "icon": null}   (default {"label": "Z", "value": 2, "description": null, "icon": null)
+       Intensity = 45.0   (default 5.0)
+       Intensity = {"x": 5.0, "y": 5.0}
+       Intensity = {"x": 5.0, "y": 5.0, "z": 5.0}
+       Angle Offset = 0.0
+       Angle Offset = {"x": 0.0, "y": 0.0}
+       Angle Offset = {"x": 0.0, "y": 0.0, "z": 0.0}
+    - Neck X -15
+       Bones = [{"label": "Neck", "value": 9, "description": null, "icon": null}]   (default [])
+       Child Transforms = []
+       Output Type = {"label": "Rotation", "value": 1, "description": null, "icon": null}
+       Reset Child Transforms = false
+       Axes = {"label": "X", "value": 0, "description": null, "icon": null}   (default {"label": "Z", "value": 2, "description": null, "icon": null)
+       Intensity = -15.0   (default 5.0)
+       Intensity = {"x": 5.0, "y": 5.0}
+       Intensity = {"x": 5.0, "y": 5.0, "z": 5.0}
+       Angle Offset = 0.0
+       Angle Offset = {"x": 0.0, "y": 0.0}
+       Angle Offset = {"x": 0.0, "y": 0.0, "z": 0.0}
+    - Head X -40
+       Bones = [{"label": "Head", "value": 10, "description": null, "icon": null}]   (default [])
+       Child Transforms = []
+       Output Type = {"label": "Rotation", "value": 1, "description": null, "icon": null}
+       Reset Child Transforms = false
+       Axes = {"label": "X", "value": 0, "description": null, "icon": null}   (default {"label": "Z", "value": 2, "description": null, "icon": null)
+       Intensity = -40.0   (default 5.0)
+       Intensity = {"x": 5.0, "y": 5.0}
+       Intensity = {"x": 5.0, "y": 5.0, "z": 5.0}
+       Angle Offset = 0.0
+       Angle Offset = {"x": 0.0, "y": 0.0}
+       Angle Offset = {"x": 0.0, "y": 0.0, "z": 0.0}
+  Affected BlendShapes = []

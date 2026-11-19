@@ -1,6 +1,8 @@
 import { expect, it } from 'vitest';
-import { makeSmokeScene } from '@opensekai/contracts';
-import { fitPropertySettings, formatCases, formatList, keyLabel, keyOptions, newVariable, parseCases, parseList, parseScalar, propertyOptions, vectorParts } from '../src/blueprints/fields';
+import { defaultBlueprintSettings, HUMANOID_BONES, makeSmokeScene, MAX_NODE_BONES, nodeDefinition, type BlueprintField } from '@opensekai/contracts';
+import { addBone, addRow, boneEntryOptions, cellNumber, fitPropertySettings, formatCases, formatList, keyLabel, keyOptions, newVariable, parseCases, parseList, parseScalar, propertyOptions, rangePart, removeBone, removeRow, setRowCell, vectorParts } from '../src/blueprints/fields';
+
+type RowsField = Extract<BlueprintField, { kind: 'rows' }>;
 
 it('parses a list of 1 to 8 unique integers', () => {
  expect(parseCases('0, 1, -2')).toEqual([0, 1, -2]);
@@ -87,4 +89,60 @@ it('reads smart quotes from macOS as straight quotes', () => {
  expect(parseList('string[]', '“say \\“hi\\””')).toEqual(['say "hi"']);
  // A wrapped line that is not a JSON string stays literal text.
  expect(parseList('string[]', '"a"b"\n“\\x”')).toEqual(['"a"b"', '“\\x”']);
+});
+
+it('adds a row up to the field maximum, removes one down to the minimum, and edits a cell', () => {
+ const definition = nodeDefinition('tracking.pendulum');
+ const settings = defaultBlueprintSettings('tracking.pendulum', { avatarId: 'a', keystroke: { code: 'KeyH', control: false, alt: false, shift: false, meta: false } }) as Record<string, unknown>;
+ const field = (key: string) => definition.fields.find(item => item.key === key) as RowsField;
+ const inputs = field('inputs'), arms = field('arms');
+ expect([inputs.min, inputs.max, arms.min, arms.max]).toEqual([1, 8, 0, 4]);
+ const armed = addRow(settings, arms);
+ expect(armed.arms).toEqual([{ length: 10, mass: 0.25, drag: 0.25, spring: 0.5, damping: 0.5, gravity: 1 }]);
+ const full = Array.from({ length: 4 }, () => 0).reduce<Record<string, unknown>>(next => addRow(next, arms), settings);
+ expect((full.arms as unknown[]).length).toBe(4);
+ expect(addRow(full, arms)).toBe(full);
+ expect(removeRow(armed, arms, 0).arms).toEqual([]);
+ expect(removeRow(settings, inputs, 0)).toBe(settings);
+ const two = addRow(settings, inputs);
+ expect(two.inputs).toEqual([settings.inputs, settings.inputs].flat());
+ const edited = setRowCell(two, inputs, 1, 'weight', 0.5);
+ expect((edited.inputs as Record<string, unknown>[]).map(row => row.weight)).toEqual([1, 0.5]);
+ expect(definition.settings.safeParse(edited).success).toBe(true);
+ expect(settings.inputs).toEqual([{ kind: 'headYaw', blendShape: null, weight: 1, scale: 5, absolute: false, clamp: [-100, 100] }]);
+ expect(removeRow(two, inputs, 0).inputs).toEqual([(edited.inputs as unknown[])[0]]);
+});
+
+it('reads a number cell and one end of a range cell', () => {
+ expect(cellNumber('0.25')).toBe(0.25);
+ expect(cellNumber('')).toBeNull();
+ expect(cellNumber('x')).toBeNull();
+ expect(rangePart([-1, 1], 0, '-0.5')).toEqual([-0.5, 1]);
+ expect(rangePart([-1, 1], 1, '')).toBeNull();
+});
+
+it('names a blend shape when an input turns into a blend shape input', () => {
+ const definition = nodeDefinition('tracking.pendulum');
+ const settings = defaultBlueprintSettings('tracking.pendulum', { avatarId: 'a', keystroke: { code: 'KeyH', control: false, alt: false, shift: false, meta: false } }) as Record<string, unknown>;
+ const inputs = definition.fields.find(item => item.key === 'inputs') as RowsField;
+ const next = setRowCell(settings, inputs, 0, 'kind', 'blendShape');
+ expect((next.inputs as Record<string, unknown>[])[0]).toMatchObject({ kind: 'blendShape', blendShape: 'jawOpen' });
+ expect(definition.settings.safeParse(next).success).toBe(true);
+});
+
+it('the bones field adds and removes humanoid bones and keeps 1..32', () => {
+ const field = nodeDefinition('character.offsetBones').fields.find(item => item.key === 'bones');
+ expect(field).toMatchObject({ label: 'Bones', kind: 'bones' });
+ const one = ['spine'];
+ expect(addBone(one)).toEqual(['spine', 'hips']);
+ expect(removeBone(one, 0)).toBe(one);
+ expect(removeBone(['spine', 'hips'], 0)).toEqual(['hips']);
+ const full = Array.from({ length: MAX_NODE_BONES - 1 }, () => 0).reduce<string[]>(next => addBone(next), one);
+ expect(full).toHaveLength(32);
+ expect(new Set(full).size).toBe(32);
+ expect(full.every(bone => HUMANOID_BONES.includes(bone))).toBe(true);
+ expect(addBone(full)).toBe(full);
+ expect(nodeDefinition('character.offsetBones').settings.safeParse({ entityId: 'a', bones: full, axis: 'y', intensity: 1, offset: 0 }).success).toBe(true);
+ expect(boneEntryOptions(['spine', 'hips'], 1).map(option => option.value)).not.toContain('spine');
+ expect(boneEntryOptions(['spine', 'hips'], 1).map(option => option.value)).toContain('hips');
 });

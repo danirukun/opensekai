@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
-import { makeSmokeScene, type SceneEntity } from '@opensekai/contracts';
+import { makeSmokeScene, upperBodyRotationTemplate, type SceneEntity } from '@opensekai/contracts';
 import { boneOptions } from '../src/blueprints/fields';
-import { availableTemplates, cameraSway, templateAvatar, templateCamera, templatesEnabled, upperBodyRotation } from '../src/blueprints/templates';
+import { availableTemplates, cameraSway, templateAvatar, templateCamera, templatesEnabled, faceOnlyBodyMotion } from '../src/blueprints/templates';
 import { currentInputValues, currentPropertyValue } from '../src/blueprints/current-value';
 
 const twoAvatars = () => {
@@ -20,19 +20,23 @@ it('targets the selected character, else the first avatar, and is unavailable wi
  expect(templateAvatar(empty, null)).toBeNull();
  // A scene without an avatar still offers Camera Sway.
  expect(availableTemplates(empty).map(item => item.label)).toEqual(['Camera Sway']);
- expect(availableTemplates(scene).map(item => item.label)).toEqual(['Upper Body Rotation', 'Camera Sway']);
+ expect(availableTemplates(scene).map(item => item.label)).toEqual(['Face-Only Body Motion', 'Camera Sway']);
  expect(templatesEnabled(empty, 0)).toBe(true);
  expect(templatesEnabled({ ...empty, entities: [] }, 0)).toBe(false);
  expect(templatesEnabled(scene, 7)).toBe(true);
  expect(templatesEnabled(scene, 8)).toBe(false);
 });
 
-it('imports an enabled Upper Body Rotation graph for the target character', () => {
- const reply = upperBodyRotation(twoAvatars(), 'second', () => 'g');
+it('imports an enabled Face-Only Body Motion graph for the target character, and keeps Upper Body Rotation for old graphs', () => {
+ const reply = faceOnlyBodyMotion(twoAvatars(), 'second', () => 'g');
  if (!reply.ok) throw new Error(reply.error.message);
  expect(reply.data.report).toEqual({ graphId: 'g', enabled: true, remapped: [], missing: [] });
- expect(reply.data.graph.nodes.filter(node => node.type.startsWith('character.')).map(node => (node.settings as { entityId: string }).entityId)).toEqual(['second', 'second', 'second', 'second']);
- expect(upperBodyRotation({ ...twoAvatars(), entities: [] }, null, () => 'g').ok).toBe(false);
+ expect(reply.data.graph.name).toBe('Face-Only Body Motion');
+ const targets = reply.data.graph.nodes.flatMap(node => 'entityId' in node.settings ? [(node.settings as { entityId: string }).entityId] : []);
+ expect(targets.length).toBeGreaterThan(0);
+ expect(new Set(targets)).toEqual(new Set(['second']));
+ expect(faceOnlyBodyMotion({ ...twoAvatars(), entities: [] }, null, () => 'g').ok).toBe(false);
+ expect(upperBodyRotationTemplate({ id: 'second', name: 'Second' }).graph.name).toBe('Upper Body Rotation');
 });
 
 it('labels humanoid bones for the bone picker', () => {

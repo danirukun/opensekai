@@ -127,6 +127,31 @@ describe('composer', () => {
   expect(angle(stale.bones.head!.rotation)).toBeCloseTo(40, 6);
   expect(stale.expressions.jawOpen).toBeCloseTo(.4, 9);
  });
+ it('gives the face character the calibrated head position, with the stale fade', () => {
+  const calibration = { bones: { head: bone(qy(10), 'raw') }, headPosition: [0.01, 0.1, 0.02] as [number, number, number] };
+  const scene = performers([source('face', 'ifacialmocap', { calibration })], { bodySourceId: null, faceSourceId: 'face' });
+  const composer = createTrackingComposer();
+  composer.ingest(update({ ...sample({ head: bone(qy(30), 'raw') }, {}, 'face'), headPosition: [0.02, 0.1, 0.05] }), scene);
+  const live = composer.evaluate(scene, 0).avatarPoses[0]!.headPosition!;
+  [0.01, 0, 0.03].forEach((value, i) => expect(live[i]).toBeCloseTo(value, 9));
+  const stale = composer.evaluate(scene, 625).avatarPoses[0]!.headPosition!;
+  [0.005, 0, 0.015].forEach((value, i) => expect(stale[i]).toBeCloseTo(value, 9));
+ });
+ it('gives no head position without a face source, a calibration neutral, or a sample value', () => {
+  const calibration = { bones: { head: bone(qy(10), 'raw') }, headPosition: [0, 0, 0] as [number, number, number] };
+  const withPosition = { ...sample({ head: bone(qy(30), 'raw') }, {}, 'face'), headPosition: [0.02, 0.1, 0.05] as [number, number, number] };
+  const run = (extra: Partial<Extract<SceneEntity, { kind: 'tracking' }>>, face: string | null, input: TrackingSample) => {
+   const scene = performers([source('face', 'ifacialmocap', extra)], { bodySourceId: null, faceSourceId: face });
+   const composer = createTrackingComposer();
+   composer.ingest(update(input), scene);
+   return composer.evaluate(scene, 0).avatarPoses.find(pose => pose.avatarId === 'performer');
+  };
+  expect(run({ calibration }, null, withPosition)?.headPosition).toBeUndefined();
+  expect(run({}, 'face', withPosition)!.headPosition).toBeUndefined();
+  expect('headPosition' in run({}, 'face', withPosition)!).toBe(false);
+  expect(run({ calibration: { bones: calibration.bones } }, 'face', withPosition)!.headPosition).toBeUndefined();
+  expect('headPosition' in run({ calibration }, 'face', sample({ head: bone(qy(30), 'raw') }, {}, 'face'))!).toBe(false);
+ });
  it('keeps the MediaPipe head and chest composition with a calibrated chest', () => {
   const shape = (chestPitch: number, faceYaw: number) => ({ chest: bone(qx(chestPitch)), head: bone(multiplyQuat(inverse(qx(chestPitch)), qy(faceYaw))) });
   const calibration = captureCalibration(sample(shape(10, 5)))!;

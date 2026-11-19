@@ -71,7 +71,7 @@ it('compiles unwired data and flow inputs', () => {
  expect(compileBlueprint(graph([node('t', 'scene.toggleVisibility', { entityId: 'm' })], [])).ok).toBe(true);
 });
 
-it('stops at the shared tick budget', () => {
+it('stops at the tick budget that it is given', () => {
  const nodes = [node('start', 'event.manual'), ...Array.from({ length: 70 }, (_, i) => node(`t${i}`, 'scene.toggleVisibility', { entityId: 'm' }))];
  const wires = [wire('w', 'start', 'flow', 't0', 'flow'), ...Array.from({ length: 69 }, (_, i) => wire(`w${i}`, `t${i}`, 'exit', `t${i + 1}`, 'flow'))];
  expect(runFlow(compiled(graph(nodes, wires)), { nodeId: 'start', port: 'flow' }, emptyState(), { visits: 50, effects: 256 }, 0)).toMatchObject({ ok: false, error: { message: 'Blueprint run exceeded its flow limit' } });

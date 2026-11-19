@@ -1,7 +1,8 @@
 import { expect, it, vi } from 'vitest';
 import fixture from '../../../fixtures/protocol/blueprint-set.json';
-import { defaultTrackingConfig, makeSmokeScene, SceneViewSchema } from '@opensekai/contracts';
+import { defaultTrackingConfig, faceOnlyBodyMotionTemplate, importBlueprint, makeSmokeScene, SceneViewSchema } from '@opensekai/contracts';
 import { createSession } from '../src/session';
+import { quatToEuler } from '../src/bone-offsets';
 
 type S = ReturnType<typeof createSession>;
 const visible = (s: S, id: string) => s.inspect().entities.find(e => e.id === id)?.visible;
@@ -345,4 +346,44 @@ it('runs device, tracking, then On Update triggers in one tick, and a threshold 
  expect(tick(0.2, 64)).toEqual(['update']);
  expect(tick(0.7, 80)).toEqual(['update']);
  expect(tick(0.7, 96)).toEqual(['rise', 'update']);
+});
+
+it('moves the spine, the lean, and the arms from a face-only pose with Face-Only Body Motion, and fades them out when the head is lost', () => {
+ const scene = makeSmokeScene();
+ const identity = [0, 0, 0, 1] as [number, number, number, number];
+ scene.entities.push({ id: 'face', kind: 'tracking', name: 'face', visible: true, transform: { position: [0, 0, 0], rotation: identity, scale: [1, 1, 1] }, config: { ...defaultTrackingConfig('ifacialmocap'), enabled: true }, generation: 0,
+  smoothing: { enabled: false, minCutoff: 5, beta: 0.5, derivativeCutoff: 1 }, calibration: { bones: { head: { rotation: identity, space: 'normalized' } }, headPosition: [0, 0, 0] } } as never);
+ const performer = scene.entities.find(entity => entity.id === 'performer')!;
+ if (performer.kind !== 'avatar') throw new Error('Avatar');
+ performer.tracking = { bodySourceId: null, faceSourceId: 'face' };
+ const session = createSession(SceneViewSchema.parse(scene), 's');
+ const imported = importBlueprint(faceOnlyBodyMotionTemplate({ id: 'performer', name: 'performer' }), scene, () => 'face-only');
+ if (!imported.ok) throw new Error(imported.error.message);
+ expect(session.editBlueprints({ clientId: 't', batchId: 'template', ops: [{ kind: 'createGraph', graph: imported.data.graph }] }).ok).toBe(true);
+ const yaw20 = [0, Math.sin(10 * Math.PI / 180), 0, Math.cos(10 * Math.PI / 180)] as [number, number, number, number];
+ const offsets = (frame: ReturnType<S['advance']>) => frame.avatarPoses?.find(pose => pose.avatarId === 'performer')?.boneOffsets ?? {};
+ let frame = session.advance(0, 0);
+ for (let at = 0; at <= 2000; at += 16) {
+  session.ingestTracking({ samples: [{ sourceId: 'face', generation: 0, receivedAtMs: at, bones: { head: { rotation: yaw20, space: 'normalized' } }, expressions: {}, headPosition: [0, 0, 0.05] }], statuses: [] });
+  frame = session.advance(at, at);
+ }
+ const moving = offsets(frame);
+ const euler = (bone: string) => moving[bone] ? quatToEuler(moving[bone]!) : [0, 0, 0];
+ // The fade rises from 0 (the first tick has no pose): a 2 s Smooth Damp is at 1 - 3e^-2 after 2 s.
+ const fade = 1 - 3 * Math.exp(-2);
+ // Unfaded: chest Y = 20 × 0.5 × 1 × 0.25 × 0.5 = 2.5; spine Y = 20 × 0.5 × 1 × 0.5 × 0.5 = 5 (composed with the spine X lean).
+ expect(Math.abs(euler('chest')[1] - 2.5 * fade)).toBeLessThan(0.05);
+ expect(Math.abs(euler('spine')[1] - 5 * fade)).toBeLessThan(0.1);
+ expect(euler('spine')[0]).toBeGreaterThan(1);
+ // Lean: head X = 0.05 m × scale 5 × −40 × Pendulum Intensity 0.5 = −5 (−10 before the intensity).
+ expect(Math.abs(euler('head')[0] - -5 * fade)).toBeLessThan(0.05);
+ expect(Math.abs(euler('rightShoulder')[2])).toBeGreaterThan(1);
+ expect(Math.abs(euler('leftShoulder')[2])).toBeGreaterThan(1);
+ expect(session.inspectBlueprints().errors).toEqual([]);
+ // No sample: the head weight falls to 0, and the 2 s fade leaves about 2 % after 6 s.
+ for (let at = 2016; at <= 8016; at += 16) frame = session.advance(at, at);
+ const angle = (q: [number, number, number, number]) => 2 * Math.acos(Math.min(1, Math.abs(q[3]))) * 180 / Math.PI;
+ const rest = Object.values(offsets(frame));
+ expect(rest.length).toBeGreaterThan(0);
+ expect(rest.every(q => angle(q) < 1)).toBe(true);
 });

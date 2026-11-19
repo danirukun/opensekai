@@ -6,6 +6,7 @@ pub struct Decoder {
     pub bones: BTreeMap<String, TrackingBone>,
     pub expressions: BTreeMap<String, f64>,
     pub root: Option<TrackingRoot>,
+    pub head_position: Option<Vec3>,
     staged: BTreeMap<String, f64>,
 }
 
@@ -394,10 +395,15 @@ impl Decoder {
                 if values.len() != if name == "head" { 6 } else { 3 } {
                     return Err(invalid("Invalid IFacial transform"));
                 }
+                if name == "head" {
+                    // iFacialMocap sends the head translation in meters.
+                    next.head_position = Some([-values[3], -values[4], values[5]]);
+                }
                 next.bones.insert(
                     name.into(),
                     TrackingBone {
-                        rotation: euler(&values),
+                        // Pitch and yaw change sign so the avatar moves like a mirror.
+                        rotation: euler(&[-values[0], -values[1], values[2]]),
                         space: BoneSpace::Normalized,
                         position: None,
                         weight: None,
@@ -563,13 +569,36 @@ mod tests {
         }
     }
     #[test]
+    fn ifacial_keeps_head_translation() {
+        let mut d = Decoder::default();
+        // A forward lean of about 16 cm on a phone (2026-11-19) sent tz 0.16: meters.
+        d.ifacial(b"=head#0,0,0,0.01,0.02,0.16|").unwrap();
+        assert_eq!(d.head_position.unwrap(), [-0.01, -0.02, 0.16]);
+        assert_eq!(d.bones["head"].position, None);
+        d.ifacial(b"jawOpen&10|").unwrap();
+        assert_eq!(d.head_position, None);
+    }
+    #[test]
+    fn ifacial_head_moves_like_a_mirror() {
+        // Phone check (2026-11-19): chin down sent rx +5 (rest −17), a turn to the user's
+        // right sent ry +33, and a tilt to the user's left sent rz +22.
+        let mut d = Decoder::default();
+        d.ifacial(b"=head#10,0,0,0,0,0|").unwrap();
+        assert!(d.bones["head"].rotation[0] > 0., "chin down pitches the head down");
+        d.ifacial(b"=head#0,20,0,0,0,0|").unwrap();
+        assert!(d.bones["head"].rotation[1] > 0., "a turn to the right faces screen right");
+        d.ifacial(b"=head#0,0,20,0,0,0|").unwrap();
+        assert!(d.bones["head"].rotation[2] > 0., "a tilt to the left tilts to screen left");
+    }
+    #[test]
     fn ifacial_v2_legacy_degree_and_bounds() {
         let mut d = Decoder::default();
         d.ifacial(b"jawOpen&150|eyeBlink_L&-4|=head#0,90,0,1,2,3|leftEye#0,0,0|")
             .unwrap();
         assert_eq!(d.expressions["jawOpen"], 1.);
         assert_eq!(d.expressions["eyeBlink_L"], 0.);
-        assert!((d.bones["head"].rotation[1] + std::f64::consts::FRAC_1_SQRT_2).abs() < 1e-8);
+        assert!((d.bones["head"].rotation[1] - std::f64::consts::FRAC_1_SQRT_2).abs() < 1e-8);
+        assert!(d.head_position.is_some());
         d.ifacial(b"jawOpen-50|").unwrap();
         assert_eq!(d.expressions["jawOpen"], 0.5);
         assert!(d.ifacial(b"jawOpen&NaN|").is_err());

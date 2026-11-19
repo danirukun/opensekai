@@ -6,6 +6,8 @@ import { createSession } from '@opensekai/session';
 import { createEditorModel } from '../src/editor/model';
 import { makeAuthoringEntity } from '../src/editor/authoring';
 import { planCancel, planSetup, setupSnapshot, type SetupPlan } from '../src/editor/tracking-guide-plan';
+import { applySetup, removeGuideGraph } from '../src/editor/tracking-guide-graph';
+import { createBlueprintSync } from '../src/blueprints/blueprint-sync';
 import { resolveSetup, type SetupChoice } from '../src/editor/tracking-guide-setup';
 
 type Source = Extract<SceneEntity, { kind: 'tracking' }>;
@@ -84,4 +86,74 @@ it('a run on the second character never changes the source of the first', async 
  expect(avatarOf(after, 'performer').tracking).toEqual(avatarOf(before, 'performer').tracking);
  expect(after.entities.find(e => e.id === 'a-vmc')).toEqual(before.entities.find(e => e.id === 'a-vmc'));
  expect(avatarOf(after, 'b').tracking).toEqual({ bodySourceId: 'b-vmc', faceSourceId: 'b-vmc', fingersSourceId: 'b-vmc' });
+});
+
+// The graph edit goes through the blueprint edit channel of the same session, not through the scene patch.
+async function graphFixture() {
+ const { session, model } = fixture(); await model.load();
+ const sync = createBlueprintSync({ blueprintEdit: async batch => session.editBlueprints(batch), blueprintInspect: async ({ sinceRevision }) => ({ ok: true, data: session.inspectBlueprints(sinceRevision) }) }, 'guide');
+ await sync.load();
+ const edit = vi.spyOn(sync, 'edit');
+ return { session, model, sync, edit };
+}
+const graphNames = (sync: { view(): { name: string }[] }) => sync.view().map(g => g.name);
+
+it('a face-only run creates the Face-Only Body Motion graph after the connect, and Cancel removes it', async () => {
+ const { session, model, sync, edit } = await graphFixture();
+ const before = scene(model);
+ const plan = ready(planSetup(before, 'performer', resolveSetup({ face: 'vmc', body: 'none', hands: false }), null, true, 'face'));
+ const applied = await applySetup(model, sync, before, 'performer', plan, () => crypto.randomUUID());
+ expect(applied.reply.ok).toBe(true);
+ expect(edit).toHaveBeenCalledTimes(1);
+ const ops = edit.mock.calls[0]![0];
+ expect(ops).toHaveLength(1);
+ expect(ops[0]).toMatchObject({ kind: 'createGraph', graph: { name: 'Face-Only Body Motion' } });
+ expect(applied.graphId).toBe(ops[0]!.kind === 'createGraph' ? ops[0].graph.id : null);
+ await sync.idle();
+ expect(session.inspectBlueprints().kind === 'snapshot' && session.inspectBlueprints().blueprints.map(g => g.id)).toEqual([applied.graphId]);
+
+ const snapshot = { ...setupSnapshot(before, 'performer', plan), graphId: applied.graphId };
+ expect((await model.applyOperations(planCancel(scene(model), snapshot), scene(model).revision)).ok).toBe(true);
+ expect(removeGuideGraph(sync, snapshot.graphId!).ok).toBe(true);
+ expect(edit).toHaveBeenLastCalledWith([{ kind: 'removeGraph', graphId: applied.graphId }]);
+ await sync.idle();
+ expect(graphNames(sync)).toEqual([]);
+ expect(avatarOf(scene(model), 'performer').tracking).toEqual({ bodySourceId: null, faceSourceId: null });
+});
+
+it('a failed connect creates no graph', async () => {
+ const { model, sync, edit } = await graphFixture();
+ const before = scene(model);
+ const plan = ready(planSetup(before, 'performer', resolveSetup({ face: 'vmc', body: 'none', hands: false }), null, true, 'face'));
+ const applied = await applySetup(model, sync, { ...before, revision: before.revision + 100 }, 'performer', plan, () => crypto.randomUUID());
+ expect(applied.reply.ok).toBe(false);
+ expect(applied.graphId).toBeUndefined();
+ expect(edit).not.toHaveBeenCalled();
+ expect(graphNames(sync)).toEqual([]);
+});
+
+it('a run with a body part creates no graph, and a later face-only run that keeps that body source creates none', async () => {
+ const { model, sync, edit } = await graphFixture();
+ const first = scene(model);
+ const withBody = ready(planSetup(first, 'performer', resolveSetup({ face: 'vmc', body: 'webcam', hands: false }), null, true, 'a'));
+ expect((await applySetup(model, sync, first, 'performer', withBody, () => crypto.randomUUID())).graphId).toBeUndefined();
+ expect(edit).not.toHaveBeenCalled();
+ const second = scene(model);
+ const faceOnly = ready(planSetup(second, 'performer', resolveSetup({ face: 'vmc', body: 'none', hands: false }), null, true, 'b'));
+ expect((await applySetup(model, sync, second, 'performer', faceOnly, () => crypto.randomUUID())).graphId).toBeUndefined();
+ expect(avatarOf(scene(model), 'performer').tracking?.bodySourceId).not.toBeNull();
+ expect(edit).not.toHaveBeenCalled();
+});
+
+it('a face-only run on the second character makes a graph that targets that character', async () => {
+ const { model, sync } = await graphFixture();
+ const second = makeAuthoringEntity('character', 'b', scene(model).entities);
+ expect((await model.applyOperations([{ kind: 'createEntity', entity: second }], scene(model).revision)).ok).toBe(true);
+ const before = scene(model);
+ const plan = ready(planSetup(before, 'b', resolveSetup({ face: 'vmc', body: 'none', hands: false }), null, true, 'face-b'));
+ const applied = await applySetup(model, sync, before, 'b', plan, () => crypto.randomUUID());
+ expect(applied.graphError).toBeUndefined();
+ const graph = sync.view().find(g => g.id === applied.graphId)!;
+ const targets = new Set(graph.nodes.flatMap(n => 'entityId' in n.settings ? [n.settings.entityId] : []));
+ expect([...targets]).toEqual(['b']);
 });

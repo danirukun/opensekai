@@ -91,18 +91,22 @@ export function connectWithPorts(raw: ConnectionDescriptor, ports: ClientPorts =
             }
             pending.clear();
         };
+        const stateBytes = { frame: 0, vmcPoses: 0 };
         const send = (message: WireMessage) => {
             if (!authenticated && message.kind !== "auth")
                 return false;
             // A frame and the VMC poses of a tick are replaceable state: a full queue drops them, and does not close the connection.
+            // The worker sends both in one task, so the limit is queuedFrames ticks of the last frame plus the last poses.
             const state = message.kind === "frame" || message.kind === "vmcPoses";
             try {
                 const text = JSON.stringify(message);
                 const bytes = new TextEncoder().encode(text).length;
                 const limit = message.kind === "captureReply" ? LIMITS.captureEnvelopeBytes : message.kind === "screenshotReply" ? LIMITS.screenshotEnvelopeBytes : message.kind === "diagnostics" ? LIMITS.diagnosticsBytes : LIMITS.jsonBytes;
                 const queueLimit = LIMITS.jsonBytes * LIMITS.queuedFrames;
+                if (state)
+                    stateBytes[message.kind] = bytes;
                 const queueFull = state
-                    ? socket.bufferedAmount + bytes > Math.min(bytes * LIMITS.queuedFrames, queueLimit)
+                    ? socket.bufferedAmount + bytes > Math.min((stateBytes.frame + stateBytes.vmcPoses) * LIMITS.queuedFrames, queueLimit)
                     : socket.bufferedAmount > queueLimit;
                 if (bytes > limit || queueFull) {
                     if (!state)

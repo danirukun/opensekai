@@ -1993,6 +1993,7 @@ mod tracking_budget_tests {
                     .map(|n| (format!("{n}{}", "x".repeat(126)), 0.3333333333333333))
                     .collect(),
                 root: None,
+                head_position: Some([1.7976931348623157e308; 3]),
             })
             .collect();
         let update = TrackingUpdate {

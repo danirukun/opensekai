@@ -1,16 +1,18 @@
-import {DEFAULT_TRACKING_MAPPING,type AvatarTracking,type Id,type PatchOp,type SceneEntity,type SceneView,type TrackingConfig,type TrackingMapping,type TrackingPreset,type TrackingSmoothing} from '@opensekai/contracts';
+import {DEFAULT_TRACKING_MAPPING,type AvatarTracking,type BlueprintGraph,type Id,type PatchOp,type SceneEntity,type SceneView,type TrackingConfig,type TrackingMapping,type TrackingPreset,type TrackingSmoothing} from '@opensekai/contracts';
+import {MAX_GRAPHS} from '../blueprints/templates';
 import {makeAuthoringEntity} from './authoring';
 import {choiceOf,type SetupPart,type SetupRole} from './tracking-guide-setup';
 
 export interface PlannedPart {preset:TrackingPreset;roles:SetupRole[];sourceId:Id;created:boolean;port:number|null}
 export type SetupPlan={ops:PatchOp[];parts:PlannedPart[];released:Id[];needsPhone:boolean}|{blocked:'sourceLimit'};
 export interface SourceSnapshot {config:TrackingConfig;smoothing:TrackingSmoothing|undefined;mapping:TrackingMapping|undefined}
-export interface GuideSnapshot {avatarId:Id;tracking:AvatarTracking|undefined;created:Id[];sources:Record<Id,SourceSnapshot>}
+export interface GuideSnapshot {avatarId:Id;tracking:AvatarTracking|undefined;created:Id[];sources:Record<Id,SourceSnapshot>;graphId?:Id}
 
 type Avatar=Extract<SceneEntity,{kind:'avatar'}>;
 type Source=Extract<SceneEntity,{kind:'tracking'}>;
 
 export const SOURCE_LIMIT=4;
+export const FACE_ONLY_GRAPH_NAME='Face-Only Body Motion';
 const SLOT_KEY={body:'bodySourceId',face:'faceSourceId',fingers:'fingersSourceId'} as const satisfies Record<SetupRole,keyof AvatarTracking>;
 const sources=(scene:SceneView)=>scene.entities.filter((e):e is Source=>e.kind==='tracking');
 const avatars=(scene:SceneView)=>scene.entities.filter((e):e is Avatar=>e.kind==='avatar');
@@ -176,4 +178,13 @@ export function planCancel(scene:SceneView,snapshot:GuideSnapshot):PatchOp[] {
   if(!sameJson(source.mapping??DEFAULT_TRACKING_MAPPING,before.mapping??DEFAULT_TRACKING_MAPPING))ops.push({kind:'setTrackingMapping',entityId:source.id,mapping:structuredClone<TrackingMapping>(before.mapping??DEFAULT_TRACKING_MAPPING)});
  }
  return ops;
+}
+
+// A face part and no body part (R13). The body slot after the plan decides, so a body source that the character keeps counts.
+export function faceOnlyMotionNeeded(scene:SceneView,avatarId:Id,plan:Extract<SetupPlan,{ops:PatchOp[]}>,graphs:readonly BlueprintGraph[]):boolean {
+ if(!avatars(scene).some(e=>e.id===avatarId)||graphs.length>=MAX_GRAPHS)return false;
+ if(!plan.parts.some(p=>p.roles.includes('face'))||plan.parts.some(p=>p.roles.includes('body')))return false;
+ const bound=plan.ops.filter((op):op is Extract<PatchOp,{kind:'setAvatarTracking'}>=>op.kind==='setAvatarTracking'&&op.entityId===avatarId).at(-1);
+ if(bound&&bound.tracking.bodySourceId!==null)return false;
+ return !graphs.some(g=>g.name===FACE_ONLY_GRAPH_NAME&&g.nodes.some(n=>'entityId' in n.settings&&n.settings.entityId===avatarId));
 }

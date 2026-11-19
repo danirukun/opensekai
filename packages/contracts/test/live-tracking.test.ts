@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {defaultTrackingConfig,AvatarPoseSchema,SceneEntitySchema,ScenePatchSchema,SceneViewSchema,TrackingSampleSchema,RuntimeFrameSchema,makeSmokeScene,ClockEnvelopeSchema,AppStatusSchema,TrackingBoneSchema,TrackingStatusSchema,TrackingConfigSchema,FACE_ONLY_TRACKING_KINDS,FAILED_TRACKING_STATES} from '../src/index';
+import {defaultTrackingConfig,AvatarPoseSchema,SceneEntitySchema,ScenePatchSchema,SceneViewSchema,TrackingSampleSchema,TrackingCalibrationSchema,RuntimeFrameSchema,makeSmokeScene,ClockEnvelopeSchema,AppStatusSchema,TrackingBoneSchema,TrackingStatusSchema,TrackingConfigSchema,FACE_ONLY_TRACKING_KINDS,FAILED_TRACKING_STATES} from '../src/index';
 const base={id:'source',name:'VMC Receiver',visible:true,transform:{position:[0,0,0],rotation:[0,0,0,1],scale:[1,1,1]}};
 const receiver={...base,kind:'tracking',generation:1,config:{kind:'vmc',enabled:false,bindAddress:'127.0.0.1',port:39539,senderAddress:null}};
 describe('live authoring and tracking boundary',()=>{
@@ -23,6 +23,20 @@ describe('live authoring and tracking boundary',()=>{
   expect(defaultTrackingConfig('openseeface')).toEqual({kind:'openseeface',enabled:false,bindAddress:'127.0.0.1',port:11573,senderAddress:null});
   expect(SceneEntitySchema.safeParse({...receiver,config:{...defaultTrackingConfig('openseeface'),senderAddress:'192.168.1.20'}}).success).toBe(true);
   expect(SceneEntitySchema.safeParse({...receiver,config:{...defaultTrackingConfig('openseeface'),phoneAddress:null}}).success).toBe(false);
+ });
+ it('accepts and omits headPosition on sample, pose, and calibration',()=>{
+  const sample={sourceId:'source',generation:1,receivedAtMs:100,bones:{head:{rotation:[0,0,0,1],space:'raw'}},expressions:{A:.5}};
+  const pose={avatarId:'avatar',bones:{},expressions:{}};
+  const calibration={bones:{head:{rotation:[0,0,0,1],space:'raw'}}};
+  const headPosition=[0,.02,.05];
+  for(const [schema,value] of [[TrackingSampleSchema,sample],[AvatarPoseSchema,pose],[TrackingCalibrationSchema,calibration]] as const){
+   const withPosition=schema.parse({...value,headPosition}) as {headPosition?:number[]};
+   expect(withPosition.headPosition).toEqual(headPosition);
+   expect('headPosition' in (schema.parse(value) as object)).toBe(false);
+   expect(schema.safeParse({...value,headPosition:[0,Infinity,0]}).success).toBe(false);
+   expect(schema.safeParse({...value,headPosition:[0,NaN,0]}).success).toBe(false);
+   expect(schema.safeParse({...value,headPosition:[0,0]}).success).toBe(false);
+  }
  });
  it('bounds finite tagged poses and keeps legacy no-pose frame/clock valid',()=>{
   const sample={sourceId:'source',generation:1,receivedAtMs:100,bones:{head:{rotation:[0,0,0,1],space:'raw'}},expressions:{A:.5}};

@@ -1,10 +1,21 @@
 import { z } from 'zod';
-import { exportBlueprint, importBlueprint, type AppApi, type BlueprintFile, type BlueprintImportReport, type BlueprintInspect, type Reply, type SceneView } from '@opensekai/contracts';
+import { exportBlueprint, faceOnlyBodyMotionTemplate, importBlueprint, type AppApi, type BlueprintFile, type BlueprintImportReport, type BlueprintInspect, type Reply, type SceneView } from '@opensekai/contracts';
 import { invokeTool } from './tools';
 
 const Id = z.string().min(1).max(256);
 export const BlueprintExportParams = z.strictObject({ sceneId: Id, graphId: Id });
-export const BlueprintImportParams = z.strictObject({ sceneId: Id, file: z.record(z.string(), z.unknown()) });
+// A file, or a bundled template for one character. One object, so MCP gets an object schema without a top-level union.
+export const BlueprintImportParams = z.strictObject({ sceneId: Id, file: z.record(z.string(), z.unknown()).optional(), template: z.literal('face-only-body-motion').optional(), avatarId: Id.optional() })
+ .superRefine((params, context) => {
+  if ((params.file === undefined) === (params.template === undefined)) context.addIssue({ code: 'custom', message: 'Give file or template', path: ['template'] });
+  if (params.template !== undefined && params.avatarId === undefined) context.addIssue({ code: 'custom', message: 'Template needs avatarId', path: ['avatarId'] });
+  if (params.template === undefined && params.avatarId !== undefined) context.addIssue({ code: 'custom', message: 'avatarId needs template', path: ['avatarId'] });
+ });
+// The Face-Only Body Motion template for a character of the scene.
+const templateFile = (scene: SceneView, avatarId: string): Reply<BlueprintFile> => {
+ const avatar = scene.entities.find(entity => entity.id === avatarId && entity.kind === 'avatar');
+ return avatar ? { ok: true, data: faceOnlyBodyMotionTemplate({ id: avatar.id, name: avatar.name }) } : { ok: false, error: { code: 'INVALID_INPUT', message: 'Character not found', ids: [avatarId] } };
+};
 const invalid: Reply<never> = { ok: false, error: { code: 'INVALID_INPUT', message: 'Invalid tool parameters', ids: [] } };
 
 export async function exportBlueprintTool(api: AppApi, params: unknown): Promise<Reply<{ file: BlueprintFile }>> {
@@ -24,7 +35,10 @@ export async function importBlueprintTool(api: AppApi, params: unknown, newId: (
  if (!valid.success) return invalid;
  const scene = await invokeTool(api, 'sceneInspect', { sceneId: valid.data.sceneId });
  if (!scene.ok) return scene;
- const imported = importBlueprint(valid.data.file, scene.data as SceneView, newId);
+ const view = scene.data as SceneView;
+ const source: Reply<unknown> = valid.data.file ? { ok: true, data: valid.data.file } : templateFile(view, valid.data.avatarId!);
+ if (!source.ok) return source;
+ const imported = importBlueprint(source.data, view, newId);
  if (!imported.ok) return imported;
  const edit = await invokeTool(api, 'blueprintEdit', { clientId: 'mcp-import', batchId: newId(), ops: [{ kind: 'createGraph', graph: imported.data.graph }] });
  if (!edit.ok) return edit;

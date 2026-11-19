@@ -37,6 +37,8 @@ export interface FlowContext {
  follow(...ports: string[]): void;
  // Records the effect and continues at `exit`.
  emit(effect: BlueprintEffect): void;
+ // Records each effect and continues at `exit` once, also when there is none.
+ emitEach(effects: readonly BlueprintEffect[]): void;
  delay(seconds: number): void;
  // Runs `body` once per index from first to last, then `completed`.
  loop(first: number, last: number, options?: LoopOptions): void;

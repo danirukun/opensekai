@@ -3,13 +3,18 @@ import type { Vec3 } from '../types';
 import { rotateByQuaternion } from '../property-registry';
 import upperBodyRotation from './upper-body-rotation.json';
 import cameraSway from './camera-sway.json';
+import faceOnlyBodyMotion from './face-only-body-motion.json';
 
-// The bundled template file with its one avatar reference set to the given character.
-export const upperBodyRotationTemplate = (avatar: { id: string; name: string }): BlueprintFile => {
- const file = structuredClone(upperBodyRotation) as BlueprintFile;
+// A bundled template file with its one avatar reference, and each node that targets it, set to the given character.
+const forAvatar = (bundled: unknown, avatar: { id: string; name: string }): BlueprintFile => {
+ const file = structuredClone(bundled) as BlueprintFile;
+ const placeholder = file.references.find(entry => entry.kind === 'avatar')!.id;
  return { ...file, references: file.references.map(entry => entry.kind === 'avatar' ? { ...entry, id: avatar.id, name: avatar.name } : entry),
-  graph: { ...file.graph, nodes: file.graph.nodes.map(node => 'entityId' in node.settings && node.settings.entityId === upperBodyRotation.references[0]!.id ? { ...node, settings: { ...node.settings, entityId: avatar.id } } as typeof node : node) } };
+  graph: { ...file.graph, nodes: file.graph.nodes.map(node => 'entityId' in node.settings && node.settings.entityId === placeholder ? { ...node, settings: { ...node.settings, entityId: avatar.id } } as typeof node : node) } };
 };
+export const upperBodyRotationTemplate = (avatar: { id: string; name: string }): BlueprintFile => forAvatar(upperBodyRotation, avatar);
+// Body follows head, Body Lean, and arm and finger sway from a face-only pose, faded by the head weight (the Warudo reference values).
+export const faceOnlyBodyMotionTemplate = (avatar: { id: string; name: string }): BlueprintFile => forAvatar(faceOnlyBodyMotion, avatar);
 
 const SWAY_OFFSET: Vec3 = [0.5, 0, 0], SWAY_FOV_DEGREES = 5;
 const round = (value: number) => Math.round(value * 1e4) / 1e4 + 0;
