@@ -4,11 +4,13 @@ import { invokeTool } from './tools';
 
 const Id = z.string().min(1).max(256);
 export const BlueprintExportParams = z.strictObject({ sceneId: Id, graphId: Id });
-// A file, or a bundled template for one character.
-export const BlueprintImportParams = z.union([
- z.strictObject({ sceneId: Id, file: z.record(z.string(), z.unknown()) }),
- z.strictObject({ sceneId: Id, template: z.literal('face-only-body-motion'), avatarId: Id }),
-]);
+// A file, or a bundled template for one character. One object, so MCP gets an object schema without a top-level union.
+export const BlueprintImportParams = z.strictObject({ sceneId: Id, file: z.record(z.string(), z.unknown()).optional(), template: z.literal('face-only-body-motion').optional(), avatarId: Id.optional() })
+ .superRefine((params, context) => {
+  if ((params.file === undefined) === (params.template === undefined)) context.addIssue({ code: 'custom', message: 'Give file or template', path: ['template'] });
+  if (params.template !== undefined && params.avatarId === undefined) context.addIssue({ code: 'custom', message: 'Template needs avatarId', path: ['avatarId'] });
+  if (params.template === undefined && params.avatarId !== undefined) context.addIssue({ code: 'custom', message: 'avatarId needs template', path: ['avatarId'] });
+ });
 // The Face-Only Body Motion template for a character of the scene.
 const templateFile = (scene: SceneView, avatarId: string): Reply<BlueprintFile> => {
  const avatar = scene.entities.find(entity => entity.id === avatarId && entity.kind === 'avatar');
@@ -34,7 +36,7 @@ export async function importBlueprintTool(api: AppApi, params: unknown, newId: (
  const scene = await invokeTool(api, 'sceneInspect', { sceneId: valid.data.sceneId });
  if (!scene.ok) return scene;
  const view = scene.data as SceneView;
- const source: Reply<unknown> = 'file' in valid.data ? { ok: true, data: valid.data.file } : templateFile(view, valid.data.avatarId);
+ const source: Reply<unknown> = valid.data.file ? { ok: true, data: valid.data.file } : templateFile(view, valid.data.avatarId!);
  if (!source.ok) return source;
  const imported = importBlueprint(source.data, view, newId);
  if (!imported.ok) return imported;

@@ -369,7 +369,11 @@ it('moves the spine, the lean, and the arms from a face-only pose with Face-Only
  }
  const moving = offsets(frame);
  const euler = (bone: string) => moving[bone] ? quatToEuler(moving[bone]!) : [0, 0, 0];
- expect(euler('spine')[1]).toBeGreaterThan(1);
+ // The fade rises from 0 (the first tick has no pose): a 2 s Smooth Damp is at 1 - 3e^-2 after 2 s.
+ const fade = 1 - 3 * Math.exp(-2);
+ // Unfaded: chest Y = 20 × 0.5 × 1 × 0.25 × 0.5 = 2.5; spine Y = 20 × 0.5 × 1 × 0.5 × 0.5 = 5 (composed with the spine X lean).
+ expect(Math.abs(euler('chest')[1] - 2.5 * fade)).toBeLessThan(0.05);
+ expect(Math.abs(euler('spine')[1] - 5 * fade)).toBeLessThan(0.1);
  expect(euler('spine')[0]).toBeGreaterThan(1);
  expect(Math.abs(euler('rightShoulder')[2])).toBeGreaterThan(1);
  expect(Math.abs(euler('leftShoulder')[2])).toBeGreaterThan(1);
@@ -378,5 +382,6 @@ it('moves the spine, the lean, and the arms from a face-only pose with Face-Only
  for (let at = 2016; at <= 8016; at += 16) frame = session.advance(at, at);
  const angle = (q: [number, number, number, number]) => 2 * Math.acos(Math.min(1, Math.abs(q[3]))) * 180 / Math.PI;
  const rest = Object.values(offsets(frame));
+ expect(rest.length).toBeGreaterThan(0);
  expect(rest.every(q => angle(q) < 1)).toBe(true);
 });

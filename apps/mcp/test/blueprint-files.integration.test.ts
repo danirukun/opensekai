@@ -51,6 +51,13 @@ it('imports the Face-Only Body Motion template for a character', async () => {
   const both = await client.callTool({ name: 'blueprint_import', arguments: { sceneId: 'scene_smoke', file: load('nudge'), template: 'face-only-body-motion', avatarId: 'performer' } });
   expect(both.isError).toBe(true);
   expect((await client.callTool({ name: 'blueprint_import', arguments: { sceneId: 'scene_smoke', template: 'upper-body-rotation', avatarId: 'performer' } })).isError).toBe(true);
+  for (const args of [{ sceneId: 'scene_smoke' }, { sceneId: 'scene_smoke', template: 'face-only-body-motion' }, { sceneId: 'scene_smoke', file: load('nudge'), avatarId: 'performer' }])
+   expect((await client.callTool({ name: 'blueprint_import', arguments: args })).isError).toBe(true);
   expect((await call('blueprint_inspect', {})).data.blueprints).toHaveLength(1);
+  // A client can reject a tool list in which an input schema has a top-level union.
+  const schema = (await client.listTools()).tools.find(tool => tool.name === 'blueprint_import')!.inputSchema as Record<string, unknown>;
+  expect(schema.type).toBe('object');
+  expect(['anyOf', 'oneOf', 'allOf'].filter(key => key in schema)).toEqual([]);
+  expect(Object.keys(schema.properties as object).sort()).toEqual(['avatarId', 'file', 'sceneId', 'template']);
  } finally { await client.close(); }
 }, 15000);
