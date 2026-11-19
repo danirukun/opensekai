@@ -52,10 +52,12 @@ const substep = (state: PendulumState, arms: readonly PendulumArm[], mix: number
  const angles = state.angles.slice(), velocities = state.velocities.slice();
  let target = smoothed.value;
  arms.forEach((arm, i) => {
-  const theta = angles[i], omega = velocities[i];
-  // Spring toward the target, linear and quadratic drag, and a gravity term that restores toward 0.
-  const acceleration = (SPRING_GAIN * arm.spring * (target - theta) - DAMPING_GAIN * arm.damping * omega - arm.drag * omega * Math.abs(omega) - GRAVITY_GAIN * arm.gravity * theta / Math.max(arm.length, MIN_LENGTH)) / Math.max(arm.mass, MIN_MASS);
-  velocities[i] = omega + acceleration * h;
+  const theta = angles[i], omega = velocities[i], mass = Math.max(arm.mass, MIN_MASS);
+  // A spring toward the target, linear and quadratic drag, and a gravity term that restores toward 0. A negative gravity has no stable rest in this model, so it acts as 0.
+  const spring = SPRING_GAIN * arm.spring, restore = GRAVITY_GAIN * Math.max(arm.gravity, 0) / Math.max(arm.length, MIN_LENGTH);
+  const resistance = DAMPING_GAIN * arm.damping + arm.drag * Math.abs(omega);
+  // Backward Euler on the linear terms (the drag uses the current speed): stable for each step size and each value that the schema accepts.
+  velocities[i] = (omega + h * (spring * (target - theta) - restore * theta) / mass) / (1 + h * (resistance + h * (spring + restore)) / mass);
   angles[i] = theta + velocities[i] * h;
   target = angles[i];
  });

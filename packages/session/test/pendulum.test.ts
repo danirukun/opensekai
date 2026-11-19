@@ -75,6 +75,35 @@ describe('stepPendulum', () => {
   whole.velocities.forEach((velocity, i) => expect(velocity).toBeCloseTo(split.velocities[i], 9));
  });
 
+ // The schema limits (packages/contracts/src/blueprint-nodes/tracking.ts): each physical value is 0..100, and the step floors the mass.
+ // From rest, one arm with a positive stiffness never passes twice its target (its energy only falls), so the bound is twice the largest mix.
+ const limits: [string, Partial<PendulumArm>][] = [
+  ...[0, 0.25].flatMap(mass => (['damping', 'drag', 'spring', 'gravity'] as const).map((key): [string, Partial<PendulumArm>] => [`${key} 100, mass ${mass}`, { [key]: 100, mass }])),
+  ...[0, 100].flatMap(length => [0, 0.25].map((mass): [string, Partial<PendulumArm>] => [`length ${length}, mass ${mass}`, { length, mass }])),
+  ['every value at its limit', { length: 0, mass: 0, drag: 100, spring: 100, damping: 100, gravity: 100 }]
+ ];
+ const drives = { step: () => 1, sine: (seconds: number) => Math.sin(2 * Math.PI * 1.5 * seconds) };
+ describe.each([60, 30])('at %s Hz for 10 s', hz => {
+  it.each(limits.flatMap(([name, over]) => Object.entries(drives).map(([drive, mix]) => [name, drive, over, mix] as const)))('stays finite and bounded with %s (%s input)', (_name, _drive, over, mix) => {
+   let state = initialPendulumState(4, 0);
+   for (let i = 1; i <= 10 * hz; i++) {
+    state = stepPendulum(state, arms(4, over), mix(i / hz), 0, 1 / hz);
+    // A reset to rest would hide a divergence, so each step must keep a moving chain.
+    expect(state.angles.every(Number.isFinite) && state.velocities.every(Number.isFinite)).toBe(true);
+    expect(Math.max(...state.angles.map(Math.abs))).toBeLessThanOrEqual(2);
+   }
+  });
+ });
+
+ it('treats a negative gravity as 0', () => {
+  let negative = initialPendulumState(1, 0), none = negative;
+  for (let i = 0; i < 600; i++) {
+   negative = stepPendulum(negative, arms(1, { gravity: -100, length: 0 }), 1, 0, 1 / 60);
+   none = stepPendulum(none, arms(1, { gravity: 0 }), 1, 0, 1 / 60);
+  }
+  expect(negative).toEqual(none);
+ });
+
  it('resets a non-finite state', () => {
   const state = { ...initialPendulumState(2, 0), angles: [Number.NaN, 0] };
   expect(stepPendulum(state, arms(2), 0.4, 0, 1 / 60)).toEqual(initialPendulumState(2, 0.4));
