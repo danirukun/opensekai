@@ -145,7 +145,7 @@ The body, tops, and bottoms textures have alpha below 1, so they stay cutout. Th
 | --- | --- |
 | Color space | Linear |
 | Render pipeline | Built-in |
-| Directional light | intensity 1, color white, rotation (50, -30, 0), no shadows |
+| Directional light | intensity 1, color white, rotation (50, 150, 0), world forward (0.3214, -0.7660, -0.5567), no shadows |
 | Ambient | flat color (0.2, 0.2, 0.2) |
 | Camera | position (0, 1.3, 1.6), looks at (0, 1.3, 0), vertical FOV 35 degrees, near 0.05, far 20 |
 | Camera background | solid color (0.3, 0.3, 0.3), no HDR, no MSAA |
@@ -153,7 +153,7 @@ The body, tops, and bottoms textures have alpha below 1, so they stay cutout. Th
 
 With this camera, the vertical field of view at the avatar is about 1.0 m. The capture shows the avatar from the hips up.
 
-The light rotation (50, -30, 0) gives the forward vector (-0.32, -0.77, 0.56). The avatar faces +Z, toward the camera, so the key light is above and behind the avatar, on its right (the viewer's left). The front of the face has a half-Lambert value near 0.22. It looks lit because the mapped first shadow border of the face is near 0.15, not because the light faces it. Task 10 uses the same light, so the comparison stays valid; a calibration of the light unit must read a surface that faces the light, such as the top of the head or the lit cheek.
+The light rotation (50, 150, 0) gives the world forward vector (0.3214, -0.7660, -0.5567): the light travels toward -Z and down. The avatar faces +Z, toward the camera, so the key light comes from above and in front of the avatar, from its left (the viewer's right), at three-quarter. The front of the face has a half-Lambert value near 0.78. Task 10 sets a directional light with the same forward vector in OpenSekai. The capture script writes the forward vector to the log (`Reference light forward`) and saves the scene with the re-asserted values.
 
 ## Check the file
 

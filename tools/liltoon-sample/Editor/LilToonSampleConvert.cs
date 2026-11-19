@@ -24,7 +24,8 @@ public static class LilToonSampleConvert
     public const string CameraName = "Reference Camera";
 
     // Reference scene values. Task 10 uses the same values.
-    public static readonly Vector3 LightRotation = new Vector3(50f, -30f, 0f);
+    // Forward (0.3214, -0.7660, -0.5567): the light comes from above and in front of the +Z-facing avatar.
+    public static readonly Vector3 LightRotation = new Vector3(50f, 150f, 0f);
     public const float LightIntensity = 1f;
     public static readonly Color AmbientColor = new Color(0.2f, 0.2f, 0.2f, 1f);
     public static readonly Vector3 CameraPosition = new Vector3(0f, 1.3f, 1.6f);

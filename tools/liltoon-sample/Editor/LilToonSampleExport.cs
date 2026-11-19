@@ -129,6 +129,9 @@ public static class LilToonSampleExport
         camera.clearFlags = CameraClearFlags.SolidColor;
         camera.backgroundColor = LilToonSampleConvert.CameraBackground;
         camera.aspect = (float)CaptureWidth / CaptureHeight;
+        EditorSceneManager.SaveScene(cameraObject.scene);
+        var forward = lightObject.transform.forward;
+        Debug.Log($"Reference light forward: ({forward.x:F4}, {forward.y:F4}, {forward.z:F4})");
 
         ShaderUtil.allowAsyncCompilation = false;
         var rt = new RenderTexture(CaptureWidth, CaptureHeight, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Default);
