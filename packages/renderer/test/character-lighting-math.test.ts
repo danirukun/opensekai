@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LightSettings, SceneEntity } from '@opensekai/contracts';
-import { characterFill, equalize, rimFactor, toonShading } from '../src/character-lighting-math';
+import { CHARACTER_FILL, characterFill, equalize, normalizeFill, rimFactor, toonShading } from '../src/character-lighting-math';
 
 const settings = (patch: Partial<LightSettings> = {}): LightSettings => ({ type: 'ambient', color: '#ffffff', intensity: 1, range: 0, affectCharacters: true, affectProps: true, affectEnvironment: true, shadow: { enabled: false, intensity: 1, soft: true, bias: -0.0005, normalBias: 0.02 }, ...patch });
 const light = (id: string, patch: Partial<LightSettings> = {}, visible = true): SceneEntity => ({ id, name: id, visible, transform: { position: [0, 2, 1], rotation: [0, 0, 0, 1], scale: [1, 1, 1] }, kind: 'light', light: settings(patch) });
@@ -22,6 +22,15 @@ describe('rimFactor', () => {
 describe('equalize', () => {
     it('mixes to the average at factor 1', () => expect(equalize([1, 0, 0], [0, 0, 1], 1)).toEqual([0, 0, 1]));
     it('keeps the sample at factor 0', () => expect(equalize([1, 0, 0], [0, 0, 1], 0)).toEqual([1, 0, 0]));
+});
+
+describe('normalizeFill', () => {
+    const close = (actual: readonly number[], expected: readonly number[]) => actual.forEach((x, i) => expect(x).toBeCloseTo(expected[i]!, 6));
+    it('gives white for a uniform white room', () => close(normalizeFill([3, 3, 3], [3, 3, 3]), [1, 1, 1]));
+    it('does not change with the room level', () => close(normalizeFill([8, 4, 2], [4, 4, 4]), normalizeFill([0.8, 0.4, 0.2], [0.4, 0.4, 0.4])));
+    it('keeps the direction and tint of the sample', () => close(normalizeFill([2, 1, 0], [1, 1, 1]), [2, 1, 0]));
+    it('does not divide by zero in a black room', () => expect(normalizeFill([0, 0, 0], [0, 0, 0])).toEqual([0, 0, 0]));
+    it('has the level of half an ambient light', () => expect(CHARACTER_FILL).toBe(0.5));
 });
 
 describe('characterFill', () => {

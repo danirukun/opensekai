@@ -3,7 +3,7 @@ import {Color, LightingNode, type LightingContext, type LightingModelDirectInput
 import {BRDF_Lambert, diffuseColor, float, materialReference, mix, normalView, normalWorld, pmremTexture, positionViewDirection, smoothstep, vec3} from 'three/tsl';
 import {MToonLightingModel, MToonNodeMaterial} from '@pixiv/three-vrm/nodes';
 import {DEFAULT_AVATAR_LIGHTING} from '@opensekai/contracts';
-import {EXPONENT, RIM} from './character-lighting-math';
+import {CHARACTER_FILL, EXPONENT, LUMINANCE, RIM} from './character-lighting-math';
 
 /** One object for each renderer; the renderer sets it on each character material. */
 export type CharacterShare = {fill: UniformNode<'color'>; map: Texture | null};
@@ -49,8 +49,9 @@ export class CharacterLightingModel extends MToonLightingModel {
         super.indirectDiffuse(lighting);
         const context = lighting as unknown as Context, fill = this.build.fill;
         if (!fill) return;
-        // `iblIrradiance` holds only the equalized room irradiance of `CharacterEnvironmentNode`.
-        context.reflectedLight.indirectDiffuse.addAssign(context.iblIrradiance.mul(fill).mul(this.build.values.environmentFill).mul(lambert(diffuse)));
+        // `iblIrradiance` holds only the normalized room irradiance of `CharacterEnvironmentNode`. The term has the units of an
+        // ambient light (irradiance × Lambert, no π), at CHARACTER_FILL of its intensity.
+        context.reflectedLight.indirectDiffuse.addAssign(context.iblIrradiance.mul(fill).mul(this.build.values.environmentFill).mul(CHARACTER_FILL).mul(lambert(diffuse)));
     }
     indirectSpecular(lighting: LightingContext) {
         const {rimMix, rimMultiply, matcap, parametricRim} = this.build.variants;
@@ -58,14 +59,16 @@ export class CharacterLightingModel extends MToonLightingModel {
     }
 }
 
-// The diffuse part of the room map only, mixed toward the mean of its irradiance at world up and world down (MToon GI equalization).
+// The diffuse part of the room map only, mixed toward the mean of its irradiance at world up and world down (MToon GI equalization),
+// then divided by the luminance of that mean (`normalizeFill` of character-lighting-math.ts). The level cancels, so no π.
 class CharacterEnvironmentNode extends LightingNode {
     private readonly map: Texture;
     constructor(map: Texture) { super(); this.map = map; }
     setup(builder: NodeBuilder): undefined {
-        const irradiance = (direction: Vec3) => pmremTexture(this.map, direction, float(1)).mul(Math.PI) as unknown as Vec3;
+        const irradiance = (direction: Vec3) => pmremTexture(this.map, direction, float(1)) as unknown as Vec3;
         const average = irradiance(vec3(0, 1, 0)).add(irradiance(vec3(0, -1, 0))).mul(0.5);
-        (builder.context as unknown as Context).iblIrradiance.addAssign(mix(irradiance(normalWorld), average, reference('giEqualizationFactor')));
+        const level = average.dot(vec3(...LUMINANCE)).max(1e-4);
+        (builder.context as unknown as Context).iblIrradiance.addAssign(mix(irradiance(normalWorld), average, reference('giEqualizationFactor')).div(level));
     }
 }
 

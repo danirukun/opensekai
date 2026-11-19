@@ -6,6 +6,7 @@ import {DEFAULT_AVATAR_LIGHTING} from '@opensekai/contracts';
 import {createAssetLoader} from '../src/assets';
 import {CharacterMToonMaterial, type CharacterLightingModel} from '../src/character-mtoon';
 import {isLitMaterial} from '../src/scene-lights';
+import {CHARACTER_FILL} from '../src/character-lighting-math';
 
 // A GLB with a JSON chunk and a binary chunk.
 function glb(json: object, bin: Uint8Array): ArrayBuffer {
@@ -140,6 +141,10 @@ it('adds the equalized environment fill from the share of its renderer', () => {
     expect(added.iblIrradiance).toHaveLength(1);
     // The room irradiance is mixed toward the up and down mean by the GI equalization factor of the file.
     expect(references(added.iblIrradiance[0]!, 'giEqualizationFactor')).toHaveLength(1);
+    // The room map gives direction and tint, not level: the irradiance is divided by the luminance of the up and down mean.
+    expect(find(added.iblIrradiance[0]!, node => (node as Node & {op?: string}).op === '/').size).toBe(1);
+    // The fill has the units of an ambient light, scaled by CHARACTER_FILL.
+    expect(find(added.indirectDiffuse[1]!, node => (node as Node & {value?: unknown}).value === CHARACTER_FILL).size).toBe(1);
     // The MToon term, then the fill.
     expect(added.indirectDiffuse).toHaveLength(2);
     expect(uses(added.indirectDiffuse[1]!, fill)).toBe(true);

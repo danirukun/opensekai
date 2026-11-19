@@ -127,4 +127,5 @@ This design does not replace the project process. The implementation plan breaks
 - How the shadow factor is read in `direct()` through `getShadow` in three r187.
 - The equalization method (average direction, SH average, or a mix).
 - The ambient share values that keep the face brightness (measured).
+- Fill level (decided after the GPU check): the fill is normalized to the luminance of the room average and scaled by `CHARACTER_FILL` (0.5), so the stage map gives direction and tint, not level.
 - The demo stage layout details and materials.
