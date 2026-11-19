@@ -1,0 +1,23 @@
+{
+  "name": "OpenSekai.LilToonSample.Editor",
+  "rootNamespace": "",
+  "references": [
+    "lilToon.Editor",
+    "Mochiya.AvatarTools.Editor",
+    "UniGLTF",
+    "UniGLTF.Editor",
+    "VRM10",
+    "VRM10.Editor"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

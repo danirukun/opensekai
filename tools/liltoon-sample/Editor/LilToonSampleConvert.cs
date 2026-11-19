@@ -33,6 +33,16 @@ public static class LilToonSampleConvert
     public const float CameraFieldOfView = 35f;
     public static readonly Color CameraBackground = new Color(0.3f, 0.3f, 0.3f, 1f);
 
+    // MToon cutout materials whose main texture has no alpha below 1. They become opaque so that the
+    // export keeps the opaque and the opaque+outline variants next to the cutout ones.
+    private static readonly HashSet<string> OpaqueByName = new HashSet<string>
+    {
+        "N00_000_00_EyeWhite_00_EYE",
+        "Accessory_GlassesHiFrame_01_MATCAP",
+        "Accessory_CatEar_01_CLOTH",
+        "N00_004_01_Shoes_01_CLOTH",
+    };
+
     [MenuItem("OpenSekai/Convert Catboy to lilToon")]
     public static void Run()
     {
@@ -114,11 +124,12 @@ public static class LilToonSampleConvert
         var mode = values.AlphaMode == 2 ? RenderingMode.Transparent
             : values.AlphaMode == 1 ? RenderingMode.Cutout
             : RenderingMode.Opaque;
-        if (mode == RenderingMode.Cutout && !HasTransparentTexels(values.MainTex))
+        if (mode == RenderingMode.Cutout && OpaqueByName.Contains(source.name))
         {
-            // The MToon cutout hides nothing on this texture, so the opaque variant renders the same.
+            // These textures have no alpha below 1, so the opaque variant renders the same.
+            // The sample keeps them opaque so that the opaque variants are in the export.
             mode = RenderingMode.Opaque;
-            features.Add("cutout->opaque(alpha=1)");
+            features.Add("cutout->opaque(by name)");
         }
 
         var material = new Material(Shader.Find("lilToon")) { name = source.name };
@@ -246,6 +257,35 @@ public static class LilToonSampleConvert
             material.SetFloat("_RimBlur", 0.3f);
             material.SetFloat("_RimFresnelPower", 3.5f);
             if (!features.Contains("rim")) features.Add("rim");
+
+            // Shadow masks. The face reuses its VRoid outline width mask as the AO (border) mask and the
+            // blur mask; the AO shift makes grey mask values push the surface into shadow.
+            var faceMask = material.GetTexture("_OutlineWidthMask");
+            if (faceMask != null)
+            {
+                material.SetTexture("_ShadowBorderMask", faceMask);
+                material.SetVector("_ShadowAOShift", new Vector4(1.2f, -0.2f, 1.2f, -0.2f));
+                material.SetVector("_ShadowAOShift2", new Vector4(1.2f, -0.2f, 1f, 0f));
+                material.SetInt("_ShadowPostAO", 0);
+                material.SetTexture("_ShadowBlurMask", faceMask);
+                features.Add("shadowBorderMask");
+                features.Add("shadowBlurMask");
+            }
+            else
+            {
+                // The body has no mask texture of its own; its main texture varies, so its red channel
+                // scales the shadow strength.
+                material.SetTexture("_ShadowStrengthMask", material.GetTexture("_MainTex"));
+                material.SetFloat("_ShadowStrength", 1f);
+                features.Add("shadowStrengthMask");
+            }
+        }
+        if (name.Contains("CatEar"))
+        {
+            // A non-identity main texture transform for the _MainTex_ST check.
+            material.SetTextureScale("_MainTex", new Vector2(2f, 2f));
+            material.SetTextureOffset("_MainTex", new Vector2(0.5f, 0f));
+            features.Add("mainTexST(2,2,0.5,0)");
         }
         if (isHair)
         {
@@ -382,31 +422,6 @@ public static class LilToonSampleConvert
 
     // VRoid exports 1x1 "Shader_None*" textures where a slot is unused.
     private static bool IsPlaceholder(Texture t) => t == null || t.name.StartsWith("Shader_None") || (t.width <= 2 && t.height <= 2);
-
-    // Reads the texture through a render texture so that unreadable imports work too.
-    private static bool HasTransparentTexels(Texture texture)
-    {
-        if (texture == null) return false;
-        var width = Mathf.Min(texture.width, 512);
-        var height = Mathf.Min(texture.height, 512);
-        var rt = RenderTexture.GetTemporary(width, height, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
-        var previous = RenderTexture.active;
-        try
-        {
-            Graphics.Blit(texture, rt);
-            RenderTexture.active = rt;
-            var copy = new Texture2D(width, height, TextureFormat.RGBA32, false, true);
-            copy.ReadPixels(new Rect(0, 0, width, height), 0, 0);
-            var pixels = copy.GetPixels32();
-            UnityEngine.Object.DestroyImmediate(copy);
-            return pixels.Any(p => p.a < 255);
-        }
-        finally
-        {
-            RenderTexture.active = previous;
-            RenderTexture.ReleaseTemporary(rt);
-        }
-    }
 
     private static string SafeFileName(string name)
     {

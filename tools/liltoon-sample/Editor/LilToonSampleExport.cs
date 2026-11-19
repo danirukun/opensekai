@@ -126,12 +126,16 @@ public static class LilToonSampleExport
         cameraObject.transform.position = LilToonSampleConvert.CameraPosition;
         cameraObject.transform.LookAt(LilToonSampleConvert.CameraTarget);
         camera.fieldOfView = LilToonSampleConvert.CameraFieldOfView;
+        camera.nearClipPlane = 0.05f;
+        camera.farClipPlane = 20f;
         camera.clearFlags = CameraClearFlags.SolidColor;
         camera.backgroundColor = LilToonSampleConvert.CameraBackground;
+        camera.allowHDR = false;
+        camera.allowMSAA = false;
         camera.aspect = (float)CaptureWidth / CaptureHeight;
         EditorSceneManager.SaveScene(cameraObject.scene);
         var forward = lightObject.transform.forward;
-        Debug.Log($"Reference light forward: ({forward.x:F4}, {forward.y:F4}, {forward.z:F4})");
+        Debug.Log($"Reference light forward: ({forward.x:F4}, {forward.y:F4}, {forward.z:F4}); camera MSAA off, quality antiAliasing {QualitySettings.antiAliasing}");
 
         ShaderUtil.allowAsyncCompilation = false;
         var rt = new RenderTexture(CaptureWidth, CaptureHeight, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Default);
