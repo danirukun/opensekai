@@ -215,14 +215,17 @@ public static class LilToonSampleConvert
     {
         var isSkin = name.Contains("_SKIN");
         var isHair = name.Contains("_HAIR");
+        // lilToon mixes the second and third band into the first shadow region only, so the borders
+        // must nest below the mapped first border. The face has a first border near 0.15.
+        var firstBorder = material.GetFloat("_ShadowBorder");
         if (isSkin)
         {
             material.SetColor("_Shadow2ndColor", new Color(0.85f, 0.62f, 0.68f, 1f));
-            material.SetFloat("_Shadow2ndBorder", 0.35f);
-            material.SetFloat("_Shadow2ndBlur", 0.1f);
+            material.SetFloat("_Shadow2ndBorder", firstBorder * 0.75f);
+            material.SetFloat("_Shadow2ndBlur", 0.02f);
             material.SetColor("_Shadow3rdColor", new Color(0.62f, 0.4f, 0.55f, 1f));
-            material.SetFloat("_Shadow3rdBorder", 0.2f);
-            material.SetFloat("_Shadow3rdBlur", 0.1f);
+            material.SetFloat("_Shadow3rdBorder", firstBorder * 0.45f);
+            material.SetFloat("_Shadow3rdBlur", 0.02f);
             features.Add("shadow2");
             features.Add("shadow3");
 
@@ -246,11 +249,11 @@ public static class LilToonSampleConvert
         if (isHair)
         {
             material.SetColor("_Shadow2ndColor", new Color(0.6f, 0.55f, 0.8f, 1f));
-            material.SetFloat("_Shadow2ndBorder", 0.35f);
-            material.SetFloat("_Shadow2ndBlur", 0.1f);
+            material.SetFloat("_Shadow2ndBorder", firstBorder * 0.75f);
+            material.SetFloat("_Shadow2ndBlur", 0.02f);
             material.SetColor("_Shadow3rdColor", new Color(0.4f, 0.35f, 0.6f, 1f));
-            material.SetFloat("_Shadow3rdBorder", 0.2f);
-            material.SetFloat("_Shadow3rdBlur", 0.1f);
+            material.SetFloat("_Shadow3rdBorder", firstBorder * 0.45f);
+            material.SetFloat("_Shadow3rdBlur", 0.02f);
             features.Add("shadow2");
             features.Add("shadow3");
 

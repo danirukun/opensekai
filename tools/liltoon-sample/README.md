@@ -106,6 +106,8 @@ Notes on the mapping:
 
 lilToon has no `_UseShadow2nd` or `_UseShadow3rd` property. The alpha of `_Shadow2ndColor` and `_Shadow3rdColor` turns the band on. The convert script sets that alpha to 0 on every other material, because lilToon turns the second band on by default.
 
+lilToon mixes the second and the third band into the first shadow region only (`lil_common_frag.hlsl`: the final `lerp(indirectCol, directCol, lns.x)` uses the first band factor). A second or third border above the first border gives one merged region, not three bands. The script sets the second border to 0.75 x the mapped first border and the third border to 0.45 x, with blur 0.02. The Catboy face has a first border near 0.15, so its bands are narrow and sit on the shadow side.
+
 ### Result for the Catboy export
 
 | Material | `shaderVariant` | Features in the export |
@@ -150,6 +152,8 @@ The body, tops, and bottoms textures have alpha below 1, so they stay cutout. Th
 | Output | 1920x1080 PNG |
 
 With this camera, the vertical field of view at the avatar is about 1.0 m. The capture shows the avatar from the hips up.
+
+The light rotation (50, -30, 0) gives the forward vector (-0.32, -0.77, 0.56). The avatar faces +Z, toward the camera, so the key light is above and behind the avatar, on its right (the viewer's left). The front of the face has a half-Lambert value near 0.22. It looks lit because the mapped first shadow border of the face is near 0.15, not because the light faces it. Task 10 uses the same light, so the comparison stays valid; a calibration of the light unit must read a surface that faces the light, such as the top of the head or the lit cheek.
 
 ## Check the file
 
