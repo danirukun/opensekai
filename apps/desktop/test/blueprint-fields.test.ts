@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
-import { defaultBlueprintSettings, makeSmokeScene, nodeDefinition, type BlueprintField } from '@opensekai/contracts';
-import { addRow, cellNumber, fitPropertySettings, formatCases, formatList, keyLabel, keyOptions, newVariable, parseCases, parseList, parseScalar, propertyOptions, rangePart, removeRow, setRowCell, vectorParts } from '../src/blueprints/fields';
+import { defaultBlueprintSettings, HUMANOID_BONES, makeSmokeScene, MAX_NODE_BONES, nodeDefinition, type BlueprintField } from '@opensekai/contracts';
+import { addBone, addRow, boneEntryOptions, cellNumber, fitPropertySettings, formatCases, formatList, keyLabel, keyOptions, newVariable, parseCases, parseList, parseScalar, propertyOptions, rangePart, removeBone, removeRow, setRowCell, vectorParts } from '../src/blueprints/fields';
 
 type RowsField = Extract<BlueprintField, { kind: 'rows' }>;
 
@@ -128,4 +128,21 @@ it('names a blend shape when an input turns into a blend shape input', () => {
  const next = setRowCell(settings, inputs, 0, 'kind', 'blendShape');
  expect((next.inputs as Record<string, unknown>[])[0]).toMatchObject({ kind: 'blendShape', blendShape: 'jawOpen' });
  expect(definition.settings.safeParse(next).success).toBe(true);
+});
+
+it('the bones field adds and removes humanoid bones and keeps 1..32', () => {
+ const field = nodeDefinition('character.offsetBones').fields.find(item => item.key === 'bones');
+ expect(field).toMatchObject({ label: 'Bones', kind: 'bones' });
+ const one = ['spine'];
+ expect(addBone(one)).toEqual(['spine', 'hips']);
+ expect(removeBone(one, 0)).toBe(one);
+ expect(removeBone(['spine', 'hips'], 0)).toEqual(['hips']);
+ const full = Array.from({ length: MAX_NODE_BONES - 1 }, () => 0).reduce<string[]>(next => addBone(next), one);
+ expect(full).toHaveLength(32);
+ expect(new Set(full).size).toBe(32);
+ expect(full.every(bone => HUMANOID_BONES.includes(bone))).toBe(true);
+ expect(addBone(full)).toBe(full);
+ expect(nodeDefinition('character.offsetBones').settings.safeParse({ entityId: 'a', bones: full, axis: 'y', intensity: 1, offset: 0 }).success).toBe(true);
+ expect(boneEntryOptions(['spine', 'hips'], 1).map(option => option.value)).not.toContain('spine');
+ expect(boneEntryOptions(['spine', 'hips'], 1).map(option => option.value)).toContain('hips');
 });

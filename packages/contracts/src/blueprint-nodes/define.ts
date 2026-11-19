@@ -23,6 +23,8 @@ export type BlueprintField =
  | { key: string; label: string; kind: 'blendshape' | 'easing' }
  // A list of 1 to 16 mesh names of the selected character (B26 R11).
  | { key: string; label: string; kind: 'meshes' }
+ // A list of 1 to 32 unique humanoid bones.
+ | { key: string; label: string; kind: 'bones' }
  | { key: string; label: string; kind: 'choice'; options: readonly { value: string | number; label: string }[] }
  | { key: string; label: string; kind: 'types'; options: readonly DataType[]; max: number }
  | { key: string; label: string; kind: 'stringCases' }

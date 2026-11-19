@@ -172,6 +172,11 @@ export function runFlow(compiled: CompiledBlueprint, start: { nodeId: Id; port: 
      if (!isDebugEffect(effect) && --budget.effects < 0) { failure ??= fail('Blueprint run exceeded its operation limit', [node.id]); return; }
      effects.push(effect); follow(node.id, ['exit']);
     },
+    emitEach: list => {
+     budget.effects -= list.filter(effect => !isDebugEffect(effect)).length;
+     if (budget.effects < 0) { failure ??= fail('Blueprint run exceeded its operation limit', [node.id]); return; }
+     effects.push(...list); follow(node.id, ['exit']);
+    },
     delay: seconds => { delays.push({ nodeId: node.id, dueMs: nowMs + seconds * 1000 }); },
     request: request => { requests.push({ ...request, nodeId: node.id }); },
     loop: (first, last, options = {}) => {
