@@ -402,7 +402,8 @@ impl Decoder {
                 next.bones.insert(
                     name.into(),
                     TrackingBone {
-                        rotation: euler(&values),
+                        // Pitch and yaw change sign so the avatar moves like a mirror.
+                        rotation: euler(&[-values[0], -values[1], values[2]]),
                         space: BoneSpace::Normalized,
                         position: None,
                         weight: None,
@@ -578,13 +579,25 @@ mod tests {
         assert_eq!(d.head_position, None);
     }
     #[test]
+    fn ifacial_head_moves_like_a_mirror() {
+        // Phone check (2026-11-19): chin down sent rx +5 (rest −17), a turn to the user's
+        // right sent ry +33, and a tilt to the user's left sent rz +22.
+        let mut d = Decoder::default();
+        d.ifacial(b"=head#10,0,0,0,0,0|").unwrap();
+        assert!(d.bones["head"].rotation[0] > 0., "chin down pitches the head down");
+        d.ifacial(b"=head#0,20,0,0,0,0|").unwrap();
+        assert!(d.bones["head"].rotation[1] > 0., "a turn to the right faces screen right");
+        d.ifacial(b"=head#0,0,20,0,0,0|").unwrap();
+        assert!(d.bones["head"].rotation[2] > 0., "a tilt to the left tilts to screen left");
+    }
+    #[test]
     fn ifacial_v2_legacy_degree_and_bounds() {
         let mut d = Decoder::default();
         d.ifacial(b"jawOpen&150|eyeBlink_L&-4|=head#0,90,0,1,2,3|leftEye#0,0,0|")
             .unwrap();
         assert_eq!(d.expressions["jawOpen"], 1.);
         assert_eq!(d.expressions["eyeBlink_L"], 0.);
-        assert!((d.bones["head"].rotation[1] + std::f64::consts::FRAC_1_SQRT_2).abs() < 1e-8);
+        assert!((d.bones["head"].rotation[1] - std::f64::consts::FRAC_1_SQRT_2).abs() < 1e-8);
         assert!(d.head_position.is_some());
         d.ifacial(b"jawOpen-50|").unwrap();
         assert_eq!(d.expressions["jawOpen"], 0.5);
