@@ -2,7 +2,7 @@
 
 Date: 2026-11-19. Analysis: [character lighting](../analysis/2026-11-19-character-lighting.md). Design: [character lighting design](../../docs/superpowers/specs/2026-11-19-character-lighting-design.md). Plan: [character lighting plan](../../docs/superpowers/plans/2026-11-19-character-lighting.md). Issues: [#73](https://github.com/danirukun/opensekai/issues/73) (MAT-01), [#45](https://github.com/danirukun/opensekai/issues/45) (ENV-07). Related: [camera grading](2026-11-10-camera-grading.md) (the template of the entity group and the patch operation), [material profiles](2026-11-03-material-profiles.md) (the MToon UV animation and the headless fixture check).
 
-Status: implemented on `liltoon-avatar-lighting-f03807ca` (code to `13b225b`); macOS evidence in [the character lighting check](../../docs/evaluation/character-lighting.md). The owner's look check is open. Not verified: WebGL 2, Windows, and GPU time.
+Status: implemented on `liltoon-avatar-lighting-f03807ca` (code to `ec02109`); macOS evidence in [the character lighting check](../../docs/evaluation/character-lighting.md). The owner's look check is open. Not verified: WebGL 2, Windows, and GPU time.
 
 ## R — Requirements
 

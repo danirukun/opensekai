@@ -1,6 +1,6 @@
 # Character lighting check
 
-Date: 2026-11-19. Contract: [character lighting](../../spdd/prompt/2026-11-19-character-lighting.md). Design: [character lighting design](../superpowers/specs/2026-11-19-character-lighting-design.md). Issues: #73 (MAT-01), #45 (ENV-07). Branch: `liltoon-avatar-lighting-f03807ca`. The last code commit is `13b225b`; this page is in the next commit. The baseline is `main` at `902af37`.
+Date: 2026-11-19. Contract: [character lighting](../../spdd/prompt/2026-11-19-character-lighting.md). Design: [character lighting design](../superpowers/specs/2026-11-19-character-lighting-design.md). Issues: #73 (MAT-01), #45 (ENV-07). Branch: `liltoon-avatar-lighting-f03807ca`. The last code commit is `ec02109`. The final-review fixes (`884f8a7` to `ec02109`) masked the rim to the lit side and changed how an avatar gets its ambient; the look, stall, and shadow results below are from those commits. The baseline is `main` at `902af37`.
 
 GPU time: unknown (#305).
 
@@ -16,29 +16,31 @@ GPU time: unknown (#305).
 
 ### Before and after
 
-Camera at [0, 1.3, 1.6], field of view 35°, idle animation off, 30 s after `scene_replace` so that a large avatar has loaded. "Before" is `main` with its default rig (one white directional light, intensity 3, and the fixed ambient light). "After" is `13b225b` with the new default rig (key, back, and fill lights). The value is the mean luminance of a head band (200 px under the top of the character) after / before, on pixels that are opaque in both images.
+Camera at [0, 1.3, 1.6], field of view 35°, idle animation off, 30 s after `scene_replace` so that a large avatar has loaded. "Before" is `main` with its default rig (one white directional light, intensity 3, and the fixed ambient light). "After" is `3671526` (the avatar path is the same at `ec02109`) with the new default rig (key, back, and fill lights). The value is the mean luminance of a head band (200 px under the top of the character) after / before, on pixels that are opaque in both images.
 
 | Avatar | Head band after / before |
 | --- | --- |
-| Catboy | 1.056 |
-| Avatar 2 | 1.068 |
-| Avatar 3 | 1.059 |
-| Avatar 4 | 1.063 |
-| Avatar 5 | 1.102 |
-| Avatar 6 | 0.984 |
-| VRM 1 sample | 1.061 |
-| Avatar 8 | 0.998 |
+| Avatar | New rig on the branch / `main` rig on `main` | `main` rig on the branch / `main` rig on `main` |
+| --- | --- | --- |
+| Catboy | 1.041 | 1.002 |
+| Avatar 2 | 1.048 | 1.002 |
+| Avatar 3 | 1.052 | 1.003 |
+| Avatar 4 | 1.034 | 1.003 |
+| Avatar 5 | 1.016 | 1.003 |
+| Avatar 6 | 0.935 | 1.001 |
+| VRM 1 sample | 1.038 | 1.001 |
+| Avatar 8 | 0.961 | 1.002 |
 
-Pass: no face is more than 10 % darker. With the `main` rig on both builds, the ratio is 1.000 to 1.003 for all eight avatars, so an existing show with its own lights keeps its face level.
+Pass: no face is more than 10 % darker. The second column is the same scene (the `main` default light, no Ambient light entity) on both builds: the face level does not change. A scene with an Ambient light entity was not measured.
 
 ![Catboy before (main) and after (branch)](character-lighting/catboy-before-after.png)
 
-The back light gives a rim on the hair, the shoulders, and the arms. On dark cloth at grazing angles, the rim is a wide band. A rim width sweep (exponent 4.75 to 10) changed the band only a small amount, because the cloth geometry is at a grazing angle there. The owner's look check decides this.
+The back light gives a rim on the hair, the shoulders, and the top of the arms. The first build also put a rim on the lower side of the arms and on the hem, because the rim did not depend on the side of the light. The rim now has a soft light-side mask (`smoothstep(-0.1, 0.4, N·L)`), and the rim on the lower edges is gone. The owner's look check decides the width of the rim on dark cloth.
 
 ### Tuned values
 
 - `EXPONENT` is `narrow 16`, `wide 4` (was 8 and 1.5). The default Rim Width 0.5 gives exponent 10.
-- The defaults stay `rimStrength 1`, `rimWidth 0.5`, `rimTint #ffffff`, `shadowStrength 0.6`, `environmentFill 1`. `CHARACTER_FILL` and `CHARACTER_AMBIENT` stay 0.5.
+- The defaults stay `rimStrength 1`, `rimWidth 0.5`, `rimTint #ffffff`, `shadowStrength 0.6`, `environmentFill 1`. `CHARACTER_FILL` and `CHARACTER_AMBIENT` stay 0.5. `CHARACTER_AMBIENT` now scales the ambient term of an avatar MToon material in its lighting model; it is not a separate light. With the fill, the total ambient of an avatar at the default values is the scene ambient. A material that is not MToon, and an MToon prop or environment, keep the scene ambient as on `main`.
 - Demo show: haze density 1 → 0.5 and intensity 2.5 → 1.2; the two back point lights 40 → 20; the Face camera gets the grading of the Wide camera (ACES, bloom 0.4, threshold 1, radius 0.4). Without tone mapping, the face on the Face camera clipped to white.
 
 ### Demo show
@@ -48,7 +50,10 @@ The back light gives a rim on the hair, the shoulders, and the arms. On dark clo
 ![Lighting demo, Face camera](character-lighting/demo-face.png)
 
 - The rim shows from each back light (left and right) in the preview and in OBS ([OBS image](character-lighting/obs-demo-wide.png)).
-- On the Face camera, the face keeps its color with the ACES grading. The renderer tests (`character-mtoon.test.ts`) check that a shadow moves a surface to the shade color. This page does not have an image that isolates the key shadow on the face. The owner's look check decides this.
+- On the Face camera, the face keeps its color with the ACES grading.
+- Shadow to the shade color: Catboy with the new rig, idle animation off, Shadow Strength 1 (left) and 0 (right). In the 1,812 skin pixels in the key light shadow, the mean color is (0.998, 0.891, 0.873) with Shadow Strength 1 and (0.999, 0.979, 0.926) with 0. Red stays and green and blue go down, so the shadow moves the skin to its pink shade color and does not make it grey.
+
+![Shadow Strength 1 and 0](character-lighting/shadow-pair.png)
 - File › Open of the demo show five times, alternating with `test-stage.osekai`, from a cold start: the stage and Catboy load each time, with no error. Before `1721f7c`, the first open sometimes failed with `Cannot destructure property 'useFrameBufferTarget' from null` (two `compileAsync` calls on one renderer at the same time).
 
 ### Editor
@@ -56,6 +61,8 @@ The back light gives a rim on the hair, the shoulders, and the arms. On dark clo
 The avatar Inspector has a Lighting section with Rim Strength, Rim Width, Rim Tint, Shadow Strength, and Environment Fill ([image](character-lighting/inspector-lighting.png)). A new scene has a Key Light, a Back Light, and a Fill Light ([image](character-lighting/new-scene-rig.png)).
 
 ## OBS output
+
+The OBS checks ran at `13b225b`. The later commits change only the avatar shading terms (the rim mask and the ambient scale), not the alpha or the post chain.
 
 | Check | Result |
 | --- | --- |
@@ -78,8 +85,9 @@ The Editor stops while new lit materials compile. The stall is the time from the
 | Experiment: no rim | 9879 / 9952 / 10131 |
 | Branch `e1669f9` (spherical-harmonics fill), run 1 | 7922 / 8011 / 8181 |
 | Branch `e1669f9`, run 2 | 7907 / 8025 / 8210 |
+| Branch `ec02109` (final) | 7842 / 6924 / 8148 |
 
-- The room map fill (three PMREM samples in each avatar shader) made the 8-light add 26 % longer: fail. The experiments showed that the fill, not the rim, was the cost. The fill now uses the nine spherical-harmonics coefficients of the room, read back one time for each renderer (contract R4). With this change, the 8-light add is 1.7 % longer than `main`: pass.
+- The room map fill (three PMREM samples in each avatar shader) made the 8-light add 26 % longer: fail. The experiments showed that the fill, not the rim, was the cost. The fill now uses the nine spherical-harmonics coefficients of the room, read back one time for each renderer (contract R4). With this change, the 8-light add is 1.7 % longer than `main`; at `ec02109` it is 1.0 % longer: pass.
 - A point or directional light add takes about 100 ms on both builds. The first add at 1 lit light is not a stable measurement, because the avatar can still be in load.
 - A spot light add takes 7 to 8 s on `main` too. This branch does not change that.
 - 30 light-set changes at 8 lit lights (15 adds and 15 removes): no frame warning and no `Pipeline compile failed`. The app had no `Room fill unavailable` warning, so the readback worked in WebKit.
@@ -93,12 +101,12 @@ The Editor stops while new lit materials compile. The stall is the time from the
 
 ## Headless checks
 
-These commands ran on macOS in this worktree at `13b225b`, with the Rust change of the next commit and this page.
+The TypeScript commands ran on macOS in this worktree at `ec02109`. The Rust commands ran at `bfa7e8d`; no later commit changes Rust.
 
 | Command | Result |
 | --- | --- |
 | `pnpm check` | Exit 0. svelte-check 5897 files, 0 errors, 0 warnings. |
-| `pnpm test:unit` | Exit 1. 285 files passed, 1 failed; 2723 tests passed, 1 failed. The failure is `packages/contracts/test/meshes.test.ts`: the local asset manifest does not have `fixture_vrm0_arkit` (see above). |
+| `pnpm test:unit` | Exit 1. 285 files passed, 1 failed; 2732 tests passed, 1 failed. The failure is `packages/contracts/test/meshes.test.ts`: the local asset manifest does not have `fixture_vrm0_arkit` (see above). |
 | `pnpm test:integration` | Exit 0. 49 files passed; 121 tests passed, 4 skipped. |
 | `cargo fmt --all --check` | Exit 1. Differences in `apps/desktop/src-tauri/src/recent_shows.rs` and `apps/desktop/src-tauri/src/tracking/parser.rs` only. This branch does not change those files. |
 | `cargo clippy --workspace --all-targets -- -D warnings` | Exit 0, 0 warnings. The first run failed with `large_enum_variant` on `PatchOp`, because the avatar entity got the `lighting` group. The group is now `Option<Box<AvatarLighting>>`, as `effects` of a camera is. |
@@ -109,5 +117,5 @@ These commands ran on macOS in this worktree at `13b225b`, with the Rust change 
 - GPU time (#305).
 - The spherical-harmonics readback and the avatar look on WebGL 2. The unit tests do not draw.
 - Windows.
-- A scene with an Ambient light entity: the character gets the ambient light and a fill of 0.5 × the same color, about 1.5 × the ambient light alone. The owner's look check decides this.
-- A lit avatar material that is not MToon gets `CHARACTER_AMBIENT` 0.5 and no fill, so it is darker in the ambient part than on `main`. No avatar in the check had such a material.
+- The look of a scene with an Ambient light entity on the eight avatars. By the shader, the ambient of an avatar MToon material is 0.5 × the entity ambient plus a fill of 0.5 × the same color, so the total is the entity ambient. The demo show has an Ambient light entity and is in the images above.
+- An avatar with a lit material that is not MToon. No avatar in the check had one. By the code, it keeps the scene ambient as on `main`.
