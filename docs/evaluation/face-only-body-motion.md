@@ -114,18 +114,44 @@ The owner held a forward lean for 10 s:
 | Value | Rest | Forward lean |
 | --- | --- | --- |
 | `headPosition` (decoded, × 0.01), mm | (0, 0, 0) | (0.1, −0.6, 1.6) |
-| Head pitch from the phone | 0° | −31° (head up) |
+| Decoded head pitch (before `69b49c3`) | 0° | −31° (head up) |
 | VMC Head X / Neck X / Chest X / Spine X | 0 / 0 / 0 / 0 | −34 / +6.4 / −2.6 / −4.1 |
 
-Cause of problem 1: when the owner leaned toward the phone, the phone measured the head about 31° up. The body follows the head pitch, so the spine and the chest turned back. The lean from the head position did not move the body: the decoder divided the translation by 100 (centimeters assumed), so a lean of about 16 cm became 1.6 mm. iFacialMocap sends meters: tz was 0.16. The forward sign was correct: a forward lean gave a positive Z. The decoder now keeps the translation in meters. With this unit, the same lean gives a spine lean of about 18° forward (0.16 × 5 × 45 × 0.5), more than the 4° back from the head pitch. The owner must look at the result again.
+Cause of problem 1, in two parts:
+
+- The decoder gave the pitch the wrong sign. When the owner leaned toward the phone, the head pitched down in front of the camera (raw rx +11), and the decoder made this a head-up pitch of about 31°. The body follows the head pitch, so the spine and the chest turned back. (An earlier version of this section said that the phone measured the head up. The measured signs below show that the decoder sign was the cause.)
+- The lean from the head position did not move the body: the decoder divided the translation by 100 (centimeters assumed), so a lean of about 16 cm became 1.6 mm. iFacialMocap sends meters: tz was 0.16. The forward sign was correct: a forward lean gave a positive Z. `777b90d` keeps the translation in meters. With this unit, the same lean gives a spine lean of about 18° forward (0.16 × 5 × 45 × 0.5).
 
 Problem 2 is the Warudo default. Body Rotation Type Inverted turns the body in the opposite direction to the head roll. The template copies it (`axis-z-signed`, × −1).
 
 After the decoder change, a synthetic source compared the two roll directions and the lean in the editor preview (head roll ±20°; tz 0.16 with the head level and with the head 30° up). With Inverted, the shoulders tip opposite to the head. With the same direction (`axis-z-signed` input b = +1), the upper body tilts with the head. The owner kept Inverted as the default. With the head level, tz 0.16 leans the spine forward clearly. With the head 30° up, the face points up and the lean is less visible, so a calibration in the real rest pose is necessary.
 
+### Mirror direction
+
+The owner requirement (2026-11-19): by default, the avatar moves almost like a mirror. When the owner looks up, the avatar looks up. When the owner turns or tilts the head to the left, the avatar head moves to the left side of the screen. The roll body motion stays Inverted.
+
+A spoken guided capture logged the raw iFacialMocap `head#` values for each pose (rest rx is about −17 to −20):
+
+| Pose | Raw value |
+| --- | --- |
+| Chin up | rx −33 |
+| Chin down | rx +5 |
+| Turn to the owner's left | ry −26 |
+| Turn to the owner's right | ry +33 |
+| Tilt to the owner's left | rz +22 |
+| Tilt to the owner's right | rz −22 |
+| Lean toward the phone | rx +11, tz +0.13 |
+
+The decoder kept the sign of all three angles. Thus the avatar looked down when the owner looked up, and turned to the wrong side. `69b49c3` changes the sign of the pitch and the yaw for the head and the eyes (roll keeps its sign). The composed pitch now has the Warudo sign.
+
+Live check at `69b49c3`: debug build, iFacialMocap on the owner's iPhone, guide graph on Catboy, calibrated at the owner's rest pose. A spoken guide asked for each pose, and MCP `camera_screenshot` captured a front and a side camera with the app in front. All eight poses move as a mirror: up looks up, down looks down, a turn and a tilt to the left go to the left side of the screen, a turn and a tilt to the right go to the right side, and a lean toward the phone pitches the head down and leans the body forward.
+
+![Live check: rest, up, down, turn left, turn right, tilt left, tilt right, lean in; front and side cameras](face-only-body-motion/15-phone-mirror.png)
+
 ### Not checked
 
-- The live pitch sign with a real iPhone (nod down).
+- The eye direction with a real phone. The decoder changes the eye signs with the head signs, but the check did not examine the eyes separately.
+- The head position X sign. No template input uses it.
 - A side-by-side comparison with Warudo for the pendulum spring, damping, and gravity values.
 - The look of the motion. The owner did not examine it.
 - An OBS recording. The sway evidence is an OBS screenshot series.
