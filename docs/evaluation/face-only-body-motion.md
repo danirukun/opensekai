@@ -2,9 +2,11 @@
 
 Design: [face-only body motion](../superpowers/specs/2026-11-18-face-only-body-motion-design.md). Contract: [slice contract](../../spdd/prompt/2026-11-18-face-only-body-motion.md). Warudo values: [Warudo face tracking reference](warudo-face-reference/README.md).
 
+The checks ran before the branch was rebased on main at `dea86b1` (spring bones). The commit IDs below are the rebased commits; the checked code had the same branch changes on base `68a2a1d`.
+
 ## macOS check with a synthetic source
 
-Commit: `bb8069b` (product code). Date: 2026-11-19. Platform: macOS 27.2.1 (26B131), worktree dev build (`OPENSEKAI_EVALUATION=1 pnpm dev:desktop`). Backend: webgpu. Quality profile: output_main `production_v1`, preview_main `preview_v1`. OBS 33.0.1 (obs-websocket 5.7.6), 1920x1080 at 60 FPS, isolated QA scene. Character: Catboy with black hoodie, idle animation off. No fixture file: a script made the tracking data.
+Commit: `c6b2355` (product code). Date: 2026-11-19. Platform: macOS 27.2.1 (26B131), worktree dev build (`OPENSEKAI_EVALUATION=1 pnpm dev:desktop`). Backend: webgpu. Quality profile: output_main `production_v1`, preview_main `preview_v1`. OBS 33.0.1 (obs-websocket 5.7.6), 1920x1080 at 60 FPS, isolated QA scene. Character: Catboy with black hoodie, idle animation off. No fixture file: a script made the tracking data.
 
 ### Method
 
@@ -25,7 +27,7 @@ The Blueprint node `character.getBoneRotation` reads the pose before bone offset
 | Motion returns to rest when tracking stops | Pass after the design change (see "Fade"). | — |
 | OBS output moves while the editor is minimized | Pass. Output frames went from 46161 to 46536 in about 6.3 s (about 60 per second). OBS reported 60.0 FPS and 0 skipped frames. Two OBS frames 1.3 s apart differ in 91,983 pixels. | `08-obs-minimized.png` |
 | The Templates menu has "Face-Only Body Motion" and "Camera Sway", and no "Upper Body Rotation" | Pass | `10-templates-menu.png` |
-| Pendulum rows and Offset Bones bones editors (commit `ec9c811`) | Pass after the Inspector fixes (see "Inspector"). Add and remove of an input row and an arm row change the node settings, and the template values come back after the remove. "Add arm" is disabled at 4 arms. | `12-pendulum-inspector.png`, `12-offset-bones.png` |
+| Pendulum rows and Offset Bones bones editors (commit `fc96eaa`) | Pass after the Inspector fixes (see "Inspector"). Add and remove of an input row and an arm row change the node settings, and the template values come back after the remove. "Add arm" is disabled at 4 arms. | `12-pendulum-inspector.png`, `12-offset-bones.png` |
 
 ### Yaw
 
@@ -75,34 +77,34 @@ The sender held ry 20° and tz 5 and then stopped.
 | 2129 | [0.04, 0, 0] | 0 | [−0.01, 0, 0] | 0.28 |
 | 4548 and later | 0 | 0 | 0 | 0 |
 
-The motion stops smoothly with no jump. The body turn goes back to rest with the head. `getHeadPose.rotation` reads the composed head, and the compose step fades the head when the source is stale (0 at about 0.9 s). The lean goes back to rest in about 1.5 s. The hand swings one time and stops at about 4.5 s. The first acceptance text said "to zero in about 2 s". The design now says that the body turn follows the head back to rest and the other motion goes back to rest in about 2 s with no jump (commit `f44d493`).
+The motion stops smoothly with no jump. The body turn goes back to rest with the head. `getHeadPose.rotation` reads the composed head, and the compose step fades the head when the source is stale (0 at about 0.9 s). The lean goes back to rest in about 1.5 s. The hand swings one time and stops at about 4.5 s. The first acceptance text said "to zero in about 2 s". The design now says that the body turn follows the head back to rest and the other motion goes back to rest in about 2 s with no jump (commit `32ffcd3`).
 
 ### Inspector
 
-The first check found three problems: the whole editor body scrolled instead of the Inspector, long bone names went under the select arrow, and a new input row had scale 1 and clamp −1..1 (Warudo: scale 5, no clamp). Commit `f44d493` corrected them. A re-check at `f44d493` found that the input selects in the Pendulum rows cut "Head pitch" to "Head …". Commit `ec9c811` puts each select of a row on its own full-width line. At `ec9c811` the input selects show "Head pitch", "Head yaw", and "Head Z" in full, and long bone names stop with an ellipsis before the arrow. The Inspector goes back to the top when the user selects a different node. It does not move when the user changes a field of the same node.
+The first check found three problems: the whole editor body scrolled instead of the Inspector, long bone names went under the select arrow, and a new input row had scale 1 and clamp −1..1 (Warudo: scale 5, no clamp). Commit `32ffcd3` corrected them. A re-check at `32ffcd3` found that the input selects in the Pendulum rows cut "Head pitch" to "Head …". Commit `fc96eaa` puts each select of a row on its own full-width line. At `fc96eaa` the input selects show "Head pitch", "Head yaw", and "Head Z" in full, and long bone names stop with an ellipsis before the arrow. The Inspector goes back to the top when the user selects a different node. It does not move when the user changes a field of the same node.
 
 ### Check after the final review fixes
 
-Commits: `32eb27b` (implicit pendulum step, a tick budget for each graph, the Warudo pendulum intensity 0.5, smoothed `headPosition`) and `d29c760` (send queue). Date: 2026-11-19. Same computer, backend, and profiles as above. Debug build.
+Commits: `31e88ba` (implicit pendulum step, a tick budget for each graph, the Warudo pendulum intensity 0.5, smoothed `headPosition`) and `7da974c` (send queue). Date: 2026-11-19. Same computer, backend, and profiles as above. Debug build.
 
 | Check | Result | Evidence |
 | --- | --- | --- |
 | Lean at tz +5 | Pass. Spine X 5.63° (5.28° at about 1.0 s), neck −1.88°, head −5.0°. | `14-obs-lean.png` |
 | Yaw ±20° | Pass. Spine ±5°, chest ±2.5°, neck ∓7.5°. These do not change. | — |
 | Sway after ry 0° → 25° → 0° | Pass. The hand has its maximum of 4.17° about 0.94 s after the step (10.42° before the intensity). It is less than 0.1° from about 2.6 s after the head goes back. | `14-sway.png` |
-| Two characters, each with a template graph and its own iFacialMocap source | Pass at `d29c760`. Both bodies turn with the head in OBS. No graph reports an operation limit. A VMC sender on each character sends for more than 60 s with the correct values. | `14-two-characters-yaw.png` |
+| Two characters, each with a template graph and its own iFacialMocap source | Pass at `7da974c`. Both bodies turn with the head in OBS. No graph reports an operation limit. A VMC sender on each character sends for more than 60 s with the correct values. | `14-two-characters-yaw.png` |
 | The template graph opens on the canvas | Pass. No nodes overlap. | `14-template-graph.png` |
 | Concert benchmark | Unknown. `benchmark_start` replied `CONFLICT` ("Smoke fixture registration mismatch"): the app did not start with the fixture manifest, so no benchmark number exists. | — |
 
 A scene can have at most 2 characters, so 3 characters were not checked.
 
-At `32eb27b`, the VMC sender stopped when a second face-tracked character was in the scene. The cause was in the browser client send queue, not in this feature: a VMC poses message was dropped when the frame of the same tick was larger. The rule came from an earlier change and is also on main. This branch makes the frame larger, so the problem occurred more easily (one character with the graph had about 129 bytes of margin). Commit `d29c760` counts the frame and the VMC poses of one tick together.
+At `31e88ba`, the VMC sender stopped when a second face-tracked character was in the scene. The cause was in the browser client send queue, not in this feature: a VMC poses message was dropped when the frame of the same tick was larger. The rule came from an earlier change and is also on main. This branch makes the frame larger, so the problem occurred more easily (one character with the graph had about 129 bytes of margin). Commit `7da974c` counts the frame and the VMC poses of one tick together.
 
 When OpenSekai is in the background, the app stopped for about 2 s every 20 to 40 s, and then ran the missed ticks. This also occurred with the graph off and did not occur with the app in front. It is probably not caused by this branch. It was not examined further.
 
 ### Phone check
 
-Date: 2026-11-19. The owner used iFacialMocap on an iPhone, on the same Wi-Fi network as the Mac, with the guide graph on Catboy. Debug build at `fb754d4`. A temporary Blueprint graph read `tracking.getHeadPose` through `blueprint_debug_log`, and a temporary VMC sender gave the final bone rotations to a local listener. The show was not saved.
+Date: 2026-11-19. The owner used iFacialMocap on an iPhone, on the same Wi-Fi network as the Mac, with the guide graph on Catboy. Debug build at `c6cdb28`. A temporary Blueprint graph read `tracking.getHeadPose` through `blueprint_debug_log`, and a temporary VMC sender gave the final bone rotations to a local listener. The show was not saved.
 
 The owner reported two problems:
 
@@ -114,13 +116,13 @@ The owner held a forward lean for 10 s:
 | Value | Rest | Forward lean |
 | --- | --- | --- |
 | `headPosition` (decoded, × 0.01), mm | (0, 0, 0) | (0.1, −0.6, 1.6) |
-| Decoded head pitch (before `69b49c3`) | 0° | −31° (head up) |
+| Decoded head pitch (before `6381db7`) | 0° | −31° (head up) |
 | VMC Head X / Neck X / Chest X / Spine X | 0 / 0 / 0 / 0 | −34 / +6.4 / −2.6 / −4.1 |
 
 Cause of problem 1, in two parts:
 
 - The decoder gave the pitch the wrong sign. When the owner leaned toward the phone, the head pitched down in front of the camera (raw rx +11), and the decoder made this a head-up pitch of about 31°. The body follows the head pitch, so the spine and the chest turned back. (An earlier version of this section said that the phone measured the head up. The measured signs below show that the decoder sign was the cause.)
-- The lean from the head position did not move the body: the decoder divided the translation by 100 (centimeters assumed), so a lean of about 16 cm became 1.6 mm. iFacialMocap sends meters: tz was 0.16. The forward sign was correct: a forward lean gave a positive Z. `777b90d` keeps the translation in meters. With this unit, the same lean gives a spine lean of about 18° forward (0.16 × 5 × 45 × 0.5).
+- The lean from the head position did not move the body: the decoder divided the translation by 100 (centimeters assumed), so a lean of about 16 cm became 1.6 mm. iFacialMocap sends meters: tz was 0.16. The forward sign was correct: a forward lean gave a positive Z. `96ec665` keeps the translation in meters. With this unit, the same lean gives a spine lean of about 18° forward (0.16 × 5 × 45 × 0.5).
 
 Problem 2 is the Warudo default. Body Rotation Type Inverted turns the body in the opposite direction to the head roll. The template copies it (`axis-z-signed`, × −1).
 
@@ -142,9 +144,9 @@ A spoken guided capture logged the raw iFacialMocap `head#` values for each pose
 | Tilt to the owner's right | rz −22 |
 | Lean toward the phone | rx +11, tz +0.13 |
 
-The decoder kept the sign of all three angles. Thus the avatar looked down when the owner looked up, and turned to the wrong side. `69b49c3` changes the sign of the pitch and the yaw for the head and the eyes (roll keeps its sign). The composed pitch now has the Warudo sign.
+The decoder kept the sign of all three angles. Thus the avatar looked down when the owner looked up, and turned to the wrong side. `6381db7` changes the sign of the pitch and the yaw for the head and the eyes (roll keeps its sign). The composed pitch now has the Warudo sign.
 
-Live check at `69b49c3`: debug build, iFacialMocap on the owner's iPhone, guide graph on Catboy, calibrated at the owner's rest pose. A spoken guide asked for each pose, and MCP `camera_screenshot` captured a front and a side camera with the app in front. All eight poses move as a mirror: up looks up, down looks down, a turn and a tilt to the left go to the left side of the screen, a turn and a tilt to the right go to the right side, and a lean toward the phone pitches the head down and leans the body forward.
+Live check at `6381db7`: debug build, iFacialMocap on the owner's iPhone, guide graph on Catboy, calibrated at the owner's rest pose. A spoken guide asked for each pose, and MCP `camera_screenshot` captured a front and a side camera with the app in front. All eight poses move as a mirror: up looks up, down looks down, a turn and a tilt to the left go to the left side of the screen, a turn and a tilt to the right go to the right side, and a lean toward the phone pitches the head down and leans the body forward.
 
 ![Live check: rest, up, down, turn left, turn right, tilt left, tilt right, lean in; front and side cameras](face-only-body-motion/15-phone-mirror.png)
 
@@ -160,7 +162,7 @@ Live check at `69b49c3`: debug build, iFacialMocap on the owner's iPhone, guide 
 
 ### Other observations
 
-- The lean and sway tables in the first check (commit `bb8069b`) come from before the Warudo Pendulum Physics Intensity (0.5). The check after the final review fixes gives the current values.
+- The lean and sway tables in the first check (commit `c6b2355`) come from before the Warudo Pendulum Physics Intensity (0.5). The check after the final review fixes gives the current values.
 - A calibration saved before this branch has no `headPosition` neutral. With such a calibration, the compose step gives no `headPosition`, so the lean and the position part of the sway stay off until the user calibrates again.
 - With phone address 127.0.0.1, the receiver gets its own handshake and counts it as an invalid packet (about one each second while stale). This occurs only with a test peer on the same computer.
 - When OpenSekai is not the frontmost app, MCP `camera_screenshot` can return an old pose. Keep the app in front for screenshot evidence.
