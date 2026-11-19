@@ -2,7 +2,7 @@
 
 Date: 2026-11-19. Analysis: [character lighting](../analysis/2026-11-19-character-lighting.md). Design: [character lighting design](../../docs/superpowers/specs/2026-11-19-character-lighting-design.md). Plan: [character lighting plan](../../docs/superpowers/plans/2026-11-19-character-lighting.md). Issues: [#73](https://github.com/danirukun/opensekai/issues/73) (MAT-01), [#45](https://github.com/danirukun/opensekai/issues/45) (ENV-07). Related: [camera grading](2026-11-10-camera-grading.md) (the template of the entity group and the patch operation), [material profiles](2026-11-03-material-profiles.md) (the MToon UV animation and the headless fixture check).
 
-Status: contract; not implemented.
+Status: implemented on `liltoon-avatar-lighting-f03807ca` (code to `13b225b`); macOS evidence in [the character lighting check](../../docs/evaluation/character-lighting.md). The owner's look check is open. Not verified: WebGL 2, Windows, and GPU time.
 
 ## R — Requirements
 
@@ -193,7 +193,7 @@ Status: contract; not implemented.
 - Do not let the preview and the OBS client draw the same frame differently. Each value is a property of the applied frame, with no wall-clock input.
 - Do not recompile for a value change. A light-set change is the only recompile trigger.
 - Do not change the three or three-vrm version. Do not add a package patch. Keep `patches/@pixiv__three-vrm@3.5.5.patch`, and use `normalView` in the overridden `direct()`.
-- Do not use module-level state for the fill color or the room map. Use one `CharacterShare` for each renderer.
+- Do not use module-level state for the fill color or the room irradiance. Use one `CharacterShare` for each renderer.
 - Do not add specular reflection of the room map on an avatar. Props and environments keep `RoomStandardMaterial`.
 - Do not send image data through Tauri IPC on the output path.
 - Do not add UI copy other than the labels of R5. Do not add a card grid, a gradient, or a badge.
