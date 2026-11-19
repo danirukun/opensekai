@@ -1,4 +1,4 @@
-import { rotateByQuaternion, writeProperty, type Id, type PropertyKey, type PropertyValue, type Reply, type SceneEntity, type ScenePatch, type SceneView, type Vec3 } from '@opensekai/contracts';
+import { avatarLighting, rotateByQuaternion, writeProperty, type Id, type PropertyKey, type PropertyValue, type Reply, type SceneEntity, type ScenePatch, type SceneView, type Vec3 } from '@opensekai/contracts';
 import { delta, followers, shifted } from './camera-follow';
 import type { Transition } from './tweens';
 
@@ -101,6 +101,7 @@ export function takeIdle(scene: SceneView, layer: OverrideLayer, nowMs: number, 
   if (idle.has('fovDegrees') && target.kind === 'camera') operations.push({ kind: 'setCameraLens', entityId, lens: structuredClone(target.lens) });
   if (idle.has('intensity') && target.kind === 'light') operations.push({ kind: 'setLight', entityId, light: structuredClone(target.light) });
   if (idle.has('hazeDensity') && target.kind === 'haze') operations.push({ kind: 'setHaze', entityId, haze: structuredClone(target.haze) });
+  if (idle.has('rimStrength') && target.kind === 'avatar') operations.push({ kind: 'setAvatarLighting', entityId, lighting: structuredClone(avatarLighting(target)) });
   if (idle.has('renderEnvironment') && target.kind === 'camera') operations.push({ kind: 'setCameraRenderEnvironment', entityId, renderEnvironment: target.renderEnvironment !== false });
  }
  return { operations, graphIds: [...graphIds], remaining };
@@ -114,6 +115,7 @@ export const touchedProperties = (operation: Operation): [Id, readonly PropertyK
   case 'setCameraRenderEnvironment': return [operation.entityId, ['renderEnvironment']];
   case 'setLight': return [operation.entityId, ['intensity']];
   case 'setHaze': return [operation.entityId, ['hazeDensity']];
+  case 'setAvatarLighting': return [operation.entityId, ['rimStrength']];
   // A Control Mode, Focus Character, or pivot change ends a Blueprint orbit of the camera (B32 R7).
   case 'setCameraNavigation': return [operation.entityId, ['position', 'rotation']];
   case 'removeEntity': return [operation.entityId, 'all'];

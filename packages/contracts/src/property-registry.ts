@@ -1,9 +1,10 @@
+import { avatarLighting, DEFAULT_AVATAR_LIGHTING } from './avatar-lighting';
 import type { Id, Reply, SceneEntity, Vec3 } from './types';
 
 export type PropertyType = 'number' | 'boolean' | 'vector3';
 export type PropertyValue = number | boolean | Vec3;
 export type PropertyRule = { kind: 'finite' } | { kind: 'positive' } | { kind: 'range'; min: number; max: number } | { kind: 'boolean' };
-export const PROPERTY_KEYS = ['position', 'rotation', 'scale', 'visible', 'fovDegrees', 'renderEnvironment', 'intensity', 'hazeDensity'] as const;
+export const PROPERTY_KEYS = ['position', 'rotation', 'scale', 'visible', 'fovDegrees', 'renderEnvironment', 'intensity', 'hazeDensity', 'rimStrength'] as const;
 export type PropertyKey = (typeof PROPERTY_KEYS)[number];
 type Kind = SceneEntity['kind'];
 export interface AssetProperty { key: PropertyKey; label: string; kinds: readonly Kind[]; type: PropertyType; rule: PropertyRule }
@@ -24,6 +25,7 @@ export const PROPERTY_REGISTRY: readonly AssetProperty[] = [
  { key: 'renderEnvironment', label: 'Render Environment', kinds: ['camera'], type: 'boolean', rule: { kind: 'boolean' } },
  { key: 'intensity', label: 'Intensity', kinds: ['light'], type: 'number', rule: { kind: 'range', min: 0, max: 1000 } },
  { key: 'hazeDensity', label: 'Haze Density', kinds: ['haze'], type: 'number', rule: { kind: 'range', min: 0, max: 2 } },
+ { key: 'rimStrength', label: 'Rim Strength', kinds: ['avatar'], type: 'number', rule: { kind: 'range', min: 0, max: 2 } },
 ];
 export const assetProperty = (key: PropertyKey): AssetProperty => PROPERTY_REGISTRY.find(property => property.key === key)!;
 export const propertiesFor = (kind: Kind): AssetProperty[] => PROPERTY_REGISTRY.filter(property => property.kinds.includes(kind));
@@ -68,6 +70,7 @@ export function readProperty(entity: SceneEntity, key: PropertyKey): PropertyVal
   case 'renderEnvironment': return entity.kind === 'camera' ? entity.renderEnvironment !== false : undefined;
   case 'intensity': return entity.kind === 'light' ? entity.light.intensity : undefined;
   case 'hazeDensity': return entity.kind === 'haze' ? entity.haze.density : undefined;
+  case 'rimStrength': return entity.kind === 'avatar' ? avatarLighting(entity).rimStrength : undefined;
  }
 }
 const fail = (message: string, ids: Id[]): Reply<never> => ({ ok: false, error: { code: 'INVALID_INPUT', message, ids } });
@@ -85,6 +88,8 @@ export function writeProperty(entity: SceneEntity, key: PropertyKey, value: Prop
   case 'renderEnvironment': if (next.kind === 'camera' && (value === false || next.renderEnvironment !== undefined)) next.renderEnvironment = value as boolean; break;
   case 'intensity': if (next.kind === 'light') next.light = { ...next.light, intensity: value as number }; break;
   case 'hazeDensity': if (next.kind === 'haze') next.haze = { ...next.haze, density: value as number }; break;
+  // An absent group reads the defaults; writing the default rim strength keeps it absent, so the write is a no-op.
+  case 'rimStrength': if (next.kind === 'avatar' && (next.lighting || value !== DEFAULT_AVATAR_LIGHTING.rimStrength)) next.lighting = { ...avatarLighting(next), rimStrength: value as number }; break;
  }
  return { ok: true, data: next };
 }

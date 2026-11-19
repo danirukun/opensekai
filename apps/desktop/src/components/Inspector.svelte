@@ -26,6 +26,7 @@
  import LightFields from './LightFields.svelte';
  import HazeFields from './HazeFields.svelte';
  import CameraGradingFields from './CameraGradingFields.svelte';
+ import AvatarLightingFields from './AvatarLightingFields.svelte';
  import CameraEffectsFields from './CameraEffectsFields.svelte';
  import FpsCounterFields from './FpsCounterFields.svelte';
  import VmcSenderFields from './VmcSenderFields.svelte';
@@ -140,6 +141,7 @@
    {#if id==='model'}<AvatarModelField label={modelLabel(entity.assetId,assets)} status={loads.find(load=>load.entityId===entity!.id)??null} importing={importingId===entity.id} disabled={view.pending||livePending||disabled||!onchoosemodel} onchoose={()=>onchoosemodel?.(entity!.id)}/>
    {:else if id==='expressions'&&expressionApi&&onexpressionsettings}<AvatarExpressionFields avatarId={entity.id} revision={scene.revision} api={expressionApi} stored={storedExpressions} disabled={busy||livePending||disabled} onsettings={onexpressionsettings} onsettingslive={(id,name,settings)=>live(id,revision=>model.setAvatarExpression(id,name,settings,revision,true))} onliveend={onlivefieldend}/>
    {:else if id==='meshes'}<AvatarMeshFields meshes={avatarMeshes} hidden={entity.hiddenMeshes} disabled={view.pending||livePending||disabled} oncommit={hidden=>model.setHiddenMeshes(entity!.id,hidden,view.scene?.revision)}/>
+   {:else if id==='lighting'}<AvatarLightingFields entityId={entity.id} lighting={entity.lighting} revision={scene.revision} marks={marks!} disabled={busy||disabled} oncommit={(id,lighting,revision)=>model.setAvatarLighting(id,lighting,revision)} onlive={(id,lighting)=>live(id,revision=>model.setAvatarLighting(id,lighting,revision,true))} onliveend={onlivefieldend}/>
    {:else if id==='tracking'}<AvatarSourceFields marks={marks!} entityId={entity.id} tracking={entity.tracking} idleAnimation={entity.idleAnimation} onidle={onavataridle} entities={scene.entities} revision={scene.revision} disabled={view.pending||livePending||disabled} oncommit={onavatartracking} {onguide}/>{/if}
   {:else if entity.kind==='tracking'}
    {#if id==='receiver'}<TrackingSourceFields marks={marks!} entityId={entity.id} config={entity.config} generation={entity.generation} revision={scene.revision} disabled={view.pending||disabled} oncommit={ontrackingconfig} ontoggle={ontrackingtoggle} statuses={trackingStatus} {localAddresses} {devices} calibrated={entity.calibration!==undefined} oncalibrate={ontrackingcalibrate} onresetcalibration={ontrackingcalibrationreset} {faceKit} unused={sourceUsers(scene,entity.id).length===0}/>
