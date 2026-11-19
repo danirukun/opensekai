@@ -20,13 +20,15 @@ Date: 2026-11-19. Scope: [#73](https://github.com/danirukun/opensekai/issues/73)
   - The rim is `parametricRim + matcap`. In `direct()` it is multiplied by each light color, without the light direction.
 - The patch `patches/@pixiv__three-vrm@3.5.5.patch` uses `normalView` instead of `transformedNormalView` in `direct()` and in the parametric rim.
 - Tone mapping is off unless a camera has a grading group (CAM-06).
-- Light limits (B34b): 8 lit lights and 2 shadow lights. Each Add of a lit light stops the Editor for 8 to 10 s while the lit materials compile. Metal failed one time at 8 lights with `bracket nesting level exceeded maximum of 256`.
+- Light limits (B34b): 8 lit lights and 2 shadow lights. Each time you add a lit light, the Editor stops for 8 to 10 s while the lit materials compile. Metal failed one time at 8 lights with `bracket nesting level exceeded maximum of 256`.
 - All eight test avatars are VRM 0.x with only MToon materials. Thus this work changes the look of each avatar that OpenSekai loads today.
 
 ## Decisions
 
 - **One MToon subclass.** `CharacterMToonMaterial` extends three-vrm `MToonNodeMaterial`. Its `type` is `'CharacterMToonMaterial'`, so the shader cache keeps it apart from the stock class (the `RoomStandardMaterial` pattern). `isMToonNodeMaterial` stays true. The VRM loader plugin gets it through `materialType`, so an outline clone has the same type. No new package patch.
-- **Approach A (owner).** The rim, the shadow, and the fill are in the MToon shader. Approach B (a screen-space rim in the post chain) is rejected: the rim must follow the real lights, and edge glows gave gray veils on the OBS output before. Approach C (light presets only) is rejected: MToon turns a back light into a wide band, not a thin rim. Its defaults are part of A.
+- **Approach A (owner).** The rim, the shadow, and the fill are in the MToon shader.
+  - Approach B is rejected. It is a screen-space rim in the post chain. The rim must follow the real lights. Edge glows gave gray veils on the OBS output before.
+  - Approach C is rejected. It uses light presets only. MToon turns a back light into a wide band, not a thin rim. Its defaults are part of A.
 - **Shadow goes into the shading term.** The lighting context supplies `getShadow`. `shading = linearstep(−f, f, dotNL + shift) × mix(1, s, shadowStrength)`, with `f = 1 − toony`. With `shadowStrength = 0` the avatar receives no shadow.
 - **Rim from each light behind the avatar.** `rim = rimStrength × pow(1 − N·V, p(width)) × smoothstep(a, b, −L·V) × lightColor × rimTint`. The rim is added to `directSpecular`, after the authored rim. It never replaces the authored rim. It is in `direct()`, so only the lights of the character group make it, and Affect Characters controls it. The shadow does not remove the rim, unless the builder finds a case that looks wrong. An outline material gets no added rim.
 - **Fill from the room map, flattened.** The environment node samples the room map irradiance and mixes it toward its average with the MToon equalization factor. The default factor is the authored `giEqualizationFactor`, read before the parent constructor deletes it. The result is scaled by `environmentFill` and by a fill color. There is no specular reflection of the room map on an avatar. An outline material gets no fill.
@@ -43,14 +45,14 @@ Date: 2026-11-19. Scope: [#73](https://github.com/danirukun/opensekai/issues/73)
 ## Effects
 
 - An avatar shows a soft fill, a thin rim from each back light, and a shadow that goes to the shade color.
-- An operator can set the five values for each avatar in the Inspector, with MCP `scene_patch`, in the show, and with Blueprint Set Property.
+- An operator can set the five lighting fields for each avatar in the Inspector, with MCP `scene_patch`, in the show, and with Blueprint Set Property.
 - The wire API gets one optional avatar field and one patch operation. An old show loads without change and gets the default values.
 - A new scene starts with three lights. A new demo show shows the look in the preview and in OBS with alpha.
 
 ## Risks
 
 - **A face can look worse.** The shadow fix and the default values change each avatar that exists. The before and after capture of the eight test avatars, and the owner look check, are the gate.
-- **Compile cost.** The rim adds a term for each light. A stall for the Add of a lit light more than 20 % longer at 8 lit lights is a failure. Then the rim term must get cheaper before the work ships. A light set at the limit must not fail with `Pipeline compile failed`.
+- **Compile cost.** The rim adds a term for each light. A stall that is more than 20 % longer when you add a lit light at 8 lit lights is a failure. Then the rim term must get cheaper before the work ships. A light set at the limit must not fail with `Pipeline compile failed`.
 - **Transparent and cutout MToon materials** (hair cards) can show a bright halo at the rim on the OBS output. This needs the check on dark, light, and checker backgrounds.
 - **GPU time is unknown** until #305. The cloud run has only software adapters, so a look claim needs the owner check on macOS.
 - **Three-vrm internals.** The subclass depends on the `direct()` and `getShadow` interfaces of the pinned versions. A version change must run the renderer tests again.
