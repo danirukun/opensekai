@@ -3,7 +3,7 @@
  import type {AssetLoadStatus} from '@opensekai/renderer';
  import {modelLabel} from '../editor/authoring';
  import EmptyState from './EmptyState.svelte';
-import AvatarModelField from './AvatarModelField.svelte';
+ import AvatarModelField from './AvatarModelField.svelte';
  import AvatarExpressionFields,{type ExpressionApi} from './AvatarExpressionFields.svelte';
  import AvatarMeshFields from './AvatarMeshFields.svelte';
  import AvatarDebugFields from './AvatarDebugFields.svelte';

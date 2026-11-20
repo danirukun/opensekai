@@ -34,6 +34,8 @@ The Scene view shows the scene through the selected camera.
 
 The Properties column shows the settings of the selected asset. The Help button in the Properties header opens the page for the type of the selected asset.
 
+When no asset is selected, the Properties column says to select an asset from Assets.
+
 - When the column has more sections than it can show, an index of the sections shows at the top. Click a section name to go to that section.
 - Click a section header to collapse or expand the section.
 - A reset mark shows next to a value that is different from its default. Click the mark to set the default value again.
