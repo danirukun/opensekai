@@ -48,7 +48,7 @@ OpenSekai ships first as a desktop app. NiloToon is parked. Which other ways can
 
 Each candidate has a selection gate. Do not start a candidate until its gate is true. Record the owner decision in this file before a slice contract is written.
 
-### C1. Avatar look presets
+### C1. Avatar look presets ([#321](https://github.com/danirukun/opensekai/issues/321))
 
 A look preset for an avatar is a named set of plain data: the avatar Lighting group and material overrides (after MAT-08). It is the avatar part of the scene presets in #298. A combined preset can reference one scene preset of #298 and one avatar preset. The preset writes normal patch operations. After that, each value stays editable.
 
@@ -61,7 +61,7 @@ A look preset for an avatar is a named set of plain data: the avatar Lighting gr
   3. Can a user save their own preset? Where is it stored (show file or app data)?
 - **Selection gate:** the owner look check of character lighting passes, MAT-08 saved values and the renderer override are merged, and the #298 data shape is decided.
 
-### C2. lilToon values from a `.unitypackage`
+### C2. lilToon values from a `.unitypackage` ([#322](https://github.com/danirukun/opensekai/issues/322))
 
 Read lilToon material values from the creator's `.unitypackage` and give them to `LilToonNodeMaterial`, as #320 does for `MOCHIYA_materials_liltoon`. This is a third source of lilToon values, beside the glTF extension and `.warudo`. The user needs no Unity.
 
@@ -75,7 +75,7 @@ Read lilToon material values from the creator's `.unitypackage` and give them to
   2. Is a Unity project folder also a source, or only a `.unitypackage`?
 - **Selection gate:** PR #320 is merged, and the shared property nodes of the #269 decision are done if the stall gate requires them. The owner confirms that creators without a Unity workflow are a target group.
 
-### C3. OpenSekai toon extension for MToon (option A of the NiloToon research)
+### C3. OpenSekai toon extension for MToon ([#323](https://github.com/danirukun/opensekai/issues/323), option A of the NiloToon research)
 
 An OpenSekai TSL material on `CharacterMToonMaterial` that adds the features in problem 3. It is built clean-room, without NiloToon source. lilToon avatars keep the lilToon features; C3 does not change `LilToonNodeMaterial`.
 
