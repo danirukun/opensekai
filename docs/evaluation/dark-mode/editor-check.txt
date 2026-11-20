@@ -1,8 +1,10 @@
+pageerror Instance dropped in popErrorScope
 PASS R2: System follows a light OS 
 PASS no page error (light) []
 PASS Dark B: no visible light surface {"start":[],"editor":[],"contextMenu":[],"blueprints":[],"settings":[]}
 Dark B text under 4.5:1 {"start":{},"editor":{},"contextMenu":{},"blueprints":{},"settings":{}}
 PASS R2: System follows a dark OS 
+PASS R5: System under a dark OS is dark before the body parses 
 PASS R7: Dark A has no visible light surface {"start":[],"editor":[],"contextMenu":[],"blueprints":[],"settings":[]}
 Dark A text under 4.5:1 {"start":{},"editor":{},"contextMenu":{},"blueprints":{},"settings":{}}
 PASS R7: Dark A has no text under 3:1 {"start":{},"editor":{},"contextMenu":{},"blueprints":{},"settings":{}}
@@ -14,10 +16,10 @@ PASS R2: System changes when the OS changes
 PASS R2: System changes back 
 PASS the session stays connected after the changes 
 PASS no page error (dark A) []
-PASS R4/R5: a stored Dark applies before mount under a light OS, and the frame gets dark {"mount":"dark","theme":"dark","frame":["dark"]}
+PASS R4/R5: a stored Dark applies before the body parses under a light OS, and the frame gets dark {"body":"dark","mount":"dark","theme":"dark","frame":["dark"]}
 R8 light diff start {"changedPixels":0,"box":null}
 R8 light diff editor {"changedPixels":0,"box":null}
 R8 light diff context-menu {"changedPixels":0,"box":null}
 R8 light diff blueprints {"changedPixels":0,"box":null}
 R8 light diff settings {"changedPixels":55209,"box":{"x0":71,"y0":109,"x1":584,"y1":363}}
-15/15 passed
+16/16 passed

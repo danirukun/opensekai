@@ -25,7 +25,7 @@ const log=(...a)=>console.log(...a);
 const check=(name,pass,detail)=>{results.push({name,pass});log(pass?'PASS':'FAIL',name,detail===undefined?'':JSON.stringify(detail));};
 
 // Candidate B of the analysis: neutral steps with no navy tint. The other dark tokens stay as in A.
-const DARK_B=`html[data-theme='dark']{--ds-color-bg:#16151b;--ds-color-rail:#1b1a20;--ds-color-toolbar:#1e1d24;--ds-color-panel:#1c1b21;--ds-color-surface:#211f27;--ds-color-surface-elevated:#2a2831;--ds-color-border:#3a3843;--ds-color-text:#ecebf1;--ds-color-text-muted:#a9a6b3;--ds-color-viewport:#0e0d12;--ds-color-preview:#26242b;--ds-color-preview-check:#2e2c33;--ds-color-hidden-text:#6b6976;--ds-color-warning-bg:#2b2517;--ds-color-warning-border:#57492c}`;
+const DARK_B=`html[data-theme='dark']{--ds-color-bg:#16151b;--ds-color-rail:#1b1a20;--ds-color-toolbar:#1e1d24;--ds-color-panel:#1c1b21;--ds-color-surface:#211f27;--ds-color-surface-elevated:#2a2831;--ds-color-border:#3a3843;--ds-color-text:#ecebf1;--ds-color-text-muted:#a9a6b3;--ds-color-viewport:#0e0d12;--ds-color-preview:#26242b;--ds-color-preview-check:#2e2c33;--ds-color-hidden-text:#8b8996;--ds-color-warning-bg:#2b2517;--ds-color-warning-border:#57492c}`;
 
 const SESSION='session_check',PORT=4187,ORIGIN=`http://127.0.0.1:${PORT}`;
 const {WebSocketServer}=createRequire(process.cwd()+'/apps/mcp/package.json')('ws');
@@ -61,7 +61,9 @@ const stub=info=>{
   },
  };
  // The theme at the moment the editor first adds its content to #app (R5).
- window.__mountTheme=null;
+ window.__mountTheme=null;window.__bodyTheme=null;
+ // The theme when the parser adds <body>: the head script `theme-boot.js` sets it before that, and before any module runs.
+ new MutationObserver((_,observer)=>{if(document.body){window.__bodyTheme=document.documentElement?.dataset.theme??'';observer.disconnect();}}).observe(document,{childList:true,subtree:true});
  document.addEventListener('DOMContentLoaded',()=>{
   const app=document.getElementById('app');
   const record=()=>{if(window.__mountTheme===null&&app.childElementCount>0)window.__mountTheme=document.documentElement.dataset.theme??'';};
@@ -210,6 +212,7 @@ await darkB.context.close();
 const dark=await capture({label:'dark-a',colorScheme:'dark'});
 const {page}=dark;
 check('R2: System follows a dark OS',await theme(page)==='dark');
+check('R5: System under a dark OS is dark before the body parses',await page.evaluate(()=>window.__bodyTheme)==='dark');
 check('R7: Dark A has no visible light surface',Object.values(dark.audits).every(a=>a.light.length===0),Object.fromEntries(Object.entries(dark.audits).map(([k,a])=>[k,a.light])));
 const weak=Object.fromEntries(Object.entries(dark.audits).map(([k,a])=>[k,a.weak]));
 log('Dark A text under 4.5:1',JSON.stringify(weak));
@@ -248,8 +251,8 @@ await dark.context.close();
  const restart=await context.newPage();
  await restart.goto(ORIGIN+'/?view=editor');
  await restart.locator('.start-screen').waitFor({timeout:15000});
- const state=await restart.evaluate(()=>({mount:window.__mountTheme,theme:document.documentElement.dataset.theme,frame:window.__frame}));
- check('R4/R5: a stored Dark applies before mount under a light OS, and the frame gets dark',state.mount==='dark'&&state.theme==='dark'&&state.frame[0]==='dark',state);
+ const state=await restart.evaluate(()=>({body:window.__bodyTheme,mount:window.__mountTheme,theme:document.documentElement.dataset.theme,frame:window.__frame}));
+ check('R4/R5: a stored Dark applies before the body parses under a light OS, and the frame gets dark',state.body==='dark'&&state.mount==='dark'&&state.theme==='dark'&&state.frame[0]==='dark',state);
  await context.close();
 }
 

@@ -11,8 +11,11 @@ const paint=()=>applyTheme(resolveTheme(preference,query?.matches??false));
 // The frame follows the OS on its own for system. A failed call keeps the old frame; the page still changes.
 const frame=()=>{try{getCurrentWindow().setTheme(nativeTheme(preference)).catch(()=>{});}catch{/* no Tauri host */}};
 
-// Runs once before mount, so the first paint has the right theme.
+// Runs before mount. `public/theme-boot.js` already painted the stored theme; this adds the OS listener and the frame.
+let started=false;
 export function startTheme(){
+ if(started)return;
+ started=true;
  paint();
  frame();
  query?.addEventListener('change',paint);

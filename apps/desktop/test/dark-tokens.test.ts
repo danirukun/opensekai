@@ -58,6 +58,9 @@ it('meets WCAG AA for primary, lime, error, warning, link, and debug text in dar
  for (const name of ['--ds-color-debug-warning', '--ds-color-debug-error']) {
   expect(contrastRatio(color(name), color('--ds-color-toolbar')), name).toBeGreaterThanOrEqual(BODY);
  }
+ for (const surface of ['--ds-color-surface', '--ds-color-panel']) {
+  expect(contrastRatio(color('--ds-color-hidden-text'), color(surface)), surface).toBeGreaterThanOrEqual(BODY);
+ }
 });
 
 it('keeps a dark focus ring at 3:1 on the surface', () => {
@@ -76,4 +79,12 @@ it('keeps hex color literals out of components, so both themes reach every surfa
   if (FIXED.has(basename(file))) continue;
   expect(readFileSync(file, 'utf8').match(/#[0-9a-fA-F]{3,8}\b/g), file).toBeNull();
  }
+});
+
+it('keeps hex color literals in app.css to the token blocks, the Blueprint category and socket colors, and #0000', () => {
+ const rules = css.replace(/:root \{[^}]+\}/, '').replace(/html\[data-theme='dark'\]\s*\{[^}]+\}/, '');
+ const literals = [...rules.matchAll(/[^;{}]*#[0-9a-fA-F]{3,8}\b[^;{}]*/g)].map(([declaration]) => declaration.trim())
+  .filter(declaration => !/^--bp-(category|socket)\s*:/.test(declaration) && !/var\(--bp-(category|socket),#[0-9a-fA-F]+\)/.test(declaration))
+  .filter(declaration => declaration.replace(/#0000\b/g, '').match(/#[0-9a-fA-F]{3,8}\b/) !== null);
+ expect(literals).toEqual([]);
 });
