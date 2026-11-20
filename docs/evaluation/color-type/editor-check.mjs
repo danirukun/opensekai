@@ -1,4 +1,4 @@
-// Headless editor check of the Blueprint Color type and the kit ColorPicker in each Editor color field (B38 R7–R12).
+// Headless editor check of the Blueprint Color type and the kit ColorPicker in each Editor color field (B38 R10, R11).
 // The Editor window build runs in Chromium with the session in the page (the publisher), as in the app. A stand-in for
 // the Tauri host serves the build, routes the operator and publisher WebSockets, and sends the clock (the method of the
 // camera-orbit-selection check).
@@ -113,6 +113,8 @@ await settle(1000);
 const breakNode=page.locator('[data-testid=node]').filter({hasText:'Break Color'});
 const colorNode=page.locator('[data-testid=node]').filter({hasText:/^\s*Color/});
 await breakNode.waitFor({timeout:10000});
+const socket=await breakNode.locator('.bp-socket[data-kind=color]').first().evaluate(node=>getComputedStyle(node,'::before').backgroundImage);
+check('R10: a color socket has its own color',socket.startsWith('conic-gradient'),socket.slice(0,60));
 const nodeStyle=()=>breakNode.evaluate(node=>node.closest('[style*=translate]')?.style.transform??null);
 const scale=()=>breakNode.evaluate(node=>node.getBoundingClientRect().width/node.offsetWidth);
 
@@ -147,7 +149,7 @@ for(let i=0;i<30&&await scale()>0.52;i++){await page.mouse.wheel(0,120);await se
 await settle(400);
 await inlineCheck(String(Math.round(await scale()*100)/100),[[0.7,0.1],[0.4,0.3],[0.15,0.35]]);
 
-// R11: the properties picker of a Color node sends setNodeSettings.
+// R10: the properties picker of a Color node sends setNodeSettings.
 await colorNode.locator('.bp-node-title').click();
 await settle(500);
 const props=page.locator('aside[aria-label="Node properties"]');
@@ -158,11 +160,11 @@ let mark=ops().length;
 await dragArea(propsPanel);
 await settle(800);
 const settings=ops().slice(mark).filter(op=>op.kind==='setNodeSettings'&&op.nodeId==='swatch');
-check('R11: a drag in the Color node properties picker sends one setNodeSettings with a new color',settings.length===1&&/^#[0-9a-f]{6}$/.test(settings[0].settings.value)&&settings[0].settings.value!=='#336699',ops().slice(mark));
+check('R10: a drag in the Color node properties picker sends one setNodeSettings with a new color',settings.length===1&&/^#[0-9a-f]{6}$/.test(settings[0].settings.value)&&settings[0].settings.value!=='#336699',ops().slice(mark));
 await page.keyboard.press('Escape');
 await settle(300);
 
-// R12: the default of a Color variable, typed as hex.
+// R10: the default of a Color variable, typed as hex.
 await page.getByTitle('Variables').click();
 await settle(500);
 const hex=page.locator('.blueprint-variable-color input');
@@ -170,10 +172,10 @@ mark=ops().length;
 await hex.fill('#336699');await hex.press('Enter');
 await settle(800);
 const updates=ops().slice(mark).filter(op=>op.kind==='updateVariable');
-check('R12: a typed #336699 in the Color variable default sends one updateVariable',updates.length===1&&updates[0].variableId==='tint'&&updates[0].default==='#336699',ops().slice(mark));
+check('R10: a typed #336699 in the Color variable default sends one updateVariable',updates.length===1&&updates[0].variableId==='tint'&&updates[0].default==='#336699',ops().slice(mark));
 await page.getByTitle('Variables').click();
 
-// R8, R9: the Inspector Color of a point light: live patches during a drag, none after it; one commit for a typed hex.
+// R11: the Inspector Color of a point light: live patches during a drag, none after it; one commit for a typed hex.
 await page.getByTitle('Assets').click();
 await settle(500);
 const startScreen=page.locator('section.start-screen');
@@ -193,7 +195,7 @@ await lightPicker.getByRole('button',{name:'Color',exact:true}).click();
 const lightPanel=panelOf(lightPicker);
 await lightPanel.waitFor({timeout:3000});
 const lightPlace=await placement(lightPanel);
-check('R8: the light Color panel is inside the viewport and on top',lightPlace.inside&&lightPlace.top,lightPlace);
+check('R11: the light Color panel is inside the viewport and on top',lightPlace.inside&&lightPlace.top,lightPlace);
 await page.screenshot({path:`${out}/light-picker.png`});
 mark=lightPatches().length;
 await dragArea(lightPanel,[[0.1,0.1],[0.3,0.3],[0.5,0.5],[0.7,0.6],[0.9,0.4]]);
@@ -204,8 +206,8 @@ const afterEnd=lightPatches().slice(mark);
 await refresh();
 const shownHex=await lightPicker.locator('input:not([type=range])').inputValue();
 const committed=inspected.entities.find(entity=>entity.id===light.id).light.color;
-check('R9: a drag sends two or more live setLight patches',live.length>=2,live.map(op=>op.light.color));
-check('R9: the end of the drag sends no extra patch, and the scene holds the shown color',afterEnd.length===live.length&&committed===shownHex&&live.at(-1)?.light.color===shownHex,{live:live.length,afterEnd:afterEnd.length,committed,shownHex});
+check('R11: a drag sends two or more live setLight patches',live.length>=2,live.map(op=>op.light.color));
+check('R11: the end of the drag sends no extra patch, and the scene holds the shown color',afterEnd.length===live.length&&committed===shownHex&&live.at(-1)?.light.color===shownHex,{live:live.length,afterEnd:afterEnd.length,committed,shownHex});
 await page.keyboard.press('Escape');
 await settle(300);
 mark=lightPatches().length;
@@ -214,14 +216,14 @@ await lightHex.fill('#00ff00');await lightHex.press('Enter');
 await settle(1000);
 const typed=lightPatches().slice(mark);
 await refresh();
-check('R9: a typed #00ff00 sends one setLight patch',typed.length===1&&typed[0].light.color==='#00ff00'&&inspected.entities.find(entity=>entity.id===light.id).light.color==='#00ff00',typed.map(op=>op.light.color));
+check('R11: a typed #00ff00 sends one setLight patch',typed.length===1&&typed[0].light.color==='#00ff00'&&inspected.entities.find(entity=>entity.id===light.id).light.color==='#00ff00',typed.map(op=>op.light.color));
 
-// R8: the other Inspector color fields open the kit picker.
+// R11: the other Inspector color fields open the kit picker.
 const opens=async(name,picker)=>{
  await picker.click();
  const dialog=page.locator('[role=dialog]:popover-open');
  let ok=false;try{await dialog.waitFor({timeout:3000});ok=true;}catch{/* reported below */}
- check(`R8: ${name} opens the kit color picker`,ok&&(await placement(dialog)).inside);
+ check(`R11: ${name} opens the kit color picker`,ok&&(await placement(dialog)).inside);
  await page.keyboard.press('Escape');await settle(300);
 };
 await page.getByTitle('Add asset').click();
