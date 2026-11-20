@@ -4,6 +4,7 @@ import {createRequire} from 'node:module';
 import {expect, it} from 'vitest';
 import {MToonMaterialLoaderPlugin} from '@pixiv/three-vrm';
 import {MATERIAL_EXTENSIONS} from '@opensekai/contracts';
+import {LILTOON_GLTF_EXTENSION} from '@mochiya/three-liltoon/webgpu';
 import {createAssetLoader} from '../src/assets';
 
 function glb(json: object): ArrayBuffer {
@@ -56,5 +57,5 @@ it('pins the supported material extensions to the installed loaders', () => {
     const vrm = [...bundle.matchAll(/LoaderPlugin\.EXTENSION_NAME = "(VRMC_materials_\w+)"/g)].map(match => match[1]);
     expect(vrm).toContain(MToonMaterialLoaderPlugin.EXTENSION_NAME);
     // The lilToon extension comes from the three-liltoon fork, not from these loaders.
-    expect(new Set([...loader, ...vrm, 'MOCHIYA_materials_liltoon'])).toEqual(MATERIAL_EXTENSIONS);
+    expect(new Set([...loader, ...vrm, LILTOON_GLTF_EXTENSION])).toEqual(MATERIAL_EXTENSIONS);
 });

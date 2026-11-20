@@ -2,6 +2,8 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import type { LoadReport } from "./load-jobs";
 import { MToonMaterialLoaderPlugin, VRMLoaderPlugin, VRMUtils, type VRM } from "@pixiv/three-vrm";
 import { CharacterMToonMaterial } from "./character-mtoon";
+import { CharacterLilToonMaterial } from "./character-liltoon";
+import { enableLilToonNodeVRM, type LilToonNodeWarning } from "@mochiya/three-liltoon/webgpu";
 import { materialReport, materialWarning, meshEntries, type ResourceHost, type AppError } from "@opensekai/contracts";
 import type { Object3D, Mesh, SkinnedMesh, Material, Texture } from "three/webgpu";
 import { failure } from "./apply-frame";
@@ -132,7 +134,14 @@ export function createAssetLoader(resources: ResourceHost, options: { maxTexture
             }).catch(error => { imageFailure = error; throw error; });
             return { name: "OPENSEKAI_shared_images" };
         });
-        loader.register(parser => new VRMLoaderPlugin(parser, { mtoonMaterialPlugin: new MToonMaterialLoaderPlugin(parser, { materialType: CharacterMToonMaterial }) }));
+        const lilToon: LilToonNodeWarning[] = [];
+        loader.register(parser => {
+            const plugin = new VRMLoaderPlugin(parser, { mtoonMaterialPlugin: new MToonMaterialLoaderPlugin(parser, { materialType: CharacterMToonMaterial }) });
+            // lilToon on WebGPU R6: only a VRM file loads the lilToon extension. A GLB prop keeps the PBR path, and the material
+            // report names the extension. The lilToon plugin goes first, so a lilToon material with MToon data gets no MToon material.
+            const used: unknown[] = parser.json.extensionsUsed ?? [];
+            return used.includes("VRMC_vrm") || used.includes("VRM") ? enableLilToonNodeVRM(plugin, { materialType: CharacterLilToonMaterial, onWarning: warning => lilToon.push(warning) }) : plugin;
+        });
         try {
             let percent = -1;
             report({ stage: 'download', progress: null });
@@ -154,6 +163,7 @@ export function createAssetLoader(resources: ResourceHost, options: { maxTexture
             const warnings: AppError[] = [];
             warnings.push(...extensionWarnings(extensions, id));
             if (material) warnings.push({ code: "UNSUPPORTED", message: material, ids: [id] });
+            for (const warning of lilToon) warnings.push({ code: "UNSUPPORTED", message: `lilToon ${warning.materialName} (${warning.property}): ${warning.message}`, ids: [id] });
             let disposed = false;
             return { scene: gltf.scene, vrm, meshes: vrm ? meshObjects(gltf) : undefined, warnings, dispose() { if (disposed)
                     return; disposed = true; disposeObject(gltf.scene, lease); lease.release(); } };

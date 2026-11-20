@@ -1,7 +1,8 @@
-import {Object3D,Quaternion,Vector3} from 'three/webgpu';
+import {Object3D,Quaternion,Vector3,type Material,type Mesh} from 'three/webgpu';
 import type {VRM, VRMHumanBoneName, VRMPose} from '@pixiv/three-vrm';
 import type {AvatarLighting, AvatarPose} from '@opensekai/contracts';
 import type {CharacterMToonMaterial} from './character-mtoon';
+import type {CharacterLilToonMaterial} from './character-liltoon';
 import {canonicalArkitName,createArkitMorphBinding} from './arkit-expressions';
 import {createUvAnimation} from './mtoon-uv';
 import type {SpringClock} from './spring-grid';
@@ -72,12 +73,19 @@ export function createAvatarBinding(vrm: VRM) {
     const morphs=createArkitMorphBinding(vrm.scene);
     // The surface materials and their outline clones; the clones have the same speeds (R5).
     const uv=createUvAnimation(vrm.materials ?? []);
-    const characters=(vrm.materials ?? []).filter((material):material is CharacterMToonMaterial=>(material as Partial<CharacterMToonMaterial>).isCharacterMToonMaterial===true);
-    // Property writes only: the values are uniforms, so a change does not recompile (character lighting R4).
+    // `vrm.materials` has only the MToon materials. The lilToon materials, and the copies GLTFLoader makes, are on the meshes.
+    const drawn=new Set<Material>(vrm.materials ?? []);
+    vrm.scene.traverse(object=>{const mesh=object as Mesh;if(mesh.isMesh)for(const material of [mesh.material].flat())drawn.add(material);});
+    const characters=[...drawn].filter((material):material is CharacterMToonMaterial|CharacterLilToonMaterial=>{
+        const flags=material as Partial<CharacterMToonMaterial&CharacterLilToonMaterial>;
+        return flags.isCharacterMToonMaterial===true || flags.isCharacterLilToonMaterial===true;
+    });
+    // Property writes only: the values are uniforms, so a change does not recompile (character lighting R4). A lilToon material keeps
+    // its authored rim (lilToon on WebGPU R8).
     const lighting=(values:AvatarLighting) => {
         for (const material of characters) {
-            material.rimStrength=values.rimStrength; material.rimWidth=values.rimWidth; material.rimTint.set(values.rimTint);
             material.shadowStrength=values.shadowStrength; material.environmentFill=values.environmentFill;
+            if ('isCharacterMToonMaterial' in material) {material.rimStrength=values.rimStrength; material.rimWidth=values.rimWidth; material.rimTint.set(values.rimTint);}
         }
     };
     return {root, uv, characters, lighting, advanceSprings(clock: SpringClock) { springs?.advance(clock); }, apply(pose?: AvatarPose) {
