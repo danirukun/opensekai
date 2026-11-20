@@ -1,6 +1,6 @@
 # lilToon on WebGPU check (MAT-02 slice 1)
 
-Date: 2026-11-20. Contract: [lilToon on WebGPU](../../spdd/prompt/2026-11-19-liltoon-webgpu.md). Design: [lilToon on WebGPU design](../superpowers/specs/2026-11-19-liltoon-webgpu-design.md). Issues: #269 (spike), #74 (MAT-02). Branch: `liltoon-webgpu`. The code commit is `ad33d36`; the fork pin after the calibration is `8f7e1d7`, and after the final review `b7600f1`. The fork `danirukun/three-liltoon`, branch `webgpu`, is at `66e7791` (the calibration found one defect and fixed it in `47a73c8`; the final review put the ambient inside the light limit in `66e7791`, see Calibration; the integration commit used `72d3631`). Sample revision: the second export (made after the convert-script commit `019d288`, see Sample revision). The images and the numbers on this page are from that export, except where a line says "first revision".
+Date: 2026-11-20. Contract: [lilToon on WebGPU](../../spdd/prompt/2026-11-19-liltoon-webgpu.md). Design: [lilToon on WebGPU design](../superpowers/specs/2026-11-19-liltoon-webgpu-design.md). Issues: #269 (spike), #74 (MAT-02). Branch: `liltoon-webgpu`. The code commit is `ad33d36`; the fork pin after the calibration is `8f7e1d7`, and after the final review `b7600f1`. OpenSekai pins the fork `danirukun/three-liltoon`, branch `webgpu`, at `66e7791` (the calibration found one defect and fixed it in `47a73c8`; the final review put the ambient inside the light limit in `66e7791`, see Calibration; the integration commit used `72d3631`). Sample revision: the second export (made after the convert-script commit `019d288`, see Sample revision). The images and the numbers on this page are from that export, except where a line says "first revision".
 
 GPU time: unknown (#305).
 
@@ -184,6 +184,10 @@ Other rows of this slice:
 | `pnpm exec vitest run --project unit packages/renderer/test/character-liltoon.test.ts packages/renderer/test/material-report.test.ts` at pin `66e7791` | 2 files, 16 tests passed (run again on the second sample revision: the same). |
 | `pnpm exec vitest run --project integration packages/renderer/test/liltoon-avatar.integration.test.ts` | 1 test passed (`SAMPLE_WARNINGS` `[]`); on the second revision (manifest sha256 `90956432…`) 1 test passed, not skipped. |
 
+## Owner look check
+
+The owner looked at the four-panel image of the second sample export (Unity MToon original, Unity lilToon, upstream WebGL, OpenSekai WebGPU; face and ears at 2×) on 2026-11-20 and passed the look. The owner said "the look looks better". The owner chose to keep the hair second and third shadow bands that the convert script adds. The MToon original does not have them. The image is in the orchestrate folder, not in the repository.
+
 ## Not verified
 
 - The Editor-preview stall: the session was locked in the stall run, and the Scene window drew no frame. The stall table is the output renderer, on the first sample revision. (The preview frame time was read in the unlocked second-revision run, see OBS output.)
@@ -197,4 +201,3 @@ Other rows of this slice:
 - A non-identity `_MainTex_ST` on the GPU (R16): unit tests only since the second sample revision.
 - The cause of the lighter iris behind the transparent lens.
 - The cause of the `ready: false` event of about 10 s during the second-revision capture run.
-- The owner look check on the second revision: the four-panel image (Unity MToon original, Unity lilToon, upstream WebGL, OpenSekai WebGPU; face and ears at 2×) is in the orchestrate folder, not in the repository.
