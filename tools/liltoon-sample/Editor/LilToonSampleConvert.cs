@@ -290,6 +290,13 @@ public static class LilToonSampleConvert
             if (!features.Contains("rim")) features.Add("rim");
             if (!features.Contains("matcap")) Debug.LogWarning($"{name}: the hair has no matcap texture in the source.");
         }
+        // The source cat ears have a white shade, so a light does not shade them. The owner asked for a
+        // neutral grey shade (not the blue cloth shade) at the brightness of the cloth shade.
+        if (name.Contains("_CatEar_"))
+        {
+            material.SetColor("_ShadowColor", new Color(0.84f, 0.84f, 0.84f, 1f));
+            features.Add("earShade");
+        }
     }
 
     private static string ExpectedShaderName(RenderingMode mode, bool outline)

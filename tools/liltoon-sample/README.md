@@ -99,8 +99,9 @@ Notes on the mapping:
 | `*_SKIN` (face, body) | second and third shadow band with distinct colors, backlight, a visible rim |
 | `N00_000_00_Body_00_SKIN` | `_ShadowStrengthMask` = the body main texture (its red channel varies) |
 | `*_HAIR` | second and third shadow band with distinct colors, a visible rim; the matcap and the emission come from the source hair MToon material |
+| `*_CatEar_*` | a neutral grey `_ShadowColor` (sRGB 0.84) in place of the white source shade |
 
-The extra features keep the look of the MToon avatar; `Export/unity-mtoon-original.png` is the look to compare against. The face gets no shadow mask, because a mask from the face outline width texture puts the skin around the eyes and the mouth into the second and third band. The cat ear gets no extra emission and no main texture transform, because they change its grey.
+The extra features keep the look of the MToon avatar; `Export/unity-mtoon-original.png` is the look to compare against. The face gets no shadow mask, because a mask from the face outline width texture puts the skin around the eyes and the mouth into the second and third band. The cat ear gets no extra emission and no main texture transform, because they change its grey. The source cat ear has a white shade, so a light does not shade it; at the owner's request it gets a grey shadow color with the brightness of the cloth shade (sRGB 0.81 / 0.84 / 0.97) but no blue.
 
 lilToon has no `_UseShadow2nd` or `_UseShadow3rd` property. The alpha of `_Shadow2ndColor` and `_Shadow3rdColor` turns the band on. The convert script sets that alpha to 0 on every other material, because lilToon turns the second band on by default.
 
@@ -121,7 +122,7 @@ lilToon mixes the second and the third band into the first shadow region only (`
 | `N00_000_00_Body_00_SKIN` | `Hidden/lilToonCutoutOutline` | shadow 1, 2, 3; shadow strength mask; normal map; rim; backlight; matcap; outline |
 | `Accessory_GlassesHiFrame_01_MATCAP` | `Hidden/lilToonOutline` | shadow 1; rim; matcap; outline |
 | `Accessory_GlassesHiLens_01_MATCAP` | `Hidden/lilToonTransparent` | shadow 1; rim; matcap |
-| `Accessory_CatEar_01_CLOTH` | `Hidden/lilToonOutline` | shadow 1; rim; matcap; outline |
+| `Accessory_CatEar_01_CLOTH` | `Hidden/lilToonOutline` | shadow 1 (grey shadow color); rim; matcap; outline |
 | `N00_004_01_Shoes_01_CLOTH` | `Hidden/lilToonOutline` | shadow 1; rim; matcap; outline |
 | `N00_005_01_Tops_01_CLOTH` | `Hidden/lilToonCutoutOutline` | shadow 1; rim; matcap; outline |
 | `N00_001_01_Bottoms_01_CLOTH` | `Hidden/lilToonCutoutOutline` | shadow 1; rim; matcap; outline |
