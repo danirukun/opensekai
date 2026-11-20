@@ -1,0 +1,7 @@
+# fixture_vrm_liltoon auto {"fixture":"fixture_vrm_liltoon","backend":"webgpu","profiles":{"liltoon":16},"materialWarnings":[],"pipelineFailures":0,"otherWarnings":[],"pageErrors":[],"png":{"file":"docs/evaluation/liltoon-webgpu/fixture_vrm_liltoon-auto.png","transparentFraction":0.941}}
+PASS fixture_vrm_liltoon auto: loads []
+PASS fixture_vrm_liltoon auto: backend webgpu "webgpu"
+PASS fixture_vrm_liltoon auto: no pipeline compile failure in any applied frame 
+PASS fixture_vrm_liltoon auto: profile counts {"liltoon":16} {"liltoon":16}
+PASS fixture_vrm_liltoon auto: no UNSUPPORTED material warning []
+5 pass, 0 fail, 0 fixtures skipped
