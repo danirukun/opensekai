@@ -137,7 +137,7 @@ export async function mountReteBlueprint(container: HTMLElement, initial: Bluepr
  // A click on empty canvas (a press with almost no movement) clears the comment selection, as the selection extension does for nodes.
  let press: { moves: number } | null = null;
  // The kit color picker gets its pointer events by delegation from the node element, after the node drag starts.
- // A press that starts in a picker (its swatch or its panel) must not move the node.
+ // A press that starts in a picker (its swatch or its panel) must not move the node; a placement by the adapter still applies.
  let picking = false;
  const pick = (event: PointerEvent) => { picking = event.target instanceof Element && event.target.closest('.bp-inline-color') !== null; };
  const unpick = () => { picking = false; };
@@ -145,7 +145,7 @@ export async function mountReteBlueprint(container: HTMLElement, initial: Bluepr
  window.addEventListener('pointerup', unpick);
  window.addEventListener('pointercancel', unpick);
  area.addPipe(context => {
-  if (context.type === 'nodetranslate' && picking) return undefined;
+  if (context.type === 'nodetranslate' && picking && !ownNodes.has(context.data.id)) return undefined;
   if (context.type === 'nodepicked') { if (!accumulating.active()) clearComments(); handlers.onSelect(context.data.id); }
   if (context.type === 'pointerdown') press = context.data.event.target === container || context.data.event.target === area.area.content.holder ? { moves: 0 } : null;
   if (context.type === 'pointermove' && press) press.moves++;

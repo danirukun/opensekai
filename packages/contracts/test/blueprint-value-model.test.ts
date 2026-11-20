@@ -71,7 +71,7 @@ it('accepts a color only as a lowercase #rrggbb string', () => {
 it('accepts a variable of each data type and inline values in the shared typed vector', () => {
  const typed = BlueprintGraphSchema.parse(structuredClone(vectors.typed));
  expect(typed.variables.map(v => v.type)).toEqual(DATA_TYPES);
- expect(typed.nodes.map(n => n.inputs)).toEqual([{ a: 2, b: 0.5 }, { delta: [0, 0.1, 0] }]);
+ expect(typed.nodes.map(n => n.inputs)).toEqual([{ a: 2, b: 0.5 }, { delta: [0, 0.1, 0] }, { value: '#ff8000' }]);
 });
 
 it('retypes a variable to the default of its new type and checks a new default against the type', () => {
@@ -93,6 +93,9 @@ it('accepts inline values that match scalar data inputs and rejects all others',
  expect(valid({ c: 1 })).toBe(false);
  expect(valid({ flow: 1 }, 'scene.setVisibility', { entityId: 'e' })).toBe(false);
  expect(valid({ a: Number.POSITIVE_INFINITY })).toBe(false);
+ expect(valid({ value: '#ff8000' }, 'color.break')).toBe(true);
+ expect(valid({ value: '#FF8000' }, 'color.break')).toBe(false);
+ expect(valid({ value: 'orange' }, 'color.break')).toBe(false);
  const proto = BlueprintNodeSchema.parse(JSON.parse('{"id":"n","version":1,"type":"math.add","settings":{},"position":{"x":0,"y":0},"inputs":{"__proto__":{"a":1}}}'));
  expect(Object.getPrototypeOf(proto.inputs)).toBe(Object.prototype);
  expect(Object.keys(proto.inputs!)).toEqual([]);

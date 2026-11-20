@@ -56,13 +56,13 @@ R10 [PR2]. The Editor:
 - an inline `ColorPicker` for an unconnected color input on a node;
 - the field kind `color` in Node properties;
 - a `ColorPicker` for a Color variable default.
-In the Blueprint canvas, the panel shows above the canvas at each zoom.
+In the Blueprint canvas, the panel shows above the canvas at each zoom. A press that starts in a node picker does not move the node; a move from the session (another editor or MCP) during that press still places the node.
 
 R11 [PR2]. `ColorField.svelte` keeps its props and uses the kit `ColorPicker`. The mapping:
 - `oninput` → `onlive`;
-- the end of a gesture → `onend`;
-- a committed hex → `oncommit`.
-Lights, the FPS counter, grading Tint, and the B37 Vignetting and Night Vision colors use it with no call-site change. The native `<input type="color">` is removed.
+- the end of a gesture → `onend`, one time for each gesture: the kit `onchange` with the last live color ends it, and so does the pointer end (`pointerup`, `pointercancel`, lost capture) or the release of the arrow key when the gesture ends on its start color;
+- a committed hex → `oncommit`. When the scene does not take the hex within 1 s, the picker shows the scene color again.
+Lights, the FPS counter, grading Tint, the avatar Rim Tint, and the B37 Vignetting and Night Vision colors use it with no call-site change. The native `<input type="color">` is removed.
 
 R12 [PR2]. No migration. Existing shows and Blueprint files stay valid with `formatVersion: 1`. The extension port types do not change.
 

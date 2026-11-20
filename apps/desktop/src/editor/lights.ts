@@ -1,4 +1,4 @@
-import {LIMITS,LightColorSchema,isLitLight,type FpsCounterSettings,type HazeSettings,type LightBeam,type LightSettings,type Quat,type SceneEntity,type SceneView,type Transform} from '@opensekai/contracts';
+import {LIMITS,isLitLight,type FpsCounterSettings,type HazeSettings,type LightBeam,type LightSettings,type Quat,type SceneEntity,type SceneView,type Transform} from '@opensekai/contracts';
 // −Z along the normalized −[2, 4, 3], no roll: the direction of the built-in light (R10).
 export const BUILTIN_LIGHT_ROTATION:Quat=[-0.389047,0.264763,0.117794,0.874453];
 const shadow:LightSettings['shadow']={enabled:false,intensity:1,soft:true,bias:-0.0005,normalBias:0.02};
@@ -53,10 +53,6 @@ export function lightForType(type:LightSettings['type'],current:LightSettings):L
  const scatter=volumetric??base.volumetric;
  if((type==='spot'||type==='point')&&scatter!==undefined)next.volumetric=scatter;
  return next;
-}
-export function parseLightColor(input:string):string|null {
- const value=input.trim().toLowerCase();
- return LightColorSchema.safeParse(value).success?value:null;
 }
 // Set Direction From Main Camera: the light keeps its position and takes the rotation of the output_main camera (R13).
 export function directionFromMainCamera(scene:SceneView,lightId:string):Transform|null {
