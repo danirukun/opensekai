@@ -89,6 +89,16 @@ One event in this run is not explained. Right after the default-rig capture, the
 | Minimized Editor | First revision. Not performed as specified: a locked session was observed instead. The Editor was never minimized (`AXMinimized` could not be set through System Events while the session was locked). In the locked session the Scene window drew no frame, and with the idle animation on, two OBS screenshots 4 s apart differ in 26,763 pixels: the output continues without a preview frame. |
 | Frame time | Second revision, unlocked session: output CPU 1.1 to 6.8 ms for each settled frame (`production_v1`, WebGPU, `lastFrame.cpuMs`; 14.9 ms on the first frame after the avatar load, 11.4 ms on one demo Wide frame), preview CPU 1 to 6 ms (`preview_v1`). OBS `activeFps` 60.0, `outputSkippedFrames` 0, `averageFrameRenderTime` 0.37 ms. First revision, locked session: output CPU 2.2 to 4.7 ms (1.1 ms on the demo Wide camera), preview CPU unknown (no preview frame), OBS `activeFps` 11.8 to 26.6 and `averageFrameRenderTime` 0.85 to 1.64 ms (OBS throttles then; this is an OBS value, not an app value). GPU time unknown. |
 
+## Main light and shared texture check (fork `2d29c26`)
+
+Third sample revision, OBS output, `production_v1`, WebGPU, branch `liltoon-webgpu` at `799adf1`. Images in the orchestrate folder (`main-light/`), not in the repository.
+
+- One directional light (the Unity reference rig): the same frame as before `2d29c26` (mean difference 0.008 of 255; only the spring-bone hair and the hoodie strings moved).
+- Shared texture (the default rig: a key light with a shadow and a back light): each mesh draws with its own texture, also on the first frame after a cold app start with the shadow light on. Before `2d29c26` a mesh could draw with the main texture of another mesh, because the shadow map draws before the texture node of the material synced.
+- A red point light next to the reference directional light: no second band set. At the reference intensities the red light shows no tint, because every sample material has `_LightMaxLimit` 1 and the directional light alone gives 3/π (0.95). With the directional light at 1 and the point light at 2, the whole avatar gets the red tint with no new band edges. As in lilToon, the other lights add color with no direction term.
+- Two spot lights and no directional light: the bands follow the spot light that the renderer made first; the second spot light adds color only. Removing it removes the tint and keeps the band edges.
+- In one app session the Editor preview stopped at one scene revision while the OBS output continued, and `camera_screenshot` timed out. It did not occur again after an app restart. A warm stall run also stopped once with no preview frame at a revision for 90 s. The cause is not known.
+
 ## Cost (R9)
 
 ### Gate: warm light add (fork `2d29c26`, third sample revision `2cd7340b…`)
@@ -198,7 +208,7 @@ Each row of the three-liltoon [feature matrix](https://github.com/danirukun/thre
 | Static meshes, skinned meshes, morph targets | Implemented | Implemented by three (`NodeMaterial`); the sample is skinned | three |
 | Directional shadow receiving | Limited | `_ShadowReceive` faithful, default 0: no cast shadow on the material unless authored (R11); no receive floor. Shadow Strength scales only the cast shadow of a receiving material, so it has no effect on most lilToon avatars; every material of the sample has `_ShadowReceive` 0 | `character-liltoon.ts` |
 | Shadow casting | Limited | three depth material; the cutout alpha test in the caster is not verified | three |
-| Direct and ambient lighting | Limited: first directional light plus ambient | Each three light gets its own band set, weighted by its grey level; the ambient (the scene irradiance over π, a fixed 1/π: `UNITY_LIGHT_SCALE` applies to the lights only) is added to the summed light, and the sum goes through the light limit once and into the shadow-color mix, as the main light plus the SH ambient in Unity. `CharacterLilToonMaterial` gives the scene ambient × `CHARACTER_AMBIENT` plus the room fill | `LilToonLightingModel.ts`, `character-liltoon.ts` |
+| Direct and ambient lighting | Limited: first directional light plus ambient | The main light (the first directional light, else the first lit light) gets the band set; each other light adds its color times its cast shadow; the ambient (the scene irradiance over π, a fixed 1/π: `UNITY_LIGHT_SCALE` applies to the lights only) is added to the summed light, and the sum goes through the light limit once and into the shadow-color mix, as the main light plus the SH ambient in Unity. `CharacterLilToonMaterial` gives the scene ambient × `CHARACTER_AMBIENT` plus the room fill | `LilToonLightingModel.ts`, `character-liltoon.ts` |
 | Light limit (`_LightMinLimit`, `_LightMaxLimit`, `_MonochromeLighting`, `_AsUnlit`) | Implemented (the HLSL) | Implemented as the HLSL since fork `66e7791`: the summed light plus the ambient is clamped once (`LilToonLightingModel.ts`, `finish()`), and the shading, the effects (rim, matcap, backlight), and the outline read that one light color. `_ShadowEnvStrength` reads `saturate(ambient)` as `fd.indLightColor` (`lil_common_frag.hlsl:1125`) | `LilToonLightingModel.ts` |
 | Environment reflections | Limited | Not drawn | — |
 | glTF/GLB material loading | Implemented | Implemented for a VRM file in OpenSekai; a GLB prop with the extension loads PBR with a warning (R1). A plain glTF transparent lilToon material gets `renderOrder` 19 against 0 for PBR | `GLTFLilToonNodeExtension.ts`, `assets.ts` |
@@ -216,7 +226,7 @@ Other rows of this slice:
 
 ### Differences from Unity
 
-- The main light: Unity lilToon shades one main light (the directional light plus the SH ambient) with the bands and adds the other lights to the light color. The port does the same (fork `2d29c26`), but it selects the main light by a rule: the first directional light of the light set, else the first lit light. Unity uses the sun or the brightest directional light. Each other light adds its color times its cast shadow and gives no bands and no backlight. Before `2d29c26` the port gave each light its own bands; that made the shader larger with each light (see Cost).
+- The main light: Unity lilToon shades one main light (the directional light plus the SH ambient) with the bands and adds the other lights to the light color. The port does the same (fork `2d29c26`), but it selects the main light by a rule: the first directional light of the light set, else the first lit light. "First" is the order in which the renderer made the three.js lights (three.js sorts the lights by object id), not the entity order: a later change of the entity order does not change the main light. Unity uses the sun or the brightest directional light. Each other light adds its color times its cast shadow and gives no bands and no backlight. Before `2d29c26` the port gave each light its own bands; that made the shader larger with each light (see Cost).
 - No expression binds on a lilToon material (warned).
 - No UV scroll and no tone correction on the main texture.
 - The ambient enters the light color at 1/π of the three irradiance (the Lambert convention of three), so an Ambient light of the same color as a Unity flat ambient is weaker by π. The ambient of the reference rig is small (0.033), and the result is inside the calibration window. Its place is the Unity place: inside the light limit (fork `66e7791`).
@@ -245,7 +255,8 @@ The owner looked at the four-panel image of the second sample export (Unity MToo
 - Windows.
 - Transparent+outline, TwoPass, Fur, Gem, and Refraction materials (the sample has none).
 - The cutout alpha test in the shadow caster.
-- A scene with more than one toon light against Unity (by design different).
+- A scene with more than one light against Unity (the main light rule differs).
+- The cause of the Editor preview that stopped at one revision (see Main light and shared texture check).
 - The look of the avatar on the WebGL 2 fallback: the headless check proves that it loads and compiles; the only image is the page screenshot of the Metal GPU WebGL 2 run (`fixture_vrm_liltoon-webgl2.png`, the smoke-scene camera and lights, not the reference rig). The SwiftShader runs made no image.
 - A non-identity `_MainTex_ST` on the GPU (R16): unit tests only since the second sample revision.
 - The cause of the lighter iris behind the transparent lens.
