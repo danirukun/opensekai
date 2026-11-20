@@ -44,6 +44,7 @@ const VRM_REQUIRED: &[&str] = &[
     "VRMC_node_constraint",
     "VRMC_materials_mtoon",
     "VRMC_materials_hdr_emissiveMultiplier",
+    "MOCHIYA_materials_liltoon",
     "VRM",
 ];
 
@@ -64,4 +65,19 @@ fn check_required(json: &Value, extra: &[&str]) -> Result<(), AppError> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod required_tests {
+    use super::*;
+
+    #[test]
+    fn only_a_vrm_import_accepts_the_liltoon_extension_as_required() {
+        let json = serde_json::json!({"extensionsRequired": ["MOCHIYA_materials_liltoon"]});
+        assert!(check_required(&json, VRM_REQUIRED).is_ok());
+        assert_eq!(
+            check_required(&json, &[]).unwrap_err().message,
+            "Unsupported required extension: MOCHIYA_materials_liltoon"
+        );
+    }
 }

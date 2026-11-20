@@ -55,5 +55,6 @@ it('pins the supported material extensions to the installed loaders', () => {
     const bundle = readFileSync(require.resolve('@pixiv/three-vrm'), 'utf8');
     const vrm = [...bundle.matchAll(/LoaderPlugin\.EXTENSION_NAME = "(VRMC_materials_\w+)"/g)].map(match => match[1]);
     expect(vrm).toContain(MToonMaterialLoaderPlugin.EXTENSION_NAME);
-    expect(new Set([...loader, ...vrm])).toEqual(MATERIAL_EXTENSIONS);
+    // The lilToon extension comes from the three-liltoon fork, not from these loaders.
+    expect(new Set([...loader, ...vrm, 'MOCHIYA_materials_liltoon'])).toEqual(MATERIAL_EXTENSIONS);
 });

@@ -73,6 +73,24 @@ fn model_values_apply_and_are_in_range() {
 }
 
 #[test]
+fn a_liltoon_material_has_no_parameter() {
+    let lil = |m: Value| ok(json!([material(json!({"profile":"liltoon","model":m}))]));
+    assert!(lil(json!({})));
+    assert!(ok(json!([material(
+        json!({"profile":"liltoon","blend":true,"model":{}})
+    )])));
+    assert!(!lil(json!({"baseColor":"#ffffff"})));
+    assert!(!lil(json!({"emissionColor":"#000000"})));
+    assert!(!lil(json!({"shadeColor":"#000000"})));
+    assert!(!ok(json!([material(
+        json!({"profile":"liltoon","blend":true,"model":{"opacity":1}})
+    )])));
+    assert!(!ok(json!([material(
+        json!({"profile":"liltoon","outline":true,"model":{}})
+    )])));
+}
+
+#[test]
 fn image_and_video_records_have_no_material_list() {
     let mut image = record(json!([]));
     image["id"] = json!("image_x");

@@ -1776,6 +1776,20 @@ mod import_tests {
         assert!(r.import_avatar(&path).is_ok());
     }
     #[test]
+    fn import_accepts_the_liltoon_extension_as_required() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("liltoon.vrm");
+        let mut r = AssetRegistry::empty(&dir.path().join("managed")).unwrap();
+        std::fs::write(
+            &path,
+            vrm(&with_required(
+                r#""VRMC_materials_mtoon", "MOCHIYA_materials_liltoon""#,
+            )),
+        )
+        .unwrap();
+        assert!(r.import_avatar(&path).is_ok());
+    }
+    #[test]
     fn stored_avatar_is_not_checked_for_required_extensions_again() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("stored.vrm");

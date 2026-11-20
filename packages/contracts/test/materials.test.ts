@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {materialReport, materialWarning} from '../src/materials';
+import {MATERIAL_EXTENSIONS, materialReport, materialWarning} from '../src/materials';
 
 const one = (json: unknown) => materialReport(json).materials[0];
 
@@ -14,6 +14,28 @@ describe('materialReport', () => {
             ['mtoon', []], ['unlit', []], ['unlit', []], ['pbr', ['shader:Standard']], ['pbr', []], ['pbr', []],
         ]);
         expect(one({materials: [{extensions: {KHR_materials_unlit: {}}}]}).profile).toBe('unlit');
+    });
+    it('reads the liltoon profile before mtoon in a VRM file', () => {
+        const lil = {MOCHIYA_materials_liltoon: {}};
+        for (const used of [['VRMC_vrm'], ['VRM']]) {
+            const root = (extensions: object) => ({extensionsUsed: used, materials: [{name: 'Skin', extensions}]});
+            expect(one(root({...lil, VRMC_materials_mtoon: {}}))).toEqual({index: 0, name: 'Skin', profile: 'liltoon', unsupported: []});
+            expect(one(root({...lil, VRMC_materials_mtoon: {}, KHR_materials_unlit: {}})).unsupported).toEqual([]);
+            expect(one(root(lil))).toMatchObject({profile: 'liltoon', unsupported: []});
+            expect(one(root({...lil, KHR_materials_clearcoat: {}})).unsupported).toEqual(['KHR_materials_clearcoat']);
+        }
+        const v0 = materialReport({extensionsUsed: ['VRM'], materials: [{extensions: lil}], extensions: {VRM: {materialProperties: [{shader: 'VRM/MToon'}]}}});
+        expect(v0.materials[0]).toMatchObject({profile: 'liltoon', unsupported: []});
+    });
+    it('reads a lilToon material of a file that is not a VRM as pbr and lists the extension', () => {
+        const lil = {MOCHIYA_materials_liltoon: {}};
+        expect(one({extensionsUsed: ['MOCHIYA_materials_liltoon'], materials: [{extensions: lil}]})).toMatchObject({profile: 'pbr', unsupported: ['MOCHIYA_materials_liltoon']});
+        expect(one({materials: [{extensions: lil}]})).toMatchObject({profile: 'pbr', unsupported: ['MOCHIYA_materials_liltoon']});
+        expect(one({extensionsUsed: ['KHR_materials_unlit'], materials: [{extensions: {...lil, KHR_materials_unlit: {}}}]}))
+            .toMatchObject({profile: 'unlit', unsupported: ['MOCHIYA_materials_liltoon']});
+    });
+    it('knows the lilToon extension', () => {
+        expect(MATERIAL_EXTENSIONS.has('MOCHIYA_materials_liltoon')).toBe(true);
     });
     it('lists only the extensions that the loader or MToon does not read', () => {
         expect(one({materials: [{extensions: {KHR_materials_specular: {}}}]}).unsupported).toEqual([]);

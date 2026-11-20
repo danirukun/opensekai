@@ -3,7 +3,7 @@ import { uniqueName } from './meshes';
 
 // Material report (MAT-01 slice 1, R1–R2): the material profile and the unsupported features of each material,
 // read from the glTF JSON of the stored file.
-export type MaterialProfile = 'mtoon' | 'unlit' | 'pbr';
+export type MaterialProfile = 'mtoon' | 'unlit' | 'pbr' | 'liltoon';
 export type MaterialReportEntry = {index: number; name: string; profile: MaterialProfile; unsupported: string[]};
 export type MaterialReport = {materials: MaterialReportEntry[]; asset: string[]};
 
@@ -12,11 +12,12 @@ export const MATERIAL_EXTENSIONS: ReadonlySet<string> = new Set([
     'KHR_materials_anisotropy', 'KHR_materials_clearcoat', 'KHR_materials_diffuse_roughness', 'KHR_materials_dispersion',
     'KHR_materials_emissive_strength', 'KHR_materials_ior', 'KHR_materials_iridescence', 'KHR_materials_sheen',
     'KHR_materials_specular', 'KHR_materials_transmission', 'KHR_materials_unlit', 'KHR_materials_volume', 'EXT_materials_bump',
-    'VRMC_materials_mtoon', 'VRMC_materials_hdr_emissiveMultiplier',
+    'VRMC_materials_mtoon', 'VRMC_materials_hdr_emissiveMultiplier', 'MOCHIYA_materials_liltoon',
 ]);
 /** Texture extensions that need a decoder this renderer does not give. */
 export const TEXTURE_DECODERS_MISSING: ReadonlySet<string> = new Set(['KHR_texture_basisu']);
-const MTOON_READS = new Set(['VRMC_materials_mtoon', 'KHR_materials_unlit', 'KHR_materials_emissive_strength', 'VRMC_materials_hdr_emissiveMultiplier']);
+const LILTOON = 'MOCHIYA_materials_liltoon';
+const MTOON_READS = new Set(['VRMC_materials_mtoon', 'KHR_materials_unlit', 'KHR_materials_emissive_strength', 'VRMC_materials_hdr_emissiveMultiplier', LILTOON]);
 const ASSET_FEATURES = ['KHR_materials_variants'];
 const CORE_TEXTURES = ['normalTexture', 'occlusionTexture', 'emissiveTexture'];
 const PBR_TEXTURES = ['baseColorTexture', 'metallicRoughnessTexture'];
@@ -53,16 +54,20 @@ export function materialReport(json: unknown): MaterialReport {
     const root = object(json) ?? {};
     const textures = array(root.textures);
     const v0 = array(object(object(root.extensions)?.VRM)?.materialProperties);
+    const used = new Set(array(root.extensionsUsed).filter((x): x is string => typeof x === 'string'));
+    // Only a VRM file loads the lilToon extension. A GLB prop keeps the PBR path.
+    const vrm = used.has('VRMC_vrm') || used.has('VRM');
     const materials = array(root.materials).map((value, index): MaterialReportEntry => {
         const material = object(value) ?? {};
         const extensions = Object.keys(object(material.extensions) ?? {});
         const shader = object(v0[index])?.shader;
         const v0Shader = typeof shader === 'string' ? shader : undefined;
         const mtoon = extensions.includes('VRMC_materials_mtoon') || v0Shader === 'VRM/MToon';
-        const profile: MaterialProfile = mtoon ? 'mtoon'
+        const liltoon = vrm && extensions.includes(LILTOON);
+        const profile: MaterialProfile = liltoon ? 'liltoon' : mtoon ? 'mtoon'
             : extensions.includes('KHR_materials_unlit') || v0Shader?.startsWith('VRM/Unlit') ? 'unlit' : 'pbr';
         const unsupported = new Set<string>();
-        for (const name of extensions) if (!MATERIAL_EXTENSIONS.has(name) || (mtoon && !MTOON_READS.has(name))) unsupported.add(cutName(name));
+        for (const name of extensions) if (!MATERIAL_EXTENSIONS.has(name) || ((mtoon || liltoon) && !MTOON_READS.has(name)) || (name === LILTOON && !liltoon)) unsupported.add(cutName(name));
         if (v0Shader !== undefined && v0Shader !== 'VRM/MToon' && !v0Shader.startsWith('VRM/Unlit') && v0Shader !== 'VRM_USE_GLTFSHADER')
             unsupported.add(cutName('shader:' + v0Shader));
         for (const ref of textureRefs(material)) {
@@ -73,7 +78,6 @@ export function materialReport(json: unknown): MaterialReport {
         const raw = typeof material.name === 'string' ? material.name.trim() : '';
         return {index, name: cutName(raw || `Material ${index}`), profile, unsupported: [...unsupported].sort()};
     });
-    const used = new Set(array(root.extensionsUsed).filter((x): x is string => typeof x === 'string'));
     return {materials, asset: ASSET_FEATURES.filter(name => used.has(name)).sort()};
 }
 
