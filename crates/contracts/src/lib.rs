@@ -1148,7 +1148,7 @@ impl Validate for MeshList {
 // The material list of B38 R13–R14. Keep in step with `packages/contracts/src/material-parameters.ts`.
 pub const MAX_MATERIALS: usize = 256;
 pub const MAX_MATERIAL_NAME: usize = 64;
-strings!(MaterialProfile { Mtoon=>"mtoon", Pbr=>"pbr", Unlit=>"unlit" });
+strings!(MaterialProfile { Mtoon=>"mtoon", Pbr=>"pbr", Unlit=>"unlit", Liltoon=>"liltoon" });
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct MaterialModel {
@@ -1219,6 +1219,10 @@ object!(AssetMaterial {
 impl AssetMaterial {
     /// R14 "Applies to".
     pub fn applies(&self, parameter: &str) -> bool {
+        // A liltoon material has no editable parameter.
+        if self.profile == MaterialProfile::Liltoon {
+            return false;
+        }
         match parameter {
             "baseColor" => true,
             "opacity" => self.blend,

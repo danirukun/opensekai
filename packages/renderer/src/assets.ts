@@ -2,7 +2,9 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import type { LoadReport } from "./load-jobs";
 import { MToonMaterialLoaderPlugin, VRMLoaderPlugin, VRMUtils, type VRM } from "@pixiv/three-vrm";
 import { CharacterMToonMaterial } from "./character-mtoon";
-import { materialReport, materialWarning, meshEntries, type ResourceHost, type AppError } from "@opensekai/contracts";
+import { CharacterLilToonMaterial } from "./character-liltoon";
+import { enableLilToonNodeVRM, type LilToonNodeWarning } from "@mochiya/three-liltoon/webgpu";
+import { MODEL_INFO_LIMITS, materialReport, materialWarning, meshEntries, modelInfo, type AssetDebug, type LiveTexture, type ModelInfo, type ResourceHost, type AppError } from "@opensekai/contracts";
 import type { Object3D, Mesh, SkinnedMesh, Material, Texture } from "three/webgpu";
 import { failure } from "./apply-frame";
 import { createTexturePool } from "./texture-sharing";
@@ -111,6 +113,32 @@ export function applyHiddenMeshes(meshes: ReadonlyMap<string, Object3D>, hidden:
     const names = new Set(hidden);
     for (const [name, object] of meshes) object.visible = !names.has(name);
 }
+// Character Debug R10: three material fields by the glTF slot name of the file. A MToon field has the name of its VRMC_materials_mtoon slot.
+const CORE_SLOTS: Record<string, string> = { map: "baseColorTexture", normalMap: "normalTexture", emissiveMap: "emissiveTexture", aoMap: "occlusionTexture", metalnessMap: "metallicRoughnessTexture" };
+type LiveMaterial = Material & { getTexture?: (name: string) => Texture | null };
+const liveTexture = (material: number, slot: string, texture: Texture | null | undefined): LiveTexture[] => {
+    const image = texture?.image as { width?: unknown; height?: unknown } | undefined;
+    // The lilToon material gives a neutral 1 x 1 texture for a slot with no texture.
+    if (!texture || texture.name.startsWith("three-liltoon:") || typeof image?.width !== "number" || typeof image.height !== "number") return [];
+    return [{ material, slot, width: image.width, height: image.height, colorSpace: texture.colorSpace || "none" }];
+};
+/** The decoded size and color space of the texture of each slot, read from the live materials of the parsed file. */
+export function liveTextures(scene: Object3D, associations: Map<unknown, { materials?: number }>, info: ModelInfo): LiveTexture[] {
+    const seen = new Set<number>();
+    const result: LiveTexture[] = [];
+    scene.traverse(object => {
+        const value = (object as Mesh).material;
+        for (const material of (Array.isArray(value) ? value : value ? [value] : []) as LiveMaterial[]) {
+            const index = associations.get(material)?.materials;
+            if (index === undefined || seen.has(index)) continue;
+            seen.add(index);
+            const slots = info.materials.find(entry => entry.index === index)?.textures ?? [];
+            if (material.getTexture) for (const { slot } of slots) result.push(...liveTexture(index, slot, material.getTexture(slot)));
+            else for (const [field, texture] of Object.entries(material)) if ((texture as Texture | null)?.isTexture) result.push(...liveTexture(index, CORE_SLOTS[field] ?? field, texture as Texture));
+        }
+    });
+    return result;
+}
 export function createAssetLoader(resources: ResourceHost, options: { maxTextureSize?: 1024 | 2048 } = {}) {
     const textures = createTexturePool();
     const images = createImageResizePolicy(options.maxTextureSize);
@@ -132,7 +160,14 @@ export function createAssetLoader(resources: ResourceHost, options: { maxTexture
             }).catch(error => { imageFailure = error; throw error; });
             return { name: "OPENSEKAI_shared_images" };
         });
-        loader.register(parser => new VRMLoaderPlugin(parser, { mtoonMaterialPlugin: new MToonMaterialLoaderPlugin(parser, { materialType: CharacterMToonMaterial }) }));
+        const lilToon: LilToonNodeWarning[] = [];
+        loader.register(parser => {
+            const plugin = new VRMLoaderPlugin(parser, { mtoonMaterialPlugin: new MToonMaterialLoaderPlugin(parser, { materialType: CharacterMToonMaterial }) });
+            // lilToon on WebGPU R6: only a VRM file loads the lilToon extension. A GLB prop keeps the PBR path, and the material
+            // report names the extension. The lilToon plugin goes first, so a lilToon material with MToon data gets no MToon material.
+            const used: unknown[] = parser.json.extensionsUsed ?? [];
+            return used.includes("VRMC_vrm") || used.includes("VRM") ? enableLilToonNodeVRM(plugin, { materialType: CharacterLilToonMaterial, onWarning: warning => lilToon.push(warning) }) : plugin;
+        });
         try {
             let percent = -1;
             report({ stage: 'download', progress: null });
@@ -144,6 +179,7 @@ export function createAssetLoader(resources: ResourceHost, options: { maxTexture
             // The report reads the JSON of the bytes: v0compat replaces VRM 0.x entries of parser.json.materials during the parse.
             const { extensions, imageCount, json } = inspectContainer(bytes);
             const material = materialWarning(materialReport(json));
+            const info = modelInfo(json);
             imageTotal = imageCount;
             if (imageTotal > 0) report({ stage: 'textures', progress: 0, count: { done: 0, total: imageTotal } });
             const gltf = await loader.parseAsync(bytes, "");
@@ -154,8 +190,10 @@ export function createAssetLoader(resources: ResourceHost, options: { maxTexture
             const warnings: AppError[] = [];
             warnings.push(...extensionWarnings(extensions, id));
             if (material) warnings.push({ code: "UNSUPPORTED", message: material, ids: [id] });
+            for (const warning of lilToon) warnings.push({ code: "UNSUPPORTED", message: `lilToon ${warning.materialName} (${warning.property}): ${warning.message}`, ids: [id] });
+            const debug: AssetDebug = { info, textures: liveTextures(gltf.scene, gltf.parser.associations, info), warnings: warnings.slice(0, MODEL_INFO_LIMITS.warnings) };
             let disposed = false;
-            return { scene: gltf.scene, vrm, meshes: vrm ? meshObjects(gltf) : undefined, warnings, dispose() { if (disposed)
+            return { scene: gltf.scene, vrm, meshes: vrm ? meshObjects(gltf) : undefined, warnings, debug, dispose() { if (disposed)
                     return; disposed = true; disposeObject(gltf.scene, lease); lease.release(); } };
         } catch (error) {
             lease.release();

@@ -30,6 +30,8 @@ it('applies each parameter by profile, blend, and outline, in R14 order', () => 
  expect(keys({ profile: 'pbr', blend: true, outline: false })).toEqual(['baseColor', 'opacity', 'emissionColor', 'emissionStrength']);
  expect(keys({ profile: 'mtoon', blend: false, outline: false })).toEqual(['baseColor', 'emissionColor', 'emissionStrength', 'shadeColor', 'rimColor']);
  expect(keys({ profile: 'mtoon', blend: true, outline: true })).toEqual(['baseColor', 'opacity', 'emissionColor', 'emissionStrength', 'shadeColor', 'rimColor', 'outlineColor', 'outlineWidth']);
+ expect(keys({ profile: 'liltoon', blend: false, outline: false })).toEqual([]);
+ expect(keys({ profile: 'liltoon', blend: true, outline: false })).toEqual([]);
  expect(MATERIAL_PARAMETERS.map(spec => spec.defaultValue)).toEqual(['#ffffff', 1, '#000000', 1, '#ffffff', '#000000', '#000000', 0]);
 });
 
@@ -47,6 +49,13 @@ it('checks the material list of a record', () => {
  expect(ok([{ ...material, model: { shadeColor: '#000000' } }])).toBe(false);
  expect(ok([{ ...material, outline: true }])).toBe(false);
  expect(ok([{ ...material, model: { gloss: 1 } }])).toBe(false);
+ const liltoon = { ...material, profile: 'liltoon', model: {} };
+ expect(ok([liltoon])).toBe(true);
+ expect(ok([{ ...liltoon, blend: true }])).toBe(true);
+ expect(ok([{ ...liltoon, outline: true }])).toBe(false);
+ expect(ok([{ ...liltoon, model: { baseColor: '#ffffff' } }])).toBe(false);
+ expect(ok([{ ...liltoon, blend: true, model: { opacity: 1 } }])).toBe(false);
+ expect(ok([{ ...liltoon, model: { emissionColor: '#000000' } }])).toBe(false);
  expect(ok(Array.from({ length: 257 }, (_, index) => ({ ...material, index, name: `M${index}` })))).toBe(false);
  expect(AssetRecordSchema.safeParse({ ...record, materials: [material] }).success).toBe(true);
  expect(AssetRecordSchema.safeParse({ ...record, id: 'image_1', format: 'png', image: { width: 1, height: 1, frames: 1 }, materials: [] }).success).toBe(false);

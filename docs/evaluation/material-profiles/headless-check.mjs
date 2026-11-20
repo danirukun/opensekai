@@ -4,6 +4,8 @@
 // @opensekai/session at about 60 Hz. Each fixture loads alone, once with WebGPU and once with WebGL 2.
 // Run from the repository root after `pnpm --filter @opensekai/output build`:
 //   pnpm exec tsx docs/evaluation/material-profiles/headless-check.mjs <output dir>
+// Environment: BACKENDS=auto,webgl2; ONLY=<fixture id>; FIXTURES='[{"id":...,"kind":...,"expect":{...}}]' replaces the fixture list;
+// GPU_ARGS='--use-angle=metal' adds Chromium flags (the Metal GPU of a Mac instead of SwiftShader); LOAD_TIMEOUT_MS extends the load wait.
 import {createRequire} from 'node:module';
 import {pathToFileURL} from 'node:url';
 import {createServer} from 'node:http';
@@ -23,7 +25,7 @@ const results = [];
 const check = (name, pass, detail) => { results.push({name, pass}); log(pass ? 'PASS' : 'FAIL', name, detail === undefined ? '' : JSON.stringify(detail)); };
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
-const FIXTURES = [
+const FIXTURES = process.env.FIXTURES ? JSON.parse(process.env.FIXTURES) : [
     {id: 'fixture_vrm_1', kind: 'avatar', expect: {mtoon: 13}},
     {id: 'fixture_vrm0_arkit', kind: 'avatar', expect: {mtoon: 16}},
     {id: 'fixture_glb_stage', kind: 'environment', expect: {pbr: 25}},
@@ -47,7 +49,8 @@ const server = createServer(async (req, res) => {
 });
 await new Promise(r => server.listen(PORT, '127.0.0.1', r));
 const descriptor = {schemaVersion: 1, sessionId: SESSION, httpOrigin: ORIGIN + '/', wsUrl: `ws://127.0.0.1:${PORT}/ws`, role: 'renderer', token: 'token_renderer', capabilities: ['read'], outputId: 'output_main'};
-const browser = await chromium.launch({args: chromiumGpuArgs});
+const browser = await chromium.launch({args: [...chromiumGpuArgs, ...(process.env.GPU_ARGS ?? '').split(' ').filter(Boolean)]});
+const loadTimeout = Number(process.env.LOAD_TIMEOUT_MS ?? 120000);
 const record = [];
 
 const counts = report => report.materials.reduce((acc, entry) => ({...acc, [entry.profile]: (acc[entry.profile] ?? 0) + 1}), {});
@@ -79,7 +82,7 @@ async function run(fixture, backend) {
     await page.goto(`${ORIGIN}/?quality=production_v1${backend === 'webgl2' ? '&backend=webgl2' : ''}#${encodeURIComponent(JSON.stringify(descriptor))}`);
     // The model is drawn when an applied frame has neither a BUSY nor an UNAVAILABLE warning for it.
     const start = Date.now();
-    while (Date.now() - start < 120000) {
+    while (Date.now() - start < loadTimeout) {
         if (last && !last.warnings.some(w => (w.code === 'BUSY' || w.code === 'UNAVAILABLE') && w.ids.includes(fixture.id)) && last.sequence > 2) break;
         await wait(200);
     }

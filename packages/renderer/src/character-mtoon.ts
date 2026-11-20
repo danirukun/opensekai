@@ -78,7 +78,7 @@ export class CharacterLightingModel extends MToonLightingModel {
 // The room irradiance of the nine SH uniforms, mixed toward the mean at world up and world down (MToon GI equalization). The
 // coefficients and the mean are normalized on the CPU (`normalizeRoom` of character-lighting-math.ts), so the shader has no
 // texture sample and no division.
-class CharacterEnvironmentNode extends LightingNode {
+export class CharacterEnvironmentNode extends LightingNode {
     private readonly share: Share;
     constructor(share: Share) { super(); this.share = share; }
     setup(builder: NodeBuilder): undefined {
