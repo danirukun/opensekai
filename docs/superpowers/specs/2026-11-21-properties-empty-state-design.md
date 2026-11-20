@@ -1,6 +1,6 @@
 # Properties empty state design
 
-Date: 2026-11-21. Status: design, waiting for owner approval. Issue: [GitHub #286](https://github.com/danirukun/opensekai/issues/286) (comment [7051858924](https://github.com/danirukun/opensekai/issues/286#issuecomment-7051858924)).
+Date: 2026-11-21. Status: approved. Issue: [GitHub #286](https://github.com/danirukun/opensekai/issues/286) (comment [7051858924](https://github.com/danirukun/opensekai/issues/286#issuecomment-7051858924)).
 
 ## Intent
 
