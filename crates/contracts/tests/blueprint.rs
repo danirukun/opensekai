@@ -183,10 +183,16 @@ fn blueprint_edit_accepts_variable_operations() {
         json!({"kind":"updateVariable","graphId":"g","variableId":"v","type":"string[]","default":["a"]})
     ));
     assert!(!ok(
-        json!({"kind":"updateVariable","graphId":"g","variableId":"v","type":"color"})
+        json!({"kind":"updateVariable","graphId":"g","variableId":"v","type":"rgba"})
     ));
     assert!(!ok(
         json!({"kind":"updateVariable","graphId":"g","variableId":"v","name":" "})
+    ));
+    assert!(ok(
+        json!({"kind":"updateVariable","graphId":"g","variableId":"v","type":"color","default":"#336699"})
+    ));
+    assert!(!ok(
+        json!({"kind":"addVariable","graphId":"g","variable":{"id":"v","name":"V","type":"color","default":"#336699ff"}})
     ));
     assert!(ok(
         json!({"kind":"removeVariable","graphId":"g","variableId":"v"})

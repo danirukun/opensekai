@@ -13,6 +13,7 @@ import { SCENE_NODES } from './scene';
 import { VALUE_NODES } from './values';
 import { VARIABLE_NODES } from './variables';
 import { VECTOR3_NODES } from './vector3';
+import { COLOR_NODES } from './color';
 import { DEVICE_NODES } from './devices';
 import { DEBUG_NODES } from './debug';
 import { LITERAL_NODES } from './literals';
@@ -32,7 +33,7 @@ export { defineNode, IntegerCasesSchema, MAX_SWITCH_CASES, NODE_CATEGORIES, type
 export { KEYSTROKE_CODES, KeystrokeSettingsSchema, keystrokeAccelerator, keystrokeHasModifier, type KeystrokeSettings } from './events';
 
 // Palette order inside a category follows this list.
-export const NODE_DEFINITIONS = [...EVENT_NODES, ...INPUT_NODES, ...FLOW_NODES, ...VALUE_NODES, ...MATH_NODES, ...VECTOR3_NODES, ...LOGIC_NODES, ...VARIABLE_NODES, ...SCENE_NODES, ...PROPERTY_NODES, ...CHARACTER_NODES, ...TRACKING_NODES, ...DEVICE_NODES, ...YOUTUBE_NODES, ...INTEGER_NODES, ...LITERAL_NODES, ...TEXT_NODES, ...LIST_NODES, ...SWITCH_NODES, ...TYPED_VARIABLE_NODES, ...TIMER_NODES, ...GRAPH_CONTROL_NODES, ...DEBUG_NODES] as const;
+export const NODE_DEFINITIONS = [...EVENT_NODES, ...INPUT_NODES, ...FLOW_NODES, ...VALUE_NODES, ...MATH_NODES, ...VECTOR3_NODES, ...COLOR_NODES, ...LOGIC_NODES, ...VARIABLE_NODES, ...SCENE_NODES, ...PROPERTY_NODES, ...CHARACTER_NODES, ...TRACKING_NODES, ...DEVICE_NODES, ...YOUTUBE_NODES, ...INTEGER_NODES, ...LITERAL_NODES, ...TEXT_NODES, ...LIST_NODES, ...SWITCH_NODES, ...TYPED_VARIABLE_NODES, ...TIMER_NODES, ...GRAPH_CONTROL_NODES, ...DEBUG_NODES] as const;
 type Definition = (typeof NODE_DEFINITIONS)[number];
 export type BlueprintKind = Definition['type'];
 export const BlueprintPositionSchema = z.strictObject({ x: finite, y: finite });

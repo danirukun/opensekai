@@ -1,9 +1,14 @@
 import { expect, it } from 'vitest';
-import { formatTemplate, indexOfValue, inRange, insertAt, parseInteger, parseNumber, removeAt, setAt, splitText, stringForm, substring } from '../src/blueprint-eval/data-helpers';
+import { formatTemplate, indexOfValue, inRange, insertAt, parseInteger, parseNumber, removeAt, setAt, sameValue, splitText, stringForm, substring } from '../src/blueprint-eval/data-helpers';
 
 it('gives one string form for each scalar type', () => {
  expect([1.5, 0.1 + 0.2, -0, 42, true, false, 'a b', [1, -2.5, 0] as [number, number, number]].map(stringForm))
   .toEqual(['1.5', '0.30000000000000004', '0', '42', 'true', 'false', 'a b', '(1, -2.5, 0)']);
+});
+
+it('gives a color as its hex text, also in a template', () => {
+ expect(stringForm('#0a0b0c')).toBe('#0a0b0c');
+ expect(formatTemplate('tint {0}', 1, () => '#ff8000')).toBe('tint #ff8000');
 });
 
 it('formats a template with arguments and escaped braces', () => {
@@ -59,4 +64,7 @@ it('finds equal items, with Vector3 compared by parts', () => {
  expect(indexOfValue([[0, 0, 0], [1, 2, 3]], [1, 2, 3])).toBe(1);
  expect(indexOfValue([1, 2, 2], 2)).toBe(1);
  expect(indexOfValue(['a'], 'b')).toBe(-1);
+ expect(indexOfValue(['#000000', '#0a0b0c'], '#0a0b0c')).toBe(1);
+ expect(sameValue('#0a0b0c', '#0a0b0c')).toBe(true);
+ expect(sameValue('#0a0b0c', '#0a0b0d')).toBe(false);
 });

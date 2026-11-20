@@ -26,7 +26,7 @@ const evaluate = (type: string, settings: object, inputs: Inputs, output: string
  const wires = [wire('f', 'start', 'flow', 'store', 'flow'), wire('d', 'op', output, 'store', 'value'), ...lists.map(([port]) => wire(`w_${port}`, `get_${port}`, 'value', 'op', port))];
  return result(run(compile(doc(variables, nodes, wires))));
 };
-const defaultFor = (type: DataType): BlueprintValue => type.endsWith('[]') ? [] : type === 'string' ? '' : type === 'boolean' ? false : type === 'vector3' ? [0, 0, 0] : 0;
+const defaultFor = (type: DataType): BlueprintValue => type.endsWith('[]') ? [] : type === 'string' ? '' : type === 'boolean' ? false : type === 'vector3' ? [0, 0, 0] : type === 'color' ? '#ffffff' : 0;
 
 it('gives the literal values', () => {
  expect(evaluate('value.integer', { value: -12 }, {}, 'value', 'integer')).toBe(-12);
@@ -157,10 +157,10 @@ it('routes Switch On String and Switch On Integer to the matching case, else def
  expect([5, -3, 0].map(value => route('switch.integer', [-3, 5], value))).toEqual(['c1', 'c0', 'd']);
 });
 
-it('sets and gets a variable of each of the ten data types', () => {
+it('sets and gets a variable of each of the twelve data types', () => {
  const samples: Record<DataType, BlueprintValue> = {
-  number: 2.5, integer: 7, boolean: true, string: 'hi', vector3: [1, 2, 3],
-  'number[]': [0.5], 'integer[]': [1, 2], 'boolean[]': [true], 'string[]': ['a', ''], 'vector3[]': [[1, 1, 1]],
+  number: 2.5, integer: 7, boolean: true, string: 'hi', vector3: [1, 2, 3], color: '#ff8000',
+  'number[]': [0.5], 'integer[]': [1, 2], 'boolean[]': [true], 'string[]': ['a', ''], 'vector3[]': [[1, 1, 1]], 'color[]': ['#000000', '#0a0b0c'],
  };
  for (const type of DATA_TYPES) {
   // Get Variable(src) → Set Variable(out) → Get Variable(out) → Set Variable(copy).

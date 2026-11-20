@@ -10,16 +10,18 @@ const node = (id: string, type: string, settings: object = {}, inputs?: object) 
 const graphOf = (nodes: BlueprintNode[]): BlueprintGraph => ({ schemaVersion: 1, id: 'g', name: 'G', enabled: true, variables: [], nodes, connections: [] });
 const ok = (r: ReturnType<typeof applyBlueprintOps>) => { if (!r.ok) throw new Error(r.error.message); return r.data[0]!; };
 
-it('names ten data types: five scalars and a list of each', () => {
- expect(DATA_TYPES).toEqual(['number', 'integer', 'boolean', 'string', 'vector3', 'number[]', 'integer[]', 'boolean[]', 'string[]', 'vector3[]']);
+it('names twelve data types: six scalars and a list of each', () => {
+ expect(DATA_TYPES).toEqual(['number', 'integer', 'boolean', 'string', 'vector3', 'color', 'number[]', 'integer[]', 'boolean[]', 'string[]', 'vector3[]', 'color[]']);
  expect(listOf('string')).toBe('string[]');
  expect(itemType('vector3[]')).toBe('vector3');
  expect(DATA_TYPE_LABELS['integer[]']).toBe('Integer List');
+ expect(DATA_TYPE_LABELS.color).toBe('Color');
+ expect(DATA_TYPE_LABELS['color[]']).toBe('Color List');
 });
 
 it('agrees with the value schema in the fast value check', () => {
  const samples: unknown[] = [0, -0, 1.5, Number.NaN, Number.POSITIVE_INFINITY, Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER + 2, true, '', 'x'.repeat(MAX_BLUEPRINT_STRING_LENGTH), 'x'.repeat(MAX_BLUEPRINT_STRING_LENGTH + 1),
-  [0, 0, 0], [0, 0], [0, 0, 0, 0], [0, Number.NaN, 0], ['0', 0, 0], [], [1, 2], [true], [''], [[1, 2, 3]], [[1, 2]], null, undefined, {}, Array.from({ length: MAX_BLUEPRINT_LIST_LENGTH + 1 }, () => 0)];
+  '#a0b1c2', '#A0B1C2', '#abc', 'a0b1c2', '#a0b1c2ff', ['#a0b1c2'], [0, 0, 0], [0, 0], [0, 0, 0, 0], [0, Number.NaN, 0], ['0', 0, 0], [], [1, 2], [true], [''], [[1, 2, 3]], [[1, 2]], null, undefined, {}, Array.from({ length: MAX_BLUEPRINT_LIST_LENGTH + 1 }, () => 0)];
  for (const type of DATA_TYPES) for (const value of samples)
   expect(isBlueprintValue(type, value), `${type} ${JSON.stringify(value)?.slice(0, 40)}`).toBe(blueprintValueSchema(type).safeParse(value).success);
 });
@@ -32,10 +34,12 @@ it('connects equal types and widens an integer output into a number input only',
  expect(canConnect('boolean', 'number')).toBe(false);
  expect(canConnect('flow', 'boolean')).toBe(false);
  expect(canConnect('string', 'string[]')).toBe(false);
+ expect(canConnect('color', 'string')).toBe(false);
+ expect(canConnect('string', 'color')).toBe(false);
 });
 
 it('gives each type a default that its own schema accepts', () => {
- expect(DATA_TYPES.map(type => defaultBlueprintValue(type))).toEqual([0, 0, false, '', [0, 0, 0], [], [], [], [], []]);
+ expect(DATA_TYPES.map(type => defaultBlueprintValue(type))).toEqual([0, 0, false, '', [0, 0, 0], '#ffffff', [], [], [], [], [], []]);
  for (const type of DATA_TYPES) expect(isBlueprintValue(type, defaultBlueprintValue(type)), type).toBe(true);
  expect(defaultBlueprintValue('vector3')).not.toBe(defaultBlueprintValue('vector3'));
 });
@@ -55,6 +59,15 @@ it('checks value shapes and tells a limit apart from a wrong type', () => {
  expect(blueprintValueProblem('string', 4)).toBe('type');
 });
 
+it('accepts a color only as a lowercase #rrggbb string', () => {
+ expect(isBlueprintValue('color', '#a0b1c2')).toBe(true);
+ for (const value of ['#A0B1C2', '#abc', 'a0b1c2', '#a0b1c2ff', [1, 0, 0], '#g0b1c2', ''])
+  expect(isBlueprintValue('color', value), JSON.stringify(value)).toBe(false);
+ expect(isBlueprintValue('color[]', ['#000000', '#ffffff'])).toBe(true);
+ expect(isBlueprintValue('color[]', ['#000000', '#FFFFFF'])).toBe(false);
+ expect(blueprintValueProblem('color', '#FFFFFF')).toBe('type');
+});
+
 it('accepts a variable of each data type and inline values in the shared typed vector', () => {
  const typed = BlueprintGraphSchema.parse(structuredClone(vectors.typed));
  expect(typed.variables.map(v => v.type)).toEqual(DATA_TYPES);
@@ -66,7 +79,7 @@ it('retypes a variable to the default of its new type and checks a new default a
  expect(ok(applyBlueprintOps(graphs, [{ kind: 'updateVariable', graphId: 'counter', variableId: 'count', type: 'string[]' }])).variables[0]).toEqual({ id: 'count', name: 'Count', type: 'string[]', default: [] });
  expect(ok(applyBlueprintOps(graphs, [{ kind: 'updateVariable', graphId: 'counter', variableId: 'count', type: 'vector3', default: [1, 2, 3] }])).variables[0]!.default).toEqual([1, 2, 3]);
  expect(applyBlueprintOps(graphs, [{ kind: 'updateVariable', graphId: 'counter', variableId: 'count', type: 'integer', default: 0.5 }])).toMatchObject({ ok: false, error: { message: 'Invalid variable' } });
- expect(BlueprintOpSchema.safeParse({ kind: 'updateVariable', graphId: 'counter', variableId: 'count', type: 'color' }).success).toBe(false);
+ expect(BlueprintOpSchema.safeParse({ kind: 'updateVariable', graphId: 'counter', variableId: 'count', type: 'rgba' }).success).toBe(false);
  expect(BlueprintOpSchema.safeParse({ kind: 'updateVariable', graphId: 'counter', variableId: 'count', default: null }).success).toBe(false);
  expect(applyBlueprintOps(graphs, [{ kind: 'updateVariable', graphId: 'counter', variableId: 'count', default: null } as never])).toMatchObject({ ok: false, error: { message: 'Invalid variable' } });
 });

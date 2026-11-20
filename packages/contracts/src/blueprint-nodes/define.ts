@@ -16,6 +16,8 @@ export type BlueprintField =
  | { key: string; label: string; kind: 'integer'; min?: number; max?: number }
  | { key: string; label: string; kind: 'string'; maxLength?: number }
  | { key: string; label: string; kind: 'vector3' }
+ // A lowercase `#rrggbb` color.
+ | { key: string; label: string; kind: 'color' }
  | { key: string; label: string; kind: 'variable'; variableType: DataType }
  | { key: string; label: string; kind: 'cases' }
  | { key: string; label: string; kind: 'keystroke' }

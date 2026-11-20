@@ -15,11 +15,13 @@
    { "id": "b", "name": "B", "type": "boolean", "default": true },
    { "id": "s", "name": "S", "type": "string", "default": "hello" },
    { "id": "v", "name": "V", "type": "vector3", "default": [1, 2, 3] },
+   { "id": "c", "name": "C", "type": "color", "default": "#336699" },
    { "id": "nl", "name": "NL", "type": "number[]", "default": [0.5, 2] },
    { "id": "il", "name": "IL", "type": "integer[]", "default": [1, 2, 3] },
    { "id": "bl", "name": "BL", "type": "boolean[]", "default": [] },
    { "id": "sl", "name": "SL", "type": "string[]", "default": ["a", "b"] },
-   { "id": "vl", "name": "VL", "type": "vector3[]", "default": [[0, 1, 0]] }
+   { "id": "vl", "name": "VL", "type": "vector3[]", "default": [[0, 1, 0]] },
+   { "id": "cl", "name": "CL", "type": "color[]", "default": ["#ff8000", "#000000"] }
   ],
   "nodes": [
    { "id": "add", "version": 1, "type": "math.add", "settings": {}, "position": { "x": 0, "y": 0 }, "inputs": { "a": 2, "b": 0.5 } },
@@ -30,7 +32,10 @@
  "invalid": [
   { "name": "duplicate-id", "variables": [ { "id": "count", "name": "Count", "type": "number", "default": 0 }, { "id": "count", "name": "Other", "type": "number", "default": 1 } ] },
   { "name": "default-type", "variables": [ { "id": "v", "name": "V", "type": "number", "default": true } ] },
-  { "name": "unknown-type", "variables": [ { "id": "v", "name": "V", "type": "color", "default": "x" } ] },
+  { "name": "unknown-type", "variables": [ { "id": "v", "name": "V", "type": "rgba", "default": "x" } ] },
+  { "name": "color-uppercase", "variables": [ { "id": "v", "name": "V", "type": "color", "default": "#FFFFFF" } ] },
+  { "name": "color-short", "variables": [ { "id": "v", "name": "V", "type": "color", "default": "#fff" } ] },
+  { "name": "color-list-item", "variables": [ { "id": "v", "name": "V", "type": "color[]", "default": ["#ffffff", "white"] } ] },
   { "name": "integer-fraction", "variables": [ { "id": "v", "name": "V", "type": "integer", "default": 1.5 } ] },
   { "name": "integer-unsafe", "variables": [ { "id": "v", "name": "V", "type": "integer", "default": 9007199254740992 } ] },
   { "name": "string-too-long", "variables": [ { "id": "v", "name": "V", "type": "string", "default": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" } ] },
