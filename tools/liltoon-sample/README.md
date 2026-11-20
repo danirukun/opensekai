@@ -51,7 +51,7 @@ mkdir -p "$P-logs"
 
 The same methods are in the Unity menu: `OpenSekai > Convert Catboy to lilToon`, `OpenSekai > Export lilToon sample`, `OpenSekai > Capture lilToon reference`, and `OpenSekai > Capture MToon original`.
 
-The convert step makes new material assets. Remove `Assets/Catboy/lilToon/*.mat` and their `.meta` files before a new run so that no value from an old run stays in the assets.
+The convert step deletes and makes each material asset again, so no value from an old run stays in the assets. The convert step and the MToon capture open a new scene in place of the open scene; save your work before you run them from the menu.
 
 Outputs:
 
@@ -98,9 +98,9 @@ Notes on the mapping:
 | --- | --- |
 | `*_SKIN` (face, body) | second and third shadow band with distinct colors, backlight, a visible rim |
 | `N00_000_00_Body_00_SKIN` | `_ShadowStrengthMask` = the body main texture (its red channel varies) |
-| `*_HAIR` | second and third shadow band with distinct colors, a visible rim; the matcap comes from the source |
+| `*_HAIR` | second and third shadow band with distinct colors, a visible rim; the matcap and the emission come from the source hair MToon material |
 
-The extra features must keep the look of the MToon avatar. The face gets no shadow mask: an earlier revision used the face outline width mask as `_ShadowBorderMask` and `_ShadowBlurMask`, which put the skin around the eyes and the mouth into the second and third band. The cat ear gets no extra emission and no main texture transform: an earlier revision added a cyan emission and a scale (2, 2), which made the grey ears blue. `Export/unity-mtoon-original.png` is the look to compare against.
+The extra features keep the look of the MToon avatar; `Export/unity-mtoon-original.png` is the look to compare against. The face gets no shadow mask, because a mask from the face outline width texture puts the skin around the eyes and the mouth into the second and third band. The cat ear gets no extra emission and no main texture transform, because they change its grey.
 
 lilToon has no `_UseShadow2nd` or `_UseShadow3rd` property. The alpha of `_Shadow2ndColor` and `_Shadow3rdColor` turns the band on. The convert script sets that alpha to 0 on every other material, because lilToon turns the second band on by default.
 
@@ -151,7 +151,7 @@ Variants in the export (16 materials, `check_sample.py`): opaque (1), opaque wit
 
 The capture script re-asserts every value in this table before it renders, and saves the scene with them.
 
-`LilToonSampleExport.CaptureOriginal` renders the unconverted MToon prefab with the same rig to `Export/unity-mtoon-original.png`. It builds the light and the camera in a new scene that it does not save. Compare the two captures at the same pixels: the geometry, the pose, and the rig are the same, so a color difference between them comes from the conversion.
+`LilToonSampleExport.CaptureOriginal` renders the unconverted MToon prefab with the same rig to `Export/unity-mtoon-original.png`. It builds the light and the camera in a new scene that it does not save, and it writes the light forward vector to the log. Compare the two captures at the same pixels: the geometry, the pose, and the rig are the same, so a color difference between them comes from the conversion.
 
 With this camera, the vertical field of view at the avatar is about 1.0 m. The capture shows the avatar from the hips up.
 

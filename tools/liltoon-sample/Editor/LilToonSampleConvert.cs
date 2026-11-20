@@ -217,7 +217,10 @@ public static class LilToonSampleConvert
         ApplyNamedFeatures(material, source.name, features);
 
         material.renderQueue = source.renderQueue;
-        AssetDatabase.CreateAsset(material, $"{MaterialFolder}/{SafeFileName(source.name)}.mat");
+        var assetPath = $"{MaterialFolder}/{SafeFileName(source.name)}.mat";
+        // A new asset each run, so that no value from an earlier run stays in the file.
+        AssetDatabase.DeleteAsset(assetPath);
+        AssetDatabase.CreateAsset(material, assetPath);
         lines.Add($"{source.name} | {source.shader.name} -> {material.shader.name} | queue {material.renderQueue} | {string.Join(", ", features)}");
         return material;
     }
@@ -258,11 +261,10 @@ public static class LilToonSampleConvert
             material.SetFloat("_RimFresnelPower", 3.5f);
             if (!features.Contains("rim")) features.Add("rim");
 
-            // Shadow strength mask on the body only. The face keeps no shadow mask: a mask from the face
-            // outline width texture pushes the skin around the eyes and the mouth into the second and
-            // third band and changes the look. The body main texture varies, so its red channel scales
-            // the shadow strength.
-            if (material.GetTexture("_OutlineWidthMask") == null)
+            // Shadow strength mask on the body only: its main texture varies, so its red channel scales
+            // the shadow strength. The face keeps no shadow mask; a mask from the face outline width
+            // texture pushes the skin around the eyes and the mouth into the second and third band.
+            if (name.Contains("_Body_"))
             {
                 material.SetTexture("_ShadowStrengthMask", material.GetTexture("_MainTex"));
                 material.SetFloat("_ShadowStrength", 1f);
@@ -403,7 +405,7 @@ public static class LilToonSampleConvert
     }
 
     // Also used by LilToonSampleExport.CaptureOriginal for the MToon capture.
-    internal static void AddReferenceLightAndCamera()
+    internal static Camera AddReferenceLightAndCamera()
     {
         var lightObject = new GameObject(LightName);
         var light = lightObject.AddComponent<Light>();
@@ -429,5 +431,6 @@ public static class LilToonSampleConvert
         camera.backgroundColor = CameraBackground;
         camera.allowHDR = false;
         camera.allowMSAA = false;
+        return camera;
     }
 }

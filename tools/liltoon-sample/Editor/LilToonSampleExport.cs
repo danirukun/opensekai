@@ -154,8 +154,8 @@ public static class LilToonSampleExport
         RenderToPng(camera, "unity-reference.png");
     }
 
-    // Renders the unconverted MToon avatar with the same reference rig, in a scene that is not saved.
-    // The capture is the look that the lilToon conversion must keep.
+    // Renders the unconverted MToon avatar with the same reference rig, in a new scene that is not saved.
+    // The capture is the look that the lilToon conversion must keep. The new scene replaces the open scene.
     private static void CaptureOriginalReference()
     {
         var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(LilToonSampleConvert.SourceAssetPath);
@@ -164,9 +164,10 @@ public static class LilToonSampleExport
         var root = (GameObject)PrefabUtility.InstantiatePrefab(prefab, scene);
         root.transform.position = Vector3.zero;
         root.transform.rotation = Quaternion.identity;
-        LilToonSampleConvert.AddReferenceLightAndCamera();
-        var camera = GameObject.Find(LilToonSampleConvert.CameraName).GetComponent<Camera>();
+        var camera = LilToonSampleConvert.AddReferenceLightAndCamera();
         camera.aspect = (float)CaptureWidth / CaptureHeight;
+        var forward = RenderSettings.sun.transform.forward;
+        Debug.Log($"Reference light forward: ({forward.x:F4}, {forward.y:F4}, {forward.z:F4}); camera MSAA off, quality antiAliasing {QualitySettings.antiAliasing}");
         RenderToPng(camera, "unity-mtoon-original.png");
     }
 
