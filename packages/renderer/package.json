@@ -12,6 +12,6 @@
     "@opensekai/browser-client": "workspace:*",
     "three": "0.187.0",
     "@pixiv/three-vrm": "3.5.5",
-    "@mochiya/three-liltoon": "github:danirukun/three-liltoon#72d3631cd87f555bde5c755ee29bec0c2730648c"
+    "@mochiya/three-liltoon": "github:danirukun/three-liltoon#47a73c8eac94e804ed733032ebdac1909f11249d"
   }
 }

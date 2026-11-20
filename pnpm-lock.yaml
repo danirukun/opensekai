@@ -352,8 +352,8 @@ importers:
   packages/renderer:
     dependencies:
       '@mochiya/three-liltoon':
-        specifier: github:danirukun/three-liltoon#72d3631cd87f555bde5c755ee29bec0c2730648c
-        version: https://codeload.github.com/danirukun/three-liltoon/tar.gz/72d3631cd87f555bde5c755ee29bec0c2730648c(@pixiv/three-vrm@3.5.5(patch_hash=c35c0ff88c558f769162eeb5dfc1f06615d39f4329b9bf79456ce21e63e2945e)(three@0.187.0))(three@0.187.0)
+        specifier: github:danirukun/three-liltoon#47a73c8eac94e804ed733032ebdac1909f11249d
+        version: https://codeload.github.com/danirukun/three-liltoon/tar.gz/47a73c8eac94e804ed733032ebdac1909f11249d(@pixiv/three-vrm@3.5.5(patch_hash=c35c0ff88c558f769162eeb5dfc1f06615d39f4329b9bf79456ce21e63e2945e)(three@0.187.0))(three@0.187.0)
       '@opensekai/browser-client':
         specifier: workspace:*
         version: link:../browser-client
@@ -794,8 +794,8 @@ packages:
   '@mediapipe/tasks-vision@1.2.2':
     resolution: {integrity: sha512-Z7BikxnTvlKgc3d/Nw+LV6B0xyAACxYeAHHUu/xUhm1SV7jlExa9M37beiF/wZFoy0H+cs1PlIT2Z4km02UEHQ==}
 
-  '@mochiya/three-liltoon@https://codeload.github.com/danirukun/three-liltoon/tar.gz/72d3631cd87f555bde5c755ee29bec0c2730648c':
-    resolution: {gitHosted: true, integrity: sha512-cxkXAOyTNIh/jkXsm2DTpn6I+P+KfT/JqKvwAImFJ5/v0kaSl/aoBGcF80rnP8XVfto7Ym7ajBfXmDLMSA5qaQ==, tarball: https://codeload.github.com/danirukun/three-liltoon/tar.gz/72d3631cd87f555bde5c755ee29bec0c2730648c}
+  '@mochiya/three-liltoon@https://codeload.github.com/danirukun/three-liltoon/tar.gz/47a73c8eac94e804ed733032ebdac1909f11249d':
+    resolution: {gitHosted: true, integrity: sha512-VnSZxdKvk2S8T9hpTa1ngORRAsD7pujlh8ObSqxnNAX4UovUiJSnmop5GH84hZjfSEPdjrjyQkTE7SjIzbZgig==, tarball: https://codeload.github.com/danirukun/three-liltoon/tar.gz/47a73c8eac94e804ed733032ebdac1909f11249d}
     version: 0.1.9
     engines: {node: '>=20'}
     peerDependencies:
@@ -2647,7 +2647,7 @@ snapshots:
 
   '@mediapipe/tasks-vision@1.2.2': {}
 
-  '@mochiya/three-liltoon@https://codeload.github.com/danirukun/three-liltoon/tar.gz/72d3631cd87f555bde5c755ee29bec0c2730648c(@pixiv/three-vrm@3.5.5(patch_hash=c35c0ff88c558f769162eeb5dfc1f06615d39f4329b9bf79456ce21e63e2945e)(three@0.187.0))(three@0.187.0)':
+  '@mochiya/three-liltoon@https://codeload.github.com/danirukun/three-liltoon/tar.gz/47a73c8eac94e804ed733032ebdac1909f11249d(@pixiv/three-vrm@3.5.5(patch_hash=c35c0ff88c558f769162eeb5dfc1f06615d39f4329b9bf79456ce21e63e2945e)(three@0.187.0))(three@0.187.0)':
     dependencies:
       three: 0.187.0
     optionalDependencies:
