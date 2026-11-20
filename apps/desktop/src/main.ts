@@ -1,5 +1,6 @@
 import { mount } from 'svelte';
 import EditorApp from './EditorApp.svelte';
 import './app.css';
-document.documentElement.dataset.theme='light';
+import { startTheme } from './editor/theme.svelte';
+startTheme();
 mount(EditorApp, { target: document.getElementById('app')! });
