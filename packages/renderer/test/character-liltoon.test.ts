@@ -187,10 +187,14 @@ const shadowed = () => new CharacterLilToonMaterial({properties: {_UseShadow: 1,
 it('scales only the cast shadow by Shadow Strength, through one material reference that a write does not recompile', () => {
     const material = shadowed();
     const lights = [{shadowNode: float(0.3), baseColorNode: vec3(1)}, {shadowNode: float(0.6), baseColorNode: vec3(1)}];
-    const bands = run(material, lights).sourcesOf('lilBands');
-    expect(bands).toHaveLength(2);
-    bands.forEach((band, i) => expect(uses(band, lights[i]!.shadowNode)).toBe(true));
-    const [first, second] = bands.map(band => references(band, 'shadowStrength'));
+    const {sourcesOf} = run(material, lights);
+    // The first light is the main light and gives the bands; the other light adds its shadowed color to the light sum.
+    const [band] = sourcesOf('lilBands');
+    const added = sourcesOf('lilLight')[1]!;
+    expect(sourcesOf('lilBands')).toHaveLength(1);
+    expect(uses(band!, lights[0]!.shadowNode!)).toBe(true);
+    expect(uses(added, lights[1]!.shadowNode!)).toBe(true);
+    const [first, second] = [band!, added].map(node => references(node, 'shadowStrength'));
     expect(first).toHaveLength(1);
     expect(second![0]).toBe(first![0]);
     const [version, key] = [material.version, material.customProgramCacheKey()];

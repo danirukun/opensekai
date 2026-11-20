@@ -91,7 +91,42 @@ One event in this run is not explained. Right after the default-rig capture, the
 
 ## Cost (R9)
 
-The stall is the time from the `scene_patch` that adds one lit light to the first frame at the new revision. Each run cleared the Metal shader cache of the app (`com.apple.WebKit.GPU+opensekai_desktop-*/…/com.apple.metal`) and started the app again. The scene is the avatar with N − 1 lit point lights; the add is a point, a spot, and a directional light in turn. The gate is the spot light add at 8 lit lights: fail if the sample is more than 20 % longer than the MToon Catboy.
+### Gate: warm light add (fork `2d29c26`, third sample revision `2cd7340b…`)
+
+Owner decision 2026-11-20: a first compile of some seconds is accepted, if the runtime after it is quick. The stall is the time from the `scene_patch` that adds one lit light to the GPU completion of the first frame at the new revision: the frame time of `stall-avatar.mjs` plus the time to `device.queue.onSubmittedWorkDone()` after that frame. The renderer reported the second value through a temporary warning (`gpudone-timing.patch` in the orchestrate folder; not in the repository). The scene is the avatar with N − 1 lit point lights; the add is a point, a spot, and a directional light in turn. The gate is the spot add at 8 lit lights in a warm run (the caches have the same light sets from an earlier run): fail above 250 ms on a renderer.
+
+Unlocked session (`CGSSessionOnConsoleKey` only), branch `liltoon-webgpu` at `d7f0600` with fork `2d29c26`, one warm run for each avatar and renderer. Values in ms, stall + GPU completion:
+
+| Avatar, renderer | Spot add at 1 / 3 / 8 lit lights | Point and directional at 8 |
+| --- | --- | --- |
+| lilToon sample, Editor preview | 179 / 180 / **190** | 191 / 182 |
+| MToon Catboy, Editor preview | 105 / 109 / 143 | 158 / 150 |
+| lilToon sample, OBS output | 212 / 223 / **197** | 245 / 210 |
+| MToon Catboy, OBS output | 116 / 112 / 175 | 147 / 163 |
+
+- Gate: **passed**. The spot add at 8 lit lights is 190 ms on the Editor preview and 197 ms on the OBS output. The MToon Catboy values are 143 and 175 ms (1.33 and 1.13 times; recorded, not a gate).
+- An earlier OBS output run that was also warm (`prime-*-warm2-output_main.json`) gave 182 ms for the gate add and 306 ms for a point add at 3 lit lights and 252 ms at 8: a point add on the OBS output can be over 250 ms.
+- The warm cost also follows the pipeline count: each pipeline that WebKit finds in its cache takes about 5 ms, and the sample has 24 light-dependent pipelines against 13 for the MToon Catboy.
+- Raw: `warm-{liltoon,mtoon}-warm2-{preview_main,output_main}.json` and `prime-{liltoon,mtoon}-warm2-output_main.json` in the orchestrate folder.
+
+### Cold light add (recorded, not a gate)
+
+Each cold run cleared the WebKit Metal shader cache of the app (`com.apple.WebKit.GPU+opensekai_desktop-*/…/com.apple.metal`) and started the app again. One cold run, Editor preview, values in ms, stall + GPU completion:
+
+| Avatar | Point / spot / directional at 1 | Point / spot / directional at 8 |
+| --- | --- | --- |
+| lilToon sample | 15,136 / 15,115 / 1,767 | 15,156 / 15,245 / 15,274 |
+| MToon Catboy | 6,451 / 10,100 / 114 | 6,686 / 10,317 / 6,624 |
+
+- The cause: WebKit compiles each new render pipeline in its GPU process, in about 0.4 s, one after the other. The JavaScript call returns at once, and the next synchronous WebGPU call (`GPUBuffer.getMappedRange`, `queue.writeBuffer`) waits for the queue. The sample has 24 light-dependent pipelines and the MToon Catboy 13. A spot add makes the MToon Catboy wait longer than a point add; the cause is not known.
+- The time does not change with the light type or the WGSL size. The WGSL of the largest sample program (53,000 characters; 17,700 for MToon) was compiled in a WKWebView outside the app (`wkcompile` in the orchestrate folder): 0.40 s for each sample pipeline, 0.35 s for each MToon pipeline, the same for a point, a spot, and a directional light. The same WGSL through naga and the Metal driver gives 0.5 s for each pair, also with no difference between light types.
+- WebKit keeps the compiled shaders on disk. Identical WGSL compiles again in about 5 ms, also in a new process. Thus a cold stall occurs one time for each light set on a computer. A directional add at 1 lit light is not cold: with no light entity the renderer adds the built-in directional light, so the scene before the add already compiled the same light set.
+- The OBS output renders in the OBS Browser Source (Chromium). The cold runs did not clear its shader cache, so the OBS output has no cold value. The cold OBS output stall is unknown.
+- Raw: `trace-{liltoon,mtoon}-gpu1.json`.
+
+### Earlier runs (time to the first frame only)
+
+The runs below measured the time to the first frame at the new revision, without the GPU completion. That time is the time that the JavaScript thread waits, not the time until the frame shows: an MToon frame can go out while the GPU process still compiles for 6 s. Thus the ratios below do not compare the two avatars, and they are not gate values. The sample runs below used the fork before `2d29c26`, with a band set for each light.
 
 Second sample revision, unlocked session (`CGSSessionOnConsoleKey` only), one cold run of each avatar on each renderer: `stall-avatar.mjs --output preview_main` for the Editor preview and `--output output_main` for the OBS output renderer (`production_v1`). The third revision changes one uniform value (the cat-ear shadow color), not a shader graph, so these values apply to it too.
 
@@ -103,9 +138,9 @@ Second sample revision, unlocked session (`CGSSessionOnConsoleKey` only), one co
 | MToon Catboy, OBS output | 60 / 76 / 89 | 86 / 86 | 73.7 |
 
 - Raw: `stall-{liltoon,mtoon}-gate4-{preview_main,output_main}.json` in the orchestrate folder (not in the repository). An earlier attempt (`gate3`) loaded no avatar and is not a measurement: the manifest pointed to a copy of the sample outside the manifest folder, and the asset service answered 400 to each read (`resolve_asset` accepts only a path under the manifest folder or under the library).
-- Editor preview: the sample stops the Editor for 11.5 to 14.9 s on each add, except the first point add (1.4 s) and the first directional add (1.7 s). The MToon Catboy stops it for 7.1 to 8.0 s on a spot add, as in the [character lighting check](character-lighting.md), and for 0.09 to 0.12 s on a later point or directional add. The preview `cpuMs` (5 to 6 ms) does not include the compile: the Editor compiles before it draws the frame. Why a spot add stops the MToon preview for 7 to 8 s and a point add does not is not known.
+- Editor preview: the first frame of the sample comes 11.5 to 14.9 s after each add, except the first point add (1.4 s) and the first directional add (1.7 s). For the MToon Catboy it comes 7.1 to 8.0 s after a spot add, as in the [character lighting check](character-lighting.md), and 0.09 to 0.12 s after a later point or directional add; the GPU process then still compiles for about 6 s (see Cold light add). The preview `cpuMs` (5 to 6 ms) does not include the compile.
 - OBS output: the compile frame `cpuMs` at 8 lit lights is 219.3 ms for the sample against 73.7 ms for the MToon Catboy (3.0 times), the same ratio as on the first revision. The first frame is 233 against 89 ms (2.6 times).
-- Gate: **failed**. The spot add at 8 lit lights takes 14,782 against 7,121 ms on the Editor preview (2.1 times) and 233 against 89 ms on the OBS output (2.6 times); the limit is 1.2 times. On the preview, a point or a directional add takes about 120 times the MToon value. The shader must get cheaper before the work ships. The candidate is shared property nodes in the fork, so that materials with the same features build one program (#269).
+- This run failed the old gate (20 % over the MToon Catboy on the first frame). The owner replaced that gate with the warm gate above on 2026-11-20.
 
 First revision (`36b9c223…`), locked session, OBS output renderer only. The shader graphs of the first revision differ (the face had border and blur masks, the ear an emission):
 
@@ -143,11 +178,11 @@ Each row of the three-liltoon [feature matrix](https://github.com/danirukun/thre
 | Base color and main texture | Implemented | Implemented: `_Color`, `_MainTex`, `_MainTex_ST` through the node UVs; `KHR_texture_transform` on the same texture is ignored (R16: fork `test/webgpu/gltf.test.ts:423` and `properties.test.ts:98-116`; the sample has only the identity `_MainTex_ST` since `019d288`, so the GPU result of a non-identity `_MainTex_ST` is not in this check) | `LilToonNodeMaterial.ts`, `vrm.ts` |
 | Main UV animation and tone correction | Implemented | Not drawn: no UV scroll (`_MainTex_ScrollRotate`), no `_MainTexHSVG`, no gradation; no warning | `properties.ts` |
 | Main Color 2nd/3rd, decals | Implemented | Not drawn; `unsupported-feature` warning on `_UseMain2ndTex` / `_UseMain3rdTex` | `properties.ts` |
-| First, second, third toon shadow bands | Limited | Implemented with masks (`_ShadowStrengthMask`, `_ShadowBorderMask` with the AO shift, `_ShadowBlurMask`), `_ShadowBorderColor`, the band AA; `_ShadowMaskType` 1/2 and `_ShadowColorType` 1 warn and draw as 0. A band is computed for each light, see below. The second sample revision has `_ShadowStrengthMask` on the body only. For the border and blur masks the fork tests check only that the two masks are sampled once for each build (`test/webgpu/lighting.test.ts:71-92`) and the `lilAOShift` math (`test/webgpu/math.test.ts:66`); no test checks the effect of the masks on the shaded result, and no Catboy capture shows them | `LilToonLightingModel.ts`, `lilToonMath.ts` |
+| First, second, third toon shadow bands | Limited | Implemented with masks (`_ShadowStrengthMask`, `_ShadowBorderMask` with the AO shift, `_ShadowBlurMask`), `_ShadowBorderColor`, the band AA; `_ShadowMaskType` 1/2 and `_ShadowColorType` 1 warn and draw as 0. The bands come from the main light only, see below. The second sample revision has `_ShadowStrengthMask` on the body only. For the border and blur masks the fork tests check only that the two masks are sampled once for each build (`test/webgpu/lighting.test.ts:71-92`) and the `lilAOShift` math (`test/webgpu/math.test.ts:66`); no test checks the effect of the masks on the shaded result, and no Catboy capture shows them | `LilToonLightingModel.ts`, `lilToonMath.ts` |
 | Normal Map and Normal Map 2nd | Implemented | First normal map implemented, tangents generated when the file has none; `_UseBump2ndMap` warns | `LilToonLightingModel.ts`, `vrm.ts` |
 | MatCap and MatCap 2nd | Implemented | First matcap implemented (blend modes 0 to 3, mask, `_MatCapNormalStrength`); `_MatCapCustomNormal` warns; `_UseMatCap2nd` warns | `lilToonShading.ts` |
 | Rim and directional rim | Implemented | Rim implemented once from the summed light; `_RimDirStrength` not 0 warns and draws as 0 | `lilToonShading.ts` |
-| RimShade and backlight | Limited | Backlight implemented for each light; RimShade not drawn, no warning | `lilToonShading.ts` |
+| RimShade and backlight | Limited | Backlight implemented for the main light; RimShade not drawn, no warning | `lilToonShading.ts` |
 | Emission and Emission 2nd | Implemented | First emission with map, blend mask, blink; `_EmissionMap_UVMode` and `_EmissionUseGrad` warn; `_UseEmission2nd` warns | `lilToonShading.ts` |
 | Reflection and specular | Limited | Not drawn; `_UseReflection` warns | `properties.ts` |
 | Distance fade and dissolve | Implemented | Not drawn; `_DissolveParams` warns | `properties.ts` |
@@ -181,7 +216,7 @@ Other rows of this slice:
 
 ### Differences from Unity
 
-- A band for each light: Unity lilToon shades one main light (the directional light plus the SH ambient) and adds the other lights in a simpler pass. The port computes the bands for each light and sums them by the light grey level, so a scene with several lights differs from Unity.
+- The main light: Unity lilToon shades one main light (the directional light plus the SH ambient) with the bands and adds the other lights to the light color. The port does the same (fork `2d29c26`), but it selects the main light by a rule: the first directional light of the light set, else the first lit light. Unity uses the sun or the brightest directional light. Each other light adds its color times its cast shadow and gives no bands and no backlight. Before `2d29c26` the port gave each light its own bands; that made the shader larger with each light (see Cost).
 - No expression binds on a lilToon material (warned).
 - No UV scroll and no tone correction on the main texture.
 - The ambient enters the light color at 1/π of the three irradiance (the Lambert convention of three), so an Ambient light of the same color as a Unity flat ambient is weaker by π. The ambient of the reference rig is small (0.033), and the result is inside the calibration window. Its place is the Unity place: inside the light limit (fork `66e7791`).
