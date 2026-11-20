@@ -37,7 +37,7 @@ On the first project open, the VRM can import before the MToon10 shader exists, 
 
 ## Run the scripts
 
-Run each step without `-nographics`. The alpha check, the texture export, and the capture need a graphics device.
+Run each step without `-nographics`. The texture export and the capture need a graphics device.
 
 ```sh
 UNITY=/Applications/Unity/Hub/Editor/6000.0.71f1/Unity.app/Contents/MacOS/Unity
@@ -123,7 +123,7 @@ lilToon mixes the second and the third band into the first shadow region only (`
 | `N00_001_01_Bottoms_01_CLOTH` | `Hidden/lilToonCutoutOutline` | shadow 1; rim; matcap; outline |
 | `N00_000_Hair_00_HAIR` | `Hidden/lilToonCutoutOutline` | shadow 1, 2, 3; normal map; rim; matcap; emission; outline |
 
-Variants in the export: opaque (1), opaque with outline (3), cutout (1), cutout with outline (6), transparent (6). Only transparent with outline is absent; the source has no such material. The matcap on most parts is the VRoid `MatcapWarp_01` texture of the source. The transparent face layers keep the migrated render queues 2996 to 3000, so the eye line, iris, highlight, brow, and eyelash draw in the source order.
+Variants in the export (16 materials, `check_sample.py`): opaque (1), opaque with outline (3), cutout (1), cutout with outline (5), transparent (6). Only transparent with outline is absent; the source has no such material. The matcap on most parts is the VRoid `MatcapWarp_01` texture of the source. The transparent face layers keep the migrated render queues 2996 to 3000, so the eye line, iris, highlight, brow, and eyelash draw in the source order.
 
 ## Export
 

@@ -68,7 +68,8 @@ export function materialReport(json: unknown): MaterialReport {
             : extensions.includes('KHR_materials_unlit') || v0Shader?.startsWith('VRM/Unlit') ? 'unlit' : 'pbr';
         const unsupported = new Set<string>();
         for (const name of extensions) if (!MATERIAL_EXTENSIONS.has(name) || ((mtoon || liltoon) && !MTOON_READS.has(name)) || (name === LILTOON && !liltoon)) unsupported.add(cutName(name));
-        if (v0Shader !== undefined && v0Shader !== 'VRM/MToon' && !v0Shader.startsWith('VRM/Unlit') && v0Shader !== 'VRM_USE_GLTFSHADER')
+        // The lilToon extension decides the profile of a VRM 0 material, so its shader name is not a missing shader.
+        if (v0Shader !== undefined && v0Shader !== 'VRM/MToon' && !v0Shader.startsWith('VRM/Unlit') && v0Shader !== 'VRM_USE_GLTFSHADER' && !liltoon)
             unsupported.add(cutName('shader:' + v0Shader));
         for (const ref of textureRefs(material)) {
             const texture = object(textures[ref]);

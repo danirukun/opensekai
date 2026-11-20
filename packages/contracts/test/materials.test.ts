@@ -27,6 +27,15 @@ describe('materialReport', () => {
         const v0 = materialReport({extensionsUsed: ['VRM'], materials: [{extensions: lil}], extensions: {VRM: {materialProperties: [{shader: 'VRM/MToon'}]}}});
         expect(v0.materials[0]).toMatchObject({profile: 'liltoon', unsupported: []});
     });
+    it('does not list the VRM 0 shader name of a material that has the lilToon extension', () => {
+        // The lilToon extension decides the profile. The shader name is only unsupported on a material without it.
+        const lil = {MOCHIYA_materials_liltoon: {}};
+        const v0 = materialReport({
+            extensionsUsed: ['VRM'], materials: [{name: 'Skin', extensions: lil}, {name: 'Hair'}],
+            extensions: {VRM: {materialProperties: [{shader: 'lilToon'}, {shader: 'lilToon'}]}},
+        });
+        expect(v0.materials.map(x => [x.profile, x.unsupported])).toEqual([['liltoon', []], ['pbr', ['shader:lilToon']]]);
+    });
     it('reads a lilToon material of a file that is not a VRM as pbr and lists the extension', () => {
         const lil = {MOCHIYA_materials_liltoon: {}};
         expect(one({extensionsUsed: ['MOCHIYA_materials_liltoon'], materials: [{extensions: lil}]})).toMatchObject({profile: 'pbr', unsupported: ['MOCHIYA_materials_liltoon']});

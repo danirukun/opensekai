@@ -1,5 +1,5 @@
 // Validates the MOCHIYA_materials_liltoon object of one material, or of every material, against the schema with ajv.
-// Usage: node validate_schema.js <schema.json> <file.vrm> [<material index> | all] [<path to an ajv module>]
+// Usage: node validate_schema.cjs <schema.json> <file.vrm> [<material index> | all] [<path to an ajv module>]
 const fs = require('fs');
 
 const [schemaPath, glbPath, which, ajvPath] = process.argv.slice(2);
