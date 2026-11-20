@@ -188,12 +188,16 @@ it('scales only the cast shadow by Shadow Strength, through one material referen
     const material = shadowed();
     const lights = [{shadowNode: float(0.3), baseColorNode: vec3(1)}, {shadowNode: float(0.6), baseColorNode: vec3(1)}];
     const {sourcesOf} = run(material, lights);
-    // The first light is the main light and gives the bands; the other light adds its shadowed color to the light sum.
+    // The first light is the main light and gives the bands; the other light adds its own limited ForwardAdd color.
     const [band] = sourcesOf('lilBands');
-    const added = sourcesOf('lilLight')[1]!;
+    const [added] = sourcesOf('lilAddedLight');
     expect(sourcesOf('lilBands')).toHaveLength(1);
     expect(uses(band!, lights[0]!.shadowNode!)).toBe(true);
-    expect(uses(added, lights[1]!.shadowNode!)).toBe(true);
+    expect(uses(added!, lights[1]!.shadowNode!)).toBe(true);
+    // As CharacterMToonMaterial, the cast shadow multiplies the band step: no band step (fwidth) reads it.
+    const steps = find(band!, node => (node as Node & {method?: string}).method === 'fwidth');
+    expect(steps.size).toBeGreaterThan(0);
+    expect([...steps].some(step => uses(step, lights[0]!.shadowNode!))).toBe(false);
     const [first, second] = [band!, added].map(node => references(node, 'shadowStrength'));
     expect(first).toHaveLength(1);
     expect(second![0]).toBe(first![0]);

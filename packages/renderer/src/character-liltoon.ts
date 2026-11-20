@@ -26,6 +26,10 @@ export class CharacterLilToonMaterial extends LilToonNodeMaterial {
     protected override receivedShadow(shadow: Float): Float {
         return mix(float(1), shadow, shadowStrength);
     }
+    // The cast shadow after the band step, as CharacterMToonMaterial: a converted MToon avatar keeps the shadow size of its original.
+    protected override receivedShadowAfterBands(): boolean {
+        return true;
+    }
     // `indirectDiffuse` of CharacterLightingModel without the Lambert term, which the lilToon model applies: the scene ambient at
     // CHARACTER_AMBIENT on an avatar surface, an outline too, plus the room fill of `CharacterEnvironmentNode` (`iblIrradiance`).
     protected override roomIrradiance(irradiance: Vec3, iblIrradiance: Vec3): Vec3 {

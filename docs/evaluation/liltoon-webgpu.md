@@ -99,6 +99,15 @@ Third sample revision, OBS output, `production_v1`, WebGPU, branch `liltoon-webg
 - Two spot lights and no directional light: the bands follow the spot light that the renderer made first; the second spot light adds color only. Removing it removes the tint and keeps the band edges.
 - In one app session the Editor preview stopped at one scene revision while the OBS output continued, and `camera_screenshot` timed out. It did not occur again after an app restart. A warm stall run also stopped once with no preview frame at a revision for 90 s. The cause is not known.
 
+## Other-light limit and received shadow order (fork `716557b`)
+
+Editor preview, `preview_v1`, WebGPU, branch `liltoon-webgpu` at `c3602fb` with the fork build in place. Images in the scratchpad of the session, not in the repository. Look check by Fable (model check, not the owner).
+
+- Light limit for each other light: the Catboy lilToon sample, a key light at intensity 3 (above `_LightMaxLimit` 1), and a red point light at intensity 2. The red light adds a red tint: the cheek goes from (195, 191, 181) to (241, 191, 181), and green and blue do not change in any region. No new band edges and no clipped areas. With fork `2d29c26` the red light was in the same limit as the key light and gave no tint.
+- Received shadow after the band step: RORO converted to lilToon with `_ShadowReceive` 1, against the RORO MToon original, the default rig. The head shadow on the neck and the chest and the hem shadow on the legs have the same size, place, and edge as MToon. Pixel values (lilToon / MToon): jacket (170, 196, 220) / (176, 196, 220), hem (188, 177, 154) / (194, 177, 154), neck (204, 150, 137) / (211, 150, 137). The lilToon shade is 4 to 7 levels lower in red only. The hair shade behind the hair ornament is about 16 levels less saturated. Mean difference of the frame: 0.64 of 255. With fork `2d29c26` the shadow went into the band step: it was larger, and Shadow Strength changed its darkness only a little. Now the hem goes from (254, 239, 207) at Shadow Strength 0 to (188, 177, 154) at 0.6 and (115, 109, 98) at 1.
+- RORO lilToon with `_ShadowReceive` 0: no cast shadow; the rest of the frame is the same.
+- The Unity reference rig has one directional light, no shadow, and no other light, so neither change applies to it, and the calibration (R9) was not run again.
+
 ## Cost (R9)
 
 ### Gate: warm light add (fork `2d29c26`, third sample revision `2cd7340b…`)
@@ -118,6 +127,20 @@ Unlocked session (`CGSSessionOnConsoleKey` only), branch `liltoon-webgpu` at `d7
 - An earlier OBS output run that was also warm (`prime-*-warm2-output_main.json`) gave 182 ms for the gate add and 306 ms for a point add at 3 lit lights and 252 ms at 8: a point add on the OBS output can be over 250 ms.
 - The warm cost also follows the pipeline count: each pipeline that WebKit finds in its cache takes about 5 ms, and the sample has 24 light-dependent pipelines against 13 for the MToon Catboy.
 - Raw: `warm-{liltoon,mtoon}-warm2-{preview_main,output_main}.json` and `prime-{liltoon,mtoon}-warm2-output_main.json` in the orchestrate folder.
+
+### Gate run after the other-light limit (2026-11-20)
+
+The same method and scene as the gate above, one priming run and one warm run for each build, the same app session and the same day. Values in ms, stall + GPU completion, the lilToon sample (third revision):
+
+| Fork build | Spot add at 1 / 3 / 8 lit lights, Editor preview | Spot add at 1 / 3 / 8 lit lights, OBS output |
+| --- | --- | --- |
+| `2d29c26` (control) | 177 / 229 / **352** | 200 / 243 / **218** |
+| A band set for each other light | 162 / 247 / **363** | 177 / 304 / **465** |
+| `716557b`: own light limit, no bands | 202 / 215 / **329** | 230 / 168 / **211** |
+
+- A band set for each other light fails on the OBS output (465 ms). The owner chose the light limit without bands (2026-11-20). On the OBS output it costs the same as the control.
+- On the Editor preview all three builds are above 250 ms at 8 lit lights, also the control `2d29c26`, which gave 190 ms in the gate above. The MToon Catboy gave 122 ms on the preview and 140 ms on the OBS output in the same session (143 and 175 ms in the gate above), so the cause is not a slower computer. The cause is not known. A possible cause: the WebKit HTTP cache of the app can serve an earlier build of the fork after a change of `node_modules` in place, so the gate above possibly ran a different build than it names. This is not confirmed.
+- Raw: `warm-liltoon-{ctl1,co1,fa1}-{preview_main,output_main}.json`, `prime-liltoon-{ctl1,co1,fa1}-output_main.json`, and the MToon `*-mtoon-fa1-*.json` in the orchestrate folder.
 
 ### Cold light add (recorded, not a gate)
 
