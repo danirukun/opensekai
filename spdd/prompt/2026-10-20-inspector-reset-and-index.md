@@ -36,9 +36,9 @@ R11. The sections, in order:
 - Light: Transform, Light (Type, Color, Intensity, Range, Angle, Penumbra, Volumetric, Set Direction From Main Camera), Affect, Shadow. Shadow shows only when the type is not ambient.
 - Haze: Transform, Haze.
 - Environment: Transform, Environment.
-- Avatar: Transform, Model, Expressions (only when the model has triggerable expressions), Tracking (sources and Idle animation).
+- Avatar: Transform, Model, Expressions (only when the model has triggerable expressions), Tracking (sources and Idle animation), Debug (only when the avatar has a model; see [character Debug section](2026-11-20-character-debug-section.md)).
 - Tracking source: Receiver (the current `TrackingSourceFields`), Smoothing, Face (the current `TrackingMappingFields`), Diagnostics. The `Advanced` disclosure goes away. The existing `legend` and `h4` headings that repeat a section name go away (constitution principle 1).
-R12. Each section starts expanded, except Smoothing, Face, and Diagnostics of a tracking source, which start collapsed. A change that the user makes is kept per user in the Editor window `localStorage` key `opensekai.inspector.sections` as `{ version: 1, collapsed: string[] }`, where each item is `<entity kind>:<section id>`. A missing, invalid, or larger-than-4-KiB value gives the start state. The show does not save it. A read or write error of `localStorage` does not stop the Inspector.
+R12. Each section starts expanded, except Smoothing, Face, and Diagnostics of a tracking source, which start collapsed, and the avatar Debug section, which starts collapsed also for a stored state (the optional list `opened` keeps it expanded after the user expands it). A change that the user makes is kept per user in the Editor window `localStorage` key `opensekai.inspector.sections` as `{ version: 1, collapsed: string[] }`, where each item is `<entity kind>:<section id>`. A missing, invalid, or larger-than-4-KiB value gives the start state. The show does not save it. A read or write error of `localStorage` does not stop the Inspector.
 
 ### Section index (UX-01)
 

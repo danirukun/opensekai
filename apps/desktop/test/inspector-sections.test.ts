@@ -42,6 +42,19 @@ it('toggles a section and keeps the state through a save and a read (R12)',()=>{
  expect(setCollapsed(START_STATE,'tracking','face',true)).toBe(START_STATE);
  expect(START_STATE.collapsed).toHaveLength(3);
 });
+it('puts Debug last for an avatar with a model and keeps it collapsed until the user opens it (Debug R1, R2)',()=>{
+ expect(sectionsFor(makeAuthoringEntity('character','id',[]),{expressions:false,debug:true}).map(section=>section.label)).toEqual(['Transform','Model','Lighting','Tracking','Debug']);
+ expect(isCollapsed(START_STATE,'avatar','debug')).toBe(true);
+ // A state stored before Debug existed has no opened list.
+ const stored=parseSectionState('{"version":1,"collapsed":["light:shadow"]}');
+ expect(isCollapsed(stored,'avatar','debug')).toBe(true);
+ const opened=toggleSection(stored,'avatar','debug');
+ expect(opened).toEqual({version:1,collapsed:['light:shadow'],opened:['avatar:debug']});
+ const read=parseSectionState(JSON.stringify(opened));
+ expect(isCollapsed(read,'avatar','debug')).toBe(false);
+ expect(isCollapsed(toggleSection(read,'avatar','debug'),'avatar','debug')).toBe(true);
+ expect(parseSectionState('{"version":1,"collapsed":[],"opened":[1]}')).toEqual(START_STATE);
+});
 it('marks the last section whose top is at or above the scroll top plus 8 px (R14)',()=>{
  const tops=[0,300,700,1200];
  expect(currentSection(tops,0,400,2000)).toBe(0);

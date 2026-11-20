@@ -2,7 +2,7 @@ import { assertEditorScope, createEditorViewport, createHazeHelper, createLightH
 import type { EditorOptions, EditorHandle } from './editor-viewport';
 import { Scene, Mesh, BoxGeometry, MeshStandardNodeMaterial, PerspectiveCamera, Object3D } from "three/webgpu";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
-import type { RuntimeFrame, FrameApplied, RendererDiagnostics, CaptureBytes, Id, ResourceHost, AppError, SceneEntity, QualityProfile, ScreenshotBytes, OutputSpec } from "@opensekai/contracts";
+import type { RuntimeFrame, FrameApplied, RendererDiagnostics, CaptureBytes, Id, ResourceHost, AppError, AssetDebug, SceneEntity, QualityProfile, ScreenshotBytes, OutputSpec } from "@opensekai/contracts";
 import { LIMITS, RuntimeFrameSchema, avatarLighting } from "@opensekai/contracts";
 import { selectFrame, failure, createRenderQueue } from "./apply-frame";
 import { applyHiddenMeshes, createAssetCache, createAssetLoader, disposeObject } from "./assets";
@@ -40,6 +40,8 @@ export interface RendererHandle {
     screenshot(cameraId: Id, expectedRevision: number): Promise<ScreenshotBytes>;
     diagnostics?(rendererEpoch: string): RendererDiagnostics | null;
     onLoadStatus(listener: (entries: AssetLoadStatus[]) => void): () => void;
+    /** Character Debug R3: what the last load of this avatar asset read from its file, or null. */
+    modelInfo(assetId: string): AssetDebug | null;
     dismissLoad(entityId: string): void;
     /**
      * Pauses each video element and closes each capture socket; the next applied frame seeks and plays the videos again
@@ -101,6 +103,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     const beams = createBeams();
     let beamsFailed = false;
     const assets = createAssetCache(loadAsset);
+    const debugs = new Map<string, AssetDebug>();
     // One texture for each image asset in this client, shared by all screens that show it (B28 R12). Each quad holds a
     // lease, so the texture closes only when no quad uses it.
     const images = createScreenImagePool(id => loadScreenImage(() => options.resources.readAsset(id), quality.maxTextureSize));
@@ -165,6 +168,10 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         }
         if (request.kind === "avatar") {
             const asset = await loadAsset(request.assetId, report);
+            // Keep the debug data of the last 8 avatar assets.
+            debugs.delete(request.assetId);
+            debugs.set(request.assetId, asset.debug);
+            for (const id of [...debugs.keys()].slice(0, -8)) debugs.delete(id);
             try {
                 if (!asset.vrm) throw failure("INVALID_INPUT", "Avatar asset has no VRM");
                 const avatar = createAvatarBinding(asset.vrm);
@@ -562,6 +569,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         return {sessionId: displayed.sessionId, outputId: displayed.outputId, rendererEpoch, sequence: displayed.sequence, revision: displayed.revision, backend, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, liveMaterials: countLiveMaterials(marker ? [scene,marker.scene] : [scene]), assetCacheEntries: assets.size(), ...queue.snapshot(), ...(decoderSupport ? { videoDecoder: decoderSupport } : {})};
     },
     onLoadStatus(listener) { loadListeners.add(listener); listener(jobs.status()); return () => { loadListeners.delete(listener); }; },
+    modelInfo: assetId => debugs.get(assetId) ?? null,
     dismissLoad(entityId) { jobs.dismiss(entityId); },
     pauseVideos() { for (const value of objects.values()) value.video?.pause(); captures.pause(); },
     videoDecoder: () => decoderSupport,
