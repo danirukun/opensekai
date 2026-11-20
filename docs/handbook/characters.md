@@ -23,6 +23,18 @@ The **Expressions** section shows the expressions of the VRM model. Use the swit
 
 The **Meshes** section shows the mesh parts of the model. Clear the check box of a part to hide it. For example, you can hide a hat or a coat.
 
+## Debug
+
+The **Debug** section is the last section. It starts folded. It shows what the loaded VRM file contains:
+
+- The VRM version, the generator, the glTF version, the size, and the SHA-256 of the file.
+- The glTF extensions of the file. An extension that the file requires has the mark *required*.
+- The meta data of the model (for example the name, the authors, and the license) and the counts of nodes, meshes, materials, textures, bones, expressions, and spring bones.
+- For the material that you select: its profile, its extensions, the alpha mode, the cull, and for a lilToon material its lilToon version, shader variant, and queue. Its textures, with the size and the color space. Its properties, with a search field.
+- The load warnings of the file.
+
+Click **Copy JSON** to copy all of this data to the clipboard.
+
 ## Tracking
 
 The **Tracking** section connects the character to tracking sources:

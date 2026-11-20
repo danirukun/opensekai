@@ -1,0 +1,13 @@
+# fixture_vrm_liltoon auto {"fixture":"fixture_vrm_liltoon","backend":"webgpu","profiles":{"liltoon":16},"materialWarnings":[],"pipelineFailures":0,"otherWarnings":["UNAVAILABLE Room fill unavailable: Failed to execute 'mapAsync' on 'GPUBuffer': A valid external Instance reference no longer exists."],"pageErrors":["THREE.WebGPURenderer: Uncaptured WebGPU GPUValidationError: [Invalid Texture] is invalid due to a previous error.\n - While calling [Invalid Texture].CreateView([TextureViewDescriptor]).\n","THREE.WebGPURenderer: Uncaptured WebGPU GPUValidationError: [Invalid TextureView] is invalid due to a previous error.\n - While validating colorAttachments[0].\n - While encoding [CommandEncoder \"renderContext_1\"].BeginRenderPass([RenderPassDescriptor]).\n - While finishing [CommandEncoder \"renderConte","THREE.WebGPURenderer: Uncaptured WebGPU GPUValidationError: [Invalid CommandBuffer from CommandEncoder \"renderContext_1\"] is invalid due to a previous error.\n - While calling [Queue].Submit([[Invalid CommandBuffer from CommandEncoder \"renderContext_1\"]])\n","THREE.THREE.WebGPURenderer: WebGPU Device Lost:\n\nMessage: A valid external Instance reference no longer exists.\nReason: unknown","Instance dropped in popErrorScope","Instance dropped in popErrorScope","Instance dropped in popErrorScope"],"png":"unknown: the page screenshot is one flat color"}
+FAIL fixture_vrm_liltoon auto: loads [{"code":"UNAVAILABLE","message":"Room fill unavailable: Failed to execute 'mapAsync' on 'GPUBuffer': A valid external Instance reference no longer exists.","ids":["fixture_vrm_liltoon"]}]
+PASS fixture_vrm_liltoon auto: backend webgpu "webgpu"
+PASS fixture_vrm_liltoon auto: no pipeline compile failure in any applied frame 
+PASS fixture_vrm_liltoon auto: profile counts {"liltoon":16} {"liltoon":16}
+PASS fixture_vrm_liltoon auto: no UNSUPPORTED material warning []
+# fixture_vrm_liltoon webgl2 {"fixture":"fixture_vrm_liltoon","backend":"webgl2","profiles":{"liltoon":16},"materialWarnings":[],"pipelineFailures":0,"otherWarnings":["BUSY Asset loading"],"pageErrors":[],"png":"unknown: page.screenshot: Timeout 20000ms exceeded."}
+FAIL fixture_vrm_liltoon webgl2: loads [{"code":"BUSY","message":"Asset loading","ids":["fixture_vrm_liltoon"]}]
+PASS fixture_vrm_liltoon webgl2: backend webgl2 "webgl2"
+PASS fixture_vrm_liltoon webgl2: no pipeline compile failure in any applied frame 
+PASS fixture_vrm_liltoon webgl2: profile counts {"liltoon":16} {"liltoon":16}
+PASS fixture_vrm_liltoon webgl2: no UNSUPPORTED material warning []
+8 pass, 2 fail, 0 fixtures skipped

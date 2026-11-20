@@ -35,7 +35,7 @@ pnpm --filter @opensekai/output build
 pnpm exec tsx docs/evaluation/material-profiles/headless-check.mjs docs/evaluation/material-profiles
 ```
 
-`BACKENDS=webgl2` limits the backends, and `ONLY=<fixture id>` limits the fixtures.
+`BACKENDS=webgl2` limits the backends, and `ONLY=<fixture id>` limits the fixtures. `FIXTURES` (a JSON array of `{id, kind, expect}`) replaces the fixture list, `GPU_ARGS` adds Chromium flags (for example `--use-angle=metal` for the Metal GPU of a Mac), and `LOAD_TIMEOUT_MS` extends the load wait; the [lilToon check](liltoon-webgpu.md) uses them.
 
 ## Tests
 

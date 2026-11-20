@@ -23,13 +23,14 @@ type Spec = {
 } & ({ type: 'color' } | { type: 'number'; range: readonly [number, number] });
 export type MaterialParameterSpec = Readonly<Spec>;
 
-const all = () => true;
-const lit = (m: MaterialShape) => m.profile !== 'unlit';
+// A liltoon material has no editable parameter.
+const all = (m: MaterialShape) => m.profile !== 'liltoon';
+const lit = (m: MaterialShape) => m.profile !== 'unlit' && m.profile !== 'liltoon';
 const mtoon = (m: MaterialShape) => m.profile === 'mtoon';
 // R14, in this order.
 export const MATERIAL_PARAMETERS: readonly MaterialParameterSpec[] = [
  { key: 'baseColor', label: 'Base Color', type: 'color', field: 'color', defaultValue: '#ffffff', applies: all },
- { key: 'opacity', label: 'Opacity', type: 'number', range: [0, 1], field: 'opacity', defaultValue: 1, applies: m => m.blend },
+ { key: 'opacity', label: 'Opacity', type: 'number', range: [0, 1], field: 'opacity', defaultValue: 1, applies: m => m.blend && all(m) },
  { key: 'emissionColor', label: 'Emission Color', type: 'color', field: 'emissive', defaultValue: '#000000', applies: lit },
  { key: 'emissionStrength', label: 'Emission Strength', type: 'number', range: [0, 100], field: 'emissiveIntensity', defaultValue: 1, applies: lit },
  { key: 'shadeColor', label: 'Shade Color', type: 'color', field: 'shadeColorFactor', defaultValue: '#ffffff', applies: mtoon },
@@ -45,7 +46,7 @@ const unique = (names: readonly string[]) => new Set(names).size === names.lengt
 export const MaterialColorSchema = z.string().regex(/^#[0-9a-f]{6}$/);
 // A refine, not `max`: the limit counts UTF-16 code units, as the Rust check does.
 export const MaterialNameSchema = z.string().refine(name => name.length >= 1 && name.length <= MAX_MATERIAL_NAME, 'Invalid material name');
-export const MaterialProfileSchema = z.enum(['mtoon', 'pbr', 'unlit']);
+export const MaterialProfileSchema = z.enum(['mtoon', 'pbr', 'unlit', 'liltoon']);
 export const MaterialParameterSchema = z.enum(MATERIAL_PARAMETER_KEYS);
 const valueSchema = (spec: MaterialParameterSpec) => spec.type === 'color' ? MaterialColorSchema : z.number().min(spec.range[0]).max(spec.range[1]);
 export const MaterialModelSchema = z.strictObject(Object.fromEntries(MATERIAL_PARAMETERS.map(spec => [spec.key, valueSchema(spec).optional()])) as Record<MaterialParameter, z.ZodOptional<z.ZodString | z.ZodNumber>>);

@@ -85,10 +85,10 @@ export interface SceneLights {
     dispose(): void;
 }
 
-// A lit material: standard, physical, Phong, Lambert, toon, or MToon. Unlit materials keep scene lights, which they ignore.
+// A lit material: standard, physical, Phong, Lambert, toon, MToon, or lilToon. Unlit materials keep scene lights, which they ignore.
 export const isLitMaterial = (material: Material): boolean => {
     const m = material as Material & Record<string, unknown>;
-    return m.isMeshStandardMaterial === true || m.isMeshPhongMaterial === true || m.isMeshLambertMaterial === true || m.isMeshToonMaterial === true || m.isMToonNodeMaterial === true || m.isMToonMaterial === true;
+    return m.isMeshStandardMaterial === true || m.isMeshPhongMaterial === true || m.isMeshLambertMaterial === true || m.isMeshToonMaterial === true || m.isMToonNodeMaterial === true || m.isMToonMaterial === true || m.isLilToonNodeMaterial === true;
 };
 
 export function createSceneLights(scene: Scene, renderer: WebGPURenderer): SceneLights {

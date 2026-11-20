@@ -163,14 +163,23 @@ fn gltf_values(material: &Value) -> Values {
         outline_color: factor(&mtoon["outlineColorFactor"], BLACK),
     }
 }
+/// A file is a VRM when `extensionsUsed` has `VRMC_vrm` or `VRM`.
+fn is_vrm(json: &Value) -> bool {
+    json["extensionsUsed"].as_array().is_some_and(|used| {
+        used.iter()
+            .any(|name| matches!(name.as_str(), Some("VRMC_vrm" | "VRM")))
+    })
+}
 /// The `materialReport` profile rule.
-fn profile(material: &Value, v0_shader: Option<&str>) -> MaterialProfile {
+fn profile(material: &Value, v0_shader: Option<&str>, vrm: bool) -> MaterialProfile {
     let has = |name: &str| {
         material["extensions"]
             .as_object()
             .is_some_and(|e| e.contains_key(name))
     };
-    if has("VRMC_materials_mtoon") || v0_shader == Some("VRM/MToon") {
+    if vrm && has("MOCHIYA_materials_liltoon") {
+        MaterialProfile::Liltoon
+    } else if has("VRMC_materials_mtoon") || v0_shader == Some("VRM/MToon") {
         MaterialProfile::Mtoon
     } else if has("KHR_materials_unlit") || v0_shader.is_some_and(|s| s.starts_with("VRM/Unlit")) {
         MaterialProfile::Unlit
@@ -189,6 +198,7 @@ pub(super) fn model_materials(json: &Value) -> Vec<AssetMaterial> {
         .as_array()
         .map(Vec::as_slice)
         .unwrap_or(&[]);
+    let vrm = is_vrm(json);
     let mut taken = HashSet::new();
     let mut entries = Vec::new();
     for (index, value) in materials.iter().enumerate().take(MAX_MATERIALS) {
@@ -200,7 +210,7 @@ pub(super) fn model_materials(json: &Value) -> Vec<AssetMaterial> {
         let material = if value.is_object() { value } else { &empty };
         let props = v0.get(index as usize).filter(|p| p.is_object());
         let shader = props.and_then(|p| p["shader"].as_str());
-        let profile = profile(material, shader);
+        let profile = profile(material, shader, vrm);
         let values = match (props, shader) {
             (Some(props), Some(shader))
                 if shader == "VRM/MToon" || shader.starts_with("VRM/Unlit") =>
@@ -228,7 +238,7 @@ pub(super) fn model_materials(json: &Value) -> Vec<AssetMaterial> {
         };
         let applies = |key: &str| entry.applies(key);
         let model = MaterialModel {
-            base_color: Some(linear_hex(values.base)),
+            base_color: applies("baseColor").then(|| linear_hex(values.base)),
             opacity: applies("opacity").then(|| values.opacity.clamp(0.0, 1.0)),
             emission_color: applies("emissionColor").then(|| linear_hex(values.emission)),
             emission_strength: applies("emissionStrength")
