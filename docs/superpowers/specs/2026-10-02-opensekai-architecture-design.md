@@ -30,8 +30,8 @@ This document defines the product architecture. It is not one implementation tas
 | Graphs | Typed execution core early; visual graph editor later | Selected sequence |
 | MCP | Local server in the first feasibility slice | Required |
 | Shader compatibility | Approximate selected materials first; full coverage later | Roadmap |
-| Avatar look presets | Named, versioned sets of lighting, material, light rig, and grading values | Candidate; gate in the [avatar look analysis](../../../spdd/analysis/2026-11-20-avatar-look.md) |
-| lilToon from Unity source | Read lilToon `.mat` values from the creator's package and map them to MToon | Candidate; gate in the [avatar look analysis](../../../spdd/analysis/2026-11-20-avatar-look.md) |
+| Avatar look presets | Named, versioned sets of avatar lighting and material values; the avatar part of the #298 scene presets | Candidate; gate in the [avatar look analysis](../../../spdd/analysis/2026-11-20-avatar-look.md) |
+| lilToon from `.unitypackage` | Read lilToon `.mat` values from the creator's package for the lilToon material, without Unity | Candidate; gate in the [avatar look analysis](../../../spdd/analysis/2026-11-20-avatar-look.md) |
 | OpenSekai toon extension | Clean-room face shading, smoothed-normal outlines, and hair shadow on MToon | Candidate; gate in the [avatar look analysis](../../../spdd/analysis/2026-11-20-avatar-look.md) |
 | NDI | Excluded from the current implementation scope | Deferred |
 
