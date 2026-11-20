@@ -1,10 +1,10 @@
 // Headless editor check of the theme preference and the dark tokens (B40b R1–R5, R7, R8).
 // The Editor window build runs in Chromium with the session in the page (the publisher), as in the app. A stand-in for
 // the Tauri host serves the build, routes the operator and publisher WebSockets, sends the clock, counts
-// `bootstrap_session` calls, and records each window theme call. The check captures the start screen, the editor with a
-// selection, a context menu, the Blueprints panel with nodes, and Settings in Light, Dark A (the shipped tokens), and
-// Dark B (candidate B injected as a style). With a second argument (a build of main), it also captures Light before the
-// change and writes the pixel difference of each view.
+// `bootstrap_session` calls, and records each window theme call. The check chooses Light, Dark, and Dark Navy in the
+// Settings Theme select, then captures the start screen, the editor with a selection, a context menu, the Blueprints panel
+// with nodes, and Settings. With a second argument (a build of main), it also captures Light before the change and writes
+// the pixel difference of each view.
 // Run from the repository root after `pnpm build`:
 //   pnpm exec tsx docs/evaluation/dark-mode/editor-check.mjs <output dir> [<main build dir>]
 import {createRequire} from 'node:module';
@@ -23,9 +23,6 @@ await mkdir(out,{recursive:true});
 const results=[];
 const log=(...a)=>console.log(...a);
 const check=(name,pass,detail)=>{results.push({name,pass});log(pass?'PASS':'FAIL',name,detail===undefined?'':JSON.stringify(detail));};
-
-// Candidate B of the analysis: neutral steps with no navy tint. The other dark tokens stay as in A.
-const DARK_B=`html[data-theme='dark']{--ds-color-bg:#16151b;--ds-color-rail:#1b1a20;--ds-color-toolbar:#1e1d24;--ds-color-panel:#1c1b21;--ds-color-surface:#211f27;--ds-color-surface-elevated:#2a2831;--ds-color-border:#3a3843;--ds-color-text:#ecebf1;--ds-color-text-muted:#a9a6b3;--ds-color-viewport:#0e0d12;--ds-color-preview:#26242b;--ds-color-preview-check:#2e2c33;--ds-color-hidden-text:#8b8996;--ds-color-warning-bg:#2b2517;--ds-color-warning-border:#57492c}`;
 
 const SESSION='session_check',PORT=4187,ORIGIN=`http://127.0.0.1:${PORT}`;
 const {WebSocketServer}=createRequire(process.cwd()+'/apps/mcp/package.json')('ws');
@@ -61,9 +58,9 @@ const stub=info=>{
   },
  };
  // The theme at the moment the editor first adds its content to #app (R5).
- window.__mountTheme=null;window.__bodyTheme=null;
+ window.__mountTheme=null;window.__bodyTheme=null;window.__bodyPalette=null;
  // The theme when the parser adds <body>: the head script `theme-boot.js` sets it before that, and before any module runs.
- new MutationObserver((_,observer)=>{if(document.body){window.__bodyTheme=document.documentElement?.dataset.theme??'';observer.disconnect();}}).observe(document,{childList:true,subtree:true});
+ new MutationObserver((_,observer)=>{if(document.body){window.__bodyTheme=document.documentElement?.dataset.theme??'';window.__bodyPalette=document.documentElement?.dataset.palette??'';observer.disconnect();}}).observe(document,{childList:true,subtree:true});
  document.addEventListener('DOMContentLoaded',()=>{
   const app=document.getElementById('app');
   const record=()=>{if(window.__mountTheme===null&&app.childElementCount>0)window.__mountTheme=document.documentElement.dataset.theme??'';};
@@ -145,18 +142,36 @@ const graph=cameraId=>{
  return {schemaVersion:1,id:'theme',name:'Theme',enabled:true,variables:[],nodes,connections:[wire('a','go','flow','log','flow'),wire('b','make','value','wired','value')]};
 };
 
-// One pass through the five views. Returns the page for later checks.
-const capture=async({label,colorScheme,inject=false,storage=null})=>{
+const marks=page=>page.evaluate(()=>({theme:document.documentElement.dataset.theme,palette:document.documentElement.dataset.palette,scheme:document.documentElement.style.colorScheme,background:getComputedStyle(document.documentElement).backgroundColor}));
+
+// One pass through the five views. With `choose`, it first picks that theme in the Settings select and goes back to the
+// start screen. Returns the page for later checks.
+const capture=async({label,colorScheme,choose=null})=>{
  publisher=null;preview=null;
  const context=await browser.newContext({viewport:{width:1440,height:900},deviceScaleFactor:1,colorScheme});
  await context.addInitScript(stub,info);
- if(storage)await context.addInitScript(value=>{try{localStorage.setItem('opensekai.theme',value);}catch{}},storage);
  const page=await context.newPage();
- const errors=[];page.on('pageerror',error=>{errors.push(error.message);log('pageerror',error.message);});
- const shot=async view=>{if(inject)await page.addStyleTag({content:DARK_B}).catch(()=>{});await settle(page,250);await page.screenshot({path:join(out,`${view}-${label}.png`)});};
+ // Headless Chromium WebGPU sometimes drops the GPU instance during an error scope. It is logged, not counted: the theme does not touch the GPU.
+ const errors=[];page.on('pageerror',error=>{log('pageerror',error.message);if(error.message!=='Instance dropped in popErrorScope')errors.push(error.message);});
+ const shot=async view=>{await settle(page,250);await page.screenshot({path:join(out,`${view}-${label}.png`)});};
  await page.goto(ORIGIN+'/?view=editor');
  await page.locator('.start-screen').waitFor({timeout:15000});
  await settle(page,900);
+ const initial=await marks(page);
+ let options=null,before=null;
+ if(choose){
+  await page.locator('.editor-rail').getByTitle('Settings',{exact:true}).click();
+  const select=page.getByLabel('Theme');
+  options=await select.locator('option').allTextContents();
+  before=await select.inputValue();
+  await select.selectOption(choose);
+  await page.locator('.editor-rail').getByTitle('Assets',{exact:true}).click();
+  await page.locator('.start-screen').waitFor({timeout:5000});
+  // Move the pointer off the rail, so the button tooltip is not in the start screen capture.
+  await page.mouse.move(1300,850);
+  await settle(page,800);
+ }
+ const chosen=await marks(page);
  const audits={};
  await shot('start');audits.start=await audit(page);
  await page.locator('.hierarchy').getByTitle('Add asset').click();
@@ -185,7 +200,7 @@ const capture=async({label,colorScheme,inject=false,storage=null})=>{
  await page.locator('.editor-rail').getByTitle('Settings',{exact:true}).click();
  await settle(page,800);
  await shot('settings');audits.settings=await audit(page);
- return {context,page,errors,audits};
+ return {context,page,errors,audits,initial,options,before,chosen};
 };
 
 const views=['start','editor','context-menu','blueprints','settings'];
@@ -199,60 +214,73 @@ if(mainDist){
  dist=join(process.cwd(),'apps/desktop/dist');
 }
 
-const lightRun=await capture({label:'light',colorScheme:'light'});
-check('R2: System follows a light OS',await theme(lightRun.page)==='light');
+// The html background of each theme: `--ds-color-bg` of the :root, Dark, and Dark Navy blocks.
+const BG={light:'rgb(245, 245, 248)',dark:'rgb(22, 21, 27)','dark-navy':'rgb(15, 15, 33)'};
+
+const lightRun=await capture({label:'light',colorScheme:'light',choose:'light'});
+check('R2: System follows a light OS',lightRun.initial.theme==='light',lightRun.initial);
+check('R1: Settings has a Theme select with System, Light, Dark, Dark Navy, and System is the default',JSON.stringify(lightRun.options)==='["System","Light","Dark","Dark Navy"]'&&lightRun.before==='system',{options:lightRun.options,before:lightRun.before});
+check('R3: the select gives Light',lightRun.chosen.theme==='light'&&lightRun.chosen.palette===undefined&&lightRun.chosen.background===BG.light,lightRun.chosen);
 check('no page error (light)',lightRun.errors.length===0,lightRun.errors);
 await lightRun.context.close();
 
-const darkB=await capture({label:'dark-b',colorScheme:'dark',inject:true});
-check('Dark B: no visible light surface',Object.values(darkB.audits).every(a=>a.light.length===0),Object.fromEntries(Object.entries(darkB.audits).map(([k,a])=>[k,a.light])));
-log('Dark B text under 4.5:1',JSON.stringify(Object.fromEntries(Object.entries(darkB.audits).map(([k,a])=>[k,a.weak]))));
-await darkB.context.close();
-
-const dark=await capture({label:'dark-a',colorScheme:'dark'});
-const {page}=dark;
-check('R2: System follows a dark OS',await theme(page)==='dark');
-check('R5: System under a dark OS is dark before the body parses',await page.evaluate(()=>window.__bodyTheme)==='dark');
-check('R7: Dark A has no visible light surface',Object.values(dark.audits).every(a=>a.light.length===0),Object.fromEntries(Object.entries(dark.audits).map(([k,a])=>[k,a.light])));
-const weak=Object.fromEntries(Object.entries(dark.audits).map(([k,a])=>[k,a.weak]));
-log('Dark A text under 4.5:1',JSON.stringify(weak));
-check('R7: Dark A has no text under 3:1',Object.values(weak).every(entries=>Object.values(entries).every(v=>v>=3)),weak);
+// Dark and Dark Navy, each chosen in the select under a dark OS.
+const darkRuns={};
+for(const [label,palette] of [['dark-navy','navy'],['dark',undefined]]){
+ const run=await capture({label,colorScheme:'dark',choose:label});
+ darkRuns[label]=run;
+ check(`R2: System follows a dark OS (${label} run)`,run.initial.theme==='dark'&&run.initial.palette===undefined,run.initial);
+ check(`R5: System under a dark OS is dark before the body parses (${label} run)`,await run.page.evaluate(()=>window.__bodyTheme)==='dark');
+ check(`R3/R4: the select gives ${label}`,run.chosen.theme==='dark'&&run.chosen.palette===palette&&run.chosen.scheme==='dark'&&run.chosen.background===BG[label],run.chosen);
+ check(`R7: ${label} has no visible light surface`,Object.values(run.audits).every(a=>a.light.length===0),Object.fromEntries(Object.entries(run.audits).map(([k,a])=>[k,a.light])));
+ const weak=Object.fromEntries(Object.entries(run.audits).map(([k,a])=>[k,a.weak]));
+ log(`${label} text under 4.5:1`,JSON.stringify(weak));
+ check(`R7: ${label} has no text under 3:1`,Object.values(weak).every(entries=>Object.values(entries).every(v=>v>=3)),weak);
+ if(label==='dark-navy'){check('no page error (dark-navy)',run.errors.length===0,run.errors);await run.context.close();}
+}
 
 // R1, R3, R6: the Settings select changes the theme with no remount. The editor root keeps a mark across the changes.
+const dark=darkRuns.dark;
+const {page}=dark;
 const select=page.getByLabel('Theme');
-check('R1: Settings has a Theme select with System, Light, Dark',JSON.stringify(await select.locator('option').allTextContents())==='["System","Light","Dark"]'&&await select.inputValue()==='system');
+check('R1: the select keeps the chosen Dark',await select.inputValue()==='dark');
 await page.evaluate(()=>{document.querySelector('.editor-window').__mark='kept';});
 const step=async(value,expected,frame)=>{
  await select.selectOption(value);
  await settle(page,300);
- const state=await page.evaluate(()=>({theme:document.documentElement.dataset.theme,scheme:document.documentElement.style.colorScheme,boots:window.__boots,mark:document.querySelector('.editor-window')?.__mark,frame:window.__frame.at(-1),stored:localStorage.getItem('opensekai.theme')}));
- check(`R3/R6: ${value} gives ${expected}, the frame ${frame}, and no remount`,state.theme===expected&&state.scheme===expected&&state.boots===1&&state.mark==='kept'&&state.frame===frame&&state.stored===value,state);
+ const state=await page.evaluate(()=>({theme:document.documentElement.dataset.theme,palette:document.documentElement.dataset.palette,scheme:document.documentElement.style.colorScheme,background:getComputedStyle(document.documentElement).backgroundColor,boots:window.__boots,mark:document.querySelector('.editor-window')?.__mark,frame:window.__frame.at(-1),stored:localStorage.getItem('opensekai.theme')}));
+ const scheme=expected==='light'?'light':'dark';
+ const palette=expected==='dark-navy'?'navy':undefined;
+ check(`R3/R6: ${value} gives ${expected}, the frame ${frame}, and no remount`,state.theme===scheme&&state.palette===palette&&state.scheme===scheme&&state.background===BG[expected]&&state.boots===1&&state.mark==='kept'&&state.frame===frame&&state.stored===value,state);
 };
 await step('light','light','light');
 await page.screenshot({path:join(out,'settings-switched-light.png')});
+await step('dark-navy','dark-navy','dark');
 await step('dark','dark','dark');
+await step('dark-navy','dark-navy','dark');
 await step('system','dark',null);
 await page.emulateMedia({colorScheme:'light'});
 await settle(page,300);
-check('R2: System changes when the OS changes',await theme(page)==='light');
+check('R2: System changes when the OS changes, and never gives Dark Navy',await theme(page)==='light'&&(await marks(page)).palette===undefined);
 await page.emulateMedia({colorScheme:'dark'});
 await settle(page,300);
-check('R2: System changes back',await theme(page)==='dark');
+const back=await marks(page);
+check('R2: System changes back to Dark, not Dark Navy',back.theme==='dark'&&back.palette===undefined&&back.background===BG.dark,back);
 check('the session stays connected after the changes',await page.locator('.session-mark.connected').count()===1);
-check('no page error (dark A)',dark.errors.length===0,dark.errors);
+check('no page error (dark)',dark.errors.length===0,dark.errors);
 await dark.context.close();
 
-// R4, R5: a stored Dark survives a restart under a light OS and applies before the editor mounts.
-{
+// R4, R5: a stored Dark or Dark Navy survives a restart under a light OS and applies before the editor mounts.
+for(const [stored,palette] of [['dark',''],['dark-navy','navy']]){
  publisher=null;
  const context=await browser.newContext({viewport:{width:1440,height:900},deviceScaleFactor:1,colorScheme:'light'});
  await context.addInitScript(stub,info);
- await context.addInitScript(()=>{try{localStorage.setItem('opensekai.theme','dark');}catch{}});
+ await context.addInitScript(value=>{try{localStorage.setItem('opensekai.theme',value);}catch{}},stored);
  const restart=await context.newPage();
  await restart.goto(ORIGIN+'/?view=editor');
  await restart.locator('.start-screen').waitFor({timeout:15000});
- const state=await restart.evaluate(()=>({body:window.__bodyTheme,mount:window.__mountTheme,theme:document.documentElement.dataset.theme,frame:window.__frame}));
- check('R4/R5: a stored Dark applies before the body parses under a light OS, and the frame gets dark',state.body==='dark'&&state.mount==='dark'&&state.theme==='dark'&&state.frame[0]==='dark',state);
+ const state=await restart.evaluate(()=>({body:window.__bodyTheme,bodyPalette:window.__bodyPalette,mount:window.__mountTheme,theme:document.documentElement.dataset.theme,palette:document.documentElement.dataset.palette??'',frame:window.__frame}));
+ check(`R4/R5: a stored ${stored} applies before the body parses under a light OS, and the frame gets dark`,state.body==='dark'&&state.bodyPalette===palette&&state.mount==='dark'&&state.theme==='dark'&&state.palette===palette&&state.frame[0]==='dark',state);
  await context.close();
 }
 

@@ -1,25 +1,35 @@
-pageerror Instance dropped in popErrorScope
-PASS R2: System follows a light OS 
+PASS R2: System follows a light OS {"theme":"light","scheme":"light","background":"rgb(245, 245, 248)"}
+PASS R1: Settings has a Theme select with System, Light, Dark, Dark Navy, and System is the default {"options":["System","Light","Dark","Dark Navy"],"before":"system"}
+PASS R3: the select gives Light {"theme":"light","scheme":"light","background":"rgb(245, 245, 248)"}
 PASS no page error (light) []
-PASS Dark B: no visible light surface {"start":[],"editor":[],"contextMenu":[],"blueprints":[],"settings":[]}
-Dark B text under 4.5:1 {"start":{},"editor":{},"contextMenu":{},"blueprints":{},"settings":{}}
-PASS R2: System follows a dark OS 
-PASS R5: System under a dark OS is dark before the body parses 
-PASS R7: Dark A has no visible light surface {"start":[],"editor":[],"contextMenu":[],"blueprints":[],"settings":[]}
-Dark A text under 4.5:1 {"start":{},"editor":{},"contextMenu":{},"blueprints":{},"settings":{}}
-PASS R7: Dark A has no text under 3:1 {"start":{},"editor":{},"contextMenu":{},"blueprints":{},"settings":{}}
-PASS R1: Settings has a Theme select with System, Light, Dark 
-PASS R3/R6: light gives light, the frame light, and no remount {"theme":"light","scheme":"light","boots":1,"mark":"kept","frame":"light","stored":"light"}
-PASS R3/R6: dark gives dark, the frame dark, and no remount {"theme":"dark","scheme":"dark","boots":1,"mark":"kept","frame":"dark","stored":"dark"}
-PASS R3/R6: system gives dark, the frame null, and no remount {"theme":"dark","scheme":"dark","boots":1,"mark":"kept","frame":null,"stored":"system"}
-PASS R2: System changes when the OS changes 
-PASS R2: System changes back 
+PASS R2: System follows a dark OS (dark-navy run) {"theme":"dark","scheme":"dark","background":"rgb(22, 21, 27)"}
+PASS R5: System under a dark OS is dark before the body parses (dark-navy run) 
+PASS R3/R4: the select gives dark-navy {"theme":"dark","palette":"navy","scheme":"dark","background":"rgb(15, 15, 33)"}
+PASS R7: dark-navy has no visible light surface {"start":[],"editor":[],"contextMenu":[],"blueprints":[],"settings":[]}
+dark-navy text under 4.5:1 {"start":{},"editor":{},"contextMenu":{},"blueprints":{},"settings":{}}
+PASS R7: dark-navy has no text under 3:1 {"start":{},"editor":{},"contextMenu":{},"blueprints":{},"settings":{}}
+PASS no page error (dark-navy) []
+PASS R2: System follows a dark OS (dark run) {"theme":"dark","scheme":"dark","background":"rgb(22, 21, 27)"}
+PASS R5: System under a dark OS is dark before the body parses (dark run) 
+PASS R3/R4: the select gives dark {"theme":"dark","scheme":"dark","background":"rgb(22, 21, 27)"}
+PASS R7: dark has no visible light surface {"start":[],"editor":[],"contextMenu":[],"blueprints":[],"settings":[]}
+dark text under 4.5:1 {"start":{},"editor":{},"contextMenu":{},"blueprints":{},"settings":{}}
+PASS R7: dark has no text under 3:1 {"start":{},"editor":{},"contextMenu":{},"blueprints":{},"settings":{}}
+PASS R1: the select keeps the chosen Dark 
+PASS R3/R6: light gives light, the frame light, and no remount {"theme":"light","scheme":"light","background":"rgb(245, 245, 248)","boots":1,"mark":"kept","frame":"light","stored":"light"}
+PASS R3/R6: dark-navy gives dark-navy, the frame dark, and no remount {"theme":"dark","palette":"navy","scheme":"dark","background":"rgb(15, 15, 33)","boots":1,"mark":"kept","frame":"dark","stored":"dark-navy"}
+PASS R3/R6: dark gives dark, the frame dark, and no remount {"theme":"dark","scheme":"dark","background":"rgb(22, 21, 27)","boots":1,"mark":"kept","frame":"dark","stored":"dark"}
+PASS R3/R6: dark-navy gives dark-navy, the frame dark, and no remount {"theme":"dark","palette":"navy","scheme":"dark","background":"rgb(15, 15, 33)","boots":1,"mark":"kept","frame":"dark","stored":"dark-navy"}
+PASS R3/R6: system gives dark, the frame null, and no remount {"theme":"dark","scheme":"dark","background":"rgb(22, 21, 27)","boots":1,"mark":"kept","frame":null,"stored":"system"}
+PASS R2: System changes when the OS changes, and never gives Dark Navy 
+PASS R2: System changes back to Dark, not Dark Navy {"theme":"dark","scheme":"dark","background":"rgb(22, 21, 27)"}
 PASS the session stays connected after the changes 
-PASS no page error (dark A) []
-PASS R4/R5: a stored Dark applies before the body parses under a light OS, and the frame gets dark {"body":"dark","mount":"dark","theme":"dark","frame":["dark"]}
+PASS no page error (dark) []
+PASS R4/R5: a stored dark applies before the body parses under a light OS, and the frame gets dark {"body":"dark","bodyPalette":"","mount":"dark","theme":"dark","palette":"","frame":["dark"]}
+PASS R4/R5: a stored dark-navy applies before the body parses under a light OS, and the frame gets dark {"body":"dark","bodyPalette":"navy","mount":"dark","theme":"dark","palette":"navy","frame":["dark"]}
 R8 light diff start {"changedPixels":0,"box":null}
 R8 light diff editor {"changedPixels":0,"box":null}
 R8 light diff context-menu {"changedPixels":0,"box":null}
 R8 light diff blueprints {"changedPixels":0,"box":null}
-R8 light diff settings {"changedPixels":55209,"box":{"x0":71,"y0":109,"x1":584,"y1":363}}
-16/16 passed
+R8 light diff settings {"changedPixels":55211,"box":{"x0":71,"y0":109,"x1":584,"y1":363}}
+27/27 passed

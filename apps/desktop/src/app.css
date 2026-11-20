@@ -48,8 +48,55 @@
  color:var(--ds-color-text);
  background:var(--ds-color-bg);
 }
-/* Dark candidate A: the light neutral steps with a navy tint. It comes after the kit import, so it also replaces the kit dark set. */
+/* Dark: neutral steps with no tint. It comes after the kit import, so it also replaces the kit dark set. */
 html[data-theme='dark'] {
+ --ds-color-bg:#16151b;
+ --ds-color-rail:#1b1a20;
+ --ds-color-toolbar:#1e1d24;
+ --ds-color-panel:#1c1b21;
+ --ds-color-surface:#211f27;
+ --ds-color-surface-elevated:#2a2831;
+ --ds-color-border:#3a3843;
+ --ds-color-text:#ecebf1;
+ --ds-color-text-muted:#a9a6b3;
+ --ds-color-selection:color-mix(in srgb, var(--ds-color-cyan) 24%, transparent);
+ --ds-color-on-selection:var(--ds-color-text);
+ --ds-color-hover:var(--ds-color-border);
+ --ds-color-focus:var(--ds-color-cyan);
+ --ds-color-accent:var(--ds-color-cyan);
+ --ds-color-rail-icon:var(--ds-color-text-muted);
+ --ds-color-primary:var(--ds-color-cyan);
+ --ds-color-on-primary:var(--ds-color-navy);
+ --ds-color-error:#ff7a8a;
+ --ds-color-on-error:#2a0a12;
+ --ds-color-secondary:#9bc8f5;
+ --ds-color-on-secondary:#0f1a28;
+ --ds-color-success:#5ed4a8;
+ --ds-color-on-success:#062018;
+ --ds-color-warning:#f5c04d;
+ --ds-color-on-warning:#2a1f08;
+ --ds-color-input:var(--ds-color-surface);
+ --ds-color-viewport:#0e0d12;
+ --ds-color-preview:#26242b;
+ --ds-color-preview-check:#2e2c33;
+ --ds-color-camera-frame:#000;
+ --ds-color-shadow:#0000008c;
+ --ds-color-shadow-strong:#000c;
+ --ds-color-warning-bg:#2b2517;
+ --ds-color-warning-border:#57492c;
+ --ds-color-warning-text:#f0cf8a;
+ --ds-color-wire:#8e80ad;
+ --ds-color-wire-hover:#b9abd6;
+ --ds-color-star:#e6c15a;
+ --ds-color-debug-warning:#e8b450;
+ --ds-color-debug-error:#ff7a8a;
+ --ds-color-link:var(--ds-color-cyan);
+ --ds-color-strong-border:var(--ds-color-cyan);
+ --ds-color-on-lime:#35333d;
+ --ds-color-hidden-text:#8b8996;
+}
+/* Dark Navy: the same tokens with a navy tint. The palette attribute adds to the dark theme, so the kit dark set still applies. */
+html[data-theme='dark'][data-palette='navy'] {
  --ds-color-bg:#0f0f21;
  --ds-color-rail:#121325;
  --ds-color-toolbar:#151529;

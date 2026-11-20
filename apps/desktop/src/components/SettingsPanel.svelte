@@ -8,7 +8,7 @@
  import HelpButton from './HelpButton.svelte';
  let {api,youtube,disabled=false,onchange}:{api:AppApi|null;youtube?:YouTubeStatus;disabled?:boolean;onchange?:(status:YouTubeStatus)=>void}=$props();
  const stored=$derived(youtube?.link??'');
- const themeOptions=[{value:'system',label:'System'},{value:'light',label:'Light'},{value:'dark',label:'Dark'}];
+ const themeOptions=[{value:'system',label:'System'},{value:'light',label:'Light'},{value:'dark',label:'Dark'},{value:'dark-navy',label:'Dark Navy'}];
  let draft=$state(''),focused=$state(false),rejected=$state<string|null>(null),busy=$state(false);
  // The field follows changes of the stored link (an MCP client can change it) while the operator is not typing. A rejected text stays.
  $effect(()=>{const link=stored;untrack(()=>{if(!focused&&!busy)draft=link;});});
