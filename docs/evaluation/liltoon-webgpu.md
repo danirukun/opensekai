@@ -247,9 +247,10 @@ Other rows of this slice:
 
 The owner looked at the four-panel image of the second sample export (Unity MToon original, Unity lilToon, upstream WebGL, OpenSekai WebGPU; face and ears at 2×) on 2026-11-20 and passed the look. The owner said "the look looks better". The owner chose to keep the hair second and third shadow bands that the convert script adds. The MToon original does not have them. The image is in the orchestrate folder, not in the repository.
 
+The owner looked at the grey cat ears of the third sample export in the running app on 2026-11-20 and passed them ("they look good to me").
+
 ## Not verified
 
-- The owner look of the third revision (the grey ear shade): the owner has not looked at it yet.
 - The minimized-Editor state itself (`AXMinimized` was not settable while locked); the output-continues check used the locked session instead (first revision).
 - GPU time (#305).
 - Windows.
