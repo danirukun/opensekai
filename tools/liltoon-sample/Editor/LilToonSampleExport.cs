@@ -52,6 +52,21 @@ public static class LilToonSampleExport
         }
     }
 
+    [MenuItem("OpenSekai/Capture MToon original")]
+    public static void CaptureOriginal()
+    {
+        try
+        {
+            CaptureOriginalReference();
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"LilToonSampleExport original capture failed: {e}");
+            if (Application.isBatchMode) EditorApplication.Exit(1);
+            throw;
+        }
+    }
+
     private static GameObject OpenSampleRoot()
     {
         EditorSceneManager.OpenScene(LilToonSampleConvert.ScenePath, OpenSceneMode.Single);
@@ -136,7 +151,27 @@ public static class LilToonSampleExport
         EditorSceneManager.SaveScene(cameraObject.scene);
         var forward = lightObject.transform.forward;
         Debug.Log($"Reference light forward: ({forward.x:F4}, {forward.y:F4}, {forward.z:F4}); camera MSAA off, quality antiAliasing {QualitySettings.antiAliasing}");
+        RenderToPng(camera, "unity-reference.png");
+    }
 
+    // Renders the unconverted MToon avatar with the same reference rig, in a scene that is not saved.
+    // The capture is the look that the lilToon conversion must keep.
+    private static void CaptureOriginalReference()
+    {
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(LilToonSampleConvert.SourceAssetPath);
+        if (prefab == null) throw new InvalidOperationException($"No imported prefab at {LilToonSampleConvert.SourceAssetPath}.");
+        var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+        var root = (GameObject)PrefabUtility.InstantiatePrefab(prefab, scene);
+        root.transform.position = Vector3.zero;
+        root.transform.rotation = Quaternion.identity;
+        LilToonSampleConvert.AddReferenceLightAndCamera();
+        var camera = GameObject.Find(LilToonSampleConvert.CameraName).GetComponent<Camera>();
+        camera.aspect = (float)CaptureWidth / CaptureHeight;
+        RenderToPng(camera, "unity-mtoon-original.png");
+    }
+
+    private static void RenderToPng(Camera camera, string fileName)
+    {
         ShaderUtil.allowAsyncCompilation = false;
         var rt = new RenderTexture(CaptureWidth, CaptureHeight, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Default);
         var previousTarget = camera.targetTexture;
@@ -151,7 +186,7 @@ public static class LilToonSampleExport
             image.ReadPixels(new Rect(0, 0, CaptureWidth, CaptureHeight), 0, 0);
             image.Apply();
             Directory.CreateDirectory(ExportDirectory);
-            var file = Path.Combine(ExportDirectory, "unity-reference.png");
+            var file = Path.Combine(ExportDirectory, fileName);
             File.WriteAllBytes(file, image.EncodeToPNG());
             UnityEngine.Object.DestroyImmediate(image);
             Debug.Log($"Wrote {file} ({CaptureWidth}x{CaptureHeight}, color space {QualitySettings.activeColorSpace}).");

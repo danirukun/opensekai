@@ -258,34 +258,16 @@ public static class LilToonSampleConvert
             material.SetFloat("_RimFresnelPower", 3.5f);
             if (!features.Contains("rim")) features.Add("rim");
 
-            // Shadow masks. The face reuses its VRoid outline width mask as the AO (border) mask and the
-            // blur mask; the AO shift makes grey mask values push the surface into shadow.
-            var faceMask = material.GetTexture("_OutlineWidthMask");
-            if (faceMask != null)
+            // Shadow strength mask on the body only. The face keeps no shadow mask: a mask from the face
+            // outline width texture pushes the skin around the eyes and the mouth into the second and
+            // third band and changes the look. The body main texture varies, so its red channel scales
+            // the shadow strength.
+            if (material.GetTexture("_OutlineWidthMask") == null)
             {
-                material.SetTexture("_ShadowBorderMask", faceMask);
-                material.SetVector("_ShadowAOShift", new Vector4(1.2f, -0.2f, 1.2f, -0.2f));
-                material.SetVector("_ShadowAOShift2", new Vector4(1.2f, -0.2f, 1f, 0f));
-                material.SetInt("_ShadowPostAO", 0);
-                material.SetTexture("_ShadowBlurMask", faceMask);
-                features.Add("shadowBorderMask");
-                features.Add("shadowBlurMask");
-            }
-            else
-            {
-                // The body has no mask texture of its own; its main texture varies, so its red channel
-                // scales the shadow strength.
                 material.SetTexture("_ShadowStrengthMask", material.GetTexture("_MainTex"));
                 material.SetFloat("_ShadowStrength", 1f);
                 features.Add("shadowStrengthMask");
             }
-        }
-        if (name.Contains("CatEar"))
-        {
-            // A non-identity main texture transform for the _MainTex_ST check.
-            material.SetTextureScale("_MainTex", new Vector2(2f, 2f));
-            material.SetTextureOffset("_MainTex", new Vector2(0.5f, 0f));
-            features.Add("mainTexST(2,2,0.5,0)");
         }
         if (isHair)
         {
@@ -305,15 +287,6 @@ public static class LilToonSampleConvert
             material.SetFloat("_RimFresnelPower", 3.5f);
             if (!features.Contains("rim")) features.Add("rim");
             if (!features.Contains("matcap")) Debug.LogWarning($"{name}: the hair has no matcap texture in the source.");
-        }
-        if (name.Contains("CatEar"))
-        {
-            material.SetInt("_UseEmission", 1);
-            material.SetColor("_EmissionColor", new Color(0.2f, 0.8f, 1f, 1f));
-            material.SetTexture("_EmissionMap", null);
-            material.SetFloat("_EmissionBlend", 1f);
-            material.SetFloat("_EmissionMainStrength", 1f);
-            if (!features.Contains("emission")) features.Add("emission");
         }
     }
 
@@ -429,7 +402,8 @@ public static class LilToonSampleConvert
         return name;
     }
 
-    private static void AddReferenceLightAndCamera()
+    // Also used by LilToonSampleExport.CaptureOriginal for the MToon capture.
+    internal static void AddReferenceLightAndCamera()
     {
         var lightObject = new GameObject(LightName);
         var light = lightObject.AddComponent<Light>();

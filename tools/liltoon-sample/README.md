@@ -46,9 +46,12 @@ mkdir -p "$P-logs"
 "$UNITY" -batchmode -quit -projectPath "$P" -executeMethod LilToonSampleConvert.Run -logFile "$P-logs/convert.log"
 "$UNITY" -batchmode -quit -projectPath "$P" -executeMethod LilToonSampleExport.Run -logFile "$P-logs/export.log"
 "$UNITY" -batchmode -quit -projectPath "$P" -executeMethod LilToonSampleExport.Capture -logFile "$P-logs/capture.log"
+"$UNITY" -batchmode -quit -projectPath "$P" -executeMethod LilToonSampleExport.CaptureOriginal -logFile "$P-logs/capture-original.log"
 ```
 
-The same methods are in the Unity menu: `OpenSekai > Convert Catboy to lilToon`, `OpenSekai > Export lilToon sample`, and `OpenSekai > Capture lilToon reference`.
+The same methods are in the Unity menu: `OpenSekai > Convert Catboy to lilToon`, `OpenSekai > Export lilToon sample`, `OpenSekai > Capture lilToon reference`, and `OpenSekai > Capture MToon original`.
+
+The convert step makes new material assets. Remove `Assets/Catboy/lilToon/*.mat` and their `.meta` files before a new run so that no value from an old run stays in the assets.
 
 Outputs:
 
@@ -60,6 +63,7 @@ Outputs:
 | `Export/versions.json` | `unity`, `univrm`, `liltoon`, `mochiyaAvatarTools` (commit), `exportPath`. |
 | `Export/material-map.txt` | The material to feature table from the convert step. |
 | `Export/unity-reference.png` | The reference capture. |
+| `Export/unity-mtoon-original.png` | The capture of the unconverted MToon avatar with the same rig. The conversion must keep this look. |
 
 ## Material mapping
 
@@ -86,17 +90,17 @@ Notes on the mapping:
 - The outline is on only when `_OutlineWidthMode` is not `none` and the width is above 0. Eight Catboy materials carry a width of 0.08 with mode `none`; they get no outline.
 - Four cutout materials become opaque by name (`N00_000_00_EyeWhite_00_EYE`, `Accessory_GlassesHiFrame_01_MATCAP`, `Accessory_CatEar_01_CLOTH`, `N00_004_01_Shoes_01_CLOTH`). Their main textures have no alpha below 1, so the look is the same, and the export keeps the opaque and the opaque+outline variants next to the cutout ones. The other cutout materials stay cutout, with `Hidden/lilToonCutout` on the mouth and `Hidden/lilToonCutoutOutline` on the face, body, tops, bottoms, and hair.
 - VRoid fills unused texture slots with 1x1 `Shader_None*` textures. Those slots count as empty.
-- The exporter writes `_MainTex_ST` in glTF UV space, with the V axis flipped: Unity scale (2, 2) and offset (0.5, 0) on the cat ears becomes `[2, 2, 0.5, -1]`, the same values as the `KHR_texture_transform` of the base color texture. A port must read it that way.
+- The exporter writes `_MainTex_ST` in glTF UV space, with the V axis flipped: a Unity scale (sx, sy) and offset (ox, oy) becomes `[sx, sy, ox, oy - sy + 1]`, the same values as the `KHR_texture_transform` of the base color texture. A port must read it that way. Every Catboy material has the identity transform, so the export carries `[1, 1, 0, 0]`.
 
 ### Extra features by material name
 
 | Material | Extra features |
 | --- | --- |
 | `*_SKIN` (face, body) | second and third shadow band with distinct colors, backlight, a visible rim |
-| `N00_000_00_Face_00_SKIN` | `_ShadowBorderMask` and `_ShadowBlurMask` = the VRoid outline width mask of the face, `_ShadowAOShift` = (1.2, -0.2, 1.2, -0.2), `_ShadowAOShift2` = (1.2, -0.2, 1, 0) |
 | `N00_000_00_Body_00_SKIN` | `_ShadowStrengthMask` = the body main texture (its red channel varies) |
 | `*_HAIR` | second and third shadow band with distinct colors, a visible rim; the matcap comes from the source |
-| `Accessory_CatEar_01_CLOTH` | emission, cyan, with `_EmissionMainStrength` = 1; `_MainTex_ST` = scale (2, 2), offset (0.5, 0) |
+
+The extra features must keep the look of the MToon avatar. The face gets no shadow mask: an earlier revision used the face outline width mask as `_ShadowBorderMask` and `_ShadowBlurMask`, which put the skin around the eyes and the mouth into the second and third band. The cat ear gets no extra emission and no main texture transform: an earlier revision added a cyan emission and a scale (2, 2), which made the grey ears blue. `Export/unity-mtoon-original.png` is the look to compare against.
 
 lilToon has no `_UseShadow2nd` or `_UseShadow3rd` property. The alpha of `_Shadow2ndColor` and `_Shadow3rdColor` turns the band on. The convert script sets that alpha to 0 on every other material, because lilToon turns the second band on by default.
 
@@ -109,7 +113,7 @@ lilToon mixes the second and the third band into the first shadow region only (`
 | `N00_000_00_FaceMouth_00_FACE` | `Hidden/lilToonCutout` | shadow 1 |
 | `N00_000_00_EyeIris_00_EYE` | `Hidden/lilToonTransparent` | shadow 1 |
 | `N00_000_00_EyeHighlight_00_EYE` | `Hidden/lilToonTransparent` | shadow 1 |
-| `N00_000_00_Face_00_SKIN` | `Hidden/lilToonCutoutOutline` | shadow 1, 2, 3; shadow border mask and blur mask; normal map; rim; backlight; matcap; outline with width mask |
+| `N00_000_00_Face_00_SKIN` | `Hidden/lilToonCutoutOutline` | shadow 1, 2, 3; normal map; rim; backlight; matcap; outline with width mask |
 | `N00_000_00_EyeWhite_00_EYE` | `lilToon` | shadow 1 |
 | `N00_000_00_FaceBrow_00_FACE` | `Hidden/lilToonTransparent` | shadow 1; matcap |
 | `N00_000_00_FaceEyelash_00_FACE` | `Hidden/lilToonTransparent` | shadow 1; matcap |
@@ -117,7 +121,7 @@ lilToon mixes the second and the third band into the first shadow region only (`
 | `N00_000_00_Body_00_SKIN` | `Hidden/lilToonCutoutOutline` | shadow 1, 2, 3; shadow strength mask; normal map; rim; backlight; matcap; outline |
 | `Accessory_GlassesHiFrame_01_MATCAP` | `Hidden/lilToonOutline` | shadow 1; rim; matcap; outline |
 | `Accessory_GlassesHiLens_01_MATCAP` | `Hidden/lilToonTransparent` | shadow 1; rim; matcap |
-| `Accessory_CatEar_01_CLOTH` | `Hidden/lilToonOutline` | shadow 1; rim; matcap; emission; outline; `_MainTex_ST` (2, 2, 0.5, 0) |
+| `Accessory_CatEar_01_CLOTH` | `Hidden/lilToonOutline` | shadow 1; rim; matcap; outline |
 | `N00_004_01_Shoes_01_CLOTH` | `Hidden/lilToonOutline` | shadow 1; rim; matcap; outline |
 | `N00_005_01_Tops_01_CLOTH` | `Hidden/lilToonCutoutOutline` | shadow 1; rim; matcap; outline |
 | `N00_001_01_Bottoms_01_CLOTH` | `Hidden/lilToonCutoutOutline` | shadow 1; rim; matcap; outline |
@@ -146,6 +150,8 @@ Variants in the export (16 materials, `check_sample.py`): opaque (1), opaque wit
 | Output | 1920x1080 PNG |
 
 The capture script re-asserts every value in this table before it renders, and saves the scene with them.
+
+`LilToonSampleExport.CaptureOriginal` renders the unconverted MToon prefab with the same rig to `Export/unity-mtoon-original.png`. It builds the light and the camera in a new scene that it does not save. Compare the two captures at the same pixels: the geometry, the pose, and the rig are the same, so a color difference between them comes from the conversion.
 
 With this camera, the vertical field of view at the avatar is about 1.0 m. The capture shows the avatar from the hips up.
 
