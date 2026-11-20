@@ -2,6 +2,7 @@
  import type { Transform, Reply, AssetDebug, AssetRecord, ExpressionSettings, VmcSenderStatus } from '@opensekai/contracts';
  import type {AssetLoadStatus} from '@opensekai/renderer';
  import {modelLabel} from '../editor/authoring';
+ import EmptyState from './EmptyState.svelte';
  import AvatarModelField from './AvatarModelField.svelte';
  import AvatarExpressionFields,{type ExpressionApi} from './AvatarExpressionFields.svelte';
  import AvatarMeshFields from './AvatarMeshFields.svelte';
@@ -158,6 +159,8 @@
   {#if indexed}<InspectorIndex {sections} {current} onjump={jump}/>{/if}
   <div class="inspector-sections">{#each sections as section (section.id)}<InspectorSection id={section.id} label={section.label} collapsed={isCollapsed(sectionState,entity.kind,section.id)} ontoggle={()=>toggle(section.id)}>{@render body(section.id)}</InspectorSection>{/each}</div>
  </div>
+ {:else}
+  <EmptyState message="Select an asset from Assets to view or edit its properties."/>
  {/if}
  {#if view.error}<p role="alert">{view.errorMessage??(view.error==='CONFLICT'?'Scene changed. Review values and retry.':view.error)}</p>{/if}
 </section>
