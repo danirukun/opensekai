@@ -15,7 +15,7 @@ const fixturePath=(id:string):string|undefined=>{
  const path=manifest.assets.find(asset=>asset.record.id===id)?.path;
  return path && existsSync(path) ? path : undefined;
 };
-// The load warnings of the sample: none at fork commit 47a73c8. docs/evaluation/liltoon-webgpu.md lists the same warnings; change
+// The load warnings of the sample: none at fork commit 66e7791. docs/evaluation/liltoon-webgpu.md lists the same warnings; change
 // both together.
 const SAMPLE_WARNINGS:string[]=[];
 afterEach(()=>{vi.unstubAllGlobals();});
