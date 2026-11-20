@@ -243,6 +243,16 @@ for(const name of ['Vignetting','Night Vision']){
  await settle(800);
  await opens(`camera ${name} Color`,group.getByRole('button',{name:'Color',exact:true}));
 }
+// The avatar Rim Tint uses ColorField too.
+const current=await refresh();
+const avatarAdded=await hostCall('scenePatch',{sceneId:current.sceneId,expectedRevision:current.revision,operations:[{kind:'createEntity',entity:{id:'avatar_check',name:'Avatar',visible:true,transform:{position:[0,0,0],rotation:[0,0,0,1],scale:[1,1,1]},kind:'avatar',assetId:null}}]});
+check('an avatar is added for the Rim Tint check',avatarAdded.ok,avatarAdded.ok||avatarAdded.error);
+await settle(1000);
+await page.locator('button[data-asset-id="avatar_check"]').click();
+await settle(500);
+const lighting=page.locator('#inspector-section-lighting');
+if(await lighting.getAttribute('aria-expanded')==='false'){await lighting.click();await settle(300);}
+await opens('avatar Rim Tint',inspector.getByRole('button',{name:'Rim Tint',exact:true}));
 check('no page error',errors.length===0,errors);
 
 clearInterval(clock);

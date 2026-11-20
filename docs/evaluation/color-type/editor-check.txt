@@ -19,5 +19,7 @@ PASS R11: FPS Counter Color opens the kit color picker
 PASS R11: camera Grading Tint opens the kit color picker 
 PASS R11: camera Vignetting Color opens the kit color picker 
 PASS R11: camera Night Vision Color opens the kit color picker 
+PASS an avatar is added for the Rim Tint check true
+PASS R11: avatar Rim Tint opens the kit color picker 
 PASS no page error []
-22/22 passed
+24/24 passed
