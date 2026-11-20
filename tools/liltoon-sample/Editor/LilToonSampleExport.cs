@@ -6,28 +6,24 @@ using Mochiya.AvatarTools.Editor;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
-using UnityEngine.Rendering;
 
 /// <summary>
 /// Exports the lilToon sample scene to a VRM with MOCHIYA_materials_liltoon, writes versions.json,
-/// and renders the Unity reference capture.
-/// Run: Unity -batchmode -quit -projectPath ... -executeMethod LilToonSampleExport.Run
-/// Then: Unity -batchmode -quit -projectPath ... -executeMethod LilToonSampleExport.Capture
+/// and renders the Unity reference capture. Each method takes the same -avatar and -preset arguments as the convert step.
+/// Run: Unity -batchmode -quit -projectPath ... -executeMethod LilToonSampleExport.Run [-avatar Name]
+/// Then: Unity -batchmode -quit -projectPath ... -executeMethod LilToonSampleExport.Capture [-avatar Name]
 /// </summary>
 public static class LilToonSampleExport
 {
-    public const string ExportFileName = "Catboy-lilToon.vrm";
     public const int CaptureWidth = 1920;
     public const int CaptureHeight = 1080;
-
-    private static string ExportDirectory => Path.Combine(Path.GetDirectoryName(Application.dataPath), "Export");
 
     [MenuItem("OpenSekai/Export lilToon sample")]
     public static void Run()
     {
         try
         {
-            Export();
+            Export(LilToonSampleProfile.FromCommandLine());
         }
         catch (Exception e)
         {
@@ -42,7 +38,7 @@ public static class LilToonSampleExport
     {
         try
         {
-            CaptureReference();
+            CaptureReference(LilToonSampleProfile.FromCommandLine());
         }
         catch (Exception e)
         {
@@ -57,7 +53,7 @@ public static class LilToonSampleExport
     {
         try
         {
-            CaptureOriginalReference();
+            CaptureOriginalReference(LilToonSampleProfile.FromCommandLine());
         }
         catch (Exception e)
         {
@@ -67,42 +63,42 @@ public static class LilToonSampleExport
         }
     }
 
-    private static GameObject OpenSampleRoot()
+    private static GameObject OpenSampleRoot(LilToonSampleProfile profile)
     {
-        EditorSceneManager.OpenScene(LilToonSampleConvert.ScenePath, OpenSceneMode.Single);
-        var root = GameObject.Find(LilToonSampleConvert.RootName);
-        if (root == null) throw new InvalidOperationException($"No {LilToonSampleConvert.RootName} in {LilToonSampleConvert.ScenePath}. Run LilToonSampleConvert.Run first.");
+        EditorSceneManager.OpenScene(profile.ScenePath, OpenSceneMode.Single);
+        var root = GameObject.Find(profile.RootName);
+        if (root == null) throw new InvalidOperationException($"No {profile.RootName} in {profile.ScenePath}. Run LilToonSampleConvert.Run first.");
         return root;
     }
 
-    private static void Export()
+    private static void Export(LilToonSampleProfile profile)
     {
-        var root = OpenSampleRoot();
-        Directory.CreateDirectory(ExportDirectory);
-        var path = Path.Combine(ExportDirectory, ExportFileName);
+        var root = OpenSampleRoot(profile);
+        Directory.CreateDirectory(profile.ExportDirectory);
+        var path = Path.Combine(profile.ExportDirectory, profile.ExportFileName);
 
         var detected = MochiyaAvatarWorkflow.Detect(root);
         Debug.Log($"Mochiya detect: kind={detected.Kind} prepared={detected.IsPrepared} reason={detected.Reason} error={detected.Error}");
 
-        var profile = ScriptableObject.CreateInstance<MochiyaExportProfile>();
-        profile.UseAttachedVrmMetadata = true;
+        var exportProfile = ScriptableObject.CreateInstance<MochiyaExportProfile>();
+        exportProfile.UseAttachedVrmMetadata = true;
         try
         {
-            var report = MochiyaAvatarWorkflow.Export(root, path, profile);
+            var report = MochiyaAvatarWorkflow.Export(root, path, exportProfile);
             Debug.Log($"Mochiya export report:\n{report}");
             if (!report.CanConvert) throw new InvalidOperationException(report.ToString());
         }
         finally
         {
-            UnityEngine.Object.DestroyImmediate(profile);
+            UnityEngine.Object.DestroyImmediate(exportProfile);
         }
 
         var size = new FileInfo(path).Length;
         Debug.Log($"Exported {path} ({size} bytes).");
-        WriteVersions("mochiya");
+        WriteVersions(profile, "mochiya");
     }
 
-    private static void WriteVersions(string exportPath)
+    private static void WriteVersions(LilToonSampleProfile profile, string exportPath)
     {
         var packages = UnityEditor.PackageManager.PackageInfo.GetAllRegisteredPackages();
         string Version(string name) => packages.FirstOrDefault(p => p.name == name)?.version ?? "unknown";
@@ -112,18 +108,21 @@ public static class LilToonSampleExport
             + $"  \"univrm\": \"{Version("com.vrmc.vrm")}\",\n"
             + $"  \"liltoon\": \"{Version("jp.lilxyzw.liltoon")}\",\n"
             + $"  \"mochiyaAvatarTools\": \"{Commit("org.mochiya.avatar-tools")}\",\n"
-            + $"  \"exportPath\": \"{exportPath}\"\n"
+            + $"  \"exportPath\": \"{exportPath}\",\n"
+            + $"  \"avatar\": \"{profile.Avatar}\",\n"
+            + $"  \"preset\": \"{profile.Preset}\"\n"
             + "}\n";
-        var file = Path.Combine(ExportDirectory, "versions.json");
+        var file = Path.Combine(profile.ExportDirectory, "versions.json");
         File.WriteAllText(file, json, new UTF8Encoding(false));
         Debug.Log($"Wrote {file}:\n{json}");
     }
 
     // Renders the reference camera to a render texture and writes the PNG.
     // Batch mode has no Game view, so ScreenCapture.CaptureScreenshot is not used.
-    private static void CaptureReference()
+    private static void CaptureReference(LilToonSampleProfile profile)
     {
-        OpenSampleRoot();
+        var root = OpenSampleRoot(profile);
+        var rig = LilToonSampleConvert.ReferenceRig(root, profile);
         var cameraObject = GameObject.Find(LilToonSampleConvert.CameraName);
         var lightObject = GameObject.Find(LilToonSampleConvert.LightName);
         if (cameraObject == null || lightObject == null) throw new InvalidOperationException("The sample scene has no reference camera or light.");
@@ -136,10 +135,9 @@ public static class LilToonSampleExport
         light.intensity = LilToonSampleConvert.LightIntensity;
         light.shadows = LightShadows.None;
         lightObject.transform.rotation = Quaternion.Euler(LilToonSampleConvert.LightRotation);
-        RenderSettings.ambientMode = AmbientMode.Flat;
-        RenderSettings.ambientLight = LilToonSampleConvert.AmbientColor;
-        cameraObject.transform.position = LilToonSampleConvert.CameraPosition;
-        cameraObject.transform.LookAt(LilToonSampleConvert.CameraTarget);
+        LilToonSampleConvert.ApplyReferenceAmbient(profile);
+        cameraObject.transform.position = rig.Position;
+        cameraObject.transform.LookAt(rig.Target);
         camera.fieldOfView = LilToonSampleConvert.CameraFieldOfView;
         camera.nearClipPlane = 0.05f;
         camera.farClipPlane = 20f;
@@ -151,27 +149,26 @@ public static class LilToonSampleExport
         EditorSceneManager.SaveScene(cameraObject.scene);
         var forward = lightObject.transform.forward;
         Debug.Log($"Reference light forward: ({forward.x:F4}, {forward.y:F4}, {forward.z:F4}); camera MSAA off, quality antiAliasing {QualitySettings.antiAliasing}");
-        RenderToPng(camera, "unity-reference.png");
+        RenderToPng(camera, profile, "unity-reference.png");
     }
 
     // Renders the unconverted MToon avatar with the same reference rig, in a new scene that is not saved.
     // The capture is the look that the lilToon conversion must keep. The new scene replaces the open scene.
-    private static void CaptureOriginalReference()
+    private static void CaptureOriginalReference(LilToonSampleProfile profile)
     {
-        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(LilToonSampleConvert.SourceAssetPath);
-        if (prefab == null) throw new InvalidOperationException($"No imported prefab at {LilToonSampleConvert.SourceAssetPath}.");
+        var prefab = LilToonSampleConvert.LoadSourcePrefab(profile);
         var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
         var root = (GameObject)PrefabUtility.InstantiatePrefab(prefab, scene);
         root.transform.position = Vector3.zero;
         root.transform.rotation = Quaternion.identity;
-        var camera = LilToonSampleConvert.AddReferenceLightAndCamera();
+        var camera = LilToonSampleConvert.AddReferenceLightAndCamera(LilToonSampleConvert.ReferenceRig(root, profile), profile);
         camera.aspect = (float)CaptureWidth / CaptureHeight;
         var forward = RenderSettings.sun.transform.forward;
         Debug.Log($"Reference light forward: ({forward.x:F4}, {forward.y:F4}, {forward.z:F4}); camera MSAA off, quality antiAliasing {QualitySettings.antiAliasing}");
-        RenderToPng(camera, "unity-mtoon-original.png");
+        RenderToPng(camera, profile, "unity-mtoon-original.png");
     }
 
-    private static void RenderToPng(Camera camera, string fileName)
+    private static void RenderToPng(Camera camera, LilToonSampleProfile profile, string fileName)
     {
         ShaderUtil.allowAsyncCompilation = false;
         var rt = new RenderTexture(CaptureWidth, CaptureHeight, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Default);
@@ -186,8 +183,8 @@ public static class LilToonSampleExport
             var image = new Texture2D(CaptureWidth, CaptureHeight, TextureFormat.RGBA32, false);
             image.ReadPixels(new Rect(0, 0, CaptureWidth, CaptureHeight), 0, 0);
             image.Apply();
-            Directory.CreateDirectory(ExportDirectory);
-            var file = Path.Combine(ExportDirectory, fileName);
+            Directory.CreateDirectory(profile.ExportDirectory);
+            var file = Path.Combine(profile.ExportDirectory, fileName);
             File.WriteAllBytes(file, image.EncodeToPNG());
             UnityEngine.Object.DestroyImmediate(image);
             Debug.Log($"Wrote {file} ({CaptureWidth}x{CaptureHeight}, color space {QualitySettings.activeColorSpace}).");

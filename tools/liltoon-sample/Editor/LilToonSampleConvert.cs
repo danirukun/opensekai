@@ -10,16 +10,60 @@ using UnityEngine;
 using UnityEngine.Rendering;
 
 /// <summary>
-/// Makes the lilToon sample scene from the imported Catboy VRM.
-/// Each MToon material gets a lilToon copy. Named materials get the extra slice features.
-/// Run from the menu or with: Unity -batchmode -quit -projectPath ... -executeMethod LilToonSampleConvert.Run
+/// The avatar that a batch run converts, from the command line:
+/// -avatar &lt;folder under Assets that holds one .vrm&gt; (default Catboy),
+/// -preset catboy|none (default catboy for the Catboy, else none).
+/// The catboy preset adds the slice features by material name and uses the fixed reference rig.
+/// The none preset maps each MToon value only and frames the camera on the head bone.
+/// </summary>
+public sealed class LilToonSampleProfile
+{
+    public const string DefaultAvatar = "Catboy";
+
+    public string Avatar { get; private set; }
+    public bool CatboyPreset { get; private set; }
+
+    public string Folder => $"Assets/{Avatar}";
+    public string MaterialFolder => $"{Folder}/lilToon";
+    public string ScenePath => $"{Folder}/Sample.unity";
+    public string RootName => $"{Avatar}-lilToon";
+    public string ExportFileName => $"{Avatar}-lilToon.vrm";
+    public string ExportDirectory => Path.Combine(Path.GetDirectoryName(Application.dataPath), "Export", Avatar);
+    public string Preset => CatboyPreset ? "catboy" : "none";
+
+    public string SourceAssetPath
+    {
+        get
+        {
+            var full = Path.Combine(Path.GetDirectoryName(Application.dataPath), Folder);
+            var files = Directory.Exists(full) ? Directory.GetFiles(full, "*.vrm", SearchOption.TopDirectoryOnly) : new string[0];
+            if (files.Length != 1) throw new InvalidOperationException($"{Folder} must hold exactly one .vrm file; it holds {files.Length}.");
+            return $"{Folder}/{Path.GetFileName(files[0])}";
+        }
+    }
+
+    public static LilToonSampleProfile FromCommandLine()
+    {
+        var args = Environment.GetCommandLineArgs();
+        string Arg(string name)
+        {
+            var i = Array.IndexOf(args, name);
+            return i >= 0 && i + 1 < args.Length ? args[i + 1] : null;
+        }
+        var avatar = Arg("-avatar") ?? DefaultAvatar;
+        var preset = Arg("-preset") ?? (avatar == DefaultAvatar ? "catboy" : "none");
+        if (preset != "catboy" && preset != "none") throw new ArgumentException($"-preset must be catboy or none, not {preset}.");
+        return new LilToonSampleProfile { Avatar = avatar, CatboyPreset = preset == "catboy" };
+    }
+}
+
+/// <summary>
+/// Makes the lilToon sample scene from an imported MToon VRM.
+/// Each MToon material gets a lilToon copy. With the catboy preset, named materials get the extra slice features.
+/// Run from the menu or with: Unity -batchmode -quit -projectPath ... -executeMethod LilToonSampleConvert.Run [-avatar Name] [-preset catboy|none]
 /// </summary>
 public static class LilToonSampleConvert
 {
-    public const string SourceAssetPath = "Assets/Catboy/DaniruKun - Catboy - ARKit.vrm";
-    public const string MaterialFolder = "Assets/Catboy/lilToon";
-    public const string ScenePath = "Assets/Catboy/Sample.unity";
-    public const string RootName = "Catboy-lilToon";
     public const string LightName = "Reference Light";
     public const string CameraName = "Reference Camera";
 
@@ -28,13 +72,16 @@ public static class LilToonSampleConvert
     public static readonly Vector3 LightRotation = new Vector3(50f, 150f, 0f);
     public const float LightIntensity = 1f;
     public static readonly Color AmbientColor = new Color(0.2f, 0.2f, 0.2f, 1f);
+    // The fixed rig of the catboy preset.
     public static readonly Vector3 CameraPosition = new Vector3(0f, 1.3f, 1.6f);
     public static readonly Vector3 CameraTarget = new Vector3(0f, 1.3f, 0f);
     public const float CameraFieldOfView = 35f;
     public static readonly Color CameraBackground = new Color(0.3f, 0.3f, 0.3f, 1f);
+    // The head-framed rig of the none preset: the camera looks at this distance below the head bone.
+    public const float HeadFrameDrop = 0.15f;
 
-    // MToon cutout materials whose main texture has no alpha below 1. They become opaque so that the
-    // export keeps the opaque and the opaque+outline variants next to the cutout ones.
+    // Catboy preset: MToon cutout materials whose main texture has no alpha below 1. They become opaque so that
+    // the export keeps the opaque and the opaque+outline variants next to the cutout ones.
     private static readonly HashSet<string> OpaqueByName = new HashSet<string>
     {
         "N00_000_00_EyeWhite_00_EYE",
@@ -43,12 +90,12 @@ public static class LilToonSampleConvert
         "N00_004_01_Shoes_01_CLOTH",
     };
 
-    [MenuItem("OpenSekai/Convert Catboy to lilToon")]
+    [MenuItem("OpenSekai/Convert avatar to lilToon")]
     public static void Run()
     {
         try
         {
-            Convert();
+            Convert(LilToonSampleProfile.FromCommandLine());
         }
         catch (Exception e)
         {
@@ -58,25 +105,42 @@ public static class LilToonSampleConvert
         }
     }
 
-    private static void Convert()
+    internal static GameObject LoadSourcePrefab(LilToonSampleProfile profile)
     {
-        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(SourceAssetPath);
+        var source = profile.SourceAssetPath;
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(source);
         if (prefab == null)
         {
             // On the first project open the VRM can import before the MToon10 shader exists. Import it again.
-            AssetDatabase.ImportAsset(SourceAssetPath, ImportAssetOptions.ForceUpdate | ImportAssetOptions.ForceSynchronousImport);
-            prefab = AssetDatabase.LoadAssetAtPath<GameObject>(SourceAssetPath);
+            AssetDatabase.ImportAsset(source, ImportAssetOptions.ForceUpdate | ImportAssetOptions.ForceSynchronousImport);
+            prefab = AssetDatabase.LoadAssetAtPath<GameObject>(source);
         }
-        if (prefab == null) throw new InvalidOperationException($"No imported prefab at {SourceAssetPath}. Check the VRM import log.");
+        if (prefab == null) throw new InvalidOperationException($"No imported prefab at {source}. Check the VRM import log.");
+        return prefab;
+    }
+
+    private static void Convert(LilToonSampleProfile profile)
+    {
+        var prefab = LoadSourcePrefab(profile);
+        Debug.Log($"LilToonSampleConvert: avatar {profile.Avatar}, preset {profile.Preset}, source {profile.SourceAssetPath}");
+
+        // The mapping reads MToon properties only. Another shader would convert with default values and a wrong look.
+        var other = prefab.GetComponentsInChildren<Renderer>(true)
+            .SelectMany(r => r.sharedMaterials)
+            .Where(m => m != null && !m.shader.name.Contains("MToon"))
+            .Select(m => $"{m.name} ({m.shader.name})")
+            .Distinct()
+            .ToList();
+        if (other.Count > 0) throw new InvalidOperationException($"Materials with a shader other than MToon:\n{string.Join("\n", other)}");
 
         var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
         var root = (GameObject)PrefabUtility.InstantiatePrefab(prefab, scene);
         PrefabUtility.UnpackPrefabInstance(root, PrefabUnpackMode.Completely, InteractionMode.AutomatedAction);
-        root.name = RootName;
+        root.name = profile.RootName;
         root.transform.position = Vector3.zero;
         root.transform.rotation = Quaternion.identity;
 
-        EnsureFolder(MaterialFolder);
+        EnsureFolder(profile.MaterialFolder);
         var converted = new Dictionary<Material, Material>();
         var lines = new List<string>();
         foreach (var renderer in root.GetComponentsInChildren<Renderer>(true))
@@ -88,7 +152,7 @@ public static class LilToonSampleConvert
                 if (source == null) continue;
                 if (!converted.TryGetValue(source, out var target))
                 {
-                    target = MakeLilToonMaterial(source, lines);
+                    target = MakeLilToonMaterial(source, profile, lines);
                     converted[source] = target;
                 }
                 materials[i] = target;
@@ -96,15 +160,14 @@ public static class LilToonSampleConvert
             renderer.sharedMaterials = materials;
         }
 
-        AddReferenceLightAndCamera();
+        AddReferenceLightAndCamera(ReferenceRig(root, profile), profile);
         AssetDatabase.SaveAssets();
-        EditorSceneManager.SaveScene(scene, ScenePath);
+        EditorSceneManager.SaveScene(scene, profile.ScenePath);
 
         var table = string.Join("\n", lines);
         Debug.Log($"LilToonSampleConvert: converted {converted.Count} materials.\n{table}");
-        var exportDir = Path.Combine(Path.GetDirectoryName(Application.dataPath), "Export");
-        Directory.CreateDirectory(exportDir);
-        File.WriteAllText(Path.Combine(exportDir, "material-map.txt"), table + "\n", new UTF8Encoding(false));
+        Directory.CreateDirectory(profile.ExportDirectory);
+        File.WriteAllText(Path.Combine(profile.ExportDirectory, "material-map.txt"), table + "\n", new UTF8Encoding(false));
     }
 
     private static void EnsureFolder(string folder)
@@ -116,7 +179,7 @@ public static class LilToonSampleConvert
     }
 
     // One source MToon material (VRM10/MToon10 after migration, or VRM/MToon) to one lilToon material asset.
-    private static Material MakeLilToonMaterial(Material source, List<string> lines)
+    private static Material MakeLilToonMaterial(Material source, LilToonSampleProfile profile, List<string> lines)
     {
         var values = ReadMToon(source);
         var features = new List<string>();
@@ -124,7 +187,7 @@ public static class LilToonSampleConvert
         var mode = values.AlphaMode == 2 ? RenderingMode.Transparent
             : values.AlphaMode == 1 ? RenderingMode.Cutout
             : RenderingMode.Opaque;
-        if (mode == RenderingMode.Cutout && OpaqueByName.Contains(source.name))
+        if (profile.CatboyPreset && mode == RenderingMode.Cutout && OpaqueByName.Contains(source.name))
         {
             // These textures have no alpha below 1, so the opaque variant renders the same.
             // The sample keeps them opaque so that the opaque variants are in the export.
@@ -163,10 +226,25 @@ public static class LilToonSampleConvert
             material.SetTexture("_ShadowColorTex", values.ShadeTex);
             features.Add("shadowColorTex");
         }
-        // lilToon turns the second band on by default. Only the named materials keep it.
+        // lilToon turns the second band on by default. Only the named materials of the catboy preset keep it.
         material.SetColor("_Shadow2ndColor", new Color(0f, 0f, 0f, 0f));
         material.SetColor("_Shadow3rdColor", new Color(0f, 0f, 0f, 0f));
         features.Add("shadow1");
+        // Four lilToon defaults that differ from MToon. The catboy preset keeps them, as in the recorded test avatar.
+        if (!profile.CatboyPreset)
+        {
+            // MToon has no shadow border gradient. lilToon's default border color (1, 0.1, 0) pulls the red channel of
+            // the shadow toward the lit color near each shadow edge, so a dark shade shows red edges. Black turns it off.
+            material.SetColor("_ShadowBorderColor", Color.black);
+            // MToon adds albedo x ambient to the shade. lilToon adds it only with this strength, so a black shade stays black.
+            material.SetFloat("_ShadowEnvStrength", 1f);
+            // MToon has no shadow anti-aliasing. lilToon widens the border by the screen derivative, which puts thin
+            // and curved parts (eyelashes, the nose tip) into the shade.
+            material.SetFloat("_AAStrength", 0f);
+            // MToon turns the normal of a back face toward the camera. lilToon does that only with this flag, so the
+            // inner side of a double-sided part (a jacket lining) shades as if it faced away from the light.
+            material.SetFloat("_FlipNormal", 1f);
+        }
 
         if (!IsPlaceholder(values.BumpMap))
         {
@@ -214,10 +292,10 @@ public static class LilToonSampleConvert
             features.Add("outline");
         }
 
-        ApplyNamedFeatures(material, source.name, features);
+        if (profile.CatboyPreset) ApplyNamedFeatures(material, source.name, features);
 
         material.renderQueue = source.renderQueue;
-        var assetPath = $"{MaterialFolder}/{SafeFileName(source.name)}.mat";
+        var assetPath = $"{profile.MaterialFolder}/{SafeFileName(source.name)}.mat";
         // A new asset each run, so that no value from an earlier run stays in the file.
         AssetDatabase.DeleteAsset(assetPath);
         AssetDatabase.CreateAsset(material, assetPath);
@@ -225,7 +303,7 @@ public static class LilToonSampleConvert
         return material;
     }
 
-    // Extra slice features chosen by material name.
+    // Catboy preset: extra slice features chosen by material name.
     private static void ApplyNamedFeatures(Material material, string name, List<string> features)
     {
         var isSkin = name.Contains("_SKIN");
@@ -411,8 +489,34 @@ public static class LilToonSampleConvert
         return name;
     }
 
+    // The camera position and target. The catboy preset keeps the fixed rig of the recorded evidence;
+    // the none preset looks at a point below the head bone, from the same distance.
+    internal static (Vector3 Position, Vector3 Target) ReferenceRig(GameObject root, LilToonSampleProfile profile)
+    {
+        if (profile.CatboyPreset) return (CameraPosition, CameraTarget);
+        var head = root.GetComponentInChildren<Animator>()?.GetBoneTransform(HumanBodyBones.Head);
+        if (head == null) throw new InvalidOperationException($"{root.name} has no humanoid head bone to frame the camera.");
+        var target = new Vector3(0f, head.position.y - HeadFrameDrop, 0f);
+        return (target + new Vector3(0f, 0f, CameraPosition.z - CameraTarget.z), target);
+    }
+
+    // The flat ambient color. In the built-in pipeline, lilToon takes the indirect light from the SH probe on the axis of its
+    // L1 term. A flat ambient has no L1 term, so that axis is not defined and lilToon reads an indirect light of about 1;
+    // `_ShadowEnvStrength` then lights each shade. The none preset adds an L1 term of 0.001 on +Y, so lilToon reads the
+    // ambient as MToon does. The catboy preset keeps the flat ambient of the recorded evidence.
+    internal static void ApplyReferenceAmbient(LilToonSampleProfile profile)
+    {
+        RenderSettings.ambientMode = AmbientMode.Flat;
+        RenderSettings.ambientLight = AmbientColor;
+        if (profile.CatboyPreset) return;
+        var probe = RenderSettings.ambientProbe;
+        for (var channel = 0; channel < 3; channel++) probe[channel, 2] = 0.001f;
+        RenderSettings.ambientMode = AmbientMode.Custom;
+        RenderSettings.ambientProbe = probe;
+    }
+
     // Also used by LilToonSampleExport.CaptureOriginal for the MToon capture.
-    internal static Camera AddReferenceLightAndCamera()
+    internal static Camera AddReferenceLightAndCamera((Vector3 Position, Vector3 Target) rig, LilToonSampleProfile profile)
     {
         var lightObject = new GameObject(LightName);
         var light = lightObject.AddComponent<Light>();
@@ -422,15 +526,14 @@ public static class LilToonSampleConvert
         light.shadows = LightShadows.None;
         lightObject.transform.rotation = Quaternion.Euler(LightRotation);
 
-        RenderSettings.ambientMode = AmbientMode.Flat;
-        RenderSettings.ambientLight = AmbientColor;
+        ApplyReferenceAmbient(profile);
         RenderSettings.skybox = null;
         RenderSettings.sun = light;
 
         var cameraObject = new GameObject(CameraName);
         var camera = cameraObject.AddComponent<Camera>();
-        cameraObject.transform.position = CameraPosition;
-        cameraObject.transform.LookAt(CameraTarget);
+        cameraObject.transform.position = rig.Position;
+        cameraObject.transform.LookAt(rig.Target);
         camera.fieldOfView = CameraFieldOfView;
         camera.nearClipPlane = 0.05f;
         camera.farClipPlane = 20f;
