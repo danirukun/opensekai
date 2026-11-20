@@ -15,12 +15,18 @@ export function newVariable(existing: readonly BlueprintVariable[], type: DataTy
  while (names.has(`${label} ${n}`)) n++;
  return { id, name: `${label} ${n}`, type, default: defaultBlueprintValue(type) } as BlueprintVariable;
 }
+// `#rgb` or `#rrggbb`, with an optional `#` and in any case, as the kit color picker reads it.
+const hexColor = (text: string): string | null => {
+ const digits = text.trim().replace(/^#/, '').toLowerCase();
+ return /^[0-9a-f]{6}$/.test(digits) ? `#${digits}` : /^[0-9a-f]{3}$/.test(digits) ? `#${[...digits].map(digit => digit + digit).join('')}` : null;
+};
 // One scalar value from the text of an inline or default editor, or null when the text does not fit the type.
-// A Vector3 is `x, y, z`. Boolean editors are checkboxes and do not use text.
+// A Vector3 is `x, y, z`. A color is hex text. Boolean editors are checkboxes and do not use text.
 export function parseScalar(type: Exclude<ScalarType, 'boolean'>, text: string): ScalarValue | null {
  const number = (part: string) => part.trim() === '' ? Number.NaN : Number(part);
  const value: unknown = type === 'string' ? text
   : type === 'vector3' ? (parts => parts.length === 3 ? parts.map(number) : null)(text.split(','))
+  : type === 'color' ? hexColor(text)
   : number(text);
  return value !== null && isBlueprintValue(type, value) ? value as ScalarValue : null;
 }
