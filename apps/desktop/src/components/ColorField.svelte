@@ -27,7 +27,7 @@
  .color-field :global(.color-text){display:contents}
  .color-field :global(.color-text label){grid-column:1/-1;grid-row:1}
  .color-field :global(.color-text input){grid-column:2;grid-row:2;padding:5px 8px;min-width:0;font-variant-numeric:tabular-nums}
- .color-swatch{grid-column:1;grid-row:2;width:36px;height:30px;padding:0;border:1px solid #dedbe5;border-radius:6px;background:none;cursor:pointer;-webkit-appearance:none;appearance:none}
+ .color-swatch{grid-column:1;grid-row:2;width:36px;height:30px;padding:0;border:1px solid var(--ds-color-border);border-radius:6px;background:none;cursor:pointer;-webkit-appearance:none;appearance:none}
  .color-swatch::-webkit-color-swatch-wrapper{padding:2px}
  .color-swatch::-webkit-color-swatch{border:0;border-radius:4px}
  .color-swatch:disabled{opacity:.5;cursor:default}

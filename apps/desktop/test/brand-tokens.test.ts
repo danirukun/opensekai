@@ -84,7 +84,8 @@ it('meets WCAG AA for body text on the neutral, lime, and selection surfaces', (
 });
 
 it('paints positive status with lime and primary text', () => {
-  expect(css).toContain('.status-positive{background:var(--ds-color-lime);color:var(--ds-color-text)}');
+  // Dark text fails on lime, so lime uses its own text token.
+  expect(css).toContain('.status-positive{background:var(--ds-color-lime);color:var(--ds-color-on-lime)}');
 });
 
 it('uses white text on navy primary buttons and a navy focus ring', () => {

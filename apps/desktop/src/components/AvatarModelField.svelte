@@ -13,5 +13,5 @@
 <style>
  .model-field{display:grid;gap:6px;padding:12px 0;border-bottom:1px solid var(--ds-color-border)}.model-label{font-size:12px;color:var(--ds-color-text-muted)}
  .model-field :global(.model-choice){justify-content:flex-start;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
- .model-status{display:grid;gap:4px;font-size:11px;color:var(--ds-color-text-muted)}.model-status.failed{color:#b14050}progress{width:100%;height:5px;accent-color:var(--ds-color-accent)}
+ .model-status{display:grid;gap:4px;font-size:11px;color:var(--ds-color-text-muted)}.model-status.failed{color:var(--ds-color-error)}progress{width:100%;height:5px;accent-color:var(--ds-color-accent)}
 </style>

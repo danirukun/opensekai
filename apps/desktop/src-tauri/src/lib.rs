@@ -866,6 +866,7 @@ mod command_boundary_tests {
             "allow-open-help",
             "core:event:allow-listen",
             "core:event:allow-unlisten",
+            "core:window:allow-set-theme",
         ]
         .into_iter()
         .collect();
