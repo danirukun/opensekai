@@ -38,8 +38,8 @@
 - Create: `spdd/prompt/2026-11-21-liltoon-stall.md`
 - Create: `docs/superpowers/plans/2026-11-21-liltoon-stall.md`
 
-- [ ] **Step 1: Confirm** the three files match the #269 next-step order and the open preview gate at `716557b`.
-- [ ] **Step 2: Commit** from the worktree root:
+- [x] **Step 1: Confirm** the three files match the #269 next-step order and the open preview gate at `716557b`.
+- [x] **Step 2: Commit** from the worktree root:
   ```sh
   git add spdd/analysis/2026-11-21-liltoon-stall.md spdd/prompt/2026-11-21-liltoon-stall.md docs/superpowers/plans/2026-11-21-liltoon-stall.md
   git commit -m "$(cat <<'EOF'
@@ -57,18 +57,20 @@
 - Modify (later): `docs/evaluation/liltoon-webgpu.md` (only after numbers exist)
 - Use (local): `~/.claude/orchestrate/opensekai/character-lighting/stall-avatar.mjs` and the liltoon `gpudone-timing` path
 
-- [ ] **Step 1: Install** from the worktree so the fork pin resolves fresh:
+- [x] **Step 1: Install** from the worktree so the fork pin resolves fresh:
   ```sh
   direnv exec . pnpm install --filter @opensekai/renderer...
   ```
   Confirm `node_modules/@mochiya/three-liltoon` (or the pnpm store path) resolves to commit `716557bd077748417d7bf9f80d7b9c2a1a14fa23`.
-- [ ] **Step 2: Prove the loaded build.** Prefer a content hash of `dist/webgpu.js` from the resolved package, logged once at app start or written into the stall JSON. Do not rely on an in-place copy into `node_modules`.
-- [ ] **Step 3: Launch** with evaluation fixtures:
+- [x] **Step 2: Prove the loaded build.** Prefer a content hash of `dist/webgpu.js` from the resolved package, logged once at app start or written into the stall JSON. Do not rely on an in-place copy into `node_modules`.
+- [x] **Step 3: Launch** with evaluation fixtures:
   ```sh
   OPENSEKAI_EVALUATION=1 OPENSEKAI_FIXTURE_MANIFEST=<repo>/fixtures/local/manifest.json direnv exec . pnpm dev:desktop
   ```
-- [ ] **Step 4: Warm prime** then **warm gate** for lilToon sample and MToon Catboy, `preview_main` and `output_main`, spot add at 1 / 3 / 8. Include GPU completion in the stall.
-- [ ] **Step 5: Record** the table (ms) and the build proof in the orchestrate folder. Decide: pass → Task 4; fail on preview → Task 3.
+- [x] **Step 4: Warm prime** then **warm gate** for lilToon sample and MToon Catboy, `preview_main` and `output_main`, spot add at 1 / 3 / 8. Include GPU completion in the stall.
+- [x] **Step 5: Record** the table (ms) and the build proof in the orchestrate folder. Decide: pass → Task 4; fail on preview → Task 3.
+
+Passed at `716557b` (preview 227 ms, OBS 215 ms). Task 3 skipped.
 
 ---
 
@@ -96,9 +98,9 @@
 - Modify: `spdd/prompt/2026-11-21-liltoon-stall.md` (Status)
 - Modify if pin changed: `ARCHITECTURE.md` only when the dependency map text becomes false
 
-- [ ] **Step 1: Write** the warm table, build-proof method, and pass/fail into the evidence page.
-- [ ] **Step 2: Update** MAT-02 to claim only the new verified stall numbers.
-- [ ] **Step 3: Set** contract Status to implemented and checked (or measured-pass-without-fork-change).
+- [x] **Step 1: Write** the warm table, build-proof method, and pass/fail into the evidence page.
+- [x] **Step 2: Update** MAT-02 to claim only the new verified stall numbers.
+- [x] **Step 3: Set** contract Status to implemented and checked (or measured-pass-without-fork-change).
 - [ ] **Step 4: Commit** OpenSekai docs (and pin if changed).
 - [ ] **Step 5: Comment** on #269 that item 1 of the next-step order is done, with the measured numbers and the pin.
 - [ ] **Step 6: Run** `direnv exec . cargo sweep --time 7` from the worktree when the feature finishes.

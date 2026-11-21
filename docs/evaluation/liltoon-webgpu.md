@@ -142,6 +142,21 @@ The same method and scene as the gate above, one priming run and one warm run fo
 - On the Editor preview all three builds are above 250 ms at 8 lit lights, also the control `2d29c26`, which gave 190 ms in the gate above. The MToon Catboy gave 122 ms on the preview and 140 ms on the OBS output in the same session (143 and 175 ms in the gate above), so the cause is not a slower computer. The cause is not known. A possible cause: the WebKit HTTP cache of the app can serve an earlier build of the fork after a change of `node_modules` in place, so the gate above possibly ran a different build than it names. This is not confirmed.
 - Raw: `warm-liltoon-{ctl1,co1,fa1}-{preview_main,output_main}.json`, `prime-liltoon-{ctl1,co1,fa1}-output_main.json`, and the MToon `*-mtoon-fa1-*.json` in the orchestrate folder.
 
+### Clean warm gate at pin `716557b` (2026-11-21)
+
+Slice contract: [lilToon warm stall](../spdd/prompt/2026-11-21-liltoon-stall.md). Branch `liltoon-stall` at `25a98f6`. Method: `pnpm install` of the Git pin (no in-place overwrite of `node_modules`); `dist/webgpu.js` sha256 `53c93c65a097fb5d5eaca7e98eb2fb93bbf3ea32749cb35397a4caa2be80ecdd` (94,567 bytes) matches the fork checkout at `716557bd077748417d7bf9f80d7b9c2a1a14fa23`; temporary `gpudone-timing.patch` for `onSubmittedWorkDone` (reverted after the run). Fixture: third sample revision `2cd7340b…`. Unlocked session. Prime on the OBS output, then warm Editor preview, then warm OBS output.
+
+| Avatar, renderer | Spot add at 1 / 3 / 8 lit lights | Point and directional at 8 |
+| --- | --- | --- |
+| lilToon sample, Editor preview | 177 / 193 / **227** | 222 / 191 |
+| MToon Catboy, Editor preview | 133 / 123 / 142 | 158 / 141 |
+| lilToon sample, OBS output | 195 / 243 / **215** | 239 / 248 |
+| MToon Catboy, OBS output | 117 / 112 / 170 | 166 / 164 |
+
+- Gate: **passed**. The warm spot add at 8 lit lights is 227 ms on the Editor preview and 215 ms on the OBS output (limit 250 ms). No further fork change in this slice.
+- The earlier 329 ms preview number at the same pin is superseded. That run did not prove which fork JS the app loaded.
+- Raw: `stall-clean-2026-11-21/` in the orchestrate folder (`fork-build-proof.json`, `summary.json`, `warm-*-clean1-*.json`, `prime-*-clean1-*.json`).
+
 ### Cold light add (recorded, not a gate)
 
 Each cold run cleared the WebKit Metal shader cache of the app (`com.apple.WebKit.GPU+opensekai_desktop-*/…/com.apple.metal`) and started the app again. One cold run, Editor preview, values in ms, stall + GPU completion:

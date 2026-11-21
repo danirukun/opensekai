@@ -2,7 +2,7 @@
 
 Date: 2026-11-21. Analysis: [lilToon warm stall](../analysis/2026-11-21-liltoon-stall.md). Parent: [lilToon on WebGPU](2026-11-19-liltoon-webgpu.md). Plan: [lilToon warm stall plan](../../docs/superpowers/plans/2026-11-21-liltoon-stall.md). Issues: [#269](https://github.com/danirukun/opensekai/issues/269) (next-step order), [#74](https://github.com/danirukun/opensekai/issues/74) (MAT-02), [#322](https://github.com/danirukun/opensekai/issues/322) (gate).
 
-Status: contracted, not implemented. Parent slice is checked on macOS. This slice closes the warm Editor-preview stall gate of parent R9, or proves the current pin already passes after a clean measure.
+Status: implemented and checked on macOS, 2026-11-21. R1 passed at pin `716557b` with no fork change (R2 stop path): warm spot add at 8 lit lights is 227 ms on the Editor preview and 215 ms on the OBS output (limit 250 ms). Build proof: `pnpm install` of the Git pin; `dist/webgpu.js` sha256 `53c93c65a097fb5d5eaca7e98eb2fb93bbf3ea32749cb35397a4caa2be80ecdd` matches the fork checkout HEAD. Evidence: [lilToon on WebGPU](../../docs/evaluation/liltoon-webgpu.md) section "Clean warm gate at pin `716557b`". The earlier 329 ms preview number at the same pin is superseded.
 
 ## R — Requirements
 
