@@ -1,6 +1,6 @@
 import {describe,it,expect} from 'vitest';
 import {DEFAULT_CAMERA_EFFECTS,DEFAULT_CAMERA_LENS,type CameraEffects} from '@opensekai/contracts';
-import {applyLensPreset,LENS_PRESETS} from './lens-presets';
+import {applyLensPreset,lensPresetOperations,LENS_PRESETS} from './lens-presets';
 const lens={...DEFAULT_CAMERA_LENS,near:.02,far:50,focusDistance:4};
 describe('lens presets',()=>{
  it('lists the named presets in table order',()=>{
@@ -44,6 +44,11 @@ describe('lens presets',()=>{
   expect(result.lens.focusDistance).toBe(lens.focusDistance);
   expect(result.lens.near).toBe(lens.near);
   expect(result.lens.far).toBe(lens.far);
+ });
+ it('builds one patch with lens, effects, and grading only when the preset sets them',()=>{
+  expect(lensPresetOperations('cam',applyLensPreset('cinematic',lens)).map(op=>op.kind)).toEqual(['setCameraLens','setCameraEffects','setCameraGrading']);
+  expect(lensPresetOperations('cam',applyLensPreset('wide',lens)).map(op=>op.kind)).toEqual(['setCameraLens','setCameraEffects']);
+  expect(lensPresetOperations('cam',{lens})).toEqual([{kind:'setCameraLens',entityId:'cam',lens}]);
  });
  it('keeps an unrelated effect group, like lens dirt, as it was',()=>{
   const current:CameraEffects={...DEFAULT_CAMERA_EFFECTS,lensDirt:{assetId:'dirt_1',intensity:.6,threshold:.4}};

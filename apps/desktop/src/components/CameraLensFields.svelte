@@ -9,7 +9,7 @@
  import SliderField from './SliderField.svelte';
  import ResetMark from './ResetMark.svelte';
  import {NO_MARKS,type ResetMarks} from '../editor/property-defaults';
- let {entityId,lens,effects,navigation,revision,disabled=false,marks=NO_MARKS,oncommit,onlive,onliveend,onpreset}:{entityId:string;lens:CameraLens;effects?:CameraEffects;navigation?:CameraNavigation;marks?:ResetMarks;revision:number;disabled?:boolean;oncommit?:Commit<CameraLens>;onlive?:(id:string,lens:CameraLens)=>void;onliveend?:()=>void;onpreset?:(id:string,result:LensPresetResult,revision:number)=>Promise<void>}=$props();
+ let {entityId,lens,effects,navigation,revision,disabled=false,marks=NO_MARKS,oncommit,onlive,onliveend,onpreset}:{entityId:string;lens:CameraLens;effects?:CameraEffects;navigation?:CameraNavigation;marks?:ResetMarks;revision:number;disabled?:boolean;oncommit?:Commit<CameraLens>;onlive?:(id:string,lens:CameraLens)=>void;onliveend?:()=>void;onpreset?:(id:string,result:LensPresetResult,revision:number)=>Promise<unknown>}=$props();
  // Near and Far stay free-text drafts behind Apply (B12 R15); every other field commits live.
  const base=()=>({near:String(lens.near),far:String(lens.far)});
  let values=$state(untrack(base)),invalid=$state(false);let key:string|null=null;

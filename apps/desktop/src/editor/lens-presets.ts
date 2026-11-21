@@ -1,9 +1,8 @@
 import {
  DEFAULT_CAMERA_EFFECTS,DEFAULT_CAMERA_GRADING,DEFAULT_CAMERA_LENS,concertFocalLengthMm,lensWithFocalLength,
- type CameraEffects,type CameraGrading,type CameraLens
+ type CameraEffects,type CameraGrading,type CameraLens,type Id,type PatchOp
 } from '@opensekai/contracts';
-// Named Lens presets (#343 design table). Each preset is undoable through the normal lens/effects/grading
-// commits (Task 8); only Cinematic is a documented full look, so only it returns a grading change.
+// Named Lens presets (#343 design table). Only Cinematic is a documented full look, so only it returns a grading change.
 export type LensPresetId='default'|'portrait'|'wide'|'cinematic'|'concert';
 export const LENS_PRESETS:readonly {id:LensPresetId;label:string}[]=[
  {id:'default',label:'Default'},{id:'portrait',label:'Portrait'},{id:'wide',label:'Wide'},{id:'cinematic',label:'Cinematic'},{id:'concert',label:'Concert'}
@@ -39,3 +38,9 @@ export function applyLensPreset(id:LensPresetId,lens:CameraLens,effects?:CameraE
  };
  return spec.grading?{lens:nextLens,effects:nextEffects,grading:spec.grading}:{lens:nextLens,effects:nextEffects};
 }
+// One scene patch for the whole preset, so it applies and undoes as one step.
+export const lensPresetOperations=(entityId:Id,result:LensPresetResult):PatchOp[]=>[
+ {kind:'setCameraLens',entityId,lens:result.lens},
+ ...(result.effects?[{kind:'setCameraEffects' as const,entityId,effects:result.effects}]:[]),
+ ...(result.grading?[{kind:'setCameraGrading' as const,entityId,grading:result.grading}]:[])
+];

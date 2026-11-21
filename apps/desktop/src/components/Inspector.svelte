@@ -15,7 +15,7 @@ import {recordMaterials,savedMaterials,showsMaterials} from '../editor/materials
  import { Select } from '@oshi-connect/ui';
  import { CameraAntiAliasingSchema } from '@opensekai/contracts';
  import CameraLensFields from './CameraLensFields.svelte';
- import type {LensPresetResult} from '../editor/lens-presets';
+ import {lensPresetOperations,type LensPresetResult} from '../editor/lens-presets';
  import CameraNavigationFields from './CameraNavigationFields.svelte';
  import { Button } from '@oshi-connect/ui';
  import type { CameraNavigation, CameraScreenshotResult } from '@opensekai/contracts';
@@ -62,14 +62,7 @@ import {recordMaterials,savedMaterials,showsMaterials} from '../editor/materials
  let shooting=$state(false),shot=$state<{entityId:string;fileName:string}|null>(null),shotError=$state<string|null>(null);
  async function screenshot(id:string){shooting=true;shotError=null;try{const reply=await onscreenshot?.(id);if(reply?.ok)shot={entityId:id,fileName:reply.data.fileName};else if(reply)shotError=reply.error.code;}finally{shooting=false;}}
  async function openFolder(){shotError=null;try{await onopenscreenshots?.();}catch{shotError='Could not open folder';}}
- // A preset applies through the same commit/revision path as any other field, one group at a time (camera lens, Task 8).
- async function applyLensPresetResult(id:string,result:LensPresetResult,revision:number){
-  const lensReply=await model.setCameraLens(id,result.lens,revision);
-  if(!lensReply.ok)return;
-  let rev=lensReply.data.revision;
-  if(result.effects){const reply=await model.setCameraEffects(id,result.effects,rev);if(reply.ok)rev=reply.data.revision;}
-  if(result.grading)await model.setCameraGrading(id,result.grading,rev);
- }
+ const applyLensPresetResult=(id:string,result:LensPresetResult,revision:number)=>model.applyOperations(lensPresetOperations(id,result),revision);
  // Reset marks follow the scene value; any pending edit disables them (B17 R5–R9).
  const marks=$derived(entity?resetMarks(entity,view.pending||disabled||(view.livePending??false)):null);
  const expressions=$derived(entity?.kind==='avatar'&&expressionApi!==null&&onexpressionsettings!==undefined&&hasTriggerableExpressions(entity.assetId,assets));
