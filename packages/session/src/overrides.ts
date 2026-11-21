@@ -31,6 +31,7 @@ export type OverrideWrite =
 type Operation = ScenePatch['operations'][number];
 export const MAX_OVERRIDES = 256, COMMIT_IDLE_MS = 250;
 export const EMPTY_OVERRIDES: OverrideLayer = new Map();
+export const LENS_PROPERTY_KEYS: readonly PropertyKey[] = ['fovDegrees', 'focalLengthMm', 'fStop', 'focusDistance', 'autofocus', 'sensorPreset'];
 
 const fail = (message: string, ids: Id[]): Reply<never> => ({ ok: false, error: { code: 'INVALID_INPUT', message, ids } });
 const size = (layer: OverrideLayer) => [...layer.values()].reduce((n, entries) => n + entries.size, 0);
@@ -157,7 +158,7 @@ export function takeIdle(scene: SceneView, layer: OverrideLayer, nowMs: number, 
   if (!target) continue;
   if (idle.has('position') || idle.has('rotation') || idle.has('scale')) operations.push({ kind: 'setTransform', entityId, transform: structuredClone(target.transform) });
   if (idle.has('visible')) operations.push({ kind: 'setVisibility', entityId, visible: target.visible });
-  if (idle.has('fovDegrees') && target.kind === 'camera') operations.push({ kind: 'setCameraLens', entityId, lens: structuredClone(target.lens) });
+  if (LENS_PROPERTY_KEYS.some(key => idle.has(key)) && target.kind === 'camera') operations.push({ kind: 'setCameraLens', entityId, lens: structuredClone(target.lens) });
   if (idle.has('intensity') && target.kind === 'light') operations.push({ kind: 'setLight', entityId, light: structuredClone(target.light) });
   if (idle.has('hazeDensity') && target.kind === 'haze') operations.push({ kind: 'setHaze', entityId, haze: structuredClone(target.haze) });
   if (idle.has('rimStrength') && target.kind === 'avatar') operations.push({ kind: 'setAvatarLighting', entityId, lighting: structuredClone(avatarLighting(target)) });
@@ -174,7 +175,7 @@ export const touchedProperties = (operation: Operation): [Id, TouchedKeys] | nul
  switch (operation.kind) {
   case 'setTransform': return [operation.entityId, ['position', 'rotation', 'scale']];
   case 'setVisibility': return [operation.entityId, ['visible']];
-  case 'setCameraLens': return [operation.entityId, ['fovDegrees']];
+  case 'setCameraLens': return [operation.entityId, LENS_PROPERTY_KEYS];
   case 'setCameraRenderEnvironment': return [operation.entityId, ['renderEnvironment']];
   case 'setLight': return [operation.entityId, ['intensity']];
   case 'setHaze': return [operation.entityId, ['hazeDensity']];

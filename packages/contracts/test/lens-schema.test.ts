@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_CAMERA_LENS, LensSchema, lensWithFocalLength, lensWithFovDegrees, normalizeLens, type CameraLens } from "../src/index";
+import { DEFAULT_CAMERA_LENS, LensSchema, LensWriteSchema, lensWithFocalLength, lensWithFovDegrees, lensWithSensorPreset, normalizeLens, resolveLensWrite, type CameraLens } from "../src/index";
 
 const testLens = (partial?: Partial<CameraLens>): CameraLens => ({ ...DEFAULT_CAMERA_LENS, ...partial });
 
@@ -48,6 +48,24 @@ describe("normalizeLens", () => {
     });
     it("returns null for an object that is neither legacy nor full", () => {
         expect(normalizeLens({ fovDegrees: 45 })).toBeNull();
+    });
+});
+
+describe("LensWriteSchema / resolveLensWrite", () => {
+    it("keeps the written fovDegrees of a full lens and still migrates a legacy triple", () => {
+        expect(LensWriteSchema.parse({ ...testLens(), fovDegrees: 20 }).fovDegrees).toBe(20);
+        expect(LensWriteSchema.parse({ fovDegrees: 45, near: 0.01, far: 100 }).fovDegrees).toBeCloseTo(45, 6);
+        expect(() => LensWriteSchema.parse({ ...testLens(), fovDegrees: 200 })).toThrow();
+    });
+    it("converts an FOV-only write through the current sensor (D4)", () => {
+        expect(resolveLensWrite(DEFAULT_CAMERA_LENS, { ...DEFAULT_CAMERA_LENS, fovDegrees: 20 })).toEqual(lensWithFovDegrees(DEFAULT_CAMERA_LENS, 20));
+    });
+    it("lets changed physical fields win over a stale fovDegrees (D12)", () => {
+        expect(resolveLensWrite(DEFAULT_CAMERA_LENS, { ...DEFAULT_CAMERA_LENS, focalLengthMm: 85 })).toEqual(lensWithFocalLength(DEFAULT_CAMERA_LENS, 85));
+        expect(resolveLensWrite(DEFAULT_CAMERA_LENS, { ...DEFAULT_CAMERA_LENS, sensorPreset: "apsC" })).toEqual(lensWithSensorPreset(DEFAULT_CAMERA_LENS, "apsC"));
+    });
+    it("keeps an unchanged lens unchanged", () => {
+        expect(resolveLensWrite(DEFAULT_CAMERA_LENS, { ...DEFAULT_CAMERA_LENS, fStop: 2 })).toEqual({ ...DEFAULT_CAMERA_LENS, fStop: 2 });
     });
 });
 

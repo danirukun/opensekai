@@ -19,7 +19,7 @@ import { AssetMaterialsSchema, MaterialGroupSchema, MaterialListSchema } from '.
 import { isWebScreenUrl } from './web-url';
 import { CAPTURE_STATES, CAPTURE_TEXT_LIMITS, captureTextLength, normalizeCaptureText } from './capture';
 import { SENSOR_PRESETS, type SensorPresetId } from './lens-math';
-import { normalizeLens } from './lens';
+import { normalizeLens, normalizeLensWrite } from './lens';
 import type { AppApi, Capability, Reply, ValidatedCall } from "./types";
 export const LIMITS = {
     jsonBytes: 262144,
@@ -133,7 +133,7 @@ export const EntityBaseSchema = z.strictObject({
 });
 export const SensorPresetSchema = z.enum(Object.keys(SENSOR_PRESETS) as [SensorPresetId, ...SensorPresetId[]]);
 // Accepts a legacy `{fovDegrees,near,far}` triple or a full physical lens; `normalizeLens` always migrates to the full shape (D12).
-export const LensSchema = z.preprocess(v => normalizeLens(v) ?? v, z.strictObject({
+const LensFieldsSchema = z.strictObject({
     focalLengthMm: n.min(12).max(300),
     fStop: n.min(1).max(32),
     focusDistance: n.positive(),
@@ -142,7 +142,10 @@ export const LensSchema = z.preprocess(v => normalizeLens(v) ?? v, z.strictObjec
     fovDegrees: n.min(1).max(179),
     near: n.positive(),
     far: n.positive()
-}).refine(l => l.far > l.near));
+}).refine(l => l.far > l.near);
+export const LensSchema = z.preprocess(v => normalizeLens(v) ?? v, LensFieldsSchema);
+// `setCameraLens` keeps the written fovDegrees; the session resolves it against the current lens (`resolveLensWrite`).
+export const LensWriteSchema = z.preprocess(v => normalizeLensWrite(v) ?? v, LensFieldsSchema);
 // Warudo Control Mode. A missing field means `none`, so an old show does not change.
 export const CameraNavigationSchema = z.discriminatedUnion("mode", [
     z.strictObject({ mode: z.literal("none") }),
@@ -337,7 +340,7 @@ export const PatchOpSchema = z.discriminatedUnion("kind", [
     z.strictObject({kind:z.literal('removeEntity'),entityId:IdSchema}),
     z.strictObject({kind:z.literal('setTrackingSmoothing'),entityId:IdSchema,smoothing:TrackingSmoothingSchema}),
     z.strictObject({kind:z.literal('createEntity'),entity:SceneEntitySchema}),
-    z.strictObject({kind:z.literal('setCameraLens'),entityId:IdSchema,lens:LensSchema}),
+    z.strictObject({kind:z.literal('setCameraLens'),entityId:IdSchema,lens:LensWriteSchema}),
     z.strictObject({kind:z.literal('setAvatarIdle'),entityId:IdSchema,idleAnimation:AvatarIdleSchema}),
     z.strictObject({kind:z.literal('setAvatarTracking'),entityId:IdSchema,tracking:AvatarTrackingSchema}),
     z.strictObject({kind:z.literal('setAvatarModel'),entityId:IdSchema,assetId:IdSchema.nullable()}),

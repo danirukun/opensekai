@@ -1,4 +1,4 @@
-import { SceneViewSchema, lightBudgetError, normalizeBodyTracking, setMeshesVisible, toggleMeshes, type AvatarTracking, type PatchOp, type ErrorCode, type Id, type Reply, type ScenePatch, type SceneView } from "@opensekai/contracts";
+import { SceneViewSchema, lightBudgetError, normalizeBodyTracking, resolveLensWrite, setMeshesVisible, toggleMeshes, type AvatarTracking, type PatchOp, type ErrorCode, type Id, type Reply, type ScenePatch, type SceneView } from "@opensekai/contracts";
 import type { SceneEffect } from "./blueprint";
 import { delta, followers, shifted } from "./camera-follow";
 
@@ -66,7 +66,7 @@ export function applyOperations(scene: SceneView, operations: ScenePatch["operat
                   if(entity.kind==='avatar')for(const id of followers(next,entity.id))if(!placed.has(id)){const camera=next.entities.find(item=>item.id===id)!;camera.transform.position=shifted(camera.transform.position,moved);}
                   break;
                  }
-                 case 'setCameraLens':if(entity.kind!=='camera')return failure('INVALID_INPUT','Entity is not a camera',[entity.id]);entity.lens=structuredClone(operation.lens);break;
+                 case 'setCameraLens':if(entity.kind!=='camera')return failure('INVALID_INPUT','Entity is not a camera',[entity.id]);entity.lens=resolveLensWrite(entity.lens,operation.lens);break;
                  case 'setAvatarIdle':if(entity.kind!=='avatar')return failure('INVALID_INPUT','Entity is not an avatar',[entity.id]);entity.idleAnimation=structuredClone(operation.idleAnimation);break;
                  case 'setAvatarTracking':if(entity.kind!=='avatar')return failure('INVALID_INPUT','Entity is not an avatar',[entity.id]);entity.tracking=withoutNullFingers(operation.tracking);break;
                  case 'setAvatarModel':if(entity.kind!=='avatar')return failure('INVALID_INPUT','Entity is not an avatar',[entity.id]);entity.assetId=operation.assetId;break;

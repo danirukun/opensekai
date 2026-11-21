@@ -75,3 +75,21 @@ export const lensWithFovDegrees = (lens: CameraLens, fovDegrees: number): Camera
 
 // A sensor change keeps the focal length and recomputes fovDegrees for the new sensor (D12).
 export const lensWithSensorPreset = (lens: CameraLens, sensorPreset: SensorPresetId): CameraLens => withRecomputedFov({ ...lens, sensorPreset });
+
+// Like `normalizeLens`, but a full lens keeps its written fovDegrees, so `resolveLensWrite` can see an FOV-only write.
+export function normalizeLensWrite(input: unknown): CameraLens | null {
+    const lens = normalizeLens(input);
+    if (!lens) return null;
+    const { focalLengthMm, fovDegrees } = input as Record<string, unknown>;
+    return focalLengthMm !== undefined && isFiniteNumber(fovDegrees) ? { ...lens, fovDegrees } : lens;
+}
+
+const FOV_WRITE_EPSILON_DEGREES = 1e-6;
+// A `setCameraLens` write that keeps the focal length and sensor but changes fovDegrees converts through the sensor (D4).
+// Any other write keeps its physical fields and recomputes fovDegrees from them (D12).
+export function resolveLensWrite(current: CameraLens, written: CameraLens): CameraLens {
+    const physical = withRecomputedFov(written);
+    const fovOnly = written.focalLengthMm === current.focalLengthMm && written.sensorPreset === current.sensorPreset
+        && Math.abs(written.fovDegrees - physical.fovDegrees) > FOV_WRITE_EPSILON_DEGREES;
+    return fovOnly ? lensWithFovDegrees(physical, written.fovDegrees) : physical;
+}
