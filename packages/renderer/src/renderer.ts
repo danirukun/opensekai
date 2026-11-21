@@ -30,6 +30,7 @@ import { applyPerspectiveLens } from "./lens";
 import { IMAGE_LOAD_FAILED, createScreenImagePool, createScreenMesh, loadScreenImage } from "./screen";
 import { createCameraEffects, createDirtSource } from "./camera-effects";
 import { activeEffects, effectsKey } from "./camera-effects-math";
+import { createLensLook, lookChainKey, lookQuality, needsLook } from "./lens-look";
 import { createWebLayers, createWebQuad, webQuadWidth, webScreenPlan, type WebLayers } from "./web-screen";
 import { loadVideoSource, openScreenVideo, type ScreenVideoPlayer, type VideoSource } from "./video-screen";
 import { createCaptureScreens, probeVideoDecoder, type CaptureHost } from "./capture-screen";
@@ -114,6 +115,8 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     const videos = createScreenImagePool<VideoSource>(id => loadVideoSource(() => options.resources.readAsset(id)));
     // The camera effects of the output camera (B37 R17), and its lens dirt image with one lease from the image pool (R20).
     const cameraEffects = createCameraEffects();
+    const lensLook = createLensLook();
+    const lookTier = lookQuality(quality.id);
     const dirt = createDirtSource(images);
     const audio = options.audio === true;
     // One socket and one decoder for each capture stream (B31 R14). WebGL 2 uploads the VideoFrame; WebGPU an ImageBitmap.
@@ -248,6 +251,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         assets.dispose();
         dirt.dispose();
         cameraEffects.dispose();
+        lensLook.dispose();
         images.dispose();
         videos.dispose();
         environmentLight.dispose();
@@ -490,6 +494,9 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         const fxKey = effectsKey(active, dirtId);
         if (fxKey !== "") cameraEffects.update(cameraEntity.effects, { width, height }, dirtImage);
         const effectsDrawn = fxKey === "" ? null : { key: fxKey, active, runtime: cameraEffects, dirt: dirtImage };
+        const lookKey = lookChainKey(cameraEntity.effects, lookTier);
+        if (lookKey !== "") lensLook.update(cameraEntity.effects, cameraEntity.lens, lookTier);
+        const lookDrawn = lookKey === "" || !cameraEntity.effects ? null : { key: lookKey, effects: cameraEntity.effects, quality: lookTier, runtime: lensLook };
         camera.aspect = width / height;
         applyPerspectiveLens(camera, cameraEntity.lens);
         const navigated = editor?.cameraTransform(cameraEntity.id);
@@ -497,7 +504,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         try {
             // three.js 0.180: on WebGPU a shadow first set up during a draw stays empty, so compile first; on WebGL 2 this compile leaves the shadow empty.
             if (lightsRebuilt && sceneLights.shadows() && backend === "webgpu") await compileOnce(() => renderer.compileAsync(scene, camera));
-            await postChain.render(scene, camera, cameraEntity.antiAliasing, hazeDrawn, cameraEntity.grading ?? null, beamsDrawn, effectsDrawn);
+            await postChain.render(scene, camera, cameraEntity.antiAliasing, hazeDrawn, cameraEntity.grading ?? null, beamsDrawn, effectsDrawn, lookDrawn);
             const blamed = blameFrame(blame, { haze: hazeDrawn !== null, beams: beamsDrawn !== null }, failureReports);
             blame = blamed.state;
             failureReports = [];
@@ -566,8 +573,9 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             const held = shotDirtId === null ? null : dirt.peek(shotDirtId);
             const lease = shotDirtId !== null && !held ? await images.acquire(shotDirtId).catch(() => null) : null;
             const shotEffects = entity.effects ? { effects: entity.effects, dirt: held ?? lease?.image ?? null } : null;
+            const shotLook = entity.effects && needsLook(entity.effects) ? { effects: entity.effects, lens: entity.lens, quality: lookTier } : null;
             let png: Uint8Array;
-            try { png = await renderScreenshot({ renderer, backend, scene, camera: shotCamera, show, antiAliasing: entity.antiAliasing ?? "none", msaaSamples: quality.msaaSamples, haze: shotHaze, grading: entity.grading ?? null, beams: shotBeams, effects: shotEffects }); }
+            try { png = await renderScreenshot({ renderer, backend, scene, camera: shotCamera, show, antiAliasing: entity.antiAliasing ?? "none", msaaSamples: quality.msaaSamples, haze: shotHaze, grading: entity.grading ?? null, beams: shotBeams, effects: shotEffects, look: shotLook }); }
             finally { lease?.release(); }
             if (disposed) throw failure("CANCELLED", "Renderer disposed");
             if (png.byteLength > LIMITS.screenshotPngBytes) throw failure("INVALID_INPUT", "Screenshot PNG exceeds 8 MiB");
