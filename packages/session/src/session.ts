@@ -12,8 +12,7 @@ import { isBoneOffsetEffect, isCharacterLayerEffect, isDebugEffect, isExpression
 import { createDebugLog } from './debug-log';
 import { composeBoneOffsets, EMPTY_BONE_OFFSETS, writeBoneOffset, type BoneOffsets } from './bone-offsets';
 import { advanceExpressions, composeExpressions, dropExpressionFades, EMPTY_EXPRESSIONS, expressionOwners, expressionView, reconcileExpressions, setExpression, type ExpressionStates } from './expressions';
-import { applyOverrides, dropOverrides, EMPTY_OVERRIDES, evaluatedEntity, takeIdle, type OverrideLayer } from './overrides';
-import type { PropertyKey } from '@opensekai/contracts';
+import { applyOverrides, dropOverrides, EMPTY_OVERRIDES, evaluatedEntity, materialKey, resolveMaterialWrite, takeIdle, type OverrideKey, type OverrideLayer } from './overrides';
 import { advanceTweens, dropGraphTweens, dropTweens, EMPTY_TWEENS, transitionStart, tweenOwners, tweening, writeOrbit, writeTransitioned, type PropertyLayers, type TransitionEnd, type TweenLayer } from './tweens';
 import { advanceBlendShapes, blendShapeOwners, composeBlendShapes, dropGraphBlendShapes, EMPTY_BLEND_SHAPES, setBlendShape, type BlendShapeStates } from './blend-shapes';
 import { vmcPosesFor, withSendersStopped } from './vmc-send';
@@ -58,7 +57,7 @@ const failure = (code: ErrorCode, message: string, ids: Id[] = []): Reply<never>
 const writeKey = (entityId: Id, property: string) => `${entityId}\0${property}`;
 // The value of an override entry without its write time and graphs: a write of the value that the layer already holds
 // compares equal, also when another run wrote it at the same session time (Editor and MCP fixes R7).
-const entryValue = (layer: OverrideLayer, entityId: Id, property: PropertyKey) => {
+const entryValue = (layer: OverrideLayer, entityId: Id, property: OverrideKey) => {
     const entry = layer.get(entityId)?.get(property);
     return entry ? JSON.stringify([entry.value, entry.followRelative === true]) : null;
 };
@@ -161,11 +160,18 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             // Only a wired On Transition End records an end, so an old graph never meets the end limits.
             const wired = new Set(store.active(run.graphId)?.connections.flatMap(wire => wire.sourcePort === 'transitionEnd' ? [wire.sourceNodeId] : []));
             const keys: string[] = [];
-            for (const effect of run.effects) {
+            for (let effect of run.effects) {
                 if (!isOverrideEffect(effect) && !isOrbitEffect(effect)) continue;
-                const touched: [Id, PropertyKey][] = effect.kind === 'orbitCamera' ? [[effect.cameraId, 'position'], [effect.cameraId, 'rotation']] : [[effect.entityId, effect.kind === 'setProperty' ? effect.property : 'position']];
+                // A material write needs the record material of the entity (B38 R24).
+                if (effect.kind === 'setMaterial') {
+                    const resolved = resolveMaterialWrite(scene, effect, record);
+                    if (!resolved.ok) return resolved.error;
+                    effect = resolved.data;
+                }
+                const touched: [Id, OverrideKey][] = effect.kind === 'orbitCamera' ? [[effect.cameraId, 'position'], [effect.cameraId, 'rotation']]
+                    : [[effect.entityId, effect.kind === 'setProperty' ? effect.property : effect.kind === 'setMaterial' ? materialKey(effect.parameter, effect.material) : 'position']];
                 const before = touched.map(([id, property]) => entryValue(nextLayers.overrides, id, property));
-                const nodeId = effect.kind === 'setProperty' || effect.kind === 'orbitCamera' ? effect.nodeId : undefined;
+                const nodeId = effect.kind === 'setProperty' || effect.kind === 'orbitCamera' || effect.kind === 'setMaterial' ? effect.nodeId : undefined;
                 const end = nodeId !== undefined && logic !== null && wired.has(nodeId) ? { graphId: run.graphId, nodeId, logic } : undefined;
                 const written = isOrbitEffect(effect) ? writeOrbit(nextLayers, scene, effect, run.graphId, nowMs, startMs, end) : writeTransitioned(nextLayers, scene, effect, run.graphId, nowMs, startMs, end);
                 if (!written.ok) return written.error;
@@ -503,7 +509,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             const assetId = entity.kind === 'avatar' ? entity.assetId : entity.kind === 'mesh' && entity.source.kind === 'asset' ? entity.source.assetId : null;
             const materials = assetId === null ? undefined : record(assetId)?.materials;
             if (!materials) return failure('INVALID_INPUT', 'Entity has no materials', [entityId]);
-            return { ok: true, data: materialList(materials) };
+            return { ok: true, data: materialList(materials, entity.kind === 'avatar' || entity.kind === 'mesh' ? entity.materials : undefined) };
         },
         getExpressions(avatarId) {
             return expressionView(reconcileExpressions(expressions, persistent), persistent, record, avatarId);

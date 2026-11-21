@@ -1,10 +1,10 @@
 <script lang="ts">
  import { Button, ColorPicker, Input, Select, Textarea } from '@oshi-connect/ui';
  import { Plus, X } from '@lucide/svelte';
- import { blendShapeNames, DEFAULT_EASING, EASINGS, MAX_NODE_MESHES, nodeDefinition, triggerableExpressions, type AssetRecord, type BlueprintField, type BlueprintNode, type BlueprintVariable, type DataType, type KeystrokeSettings, type SceneView, type Vec3 } from '@opensekai/contracts';
+ import { blendShapeNames, DEFAULT_EASING, EASINGS, materialParameter, MAX_NODE_MESHES, nodeDefinition, triggerableExpressions, type AssetRecord, type BlueprintField, type BlueprintNode, type BlueprintVariable, type DataType, type KeystrokeSettings, type SceneView, type Vec3 } from '@opensekai/contracts';
  import KeystrokeField from './KeystrokeField.svelte';
  import { chooseTypedVariable, formatStringCases, parseStringCases, resizeTypes, typedVariableOptions } from '../blueprints/data-fields';
- import { addBone, addRow, boneEntryOptions, boneLabel, boneOptions, cellNumber, dataTypeOptions, fitPropertySettings, formatCases, keyOptions, parseCases, parseScalar, propertyOptions, rangePart, removeBone, removeRow, setRowCell, vectorParts } from '../blueprints/fields';
+ import { addBone, addRow, boneEntryOptions, boneLabel, boneOptions, cellNumber, dataTypeOptions, fitMaterialSettings, fitPropertySettings, materialOptions, materialParameterOptions, propOptions, formatCases, keyOptions, parseCases, parseScalar, propertyOptions, rangePart, removeBone, removeRow, setRowCell, vectorParts } from '../blueprints/fields';
 
  let { node, scene, assets = [], graphs = [], variables, platform, unavailable, onsettings }: {
   node: BlueprintNode; scene: SceneView | null; assets?: readonly AssetRecord[]; graphs?: readonly { id: string; name: string }[]; variables: readonly BlueprintVariable[]; platform: string; unavailable: boolean;
@@ -14,7 +14,8 @@
  const fields = $derived(nodeDefinition(node.type).fields);
  const set = (key: string, value: unknown) => {
   const next = { ...settings, [key]: value } as BlueprintNode['settings'];
-  onsettings(node.type === 'property.get' || node.type === 'property.set' ? fitPropertySettings(next as never, scene) : next);
+  onsettings(node.type === 'property.get' || node.type === 'property.set' ? fitPropertySettings(next as never, scene)
+   : node.type.endsWith('.setMaterialProperty') || node.type.endsWith('.resetMaterialProperty') ? fitMaterialSettings(next as never, scene, assets) : next);
  };
  const spaces = [{ value: 'world', label: 'World' }, { value: 'local', label: 'Local' }];
  const truth = [{ value: 'true', label: 'True' }, { value: 'false', label: 'False' }];
@@ -53,6 +54,9 @@
   // A second entity field (the Look At target) does not offer the node's own character.
   field.kind === 'entity' ? (scene?.entities ?? []).filter(entity => entity.kind !== 'tracking' && (field.key === 'entityId' || entity.id !== settings.entityId)).map(entity => ({ value: entity.id, label: entity.name }))
   : field.kind === 'avatar' ? (scene?.entities ?? []).filter(entity => entity.kind === 'avatar').map(entity => ({ value: entity.id, label: entity.name }))
+  : field.kind === 'prop' ? propOptions(scene)
+  : field.kind === 'material' ? materialOptions(scene, assets, String(settings.entityId))
+  : field.kind === 'materialParameter' ? materialParameterOptions(scene, assets, String(settings.entityId), String(settings.material))
   : field.kind === 'trackingSource' ? (scene?.entities ?? []).filter(entity => entity.kind === 'tracking').map(entity => ({ value: entity.id, label: entity.name }))
   : field.kind === 'expression' ? expressionChoices()
   : field.kind === 'blendshape' ? blendShapeChoices()
@@ -110,7 +114,9 @@
  const rowName = (field: RowsField) => field.label.toLowerCase().replace(/s$/, '');
  const options = (field: BlueprintField) => {
   const list = choices(field), value = settings[field.key];
-  return (field.kind === 'entity' || field.kind === 'camera' || field.kind === 'output' || field.kind === 'avatar' || field.kind === 'trackingSource' || field.kind === 'expression' || field.kind === 'blendshape' || field.kind === 'typedVariable' || field.kind === 'graph') && typeof value === 'string' && !list.some(item => item.value === value)
+  // A parameter that does not apply (for a missing material) keeps its own label.
+  if (field.kind === 'materialParameter') return list.some(item => item.value === value) ? list : [{ value: String(value), label: materialParameter(value as never)?.label ?? String(value) }, ...list];
+  return (field.kind === 'entity' || field.kind === 'camera' || field.kind === 'output' || field.kind === 'avatar' || field.kind === 'prop' || field.kind === 'material' || field.kind === 'trackingSource' || field.kind === 'expression' || field.kind === 'blendshape' || field.kind === 'typedVariable' || field.kind === 'graph') && typeof value === 'string' && !list.some(item => item.value === value)
    ? [{ value, label: 'Missing' }, ...list] : list;
  };
 </script>
@@ -144,7 +150,7 @@
  {:else if field.kind === 'property'}
   <Select label={field.label} value={String(settings[field.key])} options={propertyOptions(scene, String(settings.entityId))} onchange={event => set(field.key, event.currentTarget.value)} />
  {:else if field.kind === 'easing'}
-  <Select label={field.label} value={String(settings[field.key] ?? DEFAULT_EASING)} options={choices(field)} onchange={event => set(field.key, event.currentTarget.value)} />
+  <Select label={field.label} value={String(settings[field.key] ?? field.fallback ?? DEFAULT_EASING)} options={choices(field)} onchange={event => set(field.key, event.currentTarget.value)} />
  {:else if field.kind === 'space'}
   <Select label={field.label} value={String(settings[field.key])} options={spaces} onchange={event => set(field.key, event.currentTarget.value)} />
  {:else if field.kind === 'choice'}

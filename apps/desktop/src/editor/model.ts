@@ -1,5 +1,5 @@
-import { ExpressionNameSchema,ExpressionSettingsSchema,TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,FitNeutralSchema,TrackingSmoothingSchema,TrackingMappingSchema,EntityNameSchema,ShowSceneSchema,IdSchema,CameraAntiAliasingSchema,CameraGradingSchema,AvatarLightingSchema,CameraEffectsSchema,CameraNavigationSchema,LightSettingsSchema,HazeSettingsSchema,FpsCounterSettingsSchema,VmcSenderSettingsSchema,ReflectionsIntensitySchema,PatchOpSchema,ScreenVideoSchema,WebScreenSchema,ScreenCaptureSchema,isLightBudgetMessage } from '@opensekai/contracts';
-import type { ExpressionSettings, AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing, TrackingMapping, ArkitName, CameraAntiAliasing, CameraGrading, AvatarLighting, CameraEffects, CameraNavigation, CameraScreenshotResult, LightSettings, HazeSettings, FpsCounterSettings, VmcSenderSettings, ScreenVideo, ScreenVideoAction, WebScreen, ScreenCapture } from '@opensekai/contracts';
+import { ExpressionNameSchema,ExpressionSettingsSchema,TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,FitNeutralSchema,TrackingSmoothingSchema,TrackingMappingSchema,EntityNameSchema,ShowSceneSchema,IdSchema,CameraAntiAliasingSchema,CameraGradingSchema,AvatarLightingSchema,CameraEffectsSchema,CameraNavigationSchema,LightSettingsSchema,HazeSettingsSchema,FpsCounterSettingsSchema,VmcSenderSettingsSchema,ReflectionsIntensitySchema,PatchOpSchema,ScreenVideoSchema,WebScreenSchema,ScreenCaptureSchema,isLightBudgetMessage,MaterialGroupSchema } from '@opensekai/contracts';
+import type { ExpressionSettings, AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing, TrackingMapping, ArkitName, CameraAntiAliasing, CameraGrading, AvatarLighting, CameraEffects, CameraNavigation, CameraScreenshotResult, LightSettings, HazeSettings, FpsCounterSettings, VmcSenderSettings, ScreenVideo, ScreenVideoAction, WebScreen, ScreenCapture, MaterialValues } from '@opensekai/contracts';
 import {makeEntityCopy} from './asset-management';
 type CameraLens=Extract<SceneEntity,{kind:'camera'}>['lens'];
 export interface EditorView {
@@ -270,6 +270,11 @@ export function createEditorModel(api: AppApi) {
   },
   setVisibility(entityId: Id, visible: boolean, expectedRevision?: number): Promise<Reply<{ revision: number }>> { return patch({ kind: 'setVisibility', entityId, visible }, expectedRevision); },
   setHiddenMeshes(entityId: Id, hiddenMeshes: string[], expectedRevision?: number): Promise<Reply<{ revision: number }>> { return patch({ kind: 'setHiddenMeshes', entityId, hiddenMeshes }, expectedRevision); },
+  // B38 R29: the whole saved group of a character or a prop; `{}` removes all.
+  setMaterialValues(entityId: Id, materials: Record<string, MaterialValues>, expectedRevision?: number, live = false): Promise<Reply<{ revision: number }>> {
+   const parsed = MaterialGroupSchema.safeParse(materials); if (!(ofKind(entityId, 'avatar') || ofKind(entityId, 'mesh')) || !parsed.success) return invalid();
+   return patch({ kind: 'setMaterialValues', entityId, materials: parsed.data }, expectedRevision, live);
+  },
   selectCamera(cameraId: Id, expectedRevision?: number): Promise<Reply<{ revision: number }>> {
    if (expectedRevision !== undefined && expectedRevision !== view.scene?.revision) { publish({ error: 'CONFLICT' }); return Promise.resolve(failure('CONFLICT')); }
    return execute(async () => {

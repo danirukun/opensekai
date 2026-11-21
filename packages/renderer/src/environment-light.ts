@@ -54,6 +54,8 @@ export interface InstanceMaterials {
     reflections(intensity: number): void;
     /** Disposes the copies only. Textures stay with the asset cache and the map stays with the light. */
     dispose(): void;
+    /** Each copy, to its loaded material. */
+    readonly originals: ReadonlyMap<Material, Material>;
 }
 export interface EnvironmentLight {
     apply(root: Object3D): InstanceMaterials;
@@ -93,6 +95,7 @@ export function createEnvironmentLight(makeMap: () => EnvironmentMap): Environme
             });
             let intensity = 1;
             return {
+                originals: new Map([...copies].map(([material, made]) => [made, material])),
                 reflections(next) {
                     if (next === intensity) return;
                     intensity = next;

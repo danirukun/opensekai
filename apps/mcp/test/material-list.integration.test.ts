@@ -12,7 +12,7 @@ it('lists the materials of a character and refuses another kind', async () => {
   expect(await call({ entityId: 'performer' })).toEqual({ ok: true, data: { materials: [{ name: 'Skin', profile: 'mtoon', parameters: [
    { parameter: 'baseColor', model: '#ffffff' }, { parameter: 'emissionColor', model: '#000000' }, { parameter: 'emissionStrength', model: 1 },
    { parameter: 'shadeColor', model: '#ffcccc' }, { parameter: 'rimColor', model: '#000000' },
-  ] }] } });
+  ] }], unknown: [] } });
   expect(await call({ entityId: 'camera_wide' })).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', message: 'Entity has no materials' } });
   expect(await call({ entityId: 'nobody' })).toMatchObject({ ok: false, error: { code: 'NOT_FOUND' } });
   // The tool input schema refuses the parameter of mesh_list.

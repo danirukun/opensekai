@@ -14,6 +14,7 @@
  import { shortcutFor } from '../blueprints/keys';
  import { copyNodes, duplicateAnchor, pasteOps, type BlueprintClipboard } from '../blueprints/clipboard';
  import { formatLayout, formatOps } from '../blueprints/layout';
+ import { materialOptions } from '../blueprints/fields';
  import { wrapComment } from '../blueprints/comments';
  import type { EditorMemory } from '../blueprints/editor-memory';
  import type { SearchEntry, WireNeed } from '../blueprints/node-search';
@@ -103,7 +104,9 @@
   return avatar?.kind === 'avatar' && avatar.assetId !== null ? assets.find(asset => asset.id === avatar.assetId)?.meshes ?? [] : [];
  };
  const avatarId = $derived(face?.avatarId ?? scene?.entities.find(entity => entity.kind === 'avatar' && meshesOf(entity.id).length > 0)?.id);
- const refs = $derived<DefaultRefs>({ entityId: targets[0]?.id, avatarId, expression: face?.expression, mesh: meshesOf(avatarId)[0]?.name, cameraId: cameras[0]?.id, outputId, trackingSourceId: trackingSources[0]?.id, keystroke: defaultKeystroke(platform), variables: graph?.variables ?? [], graphId: graph?.id });
+ // The first record material of the default character, and the first prop with a model that has materials (B38 R22).
+ const prop = $derived(scene?.entities.find(entity => materialOptions(scene, assets, entity.id).length > 0 && entity.kind === 'mesh'));
+ const refs = $derived<DefaultRefs>({ entityId: targets[0]?.id, avatarId, expression: face?.expression, mesh: meshesOf(avatarId)[0]?.name, material: avatarId ? materialOptions(scene, assets, avatarId)[0]?.value : undefined, propId: prop?.id, propMaterial: prop ? materialOptions(scene, assets, prop.id)[0]?.value : undefined, cameraId: cameras[0]?.id, outputId, trackingSourceId: trackingSources[0]?.id, keystroke: defaultKeystroke(platform), variables: graph?.variables ?? [], graphId: graph?.id });
  const taken = $derived(new Set((status?.warnings ?? []).flatMap(warning => warning.ids)));
  const inputWarning = $derived(status?.warnings.find(warning => warning.ids.includes('input-monitoring')));
  const deviceWarnings = $derived((status?.warnings ?? []).filter(warning => warning.ids.some(id => id === 'device-gamepad' || id === 'device-midi' || id === 'device-pointer')));

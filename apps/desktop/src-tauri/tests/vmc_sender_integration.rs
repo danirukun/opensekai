@@ -40,6 +40,7 @@ fn avatar(asset: &str) -> SceneEntity {
         expressions: None,
         hidden_meshes: None,
         lighting: None,
+        materials: None,
     }
 }
 fn sender(id: &str, enabled: bool, port: u16) -> SceneEntity {

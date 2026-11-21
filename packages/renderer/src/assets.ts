@@ -4,7 +4,7 @@ import { MToonMaterialLoaderPlugin, VRMLoaderPlugin, VRMUtils, type VRM } from "
 import { CharacterMToonMaterial } from "./character-mtoon";
 import { CharacterLilToonMaterial } from "./character-liltoon";
 import { enableLilToonNodeVRM, type LilToonNodeWarning } from "@mochiya/three-liltoon/webgpu";
-import { MODEL_INFO_LIMITS, materialReport, materialWarning, meshEntries, modelInfo, type AssetDebug, type LiveTexture, type ModelInfo, type ResourceHost, type AppError } from "@opensekai/contracts";
+import { MODEL_INFO_LIMITS, materialEntries, materialReport, materialWarning, meshEntries, modelInfo, type AssetDebug, type LiveTexture, type ModelInfo, type ResourceHost, type AppError } from "@opensekai/contracts";
 import type { Object3D, Mesh, SkinnedMesh, Material, Texture } from "three/webgpu";
 import { failure } from "./apply-frame";
 import { createTexturePool } from "./texture-sharing";
@@ -180,6 +180,8 @@ export function createAssetLoader(resources: ResourceHost, options: { maxTexture
             const { extensions, imageCount, json } = inspectContainer(bytes);
             const material = materialWarning(materialReport(json));
             const info = modelInfo(json);
+            // The record materials (B38 R28): the renderer binds the saved values by these names.
+            const materials = materialEntries(json);
             imageTotal = imageCount;
             if (imageTotal > 0) report({ stage: 'textures', progress: 0, count: { done: 0, total: imageTotal } });
             const gltf = await loader.parseAsync(bytes, "");
@@ -193,7 +195,9 @@ export function createAssetLoader(resources: ResourceHost, options: { maxTexture
             for (const warning of lilToon) warnings.push({ code: "UNSUPPORTED", message: `lilToon ${warning.materialName} (${warning.property}): ${warning.message}`, ids: [id] });
             const debug: AssetDebug = { info, textures: liveTextures(gltf.scene, gltf.parser.associations, info), warnings: warnings.slice(0, MODEL_INFO_LIMITS.warnings) };
             let disposed = false;
-            return { scene: gltf.scene, vrm, meshes: vrm ? meshObjects(gltf) : undefined, warnings, debug, dispose() { if (disposed)
+            const associations = gltf.parser.associations as Map<unknown, { materials?: number }>;
+            const materialIndex = (material: Material) => associations.get(material)?.materials;
+            return { scene: gltf.scene, vrm, meshes: vrm ? meshObjects(gltf) : undefined, materials, materialIndex, warnings, debug, dispose() { if (disposed)
                     return; disposed = true; disposeObject(gltf.scene, lease); lease.release(); } };
         } catch (error) {
             lease.release();
