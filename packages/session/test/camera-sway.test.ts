@@ -20,9 +20,9 @@ it('loops the camera between its pose and the sway pose on the session clock, wi
  for (let ms = 0; ms <= 13000; ms += 20) frames.set(ms, session.advance(ms));
  // On Enable runs on the first step; each move takes 3 s, and the next starts on the step after the end, from the time of the previous step.
  expect(near(camera(frames.get(3000)!).transform.position, sway)).toBe(true);
- expect(camera(frames.get(3000)!).lens.fovDegrees).toBe(start.lens.fovDegrees - 5);
+ expect(camera(frames.get(3000)!).lens.fovDegrees).toBeCloseTo(start.lens.fovDegrees - 5, 9);
  expect(near(camera(frames.get(6000)!).transform.position, start.transform.position)).toBe(true);
- expect(camera(frames.get(6000)!).lens.fovDegrees).toBe(start.lens.fovDegrees);
+ expect(camera(frames.get(6000)!).lens.fovDegrees).toBeCloseTo(start.lens.fovDegrees, 9);
  expect(near(camera(frames.get(9000)!).transform.position, sway)).toBe(true);
  const middle = camera(frames.get(1500)!).transform.position;
  expect(near(middle, start.transform.position) || near(middle, sway)).toBe(false);

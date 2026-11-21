@@ -72,3 +72,6 @@ export const lensWithFovDegrees = (lens: CameraLens, fovDegrees: number): Camera
     ...lens,
     focalLengthMm: focalLengthMmFromVerticalFov(fovDegrees, SENSOR_PRESETS[lens.sensorPreset].heightMm)
 });
+
+// A sensor change keeps the focal length and recomputes fovDegrees for the new sensor (D12).
+export const lensWithSensorPreset = (lens: CameraLens, sensorPreset: SensorPresetId): CameraLens => withRecomputedFov({ ...lens, sensorPreset });

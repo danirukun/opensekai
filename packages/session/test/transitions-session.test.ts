@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { makeSmokeScene, type AssetRecord, type RuntimeFrame } from '@opensekai/contracts';
+import { DEFAULT_CAMERA_LENS, lensWithFovDegrees, makeSmokeScene, type AssetRecord, type RuntimeFrame } from '@opensekai/contracts';
 import { quatToEuler } from '../src/bone-offsets';
 import { createSession } from '../src/session';
 
@@ -73,9 +73,9 @@ it('stops a transition when a patch sets the property, and the patch value stays
  const s = start([num('wide', 85), node('lens', 'property.set', { entityId: 'camera_wide', property: 'fovDegrees', transitionSeconds: 1 })], [wire('a', 'go', 'flow', 'lens', 'flow'), wire('b', 'wide', 'value', 'lens', 'value')]);
  run(s);
  ticks(s, 20, 500);
- expect(s.applyPatch({ sceneId: 'scene_smoke', expectedRevision: 0, operations: [{ kind: 'setCameraLens', entityId: 'camera_wide', lens: { fovDegrees: 30, near: 0.01, far: 100 } }] })).toEqual({ ok: true, data: { revision: 1 } });
+ expect(s.applyPatch({ sceneId: 'scene_smoke', expectedRevision: 0, operations: [{ kind: 'setCameraLens', entityId: 'camera_wide', lens: { ...lensWithFovDegrees(DEFAULT_CAMERA_LENS, 30), near: 0.01, far: 100 } }] })).toEqual({ ok: true, data: { revision: 1 } });
  const frames = ticks(s, 520, 1600);
- expect(fov(frames.get(1000)!)).toBe(30);
+ expect(fov(frames.get(1000)!)).toBeCloseTo(30, 9);
  expect(s.inspect().revision).toBe(1);
 });
 

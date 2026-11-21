@@ -173,7 +173,7 @@ const zoomFrames = (updates: number) => {
 
 it('steps Smooth Damp once per session tick when two On Update nodes read it', () => {
  const one = zoomFrames(1), two = zoomFrames(2);
- expect(one[0]).toBe(40);
+ expect(one[0]).toBeCloseTo(40, 9);
  expect(one[5]).toBeGreaterThan(40); expect(one[5]).toBeLessThan(65);
  expect(one.at(-1)).toBeCloseTo(70, 2);
  two.forEach((value, i) => expect(value, `tick ${i}`).toBeCloseTo(one[i]!, 9));

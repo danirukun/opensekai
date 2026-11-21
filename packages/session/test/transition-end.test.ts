@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { makeSmokeScene, type BlueprintOp } from '@opensekai/contracts';
+import { DEFAULT_CAMERA_LENS, lensWithFovDegrees, makeSmokeScene, type BlueprintOp } from '@opensekai/contracts';
 import { compileBlueprint } from '../src/blueprint';
 import { createSession } from '../src/session';
 import { EMPTY_TWEENS, MAX_PENDING_ENDS, startTween, writeTransitioned, type PropertyLayers, type TransitionEnd } from '../src/tweens';
@@ -62,7 +62,7 @@ it('runs no end when a patch, an immediate write, a new target, or a disable sto
  const patch = start(ended(fov('set', 60, 1)));
  run(patch);
  patch.advance(500);
- expect(patch.applyPatch({ sceneId: 'scene_smoke', expectedRevision: 0, operations: [{ kind: 'setCameraLens', entityId: 'camera_wide', lens: { fovDegrees: 30, near: 0.01, far: 100 } }] }).ok).toBe(true);
+ expect(patch.applyPatch({ sceneId: 'scene_smoke', expectedRevision: 0, operations: [{ kind: 'setCameraLens', entityId: 'camera_wide', lens: { ...lensWithFovDegrees(DEFAULT_CAMERA_LENS, 30), near: 0.01, far: 100 } }] }).ok).toBe(true);
  for (let ms = 520; ms <= 1500; ms += 20) patch.advance(ms);
  expect(lines(patch)).toEqual([]);
 

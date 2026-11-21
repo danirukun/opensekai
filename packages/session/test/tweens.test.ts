@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { eulerFromQuaternion, makeSmokeScene, quaternionFromEuler, type AssetRecord, type Quat, type SceneView } from '@opensekai/contracts';
+import { DEFAULT_CAMERA_LENS, eulerFromQuaternion, lensWithFovDegrees, makeSmokeScene, quaternionFromEuler, type AssetRecord, type Quat, type SceneView } from '@opensekai/contracts';
 import { EMPTY_OVERRIDES, applyOverrides, takeIdle } from '../src/overrides';
 import { advanceTweens, dropTweens, EMPTY_TWEENS, MAX_TWEENS, sampleTween, startTween, tweening, writeTransitioned, type PropertyLayers, type PropertyTween, type Transition } from '../src/tweens';
 import { advanceBlendShapes, composeBlendShapes, EMPTY_BLEND_SHAPES, setBlendShape } from '../src/blend-shapes';
@@ -63,10 +63,10 @@ it('replaces a tween from the current value, and an immediate write or a patch s
  expect(fovAt(layers, 1000).fov).toBeCloseTo(45);
  const immediate = setFov(layers, 30, undefined, 600);
  expect(immediate.tweens.size).toBe(0);
- expect(immediate.overrides.get('camera_wide')?.get('fovDegrees')?.value).toBe(30);
+ expect(immediate.overrides.get('camera_wide')?.get('fovDegrees')?.value).toBeCloseTo(30, 9);
  const moved = ok(writeTransitioned({ overrides: EMPTY_OVERRIDES, tweens: ok(startTween(EMPTY_TWEENS, scene, EMPTY_OVERRIDES, { kind: 'setProperty', entityId: 'reference', property: 'position', value: [0, 0, 0] }, linear(1), 'g', 0)) }, scene, { kind: 'moveEntity', entityId: 'reference', space: 'world', delta: [0, 1, 0] }, 'g', 10));
  expect(moved.tweens.size).toBe(0);
- expect(dropTweens(layers.tweens, [{ kind: 'setCameraLens', entityId: 'camera_wide', lens: { fovDegrees: 50, near: 0.01, far: 100 } }]).size).toBe(0);
+ expect(dropTweens(layers.tweens, [{ kind: 'setCameraLens', entityId: 'camera_wide', lens: { ...lensWithFovDegrees(DEFAULT_CAMERA_LENS, 50), near: 0.01, far: 100 } }]).size).toBe(0);
  expect(dropTweens(layers.tweens, [{ kind: 'setVisibility', entityId: 'camera_wide', visible: false }])).toBe(layers.tweens);
  expect(dropTweens(layers.tweens, [{ kind: 'removeEntity', entityId: 'camera_wide' }]).size).toBe(0);
 });
