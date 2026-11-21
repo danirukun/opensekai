@@ -2,6 +2,7 @@ import { canonicalArkitName, type ArkitName, type AvatarPose, type BlueprintNode
 import { boneEuler } from '../bone-offsets';
 import type { StepEnv } from '../blueprint-runtime';
 import { initialPendulumState, mixPendulumInputs, pendulumOutput, stepPendulum, type PendulumReading, type PendulumState } from '../pendulum';
+import { bouncySpringOutput, initialBouncySpringState, mixBouncyDrive, stepBouncySpring, type BouncyDrive, type BouncySpringState } from '../bouncy-spring';
 import { getNodeState, setNodeState, type EvaluatorTable, type NodeState, type RunEnv, type RunState } from './types';
 
 export const trackedBlendShape = (pose: AvatarPose | null, name: ArkitName): number =>
@@ -63,6 +64,24 @@ function pendulum(node: BlueprintNodeOf<'tracking.pendulum'>, state: RunState, e
  return due ? store(stepPendulum(stored, arms, mix(), inputSmoothing, Math.min(env.deltaSeconds, 1))) : pendulumOutput(stored);
 }
 
+// The plan Task 1 defaults: node settings carry no clamp fields, so the drive clamps the pitch to [-1, 1] turns and the jaw to [0, 1].
+const BOUNCY_PITCH_CLAMP: BouncyDrive['pitchClamp'] = [-1, 1];
+const BOUNCY_JAW_CLAMP: BouncyDrive['jawClamp'] = [0, 1];
+type BouncySpringNodeState = BouncySpringState & { stepMs: number | null };
+// Mirrors Pendulum's `stepMs` due rule: the first read starts at the input mix, then one step per session tick.
+function bouncySpring(node: BlueprintNodeOf<'tracking.bouncySpring'>, state: RunState, env: RunEnv): number {
+ const pose = characterPose(node.settings.entityId, env);
+ const { pitchWeight, pitchScale, jawWeight, jawScale, spring, damping, inputSmoothing } = node.settings;
+ const drive: BouncyDrive = { pitchWeight, pitchScale, jawWeight, jawScale, pitchClamp: BOUNCY_PITCH_CLAMP, jawClamp: BOUNCY_JAW_CLAMP };
+ const target = () => mixBouncyDrive(boneEuler(pose, 'head')[0], trackedBlendShape(pose, 'jawOpen'), drive);
+ const stored = getNodeState<BouncySpringNodeState & NodeState>(state, node.id);
+ const moving = env.deltaSeconds > 0, stepMs = moving ? env.tickMs ?? null : null;
+ const store = (next: BouncySpringState) => { setNodeState(state, node.id, { ...next, stepMs } as unknown as NodeState); return bouncySpringOutput(next); };
+ if (!stored) return store(initialBouncySpringState(target()));
+ const due = moving && (env.tickMs === undefined || stored.stepMs === null || env.tickMs > stored.stepMs);
+ return due ? store(stepBouncySpring(stored, target(), spring, damping, inputSmoothing, Math.min(env.deltaSeconds, 1))) : bouncySpringOutput(stored);
+}
+
 export const TRACKING_EVALUATORS = {
  'tracking.getBlendShape': { data: (node, _o, _r, _s, env) => trackedBlendShape(characterPose(node.settings.entityId, env), node.settings.blendShape) },
  'tracking.getHeadPose': { data: (node, output, _r, _s, env) => {
@@ -73,6 +92,7 @@ export const TRACKING_EVALUATORS = {
   return head ? head.weight ?? 1 : 0;
  } },
  'tracking.pendulum': { data: (node, _o, _r, state, env) => pendulum(node, state, env) },
+ 'tracking.bouncySpring': { data: (node, _o, _r, state, env) => bouncySpring(node, state, env) },
  'tracking.onBlendShapeThreshold': { data: (node, _o, _r, _s, env) => trackedBlendShape(env.previousPose?.(node.settings.entityId) ?? null, node.settings.blendShape) },
  'tracking.onLost': {},
  'tracking.onFound': {},
