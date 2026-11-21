@@ -38,7 +38,7 @@ export function applyOperations(scene: SceneView, operations: ScenePatch["operat
             for (const operation of operations) {
                 if(operation.kind==='createEntity'){
                     if(next.entities.some(e=>e.id===operation.entity.id))return failure('INVALID_INPUT','Duplicate entity ID',[operation.entity.id]);
-                    const created=structuredClone(operation.entity);if(created.kind==='avatar'&&created.hiddenMeshes?.length===0)delete created.hiddenMeshes;if(created.kind==='tracking')created.generation=generation;if(created.kind==='avatar'&&created.tracking)created.tracking=withoutNullFingers(created.tracking);next.entities.push(created);continue;
+                    const created=structuredClone(operation.entity);if(created.kind==='avatar'&&created.hiddenMeshes?.length===0)delete created.hiddenMeshes;if((created.kind==='avatar'||created.kind==='mesh')&&created.materials&&Object.keys(created.materials).length===0)delete created.materials;if(created.kind==='tracking')created.generation=generation;if(created.kind==='avatar'&&created.tracking)created.tracking=withoutNullFingers(created.tracking);next.entities.push(created);continue;
                 }
                 // An output format change has no entity ID; only the OBS output takes one (B22 R3).
                 if(operation.kind==='setOutputFormat'){
@@ -90,6 +90,8 @@ export function applyOperations(scene: SceneView, operations: ScenePatch["operat
                   break;
                  }
                  case 'setHiddenMeshes':if(entity.kind!=='avatar')return failure('INVALID_INPUT','Entity is not an avatar',[entity.id]);if(operation.hiddenMeshes.length)entity.hiddenMeshes=[...operation.hiddenMeshes];else delete entity.hiddenMeshes;break;
+                 // R20: a character or a prop; `{}` removes the group.
+                 case 'setMaterialValues':if(entity.kind!=='avatar'&&entity.kind!=='mesh')return failure('INVALID_INPUT','Entity has no materials',[entity.id]);if(Object.keys(operation.materials).length)entity.materials=structuredClone(operation.materials);else delete entity.materials;break;
                  case 'setAvatarLighting':if(entity.kind!=='avatar')return failure('INVALID_INPUT','Entity is not an avatar',[entity.id]);if(operation.lighting===null)delete entity.lighting;else entity.lighting=structuredClone(operation.lighting);break;
                  case 'setCameraRenderEnvironment':if(entity.kind!=='camera')return failure('INVALID_INPUT','Entity is not a camera',[entity.id]);entity.renderEnvironment=operation.renderEnvironment;break;
                  case 'setCameraAntiAliasing':if(entity.kind!=='camera')return failure('INVALID_INPUT','Entity is not a camera',[entity.id]);entity.antiAliasing=operation.antiAliasing;break;

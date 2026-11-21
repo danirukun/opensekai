@@ -15,7 +15,7 @@ import { CameraAntiAliasingSchema, QualityProfileIdSchema, OUTPUT_FRAME_LIMITS, 
 import { AvatarRigSchema, VmcPosesEnvelopeSchema, VmcSenderSettingsSchema, VmcSenderStatusSchema } from './vmc-sender';
 import { AssetExpressionsSchema, AvatarExpressionsSchema, ExpressionNameSchema, ExpressionSettingsSchema, ExpressionStateSchema, ARKIT_NAMES } from './expressions';
 import { AssetMeshesSchema, HiddenMeshesSchema, MeshListSchema } from './meshes';
-import { AssetMaterialsSchema, MaterialListSchema } from './material-parameters';
+import { AssetMaterialsSchema, MaterialGroupSchema, MaterialListSchema } from './material-parameters';
 import { isWebScreenUrl } from './web-url';
 import { CAPTURE_STATES, CAPTURE_TEXT_LIMITS, captureTextLength, normalizeCaptureText } from './capture';
 import type { AppApi, Capability, Reply, ValidatedCall } from "./types";
@@ -228,7 +228,8 @@ export const SceneEntitySchema = z.discriminatedUnion("kind", [
                 kind: z.literal("asset"),
                 assetId: IdSchema.nullable()
             })
-        ])
+        ]),
+        materials: MaterialGroupSchema.optional()
     }),
     EntityBaseSchema.extend({
         kind: z.literal("avatar"),
@@ -237,7 +238,8 @@ export const SceneEntitySchema = z.discriminatedUnion("kind", [
         idleAnimation: AvatarIdleSchema.optional(),
         expressions: AvatarExpressionsSchema.optional(),
         hiddenMeshes: HiddenMeshesSchema.optional(),
-        lighting: AvatarLightingSchema.optional()
+        lighting: AvatarLightingSchema.optional(),
+        materials: MaterialGroupSchema.optional()
     }),
     EntityBaseSchema.extend({kind:z.literal('tracking'),config:TrackingConfigSchema,generation:u,smoothing:TrackingSmoothingSchema.optional(),calibration:TrackingCalibrationSchema.optional(),mapping:TrackingMappingSchema.optional()}),
     EntityBaseSchema.extend({
@@ -345,6 +347,7 @@ export const PatchOpSchema = z.discriminatedUnion("kind", [
     z.strictObject({kind:z.literal('setOutputFormat'),outputId:IdSchema,width:u.positive(),height:u.positive(),fps:OutputSpecSchema.shape.fps,renderScale:z.union(OUTPUT_RENDER_SCALES.map(scale => z.literal(scale)))}).refine(isOutputSize, 'Invalid output size'),
     z.strictObject({kind:z.literal('setVmcSender'),entityId:IdSchema,vmcSender:VmcSenderSettingsSchema}),
     z.strictObject({kind:z.literal('setHiddenMeshes'),entityId:IdSchema,hiddenMeshes:HiddenMeshesSchema}),
+    z.strictObject({kind:z.literal('setMaterialValues'),entityId:IdSchema,materials:MaterialGroupSchema}),
     z.strictObject({kind:z.literal('setAvatarLighting'),entityId:IdSchema,lighting:AvatarLightingSchema.nullable()}),
     z.strictObject({kind:z.literal('setAvatarExpression'),entityId:IdSchema,name:ExpressionNameSchema,settings:ExpressionSettingsSchema.nullable()}),
     z.strictObject({kind:z.literal('setCameraRenderEnvironment'),entityId:IdSchema,renderEnvironment:z.boolean()}),

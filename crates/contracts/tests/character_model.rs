@@ -108,3 +108,44 @@ fn tracked_expression_names_match_the_typescript_list() {
         }
     }
 }
+#[test]
+fn character_material_values_validate_and_round_trip() {
+    let saved =
+        json!({"Body":{"baseColor":"#ff8000","opacity":0.5},"__proto__":{"outlineWidth":0.01}});
+    let value = scene(json!({"assetId":"avatar_x","materials":saved}));
+    let parsed = validate_value::<SceneView>(&value).unwrap();
+    assert_eq!(
+        serde_json::to_value(&parsed).unwrap()["entities"][1]["materials"],
+        saved
+    );
+    for bad in [
+        json!({"Body":{}}),
+        json!({"Body":{"baseColor":"#FF8000"}}),
+        json!({"Body":{"opacity":1.5}}),
+        json!({"Body":{"metallic":0.5}}),
+        json!({"":{"opacity":0.5}}),
+    ] {
+        assert!(
+            validate_value::<SceneView>(&scene(json!({"assetId":null,"materials":bad}))).is_err(),
+            "{bad}"
+        );
+    }
+    let many: serde_json::Map<String, Value> = (0..257)
+        .map(|i| (format!("M{i}"), json!({"opacity":1})))
+        .collect();
+    assert!(validate_value::<SceneView>(&scene(json!({"assetId":null,"materials":many}))).is_err());
+}
+#[test]
+fn set_material_values_validates_the_group() {
+    let patch = |materials: Value| json!({"sceneId":"s","expectedRevision":0,"operations":[{"kind":"setMaterialValues","entityId":"char","materials":materials}]});
+    assert!(validate_value::<ScenePatch>(&patch(json!({}))).is_ok());
+    assert!(validate_value::<ScenePatch>(&patch(
+        json!({"Body":{"rimColor":"#000000","emissionStrength":100}})
+    ))
+    .is_ok());
+    assert!(validate_value::<ScenePatch>(&patch(json!({"Body":{}}))).is_err());
+    assert!(
+        validate_value::<ScenePatch>(&patch(json!({"Body":{"emissionStrength":101}}))).is_err()
+    );
+    assert!(validate_value::<ScenePatch>(&patch(json!({"Body":{"shadeColor":"#abc"}}))).is_err());
+}
