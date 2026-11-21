@@ -599,6 +599,8 @@ pub enum SceneEntity {
         visible: bool,
         transform: Transform,
         source: MeshSource,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        materials: Option<Box<BTreeMap<String, MaterialValues>>>,
     },
     Avatar {
         id: Id,
@@ -625,6 +627,8 @@ pub enum SceneEntity {
         hidden_meshes: Option<Vec<String>>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         lighting: Option<Box<AvatarLighting>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        materials: Option<Box<BTreeMap<String, MaterialValues>>>,
     },
     Tracking {
         id: Id,
@@ -965,6 +969,11 @@ pub enum PatchOp {
         #[serde(rename = "hiddenMeshes")]
         hidden_meshes: Vec<String>,
     },
+    SetMaterialValues {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+        materials: BTreeMap<String, MaterialValues>,
+    },
     SetAvatarLighting {
         #[serde(rename = "entityId")]
         entity_id: Id,
@@ -1149,25 +1158,63 @@ impl Validate for MeshList {
 pub const MAX_MATERIALS: usize = 256;
 pub const MAX_MATERIAL_NAME: usize = 64;
 strings!(MaterialProfile { Mtoon=>"mtoon", Pbr=>"pbr", Unlit=>"unlit", Liltoon=>"liltoon" });
+/// A missing value means none. `null` is rejected, as the TypeScript schema does (B38 R19).
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct MaterialModel {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "present_string",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub base_color: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "present_f64",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub opacity: Option<f64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "present_string",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub emission_color: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "present_f64",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub emission_strength: Option<f64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "present_string",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub shade_color: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "present_string",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub rim_color: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "present_string",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub outline_color: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "present_f64",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub outline_width: Option<f64>,
+}
+fn present_string<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<String>, D::Error> {
+    String::deserialize(deserializer).map(Some)
 }
 /// A model value: a lowercase `#rrggbb` color or a number.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1262,10 +1309,27 @@ pub fn asset_materials_ok(materials: &[AssetMaterial]) -> bool {
                     .all(|(key, value)| m.applies(key) && material_value_ok(key, value))
         })
 }
-// The `materialList` call of B38 R18. Keep in step with `MaterialListSchema`.
+/// R19: the saved values of one material. The same shape as a model, with at least one value.
+pub type MaterialValues = MaterialModel;
+/// R19: at most 256 material names of 1 to 64 UTF-16 units, each with a non-empty group of values in range.
+pub fn material_group_ok(group: &BTreeMap<String, MaterialValues>) -> bool {
+    group.len() <= MAX_MATERIALS
+        && group.iter().all(|(name, values)| {
+            let entries = values.entries();
+            material_name_ok(name)
+                && !entries.is_empty()
+                && entries
+                    .iter()
+                    .all(|(key, value)| material_value_ok(key, value))
+        })
+}
+// The `materialList` call of B38 R18 and R30. Keep in step with `MaterialListSchema`.
 object!(MaterialParameterView {
     parameter: String,
-    model: MaterialValue
+    model: MaterialValue,
+    /// R30: the saved value, when there is one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    value: Option<MaterialValue>
 });
 object!(MaterialListEntry {
     name: String,
@@ -1273,19 +1337,23 @@ object!(MaterialListEntry {
     parameters: Vec<MaterialParameterView>
 });
 object!(MaterialList {
-    materials: Vec<MaterialListEntry>
+    materials: Vec<MaterialListEntry>,
+    /// R30: the saved names that the record does not have.
+    unknown: Vec<String>
 });
 object!(MaterialListParams { entity_id: Id });
 impl Validate for MaterialList {
     fn validate(&self) -> Result<(), AppError> {
+        let shape_ok = |value: &MaterialValue| match value {
+            MaterialValue::Color(color) => light_color_ok(color),
+            MaterialValue::Number(n) => n.is_finite(),
+        };
         let value_ok = |view: &MaterialParameterView| {
             MATERIAL_PARAMETERS
                 .iter()
                 .any(|(key, _)| *key == view.parameter)
-                && match &view.model {
-                    MaterialValue::Color(color) => light_color_ok(color),
-                    MaterialValue::Number(n) => n.is_finite(),
-                }
+                && shape_ok(&view.model)
+                && view.value.as_ref().is_none_or(shape_ok)
         };
         require(
             self.materials.len() <= MAX_MATERIALS
@@ -1293,7 +1361,9 @@ impl Validate for MaterialList {
                     material_name_ok(&m.name)
                         && m.parameters.len() <= MATERIAL_PARAMETERS.len()
                         && m.parameters.iter().all(value_ok)
-                }),
+                })
+                && self.unknown.len() <= MAX_MATERIALS
+                && self.unknown.iter().all(|name| material_name_ok(name)),
             "invalid material list",
         )
     }
@@ -3033,6 +3103,9 @@ pub fn validate_patch_ops(ops: &[PatchOp], max: usize) -> Result<(), AppError> {
             PatchOp::SetHiddenMeshes { hidden_meshes, .. } => {
                 require(mesh_names_ok(hidden_meshes), "invalid hidden meshes")?
             }
+            PatchOp::SetMaterialValues { materials, .. } => {
+                require(material_group_ok(materials), "invalid material values")?
+            }
             PatchOp::SetScreenVideo { video, .. } => {
                 require(screen_volume_ok(video.volume), "invalid screen volume")?
             }
@@ -3890,6 +3963,17 @@ impl Validate for SceneEntity {
         } = self
         {
             lighting.validate()?;
+        }
+        if let Self::Avatar {
+            materials: Some(materials),
+            ..
+        }
+        | Self::Mesh {
+            materials: Some(materials),
+            ..
+        } = self
+        {
+            require(material_group_ok(materials), "invalid material values")?;
         }
         if let Self::Avatar {
             tracking: Some(tracking),

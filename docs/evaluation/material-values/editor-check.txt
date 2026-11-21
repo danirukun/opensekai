@@ -1,0 +1,39 @@
+fixture_vrm_1 materials Body_00_SKIN, Bottoms_01_CLOTH, Shoes_01_CLOTH, Tops_01_CLOTH, HairBack_00_HAIR, FaceMouth_00_FACE, EyeIris_00_EYE, Face_00_SKIN, EyeWhite_00_EYE, FaceEyeline_00_FACE, FaceBrow_00_FACE, EyeHighlight_00_EYE, Hair_00_HAIR
+ - While calling [Invalid Texture].CreateView([TextureViewDescriptor]).
+
+
+Message: A valid external Instance reference no longer exists.
+Reason: unknown
+PASS a character with the fixture model is added true
+PASS R29: Materials comes after Meshes and before Lighting ["Transform","Model","Meshes","Materials","Lighting","Tracking","Debug"]
+PASS R29: the Material select lists the record materials in file order ["Body_00_SKIN","Bottoms_01_CLOTH","Shoes_01_CLOTH","Tops_01_CLOTH","HairBack_00_HAIR","FaceMouth_00_FACE","EyeIris_00_EYE","Face_00_SKIN","EyeWhite_00_EYE","FaceEyeline_00_FACE","FaceBrow_00_FACE","EyeHighlight_00_EYE","Hair_00_HAIR"]
+PASS R29: a blend MToon material with an outline shows its parameters in R14 order ["Material","Base Color","Opacity","Emission Color","Emission Strength","Shade Color","Rim Color","Outline Color","Outline Width"]
+PASS R29: choosing another material shows its rows, without Opacity ["Material","Base Color","Emission Color","Emission Strength","Shade Color","Rim Color","Outline Color","Outline Width"]
+PASS R29: a typed Base Color sends one setMaterialValues with the whole group [{"kind":"setMaterialValues","entityId":"performer","materials":{"Body_00_SKIN":{"baseColor":"#ff8000"}}}]
+PASS R29: the scene holds the saved value {"Body_00_SKIN":{"baseColor":"#ff8000"}}
+PASS R29: the saved Base Color shows a reset mark 
+PASS R29: the reset mark is visible and on top in the Inspector column 
+PASS R29: an Opacity drag sends two or more live setMaterialValues [0.93,0.83,0.77,0.66,0.61,0.58,0.53,0.5]
+PASS R29: the end of the drag sends no extra patch, and the scene holds the last live value {"live":8,"afterEnd":8,"opacity":0.5}
+theme light light
+theme dark dark
+PASS R29: a pending live edit turns each material reset mark off, and the field stays on {"states":[true,true],"fieldOn":true}
+PASS R29: the reset marks come back on after the live edit [false,false]
+PASS R29: the Opacity reset mark removes the parameter [{"kind":"setMaterialValues","entityId":"performer","materials":{"Body_00_SKIN":{"baseColor":"#ff8000"}}}]
+PASS a saved value for a material named Cape is added true
+PASS R29: the select lists Cape (Missing) after the record materials "Cape (Missing)"
+PASS R29: a missing material shows its saved parameters as read-only rows {"labels":["Material","Base Color","Outline Width"],"disabled":[true,true]}
+PASS R29: each row of a missing material has a reset mark 
+theme light light
+theme dark dark
+PASS R29: a reset on a missing material removes that parameter {"baseColor":"#112233"}
+PASS a graph with two Set Character Material Property nodes loads true
+PASS R23: the node shows the Material select with the record material "Body_00_SKIN"
+PASS R23: the node shows the Property select with the parameters of that material 
+theme light light
+theme dark dark
+PASS R23: a saved material that the record does not have shows as Missing "Missing"
+theme light light
+theme dark dark
+PASS no page error []
+24/24 passed

@@ -1,5 +1,5 @@
 import { it, expect, vi, beforeEach } from 'vitest';
-import { Group, Texture, type Object3D } from 'three/webgpu';
+import { BoxGeometry, Group, Mesh, MeshBasicMaterial, Texture, type Object3D } from 'three/webgpu';
 import { QUALITY_PROFILES, makeSmokeFrame, type RuntimeFrame, type SceneEntity } from '@opensekai/contracts';
 const ports = vi.hoisted(() => ({ load: vi.fn(), render: vi.fn(), compile: vi.fn(), light: { apply: vi.fn(), room: vi.fn(), dispose: vi.fn() }, instances: [] as { reflections: ReturnType<typeof vi.fn> }[] }));
 vi.mock('../src/backend', () => ({ initializeBackend: async () => ({ backend: 'webgl2', renderer: { shadowMap: { enabled: false }, info: { memory: { geometries: 0, textures: 0 } }, setSize: vi.fn(), renderAsync: ports.render, compileAsync: ports.compile, dispose: vi.fn() } }) }));
@@ -21,7 +21,7 @@ const named = (name: string) => { const root = new Group(); root.name = name; re
 const roots = (name: string) => { const found: Object3D[] = []; rendered().traverse(o => { if (o.name === name) found.push(o); }); return found; };
 beforeEach(() => {
     ports.load.mockReset(); ports.render.mockReset().mockResolvedValue(undefined); ports.compile.mockReset().mockResolvedValue(undefined); ports.instances.length = 0;
-    ports.light.apply.mockReset().mockImplementation(() => { const made = { dispose() {}, reflections: vi.fn() }; ports.instances.push(made); return made; });
+    ports.light.apply.mockReset().mockImplementation(() => { const made = { dispose() {}, reflections: vi.fn(), originals: new Map() }; ports.instances.push(made); return made; });
 });
 const make = () => createRenderer({ canvas: { width: 1920, height: 1080 } as HTMLCanvasElement, outputId: 'output_main', mode: 'force-webgl2', resources: { readAsset: vi.fn() }, diagnostics: false, quality: QUALITY_PROFILES.production_v1 });
 it('draws nothing and loads nothing for a prop without a model, and still draws a box source', async () => {
@@ -56,5 +56,20 @@ it('gives props the Reflections Intensity of the environment, or 1 without one (
     expect(ports.instances[0]!.reflections).toHaveBeenLastCalledWith(0.4);
     await r.applyFrame(frame([walls, stage()]));
     expect(ports.instances[0]!.reflections).toHaveBeenLastCalledWith(1);
+    r.dispose();
+});
+it('applies the saved material values of each prop to its own copies (B38 R28)', async () => {
+    const original = new MeshBasicMaterial({ color: 0x808080 });
+    const scene = new Group(); scene.add(new Mesh(new BoxGeometry(), original));
+    const materials = [{ index: 0, name: 'Glow', profile: 'unlit' as const, blend: false, outline: false, model: { baseColor: '#808080' } }];
+    ports.load.mockResolvedValue({ scene, warnings: [], dispose: vi.fn(), materials, materialIndex: (material: unknown) => material === original ? 0 : undefined });
+    const r = await make();
+    const entities = [{ ...prop('a', { kind: 'asset', assetId: 'scene_a' }), materials: { Glow: { baseColor: '#ff0000' } } } as SceneEntity, prop('b', { kind: 'asset', assetId: 'scene_a' })];
+    await r.applyFrame(frame(entities)); await settle();
+    await r.applyFrame(frame(entities));
+    const colors: string[] = [];
+    rendered().traverse(o => { const m = (o as Mesh).material as MeshBasicMaterial | undefined; if (m && (o as Mesh).geometry?.type === 'BoxGeometry' && m !== original) colors.push(m.color.getHexString()); });
+    expect(colors.sort()).toEqual(['808080', 'ff0000']);
+    expect(original.color.getHexString()).toBe('808080');
     r.dispose();
 });

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { DataType, ScalarValue } from '../blueprint-values';
+import type { Easing } from '../easing';
 import type { KeystrokeSettings } from './events';
 
 export type PortType = 'flow' | DataType;
@@ -7,12 +8,15 @@ export interface PortShape { inputs: Record<string, PortType>; outputs: Record<s
 export type NodeCategory = 'Events' | 'Input' | 'Flow' | 'Switches' | 'Timer' | 'Values' | 'Text' | 'Lists' | 'Math' | 'Logic' | 'Variables' | 'Scene' | 'Camera' | 'Character' | 'Tracking' | 'YouTube' | 'Blueprints' | 'Debug';
 // Palette order.
 export const NODE_CATEGORIES: readonly NodeCategory[] = ['Events', 'Input', 'Flow', 'Switches', 'Timer', 'Values', 'Text', 'Lists', 'Math', 'Logic', 'Variables', 'Scene', 'Camera', 'Character', 'Tracking', 'YouTube', 'Blueprints', 'Debug'];
-export interface DefaultRefs { entityId?: string; avatarId?: string; expression?: string; mesh?: string; cameraId?: string; outputId?: string; trackingSourceId?: string; keystroke: KeystrokeSettings; variables?: readonly { id: string; type: DataType }[]; graphId?: string }
+// `material` is a record material of `avatarId`; `propMaterial` is one of `propId`, a prop with an asset model.
+export interface DefaultRefs { entityId?: string; avatarId?: string; expression?: string; mesh?: string; material?: string; propId?: string; propMaterial?: string; cameraId?: string; outputId?: string; trackingSourceId?: string; keystroke: KeystrokeSettings; variables?: readonly { id: string; type: DataType }[]; graphId?: string }
 export type BlueprintField =
  | { key: string; label: string; kind: 'number'; min?: number; max?: number }
  | { key: string; label: string; kind: 'boolean' }
  | { key: string; label: string; kind: 'count'; min: number; max: number }
  | { key: string; label: string; kind: 'entity' | 'camera' | 'output' | 'avatar' | 'expression' | 'trackingSource' }
+ // A prop with an asset model, a record material of the entity, and a material parameter that applies to it (B38 R23).
+ | { key: string; label: string; kind: 'prop' | 'material' | 'materialParameter' }
  | { key: string; label: string; kind: 'integer'; min?: number; max?: number }
  | { key: string; label: string; kind: 'string'; maxLength?: number }
  | { key: string; label: string; kind: 'vector3' }
@@ -22,7 +26,9 @@ export type BlueprintField =
  | { key: string; label: string; kind: 'cases' }
  | { key: string; label: string; kind: 'keystroke' }
  | { key: string; label: string; kind: 'key' | 'property' | 'space' | 'bone' }
- | { key: string; label: string; kind: 'blendshape' | 'easing' }
+ | { key: string; label: string; kind: 'blendshape' }
+ // `fallback` is the easing of a node without one, when it is not the default easing.
+ | { key: string; label: string; kind: 'easing'; fallback?: Easing }
  // A list of 1 to 16 mesh names of the selected character (B26 R11).
  | { key: string; label: string; kind: 'meshes' }
  // A list of 1 to 32 unique humanoid bones.
@@ -50,6 +56,8 @@ export interface NodeDefinition<T extends string = string, S extends z.ZodType =
  dynamicPorts?: boolean;
  // The value that an unconnected input without an inline value reads, when the type default (0, false, '') does not fit the node.
  inputDefaults?: Readonly<Record<string, ScalarValue>>;
+ // The same, when the value depends on the settings. It replaces `inputDefaults`.
+ inputDefaultsFor?: (settings: z.output<S>) => Readonly<Record<string, ScalarValue>>;
 }
 export const defineNode = <const T extends string, S extends z.ZodType>(definition: NodeDefinition<T, S>): NodeDefinition<T, S> => definition;
 

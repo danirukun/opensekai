@@ -13,7 +13,8 @@ import { initializeBackend } from "./backend";
 import { createCapturePolicy, readPng } from "./capture";
 import { createLoadJobs, type AssetLoadStatus, type LoadReport, type LoadRequest } from "./load-jobs";
 import { createEnvironmentLight, roomEnvironmentMap, roomIrradiance, type InstanceMaterials } from "./environment-light";
-import { createSceneLights, groupOf, roomLight, withDrafts, type LightGroup } from "./scene-lights";
+import { copyUnlitMaterials, createMaterialBinding, type MaterialBinding } from "./material-values";
+import { createSceneLights, groupOf, isLitMaterial, roomLight, withDrafts, type LightGroup } from "./scene-lights";
 import { characterFill, normalizeRoom } from "./character-lighting-math";
 import { createCharacterShare, setRoomFill } from "./character-mtoon";
 import { logPipelineFailure, watchPipelineErrors, type PipelineDevice } from "./pipeline-diagnostics";
@@ -129,7 +130,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         setRoomFill(characterShare, normalizeRoom(coefficients));
         return null;
     }).catch((error: unknown) => error instanceof Error ? error.message : String(error));
-    type Ready = { root: Object3D; video?: ScreenVideoPlayer; avatar?: ReturnType<typeof createAvatarBinding>; meshes?: ReadonlyMap<string, Object3D>; assetId?: string; assetDispose?: () => void; instanceDispose?: () => void; materials?: InstanceMaterials; lit: number; warnings: AppError[]; dispose(): void };
+    type Ready = { root: Object3D; video?: ScreenVideoPlayer; avatar?: ReturnType<typeof createAvatarBinding>; meshes?: ReadonlyMap<string, Object3D>; binding?: MaterialBinding; assetId?: string; assetDispose?: () => void; instanceDispose?: () => void; materials?: InstanceMaterials; lit: number; warnings: AppError[]; dispose(): void };
     const loadListeners = new Set<(entries: AssetLoadStatus[]) => void>();
     // three r187 keeps one precompile state per renderer across awaits; overlapping compileAsync calls clear it.
     const compileOnce = serialize();
@@ -182,19 +183,24 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
                 sceneLights.assign(avatar.root, "characters");
                 const lit = sceneLights.generation();
                 await prepare(avatar.root, report, cancelled);
-                return { root: avatar.root, avatar, meshes: asset.meshes, assetDispose: asset.dispose, lit, warnings: unavailable ? [...asset.warnings, { code: "UNAVAILABLE", message: "Room fill unavailable: " + unavailable, ids: [request.assetId] }] : asset.warnings, dispose: asset.dispose };
+                const binding = asset.materials?.length ? createMaterialBinding(asset.materials, avatar.root, asset.materialIndex) : undefined;
+                return { root: avatar.root, avatar, meshes: asset.meshes, binding, assetDispose: asset.dispose, lit, warnings: unavailable ? [...asset.warnings, { code: "UNAVAILABLE", message: "Room fill unavailable: " + unavailable, ids: [request.assetId] }] : asset.warnings, dispose: asset.dispose };
             } catch (error) { asset.dispose(); throw error; }
         }
         const asset = await assets.get(request.assetId);
         if (cancelled() || disposed) throw failure("CANCELLED", "Asset load cancelled");
         const root = clone(asset.scene);
-        const materials = environmentLight.apply(root);
+        // Each instance owns a copy of every material, so a saved material value changes one instance only (B38 R28).
+        const unlit = copyUnlitMaterials(root, isLitMaterial);
+        const lit = environmentLight.apply(root);
+        const binding = asset.materials?.length ? createMaterialBinding(asset.materials, root, asset.materialIndex, new Map([...unlit.originals, ...lit.originals])) : undefined;
+        const materials: InstanceMaterials = { ...lit, dispose() { lit.dispose(); unlit.dispose(); } };
         const release = () => { disposeInstance(root); materials.dispose(); };
         sceneLights.assign(root, request.kind === "environment" ? "environment" : "props");
-        const lit = sceneLights.generation();
+        const generation = sceneLights.generation();
         try { await prepare(root, report, cancelled); }
         catch (error) { release(); throw error; }
-        return { root, assetId: request.assetId, warnings: asset.warnings, instanceDispose: materials.dispose, materials, lit, dispose: release };
+        return { root, assetId: request.assetId, warnings: asset.warnings, instanceDispose: materials.dispose, materials, binding, lit: generation, dispose: release };
     };
     const jobs = createLoadJobs<Ready>(build, entries => { for (const listener of loadListeners) listener(entries); });
     const marker = options.diagnostics ? createDiagnosticMarker() : null;
@@ -209,6 +215,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         avatar?: ReturnType<typeof createAvatarBinding>;
         // The mesh nodes of an avatar by mesh name (B26 R7); avatars are not cloned, so the map holds the drawn objects.
         meshes?: ReadonlyMap<string, Object3D>;
+        binding?: MaterialBinding;
         assetDispose?: () => void;
         instanceDispose?: () => void;
         materials?: InstanceMaterials;
@@ -411,6 +418,8 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
                 if (!warnings.some(x => x.message === warning.message && x.ids[0] === warning.ids[0])) warnings.push(warning);
             value.avatar?.apply(frame.avatarPoses?.find(pose => pose.avatarId === entity.id));
             if (value.meshes && entity.kind === "avatar") applyHiddenMeshes(value.meshes, entity.hiddenMeshes);
+            // After the expression update of `apply`, so the saved value wins over an expression color bind (B38 R28).
+            value.binding?.apply(entity.kind === "avatar" || entity.kind === "mesh" ? entity.materials : undefined);
             value.avatar?.uv(frame.elapsedMs);
             value.avatar?.lighting(avatarLighting(entity));
             value.materials?.reflections(reflections);
@@ -427,11 +436,12 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             const old = objects.get(entityId);
             if (old) releaseObject(old);
             const installedVideo = entity.kind === "screen" && entity.content.kind === "video" ? entity.content : null;
-            const installed = { signature: entity.kind + ":" + (installedVideo ? "video:" : "") + request.assetId, root: ready.root, video: ready.video, owned: false, avatar: ready.avatar, meshes: ready.meshes, assetId: ready.assetId, assetDispose: ready.assetDispose, instanceDispose: ready.instanceDispose, materials: ready.materials, group: groupOf(entity) ?? undefined, lit: ready.lit, warnings: ready.warnings, pickable: entity.kind !== "environment" };
+            const installed = { signature: entity.kind + ":" + (installedVideo ? "video:" : "") + request.assetId, root: ready.root, video: ready.video, owned: false, avatar: ready.avatar, meshes: ready.meshes, binding: ready.binding, assetId: ready.assetId, assetDispose: ready.assetDispose, instanceDispose: ready.instanceDispose, materials: ready.materials, group: groupOf(entity) ?? undefined, lit: ready.lit, warnings: ready.warnings, pickable: entity.kind !== "environment" };
             scene.add(installed.root);
             objects.set(entityId, installed);
             installed.avatar?.apply(frame.avatarPoses?.find(pose => pose.avatarId === entityId));
             if (installed.meshes && entity.kind === "avatar") applyHiddenMeshes(installed.meshes, entity.hiddenMeshes);
+            installed.binding?.apply(entity.kind === "avatar" || entity.kind === "mesh" ? entity.materials : undefined);
             installed.avatar?.uv(frame.elapsedMs);
             installed.avatar?.lighting(avatarLighting(entity));
             installed.materials?.reflections(reflections);

@@ -111,6 +111,15 @@ const channel = (linear: number) => {
 };
 /** The lowercase `#rrggbb` of a linear color factor. */
 export const linearHex = (rgb: Factor) => '#' + rgb.slice(0, 3).map(c => channel(c).toString(16).padStart(2, '0')).join('');
+// The three.js `ColorManagement` sRGB to linear-sRGB transfer, as `Color.setHex` applies it.
+const linear = (srgb: number) => srgb < 0.04045 ? srgb * 0.0773993808 : Math.pow(srgb * 0.9478672986 + 0.0521327014, 2.4);
+/** The linear color factor of a `#rrggbb` color. `linearHex` gives the same hex back. */
+export const hexLinear = (hex: string): [number, number, number] => [1, 3, 5].map(i => linear(parseInt(hex.slice(i, i + 2), 16) / 255)) as [number, number, number];
+/** A mix of two `#rrggbb` colors in linear light at `k` (0 gives `from`, 1 gives `to`), as the nearest hex (B38 R26). */
+export const mixHex = (from: string, to: string, k: number): string => {
+    const a = hexLinear(from), b = hexLinear(to);
+    return linearHex(a.map((value, i) => value + (b[i]! - value) * k));
+};
 // three-vrm v0compat `gammaEOTF`.
 const gamma = (v: number) => Math.pow(v, 2.2);
 const OUTLINE_MODES = ['none', 'worldCoordinates', 'screenCoordinates'];

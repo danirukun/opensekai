@@ -114,7 +114,7 @@ R19 [PR4]. The avatar and prop (`mesh`) entities get `materials?: Record<string,
 - An empty group is removed.
 - The Rust scene mirror has the same rules.
 
-R20 [PR4]. A new patch op `setMaterialValues { entityId, materials }` replaces the group. `{}` removes it. Another entity kind gives `INVALID_INPUT` "Entity has no materials". The Rust `PatchOp` mirror has the same validation. A show save and open keeps the group.
+R20 [PR4]. A new patch op `setMaterialValues { entityId, materials }` replaces the group. `{}` removes it. Another entity kind gives `INVALID_INPUT` "Entity has no materials". The Rust `PatchOp` mirror has the same validation. A show save and open keeps the group. The group is a map, and its name order has no meaning: the host reads and writes a show as a `serde_json::Value`, which sorts the keys of each object, so a show that is opened again lists the names in sorted order. Only the order of the `(Missing)` names (R29) and of `unknown` (R30) follows the key order. A `null` value is invalid in TypeScript and in Rust.
 
 R21 [PR4]. `setAvatarModel` and `setMeshModel` keep `materials`. A name that the new model does not have does nothing in the renderer, and stays in the show.
 
@@ -141,6 +141,7 @@ R23 [PR4]. Node properties fields, in order: Character (or Prop), Material, Prop
 R24 [PR4]. A run of Set or Reset gives a graph runtime error, writes nothing, and runs no output in these cases:
 - The entity has no model record, or the record has no such material: `Material not found`.
 - The parameter does not apply: `Material property does not apply`.
+- The write adds a name to a saved group that has 256 names (the group keeps the names that the model does not have, R30): `Too many materials`.
 A Set clamps a number to the range of the parameter.
 
 ### Write path
@@ -148,11 +149,17 @@ A Set clamps a number to the range of the parameter.
 R25 [PR4]. A Set or a Reset writes an override with a material key (the parameter and the name). With no transition, the override commits as `setMaterialValues` by the current rules:
 - 250 ms after the last write for a clock step;
 - before the reply for a `blueprintRun` call. This adds both nodes to the list in B33 R4.
-A Reset commit removes the parameter. A write with no change of the evaluated value makes no commit.
+A Reset commit removes the parameter. A Set with no change of the evaluated value makes no commit. The evaluated value is the saved value in the evaluated scene (with the overrides), or else the record model value. The session reads the model value from the record that R24 reads. Thus these writes write no override:
+- a Set to the model value when no value is saved;
+- a Set to the saved value;
+- a Reset when no value is saved.
+This rule applies also with a transition: no tween starts, the `blueprintRun` call commits nothing, and `transitionEnd` runs on the next clock step.
+
+A Reset always removes a saved key, also when the saved value is equal to the model value. Otherwise a value that does not show stays saved and comes back after a model change. Then the evaluated value does not change, so no tween starts, also with a transition: the Reset removes the key at once and commits as a write without a transition (in the reply revision of a `blueprintRun` call).
 
 R26 [PR4]. With `transitionSeconds > 0`, a tween goes from the evaluated value to the target. The evaluated value is the saved value, or else the record model value. The target of a Reset is the model value.
 - A color tween mixes in linear light and gives the nearest hex at each step.
-- The value commits when the tween ends, and then `transitionEnd` runs.
+- The last tween step writes the target to the override layer. `transitionEnd` runs on the next clock step and reads the target in the evaluated scene. The value commits by the 250 ms idle rule after the last change of the value, as for a Set Asset Property tween. Thus `transitionEnd` can run before the commit.
 - A new write on the same key replaces the tween, as for asset properties.
 
 R27 [PR4]. A material override or tween of an entity is dropped by `setMaterialValues`, `setAvatarModel`, `setMeshModel`, and `removeEntity` on that entity. The override and tween limits apply as now.
@@ -173,15 +180,17 @@ R29 [PR4]. A Materials section.
 - Each field shows the saved value, or else the model value.
 - A saved parameter shows a `ResetMark` that removes it.
 - A field edit sends `setMaterialValues` with live wiring, as the light fields do.
-- A missing material shows its saved parameters as read-only values, each with a `ResetMark`.
+- A missing material shows its saved parameters as read-only values, each with a `ResetMark`. A saved parameter that does not apply to a record material (after a model change) is also a read-only row with a `ResetMark`.
+- The `ResetMark` of a row is at the right of its label, because the left place is outside a narrow Inspector column.
 - The section has no other text.
 
 ### MCP and documents
 
 R30 [PR4].
-- `materialList` adds `value` to each parameter (when it is saved) and `unknown` (the saved names that the record does not have).
+- `materialList` adds `value` to each parameter (when it is saved) and `unknown` (the saved names that the record does not have; always present, empty when there are none).
+- The saved-values schema has a JSON Schema, so the MCP tool list can show `scene_patch` and `scene_replace`.
 - The `scene_patch` text names `setMaterialValues`.
-- `opensekai://blueprint-nodes` lists the parameters with label, type, range, and profiles.
+- `opensekai://blueprint-nodes` lists the parameters with label, type, range, default, profiles, and `requires` (`blend` or `outline`) when the parameter needs it.
 
 R31 [PR2–PR4]. Each PR updates `ARCHITECTURE.md` where a data path changes, and `docs/warudo-parity.md` with only the verified behavior.
 - PR 2: the Color type in BP-01.
