@@ -12,6 +12,7 @@ Date: 2026-11-21. Scope: bundle B43: #305 (Part A), #316 (Part B). Analysis: [li
 | D4 | The limits change only in PR4, after gate G2 (owner) | A limit change with the batching |
 | D5 | The orchestrator runs all macOS, OBS, and Windows checks. GPU time is unknown where no timer exists, never 0 | The executors claim them |
 | D6 | No new dependency | — |
+| D7 | Owner, 2026-11-21: Q1 (a), Q2 (b), Q3 (b), Q4 (a), Q5 as recommended. The main shadow case is the avatar shadow on a flat floor | — |
 
 ## Gates
 
