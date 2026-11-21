@@ -16,7 +16,7 @@ export type SceneEffect =
  | { kind: 'selectCamera'; outputId: Id; cameraId: Id };
 export type CharacterLayerEffect = BlendShapeEffect | LookAtEffect;
 export type BlueprintEffect = SceneEffect | OverrideWrite | OrbitWrite | ExpressionEffect | BoneOffsetEffect | CharacterLayerEffect | DebugEffect;
-export const isOverrideEffect = (effect: BlueprintEffect): effect is OverrideWrite => effect.kind === 'setProperty' || effect.kind === 'moveEntity';
+export const isOverrideEffect = (effect: BlueprintEffect): effect is OverrideWrite => effect.kind === 'setProperty' || effect.kind === 'moveEntity' || effect.kind === 'setMaterial';
 export const isOrbitEffect = (effect: BlueprintEffect): effect is OrbitWrite => effect.kind === 'orbitCamera';
 export const isExpressionEffect = (effect: BlueprintEffect): effect is ExpressionEffect => effect.kind === 'setExpression' || effect.kind === 'toggleExpression';
 export const isBoneOffsetEffect = (effect: BlueprintEffect): effect is BoneOffsetEffect => effect.kind === 'offsetBone';
