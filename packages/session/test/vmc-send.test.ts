@@ -93,6 +93,26 @@ it('maps the VRM 1 presets to the VRM 0 clip names and keeps other names', () =>
  const sent = vmcSendPose(pose({ expressions: { happy: 0.5, Joy: 0.7, aa: 0.25, blinkLeft: 1, jawOpen: 0.3, 'bad\0name': 1, ['x'.repeat(129)]: 1 } }), rig());
  expect(sent.blends).toEqual({ Joy: 0.7, A: 0.25, Blink_L: 1, jawOpen: 0.3 });
 });
+it('adds a bone translation to the rest position sent on the wire, with the VRM0 sign on X and Z, and drops an unknown bone', () => {
+ const sent = vmcSendPose(pose({ boneTranslations: { spine: [0.1, -0.05, 0.2], leftToes: [1, 1, 1] } }), rig());
+ close(sent.bones.spine!.position, [0.1, 0.05, 0.2]);
+ const signed = vmcSendPose(pose({ boneTranslations: { spine: [0.1, -0.05, 0.2] } }), rig({ metaVersion: '0' }));
+ close(signed.bones.spine!.position, [-0.1, 0.05, -0.2]);
+});
+it('adds the translation after tracking and rotation offsets have set the position', () => {
+ const sent = vmcSendPose(pose({ bones: { hips: { rotation: [0, 0, 0, 1], space: 'normalized', position: [0.2, -0.1, 0] } }, boneTranslations: { hips: [0, 0.05, 0] } }), rig());
+ close(sent.bones.hips!.position, [0.2, 0.95, 0]);
+});
+// VmcSendPoseSchema has no scale field (VMC protocol carries only position and rotation per bone), so a
+// `boneScales` value never reaches the wire: OBS shows the renderer's squash, a VMC receiver sees only the
+// translated Y position of the bounce (Known difference, recorded in the parity evaluation).
+it('folds chest translation onto the spine of a chestless rig and never sends a scale field', () => {
+ const chestless = rig({ restPositions: { hips: [0, 1, 0], spine: [0, 0.1, 0], head: [0, 0.5, 0] } });
+ const sent = vmcSendPose(pose({ boneTranslations: { spine: [0, 0.02, 0], chest: [0, 0.03, 0] }, boneScales: { spine: 0.5, chest: 0.4 } }), chestless);
+ expect(sent.bones.chest).toBeUndefined();
+ close(sent.bones.spine!.position, [0, 0.15, 0]);
+ expect(Object.keys(sent.bones.spine!).sort()).toEqual(['position', 'rotation']);
+});
 
 const sender = (id: string, enabled: boolean, avatarId: string | null = 'performer'): SceneEntity => ({ id, name: id, visible: true, transform: { position: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] }, kind: 'vmcSender', vmcSender: { enabled, address: '127.0.0.1', port: 39540, avatarId } });
 const record = (rigValue?: AvatarRig): AssetRecord => ({ id: 'fixture_vrm_1', format: 'vrm', sha256: 'a'.repeat(64), bytes: 1, sourceUrl: null, licenseLabel: '', importerVersion: 1, name: 'Avatar', expressions: [], ...(rigValue ? { rig: rigValue } : {}) });
