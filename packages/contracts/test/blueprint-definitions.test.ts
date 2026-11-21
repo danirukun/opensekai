@@ -57,7 +57,7 @@ it('returns null defaults when the scene lacks the entity, camera, or output', (
 it('publishes a catalog of every node with its ports and settings schema', () => {
  const catalog = blueprintNodeCatalog();
  expect(catalog).toHaveLength(NODE_DEFINITIONS.length);
- expect(catalog).toHaveLength(198);
+ expect(catalog).toHaveLength(201);
  expect(catalog.find(entry => entry.type === 'math.lerp')!.inputDefaults).toEqual({ b: 1, t: 0.5 });
  expect(catalog.find(entry => entry.type === 'vector3.scale')!.inputDefaults).toEqual({ factor: 1 });
  expect(catalog.find(entry => entry.type === 'math.add')!.inputDefaults).toEqual({});
@@ -75,4 +75,38 @@ it('publishes a catalog of every node with its ports and settings schema', () =>
  expect(nodeDefinition('character.offsetBones').settings.safeParse({ entityId: 'a', bones: ['spine'], axis: 'y', intensity: 361, offset: 0 }).success).toBe(false);
  expect(catalog.find(entry => entry.type === 'tracking.pendulum')).toMatchObject({ label: 'Pendulum', category: 'Tracking', ports: { inputs: {}, outputs: { value: 'number' } }, settings: { required: ['entityId', 'inputs', 'inputSmoothing', 'arms'] } });
  expect(catalog.find(entry => entry.type === 'character.setExpression')).toMatchObject({ label: 'Set Expression', category: 'Character', ports: { inputs: { flow: 'flow', active: 'boolean' }, outputs: { exit: 'flow' } }, settings: { required: ['entityId', 'expression'] } });
+});
+
+it('defines the bouncy spring and bone transform offset nodes', () => {
+ const catalog = blueprintNodeCatalog();
+ const bouncy = catalog.find(entry => entry.type === 'tracking.bouncySpring');
+ expect(bouncy).toMatchObject({ category: 'Tracking', ports: { inputs: {}, outputs: { value: 'number' } }, settings: { required: ['entityId', 'pitchWeight', 'pitchScale', 'jawWeight', 'jawScale', 'spring', 'damping', 'inputSmoothing'] } });
+ expect(defaultBlueprintSettings('tracking.bouncySpring', { avatarId: 'a', keystroke: refs.keystroke })).toEqual({ entityId: 'a', pitchWeight: 1, pitchScale: 1, jawWeight: 0.5, jawScale: 1, spring: 0.5, damping: 0.5, inputSmoothing: 0.05 });
+ expect(defaultBlueprintSettings('tracking.bouncySpring', { keystroke: refs.keystroke })).toBeNull();
+ const bouncySettings = nodeDefinition('tracking.bouncySpring').settings;
+ const bouncyValid = { entityId: 'a', pitchWeight: 1, pitchScale: 1, jawWeight: 0.5, jawScale: 1, spring: 0.5, damping: 0.5, inputSmoothing: 0.05 };
+ expect(bouncySettings.safeParse(bouncyValid).success).toBe(true);
+ expect(bouncySettings.safeParse({ ...bouncyValid, spring: 101 }).success).toBe(false);
+ expect(bouncySettings.safeParse({ ...bouncyValid, damping: -1 }).success).toBe(false);
+ expect(bouncySettings.safeParse({ ...bouncyValid, inputSmoothing: 6 }).success).toBe(false);
+ expect(nodeDefinition('tracking.bouncySpring').fields.map(field => field.label)).toEqual(['Character', 'Pitch weight', 'Pitch scale', 'Jaw weight', 'Jaw scale', 'Spring', 'Damping', 'Input smoothing (s)']);
+
+ const translation = catalog.find(entry => entry.type === 'character.offsetBoneTranslation');
+ expect(translation).toMatchObject({ category: 'Character', ports: { inputs: { flow: 'flow', value: 'number', weight: 'number' }, outputs: { exit: 'flow' } }, inputDefaults: { weight: 1 }, settings: { required: ['entityId', 'bones', 'axis', 'intensity', 'offset'] } });
+ expect(translation?.keywords).toEqual(expect.arrayContaining(['translation', 'bounce', 'position']));
+ const translationSettings = nodeDefinition('character.offsetBoneTranslation').settings;
+ const translationValid = { entityId: 'a', bones: ['hips'], axis: 'y', intensity: 2, offset: -2 };
+ expect(translationSettings.safeParse(translationValid).success).toBe(true);
+ expect(translationSettings.safeParse({ ...translationValid, intensity: 2.1 }).success).toBe(false);
+ expect(translationSettings.safeParse({ ...translationValid, offset: -2.1 }).success).toBe(false);
+ expect(translationSettings.safeParse({ ...translationValid, bones: [] }).success).toBe(false);
+
+ const scale = catalog.find(entry => entry.type === 'character.offsetBoneScale');
+ expect(scale).toMatchObject({ category: 'Character', ports: { inputs: { flow: 'flow', value: 'number', weight: 'number' }, outputs: { exit: 'flow' } }, inputDefaults: { weight: 1 }, settings: { required: ['entityId', 'bones', 'intensity', 'offset'] } });
+ const scaleSettings = nodeDefinition('character.offsetBoneScale').settings;
+ const scaleValid = { entityId: 'a', bones: ['chest'], intensity: 1, offset: -1 };
+ expect(scaleSettings.safeParse(scaleValid).success).toBe(true);
+ expect(scaleSettings.safeParse({ ...scaleValid, axis: 'y' }).success).toBe(false);
+ expect(scaleSettings.safeParse({ ...scaleValid, intensity: 1.1 }).success).toBe(false);
+ expect(scaleSettings.safeParse({ ...scaleValid, offset: -1.1 }).success).toBe(false);
 });
