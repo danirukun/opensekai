@@ -6,6 +6,8 @@
  import AvatarModelField from './AvatarModelField.svelte';
  import AvatarExpressionFields,{type ExpressionApi} from './AvatarExpressionFields.svelte';
  import AvatarMeshFields from './AvatarMeshFields.svelte';
+import MaterialFields from './MaterialFields.svelte';
+import {recordMaterials,savedMaterials,showsMaterials} from '../editor/materials';
  import AvatarDebugFields from './AvatarDebugFields.svelte';
  import {hasTriggerableExpressions} from '../editor/expressions';
  import type { EditorPanelProps } from '../editor/model';
@@ -64,7 +66,10 @@
  const expressions=$derived(entity?.kind==='avatar'&&expressionApi!==null&&onexpressionsettings!==undefined&&hasTriggerableExpressions(entity.assetId,assets));
  // The mesh list of the avatar model; no section without one (B26 R12).
  const avatarMeshes=$derived(entity?.kind==='avatar'&&entity.assetId!==null?assets.find(asset=>asset.id===entity.assetId)?.meshes??[]:[]);
- const sections=$derived(entity?sectionsFor(entity,{expressions,meshes:avatarMeshes.length>0,debug:entity.kind==='avatar'&&entity.assetId!==null}):[]);
+ // B38 R29: the record materials and the saved values of a character or a prop.
+ const materialRecord=$derived(entity?recordMaterials(entity,assets):undefined);
+ const materialValues=$derived(entity?savedMaterials(entity):undefined);
+ const sections=$derived(entity?sectionsFor(entity,{expressions,meshes:avatarMeshes.length>0,materials:showsMaterials(materialRecord,materialValues),debug:entity.kind==='avatar'&&entity.assetId!==null}):[]);
  // Debug R3: read again when the load list changes, because a finished load leaves that list.
  const avatarDebug=$derived.by(()=>{void loads;return entity?.kind==='avatar'&&entity.assetId!==null?modelInfo?.(entity.assetId)??null:null;});
  const storedExpressions=$derived(new Set(entity?.kind==='avatar'?Object.keys(entity.expressions??{}):[]));
@@ -135,7 +140,7 @@
   {:else if entity.kind==='fpsCounter'}<FpsCounterFields entityId={entity.id} fpsCounter={entity.fpsCounter} revision={scene.revision} marks={marks!} disabled={busy||disabled} oncommit={(id,fpsCounter,revision)=>model.setFpsCounter(id,fpsCounter,revision)} onlive={(id,fpsCounter)=>live(id,revision=>model.setFpsCounter(id,fpsCounter,revision,true))} onliveend={onlivefieldend}/>
   {:else if entity.kind==='vmcSender'}<VmcSenderFields marks={marks!} entityId={entity.id} settings={entity.vmcSender} entities={scene.entities} revision={scene.revision} disabled={view.pending||disabled} status={senderStatus(vmcSenders,entity.id)} oncommit={(id,settings,revision)=>model.setVmcSender(id,settings,revision)}/>
   {:else if entity.kind==='environment'}<SceneModelFields marks={marks!} assetId={entity.assetId} reflectionsIntensity={entity.reflectionsIntensity??1} reflectionsDisabled={busy||disabled} onreflections={value=>model.setEnvironmentReflections(entity!.id,value,view.scene?.revision)} onreflectionslive={value=>{const id=entity!.id;live(id,revision=>model.setEnvironmentReflections(id,value,revision,true));}} onliveend={onlivefieldend} {assets} status={loads.find(load=>load.entityId===entity!.id)??null} importing={importingId===entity.id} error={importError?.entityId===entity.id?importError.message:null} disabled={view.pending||livePending||disabled||!onchoosescene} onselect={assetId=>onpickscene?.(entity!.id,assetId)} onimport={()=>onchoosescene?.(entity!.id)}/>
-  {:else if entity.kind==='mesh'&&entity.source.kind==='asset'}<SceneModelFields marks={marks!} assetId={entity.source.assetId} {assets} status={loads.find(load=>load.entityId===entity!.id)??null} importing={importingId===entity.id} error={importError?.entityId===entity.id?importError.message:null} disabled={view.pending||livePending||disabled||!onchoosescene} onselect={assetId=>onpickscene?.(entity!.id,assetId)} onimport={()=>onchoosescene?.(entity!.id)}/>
+  {:else if entity.kind==='mesh'&&entity.source.kind==='asset'}{#if id==='materials'}{@render materials(entity.id)}{:else}<SceneModelFields marks={marks!} assetId={entity.source.assetId} {assets} status={loads.find(load=>load.entityId===entity!.id)??null} importing={importingId===entity.id} error={importError?.entityId===entity.id?importError.message:null} disabled={view.pending||livePending||disabled||!onchoosescene} onselect={assetId=>onpickscene?.(entity!.id,assetId)} onimport={()=>onchoosescene?.(entity!.id)}/>{/if}
   {:else if entity.kind==='screen'}<div class="field-stack"><ScreenContentField marks={marks!} content={contentKind(entity.content)} options={contentOptions(contentKind(entity.content),scene.entities).map(option=>option.value==='display'||option.value==='window'?{...option,disabled:option.disabled||!captureCommands}:option)} disabled={view.pending||livePending||disabled} onchange={content=>{const id=entity!.id;if(content==='video')void model.setScreenVideo(id,{...VIDEO_DEFAULTS},view.scene?.revision);else if(content==='web')void model.setScreenWeb(id,DEFAULT_WEB_SCREEN,view.scene?.revision);else if(content==='display'||content==='window')void model.setScreenCapture(id,startCapture(content),view.scene?.revision);else void model.setScreenImage(id,null,view.scene?.revision);}}/>
    {#if entity.content.kind==='video'}<ScreenVideoFields marks={marks!} video={screenVideo(entity)} {assets} status={loads.find(load=>load.entityId===entity!.id)??null} importing={importingId===entity.id} error={importError?.entityId===entity.id?importError.message:null} disabled={busy||livePending||disabled} sourceDisabled={view.pending||!onchoosevideo} playLabel={playLabel(playback,entity.id)} onchange={video=>model.setScreenVideo(entity!.id,video,view.scene?.revision)} onlive={video=>{const id=entity!.id;live(id,revision=>model.setScreenVideo(id,video,revision,true));}} onliveend={onlivefieldend} oncontrol={action=>{void model.controlScreenVideo(entity!.id,action);}} onimport={()=>onchoosevideo?.(entity!.id)}/>
    {:else if entity.content.kind==='capture'}{#if captureCommands}<ScreenCaptureFields marks={marks!} capture={{target:entity.content.target,source:entity.content.source,cursor:entity.content.cursor}} hostState={captureState(entity.id,captureStatus)} message={captureMessage(entity.id,previewWarnings(captureStatus))} commands={captureCommands} disabled={view.pending||livePending||disabled} oncommit={next=>model.setScreenCapture(entity!.id,next,view.scene?.revision)}/>{/if}
@@ -144,6 +149,7 @@
   {:else if entity.kind==='avatar'}
    {#if id==='model'}<AvatarModelField label={modelLabel(entity.assetId,assets)} status={loads.find(load=>load.entityId===entity!.id)??null} importing={importingId===entity.id} disabled={view.pending||livePending||disabled||!onchoosemodel} onchoose={()=>onchoosemodel?.(entity!.id)}/>
    {:else if id==='expressions'&&expressionApi&&onexpressionsettings}<AvatarExpressionFields avatarId={entity.id} revision={scene.revision} api={expressionApi} stored={storedExpressions} disabled={busy||livePending||disabled} onsettings={onexpressionsettings} onsettingslive={(id,name,settings)=>live(id,revision=>model.setAvatarExpression(id,name,settings,revision,true))} onliveend={onlivefieldend}/>
+   {:else if id==='materials'}{@render materials(entity.id)}
    {:else if id==='meshes'}<AvatarMeshFields meshes={avatarMeshes} hidden={entity.hiddenMeshes} disabled={view.pending||livePending||disabled} oncommit={hidden=>model.setHiddenMeshes(entity!.id,hidden,view.scene?.revision)}/>
    {:else if id==='lighting'}<AvatarLightingFields entityId={entity.id} lighting={entity.lighting} revision={scene.revision} marks={marks!} disabled={busy||disabled} oncommit={(id,lighting,revision)=>model.setAvatarLighting(id,lighting,revision)} onlive={(id,lighting)=>live(id,revision=>model.setAvatarLighting(id,lighting,revision,true))} onliveend={onlivefieldend}/>
    {:else if id==='debug'}<AvatarDebugFields debug={avatarDebug} record={assets.find(asset=>asset.id===entity!.assetId)??null}/>
@@ -155,6 +161,7 @@
    {:else if id==='diagnostics'}<TrackingDiagnostics kind={entity.config.kind} generation={entity.generation} status={matchingStatus(trackingStatus,entity.id,entity.generation)}/>{/if}
   {/if}{/if}
  {/snippet}
+ {#snippet materials(entityId:string)}{#key entityId}<MaterialFields {entityId} record={materialRecord} saved={materialValues} revision={scene.revision} disabled={busy||disabled} oncommit={(id,materials,revision)=>model.setMaterialValues(id,materials,revision)} onlive={(id,materials)=>live(id,revision=>model.setMaterialValues(id,materials,revision,true))} onliveend={onlivefieldend}/>{/key}{/snippet}
  <div class="inspector-layout">
   {#if indexed}<InspectorIndex {sections} {current} onjump={jump}/>{/if}
   <div class="inspector-sections">{#each sections as section (section.id)}<InspectorSection id={section.id} label={section.label} collapsed={isCollapsed(sectionState,entity.kind,section.id)} ontoggle={()=>toggle(section.id)}>{@render body(section.id)}</InspectorSection>{/each}</div>

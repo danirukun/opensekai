@@ -8,16 +8,18 @@ export const SECTION_STORAGE_KEY='opensekai.inspector.sections';
 const MAX_STATE_BYTES=4096;
 const section=(id:string,label:string):InspectorSection=>({id,label});
 const transform=section('transform','Transform');
-export function sectionsFor(entity:SceneEntity,options:{expressions:boolean;meshes?:boolean;debug?:boolean}):InspectorSection[] {
+export function sectionsFor(entity:SceneEntity,options:{expressions:boolean;meshes?:boolean;materials?:boolean;debug?:boolean}):InspectorSection[] {
+ // B38 R29: Materials shows for a record with materials or for saved values.
+ const materials=options.materials?[section('materials','Materials')]:[];
  if(entity.kind==='camera')return [transform,section('rendering','Rendering'),section('grading','Grading'),section('effects',EFFECT_LABELS.section),section('lens','Lens'),section('control','Control'),section('screenshot','Screenshot')];
  if(entity.kind==='light')return [transform,section('light','Light'),section('affect','Affect'),...(entity.light.type!=='ambient'?[section('shadow','Shadow')]:[])];
  if(entity.kind==='haze')return [transform,section('haze','Haze')];
  if(entity.kind==='fpsCounter')return [section('fpsCounter','FPS Counter')];
  if(entity.kind==='vmcSender')return [section('sender','Sender')];
  if(entity.kind==='environment')return [transform,section('environment','Environment')];
- if(entity.kind==='mesh'&&entity.source.kind==='asset')return [transform,section('prop','Prop')];
+ if(entity.kind==='mesh'&&entity.source.kind==='asset')return [transform,section('prop','Prop'),...materials];
  if(entity.kind==='screen')return [transform,section('screen','Screen')];
- if(entity.kind==='avatar')return [transform,section('model','Model'),...(options.expressions?[section('expressions','Expressions')]:[]),...(options.meshes?[section('meshes','Meshes')]:[]),section('lighting','Lighting'),section('tracking','Tracking'),...(options.debug?[section('debug','Debug')]:[])];
+ if(entity.kind==='avatar')return [transform,section('model','Model'),...(options.expressions?[section('expressions','Expressions')]:[]),...(options.meshes?[section('meshes','Meshes')]:[]),...materials,section('lighting','Lighting'),section('tracking','Tracking'),...(options.debug?[section('debug','Debug')]:[])];
  if(entity.kind==='tracking')return [section('receiver','Receiver'),section('smoothing','Smoothing'),section('face','Face'),section('diagnostics','Diagnostics')];
  return [transform];
 }
