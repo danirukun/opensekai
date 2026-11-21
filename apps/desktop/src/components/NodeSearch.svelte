@@ -1,10 +1,11 @@
 <script lang="ts">
  import { onMount } from 'svelte';
- import { Dropdown, Input, nextDomId } from '@oshi-connect/ui';
+ import { Dropdown, nextDomId } from '@oshi-connect/ui';
  import { ChevronRight, Ellipsis, Star } from '@lucide/svelte';
  import { NODE_CATEGORIES, type DefaultRefs } from '@opensekai/contracts';
  import { FAVORITES, paletteSections, searchNodes, sectionCount, type SearchEntry, type WireNeed } from '../blueprints/node-search';
  import type { PalettePrefs, PaletteState } from '../blueprints/palette-prefs';
+ import SearchInput from './SearchInput.svelte';
 
  let { refs, need, focus = false, disabled = false, prefs, menu = false, onpick }: { refs: DefaultRefs; need?: WireNeed; focus?: boolean; disabled?: boolean; prefs: PalettePrefs; menu?: boolean; onpick: (entry: SearchEntry) => void } = $props();
  const id = nextDomId('node-search');
@@ -46,7 +47,7 @@
 
 <div class="node-search">
  <div class="node-search-bar">
-  <Input {id} placeholder="Search nodes" autocomplete="off" {disabled} bind:value={query} onkeydown={keydown} />
+  <SearchInput {id} label="Search nodes" placeholder="Search nodes" {disabled} bind:value={query} onkeydown={keydown} />
   {#if menu}<Dropdown bind:value={action} items={actions} triggerLabel="Palette" align="end" class="node-search-menu" onselect={all}>{#snippet trigger()}<Ellipsis size={14} />{/snippet}</Dropdown>{/if}
  </div>
  <ul class="node-search-results" role="listbox" aria-label="Nodes">

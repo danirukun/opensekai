@@ -1,6 +1,7 @@
 <script lang="ts">
  import type {AssetDebug,AssetRecord} from '@opensekai/contracts';
- import {Button,Input,Select} from '@oshi-connect/ui';
+ import {Button,Select} from '@oshi-connect/ui';
+ import SearchInput from './SearchInput.svelte';
  import {COUNT_LABELS,debugCopy,formatBytes,textureRows} from '../editor/avatar-debug';
  // Character Debug section (R3–R12): read-only data of the loaded file.
  let {debug,record}:{debug:AssetDebug|null;record:AssetRecord|null}=$props();
@@ -37,7 +38,7 @@
    <dl>{#each materialRows as [term,value]}<dt>{term}</dt><dd>{value}</dd>{/each}</dl>
    {#if textures.length>0}<h4>Textures</h4><dl>{#each textures as texture}<dt>{texture.slot}</dt><dd>{[texture.name,texture.width!==null?`${texture.width} × ${texture.height}`:null,texture.colorSpace,texture.mimeType,texture.bytes!==null?formatBytes(texture.bytes):null].filter(Boolean).join(' · ')}</dd>{/each}</dl>{/if}
    <h4>Properties</h4>
-   <Input placeholder="Search" autocomplete="off" bind:value={search}>{#snippet label()}<span class="sr-only">Search properties</span>{/snippet}</Input>
+   <SearchInput label="Search properties" placeholder="Search" bind:value={search}/>
    <dl class="properties">{#each properties as row}<dt>{row.name}</dt><dd>{row.value}</dd>{/each}</dl>
   {/if}
   {#if debug.warnings.length>0}<h4>Warnings</h4><ul>{#each debug.warnings as warning}<li>{warning.message}</li>{/each}</ul>{/if}

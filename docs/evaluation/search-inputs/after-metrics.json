@@ -1,0 +1,54 @@
+{
+  "assets": {
+    "height": 34,
+    "radius": "4px",
+    "border": "1px solid rgb(227, 225, 233)",
+    "padding": "0px 8px",
+    "background": "rgb(255, 255, 255)",
+    "fontSize": "12px",
+    "color": "rgb(53, 51, 61)",
+    "placeholder": "Search",
+    "label": "Search assets",
+    "icon": true
+  },
+  "escape": {
+    "cleared": "",
+    "blurred": true
+  },
+  "nodes": {
+    "height": 34,
+    "radius": "4px",
+    "border": "1px solid rgb(227, 225, 233)",
+    "padding": "0px 8px",
+    "background": "rgb(255, 255, 255)",
+    "fontSize": "12px",
+    "color": "rgb(53, 51, 61)",
+    "placeholder": "Search nodes",
+    "label": "Search nodes",
+    "icon": true
+  },
+  "menu": {
+    "height": 34,
+    "radius": "4px",
+    "border": "1px solid rgb(227, 225, 233)",
+    "padding": "0px 8px",
+    "background": "rgb(255, 255, 255)",
+    "fontSize": "12px",
+    "color": "rgb(53, 51, 61)",
+    "placeholder": "Search nodes",
+    "label": "Search nodes",
+    "icon": true
+  },
+  "properties": {
+    "height": 34,
+    "radius": "4px",
+    "border": "1px solid rgb(227, 225, 233)",
+    "padding": "0px 8px",
+    "background": "rgb(255, 255, 255)",
+    "fontSize": "12px",
+    "color": "rgb(53, 51, 61)",
+    "placeholder": "Search",
+    "label": "Search properties",
+    "icon": true
+  }
+}
