@@ -1,6 +1,6 @@
 # Shadowed beams analysis
 
-Date: 2026-11-21. Status: **sketch, candidate only**. This record is not an implementation contract. It applies to ENV-08 ([#46](https://github.com/danirukun/opensekai/issues/46), closed as a first subset), the laser fixture ([#337](https://github.com/danirukun/opensekai/issues/337)), the concert demo ([#338](https://github.com/danirukun/opensekai/issues/338)), more shadow lights ([#316](https://github.com/danirukun/opensekai/issues/316)), and GPU time ([#305](https://github.com/danirukun/opensekai/issues/305)).
+Date: 2026-11-21. Status: **sketch, candidate only** ([#339](https://github.com/danirukun/opensekai/issues/339)). This record is not an implementation contract. It applies to ENV-08 ([#46](https://github.com/danirukun/opensekai/issues/46), closed as a first subset), the laser fixture ([#337](https://github.com/danirukun/opensekai/issues/337)), the concert demo ([#338](https://github.com/danirukun/opensekai/issues/338)), more shadow lights ([#316](https://github.com/danirukun/opensekai/issues/316)), and GPU time ([#305](https://github.com/danirukun/opensekai/issues/305)).
 
 [V] = verified in the repository at `fd4fe09` or in the three.js r187 source. [I] = inferred. [E] = estimate, not measured.
 
