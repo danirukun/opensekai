@@ -1,5 +1,5 @@
 import { rotateByQuaternion, type Id, type Quat, type Reply, type SceneEntity, type SceneView, type Vec3 } from '@opensekai/contracts';
-import { eulerToQuat, IDENTITY, multiplyQuat, slerpQuat, type BoneOffsets } from './bone-offsets';
+import { DEFAULT_BONE_ENTRY, eulerToQuat, IDENTITY, multiplyQuat, slerpQuat, type BoneOffsets } from './bone-offsets';
 import { eased, running, timing, unit, type Timing, type Transition } from './tweens';
 
 // Runtime state only. `fade.from` is the head rotation when the effect ran, so a new target or weight turns smoothly.
@@ -75,7 +75,8 @@ export function stepLookAt(states: LookAtStates, find: EntityLookup, nowMs: numb
   if (!moving && entry.weight === 0) continue;
   next.set(avatarId, moving || !entry.fade ? entry : { targetId: entry.targetId, weight: entry.weight, graphId: entry.graphId });
   const bones = new Map(combined.get(avatarId) ?? []);
-  bones.set('head', multiplyQuat(output(entry, look, nowMs), bones.get('head') ?? IDENTITY));
+  const headEntry = bones.get('head') ?? DEFAULT_BONE_ENTRY;
+  bones.set('head', { ...headEntry, rotation: multiplyQuat(output(entry, look, nowMs), headEntry.rotation) });
   combined.set(avatarId, bones);
  }
  return { states: next, offsets: combined };
