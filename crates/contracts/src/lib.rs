@@ -137,6 +137,30 @@ object!(CameraPixelate {
     enabled: bool,
     intensity: u16
 });
+// Look-stack effect groups (#343 R14-R17). Nested here, not a separate schema (D9), so they share
+// one `setCameraEffects` patch with the B37 groups above.
+object!(CameraDepthOfField {
+    enabled: bool,
+    high_quality: bool,
+    focus_speed: f64
+});
+object!(CameraLensFlare {
+    enabled: bool,
+    high_quality: bool,
+    threshold: f64,
+    intensity: f64
+});
+object!(CameraAnamorphicFlare {
+    enabled: bool,
+    high_quality: bool,
+    intensity: f64,
+    spread: f64,
+    vertical: bool
+});
+object!(CameraFilmGrain {
+    enabled: bool,
+    intensity: f64
+});
 object!(CameraEffects {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     lens_dirt: Option<CameraLensDirt>,
@@ -147,7 +171,15 @@ object!(CameraEffects {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     blur: Option<CameraBlur>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pixelate: Option<CameraPixelate>
+    pixelate: Option<CameraPixelate>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    depth_of_field: Option<CameraDepthOfField>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    lens_flare: Option<CameraLensFlare>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    anamorphic_flare: Option<CameraAnamorphicFlare>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    film_grain: Option<CameraFilmGrain>
 });
 // Avatar lighting: rim, shade shadows, and environment fill for MToon avatars.
 object!(AvatarLighting {
@@ -535,8 +567,31 @@ impl Validate for CameraEffects {
             .pixelate
             .as_ref()
             .is_none_or(|p| (1..=256).contains(&p.intensity));
+        let depth_of_field = self
+            .depth_of_field
+            .as_ref()
+            .is_none_or(|d| within(d.focus_speed, 0., 1.));
+        let lens_flare = self
+            .lens_flare
+            .as_ref()
+            .is_none_or(|l| within(l.threshold, 0., 1.) && within(l.intensity, 0., 4.));
+        let anamorphic_flare = self
+            .anamorphic_flare
+            .as_ref()
+            .is_none_or(|a| within(a.intensity, 0., 1.) && within(a.spread, 0., 1.));
+        let film_grain = self
+            .film_grain
+            .as_ref()
+            .is_none_or(|f| within(f.intensity, 0., 1.));
         require(
-            dirt && vignetting && night_vision && blur && pixelate,
+            dirt && vignetting
+                && night_vision
+                && blur
+                && pixelate
+                && depth_of_field
+                && lens_flare
+                && anamorphic_flare
+                && film_grain,
             "invalid camera effects",
         )
     }

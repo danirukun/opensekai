@@ -9,7 +9,11 @@ fn defaults() -> Value {
         "vignetting":{"enabled":false,"color":"#4c4c4c","alpha":0.051,"fadeOut":0.0,"blink":0.0},
         "nightVision":{"enabled":false,"color":"#80ff80","alpha":0.502},
         "blur":{"enabled":false,"intensity":1.0},
-        "pixelate":{"enabled":false,"intensity":16}
+        "pixelate":{"enabled":false,"intensity":16},
+        "depthOfField":{"enabled":false,"highQuality":true,"focusSpeed":0.35},
+        "lensFlare":{"enabled":false,"highQuality":true,"threshold":0.5,"intensity":1.0},
+        "anamorphicFlare":{"enabled":false,"highQuality":true,"intensity":0.5,"spread":0.5,"vertical":false},
+        "filmGrain":{"enabled":false,"intensity":0.15}
     })
 }
 fn with_effects(effects: Value) -> Value {
@@ -51,6 +55,13 @@ fn camera_effects_accept_the_range_ends() {
         ("vignetting", "alpha", json!(1)),
         ("vignetting", "blink", json!(1)),
         ("blur", "intensity", json!(4)),
+        ("depthOfField", "focusSpeed", json!(0)),
+        ("depthOfField", "focusSpeed", json!(1)),
+        ("lensFlare", "threshold", json!(0)),
+        ("lensFlare", "intensity", json!(4)),
+        ("anamorphicFlare", "intensity", json!(1)),
+        ("anamorphicFlare", "spread", json!(0)),
+        ("filmGrain", "intensity", json!(1)),
     ] {
         assert!(
             validate_value::<SceneView>(&with_field(group, field, value.clone())).is_ok(),
@@ -60,7 +71,7 @@ fn camera_effects_accept_the_range_ends() {
 }
 #[test]
 fn camera_effects_reject_each_bad_shape() {
-    let cases: [(&str, &str, Value); 13] = [
+    let cases: [(&str, &str, Value); 21] = [
         ("vignetting", "alpha", json!(1.01)),
         ("vignetting", "fadeOut", json!(-0.01)),
         ("vignetting", "blink", json!(1.01)),
@@ -74,6 +85,14 @@ fn camera_effects_reject_each_bad_shape() {
         ("pixelate", "intensity", json!(16.5)),
         ("vignetting", "color", json!("#4C4C4C")),
         ("nightVision", "color", json!("#4c4c4c80")),
+        ("depthOfField", "focusSpeed", json!(-0.01)),
+        ("depthOfField", "focusSpeed", json!(1.01)),
+        ("lensFlare", "threshold", json!(1.01)),
+        ("lensFlare", "intensity", json!(4.01)),
+        ("anamorphicFlare", "intensity", json!(1.01)),
+        ("anamorphicFlare", "spread", json!(-0.01)),
+        ("filmGrain", "intensity", json!(-0.01)),
+        ("filmGrain", "intensity", json!(1.01)),
     ];
     for (group, field, value) in cases {
         assert!(
@@ -83,6 +102,7 @@ fn camera_effects_reject_each_bad_shape() {
     }
     assert!(validate_value::<SceneView>(&with_effects(json!({"chromaticAberration":{}}))).is_err());
     assert!(validate_value::<SceneView>(&with_field("blur", "radius", json!(1))).is_err());
+    assert!(validate_value::<SceneView>(&with_field("depthOfField", "bokeh", json!(1))).is_err());
     let mut missing = defaults();
     missing["vignetting"]
         .as_object_mut()
