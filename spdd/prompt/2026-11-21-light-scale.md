@@ -13,6 +13,7 @@ Date: 2026-11-21. Scope: bundle B43: #305 (Part A), #316 (Part B). Analysis: [li
 | D5 | The orchestrator runs all macOS, OBS, and Windows checks. GPU time is unknown where no timer exists, never 0 | The executors claim them |
 | D6 | No new dependency | — |
 | D7 | Owner, 2026-11-21: Q1 (a), Q2 (b), Q3 (b), Q4 (a), Q5 as recommended. The main shadow case is the avatar shadow on a flat floor | — |
+| D8 | Owner, 2026-11-21, after the PR1 probe: a sample is the mean of the frame spans of a batch. A frame span is the time from the earliest pass begin to the latest pass end of one applied frame. The sum of the pass durations overstated the cost (Stage Rig case D: p50 24.4 ms while OBS ran at 59.7 FPS), because an Apple GPU runs passes at the same time | The sum of the pass durations |
 
 ## Gates
 
@@ -44,15 +45,15 @@ Check order: M2, M1, M3, then M4.
 
 R1. On WebGPU the renderer is made with `trackTimestamp: true`, so three writes timestamps only when the device has `timestamp-query`. On WebGL 2 (forced or fallback) the renderer makes no timer query: `trackTimestamp` is false before the first render.
 R2. Each renderer reports `gpuTimer`: `supported` when (WebGPU) timestamps are on after `init`, or (WebGL 2) the context has `EXT_disjoint_timer_query_webgl2`; else `unsupported`. It is an optional field of `RendererDiagnostics` and of each `app_status` output, in TypeScript and Rust, and the host keeps it per output as it keeps `videoDecoder` (B31 R14).
-R3. After the last render call of each applied frame, the renderer starts one resolve of the render and compute queries recorded since the previous resolve (one batch), when no resolve is in progress. It does not wait for it. It counts the applied frames of each batch.
+R3. After the last render call of each applied frame, the renderer starts one resolve of the render and compute queries recorded since the previous resolve (one batch), when no resolve is in progress. It does not wait for it. After each applied frame it records the query index of each pool (a frame boundary), so it knows the queries of each frame of the batch.
 R4. A batch that holds a render outside an applied frame (a screenshot, a capture, the room irradiance render, or another render that is not part of `applyFrame`) gives no sample.
-R5. `gpuSample(durations, frames): number | null` is a pure function. It gives the sum of the durations divided by `frames` when: `frames` is 1 to 4; there is at least one duration; each duration is finite and from 0 to 1000 ms; the sum is above 0. Else it gives `null`.
+R5. Two pure functions. `frameSpan(pairs): number | null` gets the begin and end timestamps (ns) of the passes of one applied frame and gives the time in ms from the earliest begin to the latest end. It gives `null` when there is no pair, when a timestamp is 0 (WebGPU resolves a query that no pass wrote to 0), or when an end is before its begin. `gpuSample(spans): number | null` gives the mean of the frame spans of a batch when: there are 1 to 4 spans; each span is not `null`, is finite, is above 0, and is at most 1000 ms. Else it gives `null`.
 R6. The first acknowledgment after a batch resolves carries its sample in `gpuMs`. Each sample is on exactly one acknowledgment. All other acknowledgments carry `null`. A failed resolve gives no sample. A disposed renderer drops a pending sample. A value is never 0 for an unknown measurement.
-R7. A sample covers every render pass and compute pass that three records in the batch: the scene pass, the shadow passes, the haze pass, the beam pass, the post chain, the diagnostic marker, and, in the preview, the editor viewport. Copies and the canvas present are not in it. Documents call it "the sum of the GPU pass durations of a frame", not the frame time.
-R8. One module, `packages/renderer/src/gpu-timer.ts`, reads the three 0.187 timestamp pools. A unit test with a fake backend pins each field it reads (`timestampQueryPool`, `currentQueryIndex`, `pendingResolve`, `resultBuffer.mapState`, `timestamps`).
+R7. A frame span covers every render pass and compute pass that three records for the frame: the scene pass, the shadow passes, the haze pass, the beam pass, the post chain, the diagnostic marker, and, in the preview, the editor viewport. Passes that run at the same time count one time. A gap between two passes of the frame is in the span. Work before the first pass, after the last pass, copies outside a pass, and the canvas present are not in it. Documents call it "the GPU time span of a frame", not the frame time and not a sum of pass durations.
+R8. One module, `packages/renderer/src/gpu-timer.ts`, reads the three 0.187 timestamp pools. three keeps only a duration for each pass, so the module resolves the query set of each pool itself, into its own resolve buffer and result buffer, and then resets the pool as three does (`currentQueryIndex` 0, `queryOffsets` cleared). It does not patch a three prototype or a three method, and it does not call `resolveTimestampsAsync`. A batch gives no sample when three reset a pool itself (a boundary lower than the previous boundary, or `pendingResolve` set). A unit test with the real pool class of three pins each field that the module reads or writes (`backend.device`, `trackTimestamp`, `timestampQueryPool`, `querySet`, `currentQueryIndex`, `queryOffsets`, `maxQueries`, `pendingResolve`, `isDisposed`).
 R9. Benchmark summary (`crates/evaluation/src/runs.rs`): `gpuMs` has `p50`, `p95`, `p99`, and `max` of the samples in the measured window when at least one exists, else `null`. `gpuUnknownCount` counts the measured acknowledgments with `null`, as now. A new `gpuSampleCount` counts the samples.
 R10. `FrameApplied` does not change. Shared vectors: `applied-gpu-ms` (valid, `gpuMs` 4.25), `applied-negative-gpu-ms` (invalid), `diagnostics-gpu-timer` (valid), `diagnostics-unknown-gpu-timer` (invalid). Both harnesses check them.
-R11. No image readback, no image encode, no new stream, and no new Tauri IPC. The only readback is the query result buffer of three (8 bytes for each query) in the renderer client.
+R11. No image readback, no image encode, no new stream, and no new Tauri IPC. The only readback is the query result buffer of the timer (8 bytes for each query) in the renderer client.
 R12. Documents: `docs/evaluation/gpu-time.md` (the probe table, with "not checked" until the orchestrator fills it), one sentence in `ARCHITECTURE.md` (Output path, frame acknowledgments), and one sentence in the MCP `app_status` description ("Each output has gpuTimer (supported or unsupported) when its renderer reported it"). The parity lines of ENV-08, CAM-08, and SHOW-05 change only after LC A6.
 
 ### Part B: batched lit lights (PR2, #316)
@@ -112,7 +113,7 @@ R32. No pull request claims a GPU, OBS, look, cost, or Windows result that was n
 ## E — Entities
 
 - Contracts: `GpuTimerSupportSchema = z.enum(['supported', 'unsupported'])`; `RendererDiagnostics.gpuTimer?`; `app_status` output `gpuTimer?`. Rust `GpuTimerSupport` (`supported`, `unsupported`), `gpu_timer: Option<GpuTimerSupport>` with `skip_serializing_if`.
-- Renderer: `initializeBackend` returns `gpuTimer`. `createGpuTimer(renderer, backend)` → `{ frameDone(): void; taint(): void; take(): number | null; support: GpuTimerSupport; dispose(): void }`. `gpuSample(durations, frames)`.
+- Renderer: `initializeBackend` returns `gpuTimer`. `createGpuTimer(backend)` → `{ frameDone(): void; taint(): void; take(): number | null; support: GpuTimerSupport; dispose(): void }`. `framePairs(times, boundaries)`, `frameSpan(pairs)`, `gpuSample(spans)`.
 - Evaluation: `Entry.gpu: Vec<f64>`; summary `gpuMs`, `gpuSampleCount`.
 - Renderer lights: `SceneLights` keeps its interface. A directional light is a `GroupDirectionalLight` (an empty subclass of `DirectionalLight`, TB3 (b)). New `shadow-cache.ts`: `ShadowVolume`, `Sphere`, `shadowVolumeHits`, `shadowDirty(previous, next)`.
 - No new `PatchOp`, entity kind, show field, MCP tool, or show version.
@@ -142,7 +143,7 @@ Contract first. PR1 adds the timer, the capability, and the summary, and the orc
 
 ## N — Norms
 
-- Unit tests for each pure function: `gpuSample`, the timer batch logic with a fake backend, the summary, the group node identity, the MToon and lilToon builds with a batched light, `shadowVolumeHits`, `shadowDirty`, and the limit edges. No test of static copy.
+- Unit tests for each pure function: `framePairs`, `frameSpan`, `gpuSample`, the timer batch logic with a fake backend, the summary, the group node identity, the MToon and lilToon builds with a batched light, `shadowVolumeHits`, `shadowDirty`, and the limit edges. No test of static copy.
 - Integration tests only at a real boundary that changes: the Rust service test for the `gpuTimer` pass-through (as the `videoDecoder` test), and, in PR4, the MCP stdio light limits test at the new edges.
 - GPU, look, cost, WebKit, CEF, Metal, OBS, and Windows results come only from the orchestrator in the running build.
 - Functional TypeScript and plain data. Long prose in Simplified Technical English. UI copy is M1 to M4 only.
@@ -153,5 +154,5 @@ Contract first. PR1 adds the timer, the capability, and the summary, and the orc
 - Do not put a batched light into the haze node.
 - Do not read images back, add a stream, or add IPC for GPU time.
 - Do not change a limit before G2. Do not merge or push a spike branch.
-- Do not use the value that `resolveTimestampsAsync` returns as a sample.
+- Do not use the value that `resolveTimestampsAsync` returns as a sample. Do not patch a three prototype or method.
 - Do not write a GPU time, a frame time, an OBS result, or a look result that was not measured. Unknown is never 0.

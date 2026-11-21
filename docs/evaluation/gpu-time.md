@@ -2,14 +2,15 @@
 
 Date: 2026-11-21. Contract: [light scale](../../spdd/prompt/2026-11-21-light-scale.md), Part A. Analysis: [light scale](../../spdd/analysis/2026-11-21-light-scale.md). Issue: #305. Commit: `baf40bd` on `claude/b43-gpu-time` (the last code commit; this page is in the next commit).
 
-GPU time: unknown. No check on this page started the app, a WebView, or OBS.
+The headless checks did not start the app, a WebView, or OBS. The probe of 2026-11-21 (below) is from the orchestrator. It measured the first design (the sum of the pass durations), and the owner then changed the sample to the frame span (contract D8). GPU time with the frame span: unknown.
 
 ## Design
 
 - On WebGPU, the renderer is made with `trackTimestamp: true`. three writes timestamps only when the device has `timestamp-query` (R1). On WebGL 2, the renderer sets `trackTimestamp` to false before the first render, so it makes no timer query (TA3).
-- After the last render call of each applied frame, `packages/renderer/src/gpu-timer.ts` starts one resolve of the render and compute queries since the previous resolve, when no resolve is in progress and the result buffers are unmapped. It does not wait for the resolve (R3).
-- The timer reads the durations from `timestampQueryPool.{render,compute}.timestamps` after its own resolve. It does not use the value that `resolveTimestampsAsync` returns, because that value can be stale or 0 (TA5).
-- `gpuSample` gives the sum of the durations divided by the frame count of the batch, or `null` (R5). The next acknowledgment carries the sample; the other acknowledgments carry `null` (TA1).
+- After the last render call of each applied frame, `packages/renderer/src/gpu-timer.ts` records the query index of each three pool (a frame boundary). When no resolve is in progress, it resolves the query set of each pool into its own buffers and resets the pool as three does. It does not wait for the resolve (R3, R8).
+- three keeps only a duration for each pass, so the timer reads the begin and end timestamps from its own result buffer. It does not call `resolveTimestampsAsync` and does not patch three (TA5).
+- `frameSpan` gives the time from the earliest pass begin to the latest pass end of one frame, or `null` when a timestamp is 0 or an end is before its begin. `gpuSample` gives the mean of the frame spans of a batch, or `null` (R5). The next acknowledgment carries the sample; the other acknowledgments carry `null` (TA1).
+- The value is "the GPU time span of a frame". Passes that run at the same time count one time (R7).
 - A render outside an applied frame taints the batch, so the batch gives no sample (R4). These renders taint: a screenshot, the render of a capture, the room irradiance cube, the room environment map, and a frame render that failed.
 - Each renderer reports `gpuTimer` in its diagnostics. The host keeps it for each output, and `app_status` shows it (R2).
 - The benchmark summary gives the `gpuMs` percentiles of the samples in the measured window, `gpuSampleCount`, and `gpuUnknownCount` (R9).
@@ -38,14 +39,42 @@ The unit tests cannot show that a client has `timestamp-query`, what the timesta
 
 ## Client support
 
+From the probe of 2026-11-21.
+
 | Client | WebGPU `timestamp-query` | WebGL 2 `EXT_disjoint_timer_query_webgl2` | Timestamp resolution |
 | --- | --- | --- | --- |
-| Editor window, macOS (WKWebView, system WebKit) | Not checked | Not checked | Not checked |
-| OBS browser source, macOS (CEF in OBS 33.0.1) | Not checked | Not checked | Not checked |
+| Editor window, macOS (WKWebView, system WebKit) | Yes | Not checked | Below 1 µs |
+| OBS browser source, macOS (CEF in OBS 33.0.1) | Yes | Not recorded. With `?backend=webgl2`, `gpuMs` is `null`, as designed | 0.065536 ms (each pass duration is a multiple of this step) |
 | Editor window, Windows (WebView2) | Not checked | Not checked | Not checked |
 | OBS browser source, Windows | Not checked | Not checked | Not checked |
 
-## Local checks
+## Probe (2026-11-21)
+
+Commit: `c8e3b13` (the first design: the sum of the pass durations). macOS 27.2.1, Apple M3 Pro, OBS 33.0.1. The orchestrator ran the checks. This page records its results.
+
+| Check | Requirement | Result |
+| --- | --- | --- |
+| LC A1, probe (gate G-A1) | R1, R2 | Pass. The Editor window and the OBS browser source have `timestamp-query`. The OBS browser source with WebGL 2 gives `null`. |
+| LC A2, resolution | R5 | OBS: each pass duration is a multiple of 0.065536 ms. Editor window: below 1 µs. |
+| LC A3, plausibility | R3 to R7 | Fail for the sum. Stage Rig case D (a haze with 32 scattering lights) gave p50 24.4 ms and p95 32.2 ms while OBS ran at 59.7 FPS (FPS Counter 61). Case A (8 lit lights, a steady 60 FPS) gave p95 13.8 ms. An Apple GPU runs passes at the same time, so the sum counts the same time more than one time. The owner changed the sample to the frame span (D8). Also, some OBS samples were too low (see below). |
+| LC A4, benchmark | R9 | Not done |
+| LC A5, overhead (gate G-A2) | TA4 | Not done |
+| LC A6, cost again (#305) | R12 | Not done |
+| LC A7, minimized | R3 | Pass. With the Editor minimized, OBS kept its samples. One of 118 samples was too low. |
+
+Low OBS samples (0.13 ms to 0.2 ms, 2 or 3 steps of 0.065536 ms) where the other samples were 4 ms to 20 ms:
+
+| Case | Low samples |
+| --- | --- |
+| A | 73 of 1128 |
+| B | 50 of 1039 |
+| C | 77 of 1131 |
+| D | 4 of 1016 |
+| Editor minimized | 1 of 118 |
+
+The cause is not known. The analysis gives the candidates in code (risk "Implausibly low samples"). With the frame span, a frame that has a timestamp of 0 or an end before its begin gives no sample, and a batch after a pool reset by three gives no sample. LC A3 must check the frame span again.
+
+## Local checks with the frame span
 
 | Check | Requirement | Result |
 | --- | --- | --- |
