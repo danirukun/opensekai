@@ -968,6 +968,120 @@
           "x": 1560,
           "y": 5460
         }
+      },
+      {
+        "id": "bouncy",
+        "version": 1,
+        "type": "tracking.bouncySpring",
+        "settings": {
+          "entityId": "character",
+          "pitchWeight": 1,
+          "pitchScale": 1,
+          "jawWeight": 0.5,
+          "jawScale": 1,
+          "spring": 0.5,
+          "damping": 0.5,
+          "inputSmoothing": 0.05
+        },
+        "position": {
+          "x": 1040,
+          "y": 5720
+        }
+      },
+      {
+        "id": "bouncy-intensity",
+        "version": 1,
+        "type": "variable.getNumber",
+        "settings": {
+          "variableId": "bouncy-intensity"
+        },
+        "position": {
+          "x": 1040,
+          "y": 5900
+        }
+      },
+      {
+        "id": "bouncy-scaled",
+        "version": 1,
+        "type": "math.multiply",
+        "settings": {},
+        "position": {
+          "x": 1300,
+          "y": 5720
+        }
+      },
+      {
+        "id": "bouncy-enabled",
+        "version": 1,
+        "type": "variable.getBoolean",
+        "settings": {
+          "variableId": "bouncy-motion"
+        },
+        "position": {
+          "x": 1300,
+          "y": 5560
+        }
+      },
+      {
+        "id": "bouncy-zero",
+        "version": 1,
+        "type": "value.number",
+        "settings": {
+          "value": 0
+        },
+        "position": {
+          "x": 1300,
+          "y": 5900
+        }
+      },
+      {
+        "id": "bouncy-gated",
+        "version": 1,
+        "type": "flow.select",
+        "settings": {
+          "type": "number"
+        },
+        "position": {
+          "x": 1560,
+          "y": 5720
+        }
+      },
+      {
+        "id": "bouncy-y",
+        "version": 1,
+        "type": "character.offsetBoneTranslation",
+        "settings": {
+          "entityId": "character",
+          "bones": [
+            "spine",
+            "chest"
+          ],
+          "axis": "y",
+          "intensity": 0.08,
+          "offset": 0
+        },
+        "position": {
+          "x": 1820,
+          "y": 5460
+        }
+      },
+      {
+        "id": "bouncy-scale",
+        "version": 1,
+        "type": "character.offsetBoneScale",
+        "settings": {
+          "entityId": "character",
+          "bones": [
+            "spine",
+            "chest"
+          ],
+          "intensity": 0.05,
+          "offset": 0
+        },
+        "position": {
+          "x": 2080,
+          "y": 5460
+        }
       }
     ],
     "connections": [
@@ -1712,6 +1826,83 @@
         "sourcePort": "result",
         "targetNodeId": "thumb-left",
         "targetPort": "weight"
+      },
+      {
+        "id": "thumb-left.exit-bouncy-y.flow",
+        "sourceNodeId": "thumb-left",
+        "sourcePort": "exit",
+        "targetNodeId": "bouncy-y",
+        "targetPort": "flow"
+      },
+      {
+        "id": "bouncy-y.exit-bouncy-scale.flow",
+        "sourceNodeId": "bouncy-y",
+        "sourcePort": "exit",
+        "targetNodeId": "bouncy-scale",
+        "targetPort": "flow"
+      },
+      {
+        "id": "bouncy.value-bouncy-scaled.a",
+        "sourceNodeId": "bouncy",
+        "sourcePort": "value",
+        "targetNodeId": "bouncy-scaled",
+        "targetPort": "a"
+      },
+      {
+        "id": "bouncy-intensity.value-bouncy-scaled.b",
+        "sourceNodeId": "bouncy-intensity",
+        "sourcePort": "value",
+        "targetNodeId": "bouncy-scaled",
+        "targetPort": "b"
+      },
+      {
+        "id": "bouncy-enabled.value-bouncy-gated.condition",
+        "sourceNodeId": "bouncy-enabled",
+        "sourcePort": "value",
+        "targetNodeId": "bouncy-gated",
+        "targetPort": "condition"
+      },
+      {
+        "id": "bouncy-scaled.result-bouncy-gated.ifTrue",
+        "sourceNodeId": "bouncy-scaled",
+        "sourcePort": "result",
+        "targetNodeId": "bouncy-gated",
+        "targetPort": "ifTrue"
+      },
+      {
+        "id": "bouncy-zero.value-bouncy-gated.ifFalse",
+        "sourceNodeId": "bouncy-zero",
+        "sourcePort": "value",
+        "targetNodeId": "bouncy-gated",
+        "targetPort": "ifFalse"
+      },
+      {
+        "id": "bouncy-gated.value-bouncy-y.value",
+        "sourceNodeId": "bouncy-gated",
+        "sourcePort": "value",
+        "targetNodeId": "bouncy-y",
+        "targetPort": "value"
+      },
+      {
+        "id": "fade.result-bouncy-y.weight",
+        "sourceNodeId": "fade",
+        "sourcePort": "result",
+        "targetNodeId": "bouncy-y",
+        "targetPort": "weight"
+      },
+      {
+        "id": "bouncy-gated.value-bouncy-scale.value",
+        "sourceNodeId": "bouncy-gated",
+        "sourcePort": "value",
+        "targetNodeId": "bouncy-scale",
+        "targetPort": "value"
+      },
+      {
+        "id": "fade.result-bouncy-scale.weight",
+        "sourceNodeId": "fade",
+        "sourcePort": "result",
+        "targetNodeId": "bouncy-scale",
+        "targetPort": "weight"
       }
     ],
     "variables": [
@@ -1760,6 +1951,18 @@
       {
         "id": "pendulum-intensity",
         "name": "Pendulum Intensity",
+        "type": "number",
+        "default": 0.5
+      },
+      {
+        "id": "bouncy-motion",
+        "name": "Bouncy Motion",
+        "type": "boolean",
+        "default": false
+      },
+      {
+        "id": "bouncy-intensity",
+        "name": "Bouncy Intensity",
         "type": "number",
         "default": 0.5
       }

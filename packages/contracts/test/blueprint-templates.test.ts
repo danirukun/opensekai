@@ -105,7 +105,7 @@ it('builds Face-Only Body Motion for one character with the Warudo reference val
  const fingers = (side: string) => ['Index', 'Middle', 'Ring', 'Little'].flatMap(finger => ['Proximal', 'Intermediate', 'Distal'].map(segment => side + finger + segment)).join(' ');
  expect(group('fingers-scaled')).toEqual([[fingers('right'), 'z', 10, 0], ['rightThumbMetacarpal rightThumbProximal rightThumbDistal', 'y', 10, 0], [fingers('left'), 'z', -10, 0], ['leftThumbMetacarpal leftThumbProximal leftThumbDistal', 'y', -10, 0]]);
  // Body follows head: direction (0.5, 1, 0.5) × intensity 0.5 × sign (+1, +1, -1) × share (spine 0.5, chest 0.25, neck -0.75), from graph variables.
- expect(graph.variables.map(variable => [variable.name, variable.type, variable.default])).toEqual([['Body Intensity', 'number', 0.5], ['Body Direction X', 'number', 0.5], ['Body Direction Y', 'number', 1], ['Body Direction Z', 'number', 0.5], ['Spine', 'number', 0.5], ['Chest', 'number', 0.25], ['Neck Compensation', 'number', 0.75], ['Pendulum Intensity', 'number', 0.5]]);
+ expect(graph.variables.map(variable => [variable.name, variable.type, variable.default])).toEqual([['Body Intensity', 'number', 0.5], ['Body Direction X', 'number', 0.5], ['Body Direction Y', 'number', 1], ['Body Direction Z', 'number', 0.5], ['Spine', 'number', 0.5], ['Chest', 'number', 0.25], ['Neck Compensation', 'number', 0.75], ['Pendulum Intensity', 'number', 0.5], ['Bouncy Motion', 'boolean', false], ['Bouncy Intensity', 'number', 0.5]]);
  const defaults = new Map(graph.variables.map(variable => [variable.id, variable.default as number]));
  // The value of a data output for a head angle vector, from variable defaults, inline inputs, and products.
  const evaluate = (nodeId: string, port: string, head: number[]): number => {
@@ -125,4 +125,24 @@ it('builds Face-Only Body Motion for one character with the Warudo reference val
  expect(offsets).toHaveLength(22);
  expect(faceTemplate.references[0]!.id).toBe('character');
  expect(importBlueprint(file, makeSmokeScene(), () => 'g1')).toMatchObject({ ok: true, data: { report: { enabled: true, missing: [], remapped: [] } } });
+});
+
+it('adds Bouncy Motion to Face-Only Body Motion, off by default and gated by its variable', () => {
+ const graph = faceOnlyBodyMotionTemplate({ id: 'performer', name: 'performer' }).graph;
+ const nodes = new Map(graph.nodes.map(node => [node.id, node]));
+ const into = (id: string) => graph.connections.filter(wire => wire.targetNodeId === id).map(wire => [wire.sourceNodeId, wire.sourcePort, wire.targetPort]).sort();
+ expect(nodes.get('bouncy')).toMatchObject({ type: 'tracking.bouncySpring', settings: { entityId: 'performer', pitchWeight: 1, pitchScale: 1, jawWeight: 0.5, jawScale: 1, spring: 0.5, damping: 0.5, inputSmoothing: 0.05 } });
+ expect(nodes.get('bouncy-intensity')).toMatchObject({ type: 'variable.getNumber', settings: { variableId: 'bouncy-intensity' } });
+ expect(nodes.get('bouncy-enabled')).toMatchObject({ type: 'variable.getBoolean', settings: { variableId: 'bouncy-motion' } });
+ expect(nodes.get('bouncy-zero')).toMatchObject({ type: 'value.number', settings: { value: 0 } });
+ expect(nodes.get('bouncy-scaled')?.type).toBe('math.multiply');
+ expect(into('bouncy-scaled')).toEqual([['bouncy', 'value', 'a'], ['bouncy-intensity', 'value', 'b']]);
+ expect(nodes.get('bouncy-gated')).toMatchObject({ type: 'flow.select', settings: { type: 'number' } });
+ expect(into('bouncy-gated')).toEqual([['bouncy-enabled', 'value', 'condition'], ['bouncy-scaled', 'result', 'ifTrue'], ['bouncy-zero', 'value', 'ifFalse']]);
+ expect(nodes.get('bouncy-y')).toMatchObject({ type: 'character.offsetBoneTranslation', settings: { entityId: 'performer', bones: ['spine', 'chest'], axis: 'y', intensity: 0.08, offset: 0 } });
+ expect(nodes.get('bouncy-scale')).toMatchObject({ type: 'character.offsetBoneScale', settings: { entityId: 'performer', bones: ['spine', 'chest'], intensity: 0.05, offset: 0 } });
+ expect(into('bouncy-y')).toEqual([['bouncy-gated', 'value', 'value'], ['fade', 'result', 'weight'], ['thumb-left', 'exit', 'flow']]);
+ expect(into('bouncy-scale')).toEqual([['bouncy-gated', 'value', 'value'], ['bouncy-y', 'exit', 'flow'], ['fade', 'result', 'weight']]);
+ for (const wire of graph.connections.filter(item => item.targetNodeId.startsWith('bouncy')))
+  expect(connectionType(nodes.get(wire.sourceNodeId)!, wire.sourcePort, nodes.get(wire.targetNodeId)!, wire.targetPort)).not.toBeNull();
 });
