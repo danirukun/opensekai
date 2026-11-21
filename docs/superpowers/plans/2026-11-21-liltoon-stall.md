@@ -101,9 +101,9 @@ Passed at `716557b` (preview 227 ms, OBS 215 ms). Task 3 skipped.
 - [x] **Step 1: Write** the warm table, build-proof method, and pass/fail into the evidence page.
 - [x] **Step 2: Update** MAT-02 to claim only the new verified stall numbers.
 - [x] **Step 3: Set** contract Status to implemented and checked (or measured-pass-without-fork-change).
-- [ ] **Step 4: Commit** OpenSekai docs (and pin if changed).
-- [ ] **Step 5: Comment** on #269 that item 1 of the next-step order is done, with the measured numbers and the pin.
-- [ ] **Step 6: Run** `direnv exec . cargo sweep --time 7` from the worktree when the feature finishes.
+- [x] **Step 4: Commit** OpenSekai docs (and pin if changed).
+- [x] **Step 5: Comment** on #269 that item 1 of the next-step order is done, with the measured numbers and the pin.
+- [x] **Step 6: Run** `direnv exec . cargo sweep --time 7` from the worktree when the feature finishes.
 
 ## Review Focus
 
