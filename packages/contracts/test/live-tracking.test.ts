@@ -83,6 +83,17 @@ it('accepts the optional local addresses, unmatched count, and bone offsets of B
  expect(AvatarPoseSchema.safeParse({...pose,boneOffsets:{chest:[0,1,0,1]}}).success).toBe(false);
 });
 
+it('accepts bone translations and scales, and keeps them optional and bounded',()=>{
+ const pose={avatarId:'a',bones:{},expressions:{}};
+ expect(AvatarPoseSchema.safeParse(pose).success).toBe(true);
+ expect(AvatarPoseSchema.safeParse({...pose,boneTranslations:{spine:[0,-.02,0]},boneScales:{chest:.95}}).success).toBe(true);
+ expect(AvatarPoseSchema.safeParse({...pose,boneScales:{chest:.4}}).success).toBe(false);
+ expect(AvatarPoseSchema.safeParse({...pose,boneScales:{chest:1.5}}).success).toBe(true);
+ expect(AvatarPoseSchema.safeParse({...pose,boneScales:{chest:.5}}).success).toBe(true);
+ expect(AvatarPoseSchema.safeParse({...pose,boneTranslations:{tail:[0,0,0]}}).success).toBe(false);
+ expect(AvatarPoseSchema.safeParse({...pose,boneScales:{tail:1}}).success).toBe(false);
+});
+
 it('gives the FaceKit defaults and keeps the kind face-only',()=>{
  expect(defaultTrackingConfig('facekit')).toEqual({kind:'facekit',enabled:false,deviceId:''});
  expect(FACE_ONLY_TRACKING_KINDS).toContain('facekit');

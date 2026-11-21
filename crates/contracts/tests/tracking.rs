@@ -150,6 +150,30 @@ fn b5_optional_fields_match_typescript() {
     pose["boneOffsets"] = json!({"chest":[0,1,0,1]});
     assert!(validate_value::<AvatarPose>(&pose).is_err());
 }
+#[test]
+fn bone_translations_and_scales_are_optional_and_bounded() {
+    let base = json!({"avatarId":"a","bones":{},"expressions":{}});
+    assert!(validate_value::<AvatarPose>(&base).is_ok());
+    let mut pose = base.clone();
+    pose["boneTranslations"] = json!({"spine":[0,-0.02,0]});
+    pose["boneScales"] = json!({"chest":0.95});
+    assert!(validate_value::<AvatarPose>(&pose).is_ok());
+    let mut bad_scale = base.clone();
+    bad_scale["boneScales"] = json!({"chest":0.4});
+    assert!(validate_value::<AvatarPose>(&bad_scale).is_err());
+    let mut edge_low = base.clone();
+    edge_low["boneScales"] = json!({"chest":0.5});
+    assert!(validate_value::<AvatarPose>(&edge_low).is_ok());
+    let mut edge_high = base.clone();
+    edge_high["boneScales"] = json!({"chest":1.5});
+    assert!(validate_value::<AvatarPose>(&edge_high).is_ok());
+    let mut bad_bone = base.clone();
+    bad_bone["boneTranslations"] = json!({"tail":[0,0,0]});
+    assert!(validate_value::<AvatarPose>(&bad_bone).is_err());
+    let mut bad_scale_bone = base;
+    bad_scale_bone["boneScales"] = json!({"tail":1});
+    assert!(validate_value::<AvatarPose>(&bad_scale_bone).is_err());
+}
 fn overrides_fixture() -> serde_json::Value {
     serde_json::from_str(include_str!(
         "../../../fixtures/protocol/tracking-overrides.json"
