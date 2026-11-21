@@ -18,6 +18,9 @@ describe("lens-math", () => {
   it("cheap quality lowers bokehScale", () => {
     expect(bokehScale(85, 1.8, "cheap")).toBeLessThan(bokehScale(85, 1.8, "full"));
   });
+  it("Portrait (85mm f/1.8) full bokehScale is clearly visible", () => {
+    expect(bokehScale(85, 1.8, "full")).toBeGreaterThanOrEqual(5);
+  });
   it("Concert focal yields FOV under 35°", () => {
     expect(verticalFovDegrees(concertFocalLengthMm(), 24)).toBeLessThan(35);
   });

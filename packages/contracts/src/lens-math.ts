@@ -28,12 +28,12 @@ export function filmGaugeMm(preset: SensorPresetId): number {
   return SENSOR_PRESETS[preset].widthMm;
 }
 
-export const BOKEH_K_FULL = 0.02;
-export const BOKEH_K_CHEAP = 0.008;
+export const BOKEH_K_FULL = 0.17;
+export const BOKEH_K_CHEAP = 0.06;
 export const BOKEH_MAX_FULL = 8;
 export const BOKEH_MAX_CHEAP = 3;
 
-// Heuristic bokeh circle-of-confusion scale, tuned further in Task 6 against the concert fixture.
+// Heuristic bokeh circle-of-confusion scale, tuned in Task 6 against the concert fixture (Portrait 85mm f/1.8 full ≈ clamp).
 export function bokehScale(focalLengthMm: number, fStop: number, quality: "full" | "cheap"): number {
   const k = quality === "cheap" ? BOKEH_K_CHEAP : BOKEH_K_FULL;
   const max = quality === "cheap" ? BOKEH_MAX_CHEAP : BOKEH_MAX_FULL;
