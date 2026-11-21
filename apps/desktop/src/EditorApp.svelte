@@ -280,15 +280,15 @@ import { createEditorMemory } from './blueprints/editor-memory';
 <svelte:window onkeydown={key}/>
 <main class="editor-window">
  <nav class="editor-rail" aria-label="Editor panels">
-  <Button variant="ghost" class={panel==='assets'?'active-panel':''} tooltip="Assets" tooltipPlacement="bottom" onclick={()=>{panel='assets';}}><OpenSekaiMark/><span class="sr-only">Assets</span></Button>
-  <Button variant="ghost" class={panel==='output'?'active-panel':''} tooltip="Output" onclick={()=>{panel='output';}}><Radio size={20}/><span class="sr-only">Output</span></Button>
-  <Button variant="ghost" class={panel==='blueprints'?'active-panel':''} tooltip="Blueprints" onclick={()=>{panel='blueprints';}}><Workflow size={20}/><span class="sr-only">Blueprints</span></Button>
+  <Button variant="ghost" class={panel==='assets'?'active-panel':''} tooltip="Assets" tooltipPlacement="right" onclick={()=>{panel='assets';}}><OpenSekaiMark/><span class="sr-only">Assets</span></Button>
+  <Button variant="ghost" class={panel==='output'?'active-panel':''} tooltip="Output" tooltipPlacement="right" onclick={()=>{panel='output';}}><Radio size={20}/><span class="sr-only">Output</span></Button>
+  <Button variant="ghost" class={panel==='blueprints'?'active-panel':''} tooltip="Blueprints" tooltipPlacement="right" onclick={()=>{panel='blueprints';}}><Workflow size={20}/><span class="sr-only">Blueprints</span></Button>
   <div class="spacer"></div>
-  <Button variant="ghost" class={panel==='resources'?'active-panel':''} tooltip="Resources" onclick={()=>{panel='resources';}}><PackageOpen size={20}/><span class="sr-only">Resources</span></Button>
-  <Button variant="ghost" class={panel==='settings'?'active-panel':''} tooltip="Settings" onclick={()=>{panel='settings';}}><Settings size={20}/><span class="sr-only">Settings</span></Button>
+  <Button variant="ghost" class={panel==='resources'?'active-panel':''} tooltip="Resources" tooltipPlacement="right" onclick={()=>{panel='resources';}}><PackageOpen size={20}/><span class="sr-only">Resources</span></Button>
+  <Button variant="ghost" class={panel==='settings'?'active-panel':''} tooltip="Settings" tooltipPlacement="right" onclick={()=>{panel='settings';}}><Settings size={20}/><span class="sr-only">Settings</span></Button>
  </nav>
  <div class="editor-content">
-  <div class="show-toolbar"><input aria-label="Show name" maxlength="128" bind:value={showName} disabled={!canEdit||showBusy}/><div class="spacer"></div><span class={['session-mark', sessionState]} role="status" title={sessionLabel}>{sessionState==='error'?sessionLabel:''}</span><Button variant="ghost" tooltip="Open show" tooltipPlacement="bottom" disabled={!canEdit||!available||showBusy||view.pending||guideFor!==null} onclick={openShow}><FolderOpen size={16}/></Button><Button variant="ghost" tooltip="Save show (⇧ Save As)" tooltipPlacement="bottom" disabled={!canEdit||!available||showBusy||view.pending} onclick={(event:MouseEvent)=>{void saveShow(event.shiftKey);}}><Save size={16}/></Button></div>
+  <div class="show-toolbar"><input aria-label="Show name" maxlength="128" bind:value={showName} disabled={!canEdit||showBusy}/><div class="spacer"></div><span class={['session-mark', sessionState]} role="status" title={sessionLabel}>{sessionState==='error'?sessionLabel:''}</span><Button variant="ghost" tooltip="Open show" tooltipPlacement="bottom-end" disabled={!canEdit||!available||showBusy||view.pending||guideFor!==null} onclick={openShow}><FolderOpen size={16}/></Button><Button variant="ghost" tooltip="Save show (⇧ Save As)" tooltipPlacement="bottom-end" disabled={!canEdit||!available||showBusy||view.pending} onclick={(event:MouseEvent)=>{void saveShow(event.shiftKey);}}><Save size={16}/></Button></div>
   <div bind:this={shell} class="editor-body">
    {#if panel==='assets'}<div class="assets-column" style:width="{width}px" in:panelIn out:panelOut>{#if model}<Hierarchy {model} {view} onselect={select} ontool={setTool} disabled={!canEdit||!available||importing||livePending||fieldPending} onadd={add} loading={new Set(loads.filter(load=>load.stage!=='failed').map(load=>load.entityId))} ontrackingtoggle={toggleTracking}/>{/if}<div class="asset-list-footer">{view.scene?.entities.length??0} assets</div></div>
     <ResizeHandle value={width} min={160} max={maxWidth} onchange={value=>{width=value;}}/>
