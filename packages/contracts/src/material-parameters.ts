@@ -9,6 +9,8 @@ export type MaterialParameter = typeof MATERIAL_PARAMETER_KEYS[number];
 export type MaterialModel = Partial<Record<MaterialParameter, string | number>>;
 export interface MaterialShape { profile: MaterialProfile; blend: boolean; outline: boolean }
 export interface AssetMaterial extends MaterialShape { index: number; name: string; model: MaterialModel }
+// A saved group of values for one material (B38 R19): at least one parameter.
+export type MaterialValues = MaterialModel;
 export interface MaterialParameterView { parameter: MaterialParameter; model: string | number }
 export interface MaterialList { materials: { name: string; profile: MaterialProfile; parameters: MaterialParameterView[] }[] }
 
@@ -50,6 +52,14 @@ export const MaterialProfileSchema = z.enum(['mtoon', 'pbr', 'unlit', 'liltoon']
 export const MaterialParameterSchema = z.enum(MATERIAL_PARAMETER_KEYS);
 const valueSchema = (spec: MaterialParameterSpec) => spec.type === 'color' ? MaterialColorSchema : z.number().min(spec.range[0]).max(spec.range[1]);
 export const MaterialModelSchema = z.strictObject(Object.fromEntries(MATERIAL_PARAMETERS.map(spec => [spec.key, valueSchema(spec).optional()])) as Record<MaterialParameter, z.ZodOptional<z.ZodString | z.ZodNumber>>);
+// R19: the saved values of a character or a prop, by material name. An empty group is not stored.
+export const MaterialValuesSchema = MaterialModelSchema.refine(values => Object.keys(values).length > 0, 'Empty material values');
+// Not `z.record`: it drops a key named `__proto__`, and a model can name a material so. The output keeps each own key.
+const plainObject = (value: unknown): value is Record<string, unknown> =>
+ typeof value === 'object' && value !== null && !Array.isArray(value) && [Object.prototype, null].includes(Object.getPrototypeOf(value));
+export const MaterialGroupSchema = z.custom<Record<string, MaterialValues>>(value => plainObject(value) && Object.keys(value).length <= MAX_MATERIALS
+ && Object.entries(value).every(([name, values]) => MaterialNameSchema.safeParse(name).success && MaterialValuesSchema.safeParse(values).success), 'Invalid material values')
+ .transform(group => Object.fromEntries(Object.entries(group).map(([name, values]) => [name, MaterialValuesSchema.parse(values)])));
 export const AssetMaterialSchema = z.strictObject({
  index: z.number().int().nonnegative().max(0xffffffff),
  name: MaterialNameSchema,
@@ -76,3 +86,16 @@ export const materialList = (materials: readonly AssetMaterial[]): MaterialList 
   parameters: appliedParameters(m).flatMap(spec => m.model[spec.key] === undefined ? [] : [{ parameter: spec.key, model: m.model[spec.key]! }]),
  })),
 });
+
+// The saved group with one parameter set, or removed when `value` is null. Empty groups and an empty result are dropped.
+// Entries, not property writes: a model can name a material `__proto__`.
+export function withMaterialValue(group: Readonly<Record<string, MaterialValues>> | undefined, name: string, parameter: MaterialParameter, value: string | number | null): Record<string, MaterialValues> {
+ const own = Object.entries(group ?? {}).find(([key]) => key === name)?.[1];
+ const { [parameter]: _old, ...rest } = own ?? {};
+ const values: MaterialValues = value === null ? rest : { ...rest, [parameter]: value };
+ const others = Object.entries(group ?? {}).filter(([key]) => key !== name);
+ return Object.fromEntries(Object.keys(values).length ? [...others, [name, values]] : others);
+}
+/** The saved value of a parameter, or undefined. */
+export const savedMaterialValue = (group: Readonly<Record<string, MaterialValues>> | undefined, name: string, parameter: MaterialParameter): string | number | undefined =>
+ group && Object.hasOwn(group, name) ? group[name]![parameter] : undefined;

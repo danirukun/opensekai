@@ -32083,5 +32083,2900 @@
         }
       ]
     }
+  },
+  {
+    "name": "material-values-avatar",
+    "target": "scene",
+    "valid": true,
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "box"
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1",
+          "materials": {
+            "Body": {
+              "baseColor": "#ff8000",
+              "opacity": 0.5,
+              "outlineWidth": 0.01
+            }
+          }
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          },
+          "antiAliasing": "fxaa"
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "material-values-prop",
+    "target": "scene",
+    "valid": true,
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "scene_stage"
+          },
+          "materials": {
+            "Wall": {
+              "emissionColor": "#102030",
+              "emissionStrength": 2.5
+            }
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1"
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          },
+          "antiAliasing": "fxaa"
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "material-values-257-keys",
+    "target": "scene",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "box"
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1",
+          "materials": {
+            "Material 0": {
+              "opacity": 1
+            },
+            "Material 1": {
+              "opacity": 1
+            },
+            "Material 2": {
+              "opacity": 1
+            },
+            "Material 3": {
+              "opacity": 1
+            },
+            "Material 4": {
+              "opacity": 1
+            },
+            "Material 5": {
+              "opacity": 1
+            },
+            "Material 6": {
+              "opacity": 1
+            },
+            "Material 7": {
+              "opacity": 1
+            },
+            "Material 8": {
+              "opacity": 1
+            },
+            "Material 9": {
+              "opacity": 1
+            },
+            "Material 10": {
+              "opacity": 1
+            },
+            "Material 11": {
+              "opacity": 1
+            },
+            "Material 12": {
+              "opacity": 1
+            },
+            "Material 13": {
+              "opacity": 1
+            },
+            "Material 14": {
+              "opacity": 1
+            },
+            "Material 15": {
+              "opacity": 1
+            },
+            "Material 16": {
+              "opacity": 1
+            },
+            "Material 17": {
+              "opacity": 1
+            },
+            "Material 18": {
+              "opacity": 1
+            },
+            "Material 19": {
+              "opacity": 1
+            },
+            "Material 20": {
+              "opacity": 1
+            },
+            "Material 21": {
+              "opacity": 1
+            },
+            "Material 22": {
+              "opacity": 1
+            },
+            "Material 23": {
+              "opacity": 1
+            },
+            "Material 24": {
+              "opacity": 1
+            },
+            "Material 25": {
+              "opacity": 1
+            },
+            "Material 26": {
+              "opacity": 1
+            },
+            "Material 27": {
+              "opacity": 1
+            },
+            "Material 28": {
+              "opacity": 1
+            },
+            "Material 29": {
+              "opacity": 1
+            },
+            "Material 30": {
+              "opacity": 1
+            },
+            "Material 31": {
+              "opacity": 1
+            },
+            "Material 32": {
+              "opacity": 1
+            },
+            "Material 33": {
+              "opacity": 1
+            },
+            "Material 34": {
+              "opacity": 1
+            },
+            "Material 35": {
+              "opacity": 1
+            },
+            "Material 36": {
+              "opacity": 1
+            },
+            "Material 37": {
+              "opacity": 1
+            },
+            "Material 38": {
+              "opacity": 1
+            },
+            "Material 39": {
+              "opacity": 1
+            },
+            "Material 40": {
+              "opacity": 1
+            },
+            "Material 41": {
+              "opacity": 1
+            },
+            "Material 42": {
+              "opacity": 1
+            },
+            "Material 43": {
+              "opacity": 1
+            },
+            "Material 44": {
+              "opacity": 1
+            },
+            "Material 45": {
+              "opacity": 1
+            },
+            "Material 46": {
+              "opacity": 1
+            },
+            "Material 47": {
+              "opacity": 1
+            },
+            "Material 48": {
+              "opacity": 1
+            },
+            "Material 49": {
+              "opacity": 1
+            },
+            "Material 50": {
+              "opacity": 1
+            },
+            "Material 51": {
+              "opacity": 1
+            },
+            "Material 52": {
+              "opacity": 1
+            },
+            "Material 53": {
+              "opacity": 1
+            },
+            "Material 54": {
+              "opacity": 1
+            },
+            "Material 55": {
+              "opacity": 1
+            },
+            "Material 56": {
+              "opacity": 1
+            },
+            "Material 57": {
+              "opacity": 1
+            },
+            "Material 58": {
+              "opacity": 1
+            },
+            "Material 59": {
+              "opacity": 1
+            },
+            "Material 60": {
+              "opacity": 1
+            },
+            "Material 61": {
+              "opacity": 1
+            },
+            "Material 62": {
+              "opacity": 1
+            },
+            "Material 63": {
+              "opacity": 1
+            },
+            "Material 64": {
+              "opacity": 1
+            },
+            "Material 65": {
+              "opacity": 1
+            },
+            "Material 66": {
+              "opacity": 1
+            },
+            "Material 67": {
+              "opacity": 1
+            },
+            "Material 68": {
+              "opacity": 1
+            },
+            "Material 69": {
+              "opacity": 1
+            },
+            "Material 70": {
+              "opacity": 1
+            },
+            "Material 71": {
+              "opacity": 1
+            },
+            "Material 72": {
+              "opacity": 1
+            },
+            "Material 73": {
+              "opacity": 1
+            },
+            "Material 74": {
+              "opacity": 1
+            },
+            "Material 75": {
+              "opacity": 1
+            },
+            "Material 76": {
+              "opacity": 1
+            },
+            "Material 77": {
+              "opacity": 1
+            },
+            "Material 78": {
+              "opacity": 1
+            },
+            "Material 79": {
+              "opacity": 1
+            },
+            "Material 80": {
+              "opacity": 1
+            },
+            "Material 81": {
+              "opacity": 1
+            },
+            "Material 82": {
+              "opacity": 1
+            },
+            "Material 83": {
+              "opacity": 1
+            },
+            "Material 84": {
+              "opacity": 1
+            },
+            "Material 85": {
+              "opacity": 1
+            },
+            "Material 86": {
+              "opacity": 1
+            },
+            "Material 87": {
+              "opacity": 1
+            },
+            "Material 88": {
+              "opacity": 1
+            },
+            "Material 89": {
+              "opacity": 1
+            },
+            "Material 90": {
+              "opacity": 1
+            },
+            "Material 91": {
+              "opacity": 1
+            },
+            "Material 92": {
+              "opacity": 1
+            },
+            "Material 93": {
+              "opacity": 1
+            },
+            "Material 94": {
+              "opacity": 1
+            },
+            "Material 95": {
+              "opacity": 1
+            },
+            "Material 96": {
+              "opacity": 1
+            },
+            "Material 97": {
+              "opacity": 1
+            },
+            "Material 98": {
+              "opacity": 1
+            },
+            "Material 99": {
+              "opacity": 1
+            },
+            "Material 100": {
+              "opacity": 1
+            },
+            "Material 101": {
+              "opacity": 1
+            },
+            "Material 102": {
+              "opacity": 1
+            },
+            "Material 103": {
+              "opacity": 1
+            },
+            "Material 104": {
+              "opacity": 1
+            },
+            "Material 105": {
+              "opacity": 1
+            },
+            "Material 106": {
+              "opacity": 1
+            },
+            "Material 107": {
+              "opacity": 1
+            },
+            "Material 108": {
+              "opacity": 1
+            },
+            "Material 109": {
+              "opacity": 1
+            },
+            "Material 110": {
+              "opacity": 1
+            },
+            "Material 111": {
+              "opacity": 1
+            },
+            "Material 112": {
+              "opacity": 1
+            },
+            "Material 113": {
+              "opacity": 1
+            },
+            "Material 114": {
+              "opacity": 1
+            },
+            "Material 115": {
+              "opacity": 1
+            },
+            "Material 116": {
+              "opacity": 1
+            },
+            "Material 117": {
+              "opacity": 1
+            },
+            "Material 118": {
+              "opacity": 1
+            },
+            "Material 119": {
+              "opacity": 1
+            },
+            "Material 120": {
+              "opacity": 1
+            },
+            "Material 121": {
+              "opacity": 1
+            },
+            "Material 122": {
+              "opacity": 1
+            },
+            "Material 123": {
+              "opacity": 1
+            },
+            "Material 124": {
+              "opacity": 1
+            },
+            "Material 125": {
+              "opacity": 1
+            },
+            "Material 126": {
+              "opacity": 1
+            },
+            "Material 127": {
+              "opacity": 1
+            },
+            "Material 128": {
+              "opacity": 1
+            },
+            "Material 129": {
+              "opacity": 1
+            },
+            "Material 130": {
+              "opacity": 1
+            },
+            "Material 131": {
+              "opacity": 1
+            },
+            "Material 132": {
+              "opacity": 1
+            },
+            "Material 133": {
+              "opacity": 1
+            },
+            "Material 134": {
+              "opacity": 1
+            },
+            "Material 135": {
+              "opacity": 1
+            },
+            "Material 136": {
+              "opacity": 1
+            },
+            "Material 137": {
+              "opacity": 1
+            },
+            "Material 138": {
+              "opacity": 1
+            },
+            "Material 139": {
+              "opacity": 1
+            },
+            "Material 140": {
+              "opacity": 1
+            },
+            "Material 141": {
+              "opacity": 1
+            },
+            "Material 142": {
+              "opacity": 1
+            },
+            "Material 143": {
+              "opacity": 1
+            },
+            "Material 144": {
+              "opacity": 1
+            },
+            "Material 145": {
+              "opacity": 1
+            },
+            "Material 146": {
+              "opacity": 1
+            },
+            "Material 147": {
+              "opacity": 1
+            },
+            "Material 148": {
+              "opacity": 1
+            },
+            "Material 149": {
+              "opacity": 1
+            },
+            "Material 150": {
+              "opacity": 1
+            },
+            "Material 151": {
+              "opacity": 1
+            },
+            "Material 152": {
+              "opacity": 1
+            },
+            "Material 153": {
+              "opacity": 1
+            },
+            "Material 154": {
+              "opacity": 1
+            },
+            "Material 155": {
+              "opacity": 1
+            },
+            "Material 156": {
+              "opacity": 1
+            },
+            "Material 157": {
+              "opacity": 1
+            },
+            "Material 158": {
+              "opacity": 1
+            },
+            "Material 159": {
+              "opacity": 1
+            },
+            "Material 160": {
+              "opacity": 1
+            },
+            "Material 161": {
+              "opacity": 1
+            },
+            "Material 162": {
+              "opacity": 1
+            },
+            "Material 163": {
+              "opacity": 1
+            },
+            "Material 164": {
+              "opacity": 1
+            },
+            "Material 165": {
+              "opacity": 1
+            },
+            "Material 166": {
+              "opacity": 1
+            },
+            "Material 167": {
+              "opacity": 1
+            },
+            "Material 168": {
+              "opacity": 1
+            },
+            "Material 169": {
+              "opacity": 1
+            },
+            "Material 170": {
+              "opacity": 1
+            },
+            "Material 171": {
+              "opacity": 1
+            },
+            "Material 172": {
+              "opacity": 1
+            },
+            "Material 173": {
+              "opacity": 1
+            },
+            "Material 174": {
+              "opacity": 1
+            },
+            "Material 175": {
+              "opacity": 1
+            },
+            "Material 176": {
+              "opacity": 1
+            },
+            "Material 177": {
+              "opacity": 1
+            },
+            "Material 178": {
+              "opacity": 1
+            },
+            "Material 179": {
+              "opacity": 1
+            },
+            "Material 180": {
+              "opacity": 1
+            },
+            "Material 181": {
+              "opacity": 1
+            },
+            "Material 182": {
+              "opacity": 1
+            },
+            "Material 183": {
+              "opacity": 1
+            },
+            "Material 184": {
+              "opacity": 1
+            },
+            "Material 185": {
+              "opacity": 1
+            },
+            "Material 186": {
+              "opacity": 1
+            },
+            "Material 187": {
+              "opacity": 1
+            },
+            "Material 188": {
+              "opacity": 1
+            },
+            "Material 189": {
+              "opacity": 1
+            },
+            "Material 190": {
+              "opacity": 1
+            },
+            "Material 191": {
+              "opacity": 1
+            },
+            "Material 192": {
+              "opacity": 1
+            },
+            "Material 193": {
+              "opacity": 1
+            },
+            "Material 194": {
+              "opacity": 1
+            },
+            "Material 195": {
+              "opacity": 1
+            },
+            "Material 196": {
+              "opacity": 1
+            },
+            "Material 197": {
+              "opacity": 1
+            },
+            "Material 198": {
+              "opacity": 1
+            },
+            "Material 199": {
+              "opacity": 1
+            },
+            "Material 200": {
+              "opacity": 1
+            },
+            "Material 201": {
+              "opacity": 1
+            },
+            "Material 202": {
+              "opacity": 1
+            },
+            "Material 203": {
+              "opacity": 1
+            },
+            "Material 204": {
+              "opacity": 1
+            },
+            "Material 205": {
+              "opacity": 1
+            },
+            "Material 206": {
+              "opacity": 1
+            },
+            "Material 207": {
+              "opacity": 1
+            },
+            "Material 208": {
+              "opacity": 1
+            },
+            "Material 209": {
+              "opacity": 1
+            },
+            "Material 210": {
+              "opacity": 1
+            },
+            "Material 211": {
+              "opacity": 1
+            },
+            "Material 212": {
+              "opacity": 1
+            },
+            "Material 213": {
+              "opacity": 1
+            },
+            "Material 214": {
+              "opacity": 1
+            },
+            "Material 215": {
+              "opacity": 1
+            },
+            "Material 216": {
+              "opacity": 1
+            },
+            "Material 217": {
+              "opacity": 1
+            },
+            "Material 218": {
+              "opacity": 1
+            },
+            "Material 219": {
+              "opacity": 1
+            },
+            "Material 220": {
+              "opacity": 1
+            },
+            "Material 221": {
+              "opacity": 1
+            },
+            "Material 222": {
+              "opacity": 1
+            },
+            "Material 223": {
+              "opacity": 1
+            },
+            "Material 224": {
+              "opacity": 1
+            },
+            "Material 225": {
+              "opacity": 1
+            },
+            "Material 226": {
+              "opacity": 1
+            },
+            "Material 227": {
+              "opacity": 1
+            },
+            "Material 228": {
+              "opacity": 1
+            },
+            "Material 229": {
+              "opacity": 1
+            },
+            "Material 230": {
+              "opacity": 1
+            },
+            "Material 231": {
+              "opacity": 1
+            },
+            "Material 232": {
+              "opacity": 1
+            },
+            "Material 233": {
+              "opacity": 1
+            },
+            "Material 234": {
+              "opacity": 1
+            },
+            "Material 235": {
+              "opacity": 1
+            },
+            "Material 236": {
+              "opacity": 1
+            },
+            "Material 237": {
+              "opacity": 1
+            },
+            "Material 238": {
+              "opacity": 1
+            },
+            "Material 239": {
+              "opacity": 1
+            },
+            "Material 240": {
+              "opacity": 1
+            },
+            "Material 241": {
+              "opacity": 1
+            },
+            "Material 242": {
+              "opacity": 1
+            },
+            "Material 243": {
+              "opacity": 1
+            },
+            "Material 244": {
+              "opacity": 1
+            },
+            "Material 245": {
+              "opacity": 1
+            },
+            "Material 246": {
+              "opacity": 1
+            },
+            "Material 247": {
+              "opacity": 1
+            },
+            "Material 248": {
+              "opacity": 1
+            },
+            "Material 249": {
+              "opacity": 1
+            },
+            "Material 250": {
+              "opacity": 1
+            },
+            "Material 251": {
+              "opacity": 1
+            },
+            "Material 252": {
+              "opacity": 1
+            },
+            "Material 253": {
+              "opacity": 1
+            },
+            "Material 254": {
+              "opacity": 1
+            },
+            "Material 255": {
+              "opacity": 1
+            },
+            "Material 256": {
+              "opacity": 1
+            }
+          }
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          },
+          "antiAliasing": "fxaa"
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "material-values-empty-group",
+    "target": "scene",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "box"
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1",
+          "materials": {
+            "Body": {}
+          }
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          },
+          "antiAliasing": "fxaa"
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "material-values-uppercase-hex",
+    "target": "scene",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "box"
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1",
+          "materials": {
+            "Body": {
+              "baseColor": "#FF8000"
+            }
+          }
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          },
+          "antiAliasing": "fxaa"
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "material-values-opacity-over",
+    "target": "scene",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "scene_stage"
+          },
+          "materials": {
+            "Wall": {
+              "opacity": 1.5
+            }
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1"
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          },
+          "antiAliasing": "fxaa"
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "material-values-unknown-parameter",
+    "target": "scene",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "marker",
+          "name": "marker",
+          "visible": true,
+          "transform": {
+            "position": [
+              -0.9,
+              1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "box"
+          }
+        },
+        {
+          "id": "performer",
+          "name": "performer",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "avatar",
+          "assetId": "fixture_vrm_1",
+          "materials": {
+            "Body": {
+              "metallic": 0.5
+            }
+          }
+        },
+        {
+          "id": "reference",
+          "name": "reference",
+          "visible": true,
+          "transform": {
+            "position": [
+              0.9,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "mesh",
+          "source": {
+            "kind": "asset",
+            "assetId": "fixture_glb_1"
+          }
+        },
+        {
+          "id": "camera_wide",
+          "name": "camera_wide",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.2,
+              3
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          },
+          "antiAliasing": "fxaa"
+        },
+        {
+          "id": "camera_close",
+          "name": "camera_close",
+          "visible": true,
+          "transform": {
+            "position": [
+              0,
+              1.4,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "kind": "camera",
+          "lens": {
+            "fovDegrees": 45,
+            "near": 0.01,
+            "far": 100
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        },
+        {
+          "id": "preview_main",
+          "cameraId": "camera_wide",
+          "width": 1920,
+          "height": 1080,
+          "fps": 60
+        }
+      ]
+    }
+  },
+  {
+    "name": "material-values-set",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": true,
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setMaterialValues",
+          "entityId": "performer",
+          "materials": {
+            "Body": {
+              "shadeColor": "#aabbcc",
+              "rimColor": "#000000"
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "material-values-set-empty",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": true,
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setMaterialValues",
+          "entityId": "performer",
+          "materials": {}
+        }
+      ]
+    }
+  },
+  {
+    "name": "material-values-set-empty-group",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setMaterialValues",
+          "entityId": "performer",
+          "materials": {
+            "Body": {}
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "material-values-set-uppercase-hex",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setMaterialValues",
+          "entityId": "performer",
+          "materials": {
+            "Body": {
+              "outlineColor": "#ABCDEF"
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "material-values-set-opacity-over",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setMaterialValues",
+          "entityId": "performer",
+          "materials": {
+            "Body": {
+              "opacity": 1.5
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "material-values-set-unknown-parameter",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setMaterialValues",
+          "entityId": "performer",
+          "materials": {
+            "Body": {
+              "roughness": 0.5
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "material-values-set-257-keys",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setMaterialValues",
+          "entityId": "performer",
+          "materials": {
+            "Material 0": {
+              "opacity": 1
+            },
+            "Material 1": {
+              "opacity": 1
+            },
+            "Material 2": {
+              "opacity": 1
+            },
+            "Material 3": {
+              "opacity": 1
+            },
+            "Material 4": {
+              "opacity": 1
+            },
+            "Material 5": {
+              "opacity": 1
+            },
+            "Material 6": {
+              "opacity": 1
+            },
+            "Material 7": {
+              "opacity": 1
+            },
+            "Material 8": {
+              "opacity": 1
+            },
+            "Material 9": {
+              "opacity": 1
+            },
+            "Material 10": {
+              "opacity": 1
+            },
+            "Material 11": {
+              "opacity": 1
+            },
+            "Material 12": {
+              "opacity": 1
+            },
+            "Material 13": {
+              "opacity": 1
+            },
+            "Material 14": {
+              "opacity": 1
+            },
+            "Material 15": {
+              "opacity": 1
+            },
+            "Material 16": {
+              "opacity": 1
+            },
+            "Material 17": {
+              "opacity": 1
+            },
+            "Material 18": {
+              "opacity": 1
+            },
+            "Material 19": {
+              "opacity": 1
+            },
+            "Material 20": {
+              "opacity": 1
+            },
+            "Material 21": {
+              "opacity": 1
+            },
+            "Material 22": {
+              "opacity": 1
+            },
+            "Material 23": {
+              "opacity": 1
+            },
+            "Material 24": {
+              "opacity": 1
+            },
+            "Material 25": {
+              "opacity": 1
+            },
+            "Material 26": {
+              "opacity": 1
+            },
+            "Material 27": {
+              "opacity": 1
+            },
+            "Material 28": {
+              "opacity": 1
+            },
+            "Material 29": {
+              "opacity": 1
+            },
+            "Material 30": {
+              "opacity": 1
+            },
+            "Material 31": {
+              "opacity": 1
+            },
+            "Material 32": {
+              "opacity": 1
+            },
+            "Material 33": {
+              "opacity": 1
+            },
+            "Material 34": {
+              "opacity": 1
+            },
+            "Material 35": {
+              "opacity": 1
+            },
+            "Material 36": {
+              "opacity": 1
+            },
+            "Material 37": {
+              "opacity": 1
+            },
+            "Material 38": {
+              "opacity": 1
+            },
+            "Material 39": {
+              "opacity": 1
+            },
+            "Material 40": {
+              "opacity": 1
+            },
+            "Material 41": {
+              "opacity": 1
+            },
+            "Material 42": {
+              "opacity": 1
+            },
+            "Material 43": {
+              "opacity": 1
+            },
+            "Material 44": {
+              "opacity": 1
+            },
+            "Material 45": {
+              "opacity": 1
+            },
+            "Material 46": {
+              "opacity": 1
+            },
+            "Material 47": {
+              "opacity": 1
+            },
+            "Material 48": {
+              "opacity": 1
+            },
+            "Material 49": {
+              "opacity": 1
+            },
+            "Material 50": {
+              "opacity": 1
+            },
+            "Material 51": {
+              "opacity": 1
+            },
+            "Material 52": {
+              "opacity": 1
+            },
+            "Material 53": {
+              "opacity": 1
+            },
+            "Material 54": {
+              "opacity": 1
+            },
+            "Material 55": {
+              "opacity": 1
+            },
+            "Material 56": {
+              "opacity": 1
+            },
+            "Material 57": {
+              "opacity": 1
+            },
+            "Material 58": {
+              "opacity": 1
+            },
+            "Material 59": {
+              "opacity": 1
+            },
+            "Material 60": {
+              "opacity": 1
+            },
+            "Material 61": {
+              "opacity": 1
+            },
+            "Material 62": {
+              "opacity": 1
+            },
+            "Material 63": {
+              "opacity": 1
+            },
+            "Material 64": {
+              "opacity": 1
+            },
+            "Material 65": {
+              "opacity": 1
+            },
+            "Material 66": {
+              "opacity": 1
+            },
+            "Material 67": {
+              "opacity": 1
+            },
+            "Material 68": {
+              "opacity": 1
+            },
+            "Material 69": {
+              "opacity": 1
+            },
+            "Material 70": {
+              "opacity": 1
+            },
+            "Material 71": {
+              "opacity": 1
+            },
+            "Material 72": {
+              "opacity": 1
+            },
+            "Material 73": {
+              "opacity": 1
+            },
+            "Material 74": {
+              "opacity": 1
+            },
+            "Material 75": {
+              "opacity": 1
+            },
+            "Material 76": {
+              "opacity": 1
+            },
+            "Material 77": {
+              "opacity": 1
+            },
+            "Material 78": {
+              "opacity": 1
+            },
+            "Material 79": {
+              "opacity": 1
+            },
+            "Material 80": {
+              "opacity": 1
+            },
+            "Material 81": {
+              "opacity": 1
+            },
+            "Material 82": {
+              "opacity": 1
+            },
+            "Material 83": {
+              "opacity": 1
+            },
+            "Material 84": {
+              "opacity": 1
+            },
+            "Material 85": {
+              "opacity": 1
+            },
+            "Material 86": {
+              "opacity": 1
+            },
+            "Material 87": {
+              "opacity": 1
+            },
+            "Material 88": {
+              "opacity": 1
+            },
+            "Material 89": {
+              "opacity": 1
+            },
+            "Material 90": {
+              "opacity": 1
+            },
+            "Material 91": {
+              "opacity": 1
+            },
+            "Material 92": {
+              "opacity": 1
+            },
+            "Material 93": {
+              "opacity": 1
+            },
+            "Material 94": {
+              "opacity": 1
+            },
+            "Material 95": {
+              "opacity": 1
+            },
+            "Material 96": {
+              "opacity": 1
+            },
+            "Material 97": {
+              "opacity": 1
+            },
+            "Material 98": {
+              "opacity": 1
+            },
+            "Material 99": {
+              "opacity": 1
+            },
+            "Material 100": {
+              "opacity": 1
+            },
+            "Material 101": {
+              "opacity": 1
+            },
+            "Material 102": {
+              "opacity": 1
+            },
+            "Material 103": {
+              "opacity": 1
+            },
+            "Material 104": {
+              "opacity": 1
+            },
+            "Material 105": {
+              "opacity": 1
+            },
+            "Material 106": {
+              "opacity": 1
+            },
+            "Material 107": {
+              "opacity": 1
+            },
+            "Material 108": {
+              "opacity": 1
+            },
+            "Material 109": {
+              "opacity": 1
+            },
+            "Material 110": {
+              "opacity": 1
+            },
+            "Material 111": {
+              "opacity": 1
+            },
+            "Material 112": {
+              "opacity": 1
+            },
+            "Material 113": {
+              "opacity": 1
+            },
+            "Material 114": {
+              "opacity": 1
+            },
+            "Material 115": {
+              "opacity": 1
+            },
+            "Material 116": {
+              "opacity": 1
+            },
+            "Material 117": {
+              "opacity": 1
+            },
+            "Material 118": {
+              "opacity": 1
+            },
+            "Material 119": {
+              "opacity": 1
+            },
+            "Material 120": {
+              "opacity": 1
+            },
+            "Material 121": {
+              "opacity": 1
+            },
+            "Material 122": {
+              "opacity": 1
+            },
+            "Material 123": {
+              "opacity": 1
+            },
+            "Material 124": {
+              "opacity": 1
+            },
+            "Material 125": {
+              "opacity": 1
+            },
+            "Material 126": {
+              "opacity": 1
+            },
+            "Material 127": {
+              "opacity": 1
+            },
+            "Material 128": {
+              "opacity": 1
+            },
+            "Material 129": {
+              "opacity": 1
+            },
+            "Material 130": {
+              "opacity": 1
+            },
+            "Material 131": {
+              "opacity": 1
+            },
+            "Material 132": {
+              "opacity": 1
+            },
+            "Material 133": {
+              "opacity": 1
+            },
+            "Material 134": {
+              "opacity": 1
+            },
+            "Material 135": {
+              "opacity": 1
+            },
+            "Material 136": {
+              "opacity": 1
+            },
+            "Material 137": {
+              "opacity": 1
+            },
+            "Material 138": {
+              "opacity": 1
+            },
+            "Material 139": {
+              "opacity": 1
+            },
+            "Material 140": {
+              "opacity": 1
+            },
+            "Material 141": {
+              "opacity": 1
+            },
+            "Material 142": {
+              "opacity": 1
+            },
+            "Material 143": {
+              "opacity": 1
+            },
+            "Material 144": {
+              "opacity": 1
+            },
+            "Material 145": {
+              "opacity": 1
+            },
+            "Material 146": {
+              "opacity": 1
+            },
+            "Material 147": {
+              "opacity": 1
+            },
+            "Material 148": {
+              "opacity": 1
+            },
+            "Material 149": {
+              "opacity": 1
+            },
+            "Material 150": {
+              "opacity": 1
+            },
+            "Material 151": {
+              "opacity": 1
+            },
+            "Material 152": {
+              "opacity": 1
+            },
+            "Material 153": {
+              "opacity": 1
+            },
+            "Material 154": {
+              "opacity": 1
+            },
+            "Material 155": {
+              "opacity": 1
+            },
+            "Material 156": {
+              "opacity": 1
+            },
+            "Material 157": {
+              "opacity": 1
+            },
+            "Material 158": {
+              "opacity": 1
+            },
+            "Material 159": {
+              "opacity": 1
+            },
+            "Material 160": {
+              "opacity": 1
+            },
+            "Material 161": {
+              "opacity": 1
+            },
+            "Material 162": {
+              "opacity": 1
+            },
+            "Material 163": {
+              "opacity": 1
+            },
+            "Material 164": {
+              "opacity": 1
+            },
+            "Material 165": {
+              "opacity": 1
+            },
+            "Material 166": {
+              "opacity": 1
+            },
+            "Material 167": {
+              "opacity": 1
+            },
+            "Material 168": {
+              "opacity": 1
+            },
+            "Material 169": {
+              "opacity": 1
+            },
+            "Material 170": {
+              "opacity": 1
+            },
+            "Material 171": {
+              "opacity": 1
+            },
+            "Material 172": {
+              "opacity": 1
+            },
+            "Material 173": {
+              "opacity": 1
+            },
+            "Material 174": {
+              "opacity": 1
+            },
+            "Material 175": {
+              "opacity": 1
+            },
+            "Material 176": {
+              "opacity": 1
+            },
+            "Material 177": {
+              "opacity": 1
+            },
+            "Material 178": {
+              "opacity": 1
+            },
+            "Material 179": {
+              "opacity": 1
+            },
+            "Material 180": {
+              "opacity": 1
+            },
+            "Material 181": {
+              "opacity": 1
+            },
+            "Material 182": {
+              "opacity": 1
+            },
+            "Material 183": {
+              "opacity": 1
+            },
+            "Material 184": {
+              "opacity": 1
+            },
+            "Material 185": {
+              "opacity": 1
+            },
+            "Material 186": {
+              "opacity": 1
+            },
+            "Material 187": {
+              "opacity": 1
+            },
+            "Material 188": {
+              "opacity": 1
+            },
+            "Material 189": {
+              "opacity": 1
+            },
+            "Material 190": {
+              "opacity": 1
+            },
+            "Material 191": {
+              "opacity": 1
+            },
+            "Material 192": {
+              "opacity": 1
+            },
+            "Material 193": {
+              "opacity": 1
+            },
+            "Material 194": {
+              "opacity": 1
+            },
+            "Material 195": {
+              "opacity": 1
+            },
+            "Material 196": {
+              "opacity": 1
+            },
+            "Material 197": {
+              "opacity": 1
+            },
+            "Material 198": {
+              "opacity": 1
+            },
+            "Material 199": {
+              "opacity": 1
+            },
+            "Material 200": {
+              "opacity": 1
+            },
+            "Material 201": {
+              "opacity": 1
+            },
+            "Material 202": {
+              "opacity": 1
+            },
+            "Material 203": {
+              "opacity": 1
+            },
+            "Material 204": {
+              "opacity": 1
+            },
+            "Material 205": {
+              "opacity": 1
+            },
+            "Material 206": {
+              "opacity": 1
+            },
+            "Material 207": {
+              "opacity": 1
+            },
+            "Material 208": {
+              "opacity": 1
+            },
+            "Material 209": {
+              "opacity": 1
+            },
+            "Material 210": {
+              "opacity": 1
+            },
+            "Material 211": {
+              "opacity": 1
+            },
+            "Material 212": {
+              "opacity": 1
+            },
+            "Material 213": {
+              "opacity": 1
+            },
+            "Material 214": {
+              "opacity": 1
+            },
+            "Material 215": {
+              "opacity": 1
+            },
+            "Material 216": {
+              "opacity": 1
+            },
+            "Material 217": {
+              "opacity": 1
+            },
+            "Material 218": {
+              "opacity": 1
+            },
+            "Material 219": {
+              "opacity": 1
+            },
+            "Material 220": {
+              "opacity": 1
+            },
+            "Material 221": {
+              "opacity": 1
+            },
+            "Material 222": {
+              "opacity": 1
+            },
+            "Material 223": {
+              "opacity": 1
+            },
+            "Material 224": {
+              "opacity": 1
+            },
+            "Material 225": {
+              "opacity": 1
+            },
+            "Material 226": {
+              "opacity": 1
+            },
+            "Material 227": {
+              "opacity": 1
+            },
+            "Material 228": {
+              "opacity": 1
+            },
+            "Material 229": {
+              "opacity": 1
+            },
+            "Material 230": {
+              "opacity": 1
+            },
+            "Material 231": {
+              "opacity": 1
+            },
+            "Material 232": {
+              "opacity": 1
+            },
+            "Material 233": {
+              "opacity": 1
+            },
+            "Material 234": {
+              "opacity": 1
+            },
+            "Material 235": {
+              "opacity": 1
+            },
+            "Material 236": {
+              "opacity": 1
+            },
+            "Material 237": {
+              "opacity": 1
+            },
+            "Material 238": {
+              "opacity": 1
+            },
+            "Material 239": {
+              "opacity": 1
+            },
+            "Material 240": {
+              "opacity": 1
+            },
+            "Material 241": {
+              "opacity": 1
+            },
+            "Material 242": {
+              "opacity": 1
+            },
+            "Material 243": {
+              "opacity": 1
+            },
+            "Material 244": {
+              "opacity": 1
+            },
+            "Material 245": {
+              "opacity": 1
+            },
+            "Material 246": {
+              "opacity": 1
+            },
+            "Material 247": {
+              "opacity": 1
+            },
+            "Material 248": {
+              "opacity": 1
+            },
+            "Material 249": {
+              "opacity": 1
+            },
+            "Material 250": {
+              "opacity": 1
+            },
+            "Material 251": {
+              "opacity": 1
+            },
+            "Material 252": {
+              "opacity": 1
+            },
+            "Material 253": {
+              "opacity": 1
+            },
+            "Material 254": {
+              "opacity": 1
+            },
+            "Material 255": {
+              "opacity": 1
+            },
+            "Material 256": {
+              "opacity": 1
+            }
+          }
+        }
+      ]
+    }
   }
 ]

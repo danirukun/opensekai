@@ -30,3 +30,16 @@ fn set_mesh_model_parses() {
         {"kind":"setMeshModel","entityId":"walls","assetId":"scene_a"}]});
     assert!(validate_value::<ScenePatch>(&patch).is_ok());
 }
+#[test]
+fn prop_material_values_round_trip_and_older_props_parse() {
+    let mut walls = prop("walls", json!("scene_a"));
+    walls["materials"] = json!({"Wall":{"baseColor":"#336699","emissionStrength":2.5}});
+    let parsed =
+        validate_value::<SceneView>(&scene(vec![walls.clone(), prop("old", json!("scene_a"))]))
+            .unwrap();
+    let out = serde_json::to_value(&parsed).unwrap();
+    assert_eq!(out["entities"][1]["materials"], walls["materials"]);
+    assert!(out["entities"][2].get("materials").is_none());
+    walls["materials"] = json!({"Wall":{"opacity":-0.1}});
+    assert!(validate_value::<SceneView>(&scene(vec![walls])).is_err());
+}

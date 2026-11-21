@@ -599,6 +599,8 @@ pub enum SceneEntity {
         visible: bool,
         transform: Transform,
         source: MeshSource,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        materials: Option<BTreeMap<String, MaterialValues>>,
     },
     Avatar {
         id: Id,
@@ -625,6 +627,8 @@ pub enum SceneEntity {
         hidden_meshes: Option<Vec<String>>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         lighting: Option<Box<AvatarLighting>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        materials: Option<BTreeMap<String, MaterialValues>>,
     },
     Tracking {
         id: Id,
@@ -965,6 +969,11 @@ pub enum PatchOp {
         #[serde(rename = "hiddenMeshes")]
         hidden_meshes: Vec<String>,
     },
+    SetMaterialValues {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+        materials: BTreeMap<String, MaterialValues>,
+    },
     SetAvatarLighting {
         #[serde(rename = "entityId")]
         entity_id: Id,
@@ -1260,6 +1269,20 @@ pub fn asset_materials_ok(materials: &[AssetMaterial]) -> bool {
                     .entries()
                     .iter()
                     .all(|(key, value)| m.applies(key) && material_value_ok(key, value))
+        })
+}
+/// R19: the saved values of one material. The same shape as a model, with at least one value.
+pub type MaterialValues = MaterialModel;
+/// R19: at most 256 material names of 1 to 64 UTF-16 units, each with a non-empty group of values in range.
+pub fn material_group_ok(group: &BTreeMap<String, MaterialValues>) -> bool {
+    group.len() <= MAX_MATERIALS
+        && group.iter().all(|(name, values)| {
+            let entries = values.entries();
+            material_name_ok(name)
+                && !entries.is_empty()
+                && entries
+                    .iter()
+                    .all(|(key, value)| material_value_ok(key, value))
         })
 }
 // The `materialList` call of B38 R18. Keep in step with `MaterialListSchema`.
@@ -3033,6 +3056,9 @@ pub fn validate_patch_ops(ops: &[PatchOp], max: usize) -> Result<(), AppError> {
             PatchOp::SetHiddenMeshes { hidden_meshes, .. } => {
                 require(mesh_names_ok(hidden_meshes), "invalid hidden meshes")?
             }
+            PatchOp::SetMaterialValues { materials, .. } => {
+                require(material_group_ok(materials), "invalid material values")?
+            }
             PatchOp::SetScreenVideo { video, .. } => {
                 require(screen_volume_ok(video.volume), "invalid screen volume")?
             }
@@ -3890,6 +3916,17 @@ impl Validate for SceneEntity {
         } = self
         {
             lighting.validate()?;
+        }
+        if let Self::Avatar {
+            materials: Some(materials),
+            ..
+        }
+        | Self::Mesh {
+            materials: Some(materials),
+            ..
+        } = self
+        {
+            require(material_group_ok(materials), "invalid material values")?;
         }
         if let Self::Avatar {
             tracking: Some(tracking),
