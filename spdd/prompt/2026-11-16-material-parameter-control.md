@@ -173,15 +173,17 @@ R29 [PR4]. A Materials section.
 - Each field shows the saved value, or else the model value.
 - A saved parameter shows a `ResetMark` that removes it.
 - A field edit sends `setMaterialValues` with live wiring, as the light fields do.
-- A missing material shows its saved parameters as read-only values, each with a `ResetMark`.
+- A missing material shows its saved parameters as read-only values, each with a `ResetMark`. A saved parameter that does not apply to a record material (after a model change) is also a read-only row with a `ResetMark`.
+- The `ResetMark` of a row is at the right of its label, because the left place is outside a narrow Inspector column.
 - The section has no other text.
 
 ### MCP and documents
 
 R30 [PR4].
-- `materialList` adds `value` to each parameter (when it is saved) and `unknown` (the saved names that the record does not have).
+- `materialList` adds `value` to each parameter (when it is saved) and `unknown` (the saved names that the record does not have; always present, empty when there are none).
+- The saved-values schema has a JSON Schema, so the MCP tool list can show `scene_patch` and `scene_replace`.
 - The `scene_patch` text names `setMaterialValues`.
-- `opensekai://blueprint-nodes` lists the parameters with label, type, range, and profiles.
+- `opensekai://blueprint-nodes` lists the parameters with label, type, range, default, profiles, and `requires` (`blend` or `outline`) when the parameter needs it.
 
 R31 [PR2–PR4]. Each PR updates `ARCHITECTURE.md` where a data path changes, and `docs/warudo-parity.md` with only the verified behavior.
 - PR 2: the Color type in BP-01.
