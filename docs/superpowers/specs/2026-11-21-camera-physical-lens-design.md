@@ -1,6 +1,6 @@
 # Physical camera lens, presets, and TSL look stack
 
-Date: 2026-11-21. Status: draft for owner review. Issue: [#343](https://github.com/danirukun/opensekai/issues/343). Related: #54 (grading/bloom exist; LUTs stay there), #55 (AO/CA stay there; this work covers DoF/flare slice), #172 (vignette/dirt compose), #49 (FOV UI replaced), #56 (quality budget), #168 / #340 (Focus Character / first-run Default), #68 / #169 (out of scope).
+Date: 2026-11-21. Status: implemented, pending OBS and VM evidence (see the parity checklist, [CAM-07](../../warudo-parity.md)). Issue: [#343](https://github.com/danirukun/opensekai/issues/343). Related: #54 (grading/bloom exist; LUTs stay there), #55 (AO/CA stay there; this work covers DoF/flare slice), #172 (vignette/dirt compose), #49 (FOV UI replaced), #56 (quality budget), #168 / #340 (Focus Character / first-run Default), #68 / #169 (out of scope).
 
 ## Intent
 

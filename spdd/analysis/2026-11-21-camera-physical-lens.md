@@ -93,3 +93,9 @@ The design marks these as tuned-during-implementation; this contract records the
 - A second quality system beyond #56; each new effect gets a per-effect high-quality flag only.
 - `EffectComposer`, `UnrealBloomPass`, `BokehShader2`, `FilmShader`, and the project's removed `AnamorphicNode`.
 - Exact Default `focusDistance` tuning and the final bokeh-heuristic constants — V2 and V3 above are the starting values; Task 1 and Task 8 may tune them, with the VM check before any parity claim.
+
+## Evidence (Task 10)
+
+Captured: unit and contract tests for the lens math, the schema migrate, the effect groups, the registry convert, the camera apply, the look-chain key, autofocus smoothing, and the preset payloads (Tasks 1-9, `pnpm test:unit` clean). A throwaway browser harness (not committed; stills in the gitignored `.superpowers/sdd/task-6-evidence/`) showed depth of field, lens flare, the anamorphic smear, and film grain each drawing with no shader or pipeline error on WebGPU and on WebGL 2, and the depth-of-field alpha pass keeping transparent-background edges with no dark halo.
+
+Still needed, per R46: an Inspector screenshot of the Default preset and of the Portrait preset; an OBS or Editor-camera still with visible depth-of-field blur; an OBS or Editor-camera still with visible flare, with a note on whether the anamorphic smear reads at its default strength; and a short WebGPU-versus-WebGL2 note with the OBS alpha check. The Inspector screenshots are blocked on a pre-existing `@oshi-connect/ui` `ColorPicker` export mismatch (`ColorField.svelte` and related) that stops the Editor window from mounting; this is not caused by this issue's change and needs its own fix first. The Warudo DoF aperture VM check (D6) has not run; `docs/warudo-parity.md` CAM-07 stays "Partial," not "complete," until both the VM check and the OBS evidence land.
