@@ -15,6 +15,14 @@ it('lists the sections of each kind in field order (R11)',()=>{
  expect(sectionsFor(makeAuthoringEntity('character','id',[]),{expressions:true,meshes:true}).map(section=>section.label)).toEqual(['Transform','Model','Expressions','Meshes','Lighting','Tracking']);
  expect(ids('mediapipe')).toEqual(['Receiver','Smoothing','Face','Diagnostics']);
 });
+
+it('puts Materials after Meshes for a character and after Prop for a prop, only when asked (B38 R29)',()=>{
+ const labels=(kind:'character'|'prop',materials:boolean)=>sectionsFor(makeAuthoringEntity(kind,'id',[]),{expressions:false,meshes:true,materials}).map(section=>section.label);
+ expect(labels('character',true)).toEqual(['Transform','Model','Meshes','Materials','Lighting','Tracking']);
+ expect(labels('prop',true)).toEqual(['Transform','Prop','Materials']);
+ expect(labels('character',false)).not.toContain('Materials');
+ expect(labels('prop',false)).toEqual(['Transform','Prop']);
+});
 it('starts with the former Advanced sections collapsed and the rest expanded (R12)',()=>{
  expect(parseSectionState(null)).toEqual(START_STATE);
  for(const id of ['smoothing','face','diagnostics'])expect(isCollapsed(START_STATE,'tracking',id)).toBe(true);
