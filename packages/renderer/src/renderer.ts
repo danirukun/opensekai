@@ -26,6 +26,7 @@ import { createPostChain } from "./post-chain";
 import { createHaze, type Haze } from "./haze";
 import { createBeams } from "./beam";
 import { renderScreenshot, SCREENSHOT_HEIGHT, SCREENSHOT_WIDTH } from "./screenshot";
+import { applyPerspectiveLens } from "./lens";
 import { IMAGE_LOAD_FAILED, createScreenImagePool, createScreenMesh, loadScreenImage } from "./screen";
 import { createCameraEffects, createDirtSource } from "./camera-effects";
 import { activeEffects, effectsKey } from "./camera-effects-math";
@@ -489,11 +490,8 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         const fxKey = effectsKey(active, dirtId);
         if (fxKey !== "") cameraEffects.update(cameraEntity.effects, { width, height }, dirtImage);
         const effectsDrawn = fxKey === "" ? null : { key: fxKey, active, runtime: cameraEffects, dirt: dirtImage };
-        camera.fov = cameraEntity.lens.fovDegrees;
         camera.aspect = width / height;
-        camera.near = cameraEntity.lens.near;
-        camera.far = cameraEntity.lens.far;
-        camera.updateProjectionMatrix();
+        applyPerspectiveLens(camera, cameraEntity.lens);
         const navigated = editor?.cameraTransform(cameraEntity.id);
         applyTransform(camera, navigated ? { ...cameraEntity, transform: navigated } : cameraEntity);
         try {
@@ -550,7 +548,9 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             if (!frame || frame.scene.revision !== expectedRevision) throw failure("CONFLICT", "Displayed revision changed");
             const entity = frame.scene.entities.find(x => x.id === cameraId && x.kind === "camera");
             if (!entity || entity.kind !== "camera") throw failure("NOT_FOUND", "Camera not found", [cameraId]);
-            const shotCamera = new PerspectiveCamera(entity.lens.fovDegrees, SCREENSHOT_WIDTH / SCREENSHOT_HEIGHT, entity.lens.near, entity.lens.far);
+            const shotCamera = new PerspectiveCamera();
+            shotCamera.aspect = SCREENSHOT_WIDTH / SCREENSHOT_HEIGHT;
+            applyPerspectiveLens(shotCamera, entity.lens);
             applyTransform(shotCamera, entity);
             // Visibility comes from the frame; cameras and editor helpers are not drawn. A root that a gizmo drag holds keeps its draft pose.
             const show = new Map<Object3D, boolean>();
