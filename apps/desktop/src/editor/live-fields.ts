@@ -4,7 +4,9 @@ export type CameraLens=Extract<SceneEntity,{kind:'camera'}>['lens'];
 export type AddKind='camera'|'character'|'environment'|'prop'|'screen'|'directionalLight'|'pointLight'|'spotLight'|'ambientLight'|'haze'|'fpsCounter'|'vmcSender'|TrackingConfig['kind'];
 export type Commit<T>=(id:string,value:T,revision:number)=>Promise<unknown>;
 export interface LivePropertyCallbacks {onlens?:Commit<CameraLens>;onavatartracking?:Commit<AvatarTracking>;onavataridle?:Commit<AvatarIdle>;ontrackingsmoothing?:Commit<TrackingSmoothing>;ontrackingmapping?:Commit<TrackingMapping>;ontrackingcalibrate?:(id:string,revision:number)=>Promise<Reply<unknown>|undefined>;ontrackingcalibrationreset?:(id:string,revision:number)=>Promise<Reply<unknown>|undefined>;ontrackingconfig?:Commit<TrackingConfig>;ontrackingtoggle?:(id:string,enabled:boolean,revision:number)=>Promise<unknown>;trackingStatus?:TrackingStatus[];localAddresses?:string[];devices?:{deviceId:string;label:string}[]}
-export function parseLens(values:Record<keyof CameraLens,string>):CameraLens|null {const parsed=LensSchema.safeParse(Object.fromEntries(Object.entries(values).map(([key,value])=>[key,value.trim()===''?NaN:Number(value)])));return parsed.success?parsed.data:null;}
+// Near and Far stay free-text fields behind Apply (B12 R15); the rest of the physical lens carries over unchanged.
+const numOrNaN=(text:string)=>text.trim()===''?NaN:Number(text);
+export function parseLens(lens:CameraLens,clips:{near:string;far:string}):CameraLens|null {const parsed=LensSchema.safeParse({...lens,near:numOrNaN(clips.near),far:numOrNaN(clips.far)});return parsed.success?parsed.data:null;}
 export function reconcileDraft<T>(previousKey:string|null,source:{entityId:string;revision:number},values:T,base:T):{key:string;values:T}{const key=`${source.entityId}:${source.revision}`;return {key,values:key===previousKey?values:structuredClone(base)};}
 export type SourceOption={value:string;label:string;disabled:boolean};
 export type SourceChannel='body'|'face'|'fingers';

@@ -14,6 +14,9 @@ export function navigationForMode(mode:ControlMode,current:CameraNavigation|unde
 export function focusOptions(entities:readonly SceneEntity[]):{value:string;label:string}[] {
  return [{value:'',label:'None'},...entities.filter(entity=>entity.kind==='avatar').map(entity=>({value:entity.id,label:entity.name}))];
 }
+// Autofocus tracks the Orbit Character target, the Focus Character head (#343 R7, shared with #168). With
+// none set, autofocus is a no-op, so the Inspector disables the control instead of writing helper copy.
+export const hasFocusTarget=(navigation:CameraNavigation|undefined):boolean=>navigation?.mode==='orbitCharacter'&&navigation.targetId!==null;
 // A number field can hand over a number or a string.
 // Tab and Ctrl+Tab: the next or previous camera in scene order, with wrap, from the camera that the preview draws.
 export function cycleCamera(scene:SceneView|null,direction:1|-1):Id|null {
