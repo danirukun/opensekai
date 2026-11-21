@@ -1,4 +1,4 @@
-import type { CameraNavigation, Id, Vec3 } from "@opensekai/contracts";
+import type { CameraLens, CameraNavigation, Id, Vec3 } from "@opensekai/contracts";
 
 // Autofocus on the Focus Character head (#343 R7). Pure math only; the renderer resolves the VRM head
 // bone world position (when present) with Three.js and falls back to this offset otherwise.
@@ -20,6 +20,9 @@ export const focusCharacterId = (navigation: CameraNavigation | undefined): Id |
  * Moves `current` toward `target` at a `focusSpeed` (0-1) lerp rate scaled to `dtSeconds`, so the same
  * `focusSpeed` reads the same at any frame rate: `1 - (1 - focusSpeed)^(dt*60)` is the rate at 60 Hz.
  */
+export const focusedLens = (lens: CameraLens, focusDistance: number | null | undefined): CameraLens =>
+    lens.autofocus && focusDistance != null ? { ...lens, focusDistance } : lens;
+
 export function smoothFocusDistance(current: number, target: number, focusSpeed: number, dtSeconds: number): number {
     if (!(dtSeconds > 0)) return current;
     const rate = 1 - (1 - focusSpeed) ** (dtSeconds * 60);

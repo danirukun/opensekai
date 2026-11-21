@@ -78,6 +78,8 @@ R19. Rust mirrors the four new groups and their `Validate` ranges; accept/reject
 
 R20. `PROPERTY_KEYS` gains `focalLengthMm`, `fStop`, `focusDistance`, `autofocus`, `sensorPreset`, next to the existing `fovDegrees`.
 R21. Writing `fovDegrees` calls `lensWithFovDegrees` (D4); writing `focalLengthMm` calls `lensWithFocalLength`; writing `sensorPreset` keeps `focalLengthMm` and recomputes `fovDegrees` from it; writing `autofocus` sets the boolean directly. An out-of-range write for any of the five keys fails with the registry's existing invalid-input behavior and leaves the scene unchanged, matching how other range-checked keys fail today.
+R21a. A Blueprint write of any lens key (`fovDegrees` or one of the five keys) commits through `setCameraLens` after the idle time. A `setCameraLens` patch cancels the overrides and transitions of all lens keys of that camera.
+R21b. A `setCameraLens` write that keeps the current `focalLengthMm` and `sensorPreset` but has a different `fovDegrees` converts through `lensWithFovDegrees` (D4), so an MCP write of only the FOV is not lost. Any other write keeps its physical fields and recomputes `fovDegrees` from them (D12). The patch schema keeps the written `fovDegrees` (`LensWriteSchema`); the session resolves it against the current lens (`resolveLensWrite`).
 R22. Reading any of the five keys, or `fovDegrees`, returns the stored lens's synced value — never a value computed from a different sensor than the one stored.
 R23. Existing callers that still write a bare `{fovDegrees, near, far}` lens literal (`compile-scene.ts`, `blueprint-templates/index.ts`, `warudo-show.ts`) keep working unchanged at the call site; the schema-level normalize of R10 is what gives them physical fields. Task 9 may update call sites directly where that is the cheaper fix, but this requirement does not force it.
 
@@ -101,7 +103,7 @@ R33. With all four new groups at their defaults (every `enabled: false`), the bu
 
 R34. `smoothFocusDistance(current, target, focusSpeed, dtSeconds)` = `current + (target - current) * (1 - (1 - focusSpeed) ** (dtSeconds * 60))`, so `focusSpeed` 0 holds `current` and `focusSpeed` 1 snaps to `target` in one frame.
 R35. Autofocus resolves the Focus Character from the camera's `navigation.orbitCharacter.targetId` (the #168 pattern); head position is the VRM humanoid head bone's world position when present, else the avatar root plus `(0, 1.5, 0)`.
-R36. While `autofocus` is `true` and a Focus Character target resolves, each frame writes the smoothed distance (R34) into the live focus distance that feeds DoF and the Inspector readout. While no target resolves, the stored `focusDistance` does not change, and the autofocus control itself needs no added helper text to explain why (constitution principle 1).
+R36. While `autofocus` is `true` and a Focus Character target resolves, each frame writes the smoothed distance (R34) into the live focus distance that feeds DoF and the Inspector readout. While no target resolves, the stored `focusDistance` does not change, and the autofocus control itself needs no added helper text to explain why (constitution principle 1). The distance is measured from the camera position that is drawn, including an orbit drag that has not committed. A screenshot of the output camera uses the same smoothed distance; a screenshot of another autofocus camera uses its current target distance.
 
 ### Inspector, presets, authoring defaults (Task 8)
 

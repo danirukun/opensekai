@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest';
-import { distance, focusCharacterId, headFallbackPosition, smoothFocusDistance } from '../src/autofocus';
+import { DEFAULT_CAMERA_LENS } from '@opensekai/contracts';
+import { distance, focusCharacterId, focusedLens, headFallbackPosition, smoothFocusDistance } from '../src/autofocus';
 
 it('moves the focus distance toward the target at a dt-scaled lerp rate', () => {
     // At exactly 60 Hz, the lerp rate equals focusSpeed (dt*60 === 1).
@@ -24,6 +25,14 @@ it('falls back to the avatar root plus a 1.5 m head offset', () => {
 it('measures the straight-line distance between two world points', () => {
     expect(distance([0, 0, 0], [3, 4, 0])).toBe(5);
     expect(distance([1, 1, 1], [1, 1, 1])).toBe(0);
+});
+
+it('gives the look stack the live focus distance only for an autofocus lens that has one', () => {
+    const lens = { ...DEFAULT_CAMERA_LENS, autofocus: true };
+    expect(focusedLens(lens, 7.5)).toEqual({ ...lens, focusDistance: 7.5 });
+    expect(focusedLens(lens, undefined)).toBe(lens);
+    expect(focusedLens(lens, null)).toBe(lens);
+    expect(focusedLens(DEFAULT_CAMERA_LENS, 7.5)).toBe(DEFAULT_CAMERA_LENS);
 });
 
 it('resolves the Focus Character only from an Orbit Character navigation with a target', () => {
