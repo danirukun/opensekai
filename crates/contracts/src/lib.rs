@@ -600,7 +600,7 @@ pub enum SceneEntity {
         transform: Transform,
         source: MeshSource,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        materials: Option<BTreeMap<String, MaterialValues>>,
+        materials: Option<Box<BTreeMap<String, MaterialValues>>>,
     },
     Avatar {
         id: Id,
@@ -628,7 +628,7 @@ pub enum SceneEntity {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         lighting: Option<Box<AvatarLighting>>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        materials: Option<BTreeMap<String, MaterialValues>>,
+        materials: Option<Box<BTreeMap<String, MaterialValues>>>,
     },
     Tracking {
         id: Id,
