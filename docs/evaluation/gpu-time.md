@@ -1,6 +1,6 @@
 # GPU time check (B43 PR1)
 
-Date: 2026-11-21. Contract: [light scale](../../spdd/prompt/2026-11-21-light-scale.md), Part A. Analysis: [light scale](../../spdd/analysis/2026-11-21-light-scale.md). Issue: #305. Commit: `baf40bd` on `claude/b43-gpu-time` (the last code commit; this page is in the next commit).
+Date: 2026-11-21. Contract: [light scale](../../spdd/prompt/2026-11-21-light-scale.md), Part A. Analysis: [light scale](../../spdd/analysis/2026-11-21-light-scale.md). Issue: #305. Commit: `5a529ab` on `claude/b43-gpu-time` (the last code commit, the frame span; this page is in the next commit).
 
 The headless checks did not start the app, a WebView, or OBS. The probe of 2026-11-21 (below) is from the orchestrator. It measured the first design (the sum of the pass durations), and the owner then changed the sample to the frame span (contract D8). GPU time with the frame span: unknown.
 
@@ -17,20 +17,20 @@ The headless checks did not start the app, a WebView, or OBS. The probe of 2026-
 
 ## Headless checks
 
-These commands ran on macOS (Darwin 27.2.0, Apple silicon) in the PR1 worktree, with the shared Cargo target. The baseline ran on `df3534f` (the documents commit, before any code change). The result ran on `baf40bd`.
+These commands ran on macOS (Darwin 27.2.0, Apple silicon) in the PR1 worktree, with the shared Cargo target. The baseline ran on `df3534f` (the documents commit, before any code change). The result ran on `5a529ab`.
 
 | Command | Baseline | Result |
 | --- | --- | --- |
 | `pnpm check` | Exit 0. svelte-check 5915 files, 0 errors, 0 warnings. | Exit 0. svelte-check 5916 files, 0 errors, 0 warnings. |
-| `pnpm test:unit` | Exit 0. 303 files passed; 2851 tests passed, 1 skipped. | Exit 0. 304 files passed; 2865 tests passed, 1 skipped (+1 file, +14 tests). |
+| `pnpm test:unit` | Exit 0. 303 files passed; 2851 tests passed, 1 skipped. | Exit 0. 304 files passed; 2869 tests passed, 1 skipped (+1 file, +18 tests). |
 | `pnpm test:integration` | Exit 0. 48 files passed, 4 skipped; 125 tests passed, 8 skipped. | Exit 0. The same counts. |
 | `cargo fmt --all -- --check` | Exit 1. Two differences, in `apps/desktop/src-tauri/src/recent_shows.rs` and `apps/desktop/src-tauri/src/tracking/parser.rs`. | Exit 1. The same two differences only. PR1 does not change those files. |
 | `cargo clippy --workspace --all-targets -- -D warnings` | Exit 0, 0 warnings. | Exit 0, 0 warnings. |
-| `cargo test --workspace` | Exit 0. 632 passed, 0 failed, 2 ignored. | Exit 0. 636 passed, 0 failed, 2 ignored (+4). |
+| `cargo test --workspace` | Exit 0. 632 passed, 0 failed, 2 ignored. | Exit 0. 636 passed, 0 failed, 2 ignored (+4). In the first run, `clock_integration` failed one time (`unsolicited frames accumulated credits: 2`); PR1 does not change the clock, and the second full run passed. |
 
 The new tests:
 
-- Renderer: `packages/renderer/test/gpu-timer.test.ts` (9). One test runs the timer against the timestamp pool class of three 0.187 with a fake device, so a three update that changes the fields fails this test.
+- Renderer: `packages/renderer/test/gpu-timer.test.ts` (13): `framePairs`, `frameSpan`, `gpuSample`, and the timer with a fake device that copies the query slots. One test runs the timer with the real `WebGPUBackend` and `WebGPUTimestampQueryPool` classes of three 0.187, so a three update that changes a field fails this test.
 - Contracts: 1 in `packages/contracts/test/app-status.test.ts`, 4 shared vectors (`applied-gpu-ms`, `applied-negative-gpu-ms`, `diagnostics-gpu-timer`, `diagnostics-unknown-gpu-timer`), 1 in `crates/contracts/tests/app_status.rs`. The vectors run in the TypeScript and the Rust harness.
 - Evaluation: 2 in `crates/evaluation/src/runs.rs`.
 - Host: 1 in `apps/desktop/src-tauri/tests/diagnostics_integration.rs`. It sends a real diagnostics message on a renderer socket and reads `appStatus` on an operator socket. It is a test at a process and protocol boundary, because the host stores the report in the renderer connection task.
