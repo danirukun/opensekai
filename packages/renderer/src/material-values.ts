@@ -92,7 +92,10 @@ export function createMaterialBinding(records: readonly AssetMaterial[], root: O
     const saved = values && Object.hasOwn(values, name) ? values[name]! : undefined;
     const keys = new Set<string>();
     for (const spec of MATERIAL_PARAMETERS) {
-     const value = saved?.[spec.key];
+     // A saved value of a parameter that does not apply to this record (a model change, or an MCP patch) is not written:
+     // for example Opacity on a MASK material multiplies the alpha before the alpha test. The record of a binding does
+     // not change, so a parameter that does not apply is never in `applied` and needs no restore.
+     const value = spec.applies(record) ? saved?.[spec.key] : undefined;
      if (value === undefined) {
       if (applied.get(name)?.has(spec.key)) for (const target of targets) for (const field of fieldsFor(record, target, spec)) restore(target, field);
       continue;

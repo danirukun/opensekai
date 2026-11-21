@@ -161,7 +161,7 @@ import {recordMaterials,savedMaterials,showsMaterials} from '../editor/materials
    {:else if id==='diagnostics'}<TrackingDiagnostics kind={entity.config.kind} generation={entity.generation} status={matchingStatus(trackingStatus,entity.id,entity.generation)}/>{/if}
   {/if}{/if}
  {/snippet}
- {#snippet materials(entityId:string)}{#key entityId}<MaterialFields {entityId} record={materialRecord} saved={materialValues} revision={scene.revision} disabled={busy||disabled} oncommit={(id,materials,revision)=>model.setMaterialValues(id,materials,revision)} onlive={(id,materials)=>live(id,revision=>model.setMaterialValues(id,materials,revision,true))} onliveend={onlivefieldend}/>{/key}{/snippet}
+ {#snippet materials(entityId:string)}{#key entityId}<MaterialFields {entityId} record={materialRecord} saved={materialValues} revision={scene.revision} disabled={busy||disabled} resetDisabled={marks!.disabled} oncommit={(id,materials,revision)=>model.setMaterialValues(id,materials,revision)} onlive={(id,materials)=>live(id,revision=>model.setMaterialValues(id,materials,revision,true))} onliveend={onlivefieldend}/>{/key}{/snippet}
  <div class="inspector-layout">
   {#if indexed}<InspectorIndex {sections} {current} onjump={jump}/>{/if}
   <div class="inspector-sections">{#each sections as section (section.id)}<InspectorSection id={section.id} label={section.label} collapsed={isCollapsed(sectionState,entity.kind,section.id)} ontoggle={()=>toggle(section.id)}>{@render body(section.id)}</InspectorSection>{/each}</div>
