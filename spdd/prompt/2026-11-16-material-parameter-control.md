@@ -149,11 +149,13 @@ A Set clamps a number to the range of the parameter.
 R25 [PR4]. A Set or a Reset writes an override with a material key (the parameter and the name). With no transition, the override commits as `setMaterialValues` by the current rules:
 - 250 ms after the last write for a clock step;
 - before the reply for a `blueprintRun` call. This adds both nodes to the list in B33 R4.
-A Reset commit removes the parameter. A write with no change of the evaluated value makes no commit. The evaluated value is the saved value in the evaluated scene (with the overrides), or else the record model value. The session reads the model value from the record that R24 reads. Thus these writes write no override:
+A Reset commit removes the parameter. A Set with no change of the evaluated value makes no commit. The evaluated value is the saved value in the evaluated scene (with the overrides), or else the record model value. The session reads the model value from the record that R24 reads. Thus these writes write no override:
 - a Set to the model value when no value is saved;
 - a Set to the saved value;
-- a Reset when no value is saved, and a Reset of a saved value that is equal to the model value (the saved value stays).
+- a Reset when no value is saved.
 This rule applies also with a transition: no tween starts, the `blueprintRun` call commits nothing, and `transitionEnd` runs on the next clock step.
+
+A Reset always removes a saved key, also when the saved value is equal to the model value. Otherwise a value that does not show stays saved and comes back after a model change. Then the evaluated value does not change, so no tween starts, also with a transition: the Reset removes the key at once and commits as a write without a transition (in the reply revision of a `blueprintRun` call).
 
 R26 [PR4]. With `transitionSeconds > 0`, a tween goes from the evaluated value to the target. The evaluated value is the saved value, or else the record model value. The target of a Reset is the model value.
 - A color tween mixes in linear light and gives the nearest hex at each step.
