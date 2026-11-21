@@ -1,7 +1,7 @@
 <script lang="ts">
  // Legacy props on purpose: Rete updates a node by passing the same mutated object, and only `$:` re-reads it.
  import { Ref } from 'rete-svelte-plugin/5';
- import { Button, Input } from '@oshi-connect/ui';
+ import { Button, ColorPicker, Input } from '@oshi-connect/ui';
  import { inlineInputType, nodeDefinition, unconnectedInputValue, type BlueprintNode, type ScalarType, type ScalarValue, type Vec3 } from '@opensekai/contracts';
  import { parseScalar, vectorParts } from '../blueprints/fields';
 
@@ -61,9 +61,13 @@
     <div class="bp-port input"><Ref class="bp-socket-ref" init={socket('input', key, input.socket)} {unmount} /><span>{label(key)}</span>
      {#if editor}
       <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <span class="bp-inline" data-type={editor.type} onpointerdown={keep} ondblclick={keep}>
+      <!-- The color panel is in the DOM of the node: keys in it do not reach the canvas shortcuts (Delete, Escape). -->
+      <span class="bp-inline" data-type={editor.type} onpointerdown={keep} ondblclick={keep} onkeydown={keep}>
        {#if editor.type === 'boolean'}
         <input type="checkbox" aria-label={label(key)} checked={editor.value === true} disabled={!editable} onchange={event => data.setInput?.(key, event.currentTarget.checked)} />
+       {:else if editor.type === 'color'}
+        {@const current = editor.value as string}
+        <span class="bp-inline-color"><ColorPicker label={label(key)} value={current} disabled={!editable} onchange={value => { if (value !== current) data.setInput?.(key, value); }} /></span>
        {:else if editor.type === 'vector3'}
         {@const vector = editor.value as Vec3}
         {#each vector as part, index (index)}

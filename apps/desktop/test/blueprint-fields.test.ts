@@ -56,6 +56,10 @@ it('parses inline and default text for each scalar type', () => {
  expect(parseScalar('vector3', '1, , 2')).toBeNull();
  expect(vectorParts([1, 2, 3], 1, '9')).toEqual([1, 9, 3]);
  expect(vectorParts([1, 2, 3], 1, 'x')).toBeNull();
+ expect(parseScalar('color', 'AABBCC')).toBe('#aabbcc');
+ expect(parseScalar('color', ' #0a0B0c ')).toBe('#0a0b0c');
+ expect(parseScalar('color', '#abc')).toBe('#aabbcc');
+ for (const bad of ['', '#ab', '#aabbccdd', 'red', '#gggggg', '1, 0, 0']) expect(parseScalar('color', bad), bad).toBeNull();
 });
 
 it('reads a list default with one item on each line', () => {
@@ -70,6 +74,9 @@ it('reads a list default with one item on each line', () => {
  expect(parseList('number[]', Array.from({ length: 257 }, () => '1').join('\n'))).toBeNull();
  expect(formatList([[0, 1, 0], [1, 1, 1]])).toBe('0, 1, 0\n1, 1, 1');
  expect(parseList('vector3[]', formatList([[0, 1.5, -2]]))).toEqual([[0, 1.5, -2]]);
+ expect(parseList('color[]', '#FF8000\n000000')).toEqual(['#ff8000', '#000000']);
+ expect(parseList('color[]', '#ff8000\nred')).toBeNull();
+ expect(parseList('color[]', formatList(['#ff8000', '#000000']))).toEqual(['#ff8000', '#000000']);
 });
 
 it('keeps each string list item through format and parse, also an empty item and a line break', () => {

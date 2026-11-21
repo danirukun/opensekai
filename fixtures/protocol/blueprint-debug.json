@@ -26,7 +26,7 @@
     { "name": "zero-dropped", "entry": 3, "change": ["dropped", 0] },
     { "name": "unknown-entry-kind", "entry": 0, "change": ["kind", "trace"] },
     { "name": "log-with-event-key", "entry": 0, "change": ["name", "x"] },
-    { "name": "unknown-value-type", "entry": 2, "change": ["valueType", "color"] },
+    { "name": "unknown-value-type", "entry": 2, "change": ["valueType", "rgba"] },
     { "name": "long-event-text", "entry": 2, "change": ["text", "LONG_TEXT"] },
     { "name": "long-message", "entry": 0, "change": ["message", "LONG_STRING"] },
     { "name": "value-without-text", "value": 0, "change": ["text", null] },

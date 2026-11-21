@@ -1,0 +1,25 @@
+PASS the graph with a Color node and a Break Color node loads true
+PASS R10: a color socket has its own color "conic-gradient(rgb(177, 64, 80), rgb(232, 168, 56), rgb(61, "
+PASS R10: at zoom 1 the inline panel is inside the viewport and on top {"scale":0.9982850609756098,"box":{"x":1078.703125,"y":499.390625,"width":195,"height":160},"inside":true,"top":true}
+PASS R10: at zoom 1 the panel is not scaled by the canvas {"width":195,"expected":195}
+PASS R10: at zoom 1 a drag in the panel sends one setNodeInput with a new color and does not move the node {"sent":[{"kind":"setNodeInput","graphId":"colors","nodeId":"split","port":"value","value":"#4c2e0f"}],"position":"translate(40px, 40px)","now":"translate(40px, 40px)"}
+PASS R10: at zoom 1 Escape closes the panel and the node stays 
+PASS R10: at zoom 0.48 the inline panel is inside the viewport and on top {"scale":0.47747653868140244,"box":{"x":1077.28125,"y":627.515625,"width":195,"height":160},"inside":true,"top":true}
+PASS R10: at zoom 0.48 the panel is not scaled by the canvas {"width":195,"expected":195}
+PASS R10: at zoom 0.48 a drag in the panel sends one setNodeInput with a new color and does not move the node {"sent":[{"kind":"setNodeInput","graphId":"colors","nodeId":"split","port":"value","value":"#a6998d"}],"position":"translate(40px, 40px)","now":"translate(40px, 40px)"}
+PASS R10: at zoom 0.48 Escape closes the panel and the node stays 
+PASS R10: a drag in the Color node properties picker sends one setNodeSettings with a new color [{"kind":"setNodeSettings","graphId":"colors","nodeId":"swatch","settings":{"value":"#0f2e4d"}}]
+PASS R10: a typed #336699 in the Color variable default sends one updateVariable [{"kind":"updateVariable","graphId":"colors","variableId":"tint","default":"#336699"}]
+PASS Add asset › Point Light adds a light ["camera","light","light","light","light"]
+PASS R11: the light Color panel is inside the viewport and on top {"box":{"x":1137,"y":536.5,"width":195,"height":160},"inside":true,"top":true}
+PASS R11: a drag sends two or more live setLight patches ["#d9b8b8","#bf8f8f","#b37d7d","#995c5c","#804040","#732e2e","#661f1f","#801a1a","#990f0f"]
+PASS R11: the end of the drag sends no extra patch, and the scene holds the shown color {"live":9,"afterEnd":9,"committed":"#990f0f","shownHex":"#990f0f"}
+PASS R11: a typed #00ff00 sends one setLight patch ["#00ff00"]
+PASS R11: FPS Counter Color opens the kit color picker 
+PASS R11: camera Grading Tint opens the kit color picker 
+PASS R11: camera Vignetting Color opens the kit color picker 
+PASS R11: camera Night Vision Color opens the kit color picker 
+PASS an avatar is added for the Rim Tint check true
+PASS R11: avatar Rim Tint opens the kit color picker 
+PASS no page error []
+24/24 passed

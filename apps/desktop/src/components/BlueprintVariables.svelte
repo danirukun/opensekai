@@ -1,5 +1,5 @@
 <script lang="ts">
- import { Dropdown, Input, Select, Textarea } from '@oshi-connect/ui';
+ import { ColorPicker, Dropdown, Input, Select, Textarea } from '@oshi-connect/ui';
  import { Plus, Trash2 } from '@lucide/svelte';
  import { isListType, type BlueprintOp, type BlueprintValue, type BlueprintVariable, type DataType, type ScalarValue, type Vec3 } from '@opensekai/contracts';
  import { asDataType, dataTypeOptions, formatList, newVariable, parseList, parseScalar, vectorParts } from '../blueprints/fields';
@@ -49,6 +49,8 @@
     <label class="blueprint-checkbox"><input type="checkbox" checked={variable.default} {disabled} onchange={event => update(variable.id, { default: event.currentTarget.checked })} />Default</label>
    {:else if variable.type === 'string'}
     <Input value={variable.default} {disabled} onchange={event => { if (parseScalar('string', event.currentTarget.value) === null) settle(event.currentTarget, 'string', variable.default); else typed(variable, 'string', event.currentTarget.value); }} />
+   {:else if variable.type === 'color'}
+    <ColorPicker class="blueprint-variable-color" label="Default" value={variable.default as string} {disabled} onchange={value => update(variable.id, { default: value })} />
    {:else if variable.type === 'vector3'}
     {@const vector = variable.default as Vec3}
     <div class="blueprint-vector">

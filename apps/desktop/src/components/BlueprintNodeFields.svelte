@@ -1,5 +1,5 @@
 <script lang="ts">
- import { Button, Input, Select, Textarea } from '@oshi-connect/ui';
+ import { Button, ColorPicker, Input, Select, Textarea } from '@oshi-connect/ui';
  import { Plus, X } from '@lucide/svelte';
  import { blendShapeNames, DEFAULT_EASING, EASINGS, MAX_NODE_MESHES, nodeDefinition, triggerableExpressions, type AssetRecord, type BlueprintField, type BlueprintNode, type BlueprintVariable, type DataType, type KeystrokeSettings, type SceneView, type Vec3 } from '@opensekai/contracts';
  import KeystrokeField from './KeystrokeField.svelte';
@@ -122,6 +122,8 @@
   <Input type="number" label={field.label} min={field.min} max={field.max} step={1} value={String(settings[field.key])} oninput={event => integerInput(field, event.currentTarget.value)} onchange={event => settle(event.currentTarget, integerValue(field, event.currentTarget.value) !== null, settings[field.key])} />
  {:else if field.kind === 'string'}
   <Input label={field.label} value={String(settings[field.key])} onchange={event => stringInput(field, event.currentTarget)} />
+ {:else if field.kind === 'color'}
+  <ColorPicker label={field.label} value={String(settings[field.key])} onchange={value => set(field.key, value)} />
  {:else if field.kind === 'vector3'}
   {@const vector = settings[field.key] as Vec3}
   <div class="blueprint-field-vector" role="group" aria-label={field.label}>

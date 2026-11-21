@@ -14,6 +14,8 @@ it('formats each data type as plain text', () => {
  expect(formatDebugValue('boolean[]', [true, false])).toBe('[true, false]');
  expect(formatDebugValue('string[]', ['a', ''])).toBe('["a", ""]');
  expect(formatDebugValue('vector3[]', [[0, 0, 1]])).toBe('[(0, 0, 1)]');
+ expect(formatDebugValue('color', '#0a0b0c')).toBe('#0a0b0c');
+ expect(formatDebugValue('color[]', ['#0a0b0c', '#ffffff'])).toBe('[#0a0b0c, #ffffff]');
 });
 
 it('cuts long text at a code point boundary', () => {

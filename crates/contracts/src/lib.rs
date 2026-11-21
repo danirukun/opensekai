@@ -1904,7 +1904,8 @@ fn variable_name_ok(name: &Value) -> bool {
     name.as_str()
         .is_some_and(|n| !n.trim().is_empty() && n.chars().count() <= 64)
 }
-const BLUEPRINT_SCALAR_TYPES: [&str; 5] = ["number", "integer", "boolean", "string", "vector3"];
+const BLUEPRINT_SCALAR_TYPES: [&str; 6] =
+    ["number", "integer", "boolean", "string", "vector3", "color"];
 const MAX_BLUEPRINT_STRING_CHARS: usize = 1024;
 const MAX_BLUEPRINT_LIST_ITEMS: usize = 256;
 const MAX_BLUEPRINT_INLINE_INPUTS: usize = 16;
@@ -1935,6 +1936,7 @@ fn blueprint_scalar_ok(kind: &str, v: &Value) -> bool {
         "boolean" => v.is_boolean(),
         "string" => blueprint_string_ok(v),
         "vector3" => vector3_ok(v),
+        "color" => v.as_str().is_some_and(light_color_ok),
         _ => false,
     }
 }

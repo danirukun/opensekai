@@ -1,34 +1,32 @@
 <script lang="ts">
  import {untrack} from 'svelte';
- import {Input} from '@oshi-connect/ui';
- import {parseLightColor} from '../editor/lights';
+ import {ColorPicker} from '@oshi-connect/ui';
  let {label,value,disabled=false,onlive,onend,oncommit}:{label:string;value:string;disabled?:boolean;onlive?:(value:string)=>void;onend?:()=>void;oncommit?:(value:string)=>void}=$props();
- // The native swatch opens the system color picker; while it changes, the field shows the picked color (B12 R11).
- let picked=$state<string|null>(null),text=$state(untrack(()=>value));
- let typing=false,settling=false,timer:ReturnType<typeof setTimeout>|undefined;
+ // `picked` is the last live color of a gesture. After the end, the picker shows it for 500 ms or until the next scene update,
+ // so a late scene update does not move it back (B12 R11).
+ let picked=$state<string|null>(null),ended=false;
+ let hold:ReturnType<typeof setTimeout>|undefined,check:ReturnType<typeof setTimeout>|undefined,resync:ReturnType<typeof setTimeout>|undefined;
+ // A new key remounts the kit picker, so it shows the scene color after the host does not take a typed hex.
+ let generation=$state(0);
  const shown=$derived(picked??value);
- const release=()=>{settling=false;clearTimeout(timer);picked=null;if(!typing)text=value;};
- $effect(()=>{const next=value;untrack(()=>{if(settling)release();else if(picked===null&&!typing)text=next;});});
- $effect(()=>()=>clearTimeout(timer));
- function pick(event:Event&{currentTarget:HTMLInputElement}){
-  const next=parseLightColor(event.currentTarget.value);
-  if(next===null||next===shown)return;
-  settling=false;clearTimeout(timer);picked=next;text=next;onlive?.(next);
+ const release=()=>{clearTimeout(hold);hold=undefined;picked=null;ended=false;};
+ const finish=()=>{if(picked===null||ended)return;ended=true;onend?.();hold=setTimeout(release,500);};
+ $effect(()=>{void value;untrack(()=>{clearTimeout(resync);if(ended)release();});});
+ $effect(()=>()=>{clearTimeout(hold);clearTimeout(check);clearTimeout(resync);});
+ // A live color after a pointer or key end cancels its pending check: the gesture goes on.
+ function live(next:string){clearTimeout(hold);clearTimeout(check);hold=undefined;ended=false;picked=next;onlive?.(next);}
+ // The kit calls onchange with the last live color at the end of a gesture, and with a typed hex.
+ function change(next:string){
+  if(picked!==null&&next===picked){finish();return;}
+  release();oncommit?.(next);
+  clearTimeout(resync);resync=setTimeout(()=>{if(untrack(()=>value)!==next)generation++;},1000);
  }
- function end(){if(picked===null||settling)return;settling=true;onend?.();clearTimeout(timer);timer=setTimeout(release,500);}
- function commit(){const next=parseLightColor(text);if(next===null||next===value){text=value;return;}oncommit?.(next);}
+ // A gesture that ends on its start color calls no onchange: the end of the pointer or of the arrow key still ends the live edit.
+ function settle(){clearTimeout(check);check=setTimeout(finish,0);}
+ const settleKey=(event:KeyboardEvent)=>{if(event.key.startsWith('Arrow'))settle();};
 </script>
-<div class="color-field" role="group" onfocusin={event=>{if((event.target as HTMLInputElement).type==='text')typing=true;}} onfocusout={event=>{if((event.target as HTMLInputElement).type==='text'){typing=false;text=shown;}}}>
- <Input {label} {disabled} bind:value={text} class="color-text" onchange={commit} onkeydown={event=>{if(event.key==='Enter'){event.preventDefault();event.currentTarget.blur();}}}/>
- <input class="color-swatch" type="color" aria-label={label} value={shown} {disabled} oninput={pick} onchange={end}/>
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+<div class="color-field" role="group" onpointerup={settle} onpointercancel={settle} onlostpointercapture={settle} onkeyup={settleKey}>
+ {#key generation}<ColorPicker {label} value={shown} {disabled} oninput={live} onchange={change}/>{/key}
 </div>
-<style>
- .color-field{display:grid;grid-template-columns:36px minmax(0,1fr);column-gap:8px;row-gap:6px;align-items:center;min-width:0}
- .color-field :global(.color-text){display:contents}
- .color-field :global(.color-text label){grid-column:1/-1;grid-row:1}
- .color-field :global(.color-text input){grid-column:2;grid-row:2;padding:5px 8px;min-width:0;font-variant-numeric:tabular-nums}
- .color-swatch{grid-column:1;grid-row:2;width:36px;height:30px;padding:0;border:1px solid var(--ds-color-border);border-radius:6px;background:none;cursor:pointer;-webkit-appearance:none;appearance:none}
- .color-swatch::-webkit-color-swatch-wrapper{padding:2px}
- .color-swatch::-webkit-color-swatch{border:0;border-radius:4px}
- .color-swatch:disabled{opacity:.5;cursor:default}
-</style>
+<style>.color-field{min-width:0}</style>

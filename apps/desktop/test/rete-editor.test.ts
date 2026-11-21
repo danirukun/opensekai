@@ -113,3 +113,32 @@ it('tracks wired inputs and sends one setNodeInput for an inline edit', async ()
  await editor.show(echo.data[0]!);
  expect(ops).toHaveLength(1);
 });
+
+it('keeps a node still for a press in its color picker, and still places it for a session move', async () => {
+ // The container and the window record their listeners, so the test can press in a picker and release.
+ const listeners = new Map<string, (event: unknown) => void>();
+ const container = element();
+ // Only the first capture listener is kept: the picker check of the adapter. The box selection adds a later one.
+ container.addEventListener = (type: string, listener: (event: unknown) => void, capture?: boolean) => { if (capture === true && !listeners.has(`container:${type}`)) listeners.set(`container:${type}`, listener); };
+ vi.stubGlobal('window', { addEventListener: (type: string, listener: (event: unknown) => void) => { listeners.set(`window:${type}`, listener); }, removeEventListener() {} });
+ class Target { constructor(private inside: boolean) {} closest() { return this.inside ? this : null; } }
+ vi.stubGlobal('Element', Target);
+ const ops: BlueprintOp[][] = [];
+ let area!: { translate(id: string, position: { x: number; y: number }): Promise<unknown>; nodeViews: Map<string, { position: { x: number; y: number } }> };
+ const editor = await mountReteBlueprint(container as unknown as HTMLElement, graph!, { onSelect() {}, onOps: next => { ops.push(next); } }, { render: false, inspect: value => { area = value as never; } });
+ const start = { ...area.nodeViews.get('wait')!.position };
+ listeners.get('container:pointerdown')!({ target: new Target(true) });
+ await area.translate('wait', { x: start.x + 30, y: start.y + 40 });
+ expect(ops).toEqual([]);
+ expect(area.nodeViews.get('wait')!.position).toEqual(start);
+ // A move from the session (another editor or MCP) during the press still places the node.
+ const moved = applyBlueprintOps([graph!], [{ kind: 'moveNode', graphId: graph!.id, nodeId: 'wait', position: { x: 300, y: 310 } }]);
+ if (!moved.ok) throw new Error();
+ await editor.show(moved.data[0]!);
+ expect(area.nodeViews.get('wait')!.position).toEqual({ x: 300, y: 310 });
+ expect(ops).toEqual([]);
+ listeners.get('window:pointerup')!({});
+ listeners.get('container:pointerdown')!({ target: new Target(false) });
+ await area.translate('wait', { x: 5, y: 6 });
+ expect(ops).toEqual([[{ kind: 'moveNode', graphId: graph!.id, nodeId: 'wait', position: { x: 5, y: 6 } }]]);
+});
