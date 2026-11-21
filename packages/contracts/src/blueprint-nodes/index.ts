@@ -9,6 +9,7 @@ import { INTEGER_NODES } from './integer';
 import { LOGIC_NODES } from './logic';
 import { MATH_NODES } from './math';
 import { PROPERTY_NODES } from './properties';
+import { PROP_NODES } from './prop';
 import { SCENE_NODES } from './scene';
 import { VALUE_NODES } from './values';
 import { VARIABLE_NODES } from './variables';
@@ -26,6 +27,7 @@ import { GRAPH_CONTROL_NODES } from './graph-control';
 import { TRACKING_NODES } from './tracking';
 import { YOUTUBE_NODES } from './youtube';
 export { MAX_NODE_BONES } from './character';
+export { MATERIAL_EASING, MAX_MATERIAL_TRANSITION_SECONDS } from './prop';
 export { PENDULUM_DEFAULT_ARM, PENDULUM_DEFAULT_INPUT, PENDULUM_INPUT_KINDS, TRACKING_LOST_AFTER_SECONDS } from './tracking';
 export { YOUTUBE_NODE_KINDS, YOUTUBE_NODE_OUTPUTS, isYouTubeNodeType, type YouTubeNodeType } from './youtube';
 
@@ -33,7 +35,7 @@ export { defineNode, IntegerCasesSchema, MAX_SWITCH_CASES, NODE_CATEGORIES, type
 export { KEYSTROKE_CODES, KeystrokeSettingsSchema, keystrokeAccelerator, keystrokeHasModifier, type KeystrokeSettings } from './events';
 
 // Palette order inside a category follows this list.
-export const NODE_DEFINITIONS = [...EVENT_NODES, ...INPUT_NODES, ...FLOW_NODES, ...VALUE_NODES, ...MATH_NODES, ...VECTOR3_NODES, ...COLOR_NODES, ...LOGIC_NODES, ...VARIABLE_NODES, ...SCENE_NODES, ...PROPERTY_NODES, ...CHARACTER_NODES, ...TRACKING_NODES, ...DEVICE_NODES, ...YOUTUBE_NODES, ...INTEGER_NODES, ...LITERAL_NODES, ...TEXT_NODES, ...LIST_NODES, ...SWITCH_NODES, ...TYPED_VARIABLE_NODES, ...TIMER_NODES, ...GRAPH_CONTROL_NODES, ...DEBUG_NODES] as const;
+export const NODE_DEFINITIONS = [...EVENT_NODES, ...INPUT_NODES, ...FLOW_NODES, ...VALUE_NODES, ...MATH_NODES, ...VECTOR3_NODES, ...COLOR_NODES, ...LOGIC_NODES, ...VARIABLE_NODES, ...SCENE_NODES, ...PROPERTY_NODES, ...PROP_NODES, ...CHARACTER_NODES, ...TRACKING_NODES, ...DEVICE_NODES, ...YOUTUBE_NODES, ...INTEGER_NODES, ...LITERAL_NODES, ...TEXT_NODES, ...LIST_NODES, ...SWITCH_NODES, ...TYPED_VARIABLE_NODES, ...TIMER_NODES, ...GRAPH_CONTROL_NODES, ...DEBUG_NODES] as const;
 type Definition = (typeof NODE_DEFINITIONS)[number];
 export type BlueprintKind = Definition['type'];
 export const BlueprintPositionSchema = z.strictObject({ x: finite, y: finite });
@@ -85,7 +87,7 @@ export function unconnectedInputValue(node: BlueprintNode, port: string, ports: 
  if (!type || type === 'flow') throw new RangeError('Not a data input');
  const inline = node.inputs && Object.hasOwn(node.inputs, port) ? node.inputs[port] : undefined;
  if (!isScalarType(type)) return defaultBlueprintValue(type);
- const fallback = nodeDefinition(node.type).inputDefaults;
+ const definition = nodeDefinition(node.type), fallback = definition.inputDefaultsFor?.(node.settings) ?? definition.inputDefaults;
  return inline ?? (fallback && Object.hasOwn(fallback, port) ? fallback[port]! : defaultBlueprintValue(type));
 }
 // A copy of the node with one inline value set, or removed when `value` is null. It does not check the value.
@@ -103,13 +105,14 @@ export function pruneInlineInputs<N extends BlueprintNode>(node: N, ports: PortS
  return (kept.length === 0 ? rest : { ...rest, inputs: Object.fromEntries(kept) }) as N;
 }
 
-const SAMPLE: DefaultRefs = { entityId: 'entity', cameraId: 'camera', outputId: 'output', trackingSourceId: 'source', avatarId: 'avatar', expression: 'happy', keystroke: { code: 'KeyH', control: true, alt: true, shift: false, meta: false }, variables: DATA_TYPES.map(type => ({ id: type, type })), graphId: 'graph' };
+const SAMPLE: DefaultRefs = { entityId: 'entity', material: 'material', propId: 'prop', propMaterial: 'material', cameraId: 'camera', outputId: 'output', trackingSourceId: 'source', avatarId: 'avatar', expression: 'happy', keystroke: { code: 'KeyH', control: true, alt: true, shift: false, meta: false }, variables: DATA_TYPES.map(type => ({ id: type, type })), graphId: 'graph' };
 // Ports are shown for the default settings; `portsDependOnSettings` marks nodes whose port list changes with them.
 export const blueprintNodeCatalog = () => NODE_DEFINITIONS.map(definition => ({
  type: definition.type, label: definition.label, category: definition.category, keywords: [...definition.keywords],
  ports: definition.ports(definition.defaults(SAMPLE) as never),
  portsDependOnSettings: 'dynamicPorts' in definition && definition.dynamicPorts === true,
  settings: z.toJSONSchema(definition.settings),
- // The value of an unconnected input without an inline value, where it is not the type default.
- inputDefaults: { ...('inputDefaults' in definition ? definition.inputDefaults : {}) } as Record<string, ScalarValue>,
+ // The value of an unconnected input without an inline value, where it is not the type default. For the sample settings
+ // when it depends on them.
+ inputDefaults: { ...('inputDefaultsFor' in definition ? definition.inputDefaultsFor?.(definition.defaults(SAMPLE) as never) : 'inputDefaults' in definition ? definition.inputDefaults : {}) } as Record<string, ScalarValue>,
 }));
