@@ -348,7 +348,7 @@ it('runs device, tracking, then On Update triggers in one tick, and a threshold 
  expect(tick(0.7, 96)).toEqual(['rise', 'update']);
 });
 
-it('moves the spine, the lean, and the arms from a face-only pose with Face-Only Body Motion, and fades them out when the head is lost', () => {
+function faceOnlySession(bouncy = false) {
  const scene = makeSmokeScene();
  const identity = [0, 0, 0, 1] as [number, number, number, number];
  scene.entities.push({ id: 'face', kind: 'tracking', name: 'face', visible: true, transform: { position: [0, 0, 0], rotation: identity, scale: [1, 1, 1] }, config: { ...defaultTrackingConfig('ifacialmocap'), enabled: true }, generation: 0,
@@ -359,14 +359,60 @@ it('moves the spine, the lean, and the arms from a face-only pose with Face-Only
  const session = createSession(SceneViewSchema.parse(scene), 's');
  const imported = importBlueprint(faceOnlyBodyMotionTemplate({ id: 'performer', name: 'performer' }), scene, () => 'face-only');
  if (!imported.ok) throw new Error(imported.error.message);
- expect(session.editBlueprints({ clientId: 't', batchId: 'template', ops: [{ kind: 'createGraph', graph: imported.data.graph }] }).ok).toBe(true);
- const yaw20 = [0, Math.sin(10 * Math.PI / 180), 0, Math.cos(10 * Math.PI / 180)] as [number, number, number, number];
- const offsets = (frame: ReturnType<S['advance']>) => frame.avatarPoses?.find(pose => pose.avatarId === 'performer')?.boneOffsets ?? {};
+ const graph = bouncy ? { ...imported.data.graph, variables: imported.data.graph.variables.map(variable => variable.id === 'bouncy-motion' ? { ...variable, default: true } : variable) } : imported.data.graph;
+ expect(session.editBlueprints({ clientId: 't', batchId: 'template', ops: [{ kind: 'createGraph', graph }] }).ok).toBe(true);
+ return session;
+}
+const performerPose = (frame: ReturnType<S['advance']>) => frame.avatarPoses?.find(pose => pose.avatarId === 'performer');
+const driveHead = (session: S, rotation: [number, number, number, number], untilMs: number) => {
  let frame = session.advance(0, 0);
- for (let at = 0; at <= 2000; at += 16) {
-  session.ingestTracking({ samples: [{ sourceId: 'face', generation: 0, receivedAtMs: at, bones: { head: { rotation: yaw20, space: 'normalized' } }, expressions: {}, headPosition: [0, 0, 0.05] }], statuses: [] });
+ for (let at = 0; at <= untilMs; at += 16) {
+  session.ingestTracking({ samples: [{ sourceId: 'face', generation: 0, receivedAtMs: at, bones: { head: { rotation, space: 'normalized' } }, expressions: {}, headPosition: [0, 0, 0.05] }], statuses: [] });
   frame = session.advance(at, at);
  }
+ return frame;
+};
+const chinDown20 = [Math.sin(10 * Math.PI / 180), 0, 0, Math.cos(10 * Math.PI / 180)] as [number, number, number, number];
+
+it('puts no bounce translation or scale in the pose while Bouncy Motion is off', () => {
+ const session = faceOnlySession();
+ const pose = performerPose(driveHead(session, chinDown20, 2000));
+ expect(pose?.boneOffsets?.spine).toBeDefined();
+ expect(pose).not.toHaveProperty('boneTranslations');
+ expect(pose).not.toHaveProperty('boneScales');
+ expect(session.inspectBlueprints().errors).toEqual([]);
+});
+
+it('sinks and squashes the spine and the chest for a chin-down head while Bouncy Motion is on', () => {
+ const session = faceOnlySession(true);
+ const pose = performerPose(driveHead(session, chinDown20, 2000));
+ for (const bone of ['spine', 'chest']) {
+  const [x, y, z] = pose?.boneTranslations?.[bone] ?? [0, 0, 0];
+  expect(y).toBeLessThan(0);
+  expect([x, z]).toEqual([0, 0]);
+  expect(pose?.boneScales?.[bone]).toBeLessThan(1);
+  expect(pose?.boneScales?.[bone]).toBeGreaterThanOrEqual(0.5);
+ }
+ expect(session.inspectBlueprints().errors).toEqual([]);
+});
+
+it('keeps the last bone scale written in a tick through the session', () => {
+ const session = createSession(makeSmokeScene(), 's');
+ const at = { x: 0, y: 0 };
+ const scale = (id: string, offset: number) => ({ id, version: 1, type: 'character.offsetBoneScale', settings: { entityId: 'performer', bones: ['spine'], intensity: 0, offset }, inputs: { value: 0 }, position: at });
+ load(session, [{ schemaVersion: 1, id: 'scale', name: 'Scale', enabled: true, variables: [],
+  nodes: [{ id: 'up', version: 1, type: 'event.update', settings: {}, position: at }, scale('grow', 0.2), scale('shrink', -0.1)],
+  connections: [{ id: 'c1', sourceNodeId: 'up', sourcePort: 'flow', targetNodeId: 'grow', targetPort: 'flow' }, { id: 'c2', sourceNodeId: 'grow', sourcePort: 'exit', targetNodeId: 'shrink', targetPort: 'flow' }] }]);
+ session.advance(0, 0);
+ expect(performerPose(session.advance(16, 16))?.boneScales).toEqual({ spine: 0.9 });
+ expect(session.inspectBlueprints().errors).toEqual([]);
+});
+
+it('moves the spine, the lean, and the arms from a face-only pose with Face-Only Body Motion, and fades them out when the head is lost', () => {
+ const session = faceOnlySession();
+ const yaw20 = [0, Math.sin(10 * Math.PI / 180), 0, Math.cos(10 * Math.PI / 180)] as [number, number, number, number];
+ const offsets = (frame: ReturnType<S['advance']>) => performerPose(frame)?.boneOffsets ?? {};
+ let frame = driveHead(session, yaw20, 2000);
  const moving = offsets(frame);
  const euler = (bone: string) => moving[bone] ? quatToEuler(moving[bone]!) : [0, 0, 0];
  // The fade rises from 0 (the first tick has no pose): a 2 s Smooth Damp is at 1 - 3e^-2 after 2 s.

@@ -93,11 +93,11 @@ export function writeBoneTranslation(layer: BoneOffsets, scene: SceneView, effec
 }
 
 // Assigns the evaluator's absolute scale (it already carries the 1 + weight·(value·intensity+offset) result): a
-// later write to the same bone in one tick replaces an earlier one.
+// later write to the same bone in one tick replaces an earlier one. The pose schema accepts only 0.5 to 1.5.
 export function writeBoneScale(layer: BoneOffsets, scene: SceneView, effect: BoneScaleEffect): Reply<BoneOffsets> {
  const character = findCharacter(scene, effect.entityId);
  if (!character.ok) return character;
- if (!Number.isFinite(effect.scale)) return invalid('Bone scale must be finite', [effect.entityId]);
+ if (!(effect.scale >= 0.5 && effect.scale <= 1.5)) return invalid('Bone scale must be from 0.5 to 1.5', [effect.entityId]);
  const bones = entryMap(layer, effect.entityId);
  const entry = bones.get(effect.bone) ?? DEFAULT_BONE_ENTRY;
  bones.set(effect.bone, { ...entry, scale: effect.scale });

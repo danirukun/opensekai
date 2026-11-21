@@ -64,7 +64,7 @@ function pendulum(node: BlueprintNodeOf<'tracking.pendulum'>, state: RunState, e
  return due ? store(stepPendulum(stored, arms, mix(), inputSmoothing, Math.min(env.deltaSeconds, 1))) : pendulumOutput(stored);
 }
 
-// The plan Task 1 defaults: node settings carry no clamp fields, so the drive clamps the pitch to [-1, 1] turns and the jaw to [0, 1].
+// Node settings carry no clamp fields, so the drive clamps the pitch to [-1, 1] turns and the jaw to [0, 1] (R1).
 const BOUNCY_PITCH_CLAMP: BouncyDrive['pitchClamp'] = [-1, 1];
 const BOUNCY_JAW_CLAMP: BouncyDrive['jawClamp'] = [0, 1];
 type BouncySpringNodeState = BouncySpringState & { stepMs: number | null };

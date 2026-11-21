@@ -88,7 +88,9 @@ it('assigns the absolute bone scale, so a later write to the same bone in one ti
  const second = writeBoneScale(first.data, scene, { kind: 'offsetBoneScale', entityId: 'performer', bone: 'chest', scale: 0.8 });
  if (!second.ok) throw new Error(second.error.message);
  expect(second.data.get('performer')!.get('chest')!.scale).toBe(0.8);
- expect(writeBoneScale(EMPTY_BONE_OFFSETS, scene, { kind: 'offsetBoneScale', entityId: 'performer', bone: 'chest', scale: Number.NaN })).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+ for (const scale of [Number.NaN, 0.49, 1.51, Number.POSITIVE_INFINITY])
+  expect(writeBoneScale(EMPTY_BONE_OFFSETS, scene, { kind: 'offsetBoneScale', entityId: 'performer', bone: 'chest', scale })).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+ for (const scale of [0.5, 1.5]) expect(writeBoneScale(EMPTY_BONE_OFFSETS, scene, { kind: 'offsetBoneScale', entityId: 'performer', bone: 'chest', scale }).ok).toBe(true);
  expect(writeBoneScale(EMPTY_BONE_OFFSETS, scene, { kind: 'offsetBoneScale', entityId: 'marker', bone: 'chest', scale: 1 })).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
  expect(writeBoneScale(EMPTY_BONE_OFFSETS, scene, { kind: 'offsetBoneScale', entityId: 'nobody', bone: 'chest', scale: 1 })).toMatchObject({ ok: false, error: { code: 'NOT_FOUND' } });
 });
