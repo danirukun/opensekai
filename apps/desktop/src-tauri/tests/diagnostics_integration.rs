@@ -305,3 +305,56 @@ async fn diagnostics_refuses_nonrenderer_and_scope_mismatch_but_keeps_disabled_o
     assert_eq!(snapshot(&service).await.status(), 404);
     service.shutdown().await.unwrap();
 }
+async fn output_status(operator: &mut Socket, id: &str) -> Value {
+    send(
+        operator,
+        json!({"kind":"call","requestId":id,"method":"appStatus","params":{}}),
+    )
+    .await;
+    let reply = recv(operator).await;
+    assert_eq!(reply["requestId"], id);
+    reply["result"]["data"]["outputs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|output| output["outputId"] == "output_main")
+        .unwrap()
+        .clone()
+}
+// Light scale R2: app status shows the capability reports of a renderer, also outside
+// evaluation mode, and removes them when the renderer disconnects.
+#[tokio::test]
+async fn app_status_shows_the_gpu_timer_and_video_decoder_of_a_renderer() {
+    let (_dir, service) = service(false).await;
+    let pd = service.publisher_descriptor();
+    let mut publisher = auth(&pd).await;
+    let mut renderer = auth(&service.renderer_descriptor("output_main").unwrap()).await;
+    let mut operator = auth(&service.operator_descriptor()).await;
+    let before = output_status(&mut operator, "before").await;
+    assert!(before.get("gpuTimer").is_none());
+    publish(&service, &mut publisher, &mut renderer, 1).await;
+    let mut report = diagnostics(&pd.session_id, 1);
+    report["diagnostics"]["videoDecoder"] = json!("supported");
+    report["diagnostics"]["gpuTimer"] = json!("unsupported");
+    send(&mut renderer, report).await;
+    barrier(&mut renderer).await;
+    let reported = output_status(&mut operator, "reported").await;
+    assert_eq!(reported["videoDecoder"], "supported");
+    assert_eq!(reported["gpuTimer"], "unsupported");
+    renderer.close(None).await.unwrap();
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(1);
+    let closed = loop {
+        let status = output_status(&mut operator, "closed").await;
+        if status["connected"] == false {
+            break status;
+        }
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "renderer still connected after 1 s"
+        );
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    };
+    assert!(closed.get("gpuTimer").is_none());
+    assert!(closed.get("videoDecoder").is_none());
+    service.shutdown().await.unwrap();
+}
