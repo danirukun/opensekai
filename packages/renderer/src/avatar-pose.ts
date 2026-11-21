@@ -30,6 +30,10 @@ export function createAvatarBinding(vrm: VRM) {
     }
     // The spring rig records its rest state from the local matrices, so they must be current (B43 R10).
     root.updateMatrixWorld(true);
+    // A pose translation has the model axes; the raw node position has the axes of its parent at rest.
+    const sceneRest=vrm.scene.getWorldQuaternion(new Quaternion()).invert();
+    const toParentRest=new Map([...rest.keys()].map(node=>[node,
+        sceneRest.clone().multiply(node.parent?.getWorldQuaternion(new Quaternion()) ?? new Quaternion()).invert()]));
     const rig=createSpringRig(vrm);
     const bones=[...rest.keys()];
     const springs=rig && createSpringStage(rig,root,[root,motion,...bones.filter(bone=>!rig.joints.has(bone))],bones.filter(bone=>rig.joints.has(bone)));
@@ -92,7 +96,7 @@ export function createAvatarBinding(vrm: VRM) {
             const node=vrm.humanoid.getRawBoneNode(name as VRMHumanBoneName);
             if (!node) continue;
             const [x,y,z]=translations[name] ?? [0,0,0];
-            if (x || y || z) node.position.add(new Vector3(x*sign,y,z*sign));
+            if (x || y || z) node.position.add(new Vector3(x*sign,y,z*sign).applyQuaternion(toParentRest.get(node) ?? new Quaternion()));
             const scale=scales[name];
             if (scale !== undefined) node.scale.multiplyScalar(scale);
         }

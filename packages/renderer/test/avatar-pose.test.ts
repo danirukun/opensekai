@@ -260,6 +260,16 @@ it('adds a bone translation and multiplies a bone scale on the rest local transf
  expect(bones.spine.node.position.toArray()).toEqual([0,0,0]);
  expect(bones.spine.node.scale.toArray()).toEqual([1,1,1]);
 });
+it('moves a bone along the model axes when its parent rest is rotated',()=>{
+ const roll=new Quaternion().setFromAxisAngle(new Vector3(0,0,1),Math.PI/2);
+ const {binding,bones}=fixture(new Quaternion(),new Vector3(0,1,0),false,roll);
+ binding.apply({avatarId:'a',bones:{},expressions:{}});
+ const start=bones.spine.node.getWorldPosition(new Vector3());
+ binding.apply({avatarId:'a',bones:{},expressions:{},boneTranslations:{spine:[0.02,-0.05,0.01]}});
+ const moved=bones.spine.node.getWorldPosition(new Vector3()).sub(start);
+ moved.toArray().forEach((value,i)=>expect(value).toBeCloseTo([0.02,-0.05,0.01][i]!,9));
+ bones.spine.node.position.toArray().forEach((value,i)=>expect(value).toBeCloseTo([-0.05,-0.02,0.01][i]!,9));
+});
 it('does not accumulate scale or translation across frames and drops an unknown bone',()=>{
  const {binding,bones}=fixture();
  for (let i=0;i<3;i++) binding.apply({avatarId:'a',bones:{},expressions:{},boneTranslations:{spine:[0,0.1,0],leftToes:[1,1,1]},boneScales:{spine:0.5}});
