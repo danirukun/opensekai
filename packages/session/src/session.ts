@@ -509,7 +509,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             const assetId = entity.kind === 'avatar' ? entity.assetId : entity.kind === 'mesh' && entity.source.kind === 'asset' ? entity.source.assetId : null;
             const materials = assetId === null ? undefined : record(assetId)?.materials;
             if (!materials) return failure('INVALID_INPUT', 'Entity has no materials', [entityId]);
-            return { ok: true, data: materialList(materials) };
+            return { ok: true, data: materialList(materials, entity.kind === 'avatar' || entity.kind === 'mesh' ? entity.materials : undefined) };
         },
         getExpressions(avatarId) {
             return expressionView(reconcileExpressions(expressions, persistent), persistent, record, avatarId);

@@ -222,9 +222,15 @@ async fn material_list_reaches_the_session_publisher_and_checks_the_reply() {
     let (_dir, service) = service(false).await;
     let mut publisher = auth(&service.publisher_descriptor()).await;
     let mut operator = auth(&service.operator_descriptor()).await;
-    let entry = |parameter: &str, model: serde_json::Value| json!({"materials":[{"name":"Skin","profile":"mtoon","parameters":[{"parameter":parameter,"model":model}]}]});
+    let entry = |parameter: &str, model: serde_json::Value| json!({"materials":[{"name":"Skin","profile":"mtoon","parameters":[{"parameter":parameter,"model":model}]}],"unknown":[]});
+    // B38 R30: a saved value and the saved names that the record does not have.
+    let saved = |value: serde_json::Value, unknown: serde_json::Value| json!({"materials":[{"name":"Skin","profile":"mtoon","parameters":[{"parameter":"baseColor","model":"#ffffff","value":value}]}],"unknown":unknown});
     for (id, data, ok) in [
         ("good", entry("shadeColor", json!("#ff0000")), true),
+        ("saved", saved(json!("#ff0000"), json!(["Cape"])), true),
+        ("savedColor", saved(json!("#FF0000"), json!([])), false),
+        ("unknownName", saved(json!("#ff0000"), json!([""])), false),
+        ("noUnknown", json!({"materials":[]}), false),
         ("width", entry("outlineWidth", json!(0.01)), true),
         ("key", entry("gloss", json!(1)), false),
         ("color", entry("baseColor", json!("#FF0000")), false),
