@@ -113,14 +113,17 @@ it('joins a running tween to the same target, replaces one to another target, an
  expect(same.pending).toEqual([end('d')]);
 });
 
-it('writes no override for a Set or Reset that keeps the evaluated value (R25)', () => {
+it('writes no override for a Set that keeps the evaluated value, and a Reset always removes the key (R25)', () => {
  // A Set to the model value with nothing saved.
  expect(set(EMPTY, { value: '#ff0000' }).overrides.size).toBe(0);
- // A Set to the saved value, and a Reset of a saved value equal to the model value.
+ // A Set to the saved value writes nothing. A Reset of a saved value equal to the model value removes the key at once, also
+ // with a transition.
  const saved = { ...scene, entities: scene.entities.map(e => e.id === 'performer' ? { ...e, materials: { Body: { baseColor: '#ff0000', opacity: 0.5 } } } : e) } as SceneView;
  const at = (fields: Partial<MaterialWrite>) => ok(writeTransitioned(EMPTY, saved, resolved(fields, saved), 'g', 0)).overrides.size;
  expect(at({ parameter: 'opacity', value: 0.5 })).toBe(0);
- expect(at({ value: null })).toBe(0);
+ const reset = ok(writeTransitioned(EMPTY, saved, resolved({ value: null, transition: linear }, saved), 'g', 0));
+ expect(reset.tweens.size).toBe(0);
+ expect(takeIdle(saved, reset.overrides, 250).operations).toEqual([{ kind: 'setMaterialValues', entityId: 'performer', materials: { Body: { opacity: 0.5 } } }]);
  expect(at({ parameter: 'opacity', value: null })).toBe(1);
  // A Set to the model value over a pending override of another value writes it.
  const pending = set(EMPTY, { value: '#00ff00' });

@@ -103,7 +103,7 @@ it('runs a transition with OutCubic by default, commits at the end, and then run
  expect(s.inspect().revision).toBe(1);
 });
 
-it('makes no commit for a write that keeps the evaluated value, also with a transition (R25)', () => {
+it('makes no commit for a Set that keeps the evaluated value, and a Reset always removes the key (R25)', () => {
  // The model value with nothing saved, without and with a transition. Transition End runs on the next step in both cases.
  for (const settings of [{}, { transitionSeconds: 1 }]) {
   const s = start(setter(settings, '#ffeeee'));
@@ -119,4 +119,10 @@ it('makes no commit for a write that keeps the evaluated value, also with a tran
  expect(reset.runBlueprint('g', 'go')).toEqual({ ok: true, data: { revision: 0 } });
  reset.advance(1500);
  expect(reset.inspect().revision).toBe(0);
+ // A Reset of a saved value equal to the model value removes the key in the reply revision, also with a transition.
+ const scene = makeSmokeScene();
+ const saved = { ...scene, entities: scene.entities.map(e => e.id === 'performer' ? { ...e, materials: { Skin: { baseColor: '#ffeeee', shadeColor: '#00ff00' } } } : e) } as SceneView;
+ const same = start(node('set', 'character.resetMaterialProperty', { entityId: 'performer', material: 'Skin', parameter: 'baseColor', transitionSeconds: 1 }), saved);
+ expect(same.runBlueprint('g', 'go')).toEqual({ ok: true, data: { revision: 1 } });
+ expect(materialsOf(same)).toEqual({ Skin: { shadeColor: '#00ff00' } });
 });

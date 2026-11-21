@@ -119,9 +119,9 @@ export function writeOverride(layer: OverrideLayer, scene: SceneView, write: Ove
  }
  const checked = writeKey(entity, property, value);
  if (!checked.ok) return checked;
- // R25: a Set or Reset that keeps the evaluated value (the saved value, else the model value) writes nothing, so it makes no
- // commit. Also a Set to the model value with no saved value, and a Reset of a saved value equal to the model value.
- if (write.kind === 'setMaterial' && write.model !== undefined && (write.value ?? write.model) === (savedValueOf(entity, property as MaterialKey) ?? write.model)) return { ok: true, data: layer };
+ // R25: a Set that keeps the evaluated value (the saved value, else the model value) writes nothing, so it makes no commit.
+ // A Reset always removes a saved key, also one equal to the model value, so a value that does not show cannot stay saved.
+ if (write.kind === 'setMaterial' && write.model !== undefined && write.value !== null && write.value === (savedValueOf(entity, property as MaterialKey) ?? write.model)) return { ok: true, data: layer };
  // A write that does not change the value keeps the last write time, so On Update graphs can stop.
  const own = layer.get(write.entityId), previous = own?.get(property);
  // A Move Entity delta keeps the coordinates of the position that it moves, so a follow-relative position stays follow-relative.
