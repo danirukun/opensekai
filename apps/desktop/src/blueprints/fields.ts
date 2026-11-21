@@ -1,4 +1,4 @@
-import { DATA_TYPE_LABELS, type BlueprintField, DATA_TYPES, defaultBlueprintValue, HUMANOID_BONES, isBlueprintValue, isListType, itemType, KEYSTROKE_CODES, MAX_BLUEPRINT_LIST_LENGTH, MAX_NODE_BONES, propertiesFor, type BlueprintValue, type BlueprintVariable, type DataType, type ListType, type PropertyKey, type ScalarType, type ScalarValue, type SceneView, type Vec3 } from '@opensekai/contracts';
+import { appliedParameters, DATA_TYPE_LABELS, type AssetRecord, type BlueprintField, type MaterialParameter, DATA_TYPES, defaultBlueprintValue, HUMANOID_BONES, isBlueprintValue, isListType, itemType, KEYSTROKE_CODES, MAX_BLUEPRINT_LIST_LENGTH, MAX_NODE_BONES, propertiesFor, type BlueprintValue, type BlueprintVariable, type DataType, type ListType, type PropertyKey, type ScalarType, type ScalarValue, type SceneView, type Vec3 } from '@opensekai/contracts';
 
 export function parseCases(text: string): number[] | null {
  const parts = text.split(',').map(part => part.trim()).filter(part => part !== '');
@@ -106,3 +106,28 @@ export const rangePart = (range: readonly [number, number], index: 0 | 1, text: 
  const part = cellNumber(text);
  return part === null ? null : index === 0 ? [part, range[1]] : [range[0], part];
 };
+
+// B38 R23: the Material and Property choices of a Set or Reset Material Property node.
+type Option<T extends string = string> = { value: T; label: string };
+/** The model record of a character, or of a prop with an asset model. */
+export function materialRecord(scene: SceneView | null, assets: readonly AssetRecord[], entityId: string): AssetRecord | undefined {
+ const entity = scene?.entities.find(item => item.id === entityId);
+ const assetId = entity?.kind === 'avatar' ? entity.assetId : entity?.kind === 'mesh' && entity.source.kind === 'asset' ? entity.source.assetId : null;
+ return assetId === null || assetId === undefined ? undefined : assets.find(asset => asset.id === assetId);
+}
+/** The props with an asset model, which have materials. */
+export const propOptions = (scene: SceneView | null): Option[] =>
+ (scene?.entities ?? []).filter(entity => entity.kind === 'mesh' && entity.source.kind === 'asset').map(entity => ({ value: entity.id, label: entity.name }));
+/** The record materials of the entity, in file order. */
+export const materialOptions = (scene: SceneView | null, assets: readonly AssetRecord[], entityId: string): Option[] =>
+ (materialRecord(scene, assets, entityId)?.materials ?? []).map(material => ({ value: material.name, label: material.name }));
+/** The parameters that apply to the material, in R14 order; none for a missing material. */
+export function materialParameterOptions(scene: SceneView | null, assets: readonly AssetRecord[], entityId: string, name: string): Option<MaterialParameter>[] {
+ const material = materialRecord(scene, assets, entityId)?.materials?.find(item => item.name === name);
+ return material ? appliedParameters(material).map(spec => ({ value: spec.key, label: spec.label })) : [];
+}
+/** A material change keeps the parameter when it applies, else it takes the first parameter that applies. */
+export function fitMaterialSettings<S extends { entityId: string; material: string; parameter: MaterialParameter }>(settings: S, scene: SceneView | null, assets: readonly AssetRecord[]): S {
+ const options = materialParameterOptions(scene, assets, settings.entityId, settings.material);
+ return options.length === 0 || options.some(option => option.value === settings.parameter) ? settings : { ...settings, parameter: options[0]!.value };
+}
