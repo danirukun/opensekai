@@ -15,6 +15,7 @@ import type { AssetMaterial, MaterialList, MaterialValues } from './material-par
 import type { ArkitName, AssetExpression, ExpressionSettings, ExpressionState } from './expressions';
 import type { IntegrationsSetParams, YouTubeStatus } from './youtube';
 import type { CaptureState } from './capture';
+import type { CameraLens } from './lens';
 export type Id = string;
 export type Vec3 = [
     number,
@@ -104,11 +105,7 @@ export type SceneEntity = (EntityBase & {
     grading?: CameraGrading;
     effects?: CameraEffects;
     navigation?: CameraNavigation;
-    lens: {
-        fovDegrees: number;
-        near: number;
-        far: number;
-    };
+    lens: CameraLens;
 });
 export interface WebScreen { url: string | null; width: number; height: number; onTop: boolean; }
 export interface ScreenVideo { assetId: Id | null; autoPlay: boolean; loop: boolean; volume: number; }
