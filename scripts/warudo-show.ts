@@ -1,6 +1,7 @@
 import {readFile,writeFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import {ShowDocumentSchema} from '../packages/contracts/src/schema';
+import {DEFAULT_CAMERA_LENS,normalizeLens} from '../packages/contracts/src/lens';
 import {assetTypes,readScene} from './warudo-sceneshare';
 // Maps a Warudo scene to an OpenSekai show for the visual benchmark (#240). Research only: it is not an import path.
 type Vec3=[number,number,number];type Quat=[number,number,number,number];
@@ -45,7 +46,9 @@ const mappers:Record<string,(a:SceneAsset,c:Context)=>Mapped>={
  Prop:(a,c)=>{const b=bound(a,c);return b.assetId?{entity:{kind:'mesh',source:{kind:'asset',assetId:b.assetId},...transformOf(a)}}:b;},
  Camera:(a,c)=>{const mode=label(a,'ControlMode'),target=port<{id?:string}|null>(a,'FocusCharacter')?.id;
   const navigation=mode==='Free Look'?{mode:'freeLook',sensitivity:sensitivity(a)}:mode==='Orbit Character'?{mode:'orbitCharacter',sensitivity:sensitivity(a),targetId:target&&c.characters.has(target)?target:null,pivotOffset:[0,0,0]}:{mode:'none'};
-  return {entity:{kind:'camera',lens:{fovDegrees:port<number>(a,'FieldOfView'),near:port<number>(a,'NearClipPlane'),far:port<number>(a,'FarClipPlane')},navigation,...transformOf(a,true)}};},
+  // Warudo exports only FOV; normalizeLens migrates that legacy triple to the full physical lens through Full Frame (D12).
+  const lens=normalizeLens({fovDegrees:port<number>(a,'FieldOfView'),near:port<number>(a,'NearClipPlane'),far:port<number>(a,'FarClipPlane')})??DEFAULT_CAMERA_LENS;
+  return {entity:{kind:'camera',lens,navigation,...transformOf(a,true)}};},
  // Unity's diffuse term has no 1/π; three.js divides by π. So Warudo intensity 1 is three.js intensity π.
  'Directional Light':a=>({entity:{kind:'light',light:{type:'directional',color:hex(port(a,'Color')),intensity:Math.PI*port<number>(a,'Intensity'),range:0,affectCharacters:true,affectProps:true,affectEnvironment:true,
   shadow:{enabled:port<boolean>(a,'ShadowEnabled'),intensity:port<number>(a,'ShadowIntensity'),soft:port<boolean>(a,'SoftShadows'),bias:-0.0005,normalBias:0.02}},...transformOf(a,true)}}),
