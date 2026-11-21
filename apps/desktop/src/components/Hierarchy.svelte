@@ -1,7 +1,7 @@
 <script lang="ts">
  import {tick, type Component} from 'svelte';
  import { Button, Input, Spinner } from '@oshi-connect/ui';
- import { Camera, User, Box, Search, Radio, Eye, EyeOff, ChevronRight, ChevronDown, Video, Plus, Mountain, Sun, Lightbulb, Spotlight, SunDim, CloudFog, Gauge, Send, Image, Move, RotateCw, Scaling, RotateCcw, Pencil, CopyPlus, Trash2, Play, Square } from '@lucide/svelte';
+ import { Camera, User, Box, Radio, Eye, EyeOff, ChevronRight, ChevronDown, Video, Plus, Mountain, Sun, Lightbulb, Spotlight, SunDim, CloudFog, Gauge, Send, Image, Move, RotateCw, Scaling, RotateCcw, Pencil, CopyPlus, Trash2, Play, Square } from '@lucide/svelte';
  import type { Transform, Reply } from '@opensekai/contracts';
  import type {AddKind} from '../editor/live-fields';
  import type { EditorPanelProps } from '../editor/model';
@@ -11,6 +11,7 @@
  import {copyTransform} from '../editor/interaction';
  import {vmcSenderLimitReached} from '../editor/vmc-sender';
  import HelpButton from './HelpButton.svelte';
+ import SearchInput from './SearchInput.svelte';
  import {addLimitReached,screenLimitReached} from '../editor/authoring';
  import {addMenuEntries} from '../editor/add-menu';
  import {currentPlatform} from '../blueprints/keystroke-format';
@@ -93,7 +94,7 @@
  function openAdd(event:MouseEvent&{currentTarget:HTMLButtonElement}){const revision=view.scene?.revision;if(revision===undefined)return;const box=event.currentTarget.getBoundingClientRect();menu={x:box.left,y:box.bottom,actions:addMenuEntries(currentPlatform()).map(entry=>{const full=addLimitReached(entry.kind,view.scene?.entities??[]);return {label:entry.label,icon:addIcon[entry.kind],group:entry.group,disabled:full,title:full?'Scene asset limit reached':undefined,run:()=>{if(view.scene?.revision===revision&&!view.pending&&!disabled)void onadd?.(entry.kind,revision);}};})};}
 
 </script>
-<section class="editor-panel hierarchy" aria-labelledby="hierarchy-heading"><div class="asset-heading"><h2 id="hierarchy-heading">Assets</h2><div class="asset-actions"><Button variant="ghost" disabled={disabled||view.pending||!view.scene||!onadd} onclick={openAdd} title="Add asset"><Plus size={14}/></Button><HelpButton topic="scene"/></div></div><div class="asset-search"><Search size={14}/><Input label="Search assets" placeholder="Search" bind:value={search}/></div>
+<section class="editor-panel hierarchy" aria-labelledby="hierarchy-heading"><div class="asset-heading"><h2 id="hierarchy-heading">Assets</h2><div class="asset-actions"><Button variant="ghost" disabled={disabled||view.pending||!view.scene||!onadd} onclick={openAdd} title="Add asset"><Plus size={14}/></Button><HelpButton topic="scene"/></div></div><div class="asset-search"><SearchInput label="Search assets" placeholder="Search" bind:value={search}/></div>
  <div class="entity-list" role="toolbar" aria-label="Scene assets" tabindex="0" onkeydown={navigate}>
   {#each groups as group (group.key)}
    <div class="asset-group">
@@ -123,4 +124,4 @@
 <style>
  .asset-rename{flex:1;min-width:0;padding:3px 0}.asset-rename :global(label){position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}.asset-rename :global(input){width:100%;min-width:0}
  .asset-group{margin-bottom:8px}.asset-row{display:flex;align-items:center;gap:2px}.asset-row .entity-row{flex:1;min-width:0;padding:8px 6px;gap:7px}.asset-row .hidden-asset{color:var(--ds-color-hidden-text)}.row-actions{display:flex;flex:none}.row-action{display:flex;align-items:center;justify-content:center;border:0;border-radius:4px;background:transparent;cursor:pointer}.row-action:hover{background:var(--ds-color-hover)}.row-action:disabled{opacity:.5;cursor:default}.row-action:focus-visible,.entity-row:focus-visible{outline:2px solid var(--ds-color-focus);outline-offset:-2px}.row-actions .row-action{padding:5px;width:25px;height:28px;color:var(--ds-color-rail-icon)}.row-actions .active-camera{color:var(--ds-color-on-selection);background:var(--ds-color-selection);transition:background-color .16s ease-out,color .16s ease-out}.asset-group .group-heading{border:0;background:transparent;cursor:pointer;display:flex;width:100%;justify-content:flex-start;gap:5px;padding:5px 6px;color:var(--ds-color-text-muted);font-size:11px;font-weight:500}
-.asset-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.asset-heading h2{margin:0}.asset-actions{display:flex;gap:2px}.asset-actions :global(button){font-size:12px;padding:4px 7px}.asset-search{display:flex;gap:8px;align-items:center;padding-bottom:10px}.asset-search :global(input){min-width:0}.asset-row :global(svg){flex:none}.asset-search :global(label){position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}</style>
+.asset-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.asset-heading h2{margin:0}.asset-actions{display:flex;gap:2px}.asset-actions :global(button){font-size:12px;padding:4px 7px}.asset-search{margin-bottom:15px;padding-bottom:10px}.asset-row :global(svg){flex:none}</style>

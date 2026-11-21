@@ -8,7 +8,13 @@
  const top = $derived(Math.max(8, Math.min(y, window.innerHeight - height - 8)));
  onMount(() => {
   const away = (event: PointerEvent) => { if (!root.contains(event.target as Node)) onclose(); };
-  const key = (event: KeyboardEvent) => { if (event.key === 'Escape') { event.stopPropagation(); onclose(); } };
+  const key = (event: KeyboardEvent) => {
+   if (event.key !== 'Escape') return;
+   const target = event.target;
+   if (target instanceof HTMLInputElement && root.contains(target) && target.value !== '') return;
+   event.stopPropagation();
+   onclose();
+  };
   window.addEventListener('pointerdown', away, true); window.addEventListener('keydown', key, true);
   return () => { window.removeEventListener('pointerdown', away, true); window.removeEventListener('keydown', key, true); };
  });

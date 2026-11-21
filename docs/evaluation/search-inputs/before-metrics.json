@@ -1,0 +1,50 @@
+{
+  "assets": {
+    "height": 34,
+    "radius": "5px",
+    "border": "1px solid rgb(227, 225, 233)",
+    "padding": "0px 8px",
+    "background": "rgb(255, 255, 255)",
+    "fontSize": "12px",
+    "color": "rgb(53, 51, 61)",
+    "placeholder": "Search",
+    "label": "Search assets",
+    "icon": true
+  },
+  "nodes": {
+    "height": 34,
+    "radius": "4px",
+    "border": "1px solid rgb(227, 225, 233)",
+    "padding": "7px 8px",
+    "background": "rgb(255, 255, 255)",
+    "fontSize": "12px",
+    "color": "rgb(53, 51, 61)",
+    "placeholder": "Search nodes",
+    "label": "",
+    "icon": false
+  },
+  "menu": {
+    "height": 34,
+    "radius": "4px",
+    "border": "1px solid rgb(227, 225, 233)",
+    "padding": "7px 8px",
+    "background": "rgb(255, 255, 255)",
+    "fontSize": "12px",
+    "color": "rgb(53, 51, 61)",
+    "placeholder": "Search nodes",
+    "label": "",
+    "icon": false
+  },
+  "properties": {
+    "height": 39.8,
+    "radius": "9.75px",
+    "border": "2px solid rgb(227, 225, 233)",
+    "padding": "8.125px 11.375px",
+    "background": "rgb(255, 255, 255)",
+    "fontSize": "13px",
+    "color": "rgb(53, 51, 61)",
+    "placeholder": "Search",
+    "label": "Search properties",
+    "icon": false
+  }
+}
