@@ -35218,5 +35218,54 @@
         }
       ]
     }
+  },
+  {
+    "name": "applied-gpu-ms",
+    "target": "applied",
+    "valid": true,
+    "payload": {
+      "outputId": "output_main",
+      "sessionId": "session_smoke",
+      "sequence": 0,
+      "tick": 0,
+      "revision": 0,
+      "cameraId": "camera_wide",
+      "backend": "webgpu",
+      "cpuMs": 0,
+      "gpuMs": 4.25,
+      "warnings": []
+    }
+  },
+  {
+    "name": "applied-negative-gpu-ms",
+    "target": "applied",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "outputId": "output_main",
+      "sessionId": "session_smoke",
+      "sequence": 0,
+      "tick": 0,
+      "revision": 0,
+      "cameraId": "camera_wide",
+      "backend": "webgpu",
+      "cpuMs": 0,
+      "gpuMs": -1,
+      "warnings": []
+    }
+  },
+  {
+    "name": "diagnostics-gpu-timer",
+    "target": "wireText",
+    "valid": true,
+    "errorCode": null,
+    "payload": "{\"kind\":\"diagnostics\",\"diagnostics\":{\"sessionId\":\"session_smoke\",\"outputId\":\"output_main\",\"rendererEpoch\":\"epoch_1\",\"sequence\":1,\"revision\":0,\"backend\":\"webgpu\",\"geometries\":3,\"textures\":4,\"liveMaterials\":2,\"assetCacheEntries\":2,\"activeRenderJob\":false,\"queuedFrames\":0,\"queuedCaptures\":0,\"gpuTimer\":\"supported\"}}"
+  },
+  {
+    "name": "diagnostics-unknown-gpu-timer",
+    "target": "wireText",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": "{\"kind\":\"diagnostics\",\"diagnostics\":{\"sessionId\":\"session_smoke\",\"outputId\":\"output_main\",\"rendererEpoch\":\"epoch_1\",\"sequence\":1,\"revision\":0,\"backend\":\"webgpu\",\"geometries\":3,\"textures\":4,\"liveMaterials\":2,\"assetCacheEntries\":2,\"activeRenderJob\":false,\"queuedFrames\":0,\"queuedCaptures\":0,\"gpuTimer\":\"maybe\"}}"
   }
 ]

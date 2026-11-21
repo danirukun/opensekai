@@ -314,6 +314,7 @@ impl Shared {
                         .get(id)
                         .and_then(|q| q.back().map(|(f, _)| f.clone())),
                     video_decoder: inner.decoders.get(id).cloned(),
+                    gpu_timer: None,
                 })
                 .collect();
             let current = inner.renderers.contains_key("output_main")

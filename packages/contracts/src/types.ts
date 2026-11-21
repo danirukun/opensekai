@@ -232,8 +232,10 @@ export interface RendererDiagnostics {
  geometries: number; textures: number; liveMaterials: number; assetCacheEntries: number;
  activeRenderJob: boolean; queuedFrames: number; queuedCaptures: number;
  videoDecoder?: VideoDecoderSupport;
+ gpuTimer?: GpuTimerSupport;
 }
 export type VideoDecoderSupport = 'supported' | 'unsupported' | 'missing';
+export type GpuTimerSupport = 'supported' | 'unsupported';
 export interface CaptureScreenStatus { entityId: Id; streamId: string | null; state: CaptureState; width: number; height: number; }
 export interface CaptureStatus { kind: 'captureStatus'; revision: number; screens: CaptureScreenStatus[]; }
 export interface AppStatus {
@@ -255,6 +257,7 @@ export interface AppStatus {
         connected: boolean;
         lastFrame: FrameApplied | null;
         videoDecoder?: VideoDecoderSupport;
+        gpuTimer?: GpuTimerSupport;
     }[];
 }
 export interface CaptureParams {
