@@ -23,11 +23,21 @@ it('lists the materials of a character in record order with the parameters that 
   { name: 'Hair', profile: 'pbr', parameters: [
    { parameter: 'baseColor', model: '#000000' }, { parameter: 'opacity', model: 0.5 }, { parameter: 'emissionColor', model: '#000000' }, { parameter: 'emissionStrength', model: 1 },
   ] },
- ] } });
+ ], unknown: [] } });
 });
 
 it('lists the materials of a prop with an asset source', () => {
- expect(start().materialList('reference')).toEqual({ ok: true, data: { materials: [{ name: 'Floor', profile: 'unlit', parameters: [{ parameter: 'baseColor', model: '#808080' }] }] } });
+ expect(start().materialList('reference')).toEqual({ ok: true, data: { materials: [{ name: 'Floor', profile: 'unlit', parameters: [{ parameter: 'baseColor', model: '#808080' }] }], unknown: [] } });
+});
+
+it('adds the saved value of each parameter and the saved names that the record does not have (R30)', () => {
+ const s = start();
+ expect(s.applyPatch({ sceneId: 'scene_smoke', expectedRevision: 0, operations: [{ kind: 'setMaterialValues', entityId: 'performer', materials: { Cape: { baseColor: '#00ff00' }, Hair: { opacity: 1 } } }] } as never).ok).toBe(true);
+ const list = s.materialList('performer');
+ if (!list.ok) throw new Error('no list');
+ expect(list.data.materials[1]!.parameters.find(view => view.parameter === 'opacity')).toEqual({ parameter: 'opacity', model: 0.5, value: 1 });
+ expect(list.data.materials[0]!.parameters.every(view => !('value' in view))).toBe(true);
+ expect(list.data.unknown).toEqual(['Cape']);
 });
 
 it('fails for an unknown entity, another kind, and an entity without a model', () => {

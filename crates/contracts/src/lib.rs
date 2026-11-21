@@ -1285,10 +1285,13 @@ pub fn material_group_ok(group: &BTreeMap<String, MaterialValues>) -> bool {
                     .all(|(key, value)| material_value_ok(key, value))
         })
 }
-// The `materialList` call of B38 R18. Keep in step with `MaterialListSchema`.
+// The `materialList` call of B38 R18 and R30. Keep in step with `MaterialListSchema`.
 object!(MaterialParameterView {
     parameter: String,
-    model: MaterialValue
+    model: MaterialValue,
+    /// R30: the saved value, when there is one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    value: Option<MaterialValue>
 });
 object!(MaterialListEntry {
     name: String,
@@ -1296,19 +1299,23 @@ object!(MaterialListEntry {
     parameters: Vec<MaterialParameterView>
 });
 object!(MaterialList {
-    materials: Vec<MaterialListEntry>
+    materials: Vec<MaterialListEntry>,
+    /// R30: the saved names that the record does not have.
+    unknown: Vec<String>
 });
 object!(MaterialListParams { entity_id: Id });
 impl Validate for MaterialList {
     fn validate(&self) -> Result<(), AppError> {
+        let shape_ok = |value: &MaterialValue| match value {
+            MaterialValue::Color(color) => light_color_ok(color),
+            MaterialValue::Number(n) => n.is_finite(),
+        };
         let value_ok = |view: &MaterialParameterView| {
             MATERIAL_PARAMETERS
                 .iter()
                 .any(|(key, _)| *key == view.parameter)
-                && match &view.model {
-                    MaterialValue::Color(color) => light_color_ok(color),
-                    MaterialValue::Number(n) => n.is_finite(),
-                }
+                && shape_ok(&view.model)
+                && view.value.as_ref().is_none_or(shape_ok)
         };
         require(
             self.materials.len() <= MAX_MATERIALS
@@ -1316,7 +1323,9 @@ impl Validate for MaterialList {
                     material_name_ok(&m.name)
                         && m.parameters.len() <= MATERIAL_PARAMETERS.len()
                         && m.parameters.iter().all(value_ok)
-                }),
+                })
+                && self.unknown.len() <= MAX_MATERIALS
+                && self.unknown.iter().all(|name| material_name_ok(name)),
             "invalid material list",
         )
     }

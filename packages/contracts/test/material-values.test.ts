@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest';
-import { MaterialGroupSchema, MaterialValuesSchema, PatchOpSchema, savedMaterialValue, withMaterialValue } from '../src/index';
+import { z } from 'zod';
+import { MaterialGroupSchema, MaterialValuesSchema, ParamSchemas, PatchOpSchema, SceneReplaceInputSchema, savedMaterialValue, withMaterialValue } from '../src/index';
 
 it('accepts a group of values in range and rejects empty, out-of-range, and unknown values (R19)', () => {
  expect(MaterialGroupSchema.safeParse({ Body: { baseColor: '#ff8000', opacity: 0.5 }, Hair: { outlineWidth: 0.05, emissionStrength: 100 } }).success).toBe(true);
@@ -38,4 +39,14 @@ it('keeps a material named __proto__ as an own key through a parse', () => {
  expect(Object.getPrototypeOf(parsed)).toBe(Object.prototype);
  expect(MaterialGroupSchema.safeParse([]).success).toBe(false);
  expect(MaterialGroupSchema.safeParse(null).success).toBe(false);
+});
+
+it('gives the MCP input schemas of scene_patch and scene_replace a JSON Schema for the saved values (R30)', () => {
+ // The MCP SDK lists each tool with the JSON Schema of its input; a type that has no JSON Schema breaks tools/list.
+ expect(JSON.stringify(z.toJSONSchema(ParamSchemas.scenePatch, { io: 'input' }))).toContain('"setMaterialValues"');
+ expect(() => z.toJSONSchema(SceneReplaceInputSchema, { io: 'input' })).not.toThrow();
+ const group = z.toJSONSchema(MaterialGroupSchema, { io: 'input' }) as { type?: string; maxProperties?: number; additionalProperties?: { properties?: object } };
+ expect(group.type).toBe('object');
+ expect(group.maxProperties).toBe(256);
+ expect(Object.keys(group.additionalProperties?.properties ?? {})).toContain('baseColor');
 });
