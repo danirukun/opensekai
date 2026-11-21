@@ -18,6 +18,8 @@ import { AssetMeshesSchema, HiddenMeshesSchema, MeshListSchema } from './meshes'
 import { AssetMaterialsSchema, MaterialGroupSchema, MaterialListSchema } from './material-parameters';
 import { isWebScreenUrl } from './web-url';
 import { CAPTURE_STATES, CAPTURE_TEXT_LIMITS, captureTextLength, normalizeCaptureText } from './capture';
+import { SENSOR_PRESETS, type SensorPresetId } from './lens-math';
+import { normalizeLens } from './lens';
 import type { AppApi, Capability, Reply, ValidatedCall } from "./types";
 export const LIMITS = {
     jsonBytes: 262144,
@@ -129,11 +131,18 @@ export const EntityBaseSchema = z.strictObject({
     visible: z.boolean(),
     transform: TransformSchema
 });
-export const LensSchema = z.strictObject({
+export const SensorPresetSchema = z.enum(Object.keys(SENSOR_PRESETS) as [SensorPresetId, ...SensorPresetId[]]);
+// Accepts a legacy `{fovDegrees,near,far}` triple or a full physical lens; `normalizeLens` always migrates to the full shape (D12).
+export const LensSchema = z.preprocess(v => normalizeLens(v) ?? v, z.strictObject({
+    focalLengthMm: n.min(12).max(300),
+    fStop: n.min(1).max(32),
+    focusDistance: n.positive(),
+    autofocus: z.boolean(),
+    sensorPreset: SensorPresetSchema,
     fovDegrees: n.min(1).max(179),
     near: n.positive(),
     far: n.positive()
-}).refine(l => l.far > l.near);
+}).refine(l => l.far > l.near));
 // Warudo Control Mode. A missing field means `none`, so an old show does not change.
 export const CameraNavigationSchema = z.discriminatedUnion("mode", [
     z.strictObject({ mode: z.literal("none") }),

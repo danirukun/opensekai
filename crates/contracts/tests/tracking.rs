@@ -1,5 +1,5 @@
 use opensekai_contracts::{
-    parse_wire, validate_value, AppStatus, AvatarPose, SceneEntity, ScenePatch, SceneView,
+    parse_wire, validate_value, AppStatus, AvatarPose, Lens, SceneEntity, ScenePatch, SceneView,
     TrackingStatus,
 };
 use serde_json::json;
@@ -202,6 +202,17 @@ fn numbers_as_f64(value: &serde_json::Value) -> serde_json::Value {
         other => other.clone(),
     }
 }
+// The camera lens migrates to the full physical shape on parse (D12); every other field round-trips unchanged.
+fn with_migrated_lens(scene: &serde_json::Value) -> serde_json::Value {
+    let mut scene = scene.clone();
+    for entity in scene["entities"].as_array_mut().unwrap() {
+        if entity["kind"] == "camera" {
+            let lens: Lens = serde_json::from_value(entity["lens"].clone()).unwrap();
+            entity["lens"] = serde_json::to_value(lens).unwrap();
+        }
+    }
+    scene
+}
 #[test]
 fn b6_fixture_scenes_round_trip_without_added_nulls() {
     let fixture = overrides_fixture();
@@ -211,7 +222,7 @@ fn b6_fixture_scenes_round_trip_without_added_nulls() {
         let parsed: SceneView = serde_json::from_value(scene.clone()).unwrap();
         assert_eq!(
             numbers_as_f64(&serde_json::to_value(&parsed).unwrap()),
-            numbers_as_f64(scene),
+            numbers_as_f64(&with_migrated_lens(scene)),
             "{key}"
         );
     }
