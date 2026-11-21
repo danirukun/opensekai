@@ -1,6 +1,6 @@
 # Bouncy Live2D-style motion design
 
-Date: 2026-11-21. Status: draft for owner review. Issue: [#294](https://github.com/danirukun/opensekai/issues/294). Related: Face-Only Body Motion ([design](2026-11-18-face-only-body-motion-design.md)), VPoyo gap 2 ([gaps](../../vpoyo-gaps.md)).
+Date: 2026-11-21. Status: approved by the owner on 2026-11-21. Issue: [#294](https://github.com/danirukun/opensekai/issues/294). Related: Face-Only Body Motion ([design](2026-11-18-face-only-body-motion-design.md)), VPoyo gap 2 ([gaps](../../vpoyo-gaps.md)).
 
 ## Intent
 
