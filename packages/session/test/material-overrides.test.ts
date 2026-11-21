@@ -105,11 +105,33 @@ it('joins a running tween to the same target, replaces one to another target, an
  layers = advanceTweens(layers, scene, 500).layers;
  layers = set(layers, { value: '#00ff00', transition: linear }, 500, end('c'));
  expect(layers.tweens.get(key)).toMatchObject({ startMs: 500, ends: [end('c')], value: { from: mixHex('#ff0000', '#0000ff', 0.5), to: '#00ff00' } });
- // A target equal to the current value starts no tween; its end runs on the next step.
+ // A target equal to the evaluated value (here the model value, with nothing saved) starts no tween and writes no override;
+ // its end runs on the next step.
  const same = set(EMPTY, { value: '#ff0000', transition: linear }, 0, end('d'));
  expect(same.tweens.size).toBe(0);
+ expect(same.overrides.size).toBe(0);
  expect(same.pending).toEqual([end('d')]);
- expect(materialsAt(same)).toEqual({ Body: { baseColor: '#ff0000' } });
+});
+
+it('writes no override for a Set or Reset that keeps the evaluated value (R25)', () => {
+ // A Set to the model value with nothing saved.
+ expect(set(EMPTY, { value: '#ff0000' }).overrides.size).toBe(0);
+ // A Set to the saved value, and a Reset of a saved value equal to the model value.
+ const saved = { ...scene, entities: scene.entities.map(e => e.id === 'performer' ? { ...e, materials: { Body: { baseColor: '#ff0000', opacity: 0.5 } } } : e) } as SceneView;
+ const at = (fields: Partial<MaterialWrite>) => ok(writeTransitioned(EMPTY, saved, resolved(fields, saved), 'g', 0)).overrides.size;
+ expect(at({ parameter: 'opacity', value: 0.5 })).toBe(0);
+ expect(at({ value: null })).toBe(0);
+ expect(at({ parameter: 'opacity', value: null })).toBe(1);
+ // A Set to the model value over a pending override of another value writes it.
+ const pending = set(EMPTY, { value: '#00ff00' });
+ expect(materialsAt(set(pending, { value: '#ff0000' }))).toEqual({ Body: { baseColor: '#ff0000' } });
+});
+
+it('refuses a write that gives more than 256 material names (R25)', () => {
+ const full = Object.fromEntries(Array.from({ length: 256 }, (_, i) => [`Old ${i}`, { baseColor: '#000000' }]));
+ const crowded = { ...scene, entities: scene.entities.map(e => e.id === 'performer' ? { ...e, materials: full } : e) } as SceneView;
+ const reply = writeTransitioned(EMPTY, crowded, resolved({}, crowded), 'g', 0);
+ expect(reply).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT', message: 'Too many materials', ids: ['performer'] } });
 });
 
 it('drops material overrides and tweens on a setMaterialValues or a model change (R27)', () => {

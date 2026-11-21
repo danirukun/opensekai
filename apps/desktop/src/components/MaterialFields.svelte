@@ -7,7 +7,7 @@
  import ResetMark from './ResetMark.svelte';
  // B38 R29: the saved material values of a character or a prop. Each edit sends the whole group with `setMaterialValues`.
  type Group=Record<string,MaterialValues>;
- let {entityId,record,saved,revision,disabled=false,oncommit,onlive,onliveend}:{entityId:string;record:readonly AssetMaterial[]|undefined;saved:Readonly<Group>|undefined;revision:number;disabled?:boolean;oncommit:(id:string,materials:Group,revision:number)=>Promise<Reply<unknown>|undefined>;onlive?:(id:string,materials:Group)=>void;onliveend?:()=>void}=$props();
+ let {entityId,record,saved,revision,disabled=false,resetDisabled=disabled,oncommit,onlive,onliveend}:{entityId:string;record:readonly AssetMaterial[]|undefined;saved:Readonly<Group>|undefined;revision:number;disabled?:boolean;resetDisabled?:boolean;oncommit:(id:string,materials:Group,revision:number)=>Promise<Reply<unknown>|undefined>;onlive?:(id:string,materials:Group)=>void;onliveend?:()=>void}=$props();
  const choices=$derived(materialChoices(record,saved));
  let selected=$state<string|null>(null);
  const name=$derived(choices.some(choice=>choice.value===selected)?selected!:choices[0]?.value??null);
@@ -27,7 +27,7 @@
    {:else if row.range}
     <SliderField label={row.label} value={row.value} range={row.range} disabled={disabled||row.readOnly} onlive={value=>live(row.parameter,value)} onend={onliveend} oncommit={value=>commit(row.parameter,value)}/>
    {/if}
-   {#if row.saved}<ResetMark label={row.label} {disabled} onreset={()=>commit(row.parameter,null)}/>{/if}
+   {#if row.saved}<ResetMark label={row.label} disabled={resetDisabled} onreset={()=>commit(row.parameter,null)}/>{/if}
   </div>
  {/each}
 </div>

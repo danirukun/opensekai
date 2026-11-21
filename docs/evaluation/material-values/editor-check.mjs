@@ -65,6 +65,8 @@ await context.addInitScript(info=>{
  };
 },info);
 let publisher=null,preview=null,nextCall=1;
+// While `hold` is set, the stand-in host keeps each scenePatch reply, so a live edit stays pending.
+let hold=null;
 const pending=new Map(),calls=[];
 const status=async()=>({ok:true,data:{schemaVersion:1,sessionId:SESSION,ready:true,revision:(await refresh())?.revision??0,capabilities:['read','edit'],warnings:[],outputs:[]}});
 const hostCall=async(method,params)=>{for(let i=0;!publisher&&i<200;i++)await new Promise(r=>setTimeout(r,50));if(!publisher)return {ok:false,error:{code:'UNAVAILABLE',message:'No publisher',ids:[]}};return new Promise(resolve=>{const requestId=`host_${nextCall++}`;pending.set(requestId,resolve);publisher.send(JSON.stringify({kind:'call',requestId,method,params}));});};
@@ -83,6 +85,7 @@ wss.on('connection',ws=>{
   if(role==='publisher'&&message.kind==='frame'){preview?.send(text);return;}
   if(role==='operator'&&message.kind==='call'){
    calls.push({method:message.method,params:message.params});
+   if(message.method==='scenePatch'&&hold)await hold.promise;
    const result=message.method==='appStatus'?await status():await hostCall(message.method,message.params);
    ws.send(JSON.stringify({kind:'reply',requestId:message.requestId,result}));
   }
@@ -167,6 +170,21 @@ check('R29: an Opacity drag sends two or more live setMaterialValues',live.lengt
 check('R29: the end of the drag sends no extra patch, and the scene holds the last live value',afterEnd.length===live.length&&opacity===live.at(-1)?.materials[BODY]?.opacity&&opacity<1,{live:live.length,afterEnd:afterEnd.length,opacity});
 await select.evaluate(node=>node.scrollIntoView({block:'center'}));
 await shoot('materials-section');
+
+// A pending live edit turns the reset marks off (B17 R9), but not the fields.
+{
+ let release;hold={promise:new Promise(resolve=>{release=resolve;})};
+ await track.scrollIntoViewIfNeeded();const held=await track.boundingBox();
+ await page.mouse.move(held.x+held.width*0.5,held.y+held.height/2);await page.mouse.down();
+ await page.mouse.move(held.x+held.width*0.3,held.y+held.height/2,{steps:4});await settle(200);
+ const states=await body.locator('.reset-mark').evaluateAll(marks=>marks.map(mark=>mark.disabled));
+ const fieldOn=await body.getByRole('slider',{name:'Opacity'}).evaluate(node=>!node.disabled&&node.getAttribute('aria-disabled')!=='true');
+ hold=null;release();
+ await page.mouse.up();await settle(800);
+ const after=await body.locator('.reset-mark').evaluateAll(marks=>marks.map(mark=>mark.disabled));
+ check('R29: a pending live edit turns each material reset mark off, and the field stays on',states.length>=1&&states.every(Boolean)&&fieldOn,{states,fieldOn});
+ check('R29: the reset marks come back on after the live edit',after.length>=1&&after.every(state=>!state),after);
+}
 
 // The reset mark removes the parameter.
 mark=materialPatches().length;

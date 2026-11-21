@@ -1,4 +1,4 @@
-import { avatarLighting, materialParameter, MATERIAL_PARAMETER_KEYS, rotateByQuaternion, savedMaterialValue, withMaterialValue, writeProperty, type AssetRecord, type Id, type MaterialParameter, type PropertyKey, type PropertyValue, type Reply, type SceneEntity, type ScenePatch, type SceneView, type Vec3 } from '@opensekai/contracts';
+import { avatarLighting, materialParameter, MATERIAL_PARAMETER_KEYS, MAX_MATERIALS, rotateByQuaternion, savedMaterialValue, withMaterialValue, writeProperty, type AssetRecord, type Id, type MaterialParameter, type PropertyKey, type PropertyValue, type Reply, type SceneEntity, type ScenePatch, type SceneView, type Vec3 } from '@opensekai/contracts';
 import { delta, followers, shifted } from './camera-follow';
 import type { Transition } from './tweens';
 
@@ -41,6 +41,8 @@ function writeKey(entity: SceneEntity, key: OverrideKey, value: OverrideValue): 
  if (!material) return writeProperty(entity, key as PropertyKey, value as PropertyValue);
  if (entity.kind !== 'avatar' && entity.kind !== 'mesh') return fail('Entity has no materials', [entity.id]);
  const materials = withMaterialValue(entity.materials, material.name, material.parameter, value as MaterialWriteValue);
+ // The group keeps saved values of names that the model does not have (R30), so a new name can pass the limit.
+ if (Object.keys(materials).length > MAX_MATERIALS) return fail('Too many materials', [entity.id]);
  if (Object.keys(materials).length) return { ok: true, data: { ...entity, materials } };
  const { materials: _old, ...rest } = entity;
  return { ok: true, data: rest };
@@ -117,6 +119,9 @@ export function writeOverride(layer: OverrideLayer, scene: SceneView, write: Ove
  }
  const checked = writeKey(entity, property, value);
  if (!checked.ok) return checked;
+ // R25: a Set or Reset that keeps the evaluated value (the saved value, else the model value) writes nothing, so it makes no
+ // commit. Also a Set to the model value with no saved value, and a Reset of a saved value equal to the model value.
+ if (write.kind === 'setMaterial' && write.model !== undefined && (write.value ?? write.model) === (savedValueOf(entity, property as MaterialKey) ?? write.model)) return { ok: true, data: layer };
  // A write that does not change the value keeps the last write time, so On Update graphs can stop.
  const own = layer.get(write.entityId), previous = own?.get(property);
  // A Move Entity delta keeps the coordinates of the position that it moves, so a follow-relative position stays follow-relative.

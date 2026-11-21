@@ -1158,25 +1158,63 @@ impl Validate for MeshList {
 pub const MAX_MATERIALS: usize = 256;
 pub const MAX_MATERIAL_NAME: usize = 64;
 strings!(MaterialProfile { Mtoon=>"mtoon", Pbr=>"pbr", Unlit=>"unlit", Liltoon=>"liltoon" });
+/// A missing value means none. `null` is rejected, as the TypeScript schema does (B38 R19).
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct MaterialModel {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "present_string",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub base_color: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "present_f64",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub opacity: Option<f64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "present_string",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub emission_color: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "present_f64",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub emission_strength: Option<f64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "present_string",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub shade_color: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "present_string",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub rim_color: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "present_string",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub outline_color: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "present_f64",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub outline_width: Option<f64>,
+}
+fn present_string<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<String>, D::Error> {
+    String::deserialize(deserializer).map(Some)
 }
 /// A model value: a lowercase `#rrggbb` color or a number.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

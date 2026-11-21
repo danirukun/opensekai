@@ -115,6 +115,19 @@ it('writes outline parameters to the outline clone only', () => {
  expect([outline.outlineWidthFactor, hex(outline.outlineColorFactor), hex(surface.parametricRimColorFactor)]).toEqual([0.01, '#000000', '#000000']);
 });
 
+it('does not write a saved parameter that does not apply to the record material', () => {
+ // Opacity on an opaque or MASK material, and emission on a VRM 0 Unlit material, keep the model value.
+ const masked = Object.assign(mtoon(), { alphaTest: 0.5, opacity: 1 }), unlit = Object.assign(mtoon(), { emissive: new Color('#000000'), emissiveIntensity: 1 });
+ const bind = (material: Material, profile: AssetMaterial['profile']) => createMaterialBinding([record(profile)], new Group().add(new Mesh(undefined, material)), () => 0);
+ const one = bind(masked, 'mtoon'), two = bind(unlit, 'unlit');
+ one.apply({ Body: { opacity: 0.3, baseColor: '#ff0000' } });
+ two.apply({ Body: { emissionColor: '#00ff00', emissionStrength: 5 } });
+ expect([masked.opacity, hex(masked.color)]).toEqual([1, '#ff0000']);
+ expect([hex(unlit.emissive), unlit.emissiveIntensity]).toEqual(['#000000', 1]);
+ one.apply({});
+ expect([masked.opacity, hex(masked.color)]).toEqual([1, '#ffffff']);
+});
+
 it('also writes the shade color for a VRM 0 Unlit Base Color, and only for it', () => {
  const unlit = mtoon(), lit = mtoon();
  const bind = (material: Material, profile: AssetMaterial['profile']) => createMaterialBinding([record(profile)], new Group().add(new Mesh(undefined, material)), () => 0);

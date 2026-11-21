@@ -90,7 +90,33 @@ it('runs a transition with OutCubic by default, commits at the end, and then run
  const half = mixHex('#ffeeee', '#0000ff', 1 - 0.5 ** 3);
  expect((frame.scene.entities.find(e => e.id === 'performer') as { materials?: unknown }).materials).toEqual({ Skin: { baseColor: half } });
  expect(materialsOf(s)).toBeUndefined();
- for (let ms = 520; ms <= 1500; ms += 20) s.advance(ms);
- expect(materialsOf(s)).toEqual({ Skin: { baseColor: '#0000ff' } });
+ // The last tween step writes the target as an override. On Transition End runs on the next clock step and reads the target
+ // in the evaluated scene; the commit follows 250 ms after the last change of the value, as for an asset property tween (R26).
+ let ms = 500, shown: unknown;
+ while (!lines(s).includes('end')) { ms += 20; shown = (s.advance(ms).scene.entities.find(e => e.id === 'performer') as { materials?: unknown }).materials; }
+ expect(ms).toBe(1020);
+ expect(shown).toEqual({ Skin: { baseColor: '#0000ff' } });
+ expect(materialsOf(s)).toBeUndefined();
  expect(lines(s)).toEqual(['exit', 'end']);
+ s.advance(1260);
+ expect(materialsOf(s)).toEqual({ Skin: { baseColor: '#0000ff' } });
+ expect(s.inspect().revision).toBe(1);
+});
+
+it('makes no commit for a write that keeps the evaluated value, also with a transition (R25)', () => {
+ // The model value with nothing saved, without and with a transition. Transition End runs on the next step in both cases.
+ for (const settings of [{}, { transitionSeconds: 1 }]) {
+  const s = start(setter(settings, '#ffeeee'));
+  expect(s.runBlueprint('g', 'go')).toEqual({ ok: true, data: { revision: 0 } });
+  s.advance(20);
+  s.advance(1500);
+  expect(s.inspect().revision).toBe(0);
+  expect(materialsOf(s)).toBeUndefined();
+  expect(lines(s)).toEqual(['exit', 'end']);
+ }
+ // A Reset with nothing saved.
+ const reset = start(node('set', 'character.resetMaterialProperty', { entityId: 'performer', material: 'Skin', parameter: 'baseColor' }));
+ expect(reset.runBlueprint('g', 'go')).toEqual({ ok: true, data: { revision: 0 } });
+ reset.advance(1500);
+ expect(reset.inspect().revision).toBe(0);
 });
