@@ -240,6 +240,10 @@ pub struct AvatarPose {
     pub root: Option<TrackingRoot>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bone_offsets: Option<BTreeMap<String, Quat>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bone_translations: Option<BTreeMap<String, Vec3>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bone_scales: Option<BTreeMap<String, f64>>,
     #[serde(
         rename = "headPosition",
         skip_serializing_if = "Option::is_none",
@@ -504,6 +508,24 @@ impl Validate for AvatarPose {
             for (name, offset) in offsets {
                 require(humanoid_bone(name), "invalid bone offset")?;
                 rotation(offset)?;
+            }
+        }
+        if let Some(translations) = &self.bone_translations {
+            require(translations.len() <= 55, "too many bone translations")?;
+            for (name, translation) in translations {
+                require(
+                    humanoid_bone(name) && translation.iter().all(|v| v.is_finite()),
+                    "invalid bone translation",
+                )?;
+            }
+        }
+        if let Some(scales) = &self.bone_scales {
+            require(scales.len() <= 55, "too many bone scales")?;
+            for (name, scale) in scales {
+                require(
+                    humanoid_bone(name) && scale.is_finite() && (0.5..=1.5).contains(scale),
+                    "invalid bone scale",
+                )?;
             }
         }
         Ok(())

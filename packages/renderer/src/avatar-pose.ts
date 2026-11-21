@@ -1,6 +1,6 @@
 import {Object3D,Quaternion,Vector3,type Material,type Mesh} from 'three/webgpu';
 import type {VRM, VRMHumanBoneName, VRMPose} from '@pixiv/three-vrm';
-import type {AvatarLighting, AvatarPose} from '@opensekai/contracts';
+import type {AvatarLighting, AvatarPose, Vec3} from '@opensekai/contracts';
 import type {CharacterMToonMaterial} from './character-mtoon';
 import type {CharacterLilToonMaterial} from './character-liltoon';
 import {canonicalArkitName,createArkitMorphBinding} from './arkit-expressions';
@@ -23,13 +23,17 @@ export function createAvatarBinding(vrm: VRM) {
     const root = new Object3D();
     const motion = new Object3D();
     root.add(motion); motion.add(vrm.scene);
-    const rest = new Map<Object3D,{position:number[];rotation:number[]}>();
+    const rest = new Map<Object3D,{position:number[];rotation:number[];scale:number[]}>();
     for (const bone of Object.values(vrm.humanoid.rawHumanBones)) {
         const node = bone.node;
-        rest.set(node,{position:node.position.toArray(),rotation:node.quaternion.toArray()});
+        rest.set(node,{position:node.position.toArray(),rotation:node.quaternion.toArray(),scale:node.scale.toArray()});
     }
     // The spring rig records its rest state from the local matrices, so they must be current (B43 R10).
     root.updateMatrixWorld(true);
+    // A pose translation has the model axes; the raw node position has the axes of its parent at rest.
+    const sceneRest=vrm.scene.getWorldQuaternion(new Quaternion()).invert();
+    const toParentRest=new Map([...rest.keys()].map(node=>[node,
+        sceneRest.clone().multiply(node.parent?.getWorldQuaternion(new Quaternion()) ?? new Quaternion()).invert()]));
     const rig=createSpringRig(vrm);
     const bones=[...rest.keys()];
     const springs=rig && createSpringStage(rig,root,[root,motion,...bones.filter(bone=>!rig.joints.has(bone))],bones.filter(bone=>rig.joints.has(bone)));
@@ -69,6 +73,34 @@ export function createAvatarBinding(vrm: VRM) {
             if (node) node.quaternion.premultiply(offset);
         }
     };
+    // A chestless rig carries the chest translation and scale on the spine, as `resolveChest` carries rotation:
+    // the translation adds and the scale multiplies, so a bone touched twice (chest and spine) composes both.
+    const resolveChestTranslationScale=(translations:Record<string,Vec3>,scales:Record<string,number>) => {
+        if (vrm.humanoid.getRawBoneNode('chest')) return;
+        if (translations.chest) {
+            const [x,y,z]=translations.spine ?? [0,0,0],[cx,cy,cz]=translations.chest;
+            translations.spine=[x+cx,y+cy,z+cz]; delete translations.chest;
+        }
+        if (scales.chest !== undefined) {
+            scales.spine=(scales.spine ?? 1)*scales.chest; delete scales.chest;
+        }
+    };
+    // Applied directly to the raw node after every rotation (offsets included): neither tracking nor the
+    // normalized pose carries position for a non-hips bone or scale for any bone (three-vrm `update` only
+    // copies rotation, and hips position, from the normalized rig to the raw one).
+    const applyTranslationScale=(pose?:AvatarPose) => {
+        const translations={...pose?.boneTranslations} as Record<string,Vec3>;
+        const scales={...pose?.boneScales} as Record<string,number>;
+        resolveChestTranslationScale(translations,scales);
+        for (const name of new Set([...Object.keys(translations),...Object.keys(scales)])) {
+            const node=vrm.humanoid.getRawBoneNode(name as VRMHumanBoneName);
+            if (!node) continue;
+            const [x,y,z]=translations[name] ?? [0,0,0];
+            if (x || y || z) node.position.add(new Vector3(x*sign,y,z*sign).applyQuaternion(toParentRest.get(node) ?? new Quaternion()));
+            const scale=scales[name];
+            if (scale !== undefined) node.scale.multiplyScalar(scale);
+        }
+    };
     const names = new Set(vrm.expressionManager?.expressions.map(expression=>expression.expressionName) ?? []);
     const morphs=createArkitMorphBinding(vrm.scene);
     // The surface materials and their outline clones; the clones have the same speeds (R5).
@@ -90,7 +122,7 @@ export function createAvatarBinding(vrm: VRM) {
     };
     return {root, uv, characters, lighting, advanceSprings(clock: SpringClock) { springs?.advance(clock); }, apply(pose?: AvatarPose) {
         // Reset raw state before normalized deltas so lost channels return to rest.
-        for (const [node, transform] of rest) {node.position.fromArray(transform.position);node.quaternion.fromArray(transform.rotation);}
+        for (const [node, transform] of rest) {node.position.fromArray(transform.position);node.quaternion.fromArray(transform.rotation);node.scale.fromArray(transform.scale);}
         vrm.humanoid.resetNormalizedPose();
         const normalized: VRMPose = {};
         for (const [name,bone] of Object.entries(pose?.baseBones ?? {})) {
@@ -131,6 +163,7 @@ export function createAvatarBinding(vrm: VRM) {
             }
         }
         applyRawOffsets(pose);
+        applyTranslationScale(pose);
         motion.position.fromArray(pose?.root?.position ?? [0,0,0]);
         motion.quaternion.fromArray(pose?.root?.rotation ?? [0,0,0,1]);
         const direct:Record<string,number>=Object.create(null),remaining:Record<string,number>=Object.create(null);

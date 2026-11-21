@@ -10,7 +10,7 @@ import { captureCalibration } from './tracking-calibration';
 import { fitRanges, mergeFit } from './blend-shape-fit';
 import { isBoneOffsetEffect, isCharacterLayerEffect, isDebugEffect, isExpressionEffect, isOrbitEffect, isOverrideEffect, isSceneEffect } from './blueprint';
 import { createDebugLog } from './debug-log';
-import { composeBoneOffsets, EMPTY_BONE_OFFSETS, writeBoneOffset, type BoneOffsets } from './bone-offsets';
+import { composeBoneOffsets, EMPTY_BONE_OFFSETS, writeBoneOffset, writeBoneScale, writeBoneTranslation, type BoneOffsets } from './bone-offsets';
 import { advanceExpressions, composeExpressions, dropExpressionFades, EMPTY_EXPRESSIONS, expressionOwners, expressionView, reconcileExpressions, setExpression, type ExpressionStates } from './expressions';
 import { applyOverrides, dropOverrides, EMPTY_OVERRIDES, evaluatedEntity, materialKey, resolveMaterialWrite, takeIdle, type OverrideKey, type OverrideLayer } from './overrides';
 import { advanceTweens, dropGraphTweens, dropTweens, EMPTY_TWEENS, transitionStart, tweenOwners, tweening, writeOrbit, writeTransitioned, type PropertyLayers, type TransitionEnd, type TweenLayer } from './tweens';
@@ -188,7 +188,9 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             }
             let nextOffsets = offsets;
             for (const effect of run.effects.filter(isBoneOffsetEffect)) {
-                const written = writeBoneOffset(nextOffsets, scene, effect);
+                const written = effect.kind === 'offsetBone' ? writeBoneOffset(nextOffsets, scene, effect)
+                    : effect.kind === 'offsetBoneTranslation' ? writeBoneTranslation(nextOffsets, scene, effect)
+                    : writeBoneScale(nextOffsets, scene, effect);
                 if (!written.ok) return written.error;
                 nextOffsets = written.data;
             }

@@ -251,3 +251,52 @@ it('composes spine then chest offsets on a chestless rig whatever the key order'
  expect(a.bones.spine.node.quaternion.angleTo(pitch.clone().multiply(yaw))).toBeLessThan(1e-6);
  expect(b.bones.spine.node.quaternion.angleTo(a.bones.spine.node.quaternion)).toBeLessThan(1e-7);
 });
+it('adds a bone translation and multiplies a bone scale on the rest local transform, and resets both when absent',()=>{
+ const {binding,bones}=fixture();
+ binding.apply({avatarId:'a',bones:{},expressions:{},boneTranslations:{spine:[0,-0.05,0]},boneScales:{spine:0.9}});
+ expect(bones.spine.node.position.toArray()).toEqual([0,-0.05,0]);
+ expect(bones.spine.node.scale.toArray()).toEqual([0.9,0.9,0.9]);
+ binding.apply({avatarId:'a',bones:{},expressions:{}});
+ expect(bones.spine.node.position.toArray()).toEqual([0,0,0]);
+ expect(bones.spine.node.scale.toArray()).toEqual([1,1,1]);
+});
+it('moves a bone along the model axes when its parent rest is rotated',()=>{
+ const roll=new Quaternion().setFromAxisAngle(new Vector3(0,0,1),Math.PI/2);
+ const {binding,bones}=fixture(new Quaternion(),new Vector3(0,1,0),false,roll);
+ binding.apply({avatarId:'a',bones:{},expressions:{}});
+ const start=bones.spine.node.getWorldPosition(new Vector3());
+ binding.apply({avatarId:'a',bones:{},expressions:{},boneTranslations:{spine:[0.02,-0.05,0.01]}});
+ const moved=bones.spine.node.getWorldPosition(new Vector3()).sub(start);
+ moved.toArray().forEach((value,i)=>expect(value).toBeCloseTo([0.02,-0.05,0.01][i]!,9));
+ bones.spine.node.position.toArray().forEach((value,i)=>expect(value).toBeCloseTo([-0.05,-0.02,0.01][i]!,9));
+});
+it('does not accumulate scale or translation across frames and drops an unknown bone',()=>{
+ const {binding,bones}=fixture();
+ for (let i=0;i<3;i++) binding.apply({avatarId:'a',bones:{},expressions:{},boneTranslations:{spine:[0,0.1,0],leftToes:[1,1,1]},boneScales:{spine:0.5}});
+ expect(bones.spine.node.position.toArray()).toEqual([0,0.1,0]);
+ expect(bones.spine.node.scale.toArray()).toEqual([0.5,0.5,0.5]);
+});
+function metaFixture(version:'0'|'1') {
+ const base=fixture();
+ const vrm=new VRM({scene:base.vrm.scene,humanoid:new VRMHumanoid(base.bones),meta:version==='0'?{metaVersion:'0',title:'generated'}:{metaVersion:'1',name:'generated',authors:['test'],licenseUrl:'https://example.com'}});
+ return {...base,vrm,binding:createAvatarBinding(vrm)};
+}
+it('applies the VRM 0 sign to translation X and Z but not Y, same as position tracking',()=>{
+ const v0=metaFixture('0'),v1=metaFixture('1');
+ v0.binding.apply({avatarId:'a',bones:{},expressions:{},boneTranslations:{spine:[0.1,0.2,0.3]}});
+ expect(v0.bones.spine.node.position.toArray()).toEqual([-0.1,0.2,-0.3]);
+ v1.binding.apply({avatarId:'a',bones:{},expressions:{},boneTranslations:{spine:[0.1,0.2,0.3]}});
+ expect(v1.bones.spine.node.position.toArray()).toEqual([0.1,0.2,0.3]);
+});
+it('adds chest translation and multiplies chest scale onto spine on a chestless rig, and keeps chest separate when present',()=>{
+ const chestless=fixture(),withChest=fixture(new Quaternion(),new Vector3(0,1,0),true);
+ const pose={avatarId:'a',bones:{},expressions:{},boneTranslations:{spine:[0,0.1,0] as [number,number,number],chest:[0,0.05,0] as [number,number,number]},boneScales:{spine:0.8,chest:0.5}};
+ chestless.binding.apply(pose);
+ chestless.bones.spine.node.position.toArray().forEach((value,i)=>expect(value).toBeCloseTo([0,0.15,0][i]!,9));
+ expect(chestless.bones.spine.node.scale.toArray()).toEqual([0.4,0.4,0.4]);
+ withChest.binding.apply(pose);
+ expect(withChest.bones.spine.node.position.toArray()).toEqual([0,0.1,0]);
+ expect(withChest.bones.chest!.node.position.toArray()).toEqual([0,0.05,0]);
+ expect(withChest.bones.spine.node.scale.toArray()).toEqual([0.8,0.8,0.8]);
+ expect(withChest.bones.chest!.node.scale.toArray()).toEqual([0.5,0.5,0.5]);
+});

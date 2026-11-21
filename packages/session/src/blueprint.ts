@@ -1,7 +1,7 @@
 import type { OverrideWrite } from './overrides';
 import type { OrbitWrite } from './tweens';
 import type { ExpressionEffect } from './expressions';
-import type { BoneOffsetEffect } from './bone-offsets';
+import type { BoneLayerEffect } from './bone-offsets';
 import type { BlendShapeEffect } from './blend-shapes';
 import type { LookAtEffect } from './look-at';
 import { DEBUG_EFFECT_KINDS, type DebugEffect, type DebugValueSample } from './debug-log';
@@ -15,11 +15,11 @@ export type SceneEffect =
  | { kind: 'setMeshesVisible'; entityId: Id; names: string[]; visible: boolean }
  | { kind: 'selectCamera'; outputId: Id; cameraId: Id };
 export type CharacterLayerEffect = BlendShapeEffect | LookAtEffect;
-export type BlueprintEffect = SceneEffect | OverrideWrite | OrbitWrite | ExpressionEffect | BoneOffsetEffect | CharacterLayerEffect | DebugEffect;
+export type BlueprintEffect = SceneEffect | OverrideWrite | OrbitWrite | ExpressionEffect | BoneLayerEffect | CharacterLayerEffect | DebugEffect;
 export const isOverrideEffect = (effect: BlueprintEffect): effect is OverrideWrite => effect.kind === 'setProperty' || effect.kind === 'moveEntity' || effect.kind === 'setMaterial';
 export const isOrbitEffect = (effect: BlueprintEffect): effect is OrbitWrite => effect.kind === 'orbitCamera';
 export const isExpressionEffect = (effect: BlueprintEffect): effect is ExpressionEffect => effect.kind === 'setExpression' || effect.kind === 'toggleExpression';
-export const isBoneOffsetEffect = (effect: BlueprintEffect): effect is BoneOffsetEffect => effect.kind === 'offsetBone';
+export const isBoneOffsetEffect = (effect: BlueprintEffect): effect is BoneLayerEffect => effect.kind === 'offsetBone' || effect.kind === 'offsetBoneTranslation' || effect.kind === 'offsetBoneScale';
 export const isCharacterLayerEffect = (effect: BlueprintEffect): effect is CharacterLayerEffect => effect.kind === 'setBlendShape' || effect.kind === 'lookAt';
 export const isDebugEffect = (effect: BlueprintEffect): effect is DebugEffect => DEBUG_EFFECT_KINDS.has(effect.kind);
 export const isSceneEffect = (effect: BlueprintEffect): effect is SceneEffect => !isOverrideEffect(effect) && !isOrbitEffect(effect) && !isExpressionEffect(effect) && !isBoneOffsetEffect(effect) && !isCharacterLayerEffect(effect) && !isDebugEffect(effect);

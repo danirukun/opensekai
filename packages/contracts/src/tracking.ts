@@ -48,7 +48,7 @@ export const FAILED_TRACKING_STATES=['error','unavailable','permissionNeeded'] a
 export interface TrackingProbeParams {sourceId:Id;resetPeaks?:boolean}
 export interface TrackingProbe {sourceId:Id;generation:number;state:TrackingStatus['state'];values:Partial<Record<ArkitName,number>>;peaks:Partial<Record<ArkitName,number>>;presentChannels:ArkitName[];eyeBones:boolean}
 export interface TrackingUpdate {samples:TrackingSample[];statuses:TrackingStatus[]}
-export interface AvatarPose {avatarId:Id;baseBones?:Record<string,IdleBone>;bones:Record<string,TrackingBone>;expressions:Record<string,number>;root?:{position:Vec3;rotation:Quat};boneOffsets?:Record<string,Quat>;headPosition?:Vec3}
+export interface AvatarPose {avatarId:Id;baseBones?:Record<string,IdleBone>;bones:Record<string,TrackingBone>;expressions:Record<string,number>;root?:{position:Vec3;rotation:Quat};boneOffsets?:Record<string,Quat>;boneTranslations?:Record<string,Vec3>;boneScales?:Record<string,number>;headPosition?:Vec3}
 const n=z.number().finite(),u=n.int().nonnegative().max(Number.MAX_SAFE_INTEGER),id=z.string().min(1).max(256);
 const ip=z.union([z.ipv4(),z.ipv6()]);
 const trackingState=z.enum(['stopped','waiting','receiving','stale','error','unavailable','permissionNeeded']);
@@ -81,7 +81,9 @@ export const TrackingProbeParamsSchema=z.strictObject({sourceId:id,resetPeaks:z.
 export const TrackingProbeSchema=z.strictObject({sourceId:id,generation:u,state:trackingState,values:z.partialRecord(z.enum(ARKIT_NAMES),unit),peaks:z.partialRecord(z.enum(ARKIT_NAMES),unit),presentChannels:z.array(z.enum(ARKIT_NAMES)).max(ARKIT_NAMES.length).refine(v=>new Set(v).size===v.length),eyeBones:z.boolean()});
 const baseBones=z.record(z.string().refine(name=>HUMANOID_BONES.includes(name)),z.strictObject({rotation:quat,space:z.literal('normalized'),position:vec.optional()})).refine(v=>Object.keys(v).length<=64);
 const boneOffsets=z.record(z.string().refine(name=>HUMANOID_BONES.includes(name)),quat).refine(v=>Object.keys(v).length<=55);
-export const AvatarPoseSchema=z.strictObject({avatarId:id,baseBones:baseBones.optional(),bones,expressions,root:root.optional(),boneOffsets:boneOffsets.optional(),headPosition:vec.optional()});
+const boneTranslations=z.record(z.string().refine(name=>HUMANOID_BONES.includes(name)),vec).refine(v=>Object.keys(v).length<=55);
+const boneScales=z.record(z.string().refine(name=>HUMANOID_BONES.includes(name)),n.min(.5).max(1.5)).refine(v=>Object.keys(v).length<=55);
+export const AvatarPoseSchema=z.strictObject({avatarId:id,baseBones:baseBones.optional(),bones,expressions,root:root.optional(),boneOffsets:boneOffsets.optional(),boneTranslations:boneTranslations.optional(),boneScales:boneScales.optional(),headPosition:vec.optional()});
 export function defaultTrackingConfig(kind:TrackingConfig['kind']):TrackingConfig {
  if(kind==='vmc')return {kind,enabled:false,bindAddress:'127.0.0.1',port:39539,senderAddress:null};
  if(kind==='ifacialmocap')return {kind,enabled:false,bindAddress:'0.0.0.0',port:49983,phoneAddress:null};

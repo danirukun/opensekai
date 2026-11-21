@@ -4,7 +4,7 @@ import { compileBlueprint, runFlow, type BlueprintEffect } from '../src/blueprin
 import { emptyState, EVALUATORS, NO_ENV, type FlowContext } from '../src/blueprint-eval';
 import { createSession } from '../src/session';
 import { offsetBonesSkipped } from '../src/blueprint-eval/character';
-import { boneEuler, composeBoneOffsets, EMPTY_BONE_OFFSETS, eulerToQuat, multiplyQuat, quatToEuler, writeBoneOffset } from '../src/bone-offsets';
+import { boneEuler, composeBoneOffsets, DEFAULT_BONE_ENTRY, EMPTY_BONE_OFFSETS, eulerToQuat, IDENTITY, multiplyQuat, quatToEuler, writeBoneOffset, writeBoneScale, writeBoneTranslation } from '../src/bone-offsets';
 
 const yawQuat = (degrees: number): Quat => [0, Math.sin(degrees * Math.PI / 360), 0, Math.cos(degrees * Math.PI / 360)];
 const rotate = (q: Quat, v: Vec3): Vec3 => { const r = multiplyQuat(multiplyQuat(q, [...v, 0] as Quat), [-q[0], -q[1], -q[2], q[3]]); return [r[0], r[1], r[2]]; };
@@ -40,11 +40,13 @@ it('composes two writes to one bone in write order, the later in the parent fram
  const first = writeBoneOffset(EMPTY_BONE_OFFSETS, scene, { kind: 'offsetBone', entityId: 'performer', bone: 'chest', euler: [30, 0, 0] });
  const second = first.ok ? writeBoneOffset(first.data, scene, { kind: 'offsetBone', entityId: 'performer', bone: 'chest', euler: [0, 90, 0] }) : first;
  if (!second.ok) throw new Error(second.error.message);
- const combined = second.data.get('performer')!.get('chest')!;
+ const combined = second.data.get('performer')!.get('chest')!.rotation;
  const expected = multiplyQuat(eulerToQuat([0, 90, 0]), eulerToQuat([30, 0, 0]));
  combined.forEach((value, i) => expect(value).toBeCloseTo(expected[i]!, 9));
  expect(EMPTY_BONE_OFFSETS.size).toBe(0);
- expect(first.ok && first.data.get('performer')!.get('chest')).toEqual(eulerToQuat([30, 0, 0]));
+ expect(first.ok && first.data.get('performer')!.get('chest')!.rotation).toEqual(eulerToQuat([30, 0, 0]));
+ // The translation and scale of a bone only a rotation has touched stay at their defaults.
+ expect(first.ok && first.data.get('performer')!.get('chest')).toMatchObject({ translation: [0, 0, 0], scale: 1 });
 });
 
 it('rejects a non-finite or out-of-range angle and a target that is not a character', () => {
@@ -57,11 +59,61 @@ it('rejects a non-finite or out-of-range angle and a target that is not a charac
 });
 
 it('adds offsets to an existing pose or a pose with only boneOffsets, and skips empty layers', () => {
- const layer = new Map([['performer', new Map([['chest', yawQuat(12)]])], ['other', new Map()]]);
+ const layer = new Map([['performer', new Map([['chest', { ...DEFAULT_BONE_ENTRY, rotation: yawQuat(12) }]])], ['other', new Map()]]);
  const tracked = pose({ bones: { head: { rotation: yawQuat(20), space: 'normalized' } } });
  expect(composeBoneOffsets([tracked], layer)).toEqual([{ ...tracked, boneOffsets: { chest: yawQuat(12) } }]);
  expect(composeBoneOffsets([], layer)).toEqual([{ avatarId: 'performer', bones: {}, expressions: {}, boneOffsets: { chest: yawQuat(12) } }]);
  expect(tracked).not.toHaveProperty('boneOffsets');
+});
+
+it('adds a bone translation component-wise and rejects a non-finite or out-of-range component', () => {
+ const scene = makeSmokeScene();
+ const first = writeBoneTranslation(EMPTY_BONE_OFFSETS, scene, { kind: 'offsetBoneTranslation', entityId: 'performer', bone: 'chest', translation: [0.1, 0.2, 0.3] });
+ const second = first.ok ? writeBoneTranslation(first.data, scene, { kind: 'offsetBoneTranslation', entityId: 'performer', bone: 'chest', translation: [0.1, -0.1, 0] }) : first;
+ if (!second.ok) throw new Error(second.error.message);
+ close(second.data.get('performer')!.get('chest')!.translation, [0.2, 0.1, 0.3]);
+ expect(second.data.get('performer')!.get('chest')).toMatchObject({ rotation: IDENTITY, scale: 1 });
+ for (const translation of [[0, 2.1, 0], [-3, 0, 0], [0, 0, Number.NaN], [Number.POSITIVE_INFINITY, 0, 0]] as Vec3[])
+  expect(writeBoneTranslation(EMPTY_BONE_OFFSETS, scene, { kind: 'offsetBoneTranslation', entityId: 'performer', bone: 'chest', translation })).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+ expect(writeBoneTranslation(EMPTY_BONE_OFFSETS, scene, { kind: 'offsetBoneTranslation', entityId: 'performer', bone: 'chest', translation: [2, -2, 0] }).ok).toBe(true);
+ expect(writeBoneTranslation(EMPTY_BONE_OFFSETS, scene, { kind: 'offsetBoneTranslation', entityId: 'marker', bone: 'chest', translation: [0, 0, 0] })).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+ expect(writeBoneTranslation(EMPTY_BONE_OFFSETS, scene, { kind: 'offsetBoneTranslation', entityId: 'nobody', bone: 'chest', translation: [0, 0, 0] })).toMatchObject({ ok: false, error: { code: 'NOT_FOUND' } });
+});
+
+it('assigns the absolute bone scale, so a later write to the same bone in one tick wins', () => {
+ const scene = makeSmokeScene();
+ const first = writeBoneScale(EMPTY_BONE_OFFSETS, scene, { kind: 'offsetBoneScale', entityId: 'performer', bone: 'chest', scale: 1.2 });
+ if (!first.ok) throw new Error(first.error.message);
+ expect(first.data.get('performer')!.get('chest')).toMatchObject({ rotation: IDENTITY, translation: [0, 0, 0], scale: 1.2 });
+ const second = writeBoneScale(first.data, scene, { kind: 'offsetBoneScale', entityId: 'performer', bone: 'chest', scale: 0.8 });
+ if (!second.ok) throw new Error(second.error.message);
+ expect(second.data.get('performer')!.get('chest')!.scale).toBe(0.8);
+ for (const scale of [Number.NaN, 0.49, 1.51, Number.POSITIVE_INFINITY])
+  expect(writeBoneScale(EMPTY_BONE_OFFSETS, scene, { kind: 'offsetBoneScale', entityId: 'performer', bone: 'chest', scale })).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+ for (const scale of [0.5, 1.5]) expect(writeBoneScale(EMPTY_BONE_OFFSETS, scene, { kind: 'offsetBoneScale', entityId: 'performer', bone: 'chest', scale }).ok).toBe(true);
+ expect(writeBoneScale(EMPTY_BONE_OFFSETS, scene, { kind: 'offsetBoneScale', entityId: 'marker', bone: 'chest', scale: 1 })).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+ expect(writeBoneScale(EMPTY_BONE_OFFSETS, scene, { kind: 'offsetBoneScale', entityId: 'nobody', bone: 'chest', scale: 1 })).toMatchObject({ ok: false, error: { code: 'NOT_FOUND' } });
+});
+
+it('composes rotation, translation, and scale into their own fields, each omitting its default', () => {
+ const scene = makeSmokeScene();
+ const rotated = writeBoneOffset(EMPTY_BONE_OFFSETS, scene, { kind: 'offsetBone', entityId: 'performer', bone: 'chest', euler: [0, 12, 0] });
+ if (!rotated.ok) throw new Error(rotated.error.message);
+ const translated = writeBoneTranslation(rotated.data, scene, { kind: 'offsetBoneTranslation', entityId: 'performer', bone: 'head', translation: [0, 0.1, 0] });
+ if (!translated.ok) throw new Error(translated.error.message);
+ const scaled = writeBoneScale(translated.data, scene, { kind: 'offsetBoneScale', entityId: 'performer', bone: 'hand', scale: 1.1 });
+ if (!scaled.ok) throw new Error(scaled.error.message);
+ const composed = composeBoneOffsets([], scaled.data)[0]!;
+ expect(composed.boneOffsets).toEqual({ chest: eulerToQuat([0, 12, 0]) });
+ expect(composed.boneTranslations).toEqual({ head: [0, 0.1, 0] });
+ expect(composed.boneScales).toEqual({ hand: 1.1 });
+ // A bone touched only by translation or scale keeps its untouched rotation out of boneOffsets.
+ expect(composed.boneOffsets).not.toHaveProperty('head');
+ expect(composed.boneOffsets).not.toHaveProperty('hand');
+ // An explicit zero-degree rotation write is still reported: it is a distinct object, not the untouched default.
+ const zeroWritten = writeBoneOffset(EMPTY_BONE_OFFSETS, scene, { kind: 'offsetBone', entityId: 'performer', bone: 'chest', euler: [0, 0, 0] });
+ if (!zeroWritten.ok) throw new Error(zeroWritten.error.message);
+ expect(composeBoneOffsets([], zeroWritten.data)[0]!.boneOffsets).toEqual({ chest: [0, 0, 0, 1] });
 });
 
 describe('Offset Bones', () => {

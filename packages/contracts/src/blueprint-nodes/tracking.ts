@@ -18,6 +18,8 @@ const PendulumInput = z.strictObject({ kind: z.enum(PENDULUM_INPUT_KINDS), blend
  .refine(input => input.kind !== 'blendShape' || input.blendShape !== null, { message: 'Blend shape is required', path: ['blendShape'] });
 const PendulumArm = z.strictObject({ length: physical, mass: physical, drag: physical, spring: physical, damping: physical, gravity: signed });
 const Pendulum = z.strictObject({ entityId: IdSchema, inputs: z.array(PendulumInput).min(1).max(8), inputSmoothing: z.number().min(0).max(5), arms: z.array(PendulumArm).max(4) });
+const BouncySpring = z.strictObject({ entityId: IdSchema, pitchWeight: signed, pitchScale: signed, jawWeight: signed, jawScale: signed, spring: physical, damping: physical, inputSmoothing: z.number().min(0).max(5) });
+const bouncyNumber = (key: string, label: string, min: number, max: number) => ({ key, label, kind: 'number', min, max }) as const;
 export const PENDULUM_DEFAULT_INPUT: Readonly<z.output<typeof PendulumInput>> = { kind: 'headYaw', blendShape: null, weight: 1, scale: 5, absolute: false, clamp: [-100, 100] };
 const defaultInput = (): z.output<typeof PendulumInput> => ({ ...PENDULUM_DEFAULT_INPUT, clamp: [...PENDULUM_DEFAULT_INPUT.clamp] });
 // The Warudo arm values.
@@ -42,6 +44,9 @@ export const TRACKING_NODES = [
     { key: 'clamp', label: 'Clamp', kind: 'range' }, { key: 'absolute', label: 'Abs', kind: 'boolean' }] },
    { key: 'inputSmoothing', label: 'Input smoothing (s)', kind: 'number', min: 0, max: 5 },
    { key: 'arms', label: 'Arms', kind: 'rows', min: 0, max: 4, newRow: PENDULUM_DEFAULT_ARM, columns: (['length', 'mass', 'drag', 'spring', 'damping', 'gravity'] as const).map(key => ({ key, label: key[0]!.toUpperCase() + key.slice(1), kind: 'number' as const })) }] }),
+ defineNode({ type: 'tracking.bouncySpring', label: 'Bouncy Spring', category: 'Tracking', keywords: ['tracking', 'bounce', 'bouncy', 'spring', 'pitch', 'jaw', 'head', 'body', 'motion'], settings: BouncySpring, ports: () => ({ inputs: {}, outputs: { value: 'number' } }),
+  defaults: refs => refs.avatarId ? { entityId: refs.avatarId, pitchWeight: 1, pitchScale: 1, jawWeight: 0.5, jawScale: 1, spring: 0.5, damping: 0.5, inputSmoothing: 0.05 } : null,
+  fields: [{ key: 'entityId', label: 'Character', kind: 'avatar' }, bouncyNumber('pitchWeight', 'Pitch weight', -100, 100), bouncyNumber('pitchScale', 'Pitch scale', -100, 100), bouncyNumber('jawWeight', 'Jaw weight', -100, 100), bouncyNumber('jawScale', 'Jaw scale', -100, 100), bouncyNumber('spring', 'Spring', 0, 100), bouncyNumber('damping', 'Damping', 0, 100), bouncyNumber('inputSmoothing', 'Input smoothing (s)', 0, 5)] }),
  defineNode({ type: 'tracking.onBlendShapeThreshold', label: 'On Blend Shape Threshold', category: 'Tracking', keywords: ['tracking', 'blendshape', 'blend shape', 'threshold', 'trigger', 'face', 'arkit', 'blink', 'mouth', 'cross'], settings: Threshold, ports: (): PortShape => ({ inputs: {}, outputs: { rise: 'flow', fall: 'flow', value: 'number' } }),
   defaults: refs => refs.avatarId ? { entityId: refs.avatarId, blendShape: 'jawOpen' as const, threshold: 0.5, release: 0.4 } : null,
   fields: [{ key: 'entityId', label: 'Character', kind: 'avatar' }, { key: 'blendShape', label: 'Blend shape', kind: 'choice', options: ARKIT_NAMES.map(name => ({ value: name, label: name })) }, { key: 'threshold', label: 'Threshold', kind: 'number', min: 0, max: 1 }, { key: 'release', label: 'Release', kind: 'number', min: 0, max: 1 }] }),

@@ -69,6 +69,20 @@ export function vmcSendPose(pose: AvatarPose | undefined, rig: AvatarRig): Omit<
   const current = raw[target];
   if (driven && current) raw[target] = { ...current, rotation: multiplyQuat(offset, current.rotation) };
  }
+ // Added directly to the final raw position, after tracking and rotation offsets: the VMC rig has no normalized
+ // layer, so a translation on any bone (not only hips) always lands on the wire this way. A chestless rig folds
+ // the chest translation onto the spine, as `resolveChest` folds rotation. `boneScales` never reaches the wire:
+ // `VmcSendPoseSchema` carries only position and rotation per bone (Known difference — OBS shows the renderer's
+ // squash, a VMC receiver sees only the translated Y position of a bounce).
+ const translations: Record<string, Vec3> = {};
+ for (const [name, translation] of Object.entries(pose?.boneTranslations ?? {})) {
+  const target = name === 'chest' && !has('chest') ? 'spine' : name;
+  translations[target] = add(translations[target] ?? [0, 0, 0], [translation[0] * sign, translation[1], translation[2] * sign]);
+ }
+ for (const [target, translation] of Object.entries(translations)) {
+  const current = raw[target];
+  if (current) raw[target] = { ...current, position: add(current.position, translation) };
+ }
  // A Map, not an object: a performer can name a blend `constructor` or `__proto__`.
  const blends = new Map<string, number>();
  for (const [name, weight] of Object.entries(pose?.expressions ?? {})) {

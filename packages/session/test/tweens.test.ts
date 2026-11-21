@@ -145,7 +145,7 @@ it('fades the look-at weight and adds it to the head offset, then releases at we
  const target = at([5, 1.4, 5]);
  let looks = ok(setLookAt(EMPTY_LOOK_AT, sceneLookup(target), { kind: 'lookAt', entityId: 'performer', targetId: 'reference', weight: 1, transition: { seconds: 1, easing: 'Linear' } }, 0, 'g'));
  const step = (states: LookAtStates, now: number) => stepLookAt(states, sceneLookup(target), now, new Map());
- const headYaw = (now: number) => euler(step(looks, now).offsets.get('performer')!.get('head')!)[1];
+ const headYaw = (now: number) => euler(step(looks, now).offsets.get('performer')!.get('head')!.rotation)[1];
  expect(headYaw(0)).toBeCloseTo(0);
  expect(headYaw(500)).toBeCloseTo(22.5);
  looks = step(looks, 1000).states;
