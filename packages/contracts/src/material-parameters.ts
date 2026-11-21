@@ -89,12 +89,15 @@ export const materialList = (materials: readonly AssetMaterial[]): MaterialList 
 
 // The saved group with one parameter set, or removed when `value` is null. Empty groups and an empty result are dropped.
 // Entries, not property writes: a model can name a material `__proto__`.
+// A changed name and a changed parameter keep their place, so a write of the same value gives the same JSON.
 export function withMaterialValue(group: Readonly<Record<string, MaterialValues>> | undefined, name: string, parameter: MaterialParameter, value: string | number | null): Record<string, MaterialValues> {
- const own = Object.entries(group ?? {}).find(([key]) => key === name)?.[1];
- const { [parameter]: _old, ...rest } = own ?? {};
- const values: MaterialValues = value === null ? rest : { ...rest, [parameter]: value };
- const others = Object.entries(group ?? {}).filter(([key]) => key !== name);
- return Object.fromEntries(Object.keys(values).length ? [...others, [name, values]] : others);
+ const entries = Object.entries(group ?? {});
+ const own = entries.find(([key]) => key === name)?.[1];
+ let values: MaterialValues;
+ if (value === null) { const { [parameter]: _old, ...rest } = own ?? {}; values = rest; } else values = { ...own, [parameter]: value };
+ const empty = Object.keys(values).length === 0;
+ const next = own ? entries.flatMap(([key, item]) => key !== name ? [[key, item] as const] : empty ? [] : [[key, values] as const]) : empty ? entries : [...entries, [name, values] as const];
+ return Object.fromEntries(next);
 }
 /** The saved value of a parameter, or undefined. */
 export const savedMaterialValue = (group: Readonly<Record<string, MaterialValues>> | undefined, name: string, parameter: MaterialParameter): string | number | undefined =>

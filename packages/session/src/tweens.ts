@@ -1,6 +1,6 @@
-import { assetProperty, clampUser, DEFAULT_EASING, ease, eulerFromQuaternion, orbitFromTransform, orbitFromUser, orbitPivot, quaternionFromEuler, readProperty, shortYaw, transformFromOrbit, userFromOrbit, writeProperty, type Easing, type Id, type OrbitUser, type PropertyKey, type PropertyValue, type Quat, type Reply, type AppError, type SceneEntity, type SceneView, type Vec3 } from '@opensekai/contracts';
+import { assetProperty, clampUser, materialParameter, mixHex, type MaterialParameter, DEFAULT_EASING, ease, eulerFromQuaternion, orbitFromTransform, orbitFromUser, orbitPivot, quaternionFromEuler, readProperty, shortYaw, transformFromOrbit, userFromOrbit, writeProperty, type Easing, type Id, type OrbitUser, type PropertyKey, type PropertyValue, type Quat, type Reply, type AppError, type SceneEntity, type SceneView, type Vec3 } from '@opensekai/contracts';
 import { normalize, slerpQuat } from './bone-offsets';
-import { evaluatedEntity, followOffset, overriddenEntity, touchedProperties, writeOverride, type OverrideLayer, type OverrideWrite } from './overrides';
+import { evaluatedEntity, followOffset, materialKey, overriddenEntity, savedValueOf, touchedProperties, touches, writeOverride, type MaterialKey, type MaterialWrite, type OverrideKey, type OverrideLayer, type OverrideWrite } from './overrides';
 
 export interface Transition { seconds: number; easing: Easing }
 // One transition on the session clock. Every layer (properties, expressions, blend shapes, look-at) samples it the same way.
@@ -33,24 +33,31 @@ export type PropertyTweenValue =
 // A Camera Orbit Character move (B32 R7): Yaw, Pitch, and Distance in user values; `to` has the short-way Yaw.
 // `targetId` is the Focus Character at the start; a change of it (a removed character) stops the tween.
 export interface OrbitTweenValue { kind: 'orbit'; from: OrbitUser; to: OrbitUser; targetId: Id | null }
-export type TweenValue = PropertyTweenValue | OrbitTweenValue;
+// A material transition (B38 R25): a number, or a color mixed in linear light. A Reset tween (`reset`) runs to the model
+// value and then removes the saved value.
+export type MaterialTweenValue =
+ | { kind: 'materialNumber'; from: number; to: number; reset?: true }
+ | { kind: 'materialColor'; from: string; to: string; reset?: true };
+export type TweenValue = PropertyTweenValue | OrbitTweenValue | MaterialTweenValue;
 // The On Transition End output of a Set Asset Property node. `logic` is the logic key of its graph at the write; a changed graph does not run it.
 export interface TransitionEnd { graphId: Id; nodeId: Id; logic: string }
 // `ends` run when the tween reaches its end on the session clock, never when it stops for another reason.
 export interface PropertyTween extends Timing { entityId: Id; property: PropertyKey; value: PropertyTweenValue; graphId: Id; ends: readonly TransitionEnd[] }
 // One record for each camera, stored under both its `position` and `rotation` keys, so the busy check and the stop rules work by key.
 export interface OrbitTween extends Timing { entityId: Id; property: 'position'; value: OrbitTweenValue; graphId: Id; ends: readonly TransitionEnd[] }
-export type Tween = PropertyTween | OrbitTween;
+export interface MaterialTween extends Timing { entityId: Id; property: MaterialKey; target: MaterialWrite['target']; material: string; parameter: MaterialParameter; value: MaterialTweenValue; graphId: Id; ends: readonly TransitionEnd[] }
+export type Tween = PropertyTween | OrbitTween | MaterialTween;
 export type TweenLayer = ReadonlyMap<string, Tween>;
 // `pending` holds the ends of writes without a tween; they run on the next clock step.
 export interface PropertyLayers { overrides: OverrideLayer; tweens: TweenLayer; pending?: readonly TransitionEnd[] }
 export const MAX_TWEENS = 64, MIN_SCALE = 1e-4, MAX_TWEEN_ENDS = 8, MAX_PENDING_ENDS = 64;
 export const EMPTY_TWEENS: TweenLayer = new Map();
-const key = (entityId: Id, property: PropertyKey) => `${entityId}\0${property}`;
-export const tweening = (layer: TweenLayer, entityId: Id, property: PropertyKey): boolean => layer.has(key(entityId, property));
+const key = (entityId: Id, property: OverrideKey) => `${entityId}\0${property}`;
+export const tweening = (layer: TweenLayer, entityId: Id, property: OverrideKey): boolean => layer.has(key(entityId, property));
 const ORBIT_PROPERTIES: readonly PropertyKey[] = ['position', 'rotation'];
 const isOrbit = (tween: Tween): tween is OrbitTween => tween.value.kind === 'orbit';
-const propertiesOf = (tween: Tween): readonly PropertyKey[] => isOrbit(tween) ? ORBIT_PROPERTIES : [tween.property];
+const isMaterial = (tween: Tween): tween is MaterialTween => tween.value.kind === 'materialNumber' || tween.value.kind === 'materialColor';
+const propertiesOf = (tween: Tween): readonly OverrideKey[] => isOrbit(tween) ? ORBIT_PROPERTIES : [tween.property];
 // Each tween once, also an orbit tween under two keys.
 const records = (layer: TweenLayer): Tween[] => [...new Set(layer.values())];
 export const tweenCount = (layer: TweenLayer): number => records(layer).length;
@@ -73,6 +80,17 @@ export function sampleTween(tween: PropertyTween, nowMs: number): { value: Prope
  }
 }
 
+// The value of a material tween at the session time. At the end a Reset tween gives null, which removes the saved value.
+export function sampleMaterialTween(tween: MaterialTween, nowMs: number): { value: string | number | null; done: boolean } {
+ const { value } = tween;
+ if (progress(tween, nowMs) >= 1) return { value: value.reset ? null : value.to, done: true };
+ const k = eased(tween, nowMs);
+ if (value.kind === 'materialColor') return { value: mixHex(value.from, value.to, unit(k)), done: false };
+ const spec = materialParameter(tween.parameter);
+ const [min, max] = spec.type === 'number' ? spec.range : [-Infinity, Infinity];
+ return { value: Math.min(Math.max(lerp(value.from, value.to, k), min), max), done: false };
+}
+
 const fail = (message: string, ids: Id[]): Reply<never> => ({ ok: false, error: { code: 'INVALID_INPUT', message, ids } });
 type SetProperty = Extract<OverrideWrite, { kind: 'setProperty' }>;
 const sameValue = (a: readonly number[] | number, b: readonly number[] | number) => JSON.stringify(a) === JSON.stringify(b);
@@ -87,7 +105,7 @@ export function startTween(layer: TweenLayer, scene: SceneView, overrides: Overr
  const id = key(write.entityId, write.property), found = layer.get(id);
  // A property tween on the Position or Rotation of a camera stops its orbit tween.
  if (found && isOrbit(found)) layer = without(layer, [id]);
- const active = found && !isOrbit(found) ? found : undefined;
+ const active = found && !isOrbit(found) && !isMaterial(found) ? found : undefined;
  if (active && sameValue(targetOf(active.value), write.value as Vec3 | number)) {
   if (!end || active.ends.some(item => sameEnd(item, end))) return { ok: true, data: layer };
   if (active.ends.length >= MAX_TWEEN_ENDS) return fail('Transition limit reached', [write.entityId]);
@@ -101,6 +119,30 @@ export function startTween(layer: TweenLayer, scene: SceneView, overrides: Overr
   : typeof current === 'number' ? { kind: 'number', from: current, to: write.value as number }
   : { kind: 'vector3', from: current as Vec3, to: [...write.value as Vec3] };
  return { ok: true, data: new Map(layer).set(id, { entityId: write.entityId, property: write.property, value, graphId, ends: end ? [end] : [], ...timing(transition, startMs) }) };
+}
+
+// A Set or Reset Material Property with a transition (R25). The tween starts at the evaluated value: the saved value, else
+// the model value. A running tween of the key to the same target keeps running, and `end` joins it. Null: write at once.
+function startMaterialTween(layer: TweenLayer, scene: SceneView, overrides: OverrideLayer, write: MaterialWrite, transition: Transition, graphId: Id, startMs: number, end?: TransitionEnd): Reply<TweenLayer | null> {
+ const entity = overriddenEntity(scene, overrides, write.entityId);
+ if (!entity) return { ok: false, error: { code: 'NOT_FOUND', message: 'Entity not found', ids: [write.entityId] } };
+ if (write.model === undefined) return fail('Material not found', [write.entityId]);
+ const property = materialKey(write.parameter, write.material), id = key(write.entityId, property);
+ const found = layer.get(id), active = found && isMaterial(found) ? found : undefined;
+ const to = write.value ?? write.model, reset = write.value === null;
+ if (active && active.value.to === to && Boolean(active.value.reset) === reset) {
+  if (!end || active.ends.some(item => sameEnd(item, end))) return { ok: true, data: layer };
+  if (active.ends.length >= MAX_TWEEN_ENDS) return fail('Transition limit reached', [write.entityId]);
+  return { ok: true, data: new Map(layer).set(id, { ...active, ends: [...active.ends, end] }) };
+ }
+ const from = savedValueOf(entity, property) ?? write.model;
+ if (from === to) return { ok: true, data: null };
+ if (!active && tweenCount(layer) >= MAX_TWEENS) return fail('Transition limit reached', [write.entityId]);
+ const value: MaterialTweenValue = typeof to === 'string'
+  ? { kind: 'materialColor', from: String(from), to, ...(reset ? { reset: true as const } : {}) }
+  : { kind: 'materialNumber', from: Number(from), to, ...(reset ? { reset: true as const } : {}) };
+ const tween: MaterialTween = { entityId: write.entityId, property, target: write.target, material: write.material, parameter: write.parameter, value, graphId, ends: end ? [end] : [], ...timing(transition, startMs) };
+ return { ok: true, data: new Map(layer).set(id, tween) };
 }
 
 // Removing one key of an orbit tween removes the tween.
@@ -129,9 +171,14 @@ export function writeTransitioned(layers: PropertyLayers, scene: SceneView, writ
   const next = { ...layers, tweens: started.data };
   return started.data.has(key(write.entityId, write.property)) ? { ok: true, data: next } : withPending(next, end);
  }
+ if (write.kind === 'setMaterial' && write.transition && write.transition.seconds > 0) {
+  const started = startMaterialTween(layers.tweens, scene, layers.overrides, write, write.transition, graphId, startMs, end);
+  if (!started.ok) return started;
+  if (started.data) return { ok: true, data: { ...layers, tweens: started.data } };
+ }
  const written = writeOverride(layers.overrides, scene, write, graphId, nowMs);
  if (!written.ok) return written;
- const property = write.kind === 'setProperty' ? write.property : 'position';
+ const property = write.kind === 'setProperty' ? write.property : write.kind === 'setMaterial' ? materialKey(write.parameter, write.material) : 'position';
  return withPending({ ...layers, overrides: written.data, tweens: without(layers.tweens, [key(write.entityId, property)]) }, end);
 }
 
@@ -149,6 +196,10 @@ export function advanceTweens(layers: PropertyLayers, scene: SceneView, nowMs: n
    if (camera?.kind === 'camera' && camera.navigation?.mode === 'orbitCharacter' && camera.navigation.targetId !== tween.value.targetId) { tweens = without(tweens, [id]); continue; }
    done = progress(tween, nowMs) >= 1;
    written = writeOrbitPose(overrides, scene, tween.entityId, done ? tween.value.to : easedOrbit(tween, nowMs), tween.graphId, nowMs);
+  } else if (isMaterial(tween)) {
+   const sample = sampleMaterialTween(tween, nowMs);
+   done = sample.done;
+   written = writeOverride(overrides, scene, { kind: 'setMaterial', entityId: tween.entityId, target: tween.target, material: tween.material, parameter: tween.parameter, value: sample.value }, tween.graphId, nowMs);
   } else {
    const sample = sampleTween(tween, nowMs);
    done = sample.done;
@@ -169,7 +220,7 @@ export function dropTweens(layer: TweenLayer, operations: Parameters<typeof touc
   const hit = touchedProperties(operation);
   if (!hit) continue;
   const [entityId, keys] = hit;
-  for (const tween of layer.values()) if (tween.entityId === entityId && (keys === 'all' || propertiesOf(tween).some(property => keys.includes(property)))) ids.push(key(entityId, tween.property));
+  for (const tween of layer.values()) if (tween.entityId === entityId && propertiesOf(tween).some(property => touches(keys, property))) ids.push(key(entityId, tween.property));
  }
  return without(layer, ids);
 }
