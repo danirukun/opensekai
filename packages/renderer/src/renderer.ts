@@ -85,7 +85,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     const { quality } = options;
     const { renderer, backend, gpuTimer: timerSupport } = await initializeBackend(options.canvas, options.mode, quality.msaaSamples);
     // The GPU pass time of applied frames (light scale R3–R6). Each render outside an applied frame taints its batch (R4).
-    const gpuTimer = createGpuTimer(renderer, renderer.backend as unknown as TimestampBackend | undefined);
+    const gpuTimer = createGpuTimer(renderer.backend as unknown as TimestampBackend | undefined);
     const outsideFrame = <T>(render: () => T): T => { gpuTimer.taint(); return render(); };
     const camera = new PerspectiveCamera();
     const scene = new Scene();
