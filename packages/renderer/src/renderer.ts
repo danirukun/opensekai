@@ -3,7 +3,8 @@ import type { EditorOptions, EditorHandle } from './editor-viewport';
 import { Scene, Mesh, BoxGeometry, MeshStandardNodeMaterial, PerspectiveCamera, Object3D } from "three/webgpu";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
 import type { RuntimeFrame, FrameApplied, RendererDiagnostics, CaptureBytes, Id, ResourceHost, AppError, AssetDebug, SceneEntity, QualityProfile, ScreenshotBytes, OutputSpec } from "@opensekai/contracts";
-import { LIMITS, RuntimeFrameSchema, avatarLighting } from "@opensekai/contracts";
+import { DEFAULT_CAMERA_EFFECTS, LIMITS, RuntimeFrameSchema, avatarLighting } from "@opensekai/contracts";
+import { distance, focusCharacterId, headFallbackPosition, smoothFocusDistance } from "./autofocus";
 import { selectFrame, failure, createRenderQueue } from "./apply-frame";
 import { applyHiddenMeshes, createAssetCache, createAssetLoader, disposeObject } from "./assets";
 import { createAvatarBinding } from "./avatar-pose";
@@ -230,6 +231,9 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     const editor = options.editor ? createEditorViewport(options.canvas, camera, scene, objects, options.editor) : null;
     const webLayers = options.webLayers ? createWebLayers(options.webLayers) : null;
     let disposed = false, cleaned = false, accepted: RuntimeFrame | null = null, displayed: FrameApplied | null = null, displayFrame: RuntimeFrame | null = null;
+    // Autofocus (#343 R7): the smoothed focus distance of each camera, and the elapsed time of the last frame it saw.
+    const focusDistances = new Map<Id, number>();
+    let previousElapsedMs: number | null = null;
     const releaseObject = (value: {root: Object3D; owned: boolean; assetDispose?: () => void; instanceDispose?: () => void}) => {
         value.instanceDispose?.();
         if (value.assetDispose) {value.root.removeFromParent(); value.assetDispose();}
@@ -247,6 +251,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         for (const value of objects.values()) releaseObject(value);
         captures.dispose();
         objects.clear();
+        focusDistances.clear();
         jobs.dispose();
         assets.dispose();
         dirt.dispose();
@@ -494,8 +499,23 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         const fxKey = effectsKey(active, dirtId);
         if (fxKey !== "") cameraEffects.update(cameraEntity.effects, { width, height }, dirtImage);
         const effectsDrawn = fxKey === "" ? null : { key: fxKey, active, runtime: cameraEffects, dirt: dirtImage };
+        // Autofocus (#343 R7): the Focus Character is the Orbit Character target; its head bone (or the fallback
+        // offset) gives the target distance, smoothed at `focusSpeed` toward the lens the look stack reads.
+        const autofocusDtSeconds = previousElapsedMs === null ? 0 : Math.max(0, (frame.elapsedMs - previousElapsedMs) / 1000);
+        previousElapsedMs = frame.elapsedMs;
+        const focusTargetId = cameraEntity.lens.autofocus ? focusCharacterId(cameraEntity.navigation) : null;
+        const focusTarget = focusTargetId ? frame.scene.entities.find(entity => entity.id === focusTargetId) : undefined;
+        let lens = cameraEntity.lens;
+        if (focusTarget) {
+            const headPosition = objects.get(focusTarget.id)?.avatar?.headWorldPosition() ?? headFallbackPosition(focusTarget.transform.position);
+            const focusSpeed = cameraEntity.effects?.depthOfField?.focusSpeed ?? DEFAULT_CAMERA_EFFECTS.depthOfField.focusSpeed;
+            const previous = focusDistances.get(cameraEntity.id) ?? cameraEntity.lens.focusDistance;
+            const smoothed = smoothFocusDistance(previous, distance(cameraEntity.transform.position, headPosition), focusSpeed, autofocusDtSeconds);
+            focusDistances.set(cameraEntity.id, smoothed);
+            lens = { ...cameraEntity.lens, focusDistance: smoothed };
+        } else focusDistances.delete(cameraEntity.id);
         const lookKey = lookChainKey(cameraEntity.effects, lookTier);
-        if (lookKey !== "") lensLook.update(cameraEntity.effects, cameraEntity.lens, lookTier);
+        if (lookKey !== "") lensLook.update(cameraEntity.effects, lens, lookTier);
         const lookDrawn = lookKey === "" || !cameraEntity.effects ? null : { key: lookKey, effects: cameraEntity.effects, quality: lookTier, runtime: lensLook };
         camera.aspect = width / height;
         applyPerspectiveLens(camera, cameraEntity.lens);

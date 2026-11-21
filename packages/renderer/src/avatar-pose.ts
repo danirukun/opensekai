@@ -120,7 +120,17 @@ export function createAvatarBinding(vrm: VRM) {
             if ('isCharacterMToonMaterial' in material) {material.rimStrength=values.rimStrength; material.rimWidth=values.rimWidth; material.rimTint.set(values.rimTint);}
         }
     };
-    return {root, uv, characters, lighting, advanceSprings(clock: SpringClock) { springs?.advance(clock); }, apply(pose?: AvatarPose) {
+    // The head bone world position (Autofocus, #343 R7). Ancestors update first so the position reflects this frame's
+    // placement and spring sway, without a full scene traversal.
+    const headWorldVec = new Vector3();
+    const headWorldPosition = (): Vec3 | null => {
+        const node = vrm.humanoid.getRawBoneNode('head');
+        if (!node) return null;
+        node.updateWorldMatrix(true, false);
+        node.getWorldPosition(headWorldVec);
+        return [headWorldVec.x, headWorldVec.y, headWorldVec.z];
+    };
+    return {root, uv, characters, lighting, headWorldPosition, advanceSprings(clock: SpringClock) { springs?.advance(clock); }, apply(pose?: AvatarPose) {
         // Reset raw state before normalized deltas so lost channels return to rest.
         for (const [node, transform] of rest) {node.position.fromArray(transform.position);node.quaternion.fromArray(transform.rotation);node.scale.fromArray(transform.scale);}
         vrm.humanoid.resetNormalizedPose();
