@@ -2,10 +2,10 @@
 
 Status: Proposed (owner decisions below locked 2026-11-22; the transport choice waits for the spike)
 Date: 2026-11-22
-Owner: Daniils Petrovs
+Owner: danirukun
 Related: [#219](https://github.com/danirukun/opensekai/issues/219) VRM protection, [#190](https://github.com/danirukun/opensekai/issues/190) / [#308](https://github.com/danirukun/opensekai/issues/308) deep links, [#67](https://github.com/danirukun/opensekai/issues/67) VMC sender, [#18](https://github.com/danirukun/opensekai/issues/18) / [#19](https://github.com/danirukun/opensekai/issues/19) VMC / iFacialMocap receive, [#16](https://github.com/danirukun/opensekai/issues/16) CHR-10 multiple characters, [#134](https://github.com/danirukun/opensekai/issues/134) stale source, [#135](https://github.com/danirukun/opensekai/issues/135) per-source smoothing, [#340](https://github.com/danirukun/opensekai/issues/340) 5-minute first run. Figma: [Flows · Draft – multiplayer](https://www.figma.com/board/9cW3tyqSn8CDBIsSlMiPcb/OpenSekai-Flows?node-id=68-700), [UI · Draft – multiplayer UI (low-fi)](https://www.figma.com/design/WSkWz6AUxzNxbweU4Tjmkz/OpenSekai-UI?node-id=109-10). Long-form research: the multiplayer epic draft (to be linked later). Collab spec in docs/superpowers/specs/ to follow.
 
-Requested by Daniils Petrovs.
+Requested by danirukun.
 
 ## Context
 
