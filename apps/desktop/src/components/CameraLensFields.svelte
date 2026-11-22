@@ -27,7 +27,8 @@
  }
  function apply(){const parsed=parseLens(lens,values);invalid=!parsed;if(parsed)void oncommit?.(entityId,parsed,revision);}
  const presetOptions=LENS_PRESETS.map(p=>({value:p.id,label:p.label}));
- let presetId=$state<LensPresetId>('default');
+ let presetId=$state<LensPresetId>('default');let presetEntity=untrack(()=>entityId);
+ $effect(()=>{if(entityId!==presetEntity){presetEntity=entityId;presetId='default';}});
  async function choosePreset(id:LensPresetId){presetId=id;await onpreset?.(entityId,applyLensPreset(id,lens,effects),revision);}
 </script>
 <div class="top"><Select label="Preset" value={presetId} options={presetOptions} disabled={off} onchange={event=>{void choosePreset(event.currentTarget.value as LensPresetId);}}/>

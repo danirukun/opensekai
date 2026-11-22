@@ -44,8 +44,11 @@ export function layoutLensDepth(lens: LensBits, width: number, height = DEFAULT_
 export const clampFocusDragX = (x: number, width: number): number =>
   Math.min(width - PAD_RIGHT, Math.max(PAD_LEFT, x));
 
-export const commitFocusFromClientX = (
-  clientX: number,
-  svgLeft: number,
-  width: number
-): number => roundToStep(focusDistanceFromX(clampFocusDragX(clientX - svgLeft, width), width), SLIDERS.focusDistance);
+export const commitFocusFromViewX = (viewX: number, width: number): number =>
+  roundToStep(focusDistanceFromX(clampFocusDragX(viewX, width), width), SLIDERS.focusDistance);
+
+export const viewXFromClientX = (clientX: number, rect: { left: number; width: number }, width: number): number =>
+  rect.width > 0 ? ((clientX - rect.left) / rect.width) * width : 0;
+
+export const commitFocusFromClientX = (clientX: number, rect: { left: number; width: number }, width: number): number =>
+  commitFocusFromViewX(viewXFromClientX(clientX, rect, width), width);

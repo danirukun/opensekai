@@ -1,6 +1,6 @@
 <script lang="ts">
 import type {CameraLens} from '@opensekai/contracts';
-import {commitFocusFromClientX, layoutLensDepth} from '../editor/lens-depth-diagram';
+import {commitFocusFromClientX, commitFocusFromViewX, layoutLensDepth} from '../editor/lens-depth-diagram';
 
 let {lens,disabled=false,onlive,onend,oncommit}:{lens:Pick<CameraLens,'fovDegrees'|'fStop'|'focusDistance'>;disabled?:boolean;onlive?:(focusDistance:number)=>void;onend?:()=>void;oncommit?:(focusDistance:number)=>void}=$props();
 
@@ -9,8 +9,12 @@ const layout=$derived(layoutLensDepth(lens,W,H));
 let dragging=$state(false);
 
 function clientToDistance(clientX:number,target:SVGSVGElement){
-	const left=target.getBoundingClientRect().left;
-	return commitFocusFromClientX(clientX,left,W);
+	const ctm=target.getScreenCTM();
+	if(ctm){
+		const point=new DOMPoint(clientX,0).matrixTransform(ctm.inverse());
+		return commitFocusFromViewX(point.x,W);
+	}
+	return commitFocusFromClientX(clientX,target.getBoundingClientRect(),W);
 }
 
 function down(event:PointerEvent & { currentTarget: SVGSVGElement }){
