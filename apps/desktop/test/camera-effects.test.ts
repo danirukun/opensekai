@@ -3,7 +3,7 @@ import { DEFAULT_CAMERA_EFFECTS as D, makeSmokeScene, type AppApi, type AssetRec
 import { createSession } from '@opensekai/session';
 import { makeAuthoringEntity } from '../src/editor/authoring';
 import { sectionsFor } from '../src/editor/inspector-sections';
-import { effectValues, shownEffectFields, withEffect, withLensDirt } from '../src/editor/camera-effects';
+import { effectQualityId, effectValues, highQualityFromId, shownEffectFields, withEffect, withLensDirt } from '../src/editor/camera-effects';
 import { changedFields, defaultsFor, resetFieldIds } from '../src/editor/property-defaults';
 import { imageSourceOptions } from '../src/editor/screen';
 import { SLIDERS } from '../src/editor/slider';
@@ -13,7 +13,8 @@ const camera = (effects?: CameraEffects): SceneEntity => {
  const added = makeAuthoringEntity('camera', 'camera_fx', []);
  return effects ? { ...added, effects } as SceneEntity : added;
 };
-const VALUE_FIELDS = ['lensDirtIntensity', 'lensDirtThreshold', 'vignettingColor', 'vignettingAlpha', 'vignettingFadeOut', 'vignettingBlink', 'nightVisionColor', 'nightVisionAlpha', 'blurIntensity', 'pixelateIntensity'];
+const VALUE_FIELDS = ['lensDirtIntensity', 'lensDirtThreshold', 'vignettingColor', 'vignettingAlpha', 'vignettingFadeOut', 'vignettingBlink', 'nightVisionColor', 'nightVisionAlpha', 'blurIntensity', 'pixelateIntensity', 'depthOfFieldHighQuality', 'depthOfFieldFocusSpeed', 'lensFlareHighQuality', 'lensFlareThreshold', 'lensFlareIntensity', 'anamorphicFlareHighQuality', 'anamorphicFlareIntensity', 'anamorphicFlareSpread', 'anamorphicFlareVertical', 'filmGrainIntensity'];
+const TOGGLE_IDS = ['lensDirt', 'vignetting', 'nightVision', 'blur', 'pixelate', 'depthOfField', 'lensFlare', 'anamorphicFlare', 'filmGrain'] as const;
 
 it('puts the effects section directly after grading (R25)', () => {
  const ids = sectionsFor(camera(), { expressions: false }).map(section => section.id);
@@ -21,7 +22,7 @@ it('puts the effects section directly after grading (R25)', () => {
 });
 
 it('writes the defaults with enabled on a first check, and changes one field after that (R28)', () => {
- for (const [id, name] of [['vignetting', 'vignetting'], ['nightVision', 'nightVision'], ['blur', 'blur'], ['pixelate', 'pixelate']] as const)
+ for (const [id, name] of [['vignetting', 'vignetting'], ['nightVision', 'nightVision'], ['blur', 'blur'], ['pixelate', 'pixelate'], ['depthOfField', 'depthOfField'], ['lensFlare', 'lensFlare'], ['anamorphicFlare', 'anamorphicFlare'], ['filmGrain', 'filmGrain']] as const)
   expect(withEffect(undefined, id, true)).toEqual({ [name]: { ...D[name], enabled: true } });
  const on = withEffect(withEffect(undefined, 'blur', true), 'blurIntensity', 2.5);
  expect(on).toEqual({ blur: { enabled: true, intensity: 2.5 } });
@@ -40,18 +41,33 @@ it('gives the dirt defaults to a first image and keeps the numbers on None (R27)
 
 it('shows a value field as a reset field only while its effect is on (R30)', () => {
  const effectFields = (entity: SceneEntity) => resetFieldIds(entity).filter(id => id in effectValues());
- expect(effectFields(camera())).toEqual(['lensDirt', 'vignetting', 'nightVision', 'blur', 'pixelate']);
+ expect(effectFields(camera())).toEqual([...TOGGLE_IDS]);
  expect(effectFields(camera({ blur: { enabled: true, intensity: 1 } }))).toContain('blurIntensity');
  expect(effectFields(camera({ blur: { enabled: false, intensity: 3 } }))).not.toContain('blurIntensity');
- expect(effectFields(camera({ lensDirt: { ...D.lensDirt, assetId: 'image_dirt' } }))).toEqual(['lensDirt', 'lensDirtIntensity', 'lensDirtThreshold', 'vignetting', 'nightVision', 'blur', 'pixelate']);
- const all: CameraEffects = { vignetting: { ...D.vignetting, enabled: true }, nightVision: { ...D.nightVision, enabled: true }, blur: { ...D.blur, enabled: true }, pixelate: { ...D.pixelate, enabled: true }, lensDirt: { ...D.lensDirt, assetId: 'image_dirt' } };
+ expect(effectFields(camera({ lensDirt: { ...D.lensDirt, assetId: 'image_dirt' } }))).toEqual(['lensDirt', 'lensDirtIntensity', 'lensDirtThreshold', ...TOGGLE_IDS.slice(1)]);
+ expect(effectFields(camera({ lensFlare: { ...D.lensFlare, enabled: true } }))).toEqual(expect.arrayContaining(['lensFlare', 'lensFlareHighQuality', 'lensFlareThreshold', 'lensFlareIntensity']));
+ const all: CameraEffects = {
+  vignetting: { ...D.vignetting, enabled: true }, nightVision: { ...D.nightVision, enabled: true },
+  blur: { ...D.blur, enabled: true }, pixelate: { ...D.pixelate, enabled: true },
+  depthOfField: { ...D.depthOfField, enabled: true }, lensFlare: { ...D.lensFlare, enabled: true },
+  anamorphicFlare: { ...D.anamorphicFlare, enabled: true }, filmGrain: { ...D.filmGrain, enabled: true },
+  lensDirt: { ...D.lensDirt, assetId: 'image_dirt' },
+ };
  expect(shownEffectFields(all).filter(id => VALUE_FIELDS.includes(id))).toEqual(VALUE_FIELDS);
- expect(effectFields(camera(all))).toHaveLength(15);
+ expect(effectFields(camera(all))).toHaveLength(TOGGLE_IDS.length + VALUE_FIELDS.length);
 });
 
 it('resets to the defaults and marks a changed effect (R30)', () => {
  const defaults = defaultsFor(camera());
- expect(defaults).toMatchObject({ lensDirt: null, lensDirtIntensity: 0.9, lensDirtThreshold: 0.5, vignetting: false, vignettingColor: '#4c4c4c', vignettingAlpha: 0.051, vignettingFadeOut: 0, vignettingBlink: 0, nightVision: false, nightVisionColor: '#80ff80', nightVisionAlpha: 0.502, blur: false, blurIntensity: 1, pixelate: false, pixelateIntensity: 16 });
+ expect(defaults).toMatchObject({
+  lensDirt: null, lensDirtIntensity: 0.9, lensDirtThreshold: 0.5, vignetting: false, vignettingColor: '#4c4c4c',
+  vignettingAlpha: 0.051, vignettingFadeOut: 0, vignettingBlink: 0, nightVision: false, nightVisionColor: '#80ff80',
+  nightVisionAlpha: 0.502, blur: false, blurIntensity: 1, pixelate: false, pixelateIntensity: 16,
+  depthOfField: false, depthOfFieldHighQuality: true, depthOfFieldFocusSpeed: 0.35,
+  lensFlare: false, lensFlareHighQuality: true, lensFlareThreshold: 0.5, lensFlareIntensity: 1,
+  anamorphicFlare: false, anamorphicFlareHighQuality: true, anamorphicFlareIntensity: 0.5, anamorphicFlareSpread: 0.5, anamorphicFlareVertical: false,
+  filmGrain: false, filmGrainIntensity: 0.15,
+ });
  expect([...changedFields(camera())].filter(id => id in effectValues())).toEqual([]);
  expect(changedFields(camera({ blur: { enabled: true, intensity: 1 } })).has('blur')).toBe(true);
  expect(changedFields(camera({ blur: { enabled: true, intensity: 1 } })).has('blurIntensity')).toBe(false);
@@ -65,6 +81,16 @@ it('labels the empty row of the image select', () => {
  expect(imageSourceOptions(null, assets)[0]).toEqual({ value: '', label: 'Choose image…' });
 });
 
+it('maps the Quality select Low/High to the highQuality flag', () => {
+ expect(effectQualityId(true)).toBe('high');
+ expect(effectQualityId(false)).toBe('low');
+ expect(highQualityFromId('high')).toBe(true);
+ expect(highQualityFromId('low')).toBe(false);
+ expect(withEffect(undefined, 'lensFlareHighQuality', highQualityFromId('low'))).toEqual({
+  lensFlare: { ...D.lensFlare, highQuality: false },
+ });
+});
+
 it('gives each slider the range of its L row', () => {
  expect(SLIDERS.lensDirtIntensity).toMatchObject({ min: 0, max: 1, step: 0.01 });
  expect(SLIDERS.lensDirtThreshold).toMatchObject({ min: 0, max: 1, step: 0.01 });
@@ -74,6 +100,12 @@ it('gives each slider the range of its L row', () => {
  expect(SLIDERS.nightVisionAlpha).toMatchObject({ min: 0, max: 1, step: 0.001 });
  expect(SLIDERS.blurIntensity).toMatchObject({ min: 0, max: 4, step: 0.01 });
  expect(SLIDERS.pixelateIntensity).toMatchObject({ min: 1, max: 256, step: 1 });
+ expect(SLIDERS.depthOfFieldFocusSpeed).toMatchObject({ min: 0, max: 1, step: 0.01 });
+ expect(SLIDERS.lensFlareThreshold).toMatchObject({ min: 0, max: 1, step: 0.01 });
+ expect(SLIDERS.lensFlareIntensity).toMatchObject({ min: 0, max: 4, step: 0.01 });
+ expect(SLIDERS.anamorphicFlareIntensity).toMatchObject({ min: 0, max: 1, step: 0.01 });
+ expect(SLIDERS.anamorphicFlareSpread).toMatchObject({ min: 0, max: 1, step: 0.01 });
+ expect(SLIDERS.filmGrainIntensity).toMatchObject({ min: 0, max: 1, step: 0.01 });
 });
 
 it('sets and removes the effects through the model, and refuses a bad value or another kind', async () => {
