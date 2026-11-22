@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { AmbientLight, BackSide, DirectionalLight, DoubleSide, FrontSide, Group, Mesh, BoxGeometry, MeshBasicMaterial, MeshStandardMaterial, PointLight, Scene, SpotLight, type PerspectiveCamera, type WebGPURenderer } from 'three/webgpu';
-import type { LightSettings, SceneEntity } from '@opensekai/contracts';
+import { AmbientLight, BackSide, DirectionalLight, DoubleSide, FrontSide, Group, Mesh, BoxGeometry, MeshBasicMaterial, MeshStandardMaterial, PerspectiveCamera, PointLight, Scene, SpotLight, type Light, type WebGPURenderer } from 'three/webgpu';
+import DynamicLightsNode from 'three/addons/tsl/lighting/DynamicLightsNode.js';
+import { LIMITS, type LightSettings, type SceneEntity } from '@opensekai/contracts';
 import { HAZE_LAYER } from '../src/haze';
-import { CHARACTER_AMBIENT, createSceneLights, lightDirection, lightGroups, lightSignature, roomLight, scattersInHaze, shadowsOn, spotAngle, usesFixedAmbient, withDrafts, DIRECTIONAL_DISTANCE, SHADOW_BOX, SPOT_SHADOW_FAR, collectFileLights, capFileLightShadows, MAX_FILE_LIGHT_SHADOWS } from '../src/scene-lights';
+import { CHARACTER_AMBIENT, GroupDirectionalLight, createSceneLights, lightDirection, lightGroups, lightSignature, roomLight, scattersInHaze, shadowsOn, spotAngle, usesFixedAmbient, withDrafts, DIRECTIONAL_DISTANCE, SHADOW_BOX, SPOT_SHADOW_FAR, collectFileLights, capFileLightShadows, MAX_FILE_LIGHT_SHADOWS } from '../src/scene-lights';
 import { DIRECTIONAL_FAR, DIRECTIONAL_NEAR } from '../src/shadow-cache';
 
 const settings = (patch: Partial<LightSettings> = {}): LightSettings => ({ type: 'directional', color: '#ffffff', intensity: 3, range: 0, affectCharacters: true, affectProps: true, affectEnvironment: true, shadow: { enabled: false, intensity: 1, soft: true, bias: -0.0005, normalBias: 0.02 }, ...patch });
@@ -357,22 +358,23 @@ describe('unlit lights and group nodes (light limits R13, R14)', () => {
         expect(lights.signature()).not.toBe(base);
         expect(lights.generation()).toBe(generation);
     });
-    it('replaces only the node of a group whose light list changes (R13, R14)', () => {
+    it('replaces only the node of a group whose per-light members or haze list change (R13, R14; light scale R16)', () => {
         const scene = new Scene(), lights = createSceneLights(scene, fake());
         lights.apply([...lit, spot('u', off)]);
         let before = nodes(lights), generation = lights.generation();
-        lights.apply([...lit, spot('u', { ...off, affectCharacters: true })]);
+        lights.apply([...lit, spot('u', { ...off, affectCharacters: true, shadow: { ...settings().shadow, enabled: true } })]);
         expect(lights.node('characters')).not.toBe(before[0]);
         nodes(lights).slice(1).forEach((node, i) => expect(node).toBe(before[i + 1]));
         expect(lights.generation()).toBe(generation + 1);
 
         lights.apply([...lit, spot('u', off)]);
         before = nodes(lights); generation = lights.generation();
+        // An ambient entity replaces the fixed ambient light; both are batched, so no node changes.
         lights.apply([...lit, spot('u', off), light('amb', { ...off, type: 'ambient' })]);
         const after = nodes(lights);
-        for (const i of [0, 1, 2]) expect(after[i]).not.toBe(before[i]);
-        expect(after[3]).toBe(before[3]);
-        expect(lights.generation()).toBe(generation + 1);
+        after.forEach((node, i) => expect(node).toBe(before[i]));
+        expect(lights.generation()).toBe(generation);
+        expect((lights.node('props') as { getLights(): AmbientLight[] }).getLights().filter(l => l.isAmbientLight)).toHaveLength(0);
 
         before = after; generation = lights.generation();
         lights.apply([...lit, spot('u', { ...off, volumetric: true }), light('amb', { ...off, type: 'ambient' })]);
@@ -396,5 +398,92 @@ describe('shadow map cache (light scale R22)', () => {
         // The shadow volume of `shadow-cache.ts` uses the same directional box.
         const camera = sun.shadow.camera;
         expect([camera.near, camera.far, camera.right, camera.top]).toEqual([DIRECTIONAL_NEAR, DIRECTIONAL_FAR, SHADOW_BOX, SHADOW_BOX]);
+    });
+});
+
+describe('batched lit lights (light scale R13 to R16)', () => {
+    const cone = { angleDegrees: 40, penumbra: 0.3 };
+    const spot = (id: string, patch: Partial<LightSettings> = {}) => light(id, { type: 'spot', intensity: 60, range: 15, cone, ...patch });
+    const point = (id: string, patch: Partial<LightSettings> = {}) => light(id, { type: 'point', intensity: 20, range: 10, ...patch });
+    const shadow = { ...settings().shadow, enabled: true };
+    const MATERIAL = ['characters', 'props', 'environment'] as const;
+    type Data = { maxCount: number; _lights: Light[]; countNode: { value: number }; update(frame: { camera: PerspectiveCamera }): void };
+    type Batched = DynamicLightsNode & { getLights(): Light[]; getBuiltinLights(): Light[]; _dataNodes: Map<string, Data> };
+    const batched = (node: unknown) => node as Batched;
+    const materialNodes = (lights: ReturnType<typeof createSceneLights>) => MATERIAL.map(group => lights.node(group));
+    it('gives each material group a DynamicLightsNode and keeps the per-light node for the haze (R13, R17)', () => {
+        const lights = createSceneLights(new Scene(), fake());
+        lights.apply([light('d'), spot('s', { volumetric: true })]);
+        for (const group of MATERIAL) expect(lights.node(group)).toBeInstanceOf(DynamicLightsNode);
+        expect(lights.node('haze')).toBeTruthy();
+        expect(lights.node('haze')).not.toBeInstanceOf(DynamicLightsNode);
+    });
+    it('keeps the material nodes and the generation when a lit point or spot light without a shadow is added, removed, or changes type (R16)', () => {
+        const scene = new Scene(), lights = createSceneLights(scene, fake());
+        const base = [light('d'), light('amb', { type: 'ambient' })];
+        lights.apply(base);
+        const before = materialNodes(lights), generation = lights.generation();
+        let signature = lights.signature();
+        for (const entities of [[...base, point('p')], [...base, spot('p')], [...base, spot('p'), point('q')], [...base, point('q')], base]) {
+            expect(lights.apply(entities)).toBe(true);
+            expect(lights.signature()).not.toBe(signature);
+            signature = lights.signature();
+            materialNodes(lights).forEach((node, i) => expect(node).toBe(before[i]));
+            expect(lights.generation()).toBe(generation);
+            const listed = batched(lights.node('characters')).getLights();
+            expect(listed).toHaveLength(entities.length);
+            expect(listed.every(own => own.parent === scene)).toBe(true);
+            const count = (type: string) => entities.filter(e => e.kind === 'light' && e.light.type === type).length;
+            expect([listed.filter(l => (l as PointLight).isPointLight).length, listed.filter(l => (l as SpotLight).isSpotLight).length]).toEqual([count('point'), count('spot')]);
+        }
+    });
+    it('makes a new node only for the groups that hold a new per-light member, and increases the generation (R16)', () => {
+        const lights = createSceneLights(new Scene(), fake());
+        const step = (entities: SceneEntity[], changed: [boolean, boolean, boolean]) => {
+            const before = materialNodes(lights), haze = lights.node('haze'), generation = lights.generation();
+            lights.apply(entities);
+            materialNodes(lights).forEach((node, i) => changed[i] ? expect(node).not.toBe(before[i]) : expect(node).toBe(before[i]));
+            expect(lights.node('haze')).toBe(haze);
+            expect(lights.generation()).toBe(generation + 1);
+        };
+        lights.apply([light('d'), spot('s', { affectEnvironment: false })]);
+        // The shadow of a lit spot light moves it to the per-light path.
+        step([light('d'), spot('s', { affectEnvironment: false, shadow })], [true, true, false]);
+        // A lit directional light stays on the per-light path (TB3 (b)).
+        step([light('d'), spot('s', { affectEnvironment: false, shadow }), light('sun', { affectProps: false, affectEnvironment: false })], [true, false, false]);
+        // The shadow switch of a directional light changes its light node.
+        step([light('d', { shadow }), spot('s', { affectEnvironment: false, shadow }), light('sun', { affectProps: false, affectEnvironment: false })], [true, true, true]);
+        // Without a light entity, the built-in light lights each group.
+        step([box], [true, true, true]);
+    });
+    it('keeps only directional and shadow lights on the per-light path, with point, spot, and ambient data nodes from the start (R13, R15)', () => {
+        const lights = createSceneLights(new Scene(), fake());
+        lights.apply([light('d'), spot('s', { shadow }), spot('t'), point('p'), light('amb', { type: 'ambient' })]);
+        const own = batched(lights.node('characters')).getBuiltinLights();
+        expect(own).toHaveLength(2);
+        expect(own[0]).toBeInstanceOf(GroupDirectionalLight);
+        expect([(own[1] as SpotLight).isSpotLight, own[1]!.castShadow]).toEqual([true, true]);
+        lights.apply([light('d')]);
+        for (const group of MATERIAL) {
+            const node = batched(lights.node(group));
+            expect([...node._dataNodes.keys()]).toEqual(['PointLight', 'SpotLight', 'AmbientLight']);
+            expect(node._dataNodes.get('PointLight')!._lights).toEqual([]);
+            expect(node._dataNodes.get('AmbientLight')!._lights.map(l => (l as AmbientLight).isAmbientLight)).toEqual([true]);
+        }
+        lights.apply([box]);
+        const builtin = batched(lights.node('props')).getBuiltinLights();
+        expect(builtin).toHaveLength(1);
+        expect(builtin[0]).toBeInstanceOf(GroupDirectionalLight);
+        expect(builtin[0]!.intensity).toBe(3);
+    });
+    it('holds LIMITS.litLights point lights in one group and drops none (R14)', () => {
+        const lights = createSceneLights(new Scene(), fake());
+        lights.apply(Array.from({ length: LIMITS.litLights }, (_, i) => point(`p${i}`)));
+        const data = batched(lights.node('characters'))._dataNodes;
+        expect([data.get('PointLight')!.maxCount, data.get('SpotLight')!.maxCount]).toEqual([LIMITS.litLights, LIMITS.litLights]);
+        const points = data.get('PointLight')!;
+        expect(points._lights).toHaveLength(LIMITS.litLights);
+        points.update({ camera: new PerspectiveCamera() });
+        expect(points.countNode.value).toBe(LIMITS.litLights);
     });
 });

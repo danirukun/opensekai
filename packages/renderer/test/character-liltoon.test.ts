@@ -1,13 +1,13 @@
 // The character lilToon material on the real loader path, the frame path, and its lighting hooks, with no GPU draw (lilToon on WebGPU R8).
 import {afterEach, expect, it, vi} from 'vitest';
-import {Mesh, StackNode, Texture, type Material, type Node, type NodeBuilder, type Vector3} from 'three/webgpu';
+import {Mesh, PointLight, StackNode, Texture, type Material, type Node, type NodeBuilder, type Vector3} from 'three/webgpu';
 import {float, setCurrentStack, stack, vec3} from 'three/tsl';
 import {DEFAULT_AVATAR_LIGHTING, QUALITY_PROFILES, makeSmokeFrame, type AvatarLighting, type RuntimeFrame} from '@opensekai/contracts';
 import type {LilToonLightingModel} from '@mochiya/three-liltoon/webgpu';
 import {createAssetLoader} from '../src/assets';
 import {CharacterMToonMaterial, createCharacterShare} from '../src/character-mtoon';
 import {CharacterLilToonMaterial} from '../src/character-liltoon';
-import {CHARACTER_AMBIENT, isLitMaterial} from '../src/scene-lights';
+import {CHARACTER_AMBIENT, GroupDirectionalLight, batchedLights, isLitMaterial} from '../src/scene-lights';
 import {CHARACTER_FILL} from '../src/character-lighting-math';
 import type * as AvatarPose from '../src/avatar-pose';
 
@@ -169,12 +169,13 @@ it('gives both kinds of an avatar the room fill of the renderer and the per-fram
 // The lighting model of a material with a stand-in for the r187 lighting context. It builds the node graph only (no WGSL).
 type Light = {shadowNode: Node | null; baseColorNode: Node | null};
 type StackEntry = {targetNode?: Node & {name?: string}; sourceNode?: Node};
-function run(material: CharacterLilToonMaterial, lights: Light[]) {
+// `lightNodes` is what the lights node of the build gives; `colors` is the light color of each light (white by default).
+function run(material: CharacterLilToonMaterial, lights: Light[], {lightNodes = [], colors = []}: {lightNodes?: unknown[]; colors?: Node[]} = {}) {
     const getShadow = (material.setupLighting({material, renderer: {lighting: {enabled: true}}, lightsNode: {getScope: () => ({hasLights: true})}, context: {}} as unknown as NodeBuilder) as unknown as {value: {getShadow(light: Light): Node | null}}).value.getShadow;
     for (const light of lights) getShadow(light);
     const model = material.setupLightingModel() as LilToonLightingModel;
     const context = {irradiance: vec3(0.2).toVar(), iblIrradiance: vec3(0.1).toVar(), outgoingLight: vec3().toVar(), reflectedLight: {directDiffuse: vec3().toVar(), directSpecular: vec3().toVar(), indirectDiffuse: vec3().toVar(), indirectSpecular: vec3().toVar()}};
-    const builder = {context, lightsNode: {getLightNodes: () => [], setupLights: () => { for (const lightNode of lights) model.direct({lightDirection: vec3(0, 0, 1), lightColor: vec3(1), lightNode, reflectedLight: context.reflectedLight} as never); }}} as unknown as NodeBuilder;
+    const builder = {context, lightsNode: {getLightNodes: () => lightNodes, setupLights: () => { lights.forEach((lightNode, i) => model.direct({lightDirection: vec3(0, 0, 1), lightColor: colors[i] ?? vec3(1), lightNode, reflectedLight: context.reflectedLight} as never)); }}} as unknown as NodeBuilder;
     const nodes = stack();
     setCurrentStack(nodes);
     try { model.start(builder); model.finish(builder); } finally { setCurrentStack(null); }
@@ -274,4 +275,24 @@ it('keeps the lighting values and the share on clone, and keys the program on th
     expect(copy).toBeInstanceOf(CharacterLilToonMaterial);
     expect([copy.shadowStrength, copy.environmentFill, copy.giEqualizationFactor, copy.characterShare]).toEqual([0.3, 1.5, 0.25, material.characterShare]);
     expect(copy.customProgramCacheKey().endsWith('|character')).toBe(true);
+});
+
+it('keeps the first directional light as the main light next to a batched data node (light scale R20, TB3 (b))', () => {
+    const material = shadowed();
+    const node = batchedLights([new GroupDirectionalLight(), new PointLight()]);
+    // The light nodes of the real r187 DynamicLightsNode: the per-light directional node, then the point, spot, and ambient data nodes.
+    const lightNodes = (node as unknown as {getLightNodes(builder: object): (Light & {light?: object})[]}).getLightNodes({getDataFromNode: () => ({}), context: {materialLightings: []}});
+    expect(lightNodes).toHaveLength(4);
+    const [directional] = lightNodes;
+    expect(directional!.light).toBeInstanceOf(GroupDirectionalLight);
+    // The data nodes give one shared light node to `direct` for all lights of a type. Here it builds first.
+    const batch = {light: {}, shadowNode: null, baseColorNode: null};
+    const colors = [vec3(0, 1, 0), vec3(1, 0, 0)];
+    const {sourcesOf} = run(material, [batch, directional!], {lightNodes, colors});
+    const [main] = sourcesOf('lilLight'), [band] = sourcesOf('lilBands'), [added] = sourcesOf('lilAddedLight');
+    expect(sourcesOf('lilLight')).toHaveLength(1);
+    expect(uses(main!, colors[1]!)).toBe(true);
+    expect(uses(band!, colors[1]!)).toBe(true);
+    expect(uses(band!, colors[0]!)).toBe(false);
+    expect(uses(added!, colors[0]!)).toBe(true);
 });

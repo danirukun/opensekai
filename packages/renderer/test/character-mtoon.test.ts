@@ -204,6 +204,21 @@ it('shares one uniform of each lighting value across the lights of one build', (
     expect(second![0]).toBe(first![0]);
 });
 
+it('lights a batched light with the rim and no received shadow (light scale R20)', () => {
+    const {added, model, reflectedLight, shadowNode} = lighting(new CharacterMToonMaterial(), true);
+    // The light node that each batched data node of r187 DynamicLightsNode gives to `direct` for all lights of its type.
+    const lightColor = uniform(new Color(0, 1, 0)), lightNode = {light: {}, shadowNode: null};
+    setCurrentStack(new StackNode());
+    try { model.direct({lightDirection: vec3(0, 1, 0), lightColor, lightNode, reflectedLight} as never); } finally { setCurrentStack(null); }
+    expect(added.directDiffuse).toHaveLength(2);
+    expect(uses(added.directDiffuse[1]!, lightColor)).toBe(true);
+    expect(uses(added.directDiffuse[1]!, shadowNode)).toBe(false);
+    // The authored rim and the added rim of the batched light.
+    expect(added.directSpecular).toHaveLength(4);
+    expect(uses(added.directSpecular[3]!, lightColor)).toBe(true);
+    expect(withValue(added.directSpecular[3]!, SIDE.end)).toBe(1);
+});
+
 it('gives an outline neither the added rim nor the environment fill', () => {
     const material = new CharacterMToonMaterial();
     material.characterShare = createCharacterShare();
