@@ -66,7 +66,7 @@ Compose order (Warudo-like priority, mocap highest unless High Priority hand pos
 1. Builtin idle baseline (existing).
 2. Tracking compose (face/body) — head/chest/spine from face-only path.
 3. Overlaying pose: blend into arm (and masked) bones over `overlayTransitionSeconds` when the active pose id changes. While an overlay is active, suppress Face-Only arm/finger pendulum writers for those bones (torso lean / body-follows-head stay).
-4. Override Hand Poses: finger (and optionally hand) bones; if `highPriority`, replace tracking fingers; else only fill when fingers are not tracked (face-only default).
+4. Override Hand Poses: finger (and optionally hand) bones; if `highPriority`, replace tracking fingers; else only fill when fingers are not tracked (face-only default). Enabled hand-pose bones are also listed in `animationMaskedBones` so Face-Only writers skip them. When idle and tracking are both off, the tracking composer still emits a pose entry if overlay, hand pose, or hand pin needs evaluation (`needsAnimationPose`).
 5. Hand Pin: keep wrists at pin targets; still allow finger overrides.
 6. Blueprint `boneOffsets` last (existing), so graphs can fine-tune.
 

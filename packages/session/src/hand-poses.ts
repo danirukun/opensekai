@@ -19,8 +19,9 @@ type HandShape = {
 // Rem probe: Z curl of ~80° per joint closes the fist; a chain-total of 88° looks almost open.
 const joints = (amount: number): FingerCurl => [amount * 0.85, amount, amount * 0.75];
 
-// Thumb euler is [x, y, z] in degrees in the right-hand frame (left flips all signs).
+// Thumb euler is [x, y, z] in degrees in the right-hand frame.
 // X folds across the palm; Y opposes toward the index; Z curls the tip.
+// Left mirrors YXZ across the sagittal plane as [x, -y, -z] (keep fold X).
 const thumbShape = (fold: number, oppose: number, curl: number): ThumbEuler => [
   [fold, oppose, curl * 0.25],
   [fold * 0.55, oppose * 0.7, curl],
@@ -65,15 +66,16 @@ const SHAPES: Record<HandPoseId, HandShape> = {
     little: joints(68),
   },
   pinch1: {
-    thumb: thumbShape(48, -40, 28),
-    index: pinchIndex(28, -14),
+    // Rem/Catboy tip sweep: light fold + oppose; index curls to meet the tip (~1.5–2 cm).
+    thumb: thumbShape(16, -16, 8),
+    index: pinchIndex(55, -8),
     middle: joints(78),
     ring: joints(82),
     little: joints(84),
   },
   pinch2: {
-    thumb: thumbShape(58, -48, 32),
-    index: pinchIndex(32, -18),
+    thumb: thumbShape(20, -20, 10),
+    index: pinchIndex(70, -10),
     middle: joints(82),
     ring: joints(86),
     little: joints(88),
@@ -93,8 +95,8 @@ const SHAPES: Record<HandPoseId, HandShape> = {
     little: joints(60),
   },
   okayDokey: {
-    thumb: thumbShape(52, -44, 28),
-    index: pinchIndex(48, -16),
+    thumb: thumbShape(22, -18, 12),
+    index: pinchIndex(58, -10),
     middle: joints(12),
     ring: joints(14),
     little: joints(16),
@@ -183,7 +185,7 @@ const DIGIT = /^(left|right)(Thumb|Index|Middle|Ring|Little)(Metacarpal|Proximal
 const sideBones = (side: 'left' | 'right') =>
   FINGER_BONES.filter(name => name.startsWith(side));
 
-const scaleEuler = (euler: Vec3, sign: number): Vec3 => [euler[0] * sign, euler[1] * sign, euler[2] * sign];
+const scaleEuler = (euler: Vec3, sign: number): Vec3 => [euler[0], euler[1] * sign, euler[2] * sign];
 
 function boneRotation(shape: HandShape, bone: string, sign: number): Quat {
   const match = DIGIT.exec(bone);

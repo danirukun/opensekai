@@ -13,3 +13,7 @@ Override Hand Poses (finger shapes), Idle + Overlaying Animations (masked clips,
 ## Decision
 
 Mirror those three character Animation controls. Built-in overlay bone libraries (wave = short loop). No clip import in this slice. Hand Pin in the first PR.
+
+## Hand targeting (follow-up)
+
+Per-joint Z curl replaces chain-total degrees. Left hand mirrors as `[x,-y,-z]` (YXZ sagittal). Pinch shapes use measured tip closure on Rem and Catboy. Compose emits a pose when animation is active without idle/tracking; enabled hand bones join Face-Only mask skips.

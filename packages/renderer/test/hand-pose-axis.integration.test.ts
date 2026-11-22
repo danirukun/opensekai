@@ -1,18 +1,49 @@
-import {readFileSync, writeFileSync} from 'node:fs';
+import {existsSync, readFileSync} from 'node:fs';
+import {fileURLToPath} from 'node:url';
 import {describe, expect, it} from 'vitest';
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
 import {VRMLoaderPlugin, VRMUtils, type VRM, type VRMHumanBoneName} from '@pixiv/three-vrm';
-import {Quaternion, Texture, Vector3} from 'three';
+import {Texture, Vector3} from 'three';
 import {createAvatarBinding} from '../src/avatar-pose';
 import {evaluateHandPose} from '../../session/src/hand-poses';
 import {eulerToQuat} from '../../session/src/bone-offsets';
-import type {AvatarPose} from '@opensekai/contracts';
+import type {AvatarPose, HandPoseId} from '@opensekai/contracts';
 import {FINGER_BONES} from '@opensekai/contracts';
 
+// Real file boundary: local fixture VRMs (fixtures/local) or the developer asset library. Skip when neither exists.
+const manifestPath = fileURLToPath(new URL('../../../fixtures/local/manifest.json', import.meta.url));
+const fixturePath = (id: string): string | undefined => {
+  if (!existsSync(manifestPath)) return undefined;
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {assets: {path: string; record: {id: string}}[]};
+  const path = manifest.assets.find(asset => asset.record.id === id)?.path;
+  return path && existsSync(path) ? path : undefined;
+};
+
 const library =
-  `${process.env.HOME}/Library/Application Support/com.oshi-connect.opensekai/assets/library/`;
-const remPath = library + 'avatar_e5475ed3ce2b4156ecf7066bf6e11baa2cf7d2a81f03ecfabb5b2225f0375654.vrm';
-const catboyPath = library + 'avatar_7b7c689e4e2ad3e6f6fe6cdb615ffad76d81ff788fcf61e7b9473fa73e024373.vrm';
+  process.env.OPENSEKAI_ASSET_LIBRARY ??
+  `${process.env.HOME}/Library/Application Support/com.oshi-connect.opensekai/assets/library`;
+const libraryPath = (hash: string) => {
+  const path = `${library}/avatar_${hash}.vrm`;
+  return existsSync(path) ? path : undefined;
+};
+
+const samples = [
+  {
+    label: 'rem',
+    // Prefer the Rem library asset used for tip tuning; fixture_vrm_1 is a portable fallback.
+    path:
+      process.env.OPENSEKAI_HAND_POSE_REM ??
+      libraryPath('e5475ed3ce2b4156ecf7066bf6e11baa2cf7d2a81f03ecfabb5b2225f0375654') ??
+      fixturePath('fixture_vrm_1'),
+  },
+  {
+    label: 'catboy',
+    path:
+      process.env.OPENSEKAI_HAND_POSE_CATBOY ??
+      libraryPath('7b7c689e4e2ad3e6f6fe6cdb615ffad76d81ff788fcf61e7b9473fa73e024373') ??
+      fixturePath('fixture_vrm0_arkit'),
+  },
+] as const;
 
 const loadVrm = async (path: string, label: string): Promise<VRM> => {
   const bytes = readFileSync(path);
@@ -27,16 +58,18 @@ const loadVrm = async (path: string, label: string): Promise<VRM> => {
   return vrm;
 };
 
+const distance = (vrm: VRM, a: VRMHumanBoneName, b: VRMHumanBoneName) => {
+  const pa = vrm.humanoid.getRawBoneNode(a)!.getWorldPosition(new Vector3());
+  const pb = vrm.humanoid.getRawBoneNode(b)!.getWorldPosition(new Vector3());
+  return pa.distanceTo(pb);
+};
+
 const tipGap = (vrm: VRM, side: 'left' | 'right') => {
-  const hand = vrm.humanoid.getRawBoneNode(`${side}Hand` as VRMHumanBoneName)!;
-  const index = vrm.humanoid.getRawBoneNode(`${side}IndexDistal` as VRMHumanBoneName)!;
-  const thumb = vrm.humanoid.getRawBoneNode(`${side}ThumbDistal` as VRMHumanBoneName)!;
-  const handPos = hand.getWorldPosition(new Vector3());
-  const indexPos = index.getWorldPosition(new Vector3());
-  const thumbPos = thumb.getWorldPosition(new Vector3());
+  const pref = side === 'left' ? 'left' : 'right';
   return {
-    indexToHand: indexPos.distanceTo(handPos),
-    thumbToIndex: thumbPos.distanceTo(indexPos),
+    indexToHand: distance(vrm, `${pref}IndexDistal` as VRMHumanBoneName, `${pref}Hand` as VRMHumanBoneName),
+    thumbToIndex: distance(vrm, `${pref}ThumbDistal` as VRMHumanBoneName, `${pref}IndexDistal` as VRMHumanBoneName),
+    thumbToMiddle: distance(vrm, `${pref}ThumbDistal` as VRMHumanBoneName, `${pref}MiddleIntermediate` as VRMHumanBoneName),
   };
 };
 
@@ -52,43 +85,46 @@ const applyAxisCurl = (binding: ReturnType<typeof createAvatarBinding>, axis: 0 
   binding.apply({avatarId: 'a', bones, expressions: {}});
 };
 
-const probe = async (path: string, label: string, reportPath: string) => {
-  const vrm = await loadVrm(path, label);
-  const binding = createAvatarBinding(vrm);
-  binding.apply({avatarId: 'a', bones: {}, expressions: {}});
-  const open = tipGap(vrm, 'left');
-
-  const gaps: Record<string, number> = {};
-  for (const [name, axis] of [['x', 0], ['y', 1], ['z', 2]] as const) {
-    applyAxisCurl(binding, axis, 80, 'left');
-    gaps[name] = tipGap(vrm, 'left').indexToHand;
-  }
-
-  const best = Object.entries(gaps).sort((a, b) => a[1]! - b[1]!)[0]!;
-
-  const fist = evaluateHandPose('left', 'fist');
+const applyHandPose = (binding: ReturnType<typeof createAvatarBinding>, side: 'left' | 'right', pose: HandPoseId) => {
   const bones: AvatarPose['bones'] = {};
-  for (const [name, bone] of Object.entries(fist)) bones[name] = bone;
+  for (const [name, bone] of Object.entries(evaluateHandPose(side, pose))) bones[name] = bone;
   binding.apply({avatarId: 'a', bones, expressions: {}});
-  const posed = tipGap(vrm, 'left');
-
-  const report = {label, open: open.indexToHand, gaps, best: best[0], posed, meta: vrm.meta.metaVersion};
-  writeFileSync(reportPath, JSON.stringify(report, null, 2));
-  return report;
 };
 
 describe('hand pose curl axis', () => {
-  it('closes a fist on Rem (VRM 1) with Z curl', async () => {
-    const report = await probe(remPath, 'rem', '/tmp/hand-axis-report-rem.json');
-    expect(report.best).toBe('z');
-    expect(report.gaps.z!).toBeLessThan(report.open * 0.7);
-    expect(report.posed.indexToHand).toBeLessThan(report.open * 0.7);
-    expect(report.posed.indexToHand).toBeLessThan(report.gaps.z! * 1.25);
-  }, 60_000);
+  for (const sample of samples) {
+    it.skipIf(!sample.path)(`closes fist and pinch on both hands (${sample.label})`, async () => {
+      const vrm = await loadVrm(sample.path!, sample.label);
+      const binding = createAvatarBinding(vrm);
+      binding.apply({avatarId: 'a', bones: {}, expressions: {}});
+      const rest = {left: tipGap(vrm, 'left'), right: tipGap(vrm, 'right')};
 
-  it('reports curl axis and fist closure on Catboy (VRM 0, Lighting Demo)', async () => {
-    const report = await probe(catboyPath, 'catboy', '/tmp/hand-axis-report-catboy.json');
-    // Document whatever axis wins; fist must still close relative to open.
-    expect(report.posed.indexToHand).toBeLessThan(report.open * 0.85);
-  }, 60_000);
+      const gaps: Record<string, number> = {};
+      for (const [name, axis] of [['x', 0], ['y', 1], ['z', 2]] as const) {
+        applyAxisCurl(binding, axis, 80, 'right');
+        gaps[name] = tipGap(vrm, 'right').indexToHand;
+      }
+      const best = Object.entries(gaps).sort((a, b) => a[1]! - b[1]!)[0]!;
+      expect(best[0]).toBe('z');
+      expect(gaps.z!).toBeLessThan(rest.right.indexToHand * 0.7);
+
+      for (const side of ['left', 'right'] as const) {
+        applyHandPose(binding, side, 'fist');
+        const fist = tipGap(vrm, side);
+        expect(fist.indexToHand).toBeLessThan(rest[side].indexToHand * 0.7);
+        expect(fist.thumbToMiddle).toBeLessThan(rest[side].thumbToMiddle * 0.75);
+
+        applyHandPose(binding, side, 'pinch2');
+        const pinch = tipGap(vrm, side);
+        expect(pinch.thumbToIndex).toBeLessThan(0.025);
+        expect(pinch.thumbToIndex).toBeLessThan(rest[side].thumbToIndex * 0.45);
+      }
+
+      applyHandPose(binding, 'left', 'fist');
+      const leftFist = tipGap(vrm, 'left');
+      applyHandPose(binding, 'right', 'fist');
+      const rightFist = tipGap(vrm, 'right');
+      expect(Math.abs(leftFist.thumbToMiddle - rightFist.thumbToMiddle)).toBeLessThan(0.005);
+    }, 60_000);
+  }
 });

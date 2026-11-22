@@ -24,6 +24,12 @@ App timing (sample): `output_main` cpuMs ≈ 2.9, gpuMs ≈ 1.11. OBS timing: un
 | 5 | Hand Pin hold + head yaw ±30° | Pass (approx) | Pin hold on; IFM yaw 0→30°; head crop changes more (PSNR ≈ 19.2) than arm crop (≈ 22.2). Pin is hand-bone hold, not full IK |
 | 6 | Transparent OBS: arms/hands with alpha | Pass | OBS PNG over gray (`14-alpha-composite.png`); character visible, background gray (alpha preserved) |
 
+## Hand targeting follow-up (2026-11-22)
+
+- Per-joint Z curl + left `[x,-y,-z]` mirror; fist and pinch tip gaps measured on Rem (VRM 1) and Catboy (VRM 0).
+- Animation still emits a pose when idle and tracking are off; hand-pose bones join `animationMaskedBones` for Face-Only skip.
+- Probe: `packages/renderer/test/hand-pose-axis.integration.test.ts` (fixtures/local or `OPENSEKAI_ASSET_LIBRARY`, `skipIf` missing).
+
 ## Not verified
 
 - Clear finger shapes on a short-sleeve / bare-hand model with a live finger source (check 4).
