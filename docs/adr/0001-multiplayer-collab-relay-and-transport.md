@@ -13,7 +13,7 @@ OpenSekai needs two collab lanes:
 
 - **Lane A, guest rooms.** A host starts a session, shares a link or code, a guest (for example Xiu) joins, shares their already-loaded avatar with one click, and their motion and face capture is relayed to the host automatically. Target: **≤ 5 minutes from opening OpenSekai to Xiu moving in the host's scene**, for VTubers who use VBridger or Warudo, know VNet, and don't do port forwarding, WireGuard or Tailscale. Bidirectional (host avatar on the guest side) and lip sync are follow-ups.
 - **Lane B, live edit collaboration.** A helper (for example Ben) gets **View only** or **Edit** access to the host's editor for remote help or building a scene together.
-- **Lane C, long horizon.** View-only clients that render the scene themselves, served by the **same relay**.
+- **Lane C, long horizon.** View-only clients that render the scene themselves, served by the **same relay**. **Out of the MVP.** The product shape stays open.
 
 Constraints from the owner: no accounts in the first slice; security first (no malicious links, no IP leaks, protect shared avatars as far as possible, in the spirit of VRoid Hub); an **Elixir / Phoenix** relay with one process per room and all of a room's participants on one node (the Discord guild model); **everything in memory** in the first slice, Postgres later; hosted on **Fly.io**. On transport, the owner cares about **smoothness over completeness**: dropped frames are fine, the receiver fills the gaps.
 
@@ -26,6 +26,7 @@ What exists today (see `ARCHITECTURE.md`): a Tauri 2 app whose **Rust host** own
 | Topic | Decision |
 | --- | --- |
 | Hosting | Fly.io, first region **`ams`** (Amsterdam) |
+| Self-hosting | **Self-hosted from day 1.** The same Docker image runs on Fly.io and on a machine the user runs. Settings holds the relay URL. |
 | Repo | Relay in the monorepo at **`apps/relay`** |
 | Room size | **4 max: 1 host + 3 guests** |
 | Approval | **Every room join needs one explicit host approval** (knock), for links and codes, including people seen before |
@@ -35,10 +36,16 @@ What exists today (see `ARCHITECTURE.md`): a Tauri 2 app whose **Rust host** own
 | Mocap transport | **WebRTC first** (DataChannels terminated by the Elixir relay), **WebTransport as the fallback "if all fails"**, built **only if the spike shows a need** |
 | Plan B if Fly UDP fails | **Cloudflare Realtime SFU DataChannels**, behind an **abstract transport adapter** so a later switch (for example to a pure-Elixir relay on a plain VM) is cheap |
 | TURN | **None** |
-| Pose rate | **60 Hz by default**, with a **30 Hz mode** the host can switch to |
+| Pose rate | **60 Hz by default**, with a **30 Hz mode** the host can switch to. Add an automatic drop to 30 Hz under congestion **only if it is easy**. If it is not easy, keep the manual switch. |
 | Platforms | **macOS and Windows first**; Linux later |
 | Join links | **`https://` links** that hand off to `opensekai://` (the secret stays in the URL fragment); Windows scheme registration is tracked in this epic |
 | ADR location | New **`docs/adr/`** folder; this is **0001**; AGENTS.md documents the convention |
+| Lip sync | **Visemes on the guest's machine**, plus a **voice-delay slider**. **No audio** is sent. Build it in slice 1 only if it fits. If it does not fit, defer it. |
+| Lane B preview | **Video preview first.** A 3D remote viewport comes later. **Collabs come first.** |
+| Invites | **Only the host** may invite, for now. |
+| Milestone | **Part of the MVP.** Lane C is not part of the MVP. |
+| Relay restart | Guests **rejoin the existing session**. The host reclaims the room. **Node drainage** is a follow-up if the relay is Elixir. |
+| Spectators | **Deferred.** Out of the MVP. |
 | Process | This ADR first; issues and SPDD slice contracts follow from it |
 
 ### Architecture decisions
@@ -74,9 +81,10 @@ What exists today (see `ARCHITECTURE.md`): a Tauri 2 app whose **Rust host** own
 7. **Receiver "fills the gaps":** adaptive jitter buffer (30–100 ms), slerp/lerp interpolation, up to 100 ms damped extrapolation for bones (expressions held), then hold, then fade to idle via the existing stale path after 1 s.
 8. **Trust model without accounts:** link = room ID + **128-bit secret in the URL fragment** (server stores only a hash); codes are short and always knock; **mandatory host approval with matching safety words** derived from both parties' X25519 keys; **end-to-end encryption** (HPKE-wrapped group key, AES-256-GCM) so the relay sees only ciphertext; join links are **`https://` universal links** (e.g. `https://opensekai.app/j/<room>#<secret>`, final domain TBD) whose landing page hands off to `opensekai://` (macOS Universal Links / Windows app-URI handler where available, otherwise a JS redirect with an "Open OpenSekai" button and a download link if the app is missing); the secret stays in the fragment so the landing page server never sees it; the app-side `opensekai://` handler follows #190 (strict parse, relay allowlist, open a dialog only), and Windows needs the deep-link plugin registered (#190 / #308 follow-up, tracked in this epic); kick, revoke, rate limits. A WebRTC PeerConnection is created only after the host approves, using credentials from the room channel.
 9. **Asset protection is deterrence, layered:** consent with license summary → E2E encrypted transfer with TTL → decrypted **into memory only**, never written to disk or the show file → no export paths → obfuscated loopback handoff to renderers → later VRoid Hub-style distortion and watermarking (F2, #219). We state plainly that anyone who can render a model can extract it.
-10. **Edit collaboration keeps the current model:** server-authoritative ops through the host's session, **no CRDT**, revision journal **pushed** instead of polled, presence (names, cursors, selections), and a **video preview** of the host's output for helpers first (no scene assets leave the host).
-11. **In-memory relay, host is the source of truth.** On a relay restart the host's client **reclaims** the room under the same ID (proved with a host secret); known guests reconnect and re-join, **still through one host approval** (the UI makes it a one-click "Let Xiu back in"). PeerConnections are re-established after re-join. Encrypted avatar blobs live in object storage with a TTL, not on the Machine.
-12. **Lane C ready from day 1:** a read-only `viewer` role in the roster model and a `scene:snapshot` / `scene:delta` stream that remote editors already need. Spectators later subscribe to the same relay-terminated DataChannels through a fan-out tier and, by default, get video-only viewing.
+10. **Edit collaboration keeps the current model:** server-authoritative ops through the host's session, **no CRDT**, revision journal **pushed** instead of polled, presence (names, cursors, selections), and a **video preview** of the host's output for helpers first (no scene assets leave the host). A 3D remote viewport comes later. Collabs (Lane A and Lane B) come before that viewport. **Only the host may invite**, for now. An Edit helper cannot invite.
+11. **In-memory relay, host is the source of truth.** A relay restart **does not end the session.** The host's client **reclaims** the room under the same ID (proved with a host secret); known guests reconnect and re-join that session, **still through one host approval** (the UI makes it a one-click "Let Xiu back in"). PeerConnections are re-established after re-join. Encrypted avatar blobs live in object storage with a TTL, not on the Machine. **Follow-up:** if the relay stays on Elixir, drain the node before shutdown so rooms can move. Until that drain exists, rejoin is the recovery path.
+12. **Spectators (Lane C) are out of the MVP.** Do not add a public audience, a trusted-spectator mode, or a video-only audience in the first slices. The product shape of Lane C stays open. Remote editors still use the scene snapshot stream that Lane B needs. A `viewer` role and spectator fan-out wait.
+13. **The relay is self-hostable from day 1.** One Docker image runs on Fly.io and on a machine the user runs. Settings stores the relay URL. The client does not hard-code the Fly host.
 
 ## Q3: can we meet the target for 1 host + 3 guests?
 
@@ -86,7 +94,7 @@ What exists today (see `ARCHITECTURE.md`): a Tauri 2 app whose **Rust host** own
 
 - Added motion latency (guest's pose → visible on host), same continent: **p95 ≤ 150 ms**.
 - **No visible freeze > 100 ms** at 1% random loss and 30 ms jitter.
-- **60 Hz by default**, with a **30 Hz mode** (host setting per room) for weak uplinks; works with up to 3 guests and bidirectional streams. The sender also steps down to 30 Hz automatically under congestion and returns to 60 Hz when it clears.
+- **60 Hz by default**, with a **30 Hz mode** (host setting per room) for weak uplinks; works with up to 3 guests and bidirectional streams. Add an automatic drop from 60 Hz to 30 Hz under congestion, and a return to 60 Hz when it clears, **only if that change is easy to build**. If it is not easy, the host uses the manual switch only.
 
 ### Bandwidth (full mesh via the relay: each participant sends 1 stream and receives 3)
 
@@ -113,7 +121,7 @@ Added latency ≈ one-way guest→`ams` + one-way `ams`→host + **playout buffe
 
 **WebSocket (TCP) under loss.** TCP delivers in order, so one lost segment holds back every later frame until it is retransmitted (head-of-line blocking). With one frame per segment at 60 Hz, fast retransmit needs three duplicate ACKs (RFC 5681), so a loss costs **≈ 3 frame intervals + 1 RTT ≈ 70–130 ms**; a tail loss waits for a probe or timeout (RACK-TLP ~2 × SRTT, RFC 8985; Linux minimum RTO 200 ms). Each stream crosses **two TCP hops**, and the host's **single downlink carries all 3 guests**, so one loss freezes everyone. Stall events per host ≈ loss × ~360 packets/s: ≈ 0.36/s at 0.1% loss (wired) and ≈ 3.6/s at 1% (common on home Wi-Fi [estimate]). Hiding that needs a **150–250 ms** buffer, which breaks the latency target.
 
-**WebRTC DataChannel `ordered:false, maxRetransmits:0` (and WebTransport datagrams).** A lost message is skipped; nothing waits, and each guest's frames are independent. At 1% loss about one frame in 100 is a 16.7 ms gap that interpolation hides; 5% loss or 100 ms bursts are covered by the jitter buffer plus extrapolation. The buffer stays at **30–50 ms**, so added latency is **~45–100 ms within Europe**. SCTP congestion control still applies to the association; with `maxRetransmits: 0` an abandoned message is dropped instead of retransmitted (RFC 8831 / RFC 3758 partial reliability). Senders watch `bufferedAmount` and **drop a frame instead of queuing** it when anything is still buffered, and step 60 → 30 Hz under congestion.
+**WebRTC DataChannel `ordered:false, maxRetransmits:0` (and WebTransport datagrams).** A lost message is skipped; nothing waits, and each guest's frames are independent. At 1% loss about one frame in 100 is a 16.7 ms gap that interpolation hides; 5% loss or 100 ms bursts are covered by the jitter buffer plus extrapolation. The buffer stays at **30–50 ms**, so added latency is **~45–100 ms within Europe**. SCTP congestion control still applies to the association; with `maxRetransmits: 0` an abandoned message is dropped instead of retransmitted (RFC 8831 / RFC 3758 partial reliability). Senders watch `bufferedAmount` and **drop a frame instead of queuing** it when anything is still buffered. An automatic change from 60 Hz to 30 Hz is optional. See "Target".
 
 ## Does WebTransport as a fallback add value?
 
@@ -162,7 +170,7 @@ What the docs say (Nov 2026):
 
 ### Lip sync (follow-up)
 - **Send audio and run lip sync on the host:** rejected. It sends the guest's voice and needs a media stack.
-- **Visemes computed on the guest's machine, inside the pose frame (chosen for F1):** no audio leaves the guest, and the mouth stays in sync with face capture.
+- **Visemes computed on the guest's machine, inside the pose frame (chosen):** no audio leaves the guest, and the mouth stays in sync with face capture. The owner confirmed this on 2026-11-22 and added a voice-delay slider. Build it in slice 1 only if it fits. If it does not fit, defer it (F1).
 
 ## Fly.io deployment for WebRTC
 
@@ -183,7 +191,7 @@ What the docs say (Nov 2026):
 ### Positive
 - The relay stays **pure Elixir** for the primary path: one language, one supervision tree, PeerConnections live next to their room's GenServer.
 - Smooth motion on lossy home Wi-Fi with low latency; guests don't stall each other; no IP exposure.
-- One relay design covers guests, helpers and later spectators.
+- One relay design covers guests and helpers. Spectators stay out of the MVP.
 - Small running cost (≈ $0.024 per room-hour plus $2/month).
 
 ### Negative / risks
@@ -202,21 +210,15 @@ What the docs say (Nov 2026):
 - `docs/adr/` folder with `README.md`, this record as `0001-…`, and the ADR section in `AGENTS.md` (then `cp AGENTS.md CLAUDE.md`).
 - Join links: the `https://` landing page (fragment-only secret, "Open OpenSekai" button, download link), the Universal Links / Windows app-URI association files on the link domain, and `opensekai://` registration on Windows (#190 / #308 follow-up, in this epic).
 - SPDD analysis and prompt slice contracts for A1, B1 and the transport spike, per `AGENTS.md`.
-- Issues (once this is accepted): epic, Lane A1, Lane B1, transport spike, F1 lip sync, F2 avatar protection (#219), F4 VMC bridge guest mode, F7 spectators, F8 Postgres, F9 multi-region.
+- Settings field for the relay URL, and the same Docker image for the Fly.io host and a self-hosted relay.
+- Node drainage for the Elixir relay, after the rejoin path. A restart does not wait for drainage.
+- Issues (once this is accepted): epic, Lane A1, Lane B1, transport spike, F1 lip sync (defer past slice 1 if it does not fit), F2 avatar protection (#219), F4 VMC bridge guest mode, F7 spectators (out of the MVP), F8 Postgres, F9 multi-region.
 
 ## Open questions
 
-Resolved on 2026-11-22 and moved into "Owner decisions": ADR location, Plan B, WebTransport fallback, TURN, pose rate, platforms. Blob storage follows the constitution (Cloudflare R2 behind the S3-compatible adapter), so it is no longer open.
+Resolved on 2026-11-22 and moved into "Owner decisions": ADR location, Plan B, WebTransport fallback, TURN, pose rate, platforms, self-hosting, lip sync, Lane B preview, invites, milestone, relay restart, spectators, and the 30 Hz step-down. Blob storage follows the constitution (Cloudflare R2 behind the S3-compatible adapter), so it is no longer open. Windows deep links are resolved: share links are `https://` and hand off to `opensekai://`; Windows scheme registration is tracked in this epic (see decision 8).
 
-1. **Self-hosting:** commit to self-hostable relays from day 1 (same Docker image + relay URL in Settings)?
-2. **Lip sync:** confirm visemes computed on the guest's machine plus a voice-delay slider, with no audio sent.
-3. **Lane B preview:** video preview first (a WebRTC video track on the same relay connection), 3D remote viewport later?
-4. **Who may invite:** only the host, or Edit helpers too?
-5. **Milestone:** none for now (default), or target part of it for MVP or post-MVP?
-6. **Relay restart:** is "host reclaims, guests re-join with one approval each" acceptable, or should a restart end the session?
-7. **Spectators (Lane C):** video-only first? Public audiences, or a few trusted people?
-8. ~~**Windows deep links**~~ Resolved 2026-11-22: share links are `https://` and hand off to `opensekai://`; Windows scheme registration is tracked in this epic (see decision 8).
-9. **30 Hz auto step-down:** the sender drops from 60 Hz to 30 Hz under congestion and returns when it clears (see "Target"). This was added during drafting, not by the owner; confirm it is wanted.
+1. **Lane C product shape:** video-only or a 3D view? A public audience, or a few trusted people? This waits. Lane C is out of the MVP.
 
 ## Sources
 
