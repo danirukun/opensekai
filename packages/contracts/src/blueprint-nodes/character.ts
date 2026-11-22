@@ -1,10 +1,56 @@
 import { z } from 'zod';
+import { HAND_POSE_IDS, OVERLAY_POSE_IDS } from '../avatar-animation';
 import { ExpressionNameSchema } from '../expressions';
 import { NodeMeshesSchema } from '../meshes';
 import { HUMANOID_BONES } from '../tracking';
 import { defineNode, exit, finite, IdSchema } from './define';
 import { transitionFields, transitionSettings } from './transition';
 import { materialNodes } from './prop';
+
+const overlayPoseOptions = OVERLAY_POSE_IDS.map(value => ({ value, label: value[0]!.toUpperCase() + value.slice(1) }));
+const handPoseOptions = HAND_POSE_IDS.map(value => ({ value, label: value }));
+const handSideOptions = [{ value: 'left', label: 'Left' }, { value: 'right', label: 'Right' }] as const;
+export const DEFAULT_OVERLAY_MASK = ['leftArm', 'rightArm', 'leftFingers', 'rightFingers'] as const;
+const setOverlayPose = z.strictObject({
+ entityId: IdSchema,
+ entryId: z.string().min(1).max(64),
+ pose: z.enum(OVERLAY_POSE_IDS),
+ weight: finite.min(0).max(1),
+});
+const setOverlayPoseFields = [
+ { key: 'entityId', label: 'Character', kind: 'avatar' },
+ { key: 'entryId', label: 'Entry Id', kind: 'string', maxLength: 64 },
+ { key: 'pose', label: 'Pose', kind: 'choice', options: overlayPoseOptions },
+ { key: 'weight', label: 'Weight', kind: 'number', min: 0, max: 1 },
+] as const;
+const setHandPose = z.strictObject({
+ entityId: IdSchema,
+ side: z.enum(['left', 'right']),
+ enabled: z.boolean(),
+ pose: z.enum(HAND_POSE_IDS),
+ weight: finite.min(0).max(1),
+ highPriority: z.boolean(),
+});
+const setHandPoseFields = [
+ { key: 'entityId', label: 'Character', kind: 'avatar' },
+ { key: 'side', label: 'Hand', kind: 'choice', options: handSideOptions },
+ { key: 'enabled', label: 'Enabled', kind: 'boolean' },
+ { key: 'pose', label: 'Pose', kind: 'choice', options: handPoseOptions },
+ { key: 'weight', label: 'Weight', kind: 'number', min: 0, max: 1 },
+ { key: 'highPriority', label: 'High Priority', kind: 'boolean' },
+] as const;
+const setHandPin = z.strictObject({
+ entityId: IdSchema,
+ side: z.enum(['left', 'right']),
+ enabled: z.boolean(),
+ mode: z.enum(['preset', 'hold']),
+});
+const setHandPinFields = [
+ { key: 'entityId', label: 'Character', kind: 'avatar' },
+ { key: 'side', label: 'Hand', kind: 'choice', options: handSideOptions },
+ { key: 'enabled', label: 'Enabled', kind: 'boolean' },
+ { key: 'mode', label: 'Mode', kind: 'choice', options: [{ value: 'preset', label: 'Preset' }, { value: 'hold', label: 'Hold' }] },
+] as const;
 
 const target = z.strictObject({ entityId: IdSchema, expression: ExpressionNameSchema, ...transitionSettings });
 const fields = [{ key: 'entityId', label: 'Character', kind: 'avatar' }, { key: 'expression', label: 'Expression', kind: 'expression' }, ...transitionFields] as const;
@@ -48,5 +94,8 @@ export const CHARACTER_NODES = [
  defineNode({ type: 'character.toggleMeshes', label: 'Toggle Character Meshes', category: 'Character', keywords: ['mesh', 'clothes', 'clothing', 'accessory', 'outfit', 'show', 'hide', 'toggle'], settings: meshes, ports: () => ({ inputs: { flow: 'flow' }, outputs: { ...exit } }), defaults: meshDefaults, fields: meshFields }),
  defineNode({ type: 'character.setMeshesVisible', label: 'Set Character Meshes Visible', category: 'Character', keywords: ['mesh', 'clothes', 'clothing', 'accessory', 'outfit', 'show', 'hide', 'visible'], settings: meshes, ports: () => ({ inputs: { flow: 'flow', visible: 'boolean' }, outputs: { ...exit } }), inputDefaults: { visible: true }, defaults: meshDefaults, fields: meshFields }),
  defineNode({ type: 'character.lookAt', label: 'Look At', category: 'Character', keywords: ['look', 'gaze', 'head', 'face', 'camera', 'target', 'aim'], settings: lookAt, ports: () => ({ inputs: { flow: 'flow', weight: 'number' }, outputs: { ...exit } }), inputDefaults: { weight: 1 }, defaults: refs => refs.avatarId && refs.cameraId ? { entityId: refs.avatarId, targetId: refs.cameraId } : null, fields: [{ key: 'entityId', label: 'Character', kind: 'avatar' }, { key: 'targetId', label: 'Target', kind: 'entity' }, ...transitionFields] }),
+ defineNode({ type: 'character.setOverlayPose', label: 'Set Overlay Pose', category: 'Character', keywords: ['overlay', 'pose', 'animation', 'idle', 'wave', 'selfie', 'hand'], settings: setOverlayPose, ports: () => ({ inputs: { flow: 'flow' }, outputs: { ...exit } }), defaults: refs => refs.avatarId ? { entityId: refs.avatarId, entryId: 'overlay', pose: 'rest' as const, weight: 1 } : null, fields: setOverlayPoseFields }),
+ defineNode({ type: 'character.setHandPose', label: 'Set Hand Pose', category: 'Character', keywords: ['hand', 'pose', 'finger', 'fist', 'override'], settings: setHandPose, ports: () => ({ inputs: { flow: 'flow' }, outputs: { ...exit } }), defaults: refs => refs.avatarId ? { entityId: refs.avatarId, side: 'right' as const, enabled: true, pose: 'open' as const, weight: 1, highPriority: true } : null, fields: setHandPoseFields }),
+ defineNode({ type: 'character.setHandPin', label: 'Set Hand Pin', category: 'Character', keywords: ['hand', 'pin', 'ik', 'wrist', 'hold'], settings: setHandPin, ports: () => ({ inputs: { flow: 'flow' }, outputs: { ...exit } }), defaults: refs => refs.avatarId ? { entityId: refs.avatarId, side: 'right' as const, enabled: true, mode: 'hold' as const } : null, fields: setHandPinFields }),
  ...materialNodes('character', 'avatar', 'Character', 'Character'),
 ] as const;

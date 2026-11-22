@@ -131,6 +131,10 @@ const sceneOperation = (entity: SceneView['entities'][number], effect: Exclude<S
    const hidden = entity.hiddenMeshes ?? [];
    return { ok: true, data: { kind: 'setHiddenMeshes', entityId: entity.id, hiddenMeshes: effect.kind === 'toggleMeshes' ? toggleMeshes(hidden, effect.names) : setMeshesVisible(hidden, effect.names, effect.visible) } };
   }
+  case 'setAvatarAnimation': {
+   if (entity.kind !== 'avatar') return failure('INVALID_INPUT', 'Entity is not an avatar', [entity.id]);
+   return { ok: true, data: { kind: 'setAvatarAnimation', entityId: entity.id, animation: effect.animation } };
+  }
  }
 };
 
