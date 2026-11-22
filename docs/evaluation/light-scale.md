@@ -1,6 +1,35 @@
 # Light scale check (B43 PR2 to PR4)
 
-Contract: [light scale](../../spdd/prompt/2026-11-21-light-scale.md), Part B. Analysis: [light scale](../../spdd/analysis/2026-11-21-light-scale.md). Issue: #316. The orchestrator runs the local checks and fills the rows. A row stays "not checked" until then.
+Contract: [light scale](../../spdd/prompt/2026-11-21-light-scale.md), Part B. Analysis: [light scale](../../spdd/analysis/2026-11-21-light-scale.md). Issue: #316.
+
+The headless checks did not start the app, a WebView, or OBS. The orchestrator runs the local checks and fills the rows. Until then, each local check is "not checked". No row claims a GPU, OBS, look, or cost result that was not measured.
+
+## Batched lit lights (PR2)
+
+Date: 2026-11-22. Commit: `9ef05de` on `claude/b43-batched-lights` (the code commit; this page is in the next commit). Spike build for LC B4 and LC B5: the local branch `claude/b43-lit-spike`, commit `1d0319e`, with `LIMITS.litLights` and `MAX_LIT_LIGHTS` at 32 (R21). It is not pushed.
+
+### Design
+
+- Each of the characters, props, and environment groups uses one three.js `DynamicLightsNode` as its `lightsNode` (`batchedLights` in `packages/renderer/src/scene-lights.ts`, R13). Point, spot, and ambient lights without a shadow, and the fixed ambient light, go into uniform arrays. The point and spot capacity is `LIMITS.litLights` (R14).
+- Directional lights are `GroupDirectionalLight`, an empty subclass of `DirectionalLight`. three batches only the exact light classes, so directional lights, also the built-in light, stay on the per-light path (TB3 (b)). Lights with a shadow stay on the per-light path.
+- Each node gets its point, spot, and ambient data nodes when it is made, from three throwaway lights (TB4 (a), R15).
+- A material group keeps its node while its per-light members stay the same: the built-in flag and the ID, type, and shadow switch of each per-light member, in scene order. Another change calls `setLights` on the same node and does not change `generation()` (R16).
+- The haze keeps the per-light `lights()` node (R17). `renderer.lighting` stays the three default (TB2 (a), R18). `renderer.ts` did not change.
+
+### Headless checks
+
+See the pull request. The unit tests show the node identity, the per-light and batched split, the capacity, and the MToon and lilToon lighting models with a batched light node. They cannot show that a batched material compiles on a GPU, that it looks the same, or what it costs.
+
+### Local checks
+
+| Check | Requirement | Result |
+| --- | --- | --- |
+| LC B1, look (gate G-B3) | R19, R20 | Not checked |
+| LC B2, stall (gate G-B2) | R16, R18 | Not checked |
+| LC B3, 30 changes at 8 lit lights | R14, R16 | Not checked |
+| LC B4, cost at 8, 16, and 32 lit lights (spike build) | R21 | Not checked |
+| LC B5, 30 changes at 32 lit lights and shader size (spike build) | R14, R21 | Not checked |
+| LC B6, minimized and alpha | R19 | Not checked |
 
 ## Shadow map cache (PR3)
 
