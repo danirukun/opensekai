@@ -58,6 +58,17 @@ Date: 2026-11-17. Commit: `9a8b0b8`. macOS 27.2.1 (Apple silicon), debug build (
 
 The beams add about 0.2 to 0.4 ms of CPU time (median). GPU time: unknown ([FPS Counter crops](stage-beams/cost-fps-counter.png)). WKWebView stops the Editor preview when another window covers the Editor. A first run with the Editor covered is not valid and is not in the table.
 
+#### GPU time (added 2026-11-22)
+
+The B43 check measured the GPU time span of each frame for the same cases. Commit `c3a08e3`, OBS 33.0.1, `production_v1`, `output_main`. Each case waited 30 s and then polled `app_status` at 10 Hz for 120 s. See [GPU time](gpu-time.md#local-checks-with-the-frame-span-2026-11-22) for the method and the low samples.
+
+| Case | FPS | Output CPU ms, median | GPU ms p50 / p95 / max | Samples / acknowledgments | Samples below 2 ms |
+| --- | --- | --- | --- | --- | --- |
+| A, beams off | 60.0 | 5.1 | 4.2 / 5.4 / 7.5 | 1158 / 1182 | 6 |
+| B, 8 beams | 60.0 | 5.5 | 4.5 / 6.2 / 7.9 | 1162 / 1181 | 81 |
+| C, haze and 8 volumetric lights, beams off | 60.0 | 5.5 | 4.7 / 6.9 / 9.3 | 1127 / 1187 | 3 |
+| D, haze, 8 volumetric lights, and 8 beams | 60.0 | 5.6 | 5.0 / 7.2 / 11.3 | 1161 / 1190 | 35 |
+
 ### Look findings
 
 - Banding: vertical bands show across each beam cone in the OBS output, not only in the Editor ([image](stage-beams/banding-obs.png)). Cause, from the capture and the three.js r187 source: the interpolated vertex normal. A cone with a top radius of 0 has one triangle per segment, and its apex vertex has the normal of the next segment. The normal is therefore discontinuous at each segment edge, and the step increases toward the apex. The capture agrees with this cause, not with 8-bit quantization:

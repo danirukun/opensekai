@@ -516,6 +516,7 @@ export const FrameAppliedSchema = z.strictObject({
 });
 const diagnosticCount = u.max(1_000_000);
 export const VideoDecoderSupportSchema = z.enum(['supported', 'unsupported', 'missing']);
+export const GpuTimerSupportSchema = z.enum(['supported', 'unsupported']);
 export const CaptureStateSchema = z.enum(CAPTURE_STATES);
 const uniqueEntities = (values: { entityId: string }[]) => new Set(values.map(value => value.entityId)).size === values.length;
 // B31 R9: host state of each capture screen, sent to renderers in its own wire message. Frame does not change.
@@ -533,6 +534,8 @@ export const RendererDiagnosticsSchema = z.strictObject({
  assetCacheEntries: diagnosticCount, activeRenderJob: z.boolean(), queuedFrames: diagnosticCount, queuedCaptures: diagnosticCount,
  // B31 R14: whether this renderer has VideoDecoder and decodes avc1.4d0029 at 1920 x 1080.
  videoDecoder: VideoDecoderSupportSchema.optional(),
+ // Light scale R2: WebGPU timestamps on, or the WebGL 2 timer query extension.
+ gpuTimer: GpuTimerSupportSchema.optional(),
 });
 export const DiagnosticsEnvelopeSchema = z.strictObject({ kind: z.literal("diagnostics"), diagnostics: RendererDiagnosticsSchema });
 export const AppStatusSchema = z.strictObject({
@@ -553,7 +556,8 @@ export const AppStatusSchema = z.strictObject({
         outputId: IdSchema,
         connected: z.boolean(),
         lastFrame: FrameAppliedSchema.nullable(),
-        videoDecoder: VideoDecoderSupportSchema.optional()
+        videoDecoder: VideoDecoderSupportSchema.optional(),
+        gpuTimer: GpuTimerSupportSchema.optional()
     }))
 });
 export const CaptureParamsSchema = z.strictObject({

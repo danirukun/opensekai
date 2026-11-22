@@ -10,6 +10,7 @@ import { createAvatarBinding } from "./avatar-pose";
 import type { SpringClock } from "./spring-grid";
 import { countLiveMaterials } from "./diagnostics";
 import { initializeBackend } from "./backend";
+import { createGpuTimer, type TimestampBackend } from "./gpu-timer";
 import { createCapturePolicy, readPng } from "./capture";
 import { createLoadJobs, type AssetLoadStatus, type LoadReport, type LoadRequest } from "./load-jobs";
 import { createEnvironmentLight, roomEnvironmentMap, roomIrradiance, type InstanceMaterials } from "./environment-light";
@@ -82,7 +83,10 @@ export const drawingBufferSize = (output: Pick<OutputSpec, "width" | "height" | 
 export async function createRenderer(options: RendererOptions): Promise<RendererHandle> {
     if (options.editor) assertEditorScope(options.outputId, options.diagnostics);
     const { quality } = options;
-    const { renderer, backend } = await initializeBackend(options.canvas, options.mode, quality.msaaSamples);
+    const { renderer, backend, gpuTimer: timerSupport } = await initializeBackend(options.canvas, options.mode, quality.msaaSamples);
+    // The GPU pass time of applied frames (light scale R3–R6). Each render outside an applied frame taints its batch (R4).
+    const gpuTimer = createGpuTimer(renderer.backend as unknown as TimestampBackend | undefined);
+    const outsideFrame = <T>(render: () => T): T => { gpuTimer.taint(); return render(); };
     const camera = new PerspectiveCamera();
     const scene = new Scene();
     scene.background = null;
@@ -119,13 +123,14 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     const captures = createCaptureScreens({ host: options.capture, upload: backend === "webgpu" ? "bitmap" : "frame" });
     let decoderSupport: VideoDecoderSupport | null = null;
     void probeVideoDecoder().then(value => { decoderSupport = value; });
-    const environmentLight = createEnvironmentLight(roomEnvironmentMap(renderer));
+    const makeRoomMap = roomEnvironmentMap(renderer);
+    const environmentLight = createEnvironmentLight(() => outsideFrame(makeRoomMap));
     // The fill color and the room irradiance of all avatars of this renderer (character lighting R4). The share starts with the flat
     // fill. The room irradiance is made once, on the first avatar build, and is never tried again. The promise gives the reason
     // when it fails, or null.
     const characterShare = createCharacterShare();
     let roomFill: Promise<string | null> | null = null;
-    const loadRoomFill = () => roomFill ??= roomIrradiance(renderer).then(coefficients => {
+    const loadRoomFill = () => roomFill ??= outsideFrame(() => roomIrradiance(renderer)).then(coefficients => {
         if (!coefficients.every(c => c.every(Number.isFinite)) || coefficients.every(c => c.every(x => x === 0))) throw new Error("the room irradiance is zero or not finite");
         setRoomFill(characterShare, normalizeRoom(coefficients));
         return null;
@@ -258,11 +263,13 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         beams.dispose();
         marker?.dispose();
         scene.clear();
+        gpuTimer.dispose();
         renderer.dispose();
     };
     const queue = createRenderQueue(() => { if (disposed)
         cleanup(); });
-    const submit = async (frame: RuntimeFrame): Promise<FrameApplied> => {
+    // `applied` is false for the render of a capture, which draws the displayed frame again (R4).
+    const submit = async (frame: RuntimeFrame, applied = true): Promise<FrameApplied> => {
         editor?.frame(frame.scene);
         const started = performance.now();
         const output = frame.scene.outputs.find(x => x.id === options.outputId);
@@ -517,15 +524,18 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             }
         }
         catch (error) {
+            // The passes of a failed frame are not a sample (R4).
+            gpuTimer.taint();
             warnings.push({ code: "UNSUPPORTED", message: "Material/render submission failed: " + (error instanceof Error ? error.message : String(error)), ids: [] });
             throw Object.assign(failure("UNSUPPORTED", "Render submission failed"), { warnings });
         }
+        if (applied) gpuTimer.frameDone();
         if (disposed)
             throw failure("CANCELLED", "Renderer disposed");
         // The pages follow the camera that drew the canvas, in the logical output size stretched as the canvas is (B30 R7).
         webLayers?.render({ plans: webPlans, root: id => objects.get(id)?.root, camera, width: output.width, height: output.height, cssWidth: options.canvas.clientWidth, cssHeight: options.canvas.clientHeight, selectedId: editor?.selectedId() ?? null });
         displayFrame = frame;
-        displayed = { outputId: options.outputId, sessionId: frame.sessionId, sequence: frame.sequence, tick: frame.tick, revision: frame.scene.revision, cameraId: cameraEntity.id, backend, cpuMs: performance.now() - started, gpuMs: null, warnings, qualityProfile: quality.id };
+        displayed = { outputId: options.outputId, sessionId: frame.sessionId, sequence: frame.sequence, tick: frame.tick, revision: frame.scene.revision, cameraId: cameraEntity.id, backend, cpuMs: performance.now() - started, gpuMs: applied ? gpuTimer.take() : null, warnings, qualityProfile: quality.id };
         for (const waiter of [...revisionWaiters]) waiter.check(frame.scene.revision);
         return structuredClone(displayed);
     };
@@ -567,7 +577,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             const lease = shotDirtId !== null && !held ? await images.acquire(shotDirtId).catch(() => null) : null;
             const shotEffects = entity.effects ? { effects: entity.effects, dirt: held ?? lease?.image ?? null } : null;
             let png: Uint8Array;
-            try { png = await renderScreenshot({ renderer, backend, scene, camera: shotCamera, show, antiAliasing: entity.antiAliasing ?? "none", msaaSamples: quality.msaaSamples, haze: shotHaze, grading: entity.grading ?? null, beams: shotBeams, effects: shotEffects }); }
+            try { png = await outsideFrame(() => renderScreenshot({ renderer, backend, scene, camera: shotCamera, show, antiAliasing: entity.antiAliasing ?? "none", msaaSamples: quality.msaaSamples, haze: shotHaze, grading: entity.grading ?? null, beams: shotBeams, effects: shotEffects })); }
             finally { lease?.release(); }
             if (disposed) throw failure("CANCELLED", "Renderer disposed");
             if (png.byteLength > LIMITS.screenshotPngBytes) throw failure("INVALID_INPUT", "Screenshot PNG exceeds 8 MiB");
@@ -576,7 +586,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     };
     return { screenshot, ...(editor ? { editor: { sync: editor.sync, cancel: editor.cancel } } : {}), diagnostics(rendererEpoch) {
         if (!options.diagnostics || !displayed || disposed) return null;
-        return {sessionId: displayed.sessionId, outputId: displayed.outputId, rendererEpoch, sequence: displayed.sequence, revision: displayed.revision, backend, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, liveMaterials: countLiveMaterials(marker ? [scene,marker.scene] : [scene]), assetCacheEntries: assets.size(), ...queue.snapshot(), ...(decoderSupport ? { videoDecoder: decoderSupport } : {})};
+        return {sessionId: displayed.sessionId, outputId: displayed.outputId, rendererEpoch, sequence: displayed.sequence, revision: displayed.revision, backend, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, liveMaterials: countLiveMaterials(marker ? [scene,marker.scene] : [scene]), assetCacheEntries: assets.size(), ...queue.snapshot(), ...(decoderSupport ? { videoDecoder: decoderSupport } : {}), gpuTimer: timerSupport};
     },
     onLoadStatus(listener) { loadListeners.add(listener); listener(jobs.status()); return () => { loadListeners.delete(listener); }; },
     modelInfo: assetId => debugs.get(assetId) ?? null,
@@ -585,13 +595,13 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     videoDecoder: () => decoderSupport,
     decoderReport(rendererEpoch) {
         if (!displayed || disposed || decoderSupport === null) return null;
-        return {sessionId: displayed.sessionId, outputId: displayed.outputId, rendererEpoch, sequence: displayed.sequence, revision: displayed.revision, backend, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, liveMaterials: countLiveMaterials(marker ? [scene,marker.scene] : [scene]), assetCacheEntries: assets.size(), ...queue.snapshot(), videoDecoder: decoderSupport};
+        return {sessionId: displayed.sessionId, outputId: displayed.outputId, rendererEpoch, sequence: displayed.sequence, revision: displayed.revision, backend, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, liveMaterials: countLiveMaterials(marker ? [scene,marker.scene] : [scene]), assetCacheEntries: assets.size(), ...queue.snapshot(), videoDecoder: decoderSupport, gpuTimer: timerSupport};
     },
     captureSockets: () => captures.sockets(),
     videoSettled(entityId) { const player = objects.get(entityId)?.video; return player ? player.settled() : Promise.reject(failure("NOT_FOUND", "Video not loaded", [entityId])); },
     applyFrame(raw) { const frame = RuntimeFrameSchema.parse(raw); const selected = selectFrame(accepted, frame); if (!selected.ok)
             return Promise.reject(failure(selected.error.code, selected.error.message)); accepted = frame; return queue.enqueue("frame", () => submit(frame)); }, capture() { return queue.enqueue("capture", async () => { policy.reserve(performance.now()); if (!displayed || !displayFrame)
-            throw failure("UNAVAILABLE", "No displayed frame"); const metadata = structuredClone(displayed); await submit(displayFrame); const png = await readPng(options.canvas); policy.checkBytes(png.byteLength); return { frame: metadata, png, width: options.canvas.width, height: options.canvas.height }; }); }, dispose() { if (disposed)
+            throw failure("UNAVAILABLE", "No displayed frame"); const metadata = structuredClone(displayed); const frame = displayFrame; await outsideFrame(() => submit(frame, false)); const png = await readPng(options.canvas); policy.checkBytes(png.byteLength); return { frame: metadata, png, width: options.canvas.width, height: options.canvas.height }; }); }, dispose() { if (disposed)
             return; disposed = true; for (const waiter of [...revisionWaiters]) waiter.cancel(); editor?.dispose(); queue.dispose(); } };
 }
 function springClock(frame: RuntimeFrame, avatarId: Id): SpringClock {

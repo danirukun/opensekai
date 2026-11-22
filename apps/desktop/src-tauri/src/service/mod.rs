@@ -110,6 +110,8 @@ struct Inner {
     diagnostics: HashMap<String, (RendererDiagnostics, u64)>,
     /// The `videoDecoder` report of each renderer (B31 R14), kept outside evaluation mode too.
     decoders: HashMap<String, VideoDecoderSupport>,
+    /// The `gpuTimer` report of each renderer (light scale R2), kept like `decoders`.
+    gpu_timers: HashMap<String, GpuTimerSupport>,
     frames: VecDeque<RuntimeFrame>,
     pending: HashMap<String, Pending>,
     handler: Option<RpcHandler>,
@@ -480,6 +482,7 @@ impl Shared {
             inner.acks.remove(&output);
             inner.diagnostics.remove(&output);
             inner.decoders.remove(&output);
+            inner.gpu_timers.remove(&output);
         }
         self.capture.renderer_closed(id);
         let ids: Vec<_> = inner
@@ -1603,10 +1606,15 @@ async fn connection_loop(mut socket: WebSocket, shared: &Arc<Shared>) {
                         }
                     },
                     WireMessage::Diagnostics { diagnostics } if role == Role::Renderer => {
-                        if let Some(support) = &diagnostics.video_decoder {
+                        if diagnostics.video_decoder.is_some() || diagnostics.gpu_timer.is_some() {
                             let mut inner = lock(&shared.inner);
                             if diagnostics.session_id == shared.session && output_id.as_deref() == Some(&diagnostics.output_id) && inner.renderers.get(&diagnostics.output_id).is_some_and(|current| current.id == connection.id) {
-                                inner.decoders.insert(diagnostics.output_id.clone(), support.clone());
+                                if let Some(support) = &diagnostics.video_decoder {
+                                    inner.decoders.insert(diagnostics.output_id.clone(), support.clone());
+                                }
+                                if let Some(support) = &diagnostics.gpu_timer {
+                                    inner.gpu_timers.insert(diagnostics.output_id.clone(), support.clone());
+                                }
                             }
                         }
                         if !shared.evaluation { continue; }
