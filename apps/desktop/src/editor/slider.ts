@@ -33,7 +33,7 @@ export const SLIDERS={
  fov:{min:1,max:179,step:1,curve:'linear'},
  focalLength:{min:12,max:300,step:1,curve:'cubic',sliderMax:135},
  fStop:{min:1,max:32,step:.1,curve:'cubic',sliderMax:16},
- focusDistance:{min:.01,max:1000,step:.01,curve:'cubic',sliderMax:30},
+ focusDistance:{min:.01,max:1000,step:.01,curve:'cubic',sliderMax:100},
  cutoff:{min:0.01,max:120,step:0.01,curve:'cubic',sliderMax:20},
  beta:{min:0,max:100,step:0.001,curve:'cubic',sliderMax:10},
  fade:{min:0,max:5,step:0.1,curve:'linear'},
