@@ -1,4 +1,5 @@
 import { bodyPartOf, type Id, type SceneView, type Vec3 } from '@opensekai/contracts';
+import { animationMaskedBones } from '../avatar-animation-compose';
 import { boneEuler } from '../bone-offsets';
 import { withTransition } from '../tweens';
 import type { EvaluatorTable } from './types';
@@ -6,9 +7,11 @@ import type { EvaluatorTable } from './types';
 const AXIS_INDEX = { x: 0, y: 1, z: 2 } as const;
 const isFinger = (bone: string) => { const part = bodyPartOf(bone); return part === 'leftFingers' || part === 'rightFingers'; };
 // Tracking drives a bone that a body source tracks (no body group counts as all parts) and a finger bone that a fingers source or a body source gives.
+// An active overlay also covers its masked arm/finger bones so Face-Only pendulum writers do not fight the pose.
 export function offsetBonesSkipped(scene: SceneView, entityId: Id, bone: string): boolean {
  const avatar = scene.entities.find(item => item.id === entityId);
  if (avatar?.kind !== 'avatar') throw new RangeError('Character is unavailable');
+ if (animationMaskedBones(avatar.animation).has(bone)) return true;
  const tracking = avatar.tracking;
  if (!tracking) return false;
  const part = bodyPartOf(bone);
