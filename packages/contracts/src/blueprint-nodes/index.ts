@@ -27,6 +27,7 @@ import { GRAPH_CONTROL_NODES } from './graph-control';
 import { TRACKING_NODES } from './tracking';
 import { YOUTUBE_NODES } from './youtube';
 export { MAX_NODE_BONES } from './character';
+export { DEFAULT_OVERLAY_MASK } from './character';
 export { MATERIAL_EASING, MAX_MATERIAL_TRANSITION_SECONDS } from './prop';
 export { PENDULUM_DEFAULT_ARM, PENDULUM_DEFAULT_INPUT, PENDULUM_INPUT_KINDS, TRACKING_LOST_AFTER_SECONDS } from './tracking';
 export { YOUTUBE_NODE_KINDS, YOUTUBE_NODE_OUTPUTS, isYouTubeNodeType, type YouTubeNodeType } from './youtube';

@@ -68,6 +68,7 @@ export function applyOperations(scene: SceneView, operations: ScenePatch["operat
                  }
                  case 'setCameraLens':if(entity.kind!=='camera')return failure('INVALID_INPUT','Entity is not a camera',[entity.id]);entity.lens=resolveLensWrite(entity.lens,operation.lens);break;
                  case 'setAvatarIdle':if(entity.kind!=='avatar')return failure('INVALID_INPUT','Entity is not an avatar',[entity.id]);entity.idleAnimation=structuredClone(operation.idleAnimation);break;
+                 case 'setAvatarAnimation':if(entity.kind!=='avatar')return failure('INVALID_INPUT','Entity is not an avatar',[entity.id]);entity.animation=structuredClone(operation.animation);break;
                  case 'setAvatarTracking':if(entity.kind!=='avatar')return failure('INVALID_INPUT','Entity is not an avatar',[entity.id]);entity.tracking=withoutNullFingers(operation.tracking);break;
                  case 'setAvatarModel':if(entity.kind!=='avatar')return failure('INVALID_INPUT','Entity is not an avatar',[entity.id]);entity.assetId=operation.assetId;break;
                  case 'setEnvironmentModel':if(entity.kind!=='environment')return failure('INVALID_INPUT','Entity is not an environment',[entity.id]);entity.assetId=operation.assetId;break;
@@ -129,6 +130,10 @@ const sceneOperation = (entity: SceneView['entities'][number], effect: Exclude<S
    if (entity.kind !== 'avatar') return failure('INVALID_INPUT', 'Entity is not an avatar', [entity.id]);
    const hidden = entity.hiddenMeshes ?? [];
    return { ok: true, data: { kind: 'setHiddenMeshes', entityId: entity.id, hiddenMeshes: effect.kind === 'toggleMeshes' ? toggleMeshes(hidden, effect.names) : setMeshesVisible(hidden, effect.names, effect.visible) } };
+  }
+  case 'setAvatarAnimation': {
+   if (entity.kind !== 'avatar') return failure('INVALID_INPUT', 'Entity is not an avatar', [entity.id]);
+   return { ok: true, data: { kind: 'setAvatarAnimation', entityId: entity.id, animation: effect.animation } };
   }
  }
 };

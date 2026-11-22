@@ -10,15 +10,15 @@ it('lists the sections of each kind in field order (R11)',()=>{
  expect(ids('ambientLight')).toEqual(['Transform','Light','Affect']);
  expect(ids('haze')).toEqual(['Transform','Haze']);
  expect(ids('environment')).toEqual(['Transform','Environment']);
- expect(ids('character')).toEqual(['Transform','Model','Lighting','Tracking']);
- expect(ids('character',true)).toEqual(['Transform','Model','Expressions','Lighting','Tracking']);
- expect(sectionsFor(makeAuthoringEntity('character','id',[]),{expressions:true,meshes:true}).map(section=>section.label)).toEqual(['Transform','Model','Expressions','Meshes','Lighting','Tracking']);
+ expect(ids('character')).toEqual(['Transform','Model','Lighting','Animation','Tracking']);
+ expect(ids('character',true)).toEqual(['Transform','Model','Expressions','Lighting','Animation','Tracking']);
+ expect(sectionsFor(makeAuthoringEntity('character','id',[]),{expressions:true,meshes:true}).map(section=>section.label)).toEqual(['Transform','Model','Expressions','Meshes','Lighting','Animation','Tracking']);
  expect(ids('mediapipe')).toEqual(['Receiver','Smoothing','Face','Diagnostics']);
 });
 
 it('puts Materials after Meshes for a character and after Prop for a prop, only when asked (B38 R29)',()=>{
  const labels=(kind:'character'|'prop',materials:boolean)=>sectionsFor(makeAuthoringEntity(kind,'id',[]),{expressions:false,meshes:true,materials}).map(section=>section.label);
- expect(labels('character',true)).toEqual(['Transform','Model','Meshes','Materials','Lighting','Tracking']);
+ expect(labels('character',true)).toEqual(['Transform','Model','Meshes','Materials','Lighting','Animation','Tracking']);
  expect(labels('prop',true)).toEqual(['Transform','Prop','Materials']);
  expect(labels('character',false)).not.toContain('Materials');
  expect(labels('prop',false)).toEqual(['Transform','Prop']);
@@ -51,7 +51,7 @@ it('toggles a section and keeps the state through a save and a read (R12)',()=>{
  expect(START_STATE.collapsed).toHaveLength(3);
 });
 it('puts Debug last for an avatar with a model and keeps it collapsed until the user opens it (Debug R1, R2)',()=>{
- expect(sectionsFor(makeAuthoringEntity('character','id',[]),{expressions:false,debug:true}).map(section=>section.label)).toEqual(['Transform','Model','Lighting','Tracking','Debug']);
+ expect(sectionsFor(makeAuthoringEntity('character','id',[]),{expressions:false,debug:true}).map(section=>section.label)).toEqual(['Transform','Model','Lighting','Animation','Tracking','Debug']);
  expect(isCollapsed(START_STATE,'avatar','debug')).toBe(true);
  // A state stored before Debug existed has no opened list.
  const stored=parseSectionState('{"version":1,"collapsed":["light:shadow"]}');

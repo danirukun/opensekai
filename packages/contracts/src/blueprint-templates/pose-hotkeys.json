@@ -1,0 +1,212 @@
+{
+  "format": "opensekai.blueprint",
+  "formatVersion": 1,
+  "graph": {
+    "schemaVersion": 1,
+    "id": "pose-hotkeys",
+    "name": "Pose Hotkeys",
+    "enabled": true,
+    "nodes": [
+      {
+        "id": "key-rest",
+        "version": 1,
+        "type": "event.keystroke",
+        "settings": {
+          "code": "Digit1",
+          "control": true,
+          "alt": true,
+          "shift": false,
+          "meta": false
+        },
+        "position": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      {
+        "id": "pose-rest",
+        "version": 1,
+        "type": "character.setOverlayPose",
+        "settings": {
+          "entityId": "character",
+          "entryId": "hotkey",
+          "pose": "rest",
+          "weight": 1
+        },
+        "position": {
+          "x": 280,
+          "y": 0
+        }
+      },
+      {
+        "id": "key-selfie",
+        "version": 1,
+        "type": "event.keystroke",
+        "settings": {
+          "code": "Digit2",
+          "control": true,
+          "alt": true,
+          "shift": false,
+          "meta": false
+        },
+        "position": {
+          "x": 0,
+          "y": 120
+        }
+      },
+      {
+        "id": "pose-selfie",
+        "version": 1,
+        "type": "character.setOverlayPose",
+        "settings": {
+          "entityId": "character",
+          "entryId": "hotkey",
+          "pose": "selfie",
+          "weight": 1
+        },
+        "position": {
+          "x": 280,
+          "y": 120
+        }
+      },
+      {
+        "id": "key-wave",
+        "version": 1,
+        "type": "event.keystroke",
+        "settings": {
+          "code": "Digit3",
+          "control": true,
+          "alt": true,
+          "shift": false,
+          "meta": false
+        },
+        "position": {
+          "x": 0,
+          "y": 240
+        }
+      },
+      {
+        "id": "pose-wave",
+        "version": 1,
+        "type": "character.setOverlayPose",
+        "settings": {
+          "entityId": "character",
+          "entryId": "hotkey",
+          "pose": "wave",
+          "weight": 1
+        },
+        "position": {
+          "x": 280,
+          "y": 240
+        }
+      },
+      {
+        "id": "key-mic",
+        "version": 1,
+        "type": "event.keystroke",
+        "settings": {
+          "code": "Digit4",
+          "control": true,
+          "alt": true,
+          "shift": false,
+          "meta": false
+        },
+        "position": {
+          "x": 0,
+          "y": 360
+        }
+      },
+      {
+        "id": "pose-mic",
+        "version": 1,
+        "type": "character.setOverlayPose",
+        "settings": {
+          "entityId": "character",
+          "entryId": "hotkey",
+          "pose": "mic",
+          "weight": 1
+        },
+        "position": {
+          "x": 280,
+          "y": 360
+        }
+      },
+      {
+        "id": "key-controller",
+        "version": 1,
+        "type": "event.keystroke",
+        "settings": {
+          "code": "Digit5",
+          "control": true,
+          "alt": true,
+          "shift": false,
+          "meta": false
+        },
+        "position": {
+          "x": 0,
+          "y": 480
+        }
+      },
+      {
+        "id": "pose-controller",
+        "version": 1,
+        "type": "character.setOverlayPose",
+        "settings": {
+          "entityId": "character",
+          "entryId": "hotkey",
+          "pose": "controller",
+          "weight": 1
+        },
+        "position": {
+          "x": 280,
+          "y": 480
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "c1",
+        "sourceNodeId": "key-rest",
+        "sourcePort": "flow",
+        "targetNodeId": "pose-rest",
+        "targetPort": "flow"
+      },
+      {
+        "id": "c2",
+        "sourceNodeId": "key-selfie",
+        "sourcePort": "flow",
+        "targetNodeId": "pose-selfie",
+        "targetPort": "flow"
+      },
+      {
+        "id": "c3",
+        "sourceNodeId": "key-wave",
+        "sourcePort": "flow",
+        "targetNodeId": "pose-wave",
+        "targetPort": "flow"
+      },
+      {
+        "id": "c4",
+        "sourceNodeId": "key-mic",
+        "sourcePort": "flow",
+        "targetNodeId": "pose-mic",
+        "targetPort": "flow"
+      },
+      {
+        "id": "c5",
+        "sourceNodeId": "key-controller",
+        "sourcePort": "flow",
+        "targetNodeId": "pose-controller",
+        "targetPort": "flow"
+      }
+    ],
+    "variables": []
+  },
+  "references": [
+    {
+      "id": "character",
+      "kind": "avatar",
+      "name": "Character"
+    }
+  ]
+}

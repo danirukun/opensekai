@@ -4,6 +4,7 @@ import { rotateByQuaternion } from '../property-registry';
 import upperBodyRotation from './upper-body-rotation.json';
 import cameraSway from './camera-sway.json';
 import faceOnlyBodyMotion from './face-only-body-motion.json';
+import poseHotkeys from './pose-hotkeys.json';
 
 // A bundled template file with its one avatar reference, and each node that targets it, set to the given character.
 const forAvatar = (bundled: unknown, avatar: { id: string; name: string }): BlueprintFile => {
@@ -15,6 +16,8 @@ const forAvatar = (bundled: unknown, avatar: { id: string; name: string }): Blue
 export const upperBodyRotationTemplate = (avatar: { id: string; name: string }): BlueprintFile => forAvatar(upperBodyRotation, avatar);
 // Body follows head, Body Lean, and arm and finger sway from a face-only pose, faded by the head weight (the Warudo reference values).
 export const faceOnlyBodyMotionTemplate = (avatar: { id: string; name: string }): BlueprintFile => forAvatar(faceOnlyBodyMotion, avatar);
+// Control+Option+1..5 sets overlay poses rest, selfie, wave, mic, controller on one hotkey entry.
+export const poseHotkeysTemplate = (avatar: { id: string; name: string }): BlueprintFile => forAvatar(poseHotkeys, avatar);
 
 const SWAY_OFFSET: Vec3 = [0.5, 0, 0], SWAY_FOV_DEGREES = 5;
 const round = (value: number) => Math.round(value * 1e4) / 1e4 + 0;

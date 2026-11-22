@@ -2,7 +2,8 @@ import { expect, it } from 'vitest';
 import template from '../src/blueprint-templates/upper-body-rotation.json';
 import swayTemplate from '../src/blueprint-templates/camera-sway.json';
 import faceTemplate from '../src/blueprint-templates/face-only-body-motion.json';
-import { BlueprintFileSchema, blueprintPorts, cameraSwayTemplate, connectionType, exportBlueprint, faceOnlyBodyMotionTemplate, importBlueprint, makeSmokeScene, upperBodyRotationTemplate } from '../src';
+import poseTemplate from '../src/blueprint-templates/pose-hotkeys.json';
+import { BlueprintFileSchema, blueprintPorts, cameraSwayTemplate, connectionType, exportBlueprint, faceOnlyBodyMotionTemplate, importBlueprint, makeSmokeScene, poseHotkeysTemplate, upperBodyRotationTemplate } from '../src';
 
 it('validates the Upper Body Rotation template against the current catalog', () => {
  const parsed = BlueprintFileSchema.safeParse(template);
@@ -145,4 +146,14 @@ it('adds Bouncy Motion to Face-Only Body Motion, off by default and gated by its
  expect(into('bouncy-scale')).toEqual([['bouncy-gated', 'value', 'value'], ['bouncy-y', 'exit', 'flow'], ['fade', 'result', 'weight']]);
  for (const wire of graph.connections.filter(item => item.targetNodeId.startsWith('bouncy')))
   expect(connectionType(nodes.get(wire.sourceNodeId)!, wire.sourcePort, nodes.get(wire.targetNodeId)!, wire.targetPort)).not.toBeNull();
+});
+
+it('builds Pose Hotkeys for Control+Option+1..5 overlay poses', () => {
+ const parsed = BlueprintFileSchema.safeParse(poseTemplate);
+ expect(parsed.success).toBe(true);
+ const file = poseHotkeysTemplate({ id: 'performer', name: 'performer' });
+ expect(BlueprintFileSchema.safeParse(file).success).toBe(true);
+ expect(file.graph.nodes.filter(node => node.type === 'character.setOverlayPose').map(node => node.settings.pose)).toEqual(['rest', 'selfie', 'wave', 'mic', 'controller']);
+ const imported = importBlueprint(file, makeSmokeScene(), () => 'pose-hotkeys');
+ expect(imported).toMatchObject({ ok: true, data: { report: { enabled: true, missing: [], remapped: [] } } });
 });

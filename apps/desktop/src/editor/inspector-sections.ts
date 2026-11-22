@@ -19,7 +19,7 @@ export function sectionsFor(entity:SceneEntity,options:{expressions:boolean;mesh
  if(entity.kind==='environment')return [transform,section('environment','Environment')];
  if(entity.kind==='mesh'&&entity.source.kind==='asset')return [transform,section('prop','Prop'),...materials];
  if(entity.kind==='screen')return [transform,section('screen','Screen')];
- if(entity.kind==='avatar')return [transform,section('model','Model'),...(options.expressions?[section('expressions','Expressions')]:[]),...(options.meshes?[section('meshes','Meshes')]:[]),...materials,section('lighting','Lighting'),section('tracking','Tracking'),...(options.debug?[section('debug','Debug')]:[])];
+ if(entity.kind==='avatar')return [transform,section('model','Model'),...(options.expressions?[section('expressions','Expressions')]:[]),...(options.meshes?[section('meshes','Meshes')]:[]),...materials,section('lighting','Lighting'),section('animation','Animation'),section('tracking','Tracking'),...(options.debug?[section('debug','Debug')]:[])];
  if(entity.kind==='tracking')return [section('receiver','Receiver'),section('smoothing','Smoothing'),section('face','Face'),section('diagnostics','Diagnostics')];
  return [transform];
 }

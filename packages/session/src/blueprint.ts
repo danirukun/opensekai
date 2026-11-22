@@ -6,13 +6,14 @@ import type { BlendShapeEffect } from './blend-shapes';
 import type { LookAtEffect } from './look-at';
 import { DEBUG_EFFECT_KINDS, type DebugEffect, type DebugValueSample } from './debug-log';
 import { BlueprintLimitError, checkBlueprintValue, clearNodeState, cloneState, EVALUATORS, NO_ENV, type BlueprintValue, type Evaluator, type NodeRequest, type RunEnv, type RunState } from './blueprint-eval';
-import { BlueprintGraphSchema, blueprintPorts, nodeDefinition, connectionType, ownPort, unconnectedInputValue, type BlueprintConnection, type BlueprintGraph, type BlueprintNode, type Id, type PortShape, type Reply } from '@opensekai/contracts';
+import { BlueprintGraphSchema, blueprintPorts, nodeDefinition, connectionType, ownPort, unconnectedInputValue, type AvatarAnimation, type BlueprintConnection, type BlueprintGraph, type BlueprintNode, type Id, type PortShape, type Reply } from '@opensekai/contracts';
 
 export type SceneEffect =
  | { kind: 'setVisibility'; entityId: Id; visible: boolean }
  | { kind: 'toggleVisibility'; entityId: Id }
  | { kind: 'toggleMeshes'; entityId: Id; names: string[] }
  | { kind: 'setMeshesVisible'; entityId: Id; names: string[]; visible: boolean }
+ | { kind: 'setAvatarAnimation'; entityId: Id; animation: AvatarAnimation }
  | { kind: 'selectCamera'; outputId: Id; cameraId: Id };
 export type CharacterLayerEffect = BlendShapeEffect | LookAtEffect;
 export type BlueprintEffect = SceneEffect | OverrideWrite | OrbitWrite | ExpressionEffect | BoneLayerEffect | CharacterLayerEffect | DebugEffect;

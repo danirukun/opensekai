@@ -19,6 +19,7 @@ import { vmcPosesFor, withSendersStopped } from './vmc-send';
 import { dropGraphLookAts, EMPTY_LOOK_AT, lookAtOwners, sceneLookup, setLookAt, stepLookAt, type LookAtStates } from './look-at';
 import { advanceSpringResets, type SpringResetState } from './spring-resets';
 import { applyControls as applyVideoControls, checkControl, isControlOp, reconcilePlayback, screenPlayback, type ControlOp, type VideoPlaybacks } from './video-playback';
+import { composeAvatarAnimation, type AnimationRuntimes } from './avatar-animation-compose';
 export interface Session {
     inspect(): SceneView;
     replaceScene(scene: SceneView, expectedRevision: number): Reply<SceneView>;
@@ -78,6 +79,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
     // Never committed or saved: rebuilt by the Blueprint step of each tick.
     let boneOffsets: BoneOffsets = EMPTY_BONE_OFFSETS;
     let previousPoses = new Map<Id, AvatarPose>();
+    let animationRuntimes: AnimationRuntimes = new Map();
     let records = new Map<Id, AssetRecord>();
     const record = (assetId: Id) => records.get(assetId);
     const storeRecords = (list: readonly AssetRecord[]) => { records = new Map(list.flatMap(item => { const parsed = AssetRecordSchema.safeParse(item); return parsed.success ? [[parsed.data.id, parsed.data] as const] : []; })); };
@@ -332,6 +334,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             blendShapes = EMPTY_BLEND_SHAPES;
             lookAts = EMPTY_LOOK_AT;
             previousPoses = new Map();
+            animationRuntimes = new Map();
             videoPlayback = reconcilePlayback(new Map(), null, persistent, elapsed);
             return { ok: true, data: structuredClone(persistent) };
         },
@@ -560,8 +563,10 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             lastTrackingNowMs = trackingNowMs ?? elapsedMs;
             const live=tracking.evaluate(shown,trackingNowMs??elapsedMs,elapsedMs);
             lastTrackingStatus = live.trackingStatus;
-            previousPoses = new Map(live.avatarPoses.map(pose => [pose.avatarId, structuredClone(pose)]));
-            const faces = composeBlendShapes(composeExpressions(live.avatarPoses, expressions, persistent, record), blendShapes);
+            const animated = composeAvatarAnimation(live.avatarPoses, shown, elapsedMs, animationRuntimes);
+            animationRuntimes = animated.runtimes;
+            previousPoses = new Map(animated.poses.map(pose => [pose.avatarId, structuredClone(pose)]));
+            const faces = composeBlendShapes(composeExpressions(animated.poses, expressions, persistent, record), blendShapes);
             const avatarPoses = composeBoneOffsets(faces, looked.offsets);
             const springs = advanceSpringResets(springResets, scene, avatarPoses);
             springResets = springs.state;
