@@ -58,10 +58,10 @@ describe('lookChainKey (R27, R30)', () => {
 });
 
 describe('look quality (R30, D5)', () => {
-    it('makes the preview profile cheap and the others full', () => {
+    it('makes preview and performance cheap and production full', () => {
         expect(lookQuality('preview_v1')).toBe('cheap');
         expect(lookQuality('production_v1')).toBe('full');
-        expect(lookQuality('performance_v1')).toBe('full');
+        expect(lookQuality('performance_v1')).toBe('cheap');
     });
     it('is cheap for the preview tier or a group without highQuality', () => {
         expect(effectQuality(true, 'full')).toBe('full');

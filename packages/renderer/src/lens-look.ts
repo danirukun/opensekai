@@ -5,7 +5,7 @@ import { dof } from "three/addons/tsl/display/DepthOfFieldNode.js";
 import { film } from "three/addons/tsl/display/FilmNode.js";
 import { gaussianBlur } from "three/addons/tsl/display/GaussianBlurNode.js";
 import { lensflare } from "three/addons/tsl/display/LensflareNode.js";
-import { DEFAULT_CAMERA_EFFECTS, DEFAULT_CAMERA_LENS, bokehScale, dofFocalRangeWorld, type CameraEffects, type CameraLens, type QualityProfileId } from "@opensekai/contracts";
+import { DEFAULT_CAMERA_EFFECTS, DEFAULT_CAMERA_LENS, QUALITY_PROFILES, bokehScale, dofFocalRangeWorld, type CameraEffects, type CameraLens, type QualityProfileId } from "@opensekai/contracts";
 import { bloomComposite, bloomInput } from "./grading";
 
 // The look stack of the output camera (#343 R27-R33): depth of field, lens flare, anamorphic smear, and film grain.
@@ -37,7 +37,7 @@ export const ANAMORPHIC_TINT = [0.55, 0.75, 1] as const;
 /** The bloom that feeds flare and smear when the grading has no bloom. It is not added to the frame. */
 export const LOOK_BLOOM = { strength: 1, radius: 0.4, threshold: 0.8 } as const;
 
-export const lookQuality = (profile: QualityProfileId): LookQuality => (profile === "preview_v1" ? "cheap" : "full");
+export const lookQuality = (profile: QualityProfileId): LookQuality => QUALITY_PROFILES[profile].effectsQuality;
 export const effectQuality = (highQuality: boolean, quality: LookQuality): LookQuality => (highQuality && quality === "full" ? "full" : "cheap");
 
 export const activeLook = (effects: CameraEffects | null | undefined): ActiveLook => ({
