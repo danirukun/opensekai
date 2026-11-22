@@ -139,6 +139,30 @@ object!(CameraPixelate {
     enabled: bool,
     intensity: u16
 });
+// Look-stack effect groups (#343 R14-R17). Nested here, not a separate schema (D9), so they share
+// one `setCameraEffects` patch with the B37 groups above.
+object!(CameraDepthOfField {
+    enabled: bool,
+    high_quality: bool,
+    focus_speed: f64
+});
+object!(CameraLensFlare {
+    enabled: bool,
+    high_quality: bool,
+    threshold: f64,
+    intensity: f64
+});
+object!(CameraAnamorphicFlare {
+    enabled: bool,
+    high_quality: bool,
+    intensity: f64,
+    spread: f64,
+    vertical: bool
+});
+object!(CameraFilmGrain {
+    enabled: bool,
+    intensity: f64
+});
 object!(CameraEffects {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     lens_dirt: Option<CameraLensDirt>,
@@ -149,7 +173,15 @@ object!(CameraEffects {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     blur: Option<CameraBlur>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pixelate: Option<CameraPixelate>
+    pixelate: Option<CameraPixelate>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    depth_of_field: Option<CameraDepthOfField>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    lens_flare: Option<CameraLensFlare>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    anamorphic_flare: Option<CameraAnamorphicFlare>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    film_grain: Option<CameraFilmGrain>
 });
 // Avatar lighting: rim, shade shadows, and environment fill for MToon avatars.
 object!(AvatarLighting {
@@ -189,11 +221,136 @@ object!(EntityBase {
     visible: bool,
     transform: Transform
 });
-object!(Lens {
+// Physical camera lens (CAM-16, Task 2). Mirrors `lens-math.ts` and `LensSchema` in `schema.ts`.
+strings!(SensorPreset { FullFrame=>"fullFrame", Super35=>"super35", ApsC=>"apsC", Mft=>"mft" });
+impl SensorPreset {
+    /// Sensor height in mm; mirrors `SENSOR_PRESETS` in `lens-math.ts`.
+    fn height_mm(&self) -> f64 {
+        match self {
+            Self::FullFrame => 24.,
+            Self::Super35 => 18.66,
+            Self::ApsC => 15.6,
+            Self::Mft => 13.,
+        }
+    }
+}
+const DEFAULT_LENS_F_STOP: f64 = 4.;
+const DEFAULT_LENS_FOCUS_DISTANCE: f64 = 3.;
+fn vertical_fov_degrees(focal_length_mm: f64, sensor_height_mm: f64) -> f64 {
+    2. * (sensor_height_mm / 2. / focal_length_mm).atan() * (180. / std::f64::consts::PI)
+}
+fn focal_length_mm_from_vertical_fov(fov_degrees: f64, sensor_height_mm: f64) -> f64 {
+    let clamped = fov_degrees.clamp(1., 179.);
+    sensor_height_mm / 2. / ((clamped * (std::f64::consts::PI / 180.)) / 2.).tan()
+}
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Lens {
+    pub focal_length_mm: f64,
+    pub f_stop: f64,
+    pub focus_distance: f64,
+    pub autofocus: bool,
+    pub sensor_preset: SensorPreset,
+    pub fov_degrees: f64,
+    pub near: f64,
+    pub far: f64,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct LensFull {
+    focal_length_mm: f64,
+    f_stop: f64,
+    focus_distance: f64,
+    autofocus: bool,
+    sensor_preset: SensorPreset,
+    #[allow(dead_code)]
     fov_degrees: f64,
     near: f64,
-    far: f64
-});
+    far: f64,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct LegacyLens {
+    fov_degrees: f64,
+    near: f64,
+    far: f64,
+}
+impl From<LensFull> for Lens {
+    // D12: fovDegrees always recomputes from the physical fields, so a stale readout cannot drift.
+    fn from(l: LensFull) -> Self {
+        Self {
+            fov_degrees: vertical_fov_degrees(l.focal_length_mm, l.sensor_preset.height_mm()),
+            focal_length_mm: l.focal_length_mm,
+            f_stop: l.f_stop,
+            focus_distance: l.focus_distance,
+            autofocus: l.autofocus,
+            sensor_preset: l.sensor_preset,
+            near: l.near,
+            far: l.far,
+        }
+    }
+}
+impl From<LegacyLens> for Lens {
+    // D12: a legacy `{fovDegrees,near,far}` triple migrates once through Full Frame.
+    fn from(l: LegacyLens) -> Self {
+        let sensor_preset = SensorPreset::FullFrame;
+        let focal_length_mm = focal_length_mm_from_vertical_fov(l.fov_degrees, sensor_preset.height_mm());
+        Self {
+            fov_degrees: vertical_fov_degrees(focal_length_mm, sensor_preset.height_mm()),
+            focal_length_mm,
+            f_stop: DEFAULT_LENS_F_STOP,
+            focus_distance: DEFAULT_LENS_FOCUS_DISTANCE,
+            autofocus: false,
+            sensor_preset,
+            near: l.near,
+            far: l.far,
+        }
+    }
+}
+fn is_legacy_lens_shape(obj: &serde_json::Map<String, Value>) -> bool {
+    obj.len() == 3 && obj.contains_key("fovDegrees") && obj.contains_key("near") && obj.contains_key("far")
+}
+impl<'de> serde::Deserialize<'de> for Lens {
+    // Accepts a full physical lens or a legacy three-field lens (D12); either shape ends up full.
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = Value::deserialize(deserializer)?;
+        if let Some(obj) = value.as_object() {
+            if is_legacy_lens_shape(obj) {
+                let legacy: LegacyLens = serde_json::from_value(value).map_err(serde::de::Error::custom)?;
+                return Ok(legacy.into());
+            }
+        }
+        let full: LensFull = serde_json::from_value(value).map_err(serde::de::Error::custom)?;
+        Ok(full.into())
+    }
+}
+/// Expands a legacy lens JSON value to the full physical shape, leaving any other shape untouched
+/// so `Lens`'s own deserialize and `Validate` report the real error. Keeps the `decode` round-trip
+/// `shape` check (which requires the same key count on both sides) correct for legacy callers.
+fn migrate_legacy_lens(value: &Value) -> Value {
+    match value {
+        Value::Object(o) => Value::Object(
+            o.iter()
+                .map(|(k, v)| (k.clone(), if k == "lens" { expand_legacy_lens_value(v) } else { migrate_legacy_lens(v) }))
+                .collect(),
+        ),
+        Value::Array(a) => Value::Array(a.iter().map(migrate_legacy_lens).collect()),
+        _ => value.clone(),
+    }
+}
+fn expand_legacy_lens_value(lens_value: &Value) -> Value {
+    if let Some(obj) = lens_value.as_object() {
+        if is_legacy_lens_shape(obj) {
+            if let Ok(legacy) = serde_json::from_value::<LegacyLens>(lens_value.clone()) {
+                return serde_json::to_value(Lens::from(legacy)).expect("lens serializes");
+            }
+        }
+    }
+    migrate_legacy_lens(lens_value)
+}
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub enum MeshSource {
@@ -412,8 +569,31 @@ impl Validate for CameraEffects {
             .pixelate
             .as_ref()
             .is_none_or(|p| (1..=256).contains(&p.intensity));
+        let depth_of_field = self
+            .depth_of_field
+            .as_ref()
+            .is_none_or(|d| within(d.focus_speed, 0., 1.));
+        let lens_flare = self
+            .lens_flare
+            .as_ref()
+            .is_none_or(|l| within(l.threshold, 0., 1.) && within(l.intensity, 0., 4.));
+        let anamorphic_flare = self
+            .anamorphic_flare
+            .as_ref()
+            .is_none_or(|a| within(a.intensity, 0., 1.) && within(a.spread, 0., 1.));
+        let film_grain = self
+            .film_grain
+            .as_ref()
+            .is_none_or(|f| within(f.intensity, 0., 1.));
         require(
-            dirt && vignetting && night_vision && blur && pixelate,
+            dirt && vignetting
+                && night_vision
+                && blur
+                && pixelate
+                && depth_of_field
+                && lens_flare
+                && anamorphic_flare
+                && film_grain,
             "invalid camera effects",
         )
     }
@@ -2783,11 +2963,14 @@ fn require(condition: bool, message: &str) -> Result<(), AppError> {
     }
 }
 fn decode<T: serde::de::DeserializeOwned + Serialize>(value: &Value) -> Result<T, AppError> {
-    let normalized = normalize_numbers(value);
+    // Migrate any legacy lens before the round-trip `shape` check, so a caller sending the old
+    // three-field lens still passes: input and canonical then agree on key count (D12).
+    let value = migrate_legacy_lens(value);
+    let normalized = normalize_numbers(&value);
     scalar_checks(&normalized)?;
     let typed: T = serde_json::from_value(normalized).map_err(|e| invalid(e.to_string()))?;
     shape(
-        value,
+        &value,
         &serde_json::to_value(&typed).map_err(|e| invalid(e.to_string()))?,
     )?;
     Ok(typed)
@@ -2817,7 +3000,13 @@ impl Validate for Lens {
     fn validate(&self) -> Result<(), AppError> {
         scalar_checks(&serde_json::to_value(self).map_err(|e| invalid(e.to_string()))?)?;
         require(
-            self.fov_degrees.is_finite()
+            self.focal_length_mm.is_finite()
+                && (12. ..=300.).contains(&self.focal_length_mm)
+                && self.f_stop.is_finite()
+                && (1. ..=32.).contains(&self.f_stop)
+                && self.focus_distance.is_finite()
+                && self.focus_distance > 0.
+                && self.fov_degrees.is_finite()
                 && (1. ..=179.).contains(&self.fov_degrees)
                 && self.near.is_finite()
                 && self.far.is_finite()

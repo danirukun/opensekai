@@ -1,11 +1,16 @@
 import {it,expect} from 'vitest';
-import {ScenePatchSchema,SceneViewSchema,TrackingCalibrationSchema,TrackingMappingSchema,DEFAULT_TRACKING_MAPPING,CALIBRATION_BONES,FINGER_BONES,ARKIT_NAMES} from '../src/index';
+import {ScenePatchSchema,SceneViewSchema,TrackingCalibrationSchema,TrackingMappingSchema,DEFAULT_TRACKING_MAPPING,CALIBRATION_BONES,FINGER_BONES,ARKIT_NAMES,normalizeLens} from '../src/index';
 import fixture from '../../../fixtures/protocol/tracking-overrides.json';
 const patch=(operation:unknown)=>ScenePatchSchema.safeParse({sceneId:'scene',expectedRevision:1,operations:[operation]}).success;
 const neutral={rotation:[0,0,0,1],space:'normalized'};
 const mapping=fixture.withFields.entities[3]!.mapping!;
+// The camera lens migrates to the full physical shape on parse (D12); every other field round-trips unchanged.
 it('round-trips the fixture scenes with and without the B6 fields unchanged',()=>{
- for(const scene of [fixture.withFields,fixture.withoutFields]){const parsed=SceneViewSchema.parse(scene);expect(JSON.parse(JSON.stringify(parsed))).toEqual(scene);}
+ for(const scene of [fixture.withFields,fixture.withoutFields]){
+  const parsed=SceneViewSchema.parse(scene);
+  const expected={...scene,entities:scene.entities.map(e=>e.kind==='camera'?{...e,lens:normalizeLens(e.lens)}:e)};
+  expect(JSON.parse(JSON.stringify(parsed))).toEqual(expected);
+ }
  expect(JSON.stringify(SceneViewSchema.parse(fixture.withoutFields))).not.toContain('fingersSourceId');
 });
 it('accepts the three new operations and checks the calibration shape',()=>{

@@ -165,7 +165,9 @@ const withPending = (layers: PropertyLayers, end: TransitionEnd | undefined): Re
 };
 // Set Asset Property with a transition starts a tween. Each other write goes to the override layer and stops the tween of its property.
 export function writeTransitioned(layers: PropertyLayers, scene: SceneView, write: OverrideWrite, graphId: Id, nowMs: number, startMs = nowMs, end?: TransitionEnd): Reply<PropertyLayers> {
- if (write.kind === 'setProperty' && write.transition && write.transition.seconds > 0 && assetProperty(write.property).type !== 'boolean') {
+ // Boolean and string (sensorPreset) properties snap; only number and vector3 properties ease over the transition.
+ const tweenableType = write.kind === 'setProperty' && (assetProperty(write.property).type === 'number' || assetProperty(write.property).type === 'vector3');
+ if (write.kind === 'setProperty' && write.transition && write.transition.seconds > 0 && tweenableType) {
   const started = startTween(layers.tweens, scene, layers.overrides, write, write.transition, graphId, startMs, end);
   if (!started.ok) return started;
   const next = { ...layers, tweens: started.data };

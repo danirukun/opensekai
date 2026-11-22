@@ -4,9 +4,9 @@ import { FrameAppliedSchema, PatchOpSchema, QUALITY_PROFILES, SceneEntitySchema,
 describe("quality profiles", () => {
     it("keeps the frozen v1 values", () => {
         expect(QUALITY_PROFILES).toEqual({
-            preview_v1: { id: "preview_v1", resolutionScale: 0.5, maxTextureSize: 1024, msaaSamples: 4 },
-            production_v1: { id: "production_v1", resolutionScale: 1, maxTextureSize: 2048, msaaSamples: 4 },
-            performance_v1: { id: "performance_v1", resolutionScale: 1, maxTextureSize: 1024, msaaSamples: 0 },
+            preview_v1: { id: "preview_v1", resolutionScale: 0.5, maxTextureSize: 1024, msaaSamples: 4, effectsQuality: "cheap" },
+            production_v1: { id: "production_v1", resolutionScale: 1, maxTextureSize: 2048, msaaSamples: 4, effectsQuality: "full" },
+            performance_v1: { id: "performance_v1", resolutionScale: 1, maxTextureSize: 1024, msaaSamples: 0, effectsQuality: "cheap" },
         });
         expect(Object.isFrozen(QUALITY_PROFILES.production_v1)).toBe(true);
     });

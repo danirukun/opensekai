@@ -16,6 +16,14 @@ describe("camera effects schema (R1, R2, R4)", () => {
         ["Pixelate 256", { pixelate: { enabled: true, intensity: 256 } }],
         ["a lens dirt image", { lensDirt: { ...D.lensDirt, assetId: "image_dirt" } }],
         ["the range ends", { vignetting: { enabled: true, color: "#000000", alpha: 1, fadeOut: 1, blink: 1 }, blur: { enabled: true, intensity: 4 }, lensDirt: { assetId: null, intensity: 0, threshold: 1 } }],
+        ["Depth Of Field focusSpeed 0", { depthOfField: { ...D.depthOfField, focusSpeed: 0 } }],
+        ["Depth Of Field focusSpeed 1", { depthOfField: { ...D.depthOfField, focusSpeed: 1 } }],
+        ["Lens Flare threshold 0, intensity 0", { lensFlare: { ...D.lensFlare, threshold: 0, intensity: 0 } }],
+        ["Lens Flare threshold 1, intensity 4", { lensFlare: { ...D.lensFlare, threshold: 1, intensity: 4 } }],
+        ["Anamorphic Flare intensity 0, spread 0", { anamorphicFlare: { ...D.anamorphicFlare, intensity: 0, spread: 0 } }],
+        ["Anamorphic Flare intensity 1, spread 1, vertical", { anamorphicFlare: { ...D.anamorphicFlare, intensity: 1, spread: 1, vertical: true } }],
+        ["Film Grain intensity 0", { filmGrain: { ...D.filmGrain, intensity: 0 } }],
+        ["Film Grain intensity 1", { filmGrain: { ...D.filmGrain, intensity: 1 } }],
     ])("accepts %s", (_, effects) => expect(accepts(effects)).toBe(true));
     it.each([
         ["an unknown key", { bloom: {} }],
@@ -36,6 +44,19 @@ describe("camera effects schema (R1, R2, R4)", () => {
         ["an upper-case colour", { vignetting: { ...D.vignetting, color: "#4C4C4C" } }],
         ["a colour with alpha", { nightVision: { ...D.nightVision, color: "#4c4c4c80" } }],
         ["a null group", { blur: null }],
+        ["Depth Of Field focusSpeed -0.01", { depthOfField: { ...D.depthOfField, focusSpeed: -0.01 } }],
+        ["Depth Of Field focusSpeed 1.01", { depthOfField: { ...D.depthOfField, focusSpeed: 1.01 } }],
+        ["an unknown field in Depth Of Field", { depthOfField: { ...D.depthOfField, bokeh: 1 } }],
+        ["Lens Flare threshold -0.01", { lensFlare: { ...D.lensFlare, threshold: -0.01 } }],
+        ["Lens Flare threshold 1.01", { lensFlare: { ...D.lensFlare, threshold: 1.01 } }],
+        ["Lens Flare intensity 4.01", { lensFlare: { ...D.lensFlare, intensity: 4.01 } }],
+        ["a missing field in Lens Flare", { lensFlare: { enabled: false, highQuality: true, threshold: 0.5 } }],
+        ["Anamorphic Flare intensity -0.01", { anamorphicFlare: { ...D.anamorphicFlare, intensity: -0.01 } }],
+        ["Anamorphic Flare intensity 1.01", { anamorphicFlare: { ...D.anamorphicFlare, intensity: 1.01 } }],
+        ["Anamorphic Flare spread -0.01", { anamorphicFlare: { ...D.anamorphicFlare, spread: -0.01 } }],
+        ["Anamorphic Flare spread 1.01", { anamorphicFlare: { ...D.anamorphicFlare, spread: 1.01 } }],
+        ["Film Grain intensity -0.01", { filmGrain: { ...D.filmGrain, intensity: -0.01 } }],
+        ["Film Grain intensity 1.01", { filmGrain: { ...D.filmGrain, intensity: 1.01 } }],
     ])("rejects %s", (_, effects) => expect(accepts(effects)).toBe(false));
     it("has frozen defaults with the Warudo values", () => {
         expect(D).toEqual({
@@ -44,6 +65,10 @@ describe("camera effects schema (R1, R2, R4)", () => {
             nightVision: { enabled: false, color: "#80ff80", alpha: 0.502 },
             blur: { enabled: false, intensity: 1 },
             pixelate: { enabled: false, intensity: 16 },
+            depthOfField: { enabled: false, highQuality: true, focusSpeed: 0.35 },
+            lensFlare: { enabled: false, highQuality: true, threshold: 0.5, intensity: 1 },
+            anamorphicFlare: { enabled: false, highQuality: true, intensity: 0.5, spread: 0.5, vertical: false },
+            filmGrain: { enabled: false, intensity: 0.15 },
         });
         expect(Object.isFrozen(D) && Object.values(D).every(Object.isFrozen)).toBe(true);
         expect(CameraEffectsSchema.safeParse(D).success).toBe(true);

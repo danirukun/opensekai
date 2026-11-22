@@ -1,15 +1,16 @@
 import {describe,it,expect} from 'vitest';
-import {makeSmokeScene,defaultTrackingConfig,type SceneEntity} from '@opensekai/contracts';
+import {makeSmokeScene,defaultTrackingConfig,DEFAULT_CAMERA_LENS,lensWithFovDegrees,type SceneEntity} from '@opensekai/contracts';
 import {createSession} from '../src/session';
 const base={name:'Source',visible:true,transform:{position:[0,0,0],rotation:[0,0,0,1],scale:[1,1,1]}};
+const lensOf=(fovDegrees:number,near:number,far:number)=>({...lensWithFovDegrees(DEFAULT_CAMERA_LENS,fovDegrees),near,far});
 function setup(faceKind:'ifacialmocap'|'mediapipe'='ifacialmocap'){const s=createSession(makeSmokeScene(),'test');for(const [id,kind] of [['body','vmc'],['face',faceKind]] as const){const config=defaultTrackingConfig(kind);config.enabled=true;expect(s.applyPatch({sceneId:'scene_smoke',expectedRevision:s.inspect().revision,operations:[{kind:'createEntity',entity:{...base,id,kind:'tracking',generation:0,config} as SceneEntity}]}).ok).toBe(true);}expect(s.applyPatch({sceneId:'scene_smoke',expectedRevision:2,operations:[{kind:'setAvatarTracking',entityId:'performer',tracking:{bodySourceId:'body',faceSourceId:'face'}}]}).ok).toBe(true);return s;}
 describe('live scene authoring',()=>{
- it('creates stable ECS entities and stamps generations with one atomic revision',()=>{const s=createSession(makeSmokeScene(),'test');const entity={...base,id:'newcam',kind:'camera',lens:{fovDegrees:40,near:.01,far:100}} as SceneEntity;
- expect(s.applyPatch({sceneId:'scene_smoke',expectedRevision:0,operations:[{kind:'createEntity',entity},{kind:'setCameraLens',entityId:'newcam',lens:{fovDegrees:55,near:.1,far:50}}]})).toEqual({ok:true,data:{revision:1}});
- expect(s.advance(0).scene.entities.find(e=>e.id==='newcam')).toMatchObject({lens:{fovDegrees:55}});const before=s.inspect();
+ it('creates stable ECS entities and stamps generations with one atomic revision',()=>{const s=createSession(makeSmokeScene(),'test');const entity={...base,id:'newcam',kind:'camera',lens:lensOf(40,.01,100)} as SceneEntity;
+ expect(s.applyPatch({sceneId:'scene_smoke',expectedRevision:0,operations:[{kind:'createEntity',entity},{kind:'setCameraLens',entityId:'newcam',lens:lensOf(55,.1,50)}]})).toEqual({ok:true,data:{revision:1}});
+ expect((s.advance(0).scene.entities.find(e=>e.id==='newcam') as SceneEntity&{lens:{fovDegrees:number}}).lens.fovDegrees).toBeCloseTo(55,9);const before=s.inspect();
  expect(s.applyPatch({sceneId:'scene_smoke',expectedRevision:1,operations:[{kind:'setVisibility',entityId:'marker',visible:false},{kind:'createEntity',entity}]}).ok).toBe(false);expect(s.inspect()).toEqual(before);});
  it('rejects incompatible references/wrong entity kinds without a partial commit',()=>{const s=setup();const before=s.inspect();expect(s.applyPatch({sceneId:'scene_smoke',expectedRevision:3,operations:[{kind:'setAvatarTracking',entityId:'performer',tracking:{bodySourceId:'face',faceSourceId:null}}]}).ok).toBe(false);expect(s.inspect()).toEqual(before);
- expect(s.applyPatch({sceneId:'scene_smoke',expectedRevision:3,operations:[{kind:'setCameraLens',entityId:'performer',lens:{fovDegrees:40,near:.1,far:10}}]}).ok).toBe(false);expect(s.inspect()).toEqual(before);});
+ expect(s.applyPatch({sceneId:'scene_smoke',expectedRevision:3,operations:[{kind:'setCameraLens',entityId:'performer',lens:lensOf(40,.1,10)}]}).ok).toBe(false);expect(s.inspect()).toEqual(before);});
 });
 describe('source composition at simulation cadence',()=>{
  it('uses assigned body+face independently of arrival order and keeps pose transient',()=>{const s=setup();const before=s.inspect();const q=[0,Math.SQRT1_2,0,Math.SQRT1_2] as [number,number,number,number];

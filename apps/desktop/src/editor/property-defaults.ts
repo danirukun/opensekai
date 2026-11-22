@@ -25,7 +25,7 @@ function configValues(config:Extract<SceneEntity,{kind:'tracking'}>['config']):R
 // The current value of each field as the Inspector shows it: a missing optional field takes its fallback (R2).
 export function valuesFor(entity:SceneEntity):Record<string,unknown> {
  const base=entity.kind==='tracking'||entity.kind==='vmcSender'?{}:{visible:entity.visible,...entity.transform};
- if(entity.kind==='camera')return {...base,renderEnvironment:entity.renderEnvironment!==false,antiAliasing:entity.antiAliasing??'none',...gradingValues(entity.grading),...effectValues(entity.effects),fovDegrees:entity.lens.fovDegrees,near:entity.lens.near,far:entity.lens.far,controlMode:entity.navigation?.mode??'none',sensitivity:entity.navigation&&entity.navigation.mode!=='none'?entity.navigation.sensitivity:undefined};
+ if(entity.kind==='camera')return {...base,renderEnvironment:entity.renderEnvironment!==false,antiAliasing:entity.antiAliasing??'none',...gradingValues(entity.grading),...effectValues(entity.effects),...entity.lens,controlMode:entity.navigation?.mode??'none',sensitivity:entity.navigation&&entity.navigation.mode!=='none'?entity.navigation.sensitivity:undefined};
  if(entity.kind==='light')return {...base,...lightValues(entity.light)};
  if(entity.kind==='haze')return {...base,...entity.haze};
  if(entity.kind==='fpsCounter')return {...base,...entity.fpsCounter};
@@ -53,7 +53,8 @@ export function defaultsFor(entity:SceneEntity):EntityDefaults {
 // The reset fields that the Inspector shows for this entity and its light type (R3). The fields of R4 never appear.
 export function resetFieldIds(entity:SceneEntity):string[] {
  const base=entity.kind==='tracking'?[]:['visible','position','rotation','scale'];
- if(entity.kind==='camera')return [...base,'renderEnvironment','antiAliasing',...GRADING_FIELD_IDS,...shownEffectFields(entity.effects),'fovDegrees','near','far','controlMode',...(entity.navigation&&entity.navigation.mode!=='none'?['sensitivity']:[])];
+ // fovDegrees is a derived readout (D12), not an independent field, so it carries no reset mark of its own.
+ if(entity.kind==='camera')return [...base,'renderEnvironment','antiAliasing',...GRADING_FIELD_IDS,...shownEffectFields(entity.effects),'focalLengthMm','fStop','focusDistance','autofocus','sensorPreset','near','far','controlMode',...(entity.navigation&&entity.navigation.mode!=='none'?['sensitivity']:[])];
  if(entity.kind==='light'){
   const {type,shadow}=entity.light,placed=type==='point'||type==='spot';
   return [...base,'color','intensity',...(placed?['range']:[]),...(type==='spot'?['angleDegrees','penumbra','beam',...(entity.light.beam?.enabled?['beamIntensity','beamSoftness']:[])]:[]),...(placed?['volumetric']:[]),'affectCharacters','affectProps','affectEnvironment',...(type!=='ambient'?['shadow']:[]),...(type!=='ambient'&&shadow.enabled?['shadowIntensity','soft','bias','normalBias']:[])];

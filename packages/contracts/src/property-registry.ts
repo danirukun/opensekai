@@ -1,10 +1,15 @@
 import { avatarLighting, DEFAULT_AVATAR_LIGHTING } from './avatar-lighting';
+import { lensWithFocalLength, lensWithFovDegrees, lensWithSensorPreset } from './lens';
+import { SENSOR_PRESETS, type SensorPresetId } from './lens-math';
 import type { Id, Reply, SceneEntity, Vec3 } from './types';
 
-export type PropertyType = 'number' | 'boolean' | 'vector3';
-export type PropertyValue = number | boolean | Vec3;
-export type PropertyRule = { kind: 'finite' } | { kind: 'positive' } | { kind: 'range'; min: number; max: number } | { kind: 'boolean' };
-export const PROPERTY_KEYS = ['position', 'rotation', 'scale', 'visible', 'fovDegrees', 'renderEnvironment', 'intensity', 'hazeDensity', 'rimStrength'] as const;
+export type PropertyType = 'number' | 'boolean' | 'vector3' | 'string';
+export type PropertyValue = number | boolean | Vec3 | string;
+export type PropertyRule = { kind: 'finite' } | { kind: 'positive' } | { kind: 'range'; min: number; max: number } | { kind: 'boolean' } | { kind: 'oneOf'; values: readonly string[] };
+export const PROPERTY_KEYS = [
+ 'position', 'rotation', 'scale', 'visible', 'fovDegrees', 'focalLengthMm', 'fStop', 'focusDistance', 'autofocus', 'sensorPreset', 'renderEnvironment',
+ 'intensity', 'hazeDensity', 'rimStrength'
+] as const;
 export type PropertyKey = (typeof PROPERTY_KEYS)[number];
 type Kind = SceneEntity['kind'];
 export interface AssetProperty { key: PropertyKey; label: string; kinds: readonly Kind[]; type: PropertyType; rule: PropertyRule }
@@ -22,6 +27,11 @@ export const PROPERTY_REGISTRY: readonly AssetProperty[] = [
  { key: 'scale', label: 'Scale', kinds: sized, type: 'vector3', rule: { kind: 'positive' } },
  { key: 'visible', label: 'Visible', kinds: shown, type: 'boolean', rule: { kind: 'boolean' } },
  { key: 'fovDegrees', label: 'Field of View', kinds: ['camera'], type: 'number', rule: { kind: 'range', min: 1, max: 179 } },
+ { key: 'focalLengthMm', label: 'Focal Length', kinds: ['camera'], type: 'number', rule: { kind: 'range', min: 12, max: 300 } },
+ { key: 'fStop', label: 'Aperture (f-stop)', kinds: ['camera'], type: 'number', rule: { kind: 'range', min: 1, max: 32 } },
+ { key: 'focusDistance', label: 'Focus Distance', kinds: ['camera'], type: 'number', rule: { kind: 'positive' } },
+ { key: 'autofocus', label: 'Autofocus', kinds: ['camera'], type: 'boolean', rule: { kind: 'boolean' } },
+ { key: 'sensorPreset', label: 'Sensor', kinds: ['camera'], type: 'string', rule: { kind: 'oneOf', values: Object.keys(SENSOR_PRESETS) } },
  { key: 'renderEnvironment', label: 'Render Environment', kinds: ['camera'], type: 'boolean', rule: { kind: 'boolean' } },
  { key: 'intensity', label: 'Intensity', kinds: ['light'], type: 'number', rule: { kind: 'range', min: 0, max: 1000 } },
  { key: 'hazeDensity', label: 'Haze Density', kinds: ['haze'], type: 'number', rule: { kind: 'range', min: 0, max: 2 } },
@@ -57,6 +67,7 @@ export function propertyValueValid(key: PropertyKey, value: unknown): value is P
  const { type, rule } = assetProperty(key);
  if (type === 'boolean') return typeof value === 'boolean';
  if (type === 'vector3') return isVec3(value) && (rule.kind !== 'positive' || value.every(n => n > 0));
+ if (type === 'string') return typeof value === 'string' && rule.kind === 'oneOf' && rule.values.includes(value);
  return typeof value === 'number' && Number.isFinite(value) && (rule.kind !== 'range' || (value >= rule.min && value <= rule.max));
 }
 export function readProperty(entity: SceneEntity, key: PropertyKey): PropertyValue | undefined {
@@ -67,6 +78,11 @@ export function readProperty(entity: SceneEntity, key: PropertyKey): PropertyVal
   case 'scale': return [...entity.transform.scale] as Vec3;
   case 'visible': return entity.visible;
   case 'fovDegrees': return entity.kind === 'camera' ? entity.lens.fovDegrees : undefined;
+  case 'focalLengthMm': return entity.kind === 'camera' ? entity.lens.focalLengthMm : undefined;
+  case 'fStop': return entity.kind === 'camera' ? entity.lens.fStop : undefined;
+  case 'focusDistance': return entity.kind === 'camera' ? entity.lens.focusDistance : undefined;
+  case 'autofocus': return entity.kind === 'camera' ? entity.lens.autofocus : undefined;
+  case 'sensorPreset': return entity.kind === 'camera' ? entity.lens.sensorPreset : undefined;
   case 'renderEnvironment': return entity.kind === 'camera' ? entity.renderEnvironment !== false : undefined;
   case 'intensity': return entity.kind === 'light' ? entity.light.intensity : undefined;
   case 'hazeDensity': return entity.kind === 'haze' ? entity.haze.density : undefined;
@@ -83,7 +99,13 @@ export function writeProperty(entity: SceneEntity, key: PropertyKey, value: Prop
   case 'rotation': next.transform.rotation = quaternionFromEuler(value as Vec3); break;
   case 'scale': next.transform.scale = [...(value as Vec3)]; break;
   case 'visible': next.visible = value as boolean; break;
-  case 'fovDegrees': if (next.kind === 'camera') next.lens = { ...next.lens, fovDegrees: value as number }; break;
+  // fovDegrees and focalLengthMm each convert through the physical lens (D12), so the other stays in sync.
+  case 'fovDegrees': if (next.kind === 'camera') next.lens = lensWithFovDegrees(next.lens, value as number); break;
+  case 'focalLengthMm': if (next.kind === 'camera') next.lens = lensWithFocalLength(next.lens, value as number); break;
+  case 'fStop': if (next.kind === 'camera') next.lens = { ...next.lens, fStop: value as number }; break;
+  case 'focusDistance': if (next.kind === 'camera') next.lens = { ...next.lens, focusDistance: value as number }; break;
+  case 'autofocus': if (next.kind === 'camera') next.lens = { ...next.lens, autofocus: value as boolean }; break;
+  case 'sensorPreset': if (next.kind === 'camera') next.lens = lensWithSensorPreset(next.lens, value as SensorPresetId); break;
   // An absent field reads true; writing true keeps it absent, so the write is a no-op and the show shape stays the same.
   case 'renderEnvironment': if (next.kind === 'camera' && (value === false || next.renderEnvironment !== undefined)) next.renderEnvironment = value as boolean; break;
   case 'intensity': if (next.kind === 'light') next.light = { ...next.light, intensity: value as number }; break;

@@ -1,8 +1,12 @@
 import type {SceneEntity,TrackingStatus,TrackingConfig} from '@opensekai/contracts';
+import {DEFAULT_CAMERA_LENS} from '@opensekai/contracts';
 import {describe,it,expect} from 'vitest';
 import {parseLens,reconcileDraft,sourceOptions,parseTrackingConfig,matchingStatus,initialTrackingDraft,cameraOptions,sourceUsers} from '../src/editor/live-fields';
 describe('live property drafts',()=>{
- it('validates the complete lens',()=>{expect(parseLens({fovDegrees:'60',near:'0.1',far:'100'})).toEqual({fovDegrees:60,near:.1,far:100});for(const values of [{fovDegrees:'',near:'1',far:'2'},{fovDegrees:'180',near:'1',far:'2'},{fovDegrees:'60',near:'2',far:'2'}])expect(parseLens(values)).toBeNull();});
+ it('validates Near and Far on the current physical lens',()=>{
+  expect(parseLens(DEFAULT_CAMERA_LENS,{near:'0.1',far:'100'})).toEqual({...DEFAULT_CAMERA_LENS,near:.1,far:100});
+  for(const clips of [{near:'',far:'2'},{near:'2',far:'2'}])expect(parseLens(DEFAULT_CAMERA_LENS,clips)).toBeNull();
+ });
  it('retains ordinary drafts through equal polls and resets on revision or selection change',()=>{const draft={value:'unfinished'};expect(reconcileDraft('a:2',{entityId:'a',revision:2},draft,{value:'base'}).values).toBe(draft);expect(reconcileDraft('a:2',{entityId:'a',revision:3},draft,{value:'base'}).values).toEqual({value:'base'});expect(reconcileDraft('a:2',{entityId:'b',revision:2},draft,{value:'base'}).values).toEqual({value:'base'});});
  it('excludes face-only sources from body choices',()=>{const base={visible:true,transform:{position:[0,0,0],rotation:[0,0,0,1],scale:[1,1,1]},generation:0};const sources=[{...base,id:'face',name:'Phone',kind:'tracking',config:{kind:'ifacialmocap'}},{...base,id:'body',name:'VMC',kind:'tracking',config:{kind:'vmc'}},{...base,id:'osf',name:'OpenSeeFace',kind:'tracking',config:{kind:'openseeface'}}] as SceneEntity[];expect(sourceOptions(sources,'body','avatar').map(x=>x.value)).toEqual(['','body']);expect(sourceOptions(sources,'fingers','avatar').map(x=>x.value)).toEqual(['','body']);expect(sourceOptions(sources,'face','avatar').map(x=>x.value)).toEqual(['','face','body','osf']);});
  it('disables a source that another avatar uses and keeps the current value enabled',()=>{

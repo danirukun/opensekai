@@ -2,8 +2,9 @@ import { assertEditorScope, createEditorViewport, createHazeHelper, createLightH
 import type { EditorOptions, EditorHandle } from './editor-viewport';
 import { Scene, Mesh, BoxGeometry, MeshStandardNodeMaterial, PerspectiveCamera, Object3D } from "three/webgpu";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
-import type { RuntimeFrame, FrameApplied, RendererDiagnostics, CaptureBytes, Id, ResourceHost, AppError, AssetDebug, SceneEntity, QualityProfile, ScreenshotBytes, OutputSpec } from "@opensekai/contracts";
-import { LIMITS, RuntimeFrameSchema, avatarLighting } from "@opensekai/contracts";
+import type { RuntimeFrame, FrameApplied, RendererDiagnostics, CaptureBytes, Id, ResourceHost, AppError, AssetDebug, SceneEntity, QualityProfile, ScreenshotBytes, OutputSpec, Vec3 } from "@opensekai/contracts";
+import { DEFAULT_CAMERA_EFFECTS, LIMITS, RuntimeFrameSchema, avatarLighting } from "@opensekai/contracts";
+import { distance, focusCharacterId, focusedLens, headFallbackPosition, smoothFocusDistance } from "./autofocus";
 import { selectFrame, failure, createRenderQueue } from "./apply-frame";
 import { applyHiddenMeshes, createAssetCache, createAssetLoader, disposeObject } from "./assets";
 import { createAvatarBinding } from "./avatar-pose";
@@ -27,9 +28,11 @@ import { createPostChain } from "./post-chain";
 import { createHaze, type Haze } from "./haze";
 import { createBeams } from "./beam";
 import { renderScreenshot, SCREENSHOT_HEIGHT, SCREENSHOT_WIDTH } from "./screenshot";
+import { applyPerspectiveLens } from "./lens";
 import { IMAGE_LOAD_FAILED, createScreenImagePool, createScreenMesh, loadScreenImage } from "./screen";
 import { createCameraEffects, createDirtSource } from "./camera-effects";
 import { activeEffects, effectsKey } from "./camera-effects-math";
+import { createLensLook, lookChainKey, lookQuality, needsLook } from "./lens-look";
 import { createWebLayers, createWebQuad, webQuadWidth, webScreenPlan, type WebLayers } from "./web-screen";
 import { loadVideoSource, openScreenVideo, type ScreenVideoPlayer, type VideoSource } from "./video-screen";
 import { createCaptureScreens, probeVideoDecoder, type CaptureHost } from "./capture-screen";
@@ -117,6 +120,8 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     const videos = createScreenImagePool<VideoSource>(id => loadVideoSource(() => options.resources.readAsset(id)));
     // The camera effects of the output camera (B37 R17), and its lens dirt image with one lease from the image pool (R20).
     const cameraEffects = createCameraEffects();
+    const lensLook = createLensLook();
+    const lookTier = lookQuality(quality.id);
     const dirt = createDirtSource(images);
     const audio = options.audio === true;
     // One socket and one decoder for each capture stream (B31 R14). WebGL 2 uploads the VideoFrame; WebGPU an ImageBitmap.
@@ -231,6 +236,15 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     const editor = options.editor ? createEditorViewport(options.canvas, camera, scene, objects, options.editor) : null;
     const webLayers = options.webLayers ? createWebLayers(options.webLayers) : null;
     let disposed = false, cleaned = false, accepted: RuntimeFrame | null = null, displayed: FrameApplied | null = null, displayFrame: RuntimeFrame | null = null;
+    // Autofocus (#343 R7): the smoothed focus distance of each camera, and the elapsed time of the last frame it saw.
+    const focusDistances = new Map<Id, number>();
+    let previousElapsedMs: number | null = null;
+    // The Focus Character is the Orbit Character target; its head bone (or the fallback offset) gives the distance.
+    const focusTargetDistance = (sceneView: RuntimeFrame["scene"], camera: Extract<SceneEntity, { kind: "camera" }>, position: Vec3): number | null => {
+        const targetId = camera.lens.autofocus ? focusCharacterId(camera.navigation) : null;
+        const target = targetId ? sceneView.entities.find(entity => entity.id === targetId) : undefined;
+        return target ? distance(position, objects.get(target.id)?.avatar?.headWorldPosition() ?? headFallbackPosition(target.transform.position)) : null;
+    };
     const releaseObject = (value: {root: Object3D; owned: boolean; assetDispose?: () => void; instanceDispose?: () => void}) => {
         value.instanceDispose?.();
         if (value.assetDispose) {value.root.removeFromParent(); value.assetDispose();}
@@ -248,10 +262,12 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         for (const value of objects.values()) releaseObject(value);
         captures.dispose();
         objects.clear();
+        focusDistances.clear();
         jobs.dispose();
         assets.dispose();
         dirt.dispose();
         cameraEffects.dispose();
+        lensLook.dispose();
         images.dispose();
         videos.dispose();
         environmentLight.dispose();
@@ -496,17 +512,28 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         const fxKey = effectsKey(active, dirtId);
         if (fxKey !== "") cameraEffects.update(cameraEntity.effects, { width, height }, dirtImage);
         const effectsDrawn = fxKey === "" ? null : { key: fxKey, active, runtime: cameraEffects, dirt: dirtImage };
-        camera.fov = cameraEntity.lens.fovDegrees;
-        camera.aspect = width / height;
-        camera.near = cameraEntity.lens.near;
-        camera.far = cameraEntity.lens.far;
-        camera.updateProjectionMatrix();
+        // Autofocus (#343 R7): the target distance, smoothed at `focusSpeed`, is the focus of the lens the look stack reads.
+        const autofocusDtSeconds = previousElapsedMs === null ? 0 : Math.max(0, (frame.elapsedMs - previousElapsedMs) / 1000);
+        previousElapsedMs = frame.elapsedMs;
+        // An orbit drag moves the editor camera before it commits, so autofocus measures from the navigated position.
         const navigated = editor?.cameraTransform(cameraEntity.id);
+        const target = focusTargetDistance(frame.scene, cameraEntity, (navigated ?? cameraEntity.transform).position);
+        if (target !== null) {
+            const focusSpeed = cameraEntity.effects?.depthOfField?.focusSpeed ?? DEFAULT_CAMERA_EFFECTS.depthOfField.focusSpeed;
+            const previous = focusDistances.get(cameraEntity.id) ?? cameraEntity.lens.focusDistance;
+            focusDistances.set(cameraEntity.id, smoothFocusDistance(previous, target, focusSpeed, autofocusDtSeconds));
+        } else focusDistances.delete(cameraEntity.id);
+        const lens = focusedLens(cameraEntity.lens, focusDistances.get(cameraEntity.id));
+        const lookKey = lookChainKey(cameraEntity.effects, lookTier);
+        if (lookKey !== "") lensLook.update(cameraEntity.effects, lens, lookTier);
+        const lookDrawn = lookKey === "" || !cameraEntity.effects ? null : { key: lookKey, effects: cameraEntity.effects, quality: lookTier, runtime: lensLook };
+        camera.aspect = width / height;
+        applyPerspectiveLens(camera, cameraEntity.lens);
         applyTransform(camera, navigated ? { ...cameraEntity, transform: navigated } : cameraEntity);
         try {
             // three.js 0.180: on WebGPU a shadow first set up during a draw stays empty, so compile first; on WebGL 2 this compile leaves the shadow empty.
             if (lightsRebuilt && sceneLights.shadows() && backend === "webgpu") await compileOnce(() => renderer.compileAsync(scene, camera));
-            await postChain.render(scene, camera, cameraEntity.antiAliasing, hazeDrawn, cameraEntity.grading ?? null, beamsDrawn, effectsDrawn);
+            await postChain.render(scene, camera, cameraEntity.antiAliasing, hazeDrawn, cameraEntity.grading ?? null, beamsDrawn, effectsDrawn, lookDrawn);
             const blamed = blameFrame(blame, { haze: hazeDrawn !== null, beams: beamsDrawn !== null }, failureReports);
             blame = blamed.state;
             failureReports = [];
@@ -560,7 +587,9 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             if (!frame || frame.scene.revision !== expectedRevision) throw failure("CONFLICT", "Displayed revision changed");
             const entity = frame.scene.entities.find(x => x.id === cameraId && x.kind === "camera");
             if (!entity || entity.kind !== "camera") throw failure("NOT_FOUND", "Camera not found", [cameraId]);
-            const shotCamera = new PerspectiveCamera(entity.lens.fovDegrees, SCREENSHOT_WIDTH / SCREENSHOT_HEIGHT, entity.lens.near, entity.lens.far);
+            const shotCamera = new PerspectiveCamera();
+            shotCamera.aspect = SCREENSHOT_WIDTH / SCREENSHOT_HEIGHT;
+            applyPerspectiveLens(shotCamera, entity.lens);
             applyTransform(shotCamera, entity);
             // Visibility comes from the frame; cameras and editor helpers are not drawn. A root that a gizmo drag holds keeps its draft pose.
             const show = new Map<Object3D, boolean>();
@@ -576,8 +605,11 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             const held = shotDirtId === null ? null : dirt.peek(shotDirtId);
             const lease = shotDirtId !== null && !held ? await images.acquire(shotDirtId).catch(() => null) : null;
             const shotEffects = entity.effects ? { effects: entity.effects, dirt: held ?? lease?.image ?? null } : null;
+            // The output camera uses its live smoothed focus; another autofocus camera focuses on its target now.
+            const shotLens = focusedLens(entity.lens, focusDistances.get(cameraId) ?? focusTargetDistance(frame.scene, entity, entity.transform.position));
+            const shotLook = entity.effects && needsLook(entity.effects) ? { effects: entity.effects, lens: shotLens, quality: lookTier } : null;
             let png: Uint8Array;
-            try { png = await outsideFrame(() => renderScreenshot({ renderer, backend, scene, camera: shotCamera, show, antiAliasing: entity.antiAliasing ?? "none", msaaSamples: quality.msaaSamples, haze: shotHaze, grading: entity.grading ?? null, beams: shotBeams, effects: shotEffects })); }
+            try { png = await outsideFrame(() => renderScreenshot({ renderer, backend, scene, camera: shotCamera, show, antiAliasing: entity.antiAliasing ?? "none", msaaSamples: quality.msaaSamples, haze: shotHaze, grading: entity.grading ?? null, beams: shotBeams, effects: shotEffects, look: shotLook })); }
             finally { lease?.release(); }
             if (disposed) throw failure("CANCELLED", "Renderer disposed");
             if (png.byteLength > LIMITS.screenshotPngBytes) throw failure("INVALID_INPUT", "Screenshot PNG exceeds 8 MiB");

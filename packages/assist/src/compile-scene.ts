@@ -1,4 +1,4 @@
-import { eulerFromQuaternion, isLitLight, LIGHT_BUDGET_MESSAGES, LIMITS, quaternionFromEuler, rotateByQuaternion, type LightSettings, type Quat, type Reply, type SceneEntity, type Transform, type Vec3 } from '@opensekai/contracts';
+import { DEFAULT_CAMERA_LENS, eulerFromQuaternion, isLitLight, lensWithFovDegrees, LIGHT_BUDGET_MESSAGES, LIMITS, quaternionFromEuler, rotateByQuaternion, type LightSettings, type Quat, type Reply, type SceneEntity, type Transform, type Vec3 } from '@opensekai/contracts';
 import { lookAt, targetPoint } from './aim';
 import type { ColorWord, Direction, Framing, Height, Intensity, Intent } from './intents';
 import { WORDS } from './words';
@@ -93,7 +93,7 @@ export const compileCamera = only('camera_add', (i, state, context) => {
  const position = place(target, scale(WORDS.direction[i.side ?? 'front'], framing.distance), height);
  return create(t.data.state, {
   id: context.newId('camera'), name: i.name ?? CAMERA_NAMES[i.framing], visible: true, kind: 'camera',
-  transform: transform(position, lookAt(position, aim)), lens: { fovDegrees: framing.fovDegrees, near: 0.01, far: 100 },
+  transform: transform(position, lookAt(position, aim)), lens: lensWithFovDegrees(DEFAULT_CAMERA_LENS, framing.fovDegrees),
  });
 });
 

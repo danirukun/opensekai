@@ -42,10 +42,11 @@ it('commits only overrides idle for 250 ms, in one batch of operations, and keep
  layer = ok(set(layer, 'marker', 'visible', false as never, 100, 'a'));
  expect(takeIdle(scene, layer, 249).operations).toEqual([]);
  const idle = takeIdle(scene, layer, 250);
- expect(idle.operations).toEqual([
-  { kind: 'setTransform', entityId: 'reference', transform: { position: [1, 2, 3], rotation: [0, 0, 0, 1], scale: [1, 1, 1] } },
-  { kind: 'setCameraLens', entityId: 'camera_wide', lens: { fovDegrees: 30, near: 0.01, far: 100 } },
- ]);
+ const [transformOp, lensOp] = idle.operations as [unknown, { kind: string; entityId: string; lens: { fovDegrees: number } }];
+ expect(transformOp).toEqual({ kind: 'setTransform', entityId: 'reference', transform: { position: [1, 2, 3], rotation: [0, 0, 0, 1], scale: [1, 1, 1] } });
+ // fovDegrees converts through the physical lens (D12), so the committed value lands within float precision, not exactly 30.
+ expect(lensOp).toMatchObject({ kind: 'setCameraLens', entityId: 'camera_wide', lens: { fStop: 4, focusDistance: 3, autofocus: false, sensorPreset: 'fullFrame', near: 0.01, far: 100 } });
+ expect(lensOp.lens.fovDegrees).toBeCloseTo(30, 9);
  expect(idle.graphIds.sort()).toEqual(['a', 'b']);
  expect([...idle.remaining.keys()]).toEqual(['marker']);
 });

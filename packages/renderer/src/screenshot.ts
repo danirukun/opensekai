@@ -1,13 +1,14 @@
 import { DepthTexture, HalfFloatType, NodeMaterial, QuadMesh, RenderTarget, UnsignedByteType, type Camera, type Object3D, type Scene, type WebGPURenderer } from "three/webgpu";
-import { renderOutput, texture, uniform } from "three/tsl";
+import { perspectiveDepthToViewZ, renderOutput, texture, uniform } from "three/tsl";
 import { fxaa } from "three/addons/tsl/display/FXAANode.js";
 import { gaussianBlur } from "three/addons/tsl/display/GaussianBlurNode.js";
 import { HAZE_BLUR, HAZE_LAYER, HAZE_RESOLUTION, hazeComposite, type Haze } from "./haze";
 import { BEAM_LAYER, BEAM_RESOLUTION, type Beams } from "./beam";
-import { isNeutralGrading, type Backend, type CameraAntiAliasing, type CameraEffects, type CameraGrading } from "@opensekai/contracts";
+import { isNeutralGrading, type Backend, type CameraAntiAliasing, type CameraEffects, type CameraGrading, type CameraLens } from "@opensekai/contracts";
 import { bloomComposite, createGrading } from "./grading";
-import { createCameraEffects, type EffectStep } from "./camera-effects";
+import { createCameraEffects } from "./camera-effects";
 import { activeEffects } from "./camera-effects-math";
+import { activeLook, createLensLook, needsLook, type BloomSource, type LookQuality } from "./lens-look";
 import type { ScreenImage } from "./screen";
 
 export const SCREENSHOT_WIDTH = 1920;
@@ -117,13 +118,16 @@ export interface ScreenshotRender {
     beams?: Beams | null;
     /** The camera effects, drawn as in the output with the loaded dirt image (B37 R21). */
     effects?: { effects: CameraEffects; dirt: ScreenImage | null } | null;
+    /** The look stack of the camera, drawn as in the output with its lens and quality tier (#343 R28). */
+    look?: { effects: CameraEffects; lens: CameraLens; quality: LookQuality } | null;
 }
 
 /** Renders one 1920 × 1080 frame to offscreen targets with a transparent clear, reads it once, and returns the PNG. The canvas is not drawn. */
-export async function renderScreenshot({ renderer, backend, scene, camera, show, antiAliasing, msaaSamples, haze = null, grading = null, beams = null, effects = null }: ScreenshotRender): Promise<Uint8Array> {
+export async function renderScreenshot({ renderer, backend, scene, camera, show, antiAliasing, msaaSamples, haze = null, grading = null, beams = null, effects = null, look = null }: ScreenshotRender): Promise<Uint8Array> {
     const width = SCREENSHOT_WIDTH, height = SCREENSHOT_HEIGHT;
     const sceneTarget = new RenderTarget(width, height, { type: HalfFloatType, samples: msaaSamples, depthBuffer: true });
-    if (haze || beams) sceneTarget.depthTexture = new DepthTexture(width, height);
+    const lookOn = activeLook(look && needsLook(look.effects) ? look.effects : null);
+    if (haze || beams || lookOn.depthOfField) sceneTarget.depthTexture = new DepthTexture(width, height);
     const hazeTarget = haze ? new RenderTarget(Math.round(width * HAZE_RESOLUTION), Math.round(height * HAZE_RESOLUTION), { type: HalfFloatType, depthBuffer: false }) : null;
     const beamTarget = beams ? new RenderTarget(Math.round(width * BEAM_RESOLUTION), Math.round(height * BEAM_RESOLUTION), { type: HalfFloatType, depthBuffer: false }) : null;
     const blur = hazeTarget ? gaussianBlur(texture(hazeTarget.texture), uniform(HAZE_BLUR)) : null;
@@ -131,8 +135,8 @@ export async function renderScreenshot({ renderer, backend, scene, camera, show,
     const fxaaTarget = antiAliasing === "fxaa" ? new RenderTarget(width, height, { type: UnsignedByteType, depthBuffer: false }) : null;
     const materials: NodeMaterial[] = [];
     const quad = (node: NodeMaterial["fragmentNode"]) => { const material = new NodeMaterial(); material.fragmentNode = node; materials.push(material); return new QuadMesh(material); };
-    let glow: { dispose(): void } | null = null;
-    const steps: EffectStep[] = [];
+    let glow: (BloomSource & { dispose(): void }) | null = null;
+    const steps: { dispose(): void }[] = [];
     const saved = scene.children.map(child => [child, child.visible] as const);
     const previousTarget = renderer.getRenderTarget();
     try {
@@ -158,15 +162,31 @@ export async function renderScreenshot({ renderer, backend, scene, camera, show,
             finally { camera.layers.mask = mask; }
             color = hazeComposite(color, texture(beamTarget.texture) as unknown as typeof color, uniform(1)) as unknown as typeof color;
         }
+        const lensLook = look && Object.values(lookOn).some(Boolean) ? createLensLook() : null;
+        lensLook?.update(look!.effects, look!.lens, look!.quality);
+        if (lensLook && lookOn.depthOfField && sceneTarget.depthTexture) {
+            const shot = camera as Camera & { near: number; far: number };
+            const viewZ = perspectiveDepthToViewZ(texture(sceneTarget.depthTexture) as never, uniform(shot.near) as never, uniform(shot.far) as never);
+            const sharp = lensLook.applyDoF(color, viewZ as never, { width, height });
+            steps.push(sharp);
+            color = sharp.color as unknown as typeof color;
+        }
         const graded = grading && !isNeutralGrading(grading) ? grading : null;
         const grade = graded ? createGrading() : null;
         if (graded && grade) {
             grade.update(graded);
             if (graded.bloom.intensity > 0) {
                 const bloom = grade.bloom(color, { width, height });
-                glow = bloom;
+                glow = bloom as unknown as BloomSource & { dispose(): void };
                 color = bloomComposite(color, bloom) as unknown as typeof color;
             }
+        }
+        if (lensLook && look && (lookOn.lensFlare || lookOn.anamorphicFlare)) {
+            const source = glow ?? lensLook.bloom(color, { width, height });
+            if (source !== glow) steps.push(source);
+            const lit = lensLook.applyFlareAndSmear(color, source, look.effects, look.quality, { width, height });
+            steps.push(lit);
+            color = lit.color as unknown as typeof color;
         }
         // B37 D7: lens dirt between the bloom and the grade, the other effects after the grade. Each target is 1920 × 1080 or its part.
         const active = activeEffects(effects?.effects, !!effects?.dirt);
@@ -178,6 +198,7 @@ export async function renderScreenshot({ renderer, backend, scene, camera, show,
             color = dirt.color as unknown as typeof color;
         }
         if (graded && grade) color = grade.grade(color, graded.toneMapping) as unknown as typeof color;
+        if (lensLook && lookOn.filmGrain) color = lensLook.applyFilm(color, graded !== null) as unknown as typeof color;
         if (fx) {
             const styled = fx.stylize(color, active, { width, height });
             steps.push(styled);

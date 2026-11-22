@@ -29,7 +29,7 @@ it('takes a light default from its current type (R1)',()=>{
 it('lists the reset fields of each kind and light type, and none of R4 (R3, R4)',()=>{
  const ids=(kind:AddKind)=>resetFieldIds(add(kind));
  const base=['visible','position','rotation','scale'];
- expect(ids('camera')).toEqual([...base,'renderEnvironment','antiAliasing','toneMapping','exposure','brightness','contrast','vibrance','tint','bloomIntensity','bloomThreshold','bloomRadius','lensDirt','vignetting','nightVision','blur','pixelate','fovDegrees','near','far','controlMode','sensitivity']);
+ expect(ids('camera')).toEqual([...base,'renderEnvironment','antiAliasing','toneMapping','exposure','brightness','contrast','vibrance','tint','bloomIntensity','bloomThreshold','bloomRadius','lensDirt','vignetting','nightVision','blur','pixelate','focalLengthMm','fStop','focusDistance','autofocus','sensorPreset','near','far','controlMode','sensitivity']);
  expect(ids('directionalLight')).toEqual([...base,'color','intensity','affectCharacters','affectProps','affectEnvironment','shadow']);
  expect(ids('pointLight')).toEqual([...base,'color','intensity','range','volumetric','affectCharacters','affectProps','affectEnvironment','shadow']);
  expect(ids('spotLight')).toEqual([...base,'color','intensity','range','angleDegrees','penumbra','beam','volumetric','affectCharacters','affectProps','affectEnvironment','shadow']);

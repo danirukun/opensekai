@@ -17,6 +17,8 @@ const graph = graphOf('g', null, [setPosition([1, 2, 3])]);
 const entityOf = (scene: SceneView, id: string) => scene.entities.find(item => item.id === id)!;
 const positionOf = (scene: SceneView, id: string) => entityOf(scene, id).transform.position;
 const fovOf = (scene: SceneView) => (entityOf(scene, 'camera_wide') as { lens: { fovDegrees: number } }).lens.fovDegrees;
+// fovDegrees round-trips through the physical lens (D12), so a written value lands within float precision, not exactly.
+const closeTo = (value: number, target: number) => Math.abs(value - target) < 1e-6;
 function start(graphs: unknown[], scene: SceneView = makeSmokeScene()): S {
  const s = createSession(scene, 's');
  s.advance(16);
@@ -71,7 +73,7 @@ it('keeps a write with a transition out of the reply, and commits it after the e
  expect(s.inspect().revision).toBe(0);
  for (let ms = 1276; ms <= 1300; ms += 16) s.advance(ms);
  expect(s.inspect()).toMatchObject({ revision: 1 });
- expect(fovOf(s.inspect())).toBe(60);
+ expect(fovOf(s.inspect())).toBeCloseTo(60, 9);
 });
 
 it('commits a keystroke write of a clock step only 250 ms after the write (R5)', () => {
@@ -121,20 +123,20 @@ for (const seconds of [undefined, 1]) it(`does not commit a pending keystroke ov
  expect(s.inspect().revision).toBe(0);
  s.advance(282);
  expect(s.inspect().revision).toBe(1);
- expect(fovOf(s.inspect())).toBe(60);
+ expect(fovOf(s.inspect())).toBeCloseTo(60, 9);
 });
 
 it('does not commit the override of an ended transition when a manual write sets the same value (R7)', () => {
  const s = start([graphOf('t', null, [setFov(60, 1)]), graphOf('g', null, [setFov(60)])]);
  expect(s.runBlueprint('t', 'go')).toEqual({ ok: true, data: { revision: 0 } });
  let ms = 32;
- for (; fovOf(s.advance(ms).scene) !== 60; ms += 16) if (ms > 1300) throw new Error('the transition did not end');
+ for (; !closeTo(fovOf(s.advance(ms).scene), 60); ms += 16) if (ms > 1300) throw new Error('the transition did not end');
  expect(s.inspect().revision).toBe(0);
  expect(s.runBlueprint('g', 'go')).toEqual({ ok: true, data: { revision: 0 } });
  const ended = ms;
  for (ms += 16; s.inspect().revision === 0 && ms <= ended + 400; ms += 16) s.advance(ms);
  expect(s.inspect().revision).toBe(1);
- expect(fovOf(s.inspect())).toBe(60);
+ expect(fovOf(s.inspect())).toBeCloseTo(60, 9);
 });
 
 it('runs a wired On Transition End of a manual write on the next clock step, not in the call (R7)', () => {
@@ -142,7 +144,7 @@ it('runs a wired On Transition End of a manual write on the next clock step, not
  const s = start([g]);
  const lines = () => s.debugBlueprints().entries.map(entry => [entry.atMs, entry.kind === 'log' ? entry.message : entry.kind]);
  expect(s.runBlueprint('g', 'go')).toEqual({ ok: true, data: { revision: 1 } });
- expect(fovOf(s.inspect())).toBe(60);
+ expect(fovOf(s.inspect())).toBeCloseTo(60, 9);
  expect(lines()).toEqual([]);
  s.advance(32);
  expect(lines()).toEqual([[32, 'end']]);

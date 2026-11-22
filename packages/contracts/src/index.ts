@@ -34,3 +34,5 @@ export * from './material-parameters';
 export * from './web-url';
 export * from './camera-orbit';
 export * from './capture';
+export * from './lens-math';
+export * from './lens';

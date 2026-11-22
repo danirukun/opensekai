@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { LIMITS, makeSmokeFrame } from '@opensekai/contracts';
+import { LIMITS, makeSmokeFrame, RuntimeFrameSchema } from '@opensekai/contracts';
 import type { BrowserClient, ConnectionDescriptor, PublisherClient, VmcPosesEnvelope } from '@opensekai/contracts';
 import { connectWithPorts } from '../src/client';
 class Socket extends EventTarget {
@@ -16,10 +16,12 @@ async function start(role: ConnectionDescriptor['role'] = 'publisher') {
  authenticate(sockets[0]); return { sockets, client: await promise };
 }
 const flush = async () => { for (let i = 0; i < 8; i++) await Promise.resolve(); };
+// publishFrame sends RuntimeFrameSchema.parse(frame), which migrates each camera's lens to the full physical shape (D12); size budgets must use that parsed frame, not the raw legacy-lens fixture.
+const frameBytes = (frame: unknown) => new TextEncoder().encode(JSON.stringify({ kind: 'frame', frame: RuntimeFrameSchema.parse(frame) })).length;
 afterEach(() => vi.useRealTimers());
 it('bounds state by encoded frame bytes and resumes with the next full frame', async () => {
  const { sockets, client } = await start(); const publisher = client as PublisherClient; const socket = sockets[0];
- const frame = makeSmokeFrame({ sequence: 1 }); const bytes = new TextEncoder().encode(JSON.stringify({ kind: 'frame', frame })).length;
+ const frame = makeSmokeFrame({ sequence: 1 }); const bytes = frameBytes(frame);
  socket.bufferedAmount = bytes; publisher.publishFrame(frame); expect(socket.sent).toHaveLength(2);
  socket.bufferedAmount = bytes + 1; publisher.publishFrame(makeSmokeFrame({ sequence: 2 })); expect(socket.sent).toHaveLength(2); expect(socket.closed).toBe(false);
  socket.bufferedAmount = 0; publisher.publishFrame(makeSmokeFrame({ sequence: 3 })); expect(JSON.parse(socket.sent[2]).frame.sequence).toBe(3);
@@ -38,7 +40,7 @@ it('drops both state kinds of a tick on a real backlog and does not disconnect',
  const { sockets, client } = await start(); const publisher = client as PublisherClient; const socket = sockets[0];
  const frame = makeSmokeFrame({ sequence: 1 }); const size = (value: unknown) => new TextEncoder().encode(JSON.stringify(value)).length;
  publisher.publishFrame(frame); publisher.publishVmcPoses!(poses(1)); socket.bufferedAmount = 0;
- const tick = size({ kind: 'frame', frame }) + size(poses(1)); const before = socket.sent.length;
+ const tick = frameBytes(frame) + size(poses(1)); const before = socket.sent.length;
  socket.bufferedAmount = LIMITS.queuedFrames * tick + 1; publisher.publishFrame(makeSmokeFrame({ sequence: 2 })); publisher.publishVmcPoses!(poses(2));
  expect(kinds(socket, before)).toEqual([]); expect(socket.closed).toBe(false);
  socket.bufferedAmount = 0; publisher.publishFrame(makeSmokeFrame({ sequence: 3 })); publisher.publishVmcPoses!(poses(3));

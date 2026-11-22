@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { makeSmokeScene, type AssetRecord, type RuntimeFrame } from '@opensekai/contracts';
+import { DEFAULT_CAMERA_LENS, lensWithFocalLength, lensWithFovDegrees, makeSmokeScene, type AssetRecord, type RuntimeFrame } from '@opensekai/contracts';
 import { quatToEuler } from '../src/bone-offsets';
 import { createSession } from '../src/session';
 
@@ -73,10 +73,65 @@ it('stops a transition when a patch sets the property, and the patch value stays
  const s = start([num('wide', 85), node('lens', 'property.set', { entityId: 'camera_wide', property: 'fovDegrees', transitionSeconds: 1 })], [wire('a', 'go', 'flow', 'lens', 'flow'), wire('b', 'wide', 'value', 'lens', 'value')]);
  run(s);
  ticks(s, 20, 500);
- expect(s.applyPatch({ sceneId: 'scene_smoke', expectedRevision: 0, operations: [{ kind: 'setCameraLens', entityId: 'camera_wide', lens: { fovDegrees: 30, near: 0.01, far: 100 } }] })).toEqual({ ok: true, data: { revision: 1 } });
+ expect(s.applyPatch({ sceneId: 'scene_smoke', expectedRevision: 0, operations: [{ kind: 'setCameraLens', entityId: 'camera_wide', lens: { ...lensWithFovDegrees(DEFAULT_CAMERA_LENS, 30), near: 0.01, far: 100 } }] })).toEqual({ ok: true, data: { revision: 1 } });
  const frames = ticks(s, 520, 1600);
- expect(fov(frames.get(1000)!)).toBe(30);
+ expect(fov(frames.get(1000)!)).toBeCloseTo(30, 9);
  expect(s.inspect().revision).toBe(1);
+});
+
+const lensOf = (s: S) => { const camera = s.inspect().entities.find(e => e.id === 'camera_wide'); return camera?.kind === 'camera' ? camera.lens : null; };
+
+it.each([
+ ['focalLengthMm', 85, 'num'],
+ ['fStop', 1.8, 'num'],
+ ['focusDistance', 7, 'num'],
+ ['autofocus', true, 'bool'],
+] as const)('commits a Blueprint %s write after the idle time through setCameraLens', (property, value, type) => {
+ const source = type === 'bool' ? node('v', 'value.boolean', { value }) : num('v', value as number);
+ const s = start([source, node('lens', 'property.set', { entityId: 'camera_wide', property, transitionSeconds: 0.5 })], [wire('a', 'go', 'flow', 'lens', 'flow'), wire('b', 'v', 'value', 'lens', 'value')]);
+ run(s);
+ ticks(s, 20, 1000);
+ expect(s.inspect().revision).toBe(1);
+ expect(lensOf(s)).toMatchObject({ [property]: value });
+});
+
+it('commits a Blueprint sensorPreset write and keeps the focal length', () => {
+ const s = createSession(makeSmokeScene(), 's', [record]);
+ const loaded = s.editBlueprints({ clientId: 't', batchId: 'b', ops: [{ kind: 'replaceAll', graphs: [graph([
+  { ...node('lens', 'property.set', { entityId: 'camera_wide', property: 'sensorPreset' }), inputs: { value: 'apsC' } },
+ ], [wire('a', 'go', 'flow', 'lens', 'flow')])] }] });
+ if (!loaded.ok) throw new Error(loaded.error.message);
+ s.advance(0);
+ const focal = lensOf(s)!.focalLengthMm;
+ run(s);
+ ticks(s, 20, 400);
+ expect(lensOf(s)).toMatchObject({ sensorPreset: 'apsC', focalLengthMm: focal });
+});
+
+it('stops a focal length transition when a patch sets the lens', () => {
+ const s = start([num('long', 135), node('lens', 'property.set', { entityId: 'camera_wide', property: 'focalLengthMm', transitionSeconds: 1 })], [wire('a', 'go', 'flow', 'lens', 'flow'), wire('b', 'long', 'value', 'lens', 'value')]);
+ run(s);
+ ticks(s, 20, 500);
+ expect(s.applyPatch({ sceneId: 'scene_smoke', expectedRevision: 0, operations: [{ kind: 'setCameraLens', entityId: 'camera_wide', lens: { ...DEFAULT_CAMERA_LENS, focalLengthMm: 24, fovDegrees: DEFAULT_CAMERA_LENS.fovDegrees } }] })).toMatchObject({ ok: true });
+ ticks(s, 520, 1600);
+ expect(lensOf(s)?.focalLengthMm).toBe(24);
+ expect(s.inspect().revision).toBe(1);
+});
+
+it('applies an MCP setCameraLens write that changes only fovDegrees through the sensor', () => {
+ const s = start([], []);
+ const current = lensOf(s)!;
+ expect(s.applyPatch({ sceneId: 'scene_smoke', expectedRevision: 0, operations: [{ kind: 'setCameraLens', entityId: 'camera_wide', lens: { ...current, fovDegrees: 20 } }] })).toMatchObject({ ok: true });
+ const written = lensOf(s)!;
+ expect(written.fovDegrees).toBeCloseTo(20, 9);
+ expect(written).toEqual(lensWithFovDegrees(current, 20));
+});
+
+it('lets a changed focal length win over a stale fovDegrees in setCameraLens', () => {
+ const s = start([], []);
+ const current = lensOf(s)!;
+ expect(s.applyPatch({ sceneId: 'scene_smoke', expectedRevision: 0, operations: [{ kind: 'setCameraLens', entityId: 'camera_wide', lens: { ...current, focalLengthMm: 85 } }] })).toMatchObject({ ok: true });
+ expect(lensOf(s)).toEqual(lensWithFocalLength(current, 85));
 });
 
 it('fades an expression with the transition time and easing of Set Expression', () => {

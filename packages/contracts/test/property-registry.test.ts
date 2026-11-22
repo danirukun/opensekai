@@ -1,11 +1,11 @@
 import { expect, it } from 'vitest';
-import { DEFAULT_AVATAR_LIGHTING, eulerFromQuaternion, makeSmokeScene, propertiesFor, quaternionFromEuler, readProperty, rotateByQuaternion, writeProperty, type SceneEntity } from '../src';
+import { DEFAULT_AVATAR_LIGHTING, eulerFromQuaternion, focalLengthMmFromVerticalFov, makeSmokeScene, propertiesFor, quaternionFromEuler, readProperty, rotateByQuaternion, writeProperty, type SceneEntity } from '../src';
 
 const entity = (id: string): SceneEntity => makeSmokeScene().entities.find(e => e.id === id)!;
 const close = (actual: readonly number[], expected: readonly number[]) => actual.forEach((v, i) => expect(v).toBeCloseTo(expected[i]!, 6));
 
 it('lists the properties of each entity kind', () => {
- expect(propertiesFor('camera').map(p => p.key)).toEqual(['position', 'rotation', 'scale', 'visible', 'fovDegrees', 'renderEnvironment']);
+ expect(propertiesFor('camera').map(p => p.key)).toEqual(['position', 'rotation', 'scale', 'visible', 'fovDegrees', 'focalLengthMm', 'fStop', 'focusDistance', 'autofocus', 'sensorPreset', 'renderEnvironment']);
  expect(propertiesFor('environment').map(p => p.key)).toEqual(['position', 'rotation', 'scale', 'visible']);
  expect(propertiesFor('avatar').map(p => p.key)).toEqual(['position', 'rotation', 'scale', 'visible', 'rimStrength']);
  expect(propertiesFor('mesh').map(p => p.key)).toEqual(['position', 'rotation', 'scale', 'visible']);
@@ -35,7 +35,27 @@ it('reads and writes properties of an entity', () => {
  expect(turned.ok).toBe(true);
  if (turned.ok) close(turned.data.transform.rotation, [0, Math.SQRT1_2, 0, Math.SQRT1_2]);
  const zoom = writeProperty(entity('camera_wide'), 'fovDegrees', 30);
- expect(zoom.ok && zoom.data.kind === 'camera' && zoom.data.lens).toEqual({ fovDegrees: 30, near: 0.01, far: 100 });
+ const zoomLens = zoom.ok && zoom.data.kind === 'camera' ? zoom.data.lens : undefined;
+ expect(zoomLens).toMatchObject({ fStop: 4, focusDistance: 3, autofocus: false, sensorPreset: 'fullFrame', near: 0.01, far: 100 });
+ expect(zoomLens?.fovDegrees).toBeCloseTo(30, 9);
+ expect(zoomLens?.focalLengthMm).toBeCloseTo(focalLengthMmFromVerticalFov(30, 24), 9);
+});
+
+it('converts fovDegrees and focalLengthMm writes through the physical lens so the other field stays in sync', () => {
+ const camera = entity('camera_wide'); // Full Frame (heightMm 24) after the fixture's legacy lens migrates.
+ const byFov = writeProperty(camera, 'fovDegrees', 40);
+ expect(byFov.ok && byFov.data.kind === 'camera' && byFov.data.lens.focalLengthMm).toBeCloseTo(focalLengthMmFromVerticalFov(40, 24), 9);
+ expect(byFov.ok && byFov.data.kind === 'camera' && byFov.data.lens.fovDegrees).toBeCloseTo(40, 9);
+ const byFocal = writeProperty(camera, 'focalLengthMm', 85);
+ const byFocalLens = byFocal.ok && byFocal.data.kind === 'camera' ? byFocal.data.lens : undefined;
+ expect(byFocalLens?.focalLengthMm).toBe(85);
+ expect(byFocalLens?.fovDegrees).toBeCloseTo(readProperty(byFocal.ok ? byFocal.data : camera, 'fovDegrees') as number, 9);
+ expect(writeProperty(camera, 'focalLengthMm', 500).ok).toBe(false);
+ expect(writeProperty(camera, 'fStop', 0.5).ok).toBe(false);
+ expect(writeProperty(camera, 'sensorPreset', 'notAPreset' as never).ok).toBe(false);
+ const sensor = writeProperty(camera, 'sensorPreset', 'super35');
+ expect(sensor.ok && sensor.data.kind === 'camera' && sensor.data.lens.sensorPreset).toBe('super35');
+ expect(sensor.ok && sensor.data.kind === 'camera' && sensor.data.lens.focalLengthMm).toBe(camera.kind === 'camera' ? camera.lens.focalLengthMm : NaN);
 });
 
 it('rejects invalid values and properties that do not apply', () => {
