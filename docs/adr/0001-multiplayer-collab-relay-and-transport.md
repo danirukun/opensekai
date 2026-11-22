@@ -11,7 +11,7 @@ Requested by danirukun.
 
 OpenSekai needs two collab lanes:
 
-- **Lane A, guest rooms.** A host starts a session, shares a link or code, a guest (for example Xiu) joins, shares their already-loaded avatar with one click, and their motion and face capture is relayed to the host automatically. Target: **≤ 5 minutes from opening OpenSekai to Xiu moving in the host's scene**, for VTubers who use VBridger or Warudo, know VNet, and don't do port forwarding, WireGuard or Tailscale. Bidirectional (host avatar on the guest side) and lip sync are follow-ups.
+- **Lane A, guest rooms.** A host starts a session, shares a link or code, a guest (for example Xiu) joins, shares their already-loaded avatar with one click, and their motion and face capture is relayed to the host automatically. Target: **≤ 5 minutes from opening OpenSekai to Xiu moving in the host's scene**, for VTubers who use VBridger or Warudo, know VNet, and don't do port forwarding, WireGuard or Tailscale. Bidirectional (host avatar on the guest side) and viseme lip sync are follow-ups. The host can delay remote motion so it matches audio from another app, for example Discord.
 - **Lane B, live edit collaboration.** A helper (for example Ben) gets **View only** or **Edit** access to the host's editor for remote help or building a scene together.
 - **Lane C, long horizon.** View-only clients that render the scene themselves, served by the **same relay**. **Out of the MVP.** The product shape stays open.
 
@@ -40,7 +40,8 @@ What exists today (see `ARCHITECTURE.md`): a Tauri 2 app whose **Rust host** own
 | Platforms | **macOS and Windows first**; Linux later |
 | Join links | **`https://` links** that hand off to `opensekai://` (the secret stays in the URL fragment); Windows scheme registration is tracked in this epic |
 | ADR location | New **`docs/adr/`** folder; this is **0001**; AGENTS.md documents the convention |
-| Lip sync | **Visemes on the guest's machine**, plus a **voice-delay slider**. **No audio** is sent. Build it in slice 1 only if it fits. If it does not fit, defer it. |
+| Motion sync | A **jitter buffer** plus a **host-set offset (delay)** on each remote guest. The offset delays the whole pose so motion lines up with audio from another app, for example Discord. **No audio** is sent. |
+| Lip sync | **Visemes on the guest's machine.** **No audio** is sent. Build visemes in slice 1 only if they fit. If they do not fit, defer them. The offset above is the delay control. |
 | Lane B preview | **Video preview first.** A 3D remote viewport comes later. **Collabs come first.** |
 | Invites | **Only the host** may invite, for now. |
 | Milestone | **Part of the MVP.** Lane C is not part of the MVP. |
@@ -78,7 +79,9 @@ What exists today (see `ARCHITECTURE.md`): a Tauri 2 app whose **Rust host** own
    Transport selection is per room and per participant and is reported in diagnostics. Matches the constitution rule "Keep platform code behind adapters" and the R2 adapter pattern.
 5. **Client WebRTC lives in the Rust host, using `str0m`** (sans-I/O Rust WebRTC, data channels supported, 0.25.0 published 2026-11-03), not in the WebView. Reasons: `ARCHITECTURE.md` already puts sockets in the Rust host, frames arrive where tracking already arrives, one implementation covers **macOS and Windows** (the first targets), and the WebTransport fallback (`wtransport`) sits next to it. Because WebRTC is in Rust, the WebView's WebRTC support (including WebKitGTK's lack of it) doesn't matter when Linux comes later. See "Client options".
 6. **Frame format `sekai-pose/1`:** the guest's **final evaluated pose** (bones as smallest-three quaternions, root, expression weights, optional visemes), **absolute state in every message, no deltas**, ~340 B, sequence number + sender timestamp, AES-GCM with the room group key. **End-to-end encryption stays even though WebRTC already encrypts with DTLS**, because the relay terminates DTLS and would otherwise see plaintext poses. Optional redundancy (previous frame repeated) when measured loss > ~2%.
-7. **Receiver "fills the gaps":** adaptive jitter buffer (30–100 ms), slerp/lerp interpolation, up to 100 ms damped extrapolation for bones (expressions held), then hold, then fade to idle via the existing stale path after 1 s.
+7. **Receiver "fills the gaps", then can wait for external audio.** Two clocks, kept separate:
+   - **Jitter.** An adaptive buffer of 30–100 ms absorbs arrival variation. Then slerp/lerp interpolation, up to 100 ms damped extrapolation for bones (expressions held), then hold, then fade to idle via the existing stale path after 1 s. The stale timer starts at the time the pose was due on screen, so a chosen offset does not look like a dead source.
+   - **Offset (delay).** The host sets a constant extra delay per remote guest, in milliseconds, default 0. The receiver holds the pose for that long after the jitter buffer. The delay lines the motion up with audio that OpenSekai does not carry. Discord voice is the example. The offset can only make motion later. It cannot show a pose before that pose arrives. The same offset applies to bones, face, and visemes, so the body and the mouth stay together. The exact slider range belongs in the slice contract. The p95 latency target below does not include this offset.
 8. **Trust model without accounts:** link = room ID + **128-bit secret in the URL fragment** (server stores only a hash); codes are short and always knock; **mandatory host approval with matching safety words** derived from both parties' X25519 keys; **end-to-end encryption** (HPKE-wrapped group key, AES-256-GCM) so the relay sees only ciphertext; join links are **`https://` universal links** (e.g. `https://opensekai.app/j/<room>#<secret>`, final domain TBD) whose landing page hands off to `opensekai://` (macOS Universal Links / Windows app-URI handler where available, otherwise a JS redirect with an "Open OpenSekai" button and a download link if the app is missing); the secret stays in the fragment so the landing page server never sees it; the app-side `opensekai://` handler follows #190 (strict parse, relay allowlist, open a dialog only), and Windows needs the deep-link plugin registered (#190 / #308 follow-up, tracked in this epic); kick, revoke, rate limits. A WebRTC PeerConnection is created only after the host approves, using credentials from the room channel.
 9. **Asset protection is deterrence, layered:** consent with license summary → E2E encrypted transfer with TTL → decrypted **into memory only**, never written to disk or the show file → no export paths → obfuscated loopback handoff to renderers → later VRoid Hub-style distortion and watermarking (F2, #219). We state plainly that anyone who can render a model can extract it.
 10. **Edit collaboration keeps the current model:** server-authoritative ops through the host's session, **no CRDT**, revision journal **pushed** instead of polled, presence (names, cursors, selections), and a **video preview** of the host's output for helpers first (no scene assets leave the host). A 3D remote viewport comes later. Collabs (Lane A and Lane B) come before that viewport. **Only the host may invite**, for now. An Edit helper cannot invite.
@@ -92,7 +95,7 @@ What exists today (see `ARCHITECTURE.md`): a Tauri 2 app whose **Rust host** own
 
 ### Target (proposed)
 
-- Added motion latency (guest's pose → visible on host), same continent: **p95 ≤ 150 ms**.
+- Added motion latency (guest's pose → visible on host), same continent: **p95 ≤ 150 ms**, before the host's audio offset. The offset is extra delay the host chooses.
 - **No visible freeze > 100 ms** at 1% random loss and 30 ms jitter.
 - **60 Hz by default**, with a **30 Hz mode** (host setting per room) for weak uplinks; works with up to 3 guests and bidirectional streams. Add an automatic drop from 60 Hz to 30 Hz under congestion, and a return to 60 Hz when it clears, **only if that change is easy to build**. If it is not easy, the host uses the manual switch only.
 
@@ -170,7 +173,8 @@ What the docs say (Nov 2026):
 
 ### Lip sync (follow-up)
 - **Send audio and run lip sync on the host:** rejected. It sends the guest's voice and needs a media stack.
-- **Visemes computed on the guest's machine, inside the pose frame (chosen):** no audio leaves the guest, and the mouth stays in sync with face capture. The owner confirmed this on 2026-11-22 and added a voice-delay slider. Build it in slice 1 only if it fits. If it does not fit, defer it (F1).
+- **Visemes computed on the guest's machine, inside the pose frame (chosen):** no audio leaves the guest, and the mouth stays in sync with face capture. Build visemes in slice 1 only if they fit. If they do not fit, defer them (F1).
+- **Jitter buffer plus offset (chosen):** the host delays the whole remote pose so it matches audio from another app, for example Discord. This is the delay control. It is part of Lane A, not only of lip sync. See decision 7.
 
 ## Fly.io deployment for WebRTC
 
@@ -212,6 +216,7 @@ What the docs say (Nov 2026):
 - SPDD analysis and prompt slice contracts for A1, B1 and the transport spike, per `AGENTS.md`.
 - Settings field for the relay URL, and the same Docker image for the Fly.io host and a self-hosted relay.
 - Node drainage for the Elixir relay, after the rejoin path. A restart does not wait for drainage.
+- Lane A1 includes the jitter buffer and the per-guest audio offset. Viseme lip sync stays F1 and can wait past slice 1.
 - Issues (once this is accepted): epic, Lane A1, Lane B1, transport spike, F1 lip sync (defer past slice 1 if it does not fit), F2 avatar protection (#219), F4 VMC bridge guest mode, F7 spectators (out of the MVP), F8 Postgres, F9 multi-region.
 
 ## Open questions
