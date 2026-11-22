@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { AmbientLight, BackSide, DirectionalLight, DoubleSide, FrontSide, Group, Mesh, BoxGeometry, MeshBasicMaterial, MeshStandardMaterial, PointLight, Scene, SpotLight, type PerspectiveCamera, type WebGPURenderer } from 'three/webgpu';
 import type { LightSettings, SceneEntity } from '@opensekai/contracts';
 import { HAZE_LAYER } from '../src/haze';
-import { CHARACTER_AMBIENT, createSceneLights, lightDirection, lightGroups, lightSignature, roomLight, scattersInHaze, shadowsOn, spotAngle, usesFixedAmbient, withDrafts, DIRECTIONAL_DISTANCE, SPOT_SHADOW_FAR, collectFileLights, capFileLightShadows, MAX_FILE_LIGHT_SHADOWS } from '../src/scene-lights';
+import { CHARACTER_AMBIENT, createSceneLights, lightDirection, lightGroups, lightSignature, roomLight, scattersInHaze, shadowsOn, spotAngle, usesFixedAmbient, withDrafts, DIRECTIONAL_DISTANCE, SHADOW_BOX, SPOT_SHADOW_FAR, collectFileLights, capFileLightShadows, MAX_FILE_LIGHT_SHADOWS } from '../src/scene-lights';
+import { DIRECTIONAL_FAR, DIRECTIONAL_NEAR } from '../src/shadow-cache';
 
 const settings = (patch: Partial<LightSettings> = {}): LightSettings => ({ type: 'directional', color: '#ffffff', intensity: 3, range: 0, affectCharacters: true, affectProps: true, affectEnvironment: true, shadow: { enabled: false, intensity: 1, soft: true, bias: -0.0005, normalBias: 0.02 }, ...patch });
 const light = (id: string, patch: Partial<LightSettings> = {}, visible = true, rotation: [number, number, number, number] = [0, 0, 0, 1]): SceneEntity => ({ id, name: id, visible, transform: { position: [0, 2, 1], rotation, scale: [1, 1, 1] }, kind: 'light', light: settings(patch) });
@@ -378,5 +379,22 @@ describe('unlit lights and group nodes (light limits R13, R14)', () => {
         for (const i of [0, 1, 2]) expect(after[i]).toBe(lights.node(GROUPS[i]!));
         expect(lights.node('haze')).not.toBe(before[3]);
         expect(lights.generation()).toBe(generation + 1);
+    });
+});
+
+describe('shadow map cache (light scale R22)', () => {
+    it('turns off the automatic shadow draw and marks only the named lights', () => {
+        const scene = new Scene(), lights = createSceneLights(scene, fake());
+        const on = { ...settings().shadow, enabled: true };
+        lights.apply([light('sun', { shadow: on }), light('lamp', { type: 'point', shadow: on }), light('plain', { type: 'point' })]);
+        const [, sun, lamp, plain] = threeLights(scene) as [DirectionalLight, DirectionalLight, PointLight, PointLight];
+        for (const own of [sun, lamp, plain]) { expect(own.shadow.autoUpdate).toBe(false); expect(own.shadow.needsUpdate).toBe(false); }
+        lights.markShadows(new Set(['lamp', 'gone']));
+        expect([sun, lamp, plain].map(own => own.shadow.needsUpdate)).toEqual([false, true, false]);
+        lights.markShadows(new Set(['sun', 'plain']));
+        expect([sun, lamp, plain].map(own => own.shadow.needsUpdate)).toEqual([true, true, false]);
+        // The shadow volume of `shadow-cache.ts` uses the same directional box.
+        const camera = sun.shadow.camera;
+        expect([camera.near, camera.far, camera.right, camera.top]).toEqual([DIRECTIONAL_NEAR, DIRECTIONAL_FAR, SHADOW_BOX, SHADOW_BOX]);
     });
 });
