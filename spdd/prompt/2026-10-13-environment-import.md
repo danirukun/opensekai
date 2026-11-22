@@ -36,7 +36,7 @@ R26. Save As and Open keep the environment and the camera flag. An environment w
 - `SceneEntity` (environment): `{ id, name, visible, transform, kind: 'environment', assetId: Id | null }`.
 - `SceneEntity` (camera): adds `renderEnvironment?: boolean`.
 - `PatchOp`: `setEnvironmentModel { kind, entityId, assetId }`, `setCameraRenderEnvironment { kind, entityId, renderEnvironment }`.
-- `KHR_lights_punctual`: the importer removes it from the root and node `extensions` and from `extensionsUsed` and `extensionsRequired`, so the renderer creates no file lights. When one of the two lists is then empty, the importer removes the list, because glTF requires at least one item.
+- `KHR_lights_punctual`: the importer keeps it on the packed GLB. At most 8 punctual lights are allowed; more than 8 fails the import. See [environment file lights](2026-11-22-environment-file-lights.md) for the caps and the renderer rules.
 - `AssetRecord`: adds optional `credits?: AssetCredits`.
 - `AssetCredits`: `{ title: string | null, author: string | null, license: string | null, sourceUrl: string | null }`.
 - Rust `SceneSource` trait: `read(relative: &str) -> Result<Vec<u8>, AppError>` and `root_name() -> &str`, with `FolderSource` and `ZipSource`.
@@ -81,6 +81,6 @@ Use `@oshi-connect/ui` controls. Keep UI copy to the labels in R20 to R24 and th
 - Do not change the source files.
 - Do not set `scene.environment` or change avatar materials.
 - Do not change the transparent output of a scene without an environment.
-- Do not import `KHR_lights_punctual` lights.
+- `KHR_lights_punctual` lights are imported under the caps of [environment file lights](2026-11-22-environment-file-lights.md).
 - Do not claim Sketchfab, sky, props, or Windows support from this slice.
 - Do not claim a memory or frame-time result that was not measured; record it as unknown.

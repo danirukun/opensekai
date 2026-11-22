@@ -1,12 +1,14 @@
+pub mod hdr;
 mod image;
 mod materials;
 mod registry;
 mod scene_import;
 mod video;
 mod vrm;
+pub use hdr::{parse_hdr, HdrHeader};
 pub use image::{parse_image, ImageHeader};
 pub use registry::{
-    prepare_scene, read_located, resolve_asset, stage_avatar, stage_image, stage_scene,
+    prepare_scene, read_located, resolve_asset, stage_avatar, stage_hdr, stage_image, stage_scene,
     stage_video, AssetRegistry, ImportResult, PreparedScene, StagedAsset,
 };
 pub use scene_import::{pack_scene, Limits, PackedScene};

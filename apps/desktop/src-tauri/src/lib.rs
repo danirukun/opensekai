@@ -170,6 +170,26 @@ async fn import_video(
     announce_record(&window, &result.record);
     Ok(Some(result))
 }
+#[tauri::command]
+async fn import_hdr(
+    window: tauri::WebviewWindow,
+    state: tauri::State<'_, Arc<DesktopState>>,
+) -> Result<Option<crate::assets::ImportResult>, AppError> {
+    require_window_label(window.label(), "main")?;
+    let app = window.app_handle().clone();
+    let path = tauri::async_runtime::spawn_blocking(move || {
+        let dialog = app.dialog().file().set_title("Import HDR");
+        #[cfg(not(target_os = "macos"))]
+        let dialog = dialog.add_filter("HDR", &["hdr"]);
+        dialog.blocking_pick_file()
+    })
+    .await
+    .map_err(chooser_unavailable)?;
+    let Some(path) = path else { return Ok(None) };
+    let result = state.import_hdr(local_path(path)?).await?;
+    announce_record(&window, &result.record);
+    Ok(Some(result))
+}
 /// The displays and windows that the operator can choose (B31 R6). Only the Editor window gets the
 /// list; window titles and display names never go to MCP or a log.
 #[tauri::command]
@@ -765,6 +785,7 @@ pub fn run() {
             import_scene,
             import_image,
             import_video,
+            import_hdr,
             capture_source_list,
             capture_source_allow,
             open_capture_settings,

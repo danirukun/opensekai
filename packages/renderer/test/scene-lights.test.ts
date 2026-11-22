@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { AmbientLight, BackSide, DirectionalLight, DoubleSide, FrontSide, Group, Mesh, BoxGeometry, MeshBasicMaterial, MeshStandardMaterial, PointLight, Scene, SpotLight, type PerspectiveCamera, type WebGPURenderer } from 'three/webgpu';
 import type { LightSettings, SceneEntity } from '@opensekai/contracts';
 import { HAZE_LAYER } from '../src/haze';
-import { CHARACTER_AMBIENT, createSceneLights, lightDirection, lightGroups, lightSignature, roomLight, scattersInHaze, shadowsOn, spotAngle, usesFixedAmbient, withDrafts, DIRECTIONAL_DISTANCE, SPOT_SHADOW_FAR } from '../src/scene-lights';
+import { CHARACTER_AMBIENT, createSceneLights, lightDirection, lightGroups, lightSignature, roomLight, scattersInHaze, shadowsOn, spotAngle, usesFixedAmbient, withDrafts, DIRECTIONAL_DISTANCE, SPOT_SHADOW_FAR, collectFileLights, capFileLightShadows, MAX_FILE_LIGHT_SHADOWS } from '../src/scene-lights';
 
 const settings = (patch: Partial<LightSettings> = {}): LightSettings => ({ type: 'directional', color: '#ffffff', intensity: 3, range: 0, affectCharacters: true, affectProps: true, affectEnvironment: true, shadow: { enabled: false, intensity: 1, soft: true, bias: -0.0005, normalBias: 0.02 }, ...patch });
 const light = (id: string, patch: Partial<LightSettings> = {}, visible = true, rotation: [number, number, number, number] = [0, 0, 0, 1]): SceneEntity => ({ id, name: id, visible, transform: { position: [0, 2, 1], rotation, scale: [1, 1, 1] }, kind: 'light', light: settings(patch) });
@@ -32,11 +32,42 @@ describe('pure light functions', () => {
         expect(shadowsOn([light('a')])).toBe(false);
         expect(shadowsOn([light('a'), light('b', { shadow: { ...settings().shadow, enabled: true } })])).toBe(true);
     });
+    it('changes the signature when allowLightsToAffectCharacters flips (ENV-01)', () => {
+        const stage = (flag?: boolean): SceneEntity => ({ id: 'stage', name: 'Environment', visible: true, transform: { position: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] }, kind: 'environment', assetId: null, ...(flag === undefined ? {} : { allowLightsToAffectCharacters: flag }) });
+        expect(lightSignature([stage()])).toBe('builtin');
+        expect(lightSignature([stage(true)])).toBe('builtin:envChars');
+        expect(lightSignature([light('a'), stage()])).not.toBe(lightSignature([light('a'), stage(true)]));
+    });
+    it('collects file lights and caps shadows to two (ENV-01 R3, R5)', () => {
+        const root = new Group(), a = new PointLight(), b = new PointLight(), c = new PointLight(), mesh = new Mesh(new BoxGeometry(), new MeshBasicMaterial());
+        a.castShadow = b.castShadow = c.castShadow = true;
+        root.add(a, b, c, mesh);
+        expect(collectFileLights(root)).toEqual([a, b, c]);
+        capFileLightShadows(root);
+        expect([a.castShadow, b.castShadow, c.castShadow]).toEqual([true, true, false]);
+        expect(MAX_FILE_LIGHT_SHADOWS).toBe(2);
+    });
     it('shines along local −Z (R4)', () => {
         expect(lightDirection([0, 0, 0, 1])).toEqual([0, 0, -1]);
         const [x, y, z] = lightDirection([-0.3890, 0.2648, 0.1178, 0.8745]);
         const n = Math.hypot(2, 4, 3);
         expect(x).toBeCloseTo(-2 / n, 3); expect(y).toBeCloseTo(-4 / n, 3); expect(z).toBeCloseTo(-3 / n, 3);
+    });
+});
+
+describe('environment file lights (ENV-01)', () => {
+    it('rebuilds the environment node set when file lights appear', () => {
+        const scene = new Scene(), lights = createSceneLights(scene, fake());
+        const stage: SceneEntity = { id: 'stage', name: 'Environment', visible: true, transform: { position: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] }, kind: 'environment', assetId: null };
+        expect(lights.apply([stage, light('key')])).toBe(true);
+        const before = lights.node('environment');
+        const file = new PointLight(0xffffff, 5);
+        lights.setFileLights([file], false);
+        expect(lights.apply([stage, light('key')])).toBe(true);
+        expect(lights.node('environment')).not.toBe(before);
+        lights.setFileLights([file], true);
+        expect(lights.apply([{ ...stage, allowLightsToAffectCharacters: true }, light('key')])).toBe(true);
+        expect(lights.node('characters')).not.toBe(lights.node('props'));
     });
 });
 

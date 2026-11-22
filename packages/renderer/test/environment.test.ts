@@ -1,7 +1,7 @@
 import { it, expect, vi, beforeEach, describe } from 'vitest';
 import { Group, Mesh, MeshStandardMaterial, MeshPhysicalMaterial, MeshBasicMaterial, MeshPhongMaterial, MeshLambertMaterial, MeshToonMaterial, BoxGeometry, Texture, type MeshStandardNodeMaterial, type NodeBuilder, type Object3D } from 'three/webgpu';
 import { QUALITY_PROFILES, makeSmokeFrame, type RuntimeFrame, type SceneEntity } from '@opensekai/contracts';
-const ports = vi.hoisted(() => ({ load: vi.fn(), render: vi.fn(), compile: vi.fn(), light: { apply: vi.fn(), room: vi.fn(), dispose: vi.fn() } }));
+const ports = vi.hoisted(() => ({ load: vi.fn(), render: vi.fn(), compile: vi.fn(), light: { apply: vi.fn(), room: vi.fn(), clearIbl: vi.fn(), iblFromEquirect: vi.fn(), iblFromColor: vi.fn(), dispose: vi.fn() } }));
 const instance = (dispose: () => void = () => {}) => ({ dispose, reflections: vi.fn() });
 vi.mock('../src/backend', () => ({ initializeBackend: async () => ({ backend: 'webgl2', renderer: { shadowMap: { enabled: false }, info: { memory: { geometries: 0, textures: 0 } }, setSize: vi.fn(), renderAsync: ports.render, compileAsync: ports.compile, dispose: vi.fn() } }) }));
 vi.mock('../src/assets', async original => ({ ...await original<typeof import('../src/assets')>(), createAssetLoader: () => ports.load }));
@@ -19,7 +19,7 @@ function frame(options: { assetId?: string | null; flag?: boolean } = {}): Runti
 }
 const rendered = () => ports.render.mock.lastCall![0] as Group;
 const room = () => { const root = new Group(); root.name = 'room'; return { scene: root, warnings: [], dispose: vi.fn() }; };
-beforeEach(() => { ports.load.mockReset(); ports.render.mockReset().mockResolvedValue(undefined); ports.compile.mockReset().mockResolvedValue(undefined); ports.light.apply.mockReset().mockImplementation(() => instance()); ports.light.room.mockReset(); ports.light.dispose.mockReset(); });
+beforeEach(() => { ports.load.mockReset(); ports.render.mockReset().mockResolvedValue(undefined); ports.compile.mockReset().mockResolvedValue(undefined); ports.light.apply.mockReset().mockImplementation(() => instance()); ports.light.room.mockReset(); ports.light.clearIbl.mockReset(); ports.light.iblFromEquirect.mockReset(); ports.light.iblFromColor.mockReset(); ports.light.dispose.mockReset(); });
 const make = (outputId: 'output_main' | 'preview_main' = 'output_main') => createRenderer({ canvas: { width: 1920, height: 1080 } as HTMLCanvasElement, outputId, mode: 'force-webgl2', resources: { readAsset: vi.fn() }, diagnostics: false, quality: QUALITY_PROFILES.production_v1 });
 
 it('loads the environment, lights it before GPU preparation, and draws it', async () => {
@@ -125,7 +125,7 @@ it('puts the map on instance clones only and releases it once', async () => {
     const texture = new Texture();
     const textureDispose = vi.spyOn(texture, 'dispose');
     const make = vi.fn(() => ({ texture, dispose }));
-    const light = createEnvironmentLight(make);
+    const light = createEnvironmentLight({} as never, make);
     const source = new MeshStandardMaterial();
     const cached = new Group(); cached.add(new Mesh(new BoxGeometry(), source));
     const instance = cached.clone();
@@ -150,7 +150,7 @@ it('puts the map on instance clones only and releases it once', async () => {
 it('puts the room map on standard copies only and leaves unlit materials alone', async () => {
     const { createEnvironmentLight } = await vi.importActual<typeof import('../src/environment-light')>('../src/environment-light');
     const texture = new Texture();
-    const light = createEnvironmentLight(() => ({ texture, dispose() {} }));
+    const light = createEnvironmentLight({} as never, () => ({ texture, dispose() {} }));
     const unlit = new MeshBasicMaterial();
     const root = new Group(); root.add(new Mesh(new BoxGeometry(), unlit));
     light.apply(root);
@@ -166,7 +166,7 @@ it('puts the room map on standard copies only and leaves unlit materials alone',
 });
 it('copies each distinct material once per instance', async () => {
     const { createEnvironmentLight } = await vi.importActual<typeof import('../src/environment-light')>('../src/environment-light');
-    const light = createEnvironmentLight(() => ({ texture: new Texture(), dispose() {} }));
+    const light = createEnvironmentLight({} as never, () => ({ texture: new Texture(), dispose() {} }));
     const shared = new MeshStandardMaterial();
     const root = new Group();
     root.add(new Mesh(new BoxGeometry(), shared), new Mesh(new BoxGeometry(), shared));
@@ -183,7 +183,7 @@ it('copies each distinct material once per instance', async () => {
 it('copies each lit material for an instance and puts the room map on standard copies only (R6, prop import R4)', async () => {
     const { createEnvironmentLight } = await vi.importActual<typeof import('../src/environment-light')>('../src/environment-light');
     const make = vi.fn(() => ({ texture: new Texture(), dispose() {} }));
-    const light = createEnvironmentLight(make);
+    const light = createEnvironmentLight({} as never, make);
     const lit = [new MeshStandardMaterial(), new MeshPhongMaterial(), new MeshLambertMaterial(), new MeshToonMaterial()];
     const unlit = new MeshBasicMaterial();
     const root = new Group();
@@ -199,7 +199,7 @@ it('copies each lit material for an instance and puts the room map on standard c
 });
 it('sets the reflections intensity on environment copies (R15)', async () => {
     const { createEnvironmentLight } = await vi.importActual<typeof import('../src/environment-light')>('../src/environment-light');
-    const light = createEnvironmentLight(() => ({ texture: new Texture(), dispose() {} }));
+    const light = createEnvironmentLight({} as never, () => ({ texture: new Texture(), dispose() {} }));
     const source = new MeshStandardMaterial();
     const root = new Group(); root.add(new Mesh(new BoxGeometry(), source));
     const copies = light.apply(root);
@@ -211,7 +211,7 @@ it('sets the reflections intensity on environment copies (R15)', async () => {
 it('scales the room reflections and the room fill of environment copies by the room light (B13 R4a)', async () => {
     const { createEnvironmentLight } = await vi.importActual<typeof import('../src/environment-light')>('../src/environment-light');
     const texture = new Texture();
-    const light = createEnvironmentLight(() => ({ texture, dispose() {} }));
+    const light = createEnvironmentLight({} as never, () => ({ texture, dispose() {} }));
     const root = new Group(); root.add(new Mesh(new BoxGeometry(), new MeshStandardMaterial({ roughness: 0.3 })), new Mesh(new BoxGeometry(), new MeshPhysicalMaterial({ clearcoat: 1 })));
     light.apply(root);
     type Share = { bNode: { value: number | { toArray(): number[] } } };

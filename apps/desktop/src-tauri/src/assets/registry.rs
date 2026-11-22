@@ -376,6 +376,7 @@ impl AssetRegistry {
                     && !r.id.starts_with("scene_")
                     && !r.id.starts_with("image_")
                     && !r.id.starts_with("video_")
+                    && !r.id.starts_with("hdr_")
             })
             .collect()
     }
@@ -417,6 +418,15 @@ pub fn read_located(path: &Path, record: &AssetRecord) -> Result<Vec<u8>, AppErr
         if !matches {
             return Err(error(ErrorCode::InvalidInput, id));
         }
+    } else if record.format.is_hdr() {
+        // ENV-02: the magic bytes must start the Radiance HDR file.
+        let header = super::hdr::parse_hdr(&bytes).map_err(|_| error(ErrorCode::InvalidInput, id))?;
+        let matches = record.image.as_ref().is_some_and(|image| {
+            header.width == image.width && header.height == image.height
+        });
+        if !matches {
+            return Err(error(ErrorCode::InvalidInput, id));
+        }
     } else if record.format.is_video() {
         // B29 R6: the detected container, codecs, size, and duration must equal the record.
         let header = parse_video(&bytes).map_err(|_| error(ErrorCode::InvalidInput, id))?;
@@ -435,6 +445,7 @@ fn library_prefix(format: &AssetFormat) -> &'static str {
         AssetFormat::Glb => "scene",
         AssetFormat::Png | AssetFormat::Jpeg | AssetFormat::Webp | AssetFormat::Gif => "image",
         AssetFormat::Mp4 | AssetFormat::Webm => "video",
+        AssetFormat::Hdr => "hdr",
     }
 }
 /// Reads, checks, and hashes an image into temporary library files. Runs without the registry lock (B28 R5).
@@ -491,6 +502,70 @@ pub fn stage_image(library: &Path, path: &Path) -> Result<StagedAsset, AppError>
     let file = (
         temp_file(library, &bytes)?,
         format!("{id}.{}", header.format.extension()),
+    );
+    let json = record_file(library, &record)?;
+    Ok(StagedAsset {
+        record,
+        name,
+        library: library.to_path_buf(),
+        files: vec![file, json],
+        deduplicate: true,
+    })
+}
+/// Reads, checks, and hashes a Radiance HDR into temporary library files. Runs without the registry lock.
+pub fn stage_hdr(library: &Path, path: &Path) -> Result<StagedAsset, AppError> {
+    let source = std::fs::File::open(path).map_err(|_| error(ErrorCode::NotFound, ""))?;
+    let size = source
+        .metadata()
+        .map_err(|_| error(ErrorCode::Unavailable, ""))?
+        .len();
+    if size > super::hdr::MAX_HDR_BYTES {
+        return Err(invalid("HDR image is larger than 128 MiB"));
+    }
+    let mut bytes = Vec::new();
+    source
+        .take(super::hdr::MAX_HDR_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|_| error(ErrorCode::Unavailable, ""))?;
+    if bytes.len() as u64 > super::hdr::MAX_HDR_BYTES {
+        return Err(invalid("HDR image is larger than 128 MiB"));
+    }
+    let header = super::hdr::parse_hdr(&bytes)?;
+    let sha256 = hex(&Sha256::digest(&bytes));
+    let id = format!("hdr_{sha256}");
+    let name = path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .and_then(bounded_name)
+        .unwrap_or_else(|| "HDR".into());
+    let record = AssetRecord {
+        id: id.clone(),
+        format: AssetFormat::Hdr,
+        sha256,
+        bytes: bytes.len() as u64,
+        source_url: None,
+        license_label: "User supplied".into(),
+        importer_version: 1,
+        name: name.clone(),
+        credits: None,
+        catalog: None,
+        expressions: vec![],
+        eye_bones: None,
+        rig: None,
+        meshes: None,
+        materials: None,
+        image: Some(AssetImage {
+            width: header.width,
+            height: header.height,
+            frames: 1,
+        }),
+        video: None,
+    };
+    record.validate()?;
+    std::fs::create_dir_all(library).map_err(|_| error(ErrorCode::Unavailable, ""))?;
+    let file = (
+        temp_file(library, &bytes)?,
+        format!("{id}.hdr"),
     );
     let json = record_file(library, &record)?;
     Ok(StagedAsset {

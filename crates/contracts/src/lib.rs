@@ -56,13 +56,16 @@ strings!(Capability { Read=>"read", Edit=>"edit", Capture=>"capture", Benchmark=
 strings!(Role { Publisher=>"publisher", Operator=>"operator", Renderer=>"renderer" });
 strings!(ErrorCode { InvalidInput=>"INVALID_INPUT", Conflict=>"CONFLICT", Forbidden=>"FORBIDDEN", Unavailable=>"UNAVAILABLE", NotFound=>"NOT_FOUND", Unsupported=>"UNSUPPORTED", Timeout=>"TIMEOUT", RateLimited=>"RATE_LIMITED", Busy=>"BUSY", Cancelled=>"CANCELLED", VersionMismatch=>"VERSION_MISMATCH", StaleFrame=>"STALE_FRAME" });
 strings!(RunState { Warming=>"warming", Measuring=>"measuring", Complete=>"complete", Cancelled=>"cancelled", Failed=>"failed" });
-strings!(AssetFormat { Glb=>"glb", Vrm=>"vrm", Png=>"png", Jpeg=>"jpeg", Webp=>"webp", Gif=>"gif", Mp4=>"mp4", Webm=>"webm" });
+strings!(AssetFormat { Glb=>"glb", Vrm=>"vrm", Png=>"png", Jpeg=>"jpeg", Webp=>"webp", Gif=>"gif", Mp4=>"mp4", Webm=>"webm", Hdr=>"hdr" });
 impl AssetFormat {
     pub fn is_image(&self) -> bool {
         matches!(self, Self::Png | Self::Jpeg | Self::Webp | Self::Gif)
     }
     pub fn is_video(&self) -> bool {
         matches!(self, Self::Mp4 | Self::Webm)
+    }
+    pub fn is_hdr(&self) -> bool {
+        matches!(self, Self::Hdr)
     }
     /// The library file extension (B28 R2).
     pub fn extension(&self) -> &'static str {
@@ -75,6 +78,7 @@ impl AssetFormat {
             Self::Gif => "gif",
             Self::Mp4 => "mp4",
             Self::Webm => "webm",
+            Self::Hdr => "hdr",
         }
     }
     pub fn content_type(&self) -> &'static str {
@@ -86,6 +90,7 @@ impl AssetFormat {
             Self::Gif => "image/gif",
             Self::Mp4 => "video/mp4",
             Self::Webm => "video/webm",
+            Self::Hdr => "image/vnd.radiance",
         }
     }
 }
@@ -95,6 +100,43 @@ strings!(FixtureId { SmokeV1=>"smoke_v1" });
 strings!(ProfileId { WebgpuSmokeV1=>"webgpu_smoke_v1", Webgl2SmokeV1=>"webgl2_smoke_v1" });
 strings!(QualityProfileId { PreviewV1=>"preview_v1", ProductionV1=>"production_v1", PerformanceV1=>"performance_v1" });
 strings!(CameraAntiAliasing { None=>"none", Fxaa=>"fxaa" });
+strings!(CameraSkyKind { None=>"none", Color=>"color", Image=>"image", Hdr=>"hdr" });
+object!(CameraSky {
+    kind: CameraSkyKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none", rename = "assetId")]
+    asset_id: Option<Option<Id>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    intensity: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    blurriness: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    ibl: Option<bool>
+});
+impl Validate for CameraSky {
+    fn validate(&self) -> Result<(), AppError> {
+        if self.kind == CameraSkyKind::Color {
+            require(
+                self.color.as_ref().is_some_and(|c| light_color_ok(c)),
+                "invalid sky color",
+            )?;
+        }
+        if self.kind == CameraSkyKind::Image || self.kind == CameraSkyKind::Hdr {
+            require(
+                self.asset_id.as_ref().is_some_and(|id| id.is_some()),
+                "sky image/hdr requires assetId",
+            )?;
+        }
+        if let Some(intensity) = self.intensity {
+            require(within(intensity, 0., 2.), "invalid sky intensity")?;
+        }
+        if let Some(blurriness) = self.blurriness {
+            require(within(blurriness, 0., 1.), "invalid sky blurriness")?;
+        }
+        Ok(())
+    }
+}
 // Camera color grading, tone mapping, and bloom (CAM-06 slice 1).
 strings!(CameraToneMapping { None=>"none", Aces=>"aces", Neutral=>"neutral" });
 object!(CameraBloom {
@@ -839,6 +881,12 @@ pub enum SceneEntity {
             rename = "reflectionsIntensity"
         )]
         reflections_intensity: Option<f64>,
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            rename = "allowLightsToAffectCharacters"
+        )]
+        allow_lights_to_affect_characters: Option<bool>,
     },
     Light {
         id: Id,
@@ -902,6 +950,8 @@ pub enum SceneEntity {
         effects: Option<Box<CameraEffects>>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         navigation: Option<CameraNavigation>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        sky: Option<CameraSky>,
     },
 }
 impl SceneEntity {
@@ -1079,6 +1129,12 @@ pub enum PatchOp {
         #[serde(rename = "reflectionsIntensity")]
         reflections_intensity: f64,
     },
+    SetEnvironmentLighting {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+        #[serde(rename = "allowLightsToAffectCharacters")]
+        allow_lights_to_affect_characters: bool,
+    },
     SetLight {
         #[serde(rename = "entityId")]
         entity_id: Id,
@@ -1138,6 +1194,12 @@ pub enum PatchOp {
         #[serde(rename = "entityId")]
         entity_id: Id,
         navigation: CameraNavigation,
+    },
+    SetCameraSky {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+        #[serde(deserialize_with = "nullable")]
+        sky: Option<CameraSky>,
     },
     SetAvatarExpression {
         #[serde(rename = "entityId")]
@@ -3253,6 +3315,10 @@ pub fn validate_patch_ops(ops: &[PatchOp], max: usize) -> Result<(), AppError> {
                 effects: Some(effects),
                 ..
             } => effects.validate()?,
+            PatchOp::SetCameraSky {
+                sky: Some(sky),
+                ..
+            } => sky.validate()?,
             PatchOp::SetLight { light, .. } => light.validate()?,
             PatchOp::SetHaze { haze, .. } => haze.validate()?,
             PatchOp::SetFpsCounter { fps_counter, .. } => fps_counter.validate()?,
@@ -3516,9 +3582,27 @@ impl Validate for AssetRecord {
                     && self.materials.is_none(),
                 "invalid image record",
             )?;
+        } else if self.format.is_hdr() {
+            let image = self
+                .image
+                .as_ref()
+                .ok_or_else(|| invalid("HDR record needs image"))?;
+            require(
+                AssetImage::size_ok(image.width, image.height),
+                "invalid HDR size",
+            )?;
+            require(
+                self.id.starts_with("hdr_")
+                    && self.expressions.is_empty()
+                    && self.rig.is_none()
+                    && self.eye_bones.is_none()
+                    && self.meshes.is_none()
+                    && self.materials.is_none(),
+                "invalid HDR record",
+            )?;
         } else {
             require(
-                self.image.is_none() && !self.id.starts_with("image_"),
+                self.image.is_none() && !self.id.starts_with("image_") && !self.id.starts_with("hdr_"),
                 "invalid model record",
             )?;
         }
@@ -4092,6 +4176,7 @@ impl Validate for SceneEntity {
             navigation,
             grading,
             effects,
+            sky,
             ..
         } = self
         {
@@ -4104,6 +4189,9 @@ impl Validate for SceneEntity {
             }
             if let Some(navigation) = navigation {
                 navigation.validate()?;
+            }
+            if let Some(sky) = sky {
+                sky.validate()?;
             }
         }
         if let Self::Light { light, .. } = self {

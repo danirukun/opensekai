@@ -1,5 +1,5 @@
 <script lang="ts">
- import {Button,Select} from '@oshi-connect/ui';
+ import {Button,Checkbox,Select} from '@oshi-connect/ui';
  import type {AssetRecord,Reply} from '@opensekai/contracts';
  import {SLIDERS} from '../editor/slider';
  import SliderField from './SliderField.svelte';
@@ -8,7 +8,7 @@
  import type {AssetLoadStatus} from '@opensekai/renderer';
  import {stageLabel} from '../editor/load-status';
  import {creditLine,sceneSourceOptions,sourceAction} from '../editor/environment';
- let {marks=NO_MARKS,assetId,assets,status=null,importing=false,error=null,disabled=false,onselect,onimport,reflectionsIntensity=1,reflectionsDisabled=false,onreflections,onreflectionslive,onliveend}:{marks?:ResetMarks;assetId:string|null;assets:readonly AssetRecord[];status?:AssetLoadStatus|null;importing?:boolean;error?:string|null;disabled?:boolean;onselect:(assetId:string|null)=>void;onimport:()=>void;reflectionsIntensity?:number;reflectionsDisabled?:boolean;onreflections?:(value:number)=>Promise<Reply<unknown>>;onreflectionslive?:(value:number)=>void;onliveend?:()=>void}=$props();
+ let {marks=NO_MARKS,assetId,assets,status=null,importing=false,error=null,disabled=false,onselect,onimport,reflectionsIntensity=1,reflectionsDisabled=false,onreflections,onreflectionslive,onliveend,allowLightsToAffectCharacters=false,onlighting}:{marks?:ResetMarks;assetId:string|null;assets:readonly AssetRecord[];status?:AssetLoadStatus|null;importing?:boolean;error?:string|null;disabled?:boolean;onselect:(assetId:string|null)=>void;onimport:()=>void;reflectionsIntensity?:number;reflectionsDisabled?:boolean;onreflections?:(value:number)=>Promise<Reply<unknown>>;onreflectionslive?:(value:number)=>void;onliveend?:()=>void;allowLightsToAffectCharacters?:boolean;onlighting?:(value:boolean)=>void}=$props();
  const credits=$derived(assets.find(asset=>asset.id===assetId)?.credits);
  const line=$derived(credits?creditLine(credits):null);
  let reset=$state(0),copied=$state(false);
@@ -22,6 +22,7 @@
  {:else if status}<div class="source-status" class:failed={status.stage==='failed'}><span>{stageLabel(status)}</span>{#if status.stage!=='failed'}{#if status.progress===null}<progress max="1" aria-label={stageLabel(status)}></progress>{:else}<progress max="1" value={status.progress} aria-label={stageLabel(status)}></progress>{/if}{/if}</div>{/if}
  {#if error}<p class="source-status failed" role="alert">{error}</p>{/if}
  {#if onreflections}<div class="resettable"><SliderField label="Reflections Intensity" value={reflectionsIntensity} range={SLIDERS.reflections} disabled={reflectionsDisabled} onlive={onreflectionslive} onend={onliveend} oncommit={value=>{void onreflections?.(value);}}/>{#if marks.changed.has('reflectionsIntensity')}<ResetMark label="Reflections Intensity" disabled={marks.disabled||reflectionsDisabled} onreset={()=>{void onreflections?.(Number(marks.defaults.reflectionsIntensity));}}/>{/if}</div>{/if}
+ {#if onlighting}<div class="resettable"><Checkbox label="Allow Lights To Affect Characters" checked={allowLightsToAffectCharacters} disabled={disabled} onchange={event=>onlighting?.(event.currentTarget.checked)}/>{#if marks.changed.has('allowLightsToAffectCharacters')}<ResetMark label="Allow Lights To Affect Characters" disabled={marks.disabled||disabled} onreset={()=>{onlighting?.(false);}}/>{/if}</div>{/if}
  {#if credits&&line}<dl class="credits">{#if credits.title}<dt>Title</dt><dd>{credits.title}</dd>{/if}{#if credits.author}<dt>Author</dt><dd>{credits.author}</dd>{/if}{#if credits.license}<dt>License</dt><dd>{credits.license}</dd>{/if}</dl><Button variant="ghost" onclick={copy}>{copied?'Copied':'Copy credit'}</Button>{/if}
 </div>
 <style>

@@ -1,7 +1,8 @@
 import { assertEditorScope, createEditorViewport, createHazeHelper, createLightHelper, updateHazeHelper, updateLightHelper } from './editor-viewport';
 import type { EditorOptions, EditorHandle } from './editor-viewport';
-import { Scene, Mesh, BoxGeometry, MeshStandardNodeMaterial, PerspectiveCamera, Object3D } from "three/webgpu";
+import { Scene, Mesh, BoxGeometry, MeshStandardNodeMaterial, PerspectiveCamera, Object3D, DataTexture, EquirectangularReflectionMapping, HalfFloatType as THalfFloatType, LinearFilter, Texture as ThreeTexture, SRGBColorSpace } from "three/webgpu";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
+import { HDRLoader } from "three/addons/loaders/HDRLoader.js";
 import type { RuntimeFrame, FrameApplied, RendererDiagnostics, CaptureBytes, Id, ResourceHost, AppError, AssetDebug, SceneEntity, QualityProfile, ScreenshotBytes, OutputSpec, Vec3 } from "@opensekai/contracts";
 import { DEFAULT_CAMERA_EFFECTS, LIMITS, RuntimeFrameSchema, avatarLighting } from "@opensekai/contracts";
 import { distance, focusCharacterId, focusedLens, headFallbackPosition, smoothFocusDistance } from "./autofocus";
@@ -16,7 +17,7 @@ import { createCapturePolicy, readPng } from "./capture";
 import { createLoadJobs, type AssetLoadStatus, type LoadReport, type LoadRequest } from "./load-jobs";
 import { createEnvironmentLight, roomEnvironmentMap, roomIrradiance, type InstanceMaterials } from "./environment-light";
 import { copyUnlitMaterials, createMaterialBinding, type MaterialBinding } from "./material-values";
-import { createSceneLights, groupOf, isLitMaterial, roomLight, withDrafts, type LightGroup } from "./scene-lights";
+import { createSceneLights, groupOf, isLitMaterial, roomLight, withDrafts, capFileLightShadows, collectFileLights, type LightGroup } from "./scene-lights";
 import { characterFill, normalizeRoom } from "./character-lighting-math";
 import { createCharacterShare, setRoomFill } from "./character-mtoon";
 import { logPipelineFailure, watchPipelineErrors, type PipelineDevice } from "./pipeline-diagnostics";
@@ -31,6 +32,7 @@ import { renderScreenshot, SCREENSHOT_HEIGHT, SCREENSHOT_WIDTH } from "./screens
 import { applyPerspectiveLens } from "./lens";
 import { IMAGE_LOAD_FAILED, createScreenImagePool, createScreenMesh, loadScreenImage } from "./screen";
 import { createCameraEffects, createDirtSource } from "./camera-effects";
+import { applySky, clearSky, restoreSky, saveSky, skyNeedsTexture, type SkyTextures } from "./sky";
 import { activeEffects, effectsKey } from "./camera-effects-math";
 import { createLensLook, lookChainKey, lookQuality, needsLook } from "./lens-look";
 import { createWebLayers, createWebQuad, webQuadWidth, webScreenPlan, type WebLayers } from "./web-screen";
@@ -123,13 +125,46 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     const lensLook = createLensLook();
     const lookTier = lookQuality(quality.id);
     const dirt = createDirtSource(images);
+    // Sky textures: image (LDR equirect) and HDR equirect, keyed by asset ID.
+    const skyTextures = new Map<string, { texture: DataTexture | import("three/webgpu").Texture; dispose(): void }>();
+    const skyLoading = new Map<string, Promise<void>>();
+    const hdrParser = new HDRLoader();
+    const loadSkyTexture = (assetId: string) => {
+        if (skyTextures.has(assetId) || skyLoading.has(assetId)) return;
+        const job = options.resources.readAsset(assetId).then(buffer => {
+            const bytes = new Uint8Array(buffer);
+            // Radiance HDR: starts with "#?" (magic bytes 0x23 0x3f)
+            if (bytes[0] === 0x23 && bytes[1] === 0x3f) {
+                const parsed = hdrParser.parse(buffer);
+                if (!parsed) return;
+                const tex = new DataTexture(parsed.data, parsed.width, parsed.height, undefined, parsed.type ?? THalfFloatType);
+                tex.minFilter = LinearFilter;
+                tex.magFilter = LinearFilter;
+                tex.mapping = EquirectangularReflectionMapping;
+                tex.needsUpdate = true;
+                skyTextures.set(assetId, { texture: tex, dispose: () => tex.dispose() });
+            } else {
+                // LDR image: decode via ImageBitmap
+                const blob = new Blob([buffer]);
+                return createImageBitmap(blob).then(bitmap => {
+                    const tex = new ThreeTexture(bitmap);
+                    tex.colorSpace = SRGBColorSpace;
+                    tex.mapping = EquirectangularReflectionMapping;
+                    tex.needsUpdate = true;
+                    skyTextures.set(assetId, { texture: tex, dispose: () => { tex.dispose(); bitmap.close(); } });
+                });
+            }
+        }).catch(() => { /* failed sky texture load is silent; applySky falls back to clearSky */ }).finally(() => skyLoading.delete(assetId));
+        skyLoading.set(assetId, job);
+    };
+    const skyTextureAdapter: SkyTextures = { get: (id) => skyTextures.get(id)?.texture as import("three/webgpu").Texture ?? null };
     const audio = options.audio === true;
     // One socket and one decoder for each capture stream (B31 R14). WebGL 2 uploads the VideoFrame; WebGPU an ImageBitmap.
     const captures = createCaptureScreens({ host: options.capture, upload: backend === "webgpu" ? "bitmap" : "frame" });
     let decoderSupport: VideoDecoderSupport | null = null;
     void probeVideoDecoder().then(value => { decoderSupport = value; });
     const makeRoomMap = roomEnvironmentMap(renderer);
-    const environmentLight = createEnvironmentLight(() => outsideFrame(makeRoomMap));
+    const environmentLight = createEnvironmentLight(renderer, () => outsideFrame(makeRoomMap));
     // The fill color and the room irradiance of all avatars of this renderer (character lighting R4). The share starts with the flat
     // fill. The room irradiance is made once, on the first avatar build, and is never tried again. The promise gives the reason
     // when it fails, or null.
@@ -206,6 +241,8 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         const binding = asset.materials?.length ? createMaterialBinding(asset.materials, root, asset.materialIndex, new Map([...unlit.originals, ...lit.originals])) : undefined;
         const materials: InstanceMaterials = { ...lit, dispose() { lit.dispose(); unlit.dispose(); } };
         const release = () => { disposeInstance(root); materials.dispose(); };
+        // ENV-01: cap file-light shadows on loaded environment models.
+        if (request.kind === "environment") capFileLightShadows(root);
         sceneLights.assign(root, request.kind === "environment" ? "environment" : "props");
         const generation = sceneLights.generation();
         try { await prepare(root, report, cancelled); }
@@ -266,6 +303,8 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         jobs.dispose();
         assets.dispose();
         dirt.dispose();
+        for (const entry of skyTextures.values()) entry.dispose();
+        skyTextures.clear();
         cameraEffects.dispose();
         lensLook.dispose();
         images.dispose();
@@ -302,6 +341,12 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         const warnings: AppError[] = [];
         // A dragged light or haze follows the gizmo on each frame, between the throttled commits (B12 R7).
         const drawn = editor ? withDrafts(frame.scene.entities, id => editor.draftTransform(id)) : frame.scene.entities;
+        // ENV-01: collect file lights from the loaded environment root and feed them to the scene lights system.
+        const envEntity = drawn.find((e): e is Extract<SceneEntity, { kind: "environment" }> => e.kind === "environment");
+        const envObject = envEntity ? objects.get(envEntity.id) : undefined;
+        const envFileLights = envObject && envEntity?.visible !== false ? collectFileLights(envObject.root) : [];
+        const envAffectChars = envEntity?.allowLightsToAffectCharacters === true;
+        sceneLights.setFileLights(envFileLights, envAffectChars);
         const lightsRebuilt = sceneLights.apply(drawn);
         if (lightsRebuilt) { pipelineFailed = false; hazeFailed = false; beamsFailed = false; blame = afterRebuild(blame); }
         environmentLight.room(roomLight(drawn));
@@ -530,6 +575,19 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         camera.aspect = width / height;
         applyPerspectiveLens(camera, cameraEntity.lens);
         applyTransform(camera, navigated ? { ...cameraEntity, transform: navigated } : cameraEntity);
+        // ENV-02: load and apply the camera sky before the draw; restore after.
+        const neededSkyAsset = skyNeedsTexture(cameraEntity.sky);
+        if (neededSkyAsset) loadSkyTexture(neededSkyAsset);
+        const savedSky = saveSky(scene);
+        applySky(scene, cameraEntity.sky, skyTextureAdapter);
+        // ENV-02 IBL: PMREM onto env/prop copies only; never scene.environment.
+        const sky = cameraEntity.sky;
+        if (sky?.ibl && sky.kind === 'color' && sky.color) environmentLight.iblFromColor(sky.color);
+        else if (sky?.ibl && (sky.kind === 'image' || sky.kind === 'hdr') && sky.assetId) {
+            const tex = skyTextureAdapter.get(sky.assetId);
+            if (tex) environmentLight.iblFromEquirect(tex, sky.assetId);
+            else environmentLight.clearIbl();
+        } else environmentLight.clearIbl();
         try {
             // three.js 0.180: on WebGPU a shadow first set up during a draw stays empty, so compile first; on WebGL 2 this compile leaves the shadow empty.
             if (lightsRebuilt && sceneLights.shadows() && backend === "webgpu") await compileOnce(() => renderer.compileAsync(scene, camera));
@@ -553,9 +611,11 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         catch (error) {
             // The passes of a failed frame are not a sample (R4).
             gpuTimer.taint();
+            restoreSky(scene, savedSky);
             warnings.push({ code: "UNSUPPORTED", message: "Material/render submission failed: " + (error instanceof Error ? error.message : String(error)), ids: [] });
             throw Object.assign(failure("UNSUPPORTED", "Render submission failed"), { warnings });
         }
+        restoreSky(scene, savedSky);
         if (applied) gpuTimer.frameDone();
         if (disposed)
             throw failure("CANCELLED", "Renderer disposed");
@@ -608,9 +668,21 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             // The output camera uses its live smoothed focus; another autofocus camera focuses on its target now.
             const shotLens = focusedLens(entity.lens, focusDistances.get(cameraId) ?? focusTargetDistance(frame.scene, entity, entity.transform.position));
             const shotLook = entity.effects && needsLook(entity.effects) ? { effects: entity.effects, lens: shotLens, quality: lookTier } : null;
+            // ENV-02: apply the screenshot camera sky and IBL, then restore.
+            const shotNeeded = skyNeedsTexture(entity.sky);
+            if (shotNeeded) loadSkyTexture(shotNeeded);
+            const shotSavedSky = saveSky(scene);
+            applySky(scene, entity.sky, skyTextureAdapter);
+            const shotSky = entity.sky;
+            if (shotSky?.ibl && shotSky.kind === 'color' && shotSky.color) environmentLight.iblFromColor(shotSky.color);
+            else if (shotSky?.ibl && (shotSky.kind === 'image' || shotSky.kind === 'hdr') && shotSky.assetId) {
+                const tex = skyTextureAdapter.get(shotSky.assetId);
+                if (tex) environmentLight.iblFromEquirect(tex, shotSky.assetId);
+                else environmentLight.clearIbl();
+            } else environmentLight.clearIbl();
             let png: Uint8Array;
             try { png = await outsideFrame(() => renderScreenshot({ renderer, backend, scene, camera: shotCamera, show, antiAliasing: entity.antiAliasing ?? "none", msaaSamples: quality.msaaSamples, haze: shotHaze, grading: entity.grading ?? null, beams: shotBeams, effects: shotEffects, look: shotLook })); }
-            finally { lease?.release(); }
+            finally { restoreSky(scene, shotSavedSky); environmentLight.clearIbl(); lease?.release(); }
             if (disposed) throw failure("CANCELLED", "Renderer disposed");
             if (png.byteLength > LIMITS.screenshotPngBytes) throw failure("INVALID_INPUT", "Screenshot PNG exceeds 8 MiB");
             return { sessionId: frame.sessionId, revision: expectedRevision, cameraId, width: SCREENSHOT_WIDTH, height: SCREENSHOT_HEIGHT, png };

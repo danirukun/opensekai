@@ -35,7 +35,7 @@ R14. The editor viewport draws a pickable helper for each light: a disc for a po
 ### Environment lighting (ENV-01)
 
 R15. An environment entity has an optional `reflectionsIntensity`: a finite number from 0 to 2. A missing field means 1. The patch operation `{ kind: 'setEnvironmentReflections', entityId, reflectionsIntensity }` sets it, with the same errors as `setEnvironmentModel`. The renderer sets `envMapIntensity` on each environment material copy (R17 of the environment import contract). The environment Inspector shows **Reflections Intensity** under Source. (B13 R4a: with an ambient light entity, the map gives only reflections, times the ambient light and this intensity.)
-R16. File lights stay removed at import. The environment import contract does not change.
+R16. File lights are imported under the caps of [environment file lights](2026-11-22-environment-file-lights.md). The environment import contract keeps `KHR_lights_punctual`.
 
 ### Blueprints
 
@@ -90,7 +90,7 @@ Add the contracts first in TypeScript and Rust with shared vectors. Then the ses
 
 - Do not change the show file version or the quality profiles.
 - Do not change an old show's lights: a scene without a light entity renders as today (R5).
-- Do not import `KHR_lights_punctual` lights. Do not loosen the import checks.
+- File lights are imported under the caps of [environment file lights](2026-11-22-environment-file-lights.md).
 - Do not draw an editor helper in the OBS output or in a capture.
 - Do not read images back in the OBS output path.
 - Do not claim a macOS, OBS, or GPU result. These stay for the owner: the light look on MToon and on the environment in WebGPU on macOS, a character shadow on an environment floor in OBS with alpha, the MToon look under a point light, shadow acne and the bias defaults on a real GPU, the look of soft (radius 2) and hard (radius 1) shadows at 2048 px and 1024 px, the frame cost of 8 lights and of 2 point shadows (12 shadow passes) at 60 fps in OBS, the recompile hitch in OBS when a light is added, and continued motion while the editor is minimized.

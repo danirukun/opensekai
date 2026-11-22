@@ -2,7 +2,7 @@ import { PROPOSAL_LIMITS, type Reply } from '@opensekai/contracts';
 import { z } from 'zod';
 import { IntentSchema, type Intent, type IntentTool } from './intents';
 import { BLUEPRINT_OPS, emptyProposal, invalid, ok, type CompileContext, type Compiler, type Proposal, type WorkingState } from './compile-kit';
-import { compileCamera, compileEnvironment, compileHaze, compileLight, compileOutput, compileProps } from './compile-scene';
+import { compileCamera, compileEnvironment, compileHaze, compileLight, compileOutput, compileProps, compileSky } from './compile-scene';
 import { compileCameraMove } from './camera-move';
 import { compileBlueprintBuild } from './blueprint-build';
 
@@ -11,7 +11,7 @@ export { applyToWorking, emptyProposal, type CompileContext, type Compiler, type
 const unavailable = (message: string): Compiler => () => invalid(message);
 const COMPILERS: Record<IntentTool, Compiler> = {
  light_setup: compileLight, camera_add: compileCamera, environment_set: compileEnvironment, prop_place: compileProps,
- haze_set: compileHaze, output_camera: compileOutput,
+ haze_set: compileHaze, output_camera: compileOutput, sky_set: compileSky,
  camera_move: compileCameraMove, blueprint_build: compileBlueprintBuild,
  ask: unavailable('ask is not a scene change'), look_up: unavailable('look_up is not a scene change'),
 };

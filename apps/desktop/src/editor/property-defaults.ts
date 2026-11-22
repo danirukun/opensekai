@@ -25,12 +25,12 @@ function configValues(config:Extract<SceneEntity,{kind:'tracking'}>['config']):R
 // The current value of each field as the Inspector shows it: a missing optional field takes its fallback (R2).
 export function valuesFor(entity:SceneEntity):Record<string,unknown> {
  const base=entity.kind==='tracking'||entity.kind==='vmcSender'?{}:{visible:entity.visible,...entity.transform};
- if(entity.kind==='camera')return {...base,renderEnvironment:entity.renderEnvironment!==false,antiAliasing:entity.antiAliasing??'none',...gradingValues(entity.grading),...effectValues(entity.effects),...entity.lens,controlMode:entity.navigation?.mode??'none',sensitivity:entity.navigation&&entity.navigation.mode!=='none'?entity.navigation.sensitivity:undefined};
+ if(entity.kind==='camera')return {...base,renderEnvironment:entity.renderEnvironment!==false,antiAliasing:entity.antiAliasing??'none',...gradingValues(entity.grading),...effectValues(entity.effects),...entity.lens,controlMode:entity.navigation?.mode??'none',sensitivity:entity.navigation&&entity.navigation.mode!=='none'?entity.navigation.sensitivity:undefined,skyKind:entity.sky?.kind??'none',skyIntensity:entity.sky?.intensity??1,skyBlurriness:entity.sky?.blurriness??0,skyIbl:entity.sky?.ibl??false};
  if(entity.kind==='light')return {...base,...lightValues(entity.light)};
  if(entity.kind==='haze')return {...base,...entity.haze};
  if(entity.kind==='fpsCounter')return {...base,...entity.fpsCounter};
  if(entity.kind==='vmcSender')return {address:entity.vmcSender.address,port:entity.vmcSender.port};
- if(entity.kind==='environment')return {...base,reflectionsIntensity:entity.reflectionsIntensity??1};
+ if(entity.kind==='environment')return {...base,reflectionsIntensity:entity.reflectionsIntensity??1,allowLightsToAffectCharacters:entity.allowLightsToAffectCharacters===true};
  if(entity.kind==='screen')return entity.content.kind==='video'?{...base,content:'video',video:entity.content.assetId,autoPlay:entity.content.autoPlay,loop:entity.content.loop,volume:entity.content.volume}:entity.content.kind==='web'?{...base,content:'web',url:entity.content.url,width:entity.content.width,height:entity.content.height,onTop:entity.content.onTop}:entity.content.kind==='capture'?{...base,content:entity.content.target,cursor:entity.content.cursor}:{...base,content:'image',image:entity.content.assetId};
  if(entity.kind==='avatar'){const body=bodyTrackingOf(entity.tracking);return {...base,idleAnimation:entity.idleAnimation?.enabled??false,...lightingValues(entity.lighting),bodyMovementIntensity:body.movementIntensity,trackedParts:BODY_PARTS.filter(part=>body.trackedParts.includes(part))};}
  if(entity.kind==='tracking')return {...configValues(entity.config),...smoothingValues(entity.smoothing),...mappingValues(entity.mapping)};
@@ -38,12 +38,12 @@ export function valuesFor(entity:SceneEntity):Record<string,unknown> {
 }
 export function defaultsFor(entity:SceneEntity):EntityDefaults {
  const base=entity.kind==='tracking'||entity.kind==='vmcSender'?{}:{visible:true,...transform(entity)};
- if(entity.kind==='camera'){const added=camera();return {...base,renderEnvironment:true,antiAliasing:'none',...gradingValues(),...effectValues(),...added.lens,controlMode:added.navigation?.mode,sensitivity:added.navigation&&added.navigation.mode!=='none'?added.navigation.sensitivity:undefined};}
+ if(entity.kind==='camera'){const added=camera();return {...base,renderEnvironment:true,antiAliasing:'none',...gradingValues(),...effectValues(),...added.lens,controlMode:added.navigation?.mode,sensitivity:added.navigation&&added.navigation.mode!=='none'?added.navigation.sensitivity:undefined,skyKind:'none',skyIntensity:1,skyBlurriness:0,skyIbl:false};}
  if(entity.kind==='light')return {...base,...lightValues(LIGHTS[entity.light.type])};
  if(entity.kind==='haze')return {...base,...HAZE};
  if(entity.kind==='fpsCounter')return {...base,...FPS_COUNTER};
  if(entity.kind==='vmcSender')return {...VMC_SENDER};
- if(entity.kind==='environment')return {...base,reflectionsIntensity:1};
+ if(entity.kind==='environment')return {...base,reflectionsIntensity:1,allowLightsToAffectCharacters:false};
  // The Add menu makes image content; the video and web values are the start values of a change to Video or Web page (B29 R19, B30 R13).
  if(entity.kind==='screen'){const added=makeAuthoringEntity('screen','screen_default',[]);return {...base,content:added.kind==='screen'?added.content.kind:'image',image:added.kind==='screen'&&added.content.kind==='image'?added.content.assetId:null,video:VIDEO_DEFAULTS.assetId,autoPlay:VIDEO_DEFAULTS.autoPlay,loop:VIDEO_DEFAULTS.loop,volume:VIDEO_DEFAULTS.volume,...DEFAULT_WEB_SCREEN,cursor:true};}
  if(entity.kind==='avatar'){const added=makeAuthoringEntity('character','avatar_default',[]);return {...base,idleAnimation:added.kind==='avatar'&&added.idleAnimation?.enabled,...lightingValues(),bodyMovementIntensity:DEFAULT_AVATAR_BODY_TRACKING.movementIntensity,trackedParts:[...DEFAULT_AVATAR_BODY_TRACKING.trackedParts]};}
@@ -64,7 +64,7 @@ export function resetFieldIds(entity:SceneEntity):string[] {
  if(entity.kind==='fpsCounter')return ['visible','corner','size','color'];
  // A sender has no Transform or Visible field. Its character default depends on the scene, so it has no reset (B21 R5).
  if(entity.kind==='vmcSender')return ['address','port'];
- if(entity.kind==='environment')return [...base,'reflectionsIntensity'];
+ if(entity.kind==='environment')return [...base,'reflectionsIntensity','allowLightsToAffectCharacters'];
  if(entity.kind==='screen')return [...base,'content',...(entity.content.kind==='video'?['video','autoPlay','loop','volume']:entity.content.kind==='web'?['url','width','height','onTop']:entity.content.kind==='capture'?['cursor']:['image'])];
  if(entity.kind==='avatar')return [...base,'idleAnimation',...LIGHTING_FIELD_IDS,'bodyMovementIntensity','trackedParts'];
  if(entity.kind==='tracking')return [...(entity.config.kind==='mediapipe'?['face','upperBody','hands','mirror']:entity.config.kind==='facekit'?[]:['bindAddress','port','address']),'smoothing','minCutoff','beta','derivativeCutoff','headIntensity','headOffsetX','headOffsetY','headOffsetZ','eyeIntensity','blendShapeSensitivity','linkedBlink'];

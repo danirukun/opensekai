@@ -22,6 +22,20 @@ it('rejects setEnvironmentModel on another kind or an unknown entity', () => {
     expect(s.applyPatch(patch(0, [{ kind: 'setEnvironmentModel', entityId: 'nobody', assetId: null }]))).toMatchObject({ ok: false, error: { code: 'NOT_FOUND' } });
     expect(s.inspect()).toEqual(before);
 });
+it('sets allowLightsToAffectCharacters on an environment', () => {
+    const s = createSession(makeSmokeScene(), 'environment-test');
+    expect(s.applyPatch(patch(0, [{ kind: 'createEntity', entity: environment('stage') }])).ok).toBe(true);
+    expect(s.applyPatch(patch(1, [{ kind: 'setEnvironmentLighting', entityId: 'stage', allowLightsToAffectCharacters: true }])).ok).toBe(true);
+    const env = s.inspect().entities.find(e => e.id === 'stage');
+    expect(env).toMatchObject({ allowLightsToAffectCharacters: true });
+    expect(s.applyPatch(patch(2, [{ kind: 'setEnvironmentLighting', entityId: 'stage', allowLightsToAffectCharacters: false }])).ok).toBe(true);
+    expect(s.inspect().entities.find(e => e.id === 'stage')).toMatchObject({ allowLightsToAffectCharacters: false });
+});
+it('rejects setEnvironmentLighting on another kind or an unknown entity', () => {
+    const s = createSession(makeSmokeScene(), 'environment-test');
+    expect(s.applyPatch(patch(0, [{ kind: 'setEnvironmentLighting', entityId: 'performer', allowLightsToAffectCharacters: true }]))).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+    expect(s.applyPatch(patch(0, [{ kind: 'setEnvironmentLighting', entityId: 'nobody', allowLightsToAffectCharacters: true }]))).toMatchObject({ ok: false, error: { code: 'NOT_FOUND' } });
+});
 it('sets the Render Environment flag on a camera only', () => {
     const s = createSession(makeSmokeScene(), 'environment-test');
     const camera = s.inspect().entities.find(e => e.kind === 'camera')!;

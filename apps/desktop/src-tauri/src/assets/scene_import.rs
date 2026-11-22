@@ -30,8 +30,6 @@ use std::path::PathBuf;
 
 const JSON_CHUNK: u32 = 0x4e4f534a;
 const BIN_CHUNK: u32 = 0x004e4942;
-const LIGHTS: &str = "KHR_lights_punctual";
-
 fn named(message: &str, reference: &str) -> AppError {
     invalid(format!(
         "{message}: {}",
@@ -561,7 +559,17 @@ fn pack(
     } else {
         root.insert("buffers".into(), json!([{"byteLength": bin.len()}]));
     }
-    strip_lights(&mut json);
+    // ENV-01: keep KHR_lights_punctual but reject more than 8 punctual lights.
+    let light_count = json
+        .pointer("/extensions/KHR_lights_punctual/lights")
+        .and_then(Value::as_array)
+        .map(Vec::len)
+        .unwrap_or(0);
+    if light_count > 8 {
+        return Err(invalid(format!(
+            "Environment has {light_count} punctual lights (limit is 8)"
+        )));
+    }
     let mut text = serde_json::to_vec(&json).map_err(|_| invalid("Invalid glTF JSON"))?;
     while !text.len().is_multiple_of(4) {
         text.push(b' ');
@@ -586,30 +594,6 @@ fn pack(
         glb.extend(bin);
     }
     Ok(glb)
-}
-
-fn strip_lights(json: &mut Value) {
-    if let Some(extensions) = json.get_mut("extensions").and_then(Value::as_object_mut) {
-        extensions.remove(LIGHTS);
-    }
-    for node in json
-        .get_mut("nodes")
-        .and_then(Value::as_array_mut)
-        .into_iter()
-        .flatten()
-    {
-        if let Some(extensions) = node.get_mut("extensions").and_then(Value::as_object_mut) {
-            extensions.remove(LIGHTS);
-        }
-    }
-    for key in ["extensionsUsed", "extensionsRequired"] {
-        if let Some(list) = json.get_mut(key).and_then(Value::as_array_mut) {
-            list.retain(|value| value.as_str() != Some(LIGHTS));
-            if list.is_empty() {
-                json.as_object_mut().expect("checked object").remove(key);
-            }
-        }
-    }
 }
 
 fn read_credits(json: &Value) -> Option<AssetCredits> {
@@ -1057,7 +1041,7 @@ mod tests {
             .contains("GLB JSON exceeds budget"));
     }
     #[test]
-    fn strips_file_lights() {
+    fn keeps_file_lights() {
         let mut json = room("a.png");
         json["extensionsUsed"] = json!(["KHR_lights_punctual", "KHR_materials_specular"]);
         json["extensions"] = json!({"KHR_lights_punctual": {"lights": [{"type": "point"}]}});
@@ -1068,11 +1052,31 @@ mod tests {
                 .unwrap()
                 .glb,
         );
-        assert_eq!(out["extensionsUsed"], json!(["KHR_materials_specular"]));
-        assert!(out["extensions"].get("KHR_lights_punctual").is_none());
+        assert_eq!(out["extensionsUsed"], json!(["KHR_lights_punctual", "KHR_materials_specular"]));
+        assert!(out["extensions"].get("KHR_lights_punctual").is_some());
         assert!(out["nodes"][0]["extensions"]
             .get("KHR_lights_punctual")
-            .is_none());
+            .is_some());
+    }
+    #[test]
+    fn rejects_environment_with_more_than_eight_lights() {
+        let mut json = room("a.png");
+        let lights: Vec<Value> = (0..9).map(|_| json!({"type": "point"})).collect();
+        json["extensionsUsed"] = json!(["KHR_lights_punctual"]);
+        json["extensions"] = json!({"KHR_lights_punctual": {"lights": lights}});
+        let dir = folder(&json, &[("a.png", PNG)]);
+        let err = message(pack_scene(&dir.path().join("scene.gltf"), Limits::DEFAULT));
+        assert!(err.contains("9 punctual lights"), "{err}");
+        assert!(err.contains("limit is 8"), "{err}");
+    }
+    #[test]
+    fn accepts_environment_with_eight_lights() {
+        let mut json = room("a.png");
+        let lights: Vec<Value> = (0..8).map(|_| json!({"type": "point"})).collect();
+        json["extensionsUsed"] = json!(["KHR_lights_punctual"]);
+        json["extensions"] = json!({"KHR_lights_punctual": {"lights": lights}});
+        let dir = folder(&json, &[("a.png", PNG)]);
+        assert!(pack_scene(&dir.path().join("scene.gltf"), Limits::DEFAULT).is_ok());
     }
     #[test]
     fn bounds_credits() {
@@ -1136,18 +1140,19 @@ mod tests {
         );
     }
     #[test]
-    fn removes_extension_lists_that_only_held_file_lights() {
+    fn keeps_extension_lists_with_file_lights() {
         let mut json = room("a.png");
         json["extensionsUsed"] = json!(["KHR_lights_punctual"]);
         json["extensionsRequired"] = json!(["KHR_lights_punctual"]);
+        json["extensions"] = json!({"KHR_lights_punctual": {"lights": [{"type": "point"}]}});
         let dir = folder(&json, &[("a.png", PNG)]);
         let out = json_of(
             &pack_scene(&dir.path().join("scene.gltf"), Limits::DEFAULT)
                 .unwrap()
                 .glb,
         );
-        assert!(out.get("extensionsUsed").is_none());
-        assert!(out.get("extensionsRequired").is_none());
+        assert_eq!(out["extensionsUsed"], json!(["KHR_lights_punctual"]));
+        assert_eq!(out["extensionsRequired"], json!(["KHR_lights_punctual"]));
     }
     #[test]
     fn rejects_a_file_that_is_not_a_scene() {

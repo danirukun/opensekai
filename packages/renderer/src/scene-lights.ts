@@ -1,4 +1,4 @@
-import { AmbientLight, Color, DirectionalLight, MathUtils, PointLight, PCFShadowMap, SpotLight, type Material, type Object3D, type OrthographicCamera, type PerspectiveCamera, type Scene, type WebGPURenderer } from "three/webgpu";
+import { AmbientLight, Color, DirectionalLight, MathUtils, PointLight, PCFShadowMap, SpotLight, type Light, type Material, type Object3D, type OrthographicCamera, type PerspectiveCamera, type Scene, type WebGPURenderer } from "three/webgpu";
 import { lights } from "three/tsl";
 import type { Id, LightSettings, SceneEntity, Transform, Vec3 } from "@opensekai/contracts";
 import { rotateByQuaternion } from "@opensekai/contracts";
@@ -8,6 +8,9 @@ export type LightGroup = "characters" | "props" | "environment" | "haze";
 export type LightGroups = Record<LightGroup, Id[]>;
 type LightEntity = Extract<SceneEntity, { kind: "light" }>;
 const LIGHT_GROUPS: readonly LightGroup[] = ["characters", "props", "environment", "haze"];
+
+/** ENV-01: the maximum number of file lights that may cast shadows. */
+export const MAX_FILE_LIGHT_SHADOWS = 2;
 
 export const isLight = (entity: SceneEntity): entity is LightEntity => entity.kind === "light";
 export const groupOf = (entity: SceneEntity): LightGroup | null =>
@@ -47,11 +50,36 @@ export function roomLight(entities: readonly SceneEntity[]): RoomLight {
 /** The three.js spot angle (half the cone) in radians, from the full cone angle in degrees (B13 R3). */
 export const spotAngle = (angleDegrees: number): number => MathUtils.degToRad(angleDegrees / 2);
 
-/** The values that rebuild the node sets (R7): the light count and order, each type, affect flag, and shadow switch. Visibility, color, intensity, range, and transform are not part of it. */
+/** The values that rebuild the node sets (R7): the light count and order, each type, affect flag, and shadow switch. Visibility, color, intensity, range, and transform are not part of it.
+ *  ENV-01: includes the environment allowLightsToAffectCharacters flag so a flag change triggers a rebuild. */
 export function lightSignature(entities: readonly SceneEntity[]): string {
     const all = entities.filter(isLight);
-    if (!all.length) return "builtin";
-    return JSON.stringify(all.map(({ id, light: l }) => [id, l.type, l.affectCharacters, l.affectProps, l.affectEnvironment, l.shadow.enabled, scattersInHaze(l)]));
+    const envFlag = entities.find((e): e is Extract<SceneEntity, { kind: "environment" }> => e.kind === "environment")?.allowLightsToAffectCharacters === true;
+    if (!all.length) return envFlag ? "builtin:envChars" : "builtin";
+    return JSON.stringify([envFlag, all.map(({ id, light: l }) => [id, l.type, l.affectCharacters, l.affectProps, l.affectEnvironment, l.shadow.enabled, scattersInHaze(l)])]);
+}
+
+/** ENV-01 R3: cap file-light shadows to 2 (first two with castShadow in traversal order). */
+export function capFileLightShadows(root: Object3D): void {
+    let count = 0;
+    root.traverse(object => {
+        const light = object as Object3D & { isLight?: boolean; castShadow?: boolean };
+        if (!light.isLight) return;
+        if (light.castShadow) {
+            count++;
+            if (count > MAX_FILE_LIGHT_SHADOWS) light.castShadow = false;
+        }
+    });
+}
+
+/** ENV-01 R5: collect three.js lights from the environment root into the right groups. */
+export function collectFileLights(root: Object3D): Light[] {
+    const result: Light[] = [];
+    root.traverse(object => {
+        const light = object as Object3D & { isLight?: boolean };
+        if (light.isLight) result.push(light as Light);
+    });
+    return result;
 }
 
 export const shadowsOn = (entities: readonly SceneEntity[]): boolean => entities.some(e => isLight(e) && e.light.shadow.enabled);
@@ -74,6 +102,8 @@ type ThreeLight = DirectionalLight | PointLight | SpotLight | AmbientLight;
 export interface SceneLights {
     /** Reconciles the three.js lights with the frame. Returns true when the light signature changes, so the caller resets the failure state and compiles again. Only a group whose light list changed gets a new node (light limits R13). */
     apply(entities: readonly SceneEntity[]): boolean;
+    /** ENV-01: sets the file lights from the loaded environment root and whether they affect characters. */
+    setFileLights(fileLights: readonly Light[], affectCharacters: boolean): void;
     /** Sets the group node set on each lit material of `root` and the shadow flags of its meshes. */
     assign(root: Object3D, group: LightGroup): void;
     /** The node set of one group; the haze material takes the `haze` set (B13 R7). */
@@ -100,6 +130,8 @@ export function createSceneLights(scene: Scene, renderer: WebGPURenderer): Scene
     renderer.shadowMap.type = PCFShadowMap;
     const owned = new Map<Id, { type: LightSettings["type"]; light: ThreeLight }>();
     let current = "", generation = 0, nodes: Record<LightGroup, ReturnType<typeof lights>> | null = null, keys: Record<LightGroup, string> | null = null, shadows = false;
+    // ENV-01: file lights from the loaded environment root.
+    let fileLightObjects: readonly Light[] = [], fileLightsAffectCharacters = false;
     // A placed light is also on the haze layer, so the haze pass sees it; its shadow camera keeps layer 0 and the haze
     // layer, so a shadow map drawn during the haze pass still has its casters (three.js example, B13 R7).
     const create = (settings: LightSettings): ThreeLight => {
@@ -195,7 +227,8 @@ export function createSceneLights(scene: Scene, renderer: WebGPURenderer): Scene
                 update(value.light, entity);
             }
             builtin.intensity = wanted.length ? 0 : 3;
-            const signature = lightSignature(entities);
+            // Include file light count and the flag in the signature so changes trigger a rebuild.
+            const signature = lightSignature(entities) + `:fl${fileLightObjects.length}:${fileLightsAffectCharacters}`;
             if (signature === current && nodes) return false;
             current = signature;
             const groups = lightGroups(entities);
@@ -203,17 +236,29 @@ export function createSceneLights(scene: Scene, renderer: WebGPURenderer): Scene
             const settings = new Map(wanted.map(e => [e.id, e.light]));
             const members = (ids: Id[]) => ids.map(id => [id, settings.get(id)!.type, settings.get(id)!.shadow.enabled]);
             // A group keeps its node object while its own light list stays the same (light limits R13).
-            const nextKeys = Object.fromEntries(LIGHT_GROUPS.map(group => [group, JSON.stringify(group === "haze" ? members(groups.haze) : [fixedAmbient, builtinOn, members(groups[group])])])) as Record<LightGroup, string>;
+            // File lights join environment always and characters when the flag is on; their count is part of those keys.
+            const fileKey = (group: LightGroup) =>
+                group === "environment" ? fileLightObjects.length
+                : group === "characters" && fileLightsAffectCharacters ? fileLightObjects.length
+                : 0;
+            const nextKeys = Object.fromEntries(LIGHT_GROUPS.map(group => [group, JSON.stringify(group === "haze" ? members(groups.haze) : [fixedAmbient, builtinOn, members(groups[group]), fileKey(group)])])) as Record<LightGroup, string>;
             const fixed = () => fixedAmbient ? [ambient] : [];
-            const set = (group: LightGroup) => lights([...fixed(), ...(builtinOn ? [builtin] : groups[group].map(id => owned.get(id)!.light))]);
+            // ENV-01 R5: file lights always go to environment, optionally to characters, never to props or haze.
+            const fileExtra = (group: LightGroup) => group === "environment" || (group === "characters" && fileLightsAffectCharacters) ? [...fileLightObjects] : [];
+            const set = (group: LightGroup) => lights([...fixed(), ...(builtinOn ? [builtin] : groups[group].map(id => owned.get(id)!.light)), ...fileExtra(group)]);
             const build = (group: LightGroup) => group === "haze" ? lights(groups.haze.map(id => owned.get(id)!.light)) : set(group);
             const previous = nodes;
             nodes = Object.fromEntries(LIGHT_GROUPS.map(group => [group, previous && keys?.[group] === nextKeys[group] ? previous[group] : build(group)])) as Record<LightGroup, ReturnType<typeof lights>>;
             if (!previous || LIGHT_GROUPS.some(group => nodes![group] !== previous[group])) generation += 1;
             keys = nextKeys;
-            shadows = shadowsOn(entities);
+            const fileShadows = fileLightObjects.some(light => light.castShadow);
+            shadows = shadowsOn(entities) || fileShadows;
             renderer.shadowMap.enabled = shadows;
             return true;
+        },
+        setFileLights(newFileLights, affectCharacters) {
+            fileLightObjects = newFileLights;
+            fileLightsAffectCharacters = affectCharacters;
         },
         assign(root, group) {
             const node = nodes?.[group] ?? null;

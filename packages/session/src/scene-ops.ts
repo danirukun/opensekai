@@ -77,6 +77,7 @@ export function applyOperations(scene: SceneView, operations: ScenePatch["operat
                  case 'setScreenVideo':if(entity.kind!=='screen')return failure('INVALID_INPUT','Entity is not a screen',[entity.id]);entity.content={kind:'video',...structuredClone(operation.video)};break;
                  case 'setScreenCapture':if(entity.kind!=='screen')return failure('INVALID_INPUT','Entity is not a screen',[entity.id]);entity.content={kind:'capture',...structuredClone(operation.capture)};break;
                  case 'setEnvironmentReflections':if(entity.kind!=='environment')return failure('INVALID_INPUT','Entity is not an environment',[entity.id]);entity.reflectionsIntensity=operation.reflectionsIntensity;break;
+                 case 'setEnvironmentLighting':if(entity.kind!=='environment')return failure('INVALID_INPUT','Entity is not an environment',[entity.id]);entity.allowLightsToAffectCharacters=operation.allowLightsToAffectCharacters;break;
                  case 'setLight':if(entity.kind!=='light')return failure('INVALID_INPUT','Entity is not a light',[entity.id]);entity.light=structuredClone(operation.light);break;
                  case 'setHaze':if(entity.kind!=='haze')return failure('INVALID_INPUT','Entity is not a haze',[entity.id]);entity.haze=structuredClone(operation.haze);break;
                  case 'setFpsCounter':if(entity.kind!=='fpsCounter')return failure('INVALID_INPUT','Entity is not an FPS counter',[entity.id]);entity.fpsCounter=structuredClone(operation.fpsCounter);break;
@@ -98,6 +99,7 @@ export function applyOperations(scene: SceneView, operations: ScenePatch["operat
                  case 'setCameraGrading':if(entity.kind!=='camera')return failure('INVALID_INPUT','Entity is not a camera',[entity.id]);if(operation.grading===null)delete entity.grading;else entity.grading=structuredClone(operation.grading);break;
                  case 'setCameraEffects':if(entity.kind!=='camera')return failure('INVALID_INPUT','Entity is not a camera',[entity.id]);if(operation.effects===null)delete entity.effects;else entity.effects=structuredClone(operation.effects);break;
                  case 'setCameraNavigation':if(entity.kind!=='camera')return failure('INVALID_INPUT','Entity is not a camera',[entity.id]);entity.navigation=structuredClone(operation.navigation);break;
+                 case 'setCameraSky':if(entity.kind!=='camera')return failure('INVALID_INPUT','Entity is not a camera',[entity.id]);if(operation.sky===null)delete entity.sky;else entity.sky=structuredClone(operation.sky);break;
                  case 'setTrackingSmoothing':if(entity.kind!=='tracking')return failure('INVALID_INPUT','Entity is not a tracking source',[entity.id]);entity.smoothing=structuredClone(operation.smoothing);break;
                  case 'setTrackingConfig':if(entity.kind!=='tracking'||entity.config.kind!==operation.config.kind)return failure('INVALID_INPUT','Tracking source kind differs',[entity.id]);
                   // A mirror change flips the sign of the captured rotations, so the calibration no longer applies (R5).

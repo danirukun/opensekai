@@ -82,7 +82,7 @@ it('writes the graph value after an expression bind in the same frame, and leave
 
 it('gives each prop instance its own copy of every material, lit and unlit', async () => {
  const { scene, indexOf, records } = await load();
- const light = createEnvironmentLight(() => ({ texture: new Texture(), dispose() {} }));
+ const light = createEnvironmentLight({} as never, () => ({ texture: new Texture(), dispose() {} }));
  const instance = () => {
   const root = clone(scene);
   const unlit = copyUnlitMaterials(root, isLitMaterial), lit = light.apply(root);

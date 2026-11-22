@@ -55,7 +55,7 @@ describe('intent schemas', () => {
 
  it('has one strict schema per tool', () => {
   expect(TOOL_CONTRACT_VERSION).toBe(1);
-  expect([...INTENT_TOOLS].sort()).toEqual(['ask', 'blueprint_build', 'camera_add', 'camera_move', 'environment_set', 'haze_set', 'light_setup', 'look_up', 'output_camera', 'prop_place']);
+  expect([...INTENT_TOOLS].sort()).toEqual(['ask', 'blueprint_build', 'camera_add', 'camera_move', 'environment_set', 'haze_set', 'light_setup', 'look_up', 'output_camera', 'prop_place', 'sky_set']);
   expect(IntentSchemas.look_up.safeParse({ tool: 'look_up', ref: '@e1' }).success).toBe(true);
   expect(IntentSchemas.look_up.safeParse({ tool: 'look_up', ref: '@e1', extra: 1 }).success).toBe(false);
   expect(p({ tool: 'nope' })).toBe(false);

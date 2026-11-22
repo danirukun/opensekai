@@ -157,7 +157,18 @@ export const CameraNavigationSchema = z.discriminatedUnion("mode", [
         pivotOffset: z.tuple([n.min(-1000).max(1000), n.min(-1000).max(1000), n.min(-1000).max(1000)])
     })
 ]);
-export const LightColorSchema = z.string().regex(/^#[0-9a-f]{6}$/);
+export const HexColorSchema = z.string().regex(/^#[0-9a-f]{6}$/);
+export const LightColorSchema = HexColorSchema;
+export const CameraSkyKindSchema = z.enum(['none', 'color', 'image', 'hdr']);
+export const CameraSkySchema = z.strictObject({
+    kind: CameraSkyKindSchema,
+    color: HexColorSchema.optional(),
+    assetId: IdSchema.nullable().optional(),
+    intensity: z.number().min(0).max(2).optional(),
+    blurriness: z.number().min(0).max(1).optional(),
+    ibl: z.boolean().optional()
+}).refine(sky => sky.kind !== 'color' || sky.color !== undefined, 'A color sky needs a color')
+  .refine(sky => (sky.kind !== 'image' && sky.kind !== 'hdr') || sky.assetId !== undefined, 'An image or HDR sky needs an assetId');
 export const LightShadowSchema = z.strictObject({
     enabled: z.boolean(),
     intensity: n.min(0).max(1),
@@ -257,7 +268,8 @@ export const SceneEntitySchema = z.discriminatedUnion("kind", [
     EntityBaseSchema.extend({
         kind: z.literal("environment"),
         assetId: IdSchema.nullable(),
-        reflectionsIntensity: ReflectionsIntensitySchema.optional()
+        reflectionsIntensity: ReflectionsIntensitySchema.optional(),
+        allowLightsToAffectCharacters: z.boolean().optional()
     }),
     EntityBaseSchema.extend({
         kind: z.literal("light"),
@@ -286,7 +298,8 @@ export const SceneEntitySchema = z.discriminatedUnion("kind", [
         antiAliasing: CameraAntiAliasingSchema.optional(),
         grading: CameraGradingSchema.optional(),
         effects: CameraEffectsSchema.optional(),
-        navigation: CameraNavigationSchema.optional()
+        navigation: CameraNavigationSchema.optional(),
+        sky: CameraSkySchema.optional()
     })
 ]);
 export const OutputSpecSchema = z.strictObject({
@@ -353,6 +366,7 @@ export const PatchOpSchema = z.discriminatedUnion("kind", [
     // Runtime only (B29 R10): the session applies it after the commit and never saves it.
     z.strictObject({kind:z.literal('controlScreenVideo'),entityId:IdSchema,action:z.enum(['play','pause','restart'])}),
     z.strictObject({kind:z.literal('setEnvironmentReflections'),entityId:IdSchema,reflectionsIntensity:ReflectionsIntensitySchema}),
+    z.strictObject({kind:z.literal('setEnvironmentLighting'),entityId:IdSchema,allowLightsToAffectCharacters:z.boolean()}),
     z.strictObject({kind:z.literal('setLight'),entityId:IdSchema,light:LightSettingsSchema}),
     z.strictObject({kind:z.literal('setHaze'),entityId:IdSchema,haze:HazeSettingsSchema}),
     z.strictObject({kind:z.literal('setFpsCounter'),entityId:IdSchema,fpsCounter:FpsCounterSettingsSchema}),
@@ -367,6 +381,7 @@ export const PatchOpSchema = z.discriminatedUnion("kind", [
     z.strictObject({kind:z.literal('setCameraGrading'),entityId:IdSchema,grading:CameraGradingSchema.nullable()}),
     z.strictObject({kind:z.literal('setCameraEffects'),entityId:IdSchema,effects:CameraEffectsSchema.nullable()}),
     z.strictObject({kind:z.literal('setCameraNavigation'),entityId:IdSchema,navigation:CameraNavigationSchema}),
+    z.strictObject({kind:z.literal('setCameraSky'),entityId:IdSchema,sky:CameraSkySchema.nullable()}),
     z.strictObject({kind:z.literal('setTrackingConfig'),entityId:IdSchema,config:TrackingConfigSchema}),
     z.strictObject({kind:z.literal('calibrateTracking'),entityId:IdSchema}),
     z.strictObject({kind:z.literal('fitBlendShapeRanges'),entityId:IdSchema,neutral:FitNeutralSchema}),
@@ -408,9 +423,12 @@ export const AssetCatalogSchema = z.strictObject({
     description: z.string().refine(d => d.length >= 1 && d.length <= 280, 'Invalid catalog description').nullable(),
     tags: z.array(z.string().refine(t => t.length >= 1 && t.length <= 32 && t === t.toLowerCase(), 'Invalid catalog tag')).max(8)
 });
+export const HDR_FORMATS = ['hdr'] as const;
+export const HDR_LIMITS = { side: 8192, area: 33554432, bytes: 128 * 1024 * 1024 } as const;
 export const IMAGE_FORMATS = ['png', 'jpeg', 'webp', 'gif'] as const;
 export const IMAGE_LIMITS = { side: 8192, area: 33554432, frames: 4096, bytes: 64 * 1024 * 1024 } as const;
 const isImageFormat = (format: string): boolean => (IMAGE_FORMATS as readonly string[]).includes(format);
+const isHdrFormat = (format: string): boolean => (HDR_FORMATS as readonly string[]).includes(format);
 export const VIDEO_FORMATS = ['mp4', 'webm'] as const;
 export const VIDEO_CODECS = ['h264', 'hevc', 'vp8', 'vp9', 'av1'] as const;
 export const VIDEO_AUDIO_CODECS = ['aac', 'mp3', 'opus', 'vorbis'] as const;
@@ -439,7 +457,8 @@ export const AssetRecordSchema = z.strictObject({
         "glb",
         "vrm",
         ...IMAGE_FORMATS,
-        ...VIDEO_FORMATS
+        ...VIDEO_FORMATS,
+        ...HDR_FORMATS
     ]),
     sha256: sha,
     bytes: u,
@@ -461,13 +480,17 @@ export const AssetRecordSchema = z.strictObject({
     : record.image === undefined && !record.id.startsWith('image_'), 'Image fields do not match the format')
   .refine(record => isVideoFormat(record.format)
     ? record.video !== undefined && record.id.startsWith('video_') && record.bytes <= VIDEO_LIMITS.bytes && videoCodecsOk(record.format, record.video) && record.expressions.length === 0 && record.rig === undefined && record.eyeBones === undefined && record.meshes === undefined && record.materials === undefined
-    : record.video === undefined && !record.id.startsWith('video_'), 'Video fields do not match the format');
+    : record.video === undefined && !record.id.startsWith('video_'), 'Video fields do not match the format')
+  .refine(record => isHdrFormat(record.format)
+    ? record.image !== undefined && record.id.startsWith('hdr_') && record.expressions.length === 0 && record.rig === undefined && record.eyeBones === undefined && record.meshes === undefined && record.materials === undefined
+    : !record.id.startsWith('hdr_'), 'HDR fields do not match the format');
 export const isImageRecord = (record: { format: string }): boolean => isImageFormat(record.format);
 export const isVideoRecord = (record: { format: string }): boolean => isVideoFormat(record.format);
+export const isHdrRecord = (record: { format: string }): boolean => isHdrFormat(record.format);
 // One page of `assetList`: the host answers it from the asset library, in ascending ID order.
 export const AssetSummarySchema = z.strictObject({
     id: IdSchema,
-    kind: z.enum(['avatar', 'scene', 'image', 'video', 'fixture']),
+    kind: z.enum(['avatar', 'scene', 'image', 'video', 'hdr', 'fixture']),
     name: z.string().refine(name => name.trim().length > 0 && name.length <= 128, 'Invalid asset name'),
     credits: AssetCreditsSchema.optional(),
     catalog: AssetCatalogSchema.optional()
@@ -966,6 +989,7 @@ export const publicJsonSchemas = Object.fromEntries(Object.entries({
     CaptureRequest: CaptureRequestSchema,
     CaptureReply: CaptureReplySchema,
     CameraNavigation: CameraNavigationSchema,
+    CameraSky: CameraSkySchema,
     LightSettings: LightSettingsSchema,
     CameraScreenshotParams: CameraScreenshotParamsSchema,
     CameraScreenshotResult: CameraScreenshotResultSchema,

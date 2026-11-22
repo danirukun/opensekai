@@ -79,6 +79,11 @@ export const IntentSchemas = {
   tool: tool('blueprint_build'), name, trigger: BlueprintTriggerSchema,
   actions: z.array(BlueprintActionSchema).min(1).max(8), replace: RefSchema.optional(),
  }),
+ sky_set: z.strictObject({
+  tool: tool('sky_set'), camera: RefSchema,
+  kind: z.enum(['none', 'color', 'image', 'hdr']),
+  color: ColorWordSchema.optional(), asset: RefSchema.optional(), ibl: z.boolean().optional(),
+ }),
  ask: z.strictObject({ tool: tool('ask'), question: z.string().min(1).max(200), choices: z.array(name).min(2).max(5) }),
  look_up: z.strictObject({ tool: tool('look_up'), ref: RefSchema }),
 };
@@ -88,6 +93,6 @@ export const INTENT_TOOLS = Object.keys(IntentSchemas) as IntentTool[];
 export const IntentSchema = z.discriminatedUnion('tool', [
  IntentSchemas.light_setup, IntentSchemas.camera_add, IntentSchemas.camera_move, IntentSchemas.environment_set,
  IntentSchemas.prop_place, IntentSchemas.haze_set, IntentSchemas.output_camera, IntentSchemas.blueprint_build,
- IntentSchemas.ask, IntentSchemas.look_up,
+ IntentSchemas.sky_set, IntentSchemas.ask, IntentSchemas.look_up,
 ]);
 export type Intent = z.infer<typeof IntentSchema>;

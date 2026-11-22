@@ -22,6 +22,21 @@ it('parses both environment operations', () => {
     expect(PatchOpSchema.safeParse({ kind: 'setCameraRenderEnvironment', entityId: 'camera_wide', renderEnvironment: false }).success).toBe(true);
     expect(PatchOpSchema.safeParse({ kind: 'setCameraRenderEnvironment', entityId: 'camera_wide' }).success).toBe(false);
 });
+it('accepts an environment with and without allowLightsToAffectCharacters', () => {
+    const scene = makeSmokeScene();
+    const env = environment('stage');
+    scene.entities.push(env);
+    expect(SceneViewSchema.safeParse(scene).success).toBe(true);
+    if (env.kind === 'environment') (env as unknown as Record<string, unknown>).allowLightsToAffectCharacters = true;
+    expect(SceneViewSchema.safeParse(scene).success).toBe(true);
+    if (env.kind === 'environment') (env as unknown as Record<string, unknown>).allowLightsToAffectCharacters = false;
+    expect(SceneViewSchema.safeParse(scene).success).toBe(true);
+});
+it('parses setEnvironmentLighting', () => {
+    expect(PatchOpSchema.safeParse({ kind: 'setEnvironmentLighting', entityId: 'stage', allowLightsToAffectCharacters: true }).success).toBe(true);
+    expect(PatchOpSchema.safeParse({ kind: 'setEnvironmentLighting', entityId: 'stage', allowLightsToAffectCharacters: false }).success).toBe(true);
+    expect(PatchOpSchema.safeParse({ kind: 'setEnvironmentLighting', entityId: 'stage' }).success).toBe(false);
+});
 it('accepts records with and without credits and rejects null credits', () => {
     expect(AssetRecordSchema.safeParse(record).success).toBe(true);
     expect(AssetRecordSchema.safeParse({ ...record, credits: { title: 'Room', author: null, license: 'CC-BY-4.0', sourceUrl: 'https://sketchfab.com/3d-models/room' } }).success).toBe(true);

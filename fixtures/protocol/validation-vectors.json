@@ -35267,5 +35267,247 @@
     "valid": false,
     "errorCode": "INVALID_INPUT",
     "payload": "{\"kind\":\"diagnostics\",\"diagnostics\":{\"sessionId\":\"session_smoke\",\"outputId\":\"output_main\",\"rendererEpoch\":\"epoch_1\",\"sequence\":1,\"revision\":0,\"backend\":\"webgpu\",\"geometries\":3,\"textures\":4,\"liveMaterials\":2,\"assetCacheEntries\":2,\"activeRenderJob\":false,\"queuedFrames\":0,\"queuedCaptures\":0,\"gpuTimer\":\"maybe\"}}"
+  },
+  {
+    "name": "set-environment-lighting-true",
+    "target": "wireText",
+    "valid": true,
+    "payload": "{\"kind\": \"call\", \"requestId\": \"a\", \"method\": \"scenePatch\", \"params\": {\"sceneId\": \"scene_smoke\", \"expectedRevision\": 0, \"operations\": [{\"kind\": \"setEnvironmentLighting\", \"entityId\": \"stage\", \"allowLightsToAffectCharacters\": true}]}}"
+  },
+  {
+    "name": "set-environment-lighting-false",
+    "target": "wireText",
+    "valid": true,
+    "payload": "{\"kind\": \"call\", \"requestId\": \"a\", \"method\": \"scenePatch\", \"params\": {\"sceneId\": \"scene_smoke\", \"expectedRevision\": 0, \"operations\": [{\"kind\": \"setEnvironmentLighting\", \"entityId\": \"stage\", \"allowLightsToAffectCharacters\": false}]}}"
+  },
+  {
+    "name": "environment-with-allow-lights",
+    "target": "scene",
+    "valid": true,
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "stage",
+          "name": "Stage",
+          "visible": true,
+          "transform": { "position": [0, 0, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1] },
+          "kind": "environment",
+          "assetId": null,
+          "allowLightsToAffectCharacters": true
+        },
+        {
+          "id": "camera_wide",
+          "name": "Wide",
+          "visible": true,
+          "transform": { "position": [0, 1.4, 2], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1] },
+          "kind": "camera",
+          "lens": { "focalLengthMm": 35, "fStop": 2.8, "focusDistance": 2, "autofocus": false, "sensorPreset": "fullFrame", "fovDegrees": 54.4, "near": 0.1, "far": 100 }
+        }
+      ],
+      "outputs": [
+        { "id": "output_main", "cameraId": "camera_wide", "width": 1920, "height": 1080, "fps": 60 },
+        { "id": "preview_main", "cameraId": "camera_wide", "width": 1920, "height": 1080, "fps": 60 }
+      ]
+    }
+  },
+  {
+    "name": "environment-without-allow-lights",
+    "target": "scene",
+    "valid": true,
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_smoke",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "stage",
+          "name": "Stage",
+          "visible": true,
+          "transform": { "position": [0, 0, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1] },
+          "kind": "environment",
+          "assetId": null
+        },
+        {
+          "id": "camera_wide",
+          "name": "Wide",
+          "visible": true,
+          "transform": { "position": [0, 1.4, 2], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1] },
+          "kind": "camera",
+          "lens": { "focalLengthMm": 35, "fStop": 2.8, "focusDistance": 2, "autofocus": false, "sensorPreset": "fullFrame", "fovDegrees": 54.4, "near": 0.1, "far": 100 }
+        }
+      ],
+      "outputs": [
+        { "id": "output_main", "cameraId": "camera_wide", "width": 1920, "height": 1080, "fps": 60 },
+        { "id": "preview_main", "cameraId": "camera_wide", "width": 1920, "height": 1080, "fps": 60 }
+      ]
+    }
+  },
+  {
+    "name": "setCameraSky-color-valid",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": true,
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setCameraSky",
+          "entityId": "camera_wide",
+          "sky": { "kind": "color", "color": "#ff8800", "intensity": 1.5, "ibl": true }
+        }
+      ]
+    }
+  },
+  {
+    "name": "setCameraSky-null-clears",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": true,
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setCameraSky",
+          "entityId": "camera_wide",
+          "sky": null
+        }
+      ]
+    }
+  },
+  {
+    "name": "setCameraSky-hdr-valid",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": true,
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setCameraSky",
+          "entityId": "camera_wide",
+          "sky": { "kind": "hdr", "assetId": "asset_hdr_1", "intensity": 0.8, "blurriness": 0.3, "ibl": false }
+        }
+      ]
+    }
+  },
+  {
+    "name": "setCameraSky-none-valid",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": true,
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setCameraSky",
+          "entityId": "camera_wide",
+          "sky": { "kind": "none" }
+        }
+      ]
+    }
+  },
+  {
+    "name": "setCameraSky-intensity-out-of-range",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setCameraSky",
+          "entityId": "camera_wide",
+          "sky": { "kind": "color", "color": "#ffffff", "intensity": 3 }
+        }
+      ]
+    }
+  },
+  {
+    "name": "setCameraSky-color-missing-color-field",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setCameraSky",
+          "entityId": "camera_wide",
+          "sky": { "kind": "color" }
+        }
+      ]
+    }
+  },
+  {
+    "name": "setCameraSky-image-missing-assetId",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setCameraSky",
+          "entityId": "camera_wide",
+          "sky": { "kind": "image" }
+        }
+      ]
+    }
+  },
+  {
+    "name": "setCameraSky-blurriness-out-of-range",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setCameraSky",
+          "entityId": "camera_wide",
+          "sky": { "kind": "hdr", "assetId": "asset_1", "blurriness": 1.5 }
+        }
+      ]
+    }
+  },
+  {
+    "name": "camera-entity-with-sky-valid",
+    "target": "scene",
+    "valid": true,
+    "payload": {
+      "schemaVersion": 1,
+      "sceneId": "scene_sky",
+      "revision": 0,
+      "entities": [
+        {
+          "id": "camera_sky",
+          "name": "Sky Camera",
+          "visible": true,
+          "transform": { "position": [0, 1.4, 2], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1] },
+          "kind": "camera",
+          "lens": { "focalLengthMm": 35, "fStop": 2.8, "focusDistance": 2, "autofocus": false, "sensorPreset": "fullFrame", "fovDegrees": 54.4, "near": 0.1, "far": 100 },
+          "sky": { "kind": "color", "color": "#003366", "intensity": 1, "ibl": false }
+        }
+      ],
+      "outputs": [
+        { "id": "output_main", "cameraId": "camera_sky", "width": 1920, "height": 1080, "fps": 60 },
+        { "id": "preview_main", "cameraId": "camera_sky", "width": 1920, "height": 1080, "fps": 60 }
+      ]
+    }
   }
 ]

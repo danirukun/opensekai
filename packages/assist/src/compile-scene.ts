@@ -149,6 +149,28 @@ export const compileHaze = only('haze_set', (i, state, context) => {
  return create(state, { id: context.newId('haze'), name: 'Haze', visible: true, kind: 'haze', haze, transform: structuredClone(HAZE_BOX) });
 });
 
+const SKY_COLORS: Record<string, string> = {
+ candle: '#ff9329', warm: '#ffd2a3', neutral: '#ffffff', daylight: '#cce4ff', cool: '#99ccff',
+ white: '#ffffff', red: '#ff4444', orange: '#ff8800', yellow: '#ffdd00', green: '#44cc44',
+ cyan: '#44cccc', blue: '#4488ff', purple: '#9944ff', pink: '#ff44cc',
+};
+
+export const compileSky = only('sky_set', (i, state) => {
+ const camera = resolveEntity(state, i.camera, ['camera'], 'a camera');
+ if (!camera.ok) return camera;
+ if (i.kind === 'none') {
+  return ok(touch(emit(state, [{ kind: 'setCameraSky', entityId: camera.data.id, sky: { kind: 'none' } }]), camera.data.id));
+ }
+ if (i.kind === 'color') {
+  const color = SKY_COLORS[i.color ?? 'neutral'] ?? '#ffffff';
+  return ok(touch(emit(state, [{ kind: 'setCameraSky', entityId: camera.data.id, sky: { kind: 'color', color, ibl: i.ibl } }]), camera.data.id));
+ }
+ if (!i.asset) return invalid('An image or HDR sky needs an asset reference');
+ const asset = resolveAsset(state, { scene: state.scene, blueprints: state.blueprints, assets: [], refs: state.proposal.refs, selection: null, newId: () => '' }, i.asset, ['image', 'hdr', 'fixture'], 'a sky asset');
+ if (!asset.ok) return asset;
+ return ok(touch(emit(state, [{ kind: 'setCameraSky', entityId: camera.data.id, sky: { kind: i.kind, assetId: asset.data.id, ibl: i.ibl } }]), camera.data.id));
+});
+
 export const compileOutput = only('output_camera', (i, state) => {
  const camera = resolveEntity(state, i.camera, ['camera'], 'a camera');
  if (!camera.ok) return camera;

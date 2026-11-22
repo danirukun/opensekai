@@ -834,6 +834,20 @@ impl ServicePorts {
         .await
         .map_err(|_| err(ErrorCode::Unavailable, "Video import failed"))?
     }
+    pub async fn import_hdr(
+        &self,
+        path: PathBuf,
+    ) -> Result<crate::assets::ImportResult, AppError> {
+        let shared = self.shared.clone();
+        tokio::task::spawn_blocking(move || {
+            let library = lock(&shared.registry).library();
+            let staged = crate::assets::stage_hdr(&library, &path)?;
+            shared.asset_step(AssetStep::Store);
+            lock(&shared.registry).commit(staged)
+        })
+        .await
+        .map_err(|_| err(ErrorCode::Unavailable, "HDR import failed"))?
+    }
     pub fn asset_records(&self) -> Vec<AssetRecord> {
         lock(&self.shared.registry).records()
     }
@@ -1046,6 +1060,12 @@ impl ServiceHandle {
         path: PathBuf,
     ) -> Result<crate::assets::ImportResult, AppError> {
         self.ports().import_video(path).await
+    }
+    pub async fn import_hdr(
+        &self,
+        path: PathBuf,
+    ) -> Result<crate::assets::ImportResult, AppError> {
+        self.ports().import_hdr(path).await
     }
     pub fn asset_records(&self) -> Vec<AssetRecord> {
         lock(&self.shared.registry).records()

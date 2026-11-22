@@ -1,6 +1,7 @@
 import { Color, CubeCamera, CubeRenderTarget, EnvironmentNode, HalfFloatType, MeshPhysicalNodeMaterial, MeshStandardNodeMaterial, PMREMGenerator, type Material, type Node, type NodeBuilder, type Object3D, type Texture, type UniformNode, type WebGPURenderer } from 'three/webgpu';
 import { uniform, vec3 } from 'three/tsl';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { ColorEnvironment } from 'three/addons/environments/ColorEnvironment.js';
 import { LightProbeGenerator } from 'three/addons/lights/LightProbeGenerator.js';
 import type { Vec3 } from '@opensekai/contracts';
 import { isLitMaterial, type RoomLight } from './scene-lights';
@@ -61,15 +62,36 @@ export interface EnvironmentLight {
     apply(root: Object3D): InstanceMaterials;
     /** Sets the share of the room map on all environment and prop copies: its diffuse fill and its reflections (B13 R4a). */
     room(light: RoomLight): void;
+    /** ENV-02: restores the room PMREM on reflective copies. */
+    clearIbl(): void;
+    /** ENV-02: PMREM from an equirect texture for sky IBL (cached by key). */
+    iblFromEquirect(source: Texture, key: string): void;
+    /** ENV-02: PMREM from ColorEnvironment for a solid sky color (cached by hex). */
+    iblFromColor(hex: string): void;
     dispose(): void;
 }
 // A prop or environment instance gets its own copy of each lit material, because the cached asset shares materials with other
 // instances and each instance gets the node set of its own light group (R6). Copies of standard or physical materials get the
 // PMREM room map (prop import R4); unlit materials keep their look; scene.environment stays null so avatar materials keep their look.
-export function createEnvironmentLight(makeMap: () => EnvironmentMap): EnvironmentLight {
+export function createEnvironmentLight(renderer: WebGPURenderer, makeMap: () => EnvironmentMap): EnvironmentLight {
     let map: EnvironmentMap | null = null;
     const share: Share = { fill: uniform(1), reflections: uniform(new Color(1, 1, 1)) };
     const texture = () => (map ??= makeMap()).texture;
+    const allReflective: (Material & { envMap: Texture | null })[] = [];
+    const pmremCache = new Map<string, EnvironmentMap>();
+    const applyEnvMap = (target: Texture) => { for (const material of allReflective) material.envMap = target; };
+    const cachedPmrem = (key: string, build: (generator: PMREMGenerator) => { texture: Texture; dispose(): void }) => {
+        let cached = pmremCache.get(key);
+        if (!cached) {
+            const generator = new PMREMGenerator(renderer);
+            try {
+                const target = build(generator);
+                cached = { texture: target.texture, dispose: () => target.dispose() };
+                pmremCache.set(key, cached);
+            } finally { generator.dispose(); }
+        }
+        applyEnvMap(cached.texture);
+    };
     return {
         apply(root) {
             const room = texture();
@@ -83,6 +105,7 @@ export function createEnvironmentLight(makeMap: () => EnvironmentMap): Environme
                         made = roomMaterial(material, share);
                         (made as Material & { envMap: Texture | null }).envMap = room;
                         reflective.push(made as Material & { envMapIntensity: number });
+                        allReflective.push(made as Material & { envMap: Texture | null });
                     } else made = material.clone();
                     copies.set(material, made);
                 }
@@ -101,11 +124,33 @@ export function createEnvironmentLight(makeMap: () => EnvironmentMap): Environme
                     intensity = next;
                     for (const material of reflective) material.envMapIntensity = next;
                 },
-                dispose() { for (const made of copies.values()) made.dispose(); copies.clear(); reflective.length = 0; },
+                dispose() {
+                    for (const made of copies.values()) {
+                        const idx = allReflective.indexOf(made as Material & { envMap: Texture | null });
+                        if (idx !== -1) allReflective.splice(idx, 1);
+                        made.dispose();
+                    }
+                    copies.clear(); reflective.length = 0;
+                },
             };
         },
         room(light) { share.fill.value = light.fill; share.reflections.value.setRGB(...light.reflections); },
-        dispose() { map?.dispose(); map = null; }
+        clearIbl() { applyEnvMap(texture()); },
+        iblFromEquirect(source, key) {
+            cachedPmrem(`equirect:${key}`, generator => generator.fromEquirectangular(source));
+        },
+        iblFromColor(hex) {
+            cachedPmrem(`color:${hex}`, generator => {
+                const environment = new ColorEnvironment(new Color(hex));
+                try { return generator.fromScene(environment); }
+                finally { environment.dispose(); }
+            });
+        },
+        dispose() {
+            map?.dispose(); map = null; allReflective.length = 0;
+            for (const entry of pmremCache.values()) entry.dispose();
+            pmremCache.clear();
+        }
     };
 }
 export function roomEnvironmentMap(renderer: WebGPURenderer): () => EnvironmentMap {

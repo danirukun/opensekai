@@ -1,5 +1,5 @@
-import { ExpressionNameSchema,ExpressionSettingsSchema,TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,FitNeutralSchema,TrackingSmoothingSchema,TrackingMappingSchema,EntityNameSchema,ShowSceneSchema,IdSchema,CameraAntiAliasingSchema,CameraGradingSchema,AvatarLightingSchema,CameraEffectsSchema,CameraNavigationSchema,LightSettingsSchema,HazeSettingsSchema,FpsCounterSettingsSchema,VmcSenderSettingsSchema,ReflectionsIntensitySchema,PatchOpSchema,ScreenVideoSchema,WebScreenSchema,ScreenCaptureSchema,isLightBudgetMessage,MaterialGroupSchema } from '@opensekai/contracts';
-import type { ExpressionSettings, AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing, TrackingMapping, ArkitName, CameraAntiAliasing, CameraGrading, AvatarLighting, CameraEffects, CameraNavigation, CameraScreenshotResult, LightSettings, HazeSettings, FpsCounterSettings, VmcSenderSettings, ScreenVideo, ScreenVideoAction, WebScreen, ScreenCapture, MaterialValues } from '@opensekai/contracts';
+import { ExpressionNameSchema,ExpressionSettingsSchema,TransformSchema,SceneEntitySchema,LensSchema,AvatarTrackingSchema,AvatarIdleSchema,TrackingConfigSchema,FitNeutralSchema,TrackingSmoothingSchema,TrackingMappingSchema,EntityNameSchema,ShowSceneSchema,IdSchema,CameraAntiAliasingSchema,CameraGradingSchema,AvatarLightingSchema,CameraEffectsSchema,CameraNavigationSchema,CameraSkySchema,LightSettingsSchema,HazeSettingsSchema,FpsCounterSettingsSchema,VmcSenderSettingsSchema,ReflectionsIntensitySchema,PatchOpSchema,ScreenVideoSchema,WebScreenSchema,ScreenCaptureSchema,isLightBudgetMessage,MaterialGroupSchema } from '@opensekai/contracts';
+import type { ExpressionSettings, AppApi, ErrorCode, Id, PatchOp, Reply, SceneView, Vec3, Transform, SceneEntity, AvatarTracking, AvatarIdle, TrackingConfig, TrackingSmoothing, TrackingMapping, ArkitName, CameraAntiAliasing, CameraGrading, AvatarLighting, CameraEffects, CameraNavigation, CameraSky, CameraScreenshotResult, LightSettings, HazeSettings, FpsCounterSettings, VmcSenderSettings, ScreenVideo, ScreenVideoAction, WebScreen, ScreenCapture, MaterialValues } from '@opensekai/contracts';
 import {makeEntityCopy} from './asset-management';
 type CameraLens=Extract<SceneEntity,{kind:'camera'}>['lens'];
 export interface EditorView {
@@ -156,6 +156,10 @@ export function createEditorModel(api: AppApi) {
    const parsed=ReflectionsIntensitySchema.safeParse(reflectionsIntensity);if(!ofKind(entityId,'environment')||!parsed.success)return invalid();
    return patch({kind:'setEnvironmentReflections',entityId,reflectionsIntensity:parsed.data},expectedRevision,live);
   },
+  setEnvironmentLighting(entityId:Id,allowLightsToAffectCharacters:boolean,expectedRevision?:number):Promise<Reply<{revision:number}>> {
+   if(!ofKind(entityId,'environment'))return invalid();
+   return patch({kind:'setEnvironmentLighting',entityId,allowLightsToAffectCharacters},expectedRevision);
+  },
   setLight(entityId:Id,light:LightSettings,expectedRevision?:number,live=false):Promise<Reply<{revision:number}>> {
    const parsed=LightSettingsSchema.safeParse(light);if(!ofKind(entityId,'light')||!parsed.success)return invalid();
    return patch({kind:'setLight',entityId,light:parsed.data},expectedRevision,live);
@@ -199,6 +203,10 @@ export function createEditorModel(api: AppApi) {
   setCameraNavigation(entityId:Id,navigation:CameraNavigation,expectedRevision?:number,live=false):Promise<Reply<{revision:number}>> {
    const parsed=CameraNavigationSchema.safeParse(navigation);if(!ofKind(entityId,'camera')||!parsed.success)return invalid();
    return patch({kind:'setCameraNavigation',entityId,navigation:parsed.data},expectedRevision,live);
+  },
+  setCameraSky(entityId:Id,sky:CameraSky|null,expectedRevision?:number):Promise<Reply<{revision:number}>> {
+   const parsed=CameraSkySchema.nullable().safeParse(sky);if(!ofKind(entityId,'camera')||!parsed.success)return invalid();
+   return patch({kind:'setCameraSky',entityId,sky:parsed.data},expectedRevision);
   },
   // A screenshot is not an edit: it does not change the revision, so it does not block other edits.
   async cameraScreenshot(cameraId:Id):Promise<Reply<CameraScreenshotResult>> {
