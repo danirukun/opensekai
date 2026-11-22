@@ -8,24 +8,24 @@ const W=280,H=72;
 const layout=$derived(layoutLensDepth(lens,W,H));
 let dragging=$state(false);
 
-function clientToDistance(clientX:number,target:EventTarget|null){
-	const left=(target as SVGSVGElement|undefined)?.getBoundingClientRect().left??0;
+function clientToDistance(clientX:number,target:SVGSVGElement){
+	const left=target.getBoundingClientRect().left;
 	return commitFocusFromClientX(clientX,left,W);
 }
 
-function down(event:PointerEvent){
+function down(event:PointerEvent & { currentTarget: SVGSVGElement }){
 	if(disabled)return;
 	event.currentTarget.setPointerCapture(event.pointerId);
 	dragging=true;
 	onlive?.(clientToDistance(event.clientX,event.currentTarget));
 }
 
-function move(event:PointerEvent){
+function move(event:PointerEvent & { currentTarget: SVGSVGElement }){
 	if(!dragging||disabled)return;
 	onlive?.(clientToDistance(event.clientX,event.currentTarget));
 }
 
-function up(event:PointerEvent){
+function up(event:PointerEvent & { currentTarget: SVGSVGElement }){
 	if(!dragging)return;
 	dragging=false;
 	try{event.currentTarget.releasePointerCapture(event.pointerId);}catch{/* already released */}
