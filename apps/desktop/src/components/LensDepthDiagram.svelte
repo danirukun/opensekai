@@ -47,13 +47,13 @@ function up(event:PointerEvent & { currentTarget: SVGSVGElement }){
 </svg>
 
 <style>
-	.depth{display:block;width:100%;max-width:100%;height:72px;touch-action:none;cursor:ew-resize;border-radius:4px;background:color-mix(in srgb,var(--ds-color-fg, #35333D) 4%, transparent)}
+	.depth{display:block;width:100%;max-width:100%;height:72px;touch-action:none;cursor:ew-resize;border-radius:4px;background:color-mix(in srgb,var(--ds-color-text) 4%, transparent)}
 	.depth[aria-disabled=true]{cursor:default;opacity:.55}
-	.wash{fill:color-mix(in srgb,var(--ds-color-fg, #35333D) 8%, transparent);stroke:none}
-	.cone,.axis,.focus{stroke:color-mix(in srgb,var(--ds-color-fg, #35333D) 45%, transparent);stroke-width:1;fill:none}
-	.axis{stroke:color-mix(in srgb,var(--ds-color-fg, #35333D) 22%, transparent)}
-	.cam{fill:var(--ds-color-fg, #35333D)}
-	.dof{fill:color-mix(in srgb,var(--ds-color-fg, #35333D) 18%, transparent)}
-	.marker{fill:var(--ds-color-fg, #35333D)}
-	.marker.dragging{fill:var(--ds-color-fg, #35333D)}
+	.wash{fill:color-mix(in srgb,var(--ds-color-text) 8%, transparent);stroke:none}
+	.cone,.axis,.focus{stroke:color-mix(in srgb,var(--ds-color-text) 45%, transparent);stroke-width:1;fill:none}
+	.axis{stroke:color-mix(in srgb,var(--ds-color-text) 22%, transparent)}
+	.cam{fill:var(--ds-color-text)}
+	.dof{fill:color-mix(in srgb,var(--ds-color-text) 18%, transparent)}
+	.marker{fill:var(--ds-color-text)}
+	.marker.dragging{fill:var(--ds-color-text)}
 </style>
