@@ -1,17 +1,20 @@
 import { z } from "zod";
 export const QualityProfileIdSchema = z.enum(["preview_v1", "production_v1", "performance_v1"]);
 export type QualityProfileId = z.infer<typeof QualityProfileIdSchema>;
+export type EffectsQuality = "cheap" | "full";
 export interface QualityProfile {
     readonly id: QualityProfileId;
     readonly resolutionScale: 1 | 0.5;
     readonly maxTextureSize: 1024 | 2048;
     readonly msaaSamples: 0 | 4;
+    readonly effectsQuality: EffectsQuality;
 }
-// A profile is a frozen measurement setting: a changed value needs a new ID.
+// A profile is a frozen measurement setting: a changed numeric value needs a new ID.
+// effectsQuality is a look-stack budget field added without new IDs (see 2026-11-22 design).
 export const QUALITY_PROFILES: Readonly<Record<QualityProfileId, QualityProfile>> = Object.freeze({
-    preview_v1: Object.freeze({ id: "preview_v1", resolutionScale: 0.5, maxTextureSize: 1024, msaaSamples: 4 }),
-    production_v1: Object.freeze({ id: "production_v1", resolutionScale: 1, maxTextureSize: 2048, msaaSamples: 4 }),
-    performance_v1: Object.freeze({ id: "performance_v1", resolutionScale: 1, maxTextureSize: 1024, msaaSamples: 0 }),
+    preview_v1: Object.freeze({ id: "preview_v1", resolutionScale: 0.5, maxTextureSize: 1024, msaaSamples: 4, effectsQuality: "cheap" }),
+    production_v1: Object.freeze({ id: "production_v1", resolutionScale: 1, maxTextureSize: 2048, msaaSamples: 4, effectsQuality: "full" }),
+    performance_v1: Object.freeze({ id: "performance_v1", resolutionScale: 1, maxTextureSize: 1024, msaaSamples: 0, effectsQuality: "cheap" }),
 });
 export const DEFAULT_QUALITY_PROFILE: QualityProfileId = "production_v1";
 export const qualityProfileFromQuery = (value: string | null | undefined): QualityProfile => {
