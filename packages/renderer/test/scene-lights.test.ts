@@ -33,10 +33,24 @@ describe('pure light functions', () => {
         expect(shadowsOn([light('a'), light('b', { shadow: { ...settings().shadow, enabled: true } })])).toBe(true);
     });
     it('changes the signature when allowLightsToAffectCharacters flips (ENV-01)', () => {
-        const stage = (flag?: boolean): SceneEntity => ({ id: 'stage', name: 'Environment', visible: true, transform: { position: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] }, kind: 'environment', assetId: null, ...(flag === undefined ? {} : { allowLightsToAffectCharacters: flag }) });
+        const stage = (flag?: boolean, assetId: string | null = null): SceneEntity => ({ id: 'stage', name: 'Environment', visible: true, transform: { position: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] }, kind: 'environment', assetId, ...(flag === undefined ? {} : { allowLightsToAffectCharacters: flag }) });
         expect(lightSignature([stage()])).toBe('builtin');
         expect(lightSignature([stage(true)])).toBe('builtin:envChars');
         expect(lightSignature([light('a'), stage()])).not.toBe(lightSignature([light('a'), stage(true)]));
+        expect(lightSignature([stage(false, 'env_a')])).toBe('builtin:envAsset:env_a');
+        expect(lightSignature([stage(false, 'env_a')])).not.toBe(lightSignature([stage(false, 'env_b')]));
+        expect(lightSignature([light('a'), stage(false, 'env_a')])).not.toBe(lightSignature([light('a'), stage(false, 'env_b')]));
+    });
+    it('rebuilds when file lights swap at equal count (ENV-01)', () => {
+        const scene = new Scene(), lights = createSceneLights(scene, fake());
+        const stage: SceneEntity = { id: 'stage', name: 'Environment', visible: true, transform: { position: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] }, kind: 'environment', assetId: 'env_a' };
+        const a = new PointLight(), b = new PointLight();
+        lights.setFileLights([a], false);
+        expect(lights.apply([stage])).toBe(true);
+        const before = lights.signature();
+        lights.setFileLights([b], false);
+        expect(lights.apply([stage])).toBe(true);
+        expect(lights.signature()).not.toBe(before);
     });
     it('collects file lights and caps shadows to two (ENV-01 R3, R5)', () => {
         const root = new Group(), a = new PointLight(), b = new PointLight(), c = new PointLight(), mesh = new Mesh(new BoxGeometry(), new MeshBasicMaterial());

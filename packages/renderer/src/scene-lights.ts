@@ -51,12 +51,18 @@ export function roomLight(entities: readonly SceneEntity[]): RoomLight {
 export const spotAngle = (angleDegrees: number): number => MathUtils.degToRad(angleDegrees / 2);
 
 /** The values that rebuild the node sets (R7): the light count and order, each type, affect flag, and shadow switch. Visibility, color, intensity, range, and transform are not part of it.
- *  ENV-01: includes the environment allowLightsToAffectCharacters flag so a flag change triggers a rebuild. */
+ *  ENV-01: includes the environment allowLightsToAffectCharacters flag and assetId so an env swap or flag change triggers a rebuild. */
 export function lightSignature(entities: readonly SceneEntity[]): string {
     const all = entities.filter(isLight);
-    const envFlag = entities.find((e): e is Extract<SceneEntity, { kind: "environment" }> => e.kind === "environment")?.allowLightsToAffectCharacters === true;
-    if (!all.length) return envFlag ? "builtin:envChars" : "builtin";
-    return JSON.stringify([envFlag, all.map(({ id, light: l }) => [id, l.type, l.affectCharacters, l.affectProps, l.affectEnvironment, l.shadow.enabled, scattersInHaze(l)])]);
+    const env = entities.find((e): e is Extract<SceneEntity, { kind: "environment" }> => e.kind === "environment");
+    const envFlag = env?.allowLightsToAffectCharacters === true;
+    const envAsset = env?.assetId ?? "";
+    if (!all.length) {
+        if (!env) return "builtin";
+        const base = envFlag ? "builtin:envChars" : "builtin";
+        return envAsset ? `${base}:envAsset:${envAsset}` : base;
+    }
+    return JSON.stringify([envFlag, envAsset, all.map(({ id, light: l }) => [id, l.type, l.affectCharacters, l.affectProps, l.affectEnvironment, l.shadow.enabled, scattersInHaze(l)])]);
 }
 
 /** ENV-01 R3: cap file-light shadows to 2 (first two with castShadow in traversal order). */
@@ -227,8 +233,9 @@ export function createSceneLights(scene: Scene, renderer: WebGPURenderer): Scene
                 update(value.light, entity);
             }
             builtin.intensity = wanted.length ? 0 : 3;
-            // Include file light count and the flag in the signature so changes trigger a rebuild.
-            const signature = lightSignature(entities) + `:fl${fileLightObjects.length}:${fileLightsAffectCharacters}`;
+            // File-light identity (uuid list) so equal counts with different objects still rebuild.
+            const fileIds = fileLightObjects.map(light => light.uuid).join(",");
+            const signature = lightSignature(entities) + `:fl${fileIds}:${fileLightsAffectCharacters}`;
             if (signature === current && nodes) return false;
             current = signature;
             const groups = lightGroups(entities);
@@ -236,11 +243,9 @@ export function createSceneLights(scene: Scene, renderer: WebGPURenderer): Scene
             const settings = new Map(wanted.map(e => [e.id, e.light]));
             const members = (ids: Id[]) => ids.map(id => [id, settings.get(id)!.type, settings.get(id)!.shadow.enabled]);
             // A group keeps its node object while its own light list stays the same (light limits R13).
-            // File lights join environment always and characters when the flag is on; their count is part of those keys.
+            // File lights join environment always and characters when the flag is on; their identity is part of those keys.
             const fileKey = (group: LightGroup) =>
-                group === "environment" ? fileLightObjects.length
-                : group === "characters" && fileLightsAffectCharacters ? fileLightObjects.length
-                : 0;
+                group === "environment" || (group === "characters" && fileLightsAffectCharacters) ? fileIds : "";
             const nextKeys = Object.fromEntries(LIGHT_GROUPS.map(group => [group, JSON.stringify(group === "haze" ? members(groups.haze) : [fixedAmbient, builtinOn, members(groups[group]), fileKey(group)])])) as Record<LightGroup, string>;
             const fixed = () => fixedAmbient ? [ambient] : [];
             // ENV-01 R5: file lights always go to environment, optionally to characters, never to props or haze.

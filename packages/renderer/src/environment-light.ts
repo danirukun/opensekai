@@ -73,23 +73,40 @@ export interface EnvironmentLight {
 // A prop or environment instance gets its own copy of each lit material, because the cached asset shares materials with other
 // instances and each instance gets the node set of its own light group (R6). Copies of standard or physical materials get the
 // PMREM room map (prop import R4); unlit materials keep their look; scene.environment stays null so avatar materials keep their look.
+/** Cap on cached sky IBL PMREM maps (ENV-02); oldest unused entries are disposed. */
+export const PMREM_IBL_CACHE_LIMIT = 4;
+
 export function createEnvironmentLight(renderer: WebGPURenderer, makeMap: () => EnvironmentMap): EnvironmentLight {
     let map: EnvironmentMap | null = null;
     const share: Share = { fill: uniform(1), reflections: uniform(new Color(1, 1, 1)) };
     const texture = () => (map ??= makeMap()).texture;
     const allReflective: (Material & { envMap: Texture | null })[] = [];
     const pmremCache = new Map<string, EnvironmentMap>();
+    let activeIblKey: string | null = null;
     const applyEnvMap = (target: Texture) => { for (const material of allReflective) material.envMap = target; };
+    const evictPmrem = () => {
+        while (pmremCache.size > PMREM_IBL_CACHE_LIMIT) {
+            const oldest = [...pmremCache.keys()].find(key => key !== activeIblKey);
+            if (!oldest) break;
+            pmremCache.get(oldest)!.dispose();
+            pmremCache.delete(oldest);
+        }
+    };
     const cachedPmrem = (key: string, build: (generator: PMREMGenerator) => { texture: Texture; dispose(): void }) => {
         let cached = pmremCache.get(key);
-        if (!cached) {
+        if (cached) {
+            pmremCache.delete(key);
+            pmremCache.set(key, cached);
+        } else {
             const generator = new PMREMGenerator(renderer);
             try {
                 const target = build(generator);
                 cached = { texture: target.texture, dispose: () => target.dispose() };
                 pmremCache.set(key, cached);
+                evictPmrem();
             } finally { generator.dispose(); }
         }
+        activeIblKey = key;
         applyEnvMap(cached.texture);
     };
     return {
@@ -135,7 +152,7 @@ export function createEnvironmentLight(renderer: WebGPURenderer, makeMap: () => 
             };
         },
         room(light) { share.fill.value = light.fill; share.reflections.value.setRGB(...light.reflections); },
-        clearIbl() { applyEnvMap(texture()); },
+        clearIbl() { activeIblKey = null; applyEnvMap(texture()); },
         iblFromEquirect(source, key) {
             cachedPmrem(`equirect:${key}`, generator => generator.fromEquirectangular(source));
         },
@@ -147,7 +164,7 @@ export function createEnvironmentLight(renderer: WebGPURenderer, makeMap: () => 
             });
         },
         dispose() {
-            map?.dispose(); map = null; allReflective.length = 0;
+            map?.dispose(); map = null; allReflective.length = 0; activeIblKey = null;
             for (const entry of pmremCache.values()) entry.dispose();
             pmremCache.clear();
         }

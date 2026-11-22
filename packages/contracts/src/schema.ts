@@ -168,7 +168,7 @@ export const CameraSkySchema = z.strictObject({
     blurriness: z.number().min(0).max(1).optional(),
     ibl: z.boolean().optional()
 }).refine(sky => sky.kind !== 'color' || sky.color !== undefined, 'A color sky needs a color')
-  .refine(sky => (sky.kind !== 'image' && sky.kind !== 'hdr') || sky.assetId !== undefined, 'An image or HDR sky needs an assetId');
+  .refine(sky => (sky.kind !== 'image' && sky.kind !== 'hdr') || sky.assetId != null, 'An image or HDR sky needs an assetId');
 export const LightShadowSchema = z.strictObject({
     enabled: z.boolean(),
     intensity: n.min(0).max(1),

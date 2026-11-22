@@ -34,6 +34,12 @@ it('sets kind none to clear the sky', () => {
     expect(camera(s, 'camera_wide').sky).toEqual({ kind: 'none' });
 });
 
+it('rejects image or hdr sky with null assetId', () => {
+    const s = createSession(makeSmokeScene(), 'sky-test');
+    expect(s.applyPatch(patch(0, [{ kind: 'setCameraSky', entityId: 'camera_wide', sky: { kind: 'image', assetId: null } }]))).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+    expect(s.applyPatch(patch(0, [{ kind: 'setCameraSky', entityId: 'camera_wide', sky: { kind: 'hdr', assetId: null } }]))).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+});
+
 it('rejects setCameraSky on a non-camera entity', () => {
     const s = createSession(makeSmokeScene(), 'sky-test');
     expect(s.applyPatch(patch(0, [{ kind: 'setCameraSky', entityId: 'performer', sky: { kind: 'none' } }]))).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });

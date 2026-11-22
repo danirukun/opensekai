@@ -35468,6 +35468,24 @@
     }
   },
   {
+    "name": "setCameraSky-image-null-assetId",
+    "target": "call",
+    "method": "scenePatch",
+    "valid": false,
+    "errorCode": "INVALID_INPUT",
+    "payload": {
+      "sceneId": "scene_smoke",
+      "expectedRevision": 0,
+      "operations": [
+        {
+          "kind": "setCameraSky",
+          "entityId": "camera_wide",
+          "sky": { "kind": "image", "assetId": null }
+        }
+      ]
+    }
+  },
+  {
     "name": "setCameraSky-blurriness-out-of-range",
     "target": "call",
     "method": "scenePatch",
