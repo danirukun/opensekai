@@ -4,6 +4,7 @@ export * from "./fixtures";
 export * from "./marker";
 
 export * from './tracking';
+export * from './avatar-animation';
 export * from './tracking-presets';
 export * from './blueprint-values';
 export * from './blueprint';

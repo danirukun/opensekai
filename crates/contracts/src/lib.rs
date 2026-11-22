@@ -41,6 +41,8 @@ macro_rules! object { ($name:ident { $($(#[$meta:meta])* $field:ident : $ty:ty),
 macro_rules! strings { ($name:ident { $($variant:ident => $wire:literal),* $(,)? }) => {#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)] pub enum $name {$(#[serde(rename=$wire)] $variant),*}} }
 mod tracking;
 pub use tracking::*;
+mod avatar_animation;
+pub use avatar_animation::*;
 mod devices;
 pub use devices::*;
 mod vmc_sender;
@@ -842,6 +844,8 @@ pub enum SceneEntity {
         )]
         idle_animation: Option<AvatarIdle>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
+        animation: Option<Box<AvatarAnimation>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         expressions: Option<BTreeMap<String, ExpressionSettings>>,
         #[serde(
             default,
@@ -1072,6 +1076,11 @@ pub enum PatchOp {
         entity_id: Id,
         #[serde(rename = "idleAnimation")]
         idle_animation: AvatarIdle,
+    },
+    SetAvatarAnimation {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+        animation: AvatarAnimation,
     },
     SetAvatarTracking {
         #[serde(rename = "entityId")]
@@ -3301,6 +3310,9 @@ pub fn validate_patch_ops(ops: &[PatchOp], max: usize) -> Result<(), AppError> {
                 tracking.body.as_ref().is_none_or(|body| body.is_valid()),
                 "invalid body tracking",
             )?,
+            PatchOp::SetAvatarAnimation { animation, .. } => {
+                require(animation.is_valid(), "invalid avatar animation")?
+            }
             PatchOp::SetCameraLens { lens, .. } => lens.validate()?,
             PatchOp::SetCameraNavigation { navigation, .. } => navigation.validate()?,
             PatchOp::SetCameraGrading {
@@ -4267,6 +4279,13 @@ impl Validate for SceneEntity {
                 tracking.body.as_ref().is_none_or(|body| body.is_valid()),
                 "invalid body tracking",
             )?;
+        }
+        if let Self::Avatar {
+            animation: Some(animation),
+            ..
+        } = self
+        {
+            require(animation.is_valid(), "invalid avatar animation")?;
         }
         Ok(())
     }

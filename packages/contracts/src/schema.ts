@@ -1,4 +1,5 @@
 import {TrackingConfigSchema,TrackingSmoothingSchema,TrackingProbeParamsSchema,TrackingProbeSchema,TrackingCalibrationSchema,TrackingMappingSchema,AvatarIdleSchema,AvatarTrackingSchema,AvatarPoseSchema,TrackingStatusSchema,TrackingUpdateSchema,FACE_ONLY_TRACKING_KINDS} from './tracking';
+import {AvatarAnimationSchema} from './avatar-animation';
 import { BlueprintGraphSchema, BlueprintSetSchema } from './blueprint';
 import { BlueprintBatchSchema } from './blueprint-ops';
 import { ExpectationSchema, PROPOSAL_LIMITS } from './proposal';
@@ -259,6 +260,7 @@ export const SceneEntitySchema = z.discriminatedUnion("kind", [
         assetId: IdSchema.nullable(),
         tracking: AvatarTrackingSchema.optional(),
         idleAnimation: AvatarIdleSchema.optional(),
+        animation: AvatarAnimationSchema.optional(),
         expressions: AvatarExpressionsSchema.optional(),
         hiddenMeshes: HiddenMeshesSchema.optional(),
         lighting: AvatarLightingSchema.optional(),
@@ -355,6 +357,7 @@ export const PatchOpSchema = z.discriminatedUnion("kind", [
     z.strictObject({kind:z.literal('createEntity'),entity:SceneEntitySchema}),
     z.strictObject({kind:z.literal('setCameraLens'),entityId:IdSchema,lens:LensWriteSchema}),
     z.strictObject({kind:z.literal('setAvatarIdle'),entityId:IdSchema,idleAnimation:AvatarIdleSchema}),
+    z.strictObject({kind:z.literal('setAvatarAnimation'),entityId:IdSchema,animation:AvatarAnimationSchema}),
     z.strictObject({kind:z.literal('setAvatarTracking'),entityId:IdSchema,tracking:AvatarTrackingSchema}),
     z.strictObject({kind:z.literal('setAvatarModel'),entityId:IdSchema,assetId:IdSchema.nullable()}),
     z.strictObject({kind:z.literal('setEnvironmentModel'),entityId:IdSchema,assetId:IdSchema.nullable()}),
