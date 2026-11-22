@@ -3,6 +3,7 @@ import {
   DEFAULT_AVATAR_ANIMATION,
   DEFAULT_OVERLAY_MASK,
   HAND_POSE_IDS,
+  isOverlayClipEntry,
   MAX_OVERLAY_POSES,
   OVERLAY_POSE_IDS,
   type AvatarAnimation,
@@ -10,8 +11,10 @@ import {
   type HandOverride,
   type HandPin,
   type HandPoseId,
+  type OverlayClipEntry,
   type OverlayPoseEntry,
   type OverlayPoseId,
+  type OverlayPosePresetEntry,
 } from '@opensekai/contracts';
 
 export const overlayPoseOptions = OVERLAY_POSE_IDS.map(value => ({value, label: value[0]!.toUpperCase() + value.slice(1)}));
@@ -21,13 +24,25 @@ export const handSideLabels = {left: 'Left Hand', right: 'Right Hand'} as const;
 // Plain copies: entity.animation can be a Svelte state proxy, which structuredClone rejects.
 const plainHand = (hand: HandOverride): HandOverride => ({enabled: hand.enabled, pose: hand.pose, weight: hand.weight, highPriority: hand.highPriority});
 const plainPin = (pin: HandPin): HandPin => ({enabled: pin.enabled, mode: pin.mode});
-const plainOverlay = (entry: OverlayPoseEntry): OverlayPoseEntry => ({
-  id: entry.id,
-  pose: entry.pose,
-  weight: entry.weight,
-  maskedBodyParts: [...entry.maskedBodyParts],
-  ...(entry.speed !== undefined ? {speed: entry.speed} : {}),
-});
+const plainOverlay = (entry: OverlayPoseEntry): OverlayPoseEntry => {
+  if (isOverlayClipEntry(entry)) {
+    return {
+      id: entry.id,
+      kind: 'clip',
+      assetId: entry.assetId,
+      weight: entry.weight,
+      maskedBodyParts: [...entry.maskedBodyParts],
+      ...(entry.speed !== undefined ? {speed: entry.speed} : {}),
+    };
+  }
+  return {
+    id: entry.id,
+    pose: entry.pose,
+    weight: entry.weight,
+    maskedBodyParts: [...entry.maskedBodyParts],
+    ...(entry.speed !== undefined ? {speed: entry.speed} : {}),
+  };
+};
 
 export const animationOf = (animation: AvatarAnimation | undefined): AvatarAnimation => {
   const source = animation ?? DEFAULT_AVATAR_ANIMATION;
@@ -48,7 +63,7 @@ export const animationOf = (animation: AvatarAnimation | undefined): AvatarAnima
 export const defaultHandOverride = (): HandOverride => ({enabled: false, pose: 'open', weight: 1, highPriority: true});
 export const defaultHandPin = (): HandPin => ({enabled: false, mode: 'hold'});
 
-export function newOverlayEntry(existing: readonly OverlayPoseEntry[]): OverlayPoseEntry | null {
+export function newOverlayEntry(existing: readonly OverlayPoseEntry[]): OverlayPosePresetEntry | null {
   if (existing.length >= MAX_OVERLAY_POSES) return null;
   let n = 1;
   while (existing.some(entry => entry.id === `overlay-${n}`)) n += 1;
@@ -57,12 +72,43 @@ export function newOverlayEntry(existing: readonly OverlayPoseEntry[]): OverlayP
 
 export const withOverlayPose = (animation: AvatarAnimation, entryId: string, pose: OverlayPoseId): AvatarAnimation => ({
   ...animation,
-  overlayingPoses: animation.overlayingPoses.map(entry => entry.id === entryId ? {...entry, pose} : entry),
+  overlayingPoses: animation.overlayingPoses.map(entry => {
+    if (entry.id !== entryId) return entry;
+    const next: OverlayPosePresetEntry = {
+      id: entry.id,
+      pose,
+      weight: entry.weight,
+      maskedBodyParts: [...entry.maskedBodyParts],
+      ...(entry.speed !== undefined ? {speed: entry.speed} : {}),
+    };
+    return next;
+  }),
+});
+
+export const withOverlayClip = (animation: AvatarAnimation, entryId: string, assetId: string): AvatarAnimation => ({
+  ...animation,
+  overlayingPoses: animation.overlayingPoses.map(entry => {
+    if (entry.id !== entryId) return entry;
+    const next: OverlayClipEntry = {
+      id: entry.id,
+      kind: 'clip',
+      assetId,
+      weight: entry.weight,
+      maskedBodyParts: [...entry.maskedBodyParts],
+      ...(entry.speed !== undefined ? {speed: entry.speed} : {speed: 1}),
+    };
+    return next;
+  }),
 });
 
 export const withOverlayWeight = (animation: AvatarAnimation, entryId: string, weight: number): AvatarAnimation => ({
   ...animation,
   overlayingPoses: animation.overlayingPoses.map(entry => entry.id === entryId ? {...entry, weight} : entry),
+});
+
+export const withOverlaySpeed = (animation: AvatarAnimation, entryId: string, speed: number): AvatarAnimation => ({
+  ...animation,
+  overlayingPoses: animation.overlayingPoses.map(entry => entry.id === entryId ? {...entry, speed} : entry),
 });
 
 export const withOverlayPart = (animation: AvatarAnimation, entryId: string, part: BodyPart, on: boolean): AvatarAnimation => ({
@@ -102,3 +148,4 @@ export const withHandPin = (animation: AvatarAnimation, side: 'left' | 'right', 
 
 export const isHandPoseId = (value: string): value is HandPoseId => (HAND_POSE_IDS as readonly string[]).includes(value);
 export const isOverlayPoseId = (value: string): value is OverlayPoseId => (OVERLAY_POSE_IDS as readonly string[]).includes(value);
+export {isOverlayClipEntry};

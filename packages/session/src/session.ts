@@ -1,4 +1,4 @@
-import { fingerprint, lightBudgetIssue, IdSchema, ParamSchemas, ProposalApplyParamsSchema, type ProposalApplyResult, type VmcPosesEnvelope, AssetRecordSchema, type AssetRecord, type ExpressionState, meshList, type MeshList, materialList, type MaterialList, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate, type AppError, type InputUpdate, type BlueprintInspect, type AvatarPose, type DeviceKind, type ScalarValue, type BlueprintDebug, type TrackingProbe, type TrackingProbeParams, type TrackingStatus, type ArkitName } from "@opensekai/contracts";
+import { fingerprint, lightBudgetIssue, IdSchema, isOverlayClipEntry, ParamSchemas, ProposalApplyParamsSchema, type ProposalApplyResult, type VmcPosesEnvelope, AssetRecordSchema, type AssetRecord, type ExpressionState, meshList, type MeshList, materialList, type MaterialList, ScenePatchSchema, SceneViewSchema, ShowSceneSchema, type ErrorCode, type Id, type Reply, type RuntimeFrame, type ScenePatch, type SceneView, type TrackingUpdate, type AppError, type InputUpdate, type BlueprintInspect, type AvatarPose, type DeviceKind, type ScalarValue, type BlueprintDebug, type TrackingProbe, type TrackingProbeParams, type TrackingStatus, type ArkitName } from "@opensekai/contracts";
 import { createTransformAdapter } from "./ecs";
 import {createTrackingComposer} from "./tracking";
 import { createBlueprintRuntime, logicKey, type BlueprintEvent, type GraphRun, type StepEnv } from './blueprint-runtime';
@@ -402,9 +402,16 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             const operations = resolveCalibrations(sceneOperations);
             if (!operations.ok) return operations;
             for (const operation of operations.data) {
-                if (operation.kind !== 'setAvatarIdle' || operation.idleAnimation.kind !== 'clip') continue;
-                const clip = record(operation.idleAnimation.assetId);
-                if (!clip?.animation || clip.format !== 'vrma') return failure('INVALID_INPUT', 'Idle clip asset not found', [operation.idleAnimation.assetId]);
+                if (operation.kind === 'setAvatarIdle' && operation.idleAnimation.kind === 'clip') {
+                    const clip = record(operation.idleAnimation.assetId);
+                    if (!clip?.animation || clip.format !== 'vrma') return failure('INVALID_INPUT', 'Idle clip asset not found', [operation.idleAnimation.assetId]);
+                }
+                if (operation.kind !== 'setAvatarAnimation') continue;
+                for (const entry of operation.animation.overlayingPoses) {
+                    if (!isOverlayClipEntry(entry)) continue;
+                    const clip = record(entry.assetId);
+                    if (!clip?.animation || clip.format !== 'vrma') return failure('INVALID_INPUT', 'Overlay clip asset not found', [entry.assetId]);
+                }
             }
             const applied = applyOperations(persistent, operations.data, persistent.revision + 1);
             if (!applied.ok) return applied;
@@ -568,7 +575,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             lastTrackingNowMs = trackingNowMs ?? elapsedMs;
             const live=tracking.evaluate(shown,trackingNowMs??elapsedMs,elapsedMs,record);
             lastTrackingStatus = live.trackingStatus;
-            const animated = composeAvatarAnimation(live.avatarPoses, shown, elapsedMs, animationRuntimes);
+            const animated = composeAvatarAnimation(live.avatarPoses, shown, elapsedMs, animationRuntimes, record);
             animationRuntimes = animated.runtimes;
             previousPoses = new Map(animated.poses.map(pose => [pose.avatarId, structuredClone(pose)]));
             const faces = composeBlendShapes(composeExpressions(animated.poses, expressions, persistent, record), blendShapes);

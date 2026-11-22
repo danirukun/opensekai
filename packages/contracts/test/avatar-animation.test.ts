@@ -37,4 +37,19 @@ describe('AvatarAnimation', () => {
       operations: [{kind: 'setAvatarAnimation', entityId: 'camera', animation}],
     }).success).toBe(true);
   });
+
+  it('accepts clip overlay entries and rejects a clip without assetId', () => {
+    const withClip = {
+      ...animation,
+      overlayingPoses: [{
+        id: 'c1', kind: 'clip' as const, assetId: 'animation_idle',
+        maskedBodyParts: ['leftArm', 'rightArm'] as const, weight: 1, speed: 1,
+      }],
+    };
+    expect(AvatarAnimationSchema.safeParse(withClip).success).toBe(true);
+    expect(AvatarAnimationSchema.safeParse({
+      ...animation,
+      overlayingPoses: [{id: 'c1', kind: 'clip', maskedBodyParts: ['leftArm'], weight: 1}],
+    }).success).toBe(false);
+  });
 });

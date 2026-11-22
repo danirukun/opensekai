@@ -2,10 +2,12 @@ import {describe, expect, it} from 'vitest';
 import {DEFAULT_AVATAR_ANIMATION} from '@opensekai/contracts';
 import {
   animationOf,
+  isOverlayClipEntry,
   moveOverlay,
   newOverlayEntry,
   removeOverlay,
   withHandOverride,
+  withOverlayClip,
   withOverlayPose,
 } from '../src/editor/avatar-animation';
 
@@ -17,6 +19,9 @@ describe('avatar animation editor helpers', () => {
     expect(entry?.id).toBe('overlay-1');
     const withEntry = {...base, overlayingPoses: [entry!]};
     expect(withOverlayPose(withEntry, 'overlay-1', 'wave').overlayingPoses[0]?.pose).toBe('wave');
+    const clipped = withOverlayClip(withEntry, 'overlay-1', 'animation_idle');
+    expect(isOverlayClipEntry(clipped.overlayingPoses[0]!)).toBe(true);
+    expect(isOverlayClipEntry(clipped.overlayingPoses[0]!) && clipped.overlayingPoses[0].assetId).toBe('animation_idle');
   });
 
   it('reorders and removes overlays and updates hand overrides', () => {

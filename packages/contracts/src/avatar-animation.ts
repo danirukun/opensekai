@@ -16,13 +16,27 @@ export const MAX_OVERLAY_POSES = 8;
 const n = z.number().finite();
 const id = z.string().min(1).max(256);
 
-export interface OverlayPoseEntry {
+export interface OverlayPosePresetEntry {
   id: string;
   pose: OverlayPoseId;
   maskedBodyParts: Array<(typeof BODY_PARTS)[number]>;
   weight: number;
   speed?: number;
 }
+
+export interface OverlayClipEntry {
+  id: string;
+  kind: 'clip';
+  assetId: string;
+  maskedBodyParts: Array<(typeof BODY_PARTS)[number]>;
+  weight: number;
+  speed?: number;
+}
+
+export type OverlayPoseEntry = OverlayPosePresetEntry | OverlayClipEntry;
+
+export const isOverlayClipEntry = (entry: OverlayPoseEntry): entry is OverlayClipEntry =>
+  'kind' in entry && entry.kind === 'clip';
 
 export interface HandOverride {
   enabled: boolean;
@@ -50,13 +64,28 @@ export const DEFAULT_AVATAR_ANIMATION: Readonly<AvatarAnimation> = Object.freeze
   handPin: Object.freeze({}),
 });
 
-export const OverlayPoseEntrySchema = z.strictObject({
+const maskedBodyParts = z.array(z.enum(BODY_PARTS)).max(BODY_PARTS.length).refine(v => new Set(v).size === v.length);
+const overlayWeight = n.min(0).max(1);
+const overlaySpeed = n.min(0).max(4).optional();
+
+export const OverlayPosePresetEntrySchema = z.strictObject({
   id,
   pose: z.enum(OVERLAY_POSE_IDS),
-  maskedBodyParts: z.array(z.enum(BODY_PARTS)).max(BODY_PARTS.length).refine(v => new Set(v).size === v.length),
-  weight: n.min(0).max(1),
-  speed: n.min(0).max(4).optional(),
+  maskedBodyParts,
+  weight: overlayWeight,
+  speed: overlaySpeed,
 });
+
+export const OverlayClipEntrySchema = z.strictObject({
+  id,
+  kind: z.literal('clip'),
+  assetId: id,
+  maskedBodyParts,
+  weight: overlayWeight,
+  speed: overlaySpeed,
+});
+
+export const OverlayPoseEntrySchema = z.union([OverlayClipEntrySchema, OverlayPosePresetEntrySchema]);
 
 export const HandOverrideSchema = z.strictObject({
   enabled: z.boolean(),

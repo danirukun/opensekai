@@ -1,7 +1,7 @@
 # CHR-04 — Idle animation and override clips (dependency plan)
 
 **Parity:** [CHR-04](../../warudo-parity.md) · **Issue:** [#10](https://github.com/danirukun/opensekai/issues/10)  
-**Done so far:** built-in procedural idle (`packages/session/src/idle.ts`), `AvatarIdle {kind:'builtin'}`, tracking blend over `baseBones`, macOS OBS check ([evidence](../../evaluation/default-avatar-idle.md)).  
+**Done so far:** built-in procedural idle (`packages/session/src/idle.ts`), `AvatarIdle {kind:'builtin'}`, tracking blend over `baseBones`, macOS OBS check ([evidence](../../evaluation/default-avatar-idle.md)); VRMA clip-backed idle (slice 1); pose-preset overlays (#296); VRMA clip overlay entries in `overlayingPoses` (slice 2 code + unit tests; OBS evidence still open).  
 **Related:** [#268](https://github.com/danirukun/opensekai/issues/268) Mixamo FBX experiment · [#296](https://github.com/danirukun/opensekai/issues/296) pose presets · karaoke/dance examples need clip profiles and one-shots.
 
 Warudo’s Character → Animation model (idle clip, overlay layers with mask/weight/speed, transient one-shots) is larger than one implementation task. This plan splits the remaining gap into bounded slices. Each slice gets its own SPDD analysis and REASONS contract before code. A checked subset does not complete CHR-04.

@@ -48,7 +48,11 @@ describe('avatar animation Blueprint nodes', () => {
     }]);
     if (!run.ok) throw new Error(run.error.message);
     const next = applyEffects(scene, run.data.effects.filter(e => e.kind === 'setAvatarAnimation' || e.kind === 'setVisibility' || e.kind === 'toggleVisibility' || e.kind === 'toggleMeshes' || e.kind === 'setMeshesVisible' || e.kind === 'selectCamera') as never);
-    expect(next.ok && next.data.entities.find(e => e.id === 'performer' && e.kind === 'avatar')?.animation?.overlayingPoses[0]?.pose).toBe('selfie');
+    expect(next.ok).toBe(true);
+    if (!next.ok) return;
+    const avatar = next.data.entities.find(e => e.kind === 'avatar' && e.id === 'performer');
+    const overlay = avatar?.kind === 'avatar' ? avatar.animation?.overlayingPoses[0] : undefined;
+    expect(overlay && 'pose' in overlay ? overlay.pose : undefined).toBe('selfie');
   });
 
   it('imports the pose hotkeys template', () => {
