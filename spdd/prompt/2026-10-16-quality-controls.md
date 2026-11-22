@@ -5,7 +5,7 @@ Date: 2026-10-16. Scope: bundle B8 (#56 CAM-08 first subset, #72 SHOW-05 first s
 ## R — Requirements
 
 R1. `@opensekai/contracts` exports `QualityProfileIdSchema` (`preview_v1`, `production_v1`, `performance_v1`), the frozen table `QUALITY_PROFILES`, `DEFAULT_QUALITY_PROFILE` (`production_v1`), and `qualityProfileFromQuery(value)`. A missing or unknown query value gives `production_v1`.
-R2. A profile has `id`, `resolutionScale` (1 or 0.5), `maxTextureSize` (1024 or 2048), and `msaaSamples` (0 or 4). The values are: `preview_v1` 0.5 / 1024 / 4; `production_v1` 1 / 2048 / 4; `performance_v1` 1 / 1024 / 0. A changed value needs a new ID.
+R2. A profile has `id`, `resolutionScale` (1 or 0.5), `maxTextureSize` (1024 or 2048), `msaaSamples` (0 or 4), and `effectsQuality` (`cheap` or `full`). The values are: `preview_v1` 0.5 / 1024 / 4 / cheap; `production_v1` 1 / 2048 / 4 / full; `performance_v1` 1 / 1024 / 0 / cheap. A changed numeric value needs a new ID. `effectsQuality` was added on the existing IDs (2026-11-22); it did not change a numeric value, so the IDs stayed the same.
 R3. `createRenderer` takes `quality: QualityProfile` in place of `resolutionScale`. The renderer uses the profile scale for the drawing buffer size, the profile texture limit for the asset loader, and the profile MSAA sample count for the backend (`antialias` is on only when `msaaSamples > 0`).
 R4. The Scene preview uses `preview_v1`. The OBS page uses `qualityProfileFromQuery` on its `quality` query parameter. The `scale` query parameter is removed.
 R5. `FrameApplied` has an optional `qualityProfile: QualityProfileId`. Each renderer sets it on each acknowledgment. TypeScript and Rust accept an acknowledgment with or without it and reject an unknown ID. Shared vectors cover both cases.
@@ -21,7 +21,7 @@ R13. `docs/warudo-parity.md` records only the verified subset. CAM-08 and SHOW-0
 ## E — Entities
 
 - `QualityProfileId = 'preview_v1' | 'production_v1' | 'performance_v1'`.
-- `QualityProfile = { id: QualityProfileId; resolutionScale: 1 | 0.5; maxTextureSize: 1024 | 2048; msaaSamples: 0 | 4 }`.
+- `QualityProfile = { id: QualityProfileId; resolutionScale: 1 | 0.5; maxTextureSize: 1024 | 2048; msaaSamples: 0 | 4; effectsQuality: 'cheap' | 'full' }`.
 - `CameraAntiAliasing = 'none' | 'fxaa'`. Camera entity: `antiAliasing?: CameraAntiAliasing`.
 - Patch operation `setCameraAntiAliasing`. Rust: `PatchOp::SetCameraAntiAliasing`, `SceneEntity::Camera { anti_aliasing: Option<CameraAntiAliasing> }`, `QualityProfileId`, `FrameApplied { quality_profile: Option<QualityProfileId> }`.
 
