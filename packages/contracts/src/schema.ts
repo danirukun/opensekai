@@ -1,4 +1,4 @@
-import {TrackingConfigSchema,TrackingSmoothingSchema,TrackingProbeParamsSchema,TrackingProbeSchema,TrackingCalibrationSchema,TrackingMappingSchema,AvatarIdleSchema,AvatarTrackingSchema,AvatarPoseSchema,TrackingStatusSchema,TrackingUpdateSchema,FACE_ONLY_TRACKING_KINDS} from './tracking';
+import {TrackingConfigSchema,TrackingSmoothingSchema,TrackingProbeParamsSchema,TrackingProbeSchema,TrackingCalibrationSchema,TrackingMappingSchema,AvatarIdleSchema,AvatarTrackingSchema,AvatarPoseSchema,TrackingStatusSchema,TrackingUpdateSchema,FACE_ONLY_TRACKING_KINDS,HUMANOID_BONES} from './tracking';
 import {AvatarAnimationSchema} from './avatar-animation';
 import { BlueprintGraphSchema, BlueprintSetSchema } from './blueprint';
 import { BlueprintBatchSchema } from './blueprint-ops';
@@ -437,6 +437,27 @@ export const VIDEO_CODECS = ['h264', 'hevc', 'vp8', 'vp9', 'av1'] as const;
 export const VIDEO_AUDIO_CODECS = ['aac', 'mp3', 'opus', 'vorbis'] as const;
 export const VIDEO_LIMITS = { side: 4096, durationMs: 14_400_000, bytes: 256 * 1024 * 1024 } as const;
 const isVideoFormat = (format: string): boolean => (VIDEO_FORMATS as readonly string[]).includes(format);
+export const ANIMATION_FORMATS = ['vrma'] as const;
+export const ANIMATION_LIMITS = { durationMs: 600_000, bones: 64, keys: 4096 } as const;
+const isAnimationFormat = (format: string): boolean => (ANIMATION_FORMATS as readonly string[]).includes(format);
+const unitQuat = (x: number, y: number, z: number, w: number): boolean => Math.abs(Math.hypot(x, y, z, w) - 1) <= 0.001;
+export const AssetAnimationTrackSchema = z.strictObject({
+    times: z.array(n.nonnegative()).min(1).max(ANIMATION_LIMITS.keys),
+    rotations: z.array(n),
+}).refine(track => {
+    if (track.rotations.length !== track.times.length * 4) return false;
+    for (let i = 1; i < track.times.length; i++) if (!(track.times[i]! >= track.times[i - 1]!)) return false;
+    for (let i = 0; i < track.times.length; i++) {
+        const o = i * 4;
+        if (!unitQuat(track.rotations[o]!, track.rotations[o + 1]!, track.rotations[o + 2]!, track.rotations[o + 3]!)) return false;
+    }
+    return true;
+}, 'Invalid animation track');
+export const AssetAnimationSchema = z.strictObject({
+    durationMs: n.int().min(1).max(ANIMATION_LIMITS.durationMs),
+    bones: z.record(z.string().refine(name => (HUMANOID_BONES as readonly string[]).includes(name)), AssetAnimationTrackSchema)
+        .refine(bones => { const n = Object.keys(bones).length; return n >= 1 && n <= ANIMATION_LIMITS.bones; }, 'Invalid animation bone count'),
+});
 export const AssetVideoSchema = z.strictObject({
     width: n.int().min(1).max(VIDEO_LIMITS.side),
     height: n.int().min(1).max(VIDEO_LIMITS.side),
@@ -459,6 +480,7 @@ export const AssetRecordSchema = z.strictObject({
     format: z.enum([
         "glb",
         "vrm",
+        "vrma",
         ...IMAGE_FORMATS,
         ...VIDEO_FORMATS,
         ...HDR_FORMATS
@@ -477,23 +499,28 @@ export const AssetRecordSchema = z.strictObject({
     meshes: AssetMeshesSchema.optional(),
     materials: AssetMaterialsSchema.optional(),
     image: AssetImageSchema.optional(),
-    video: AssetVideoSchema.optional()
+    video: AssetVideoSchema.optional(),
+    animation: AssetAnimationSchema.optional()
 }).refine(record => isImageFormat(record.format)
-    ? record.image !== undefined && record.id.startsWith('image_') && record.expressions.length === 0 && record.rig === undefined && record.eyeBones === undefined && record.meshes === undefined && record.materials === undefined
+    ? record.image !== undefined && record.id.startsWith('image_') && record.expressions.length === 0 && record.rig === undefined && record.eyeBones === undefined && record.meshes === undefined && record.materials === undefined && record.animation === undefined
     : record.image === undefined && !record.id.startsWith('image_'), 'Image fields do not match the format')
   .refine(record => isVideoFormat(record.format)
-    ? record.video !== undefined && record.id.startsWith('video_') && record.bytes <= VIDEO_LIMITS.bytes && videoCodecsOk(record.format, record.video) && record.expressions.length === 0 && record.rig === undefined && record.eyeBones === undefined && record.meshes === undefined && record.materials === undefined
+    ? record.video !== undefined && record.id.startsWith('video_') && record.bytes <= VIDEO_LIMITS.bytes && videoCodecsOk(record.format, record.video) && record.expressions.length === 0 && record.rig === undefined && record.eyeBones === undefined && record.meshes === undefined && record.materials === undefined && record.animation === undefined
     : record.video === undefined && !record.id.startsWith('video_'), 'Video fields do not match the format')
   .refine(record => isHdrFormat(record.format)
-    ? record.image !== undefined && record.id.startsWith('hdr_') && record.expressions.length === 0 && record.rig === undefined && record.eyeBones === undefined && record.meshes === undefined && record.materials === undefined
-    : !record.id.startsWith('hdr_'), 'HDR fields do not match the format');
+    ? record.image !== undefined && record.id.startsWith('hdr_') && record.expressions.length === 0 && record.rig === undefined && record.eyeBones === undefined && record.meshes === undefined && record.materials === undefined && record.animation === undefined
+    : !record.id.startsWith('hdr_'), 'HDR fields do not match the format')
+  .refine(record => isAnimationFormat(record.format)
+    ? record.animation !== undefined && record.id.startsWith('animation_') && record.expressions.length === 0 && record.rig === undefined && record.eyeBones === undefined && record.meshes === undefined && record.materials === undefined && record.image === undefined && record.video === undefined
+    : record.animation === undefined && !record.id.startsWith('animation_'), 'Animation fields do not match the format');
 export const isImageRecord = (record: { format: string }): boolean => isImageFormat(record.format);
 export const isVideoRecord = (record: { format: string }): boolean => isVideoFormat(record.format);
 export const isHdrRecord = (record: { format: string }): boolean => isHdrFormat(record.format);
+export const isAnimationRecord = (record: { format: string }): boolean => isAnimationFormat(record.format);
 // One page of `assetList`: the host answers it from the asset library, in ascending ID order.
 export const AssetSummarySchema = z.strictObject({
     id: IdSchema,
-    kind: z.enum(['avatar', 'scene', 'image', 'video', 'hdr', 'fixture']),
+    kind: z.enum(['avatar', 'scene', 'image', 'video', 'hdr', 'animation', 'fixture']),
     name: z.string().refine(name => name.trim().length > 0 && name.length <= 128, 'Invalid asset name'),
     credits: AssetCreditsSchema.optional(),
     catalog: AssetCatalogSchema.optional()

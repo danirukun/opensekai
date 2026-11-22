@@ -59,6 +59,8 @@ pub enum VmcPositionRule {
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub enum AvatarIdle {
     Builtin { enabled: bool },
+    #[serde(rename_all = "camelCase")]
+    Clip { enabled: bool, asset_id: Id },
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

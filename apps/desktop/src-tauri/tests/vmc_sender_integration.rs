@@ -114,6 +114,7 @@ fn record(id: &str, rig: Option<AvatarRig>) -> AssetRecord {
         materials: None,
         image: None,
         video: None,
+        animation: None,
     }
 }
 fn pose(id: &str) -> VmcSendPose {

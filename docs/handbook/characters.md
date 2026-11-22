@@ -39,7 +39,7 @@ Click **Copy JSON** to copy all of this data to the clipboard.
 
 The **Tracking** section connects the character to tracking sources:
 
-- **Idle animation**: the character plays a built-in idle motion when no source moves it.
+- **Idle animation**: the character stands with the hands down and a small chest sway, or plays an imported VRMA clip, when no source moves it. **Idle source** chooses Builtin or a clip. **Import animation** adds a `.vrma` file.
 - **Body source**, **Face source**, and **Fingers source**: the tracking source for each part.
 - **Tracked Body Parts**: the parts that tracking moves. A part that is off shows the idle pose.
 - **Body Movement Intensity**: how much the body follows the source.

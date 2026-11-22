@@ -58,7 +58,7 @@ strings!(Capability { Read=>"read", Edit=>"edit", Capture=>"capture", Benchmark=
 strings!(Role { Publisher=>"publisher", Operator=>"operator", Renderer=>"renderer" });
 strings!(ErrorCode { InvalidInput=>"INVALID_INPUT", Conflict=>"CONFLICT", Forbidden=>"FORBIDDEN", Unavailable=>"UNAVAILABLE", NotFound=>"NOT_FOUND", Unsupported=>"UNSUPPORTED", Timeout=>"TIMEOUT", RateLimited=>"RATE_LIMITED", Busy=>"BUSY", Cancelled=>"CANCELLED", VersionMismatch=>"VERSION_MISMATCH", StaleFrame=>"STALE_FRAME" });
 strings!(RunState { Warming=>"warming", Measuring=>"measuring", Complete=>"complete", Cancelled=>"cancelled", Failed=>"failed" });
-strings!(AssetFormat { Glb=>"glb", Vrm=>"vrm", Png=>"png", Jpeg=>"jpeg", Webp=>"webp", Gif=>"gif", Mp4=>"mp4", Webm=>"webm", Hdr=>"hdr" });
+strings!(AssetFormat { Glb=>"glb", Vrm=>"vrm", Vrma=>"vrma", Png=>"png", Jpeg=>"jpeg", Webp=>"webp", Gif=>"gif", Mp4=>"mp4", Webm=>"webm", Hdr=>"hdr" });
 impl AssetFormat {
     pub fn is_image(&self) -> bool {
         matches!(self, Self::Png | Self::Jpeg | Self::Webp | Self::Gif)
@@ -69,11 +69,15 @@ impl AssetFormat {
     pub fn is_hdr(&self) -> bool {
         matches!(self, Self::Hdr)
     }
+    pub fn is_animation(&self) -> bool {
+        matches!(self, Self::Vrma)
+    }
     /// The library file extension (B28 R2).
     pub fn extension(&self) -> &'static str {
         match self {
             Self::Glb => "glb",
             Self::Vrm => "vrm",
+            Self::Vrma => "vrma",
             Self::Png => "png",
             Self::Jpeg => "jpg",
             Self::Webp => "webp",
@@ -85,7 +89,7 @@ impl AssetFormat {
     }
     pub fn content_type(&self) -> &'static str {
         match self {
-            Self::Glb | Self::Vrm => "model/gltf-binary",
+            Self::Glb | Self::Vrm | Self::Vrma => "model/gltf-binary",
             Self::Png => "image/png",
             Self::Jpeg => "image/jpeg",
             Self::Webp => "image/webp",
@@ -1311,12 +1315,79 @@ pub struct AssetRecord {
     pub image: Option<AssetImage>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub video: Option<AssetVideo>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub animation: Option<AssetAnimation>,
 }
 object!(AssetImage {
     width: u32,
     height: u32,
     frames: u32
 });
+pub const MAX_ANIMATION_DURATION_MS: u64 = 600_000;
+pub const MAX_ANIMATION_BONES: usize = 64;
+pub const MAX_ANIMATION_KEYS: usize = 4096;
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AssetAnimationTrack {
+    pub times: Vec<f64>,
+    pub rotations: Vec<f64>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AssetAnimation {
+    pub duration_ms: u64,
+    pub bones: std::collections::BTreeMap<String, AssetAnimationTrack>,
+}
+impl AssetAnimation {
+    pub fn is_valid(&self) -> bool {
+        if !(1..=MAX_ANIMATION_DURATION_MS).contains(&self.duration_ms) {
+            return false;
+        }
+        let count = self.bones.len();
+        if !(1..=MAX_ANIMATION_BONES).contains(&count) {
+            return false;
+        }
+        self.bones.iter().all(|(name, track)| {
+            crate::tracking::HUMANOID_BONES.iter().any(|bone| bone == name)
+                && track_ok(track)
+        })
+    }
+}
+fn track_ok(track: &AssetAnimationTrack) -> bool {
+    let keys = track.times.len();
+    if !(1..=MAX_ANIMATION_KEYS).contains(&keys) || track.rotations.len() != keys * 4 {
+        return false;
+    }
+    for i in 1..keys {
+        if !(track.times[i].is_finite()
+            && track.times[i - 1].is_finite()
+            && track.times[i] >= track.times[i - 1]
+            && track.times[i - 1] >= 0.0)
+        {
+            return false;
+        }
+    }
+    if keys > 0 && !(track.times[0].is_finite() && track.times[0] >= 0.0) {
+        return false;
+    }
+    for i in 0..keys {
+        let o = i * 4;
+        let (x, y, z, w) = (
+            track.rotations[o],
+            track.rotations[o + 1],
+            track.rotations[o + 2],
+            track.rotations[o + 3],
+        );
+        if !(x.is_finite() && y.is_finite() && z.is_finite() && w.is_finite()) {
+            return false;
+        }
+        let len = (x * x + y * y + z * z + w * w).sqrt();
+        if (len - 1.0).abs() > 0.001 {
+            return false;
+        }
+    }
+    true
+}
 impl AssetImage {
     pub fn size_ok(width: u32, height: u32) -> bool {
         (1..=MAX_IMAGE_SIDE).contains(&width)
@@ -2795,7 +2866,7 @@ fn validate_blueprint_inspect(data: &Value) -> Result<(), AppError> {
     validate_blueprint_errors(data)
 }
 object!(RunParams { run_id: Id });
-strings!(AssetKind { Avatar=>"avatar", Scene=>"scene", Image=>"image", Video=>"video", Fixture=>"fixture" });
+strings!(AssetKind { Avatar=>"avatar", Scene=>"scene", Image=>"image", Video=>"video", Hdr=>"hdr", Animation=>"animation", Fixture=>"fixture" });
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AssetSummary {
@@ -2826,6 +2897,10 @@ impl AssetSummary {
             AssetKind::Image
         } else if record.id.starts_with("video_") {
             AssetKind::Video
+        } else if record.id.starts_with("hdr_") {
+            AssetKind::Hdr
+        } else if record.id.starts_with("animation_") {
+            AssetKind::Animation
         } else {
             AssetKind::Fixture
         };
@@ -3591,7 +3666,8 @@ impl Validate for AssetRecord {
                     && self.rig.is_none()
                     && self.eye_bones.is_none()
                     && self.meshes.is_none()
-                    && self.materials.is_none(),
+                    && self.materials.is_none()
+                    && self.animation.is_none(),
                 "invalid image record",
             )?;
         } else if self.format.is_hdr() {
@@ -3609,7 +3685,8 @@ impl Validate for AssetRecord {
                     && self.rig.is_none()
                     && self.eye_bones.is_none()
                     && self.meshes.is_none()
-                    && self.materials.is_none(),
+                    && self.materials.is_none()
+                    && self.animation.is_none(),
                 "invalid HDR record",
             )?;
         } else {
@@ -3632,12 +3709,36 @@ impl Validate for AssetRecord {
                     && self.rig.is_none()
                     && self.eye_bones.is_none()
                     && self.meshes.is_none()
-                    && self.materials.is_none(),
+                    && self.materials.is_none()
+                    && self.animation.is_none(),
                 "invalid video record",
             )?;
         } else {
             require(
                 self.video.is_none() && !self.id.starts_with("video_"),
+                "invalid model record",
+            )?;
+        }
+        if self.format.is_animation() {
+            let animation = self
+                .animation
+                .as_ref()
+                .ok_or_else(|| invalid("animation record needs animation"))?;
+            require(animation.is_valid(), "invalid animation fields")?;
+            require(
+                self.id.starts_with("animation_")
+                    && self.expressions.is_empty()
+                    && self.rig.is_none()
+                    && self.eye_bones.is_none()
+                    && self.meshes.is_none()
+                    && self.materials.is_none()
+                    && self.image.is_none()
+                    && self.video.is_none(),
+                "invalid animation record",
+            )?;
+        } else {
+            require(
+                self.animation.is_none() && !self.id.starts_with("animation_"),
                 "invalid model record",
             )?;
         }

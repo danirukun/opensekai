@@ -72,6 +72,7 @@ fn name(format: &AssetFormat) -> &'static str {
         AssetFormat::Webp => "WebP",
         AssetFormat::Gif => "GIF",
         AssetFormat::Glb | AssetFormat::Vrm => "Model",
+        AssetFormat::Vrma => "Animation",
         AssetFormat::Mp4 | AssetFormat::Webm => "Video",
         AssetFormat::Hdr => "HDR",
     }

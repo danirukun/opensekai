@@ -401,6 +401,11 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
                 return failure("CONFLICT", "Scene revision changed");
             const operations = resolveCalibrations(sceneOperations);
             if (!operations.ok) return operations;
+            for (const operation of operations.data) {
+                if (operation.kind !== 'setAvatarIdle' || operation.idleAnimation.kind !== 'clip') continue;
+                const clip = record(operation.idleAnimation.assetId);
+                if (!clip?.animation || clip.format !== 'vrma') return failure('INVALID_INPUT', 'Idle clip asset not found', [operation.idleAnimation.assetId]);
+            }
             const applied = applyOperations(persistent, operations.data, persistent.revision + 1);
             if (!applied.ok) return applied;
             const bad = checkControls(applied.data);
@@ -561,7 +566,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             elapsed = elapsedMs;
             sequence += 1;
             lastTrackingNowMs = trackingNowMs ?? elapsedMs;
-            const live=tracking.evaluate(shown,trackingNowMs??elapsedMs,elapsedMs);
+            const live=tracking.evaluate(shown,trackingNowMs??elapsedMs,elapsedMs,record);
             lastTrackingStatus = live.trackingStatus;
             const animated = composeAvatarAnimation(live.avatarPoses, shown, elapsedMs, animationRuntimes);
             animationRuntimes = animated.runtimes;
