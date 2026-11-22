@@ -7,3 +7,8 @@ it('accepts the scene ID of the latest frame, accepts a status before the first 
  expect(AppStatusSchema.safeParse(base).success).toBe(true);
  expect(AppStatusSchema.safeParse({ ...base, sceneId: '' }).success).toBe(false);
 });
+it('accepts the GPU timer of an output and rejects an unknown value', () => {
+ const output = { outputId: 'output_main', connected: true, lastFrame: null };
+ expect(AppStatusSchema.safeParse({ ...base, outputs: [{ ...output, gpuTimer: 'unsupported' }] }).success).toBe(true);
+ expect(AppStatusSchema.safeParse({ ...base, outputs: [{ ...output, gpuTimer: 'maybe' }] }).success).toBe(false);
+});

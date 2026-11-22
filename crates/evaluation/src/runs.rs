@@ -14,6 +14,7 @@ struct Entry {
     gpu_unknown: u64,
     warnings: u64,
     cpu: Vec<f64>,
+    gpu: Vec<f64>,
     intervals: Vec<f64>,
     measured_last: Option<u64>,
     summary: Vec<u8>,
@@ -93,6 +94,7 @@ impl RunManager {
             gpu_unknown: 0,
             warnings: 0,
             cpu: vec![],
+            gpu: vec![],
             intervals: vec![],
             measured_last: None,
             summary: vec![],
@@ -133,6 +135,11 @@ impl RunManager {
             e.warnings = e.warnings.saturating_add(frame.warnings.len() as u64);
             if e.cpu.len() < SAMPLE_LIMIT {
                 e.cpu.push(frame.cpu_ms);
+            }
+            if let Some(gpu) = frame.gpu_ms {
+                if e.gpu.len() < SAMPLE_LIMIT {
+                    e.gpu.push(gpu);
+                }
             }
             if let Some(previous) = e.measured_last {
                 if e.intervals.len() < SAMPLE_LIMIT {
@@ -224,8 +231,65 @@ fn finish(e: &mut Entry) {
     e.run.summary_resource_uri = Some(format!("opensekai://evidence/{}/summary.json", e.run.id));
     let cpu = percentiles(&mut e.cpu);
     let intervals = percentiles(&mut e.intervals);
-    let summary = serde_json::json!({"run":e.run,"fixtureId":e.params.fixture_id,"profileId":e.params.profile_id,"count":e.count,"cpuMs":cpu,"intervalMs":intervals,"gpuMs":null,"gpuUnknownCount":e.gpu_unknown,"staleOutputPeriods":u64::from(e.run.state==RunState::Failed),"resourceWarningCount":e.warnings,"sampleLimit":SAMPLE_LIMIT,"samplesTruncated":e.count>SAMPLE_LIMIT as u64,"hardwareAcceptance":"unknown"});
+    // Light scale R9: null acknowledgments are unknown and are not samples.
+    let gpu = percentiles(&mut e.gpu);
+    let summary = serde_json::json!({"run":e.run,"fixtureId":e.params.fixture_id,"profileId":e.params.profile_id,"count":e.count,"cpuMs":cpu,"intervalMs":intervals,"gpuMs":gpu,"gpuSampleCount":e.count-e.gpu_unknown,"gpuUnknownCount":e.gpu_unknown,"staleOutputPeriods":u64::from(e.run.state==RunState::Failed),"resourceWarningCount":e.warnings,"sampleLimit":SAMPLE_LIMIT,"samplesTruncated":e.count>SAMPLE_LIMIT as u64,"hardwareAcceptance":"unknown"});
     e.summary = summary.to_string().into_bytes();
     e.cpu.clear();
+    e.gpu.clear();
     e.intervals.clear();
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn output() -> FrameApplied {
+        serde_json::from_str(include_str!(
+            "../../../fixtures/protocol/valid-applied.json"
+        ))
+        .unwrap()
+    }
+    // A complete run with one acknowledgment each 100 ms. `gpu(n)` gives the gpuMs of the n-th measured acknowledgment.
+    fn summary(gpu: impl Fn(u64) -> Option<f64>) -> serde_json::Value {
+        let mut runs = RunManager::new();
+        let params = BenchmarkParams {
+            request_id: "gpu".into(),
+            fixture_id: FixtureId::SmokeV1,
+            profile_id: ProfileId::WebgpuSmokeV1,
+        };
+        let run = runs.start(params, 0, &output()).unwrap();
+        let mut frame = output();
+        for t in (100..=150000).step_by(100) {
+            frame.sequence += 1;
+            frame.gpu_ms = if t >= 30000 {
+                gpu((t - 30000) / 100)
+            } else {
+                Some(99.)
+            };
+            runs.observe(&frame, t);
+        }
+        assert_eq!(
+            runs.status(&run.id, 150000).unwrap().state,
+            RunState::Complete
+        );
+        serde_json::from_slice(runs.summary(&run.id).unwrap()).unwrap()
+    }
+    #[test]
+    fn gpu_percentiles_use_the_measured_samples() {
+        // 1200 measured acknowledgments: each even one has a sample (1 to 600 ms), each odd one has null.
+        let s = summary(|n| (n % 2 == 0).then_some((n / 2 + 1) as f64));
+        assert_eq!(s["count"], 1200);
+        assert_eq!(
+            s["gpuMs"],
+            serde_json::json!({"p50": 300., "p95": 570., "p99": 594., "max": 600.})
+        );
+        assert_eq!(s["gpuSampleCount"], 600);
+        assert_eq!(s["gpuUnknownCount"], 600);
+    }
+    #[test]
+    fn gpu_time_is_null_without_a_sample() {
+        let s = summary(|_| None);
+        assert_eq!(s["gpuMs"], serde_json::Value::Null);
+        assert_eq!(s["gpuSampleCount"], 0);
+        assert_eq!(s["gpuUnknownCount"], 1200);
+    }
 }

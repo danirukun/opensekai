@@ -50,6 +50,8 @@ pub use youtube::*;
 mod capture;
 pub use capture::*;
 strings!(Backend { Webgpu=>"webgpu", Webgl2=>"webgl2" });
+// Light scale R2: WebGPU timestamps on, or the WebGL 2 timer query extension.
+strings!(GpuTimerSupport { Supported=>"supported", Unsupported=>"unsupported" });
 strings!(Capability { Read=>"read", Edit=>"edit", Capture=>"capture", Benchmark=>"benchmark" });
 strings!(Role { Publisher=>"publisher", Operator=>"operator", Renderer=>"renderer" });
 strings!(ErrorCode { InvalidInput=>"INVALID_INPUT", Conflict=>"CONFLICT", Forbidden=>"FORBIDDEN", Unavailable=>"UNAVAILABLE", NotFound=>"NOT_FOUND", Unsupported=>"UNSUPPORTED", Timeout=>"TIMEOUT", RateLimited=>"RATE_LIMITED", Busy=>"BUSY", Cancelled=>"CANCELLED", VersionMismatch=>"VERSION_MISMATCH", StaleFrame=>"STALE_FRAME" });
@@ -1771,14 +1773,18 @@ object!(RendererDiagnostics {
     queued_frames: u64,
     queued_captures: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    video_decoder: Option<VideoDecoderSupport>
+    video_decoder: Option<VideoDecoderSupport>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    gpu_timer: Option<GpuTimerSupport>
 });
 object!(OutputStatus {
     output_id: Id,
     connected: bool,
     last_frame: Option<FrameApplied>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    video_decoder: Option<VideoDecoderSupport>
+    video_decoder: Option<VideoDecoderSupport>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    gpu_timer: Option<GpuTimerSupport>
 });
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
