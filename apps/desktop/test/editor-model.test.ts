@@ -166,6 +166,16 @@ it('changes avatar idle with current revision and rejects non-avatar or invalid 
  expect((await model.setAvatarIdle('performer',{kind:'builtin',enabled:false},1)).ok).toBe(true);
 });
 
+it('changes avatar animation with current revision and rejects non-avatar or invalid settings',async()=>{
+ const {model,api}=fixture();await model.load();model.select('performer');
+ const animation={overlayingPoses:[{id:'hotkey',pose:'selfie' as const,weight:1,maskedBodyParts:['leftArm' as const,'rightArm' as const]}],overlayTransitionSeconds:0.5,overrideHandPoses:{},handPin:{}};
+ expect((await model.setAvatarAnimation('performer',animation,0)).ok).toBe(true);
+ expect(model.read().scene?.entities.find(e=>e.id==='performer')).toMatchObject({animation:{overlayingPoses:[{pose:'selfie'}],overlayTransitionSeconds:0.5}});
+ expect((await model.setAvatarAnimation('marker',animation,1)).ok).toBe(false);
+ expect((await model.setAvatarAnimation('performer',{...animation,overlayTransitionSeconds:9},1)).ok).toBe(false);
+ expect(api.scenePatch).toHaveBeenCalledTimes(1);
+});
+
 it('validates smoothing kind and revision and sends only its dedicated patch',async()=>{
  const {model,api}=fixture();await model.load();
  const smoothing={enabled:false,minCutoff:5,beta:.5,derivativeCutoff:1};
