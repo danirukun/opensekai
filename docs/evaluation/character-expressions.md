@@ -40,6 +40,8 @@ A script used the operator connection to set each expression to active, wait 1 s
 
 Cause of the `ToggleShirt` failure: three-vrm 3.5.5 finds the property of a material color bind by a material flag. It knows `isMToonMaterial` but not `isMToonNodeMaterial`, so it dropped every material color bind of the WebGPU MToon material at load. `packages/renderer/src/mtoon-binds.ts` adds the node material to the same property map, because the property names are the same.
 
+The same material color bind on a lilToon material failed for a different reason: three-vrm finds no property of a lilToon node material, and the fork only warned. `packages/renderer/src/liltoon-binds.ts` replaces each color and texture transform bind of a lilToon material with a bind that sets the lilToon property (`_Color`, `_MainTex_ST`, and the other colors) on the surface and its outline. A unit test sets the expression weight to 1, 0.5, and 0 and checks `_Color` on the surface and its outline, with no bind warning. Not checked in OBS when the target mesh is hidden. Empty expression clips still have no binds and do not change the model.
+
 ![Face of each expression](character-expressions/rem-faces-macos.png)
 
 ![ToggleShirt off and on](character-expressions/rem-toggle-shirt-macos.png)

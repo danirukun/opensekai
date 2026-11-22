@@ -10,6 +10,7 @@ import { failure } from "./apply-frame";
 import { createTexturePool } from "./texture-sharing";
 import { createImageResizePolicy } from "./image-resize";
 import { supportNodeMaterialColorBinds } from "./mtoon-binds";
+import { applyLilToonExpressionBinds } from "./liltoon-binds";
 import { applyMissingShadeMultiply } from "./mtoon-shade";
 supportNodeMaterialColorBinds();
 // B43 R14: spring bones run in the renderer; node constraints and spring bone limits do not.
@@ -190,12 +191,13 @@ export function createAssetLoader(resources: ResourceHost, options: { maxTexture
             if (imageFailure) { disposeObject(gltf.scene, lease); throw imageFailure; }
             const vrm = gltf.userData.vrm as VRM | undefined;
             if (vrm) VRMUtils.rotateVRM0(vrm);
+            const unapplied = vrm ? applyLilToonExpressionBinds(vrm) : () => true;
             // UniVRM VRM 0 → 1: a lit map with no shade map gets the lit map as shade multiply (Rem Eyes and similar).
             applyMissingShadeMultiply(gltf.scene);
             const warnings: AppError[] = [];
             warnings.push(...extensionWarnings(extensions, id));
             if (material) warnings.push({ code: "UNSUPPORTED", message: material, ids: [id] });
-            for (const warning of lilToon) warnings.push({ code: "UNSUPPORTED", message: `lilToon ${warning.materialName} (${warning.property}): ${warning.message}`, ids: [id] });
+            for (const warning of lilToon.filter(unapplied)) warnings.push({ code: "UNSUPPORTED", message: `lilToon ${warning.materialName} (${warning.property}): ${warning.message}`, ids: [id] });
             const debug: AssetDebug = { info, textures: liveTextures(gltf.scene, gltf.parser.associations, info), warnings: warnings.slice(0, MODEL_INFO_LIMITS.warnings) };
             let disposed = false;
             const associations = gltf.parser.associations as Map<unknown, { materials?: number }>;
