@@ -14,6 +14,9 @@ Date: 2026-11-21. Scope: bundle B43: #305 (Part A), #316 (Part B). Analysis: [li
 | D6 | No new dependency | — |
 | D7 | Owner, 2026-11-21: Q1 (a), Q2 (b), Q3 (b), Q4 (a), Q5 as recommended. The main shadow case is the avatar shadow on a flat floor | — |
 | D8 | Owner, 2026-11-21, after the PR1 probe: a sample is the mean of the frame spans of a batch. A frame span is the time from the earliest pass begin to the latest pass end of one applied frame. The sum of the pass durations overstated the cost (Stage Rig case D: p50 24.4 ms while OBS ran at 59.7 FPS), because an Apple GPU runs passes at the same time | The sum of the pass durations |
+| D9 | G-A1 (LC A1, 2026-11-22): pass. The Editor window and the OBS browser source on macOS have `timestamp-query`, so #316 continues with GPU time | #316 with GPU time unknown in OBS |
+| D10 | G-A2 (LC A5, 2026-11-22): TA4 (a). The timer is on when the device has the feature. Light limits case B: output CPU median 5.7 ms with the timer and 5.8 ms without it; 59.95 FPS and 59.96 FPS | TA4 (b), the timer only on request |
+| D11 | Owner, 2026-11-22: LC A3 is accepted for now with the low OBS samples (1 to 4 timestamp steps; less than 0.1 ms change of p95). Follow-up #349 | PR1 waits for the cause |
 
 ## Gates
 

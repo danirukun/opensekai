@@ -1,8 +1,8 @@
 # GPU time check (B43 PR1)
 
-Date: 2026-11-21. Contract: [light scale](../../spdd/prompt/2026-11-21-light-scale.md), Part A. Analysis: [light scale](../../spdd/analysis/2026-11-21-light-scale.md). Issue: #305. Commit: `5a529ab` on `claude/b43-gpu-time` (the last code commit, the frame span; this page is in the next commit).
+Date: 2026-11-21; local checks 2026-11-22. Contract: [light scale](../../spdd/prompt/2026-11-21-light-scale.md), Part A. Analysis: [light scale](../../spdd/analysis/2026-11-21-light-scale.md). Issue: #305. Commit: `5a529ab` on `claude/b43-gpu-time` (the last code commit, the frame span; this page is in the next commit).
 
-The headless checks did not start the app, a WebView, or OBS. The probe of 2026-11-21 (below) is from the orchestrator. It measured the first design (the sum of the pass durations), and the owner then changed the sample to the frame span (contract D8). GPU time with the frame span: unknown.
+The headless checks did not start the app, a WebView, or OBS. The orchestrator ran the local checks. The probe of 2026-11-21 measured the first design (the sum of the pass durations), and the owner then changed the sample to the frame span (contract D8). The local checks of 2026-11-22 measured the frame span.
 
 ## Design
 
@@ -39,12 +39,12 @@ The unit tests cannot show that a client has `timestamp-query`, what the timesta
 
 ## Client support
 
-From the probe of 2026-11-21.
+From the probe of 2026-11-21 and the local checks of 2026-11-22.
 
 | Client | WebGPU `timestamp-query` | WebGL 2 `EXT_disjoint_timer_query_webgl2` | Timestamp resolution |
 | --- | --- | --- | --- |
 | Editor window, macOS (WKWebView, system WebKit) | Yes | Not checked | Below 1 µs |
-| OBS browser source, macOS (CEF in OBS 33.0.1) | Yes | Not recorded. With `?backend=webgl2`, `gpuMs` is `null`, as designed | 0.065536 ms (each pass duration is a multiple of this step) |
+| OBS browser source, macOS (CEF in OBS 33.0.1) | Yes | Yes (`gpuTimer: supported` with `?backend=webgl2`). `gpuMs` is `null`, as designed | 0.065536 ms (2^16 ns) for each timestamp |
 | Editor window, Windows (WebView2) | Not checked | Not checked | Not checked |
 | OBS browser source, Windows | Not checked | Not checked | Not checked |
 
@@ -72,16 +72,46 @@ Low OBS samples (0.13 ms to 0.2 ms, 2 or 3 steps of 0.065536 ms) where the other
 | D | 4 of 1016 |
 | Editor minimized | 1 of 118 |
 
-The cause is not known. The analysis gives the candidates in code (risk "Implausibly low samples"). With the frame span, a frame that has a timestamp of 0 or an end before its begin gives no sample, and a batch after a pool reset by three gives no sample. LC A3 must check the frame span again.
+The cause is not known. The analysis gives the candidates in code (risk "Implausibly low samples"). With the frame span, a frame that has a timestamp of 0 or an end before its begin gives no sample, and a batch after a pool reset by three gives no sample. LC A3 must check the frame span again. The frame span checks below show that low samples continue.
 
-## Local checks with the frame span
+## Local checks with the frame span (2026-11-22)
+
+Commit `c3a08e3` (the frame span). macOS 27.2.1, Apple M3 Pro, debug build (`pnpm dev:desktop` with `OPENSEKAI_EVALUATION=1`), WebGPU, OBS 33.0.1 (browser source, 1920 × 1080 at 60 FPS), `production_v1`, Catboy character. Each case waited 30 s and then polled `app_status` at 10 Hz for 120 s. App timing and OBS timing are separate. OBS skipped 0 render frames in each case. A batch gives one sample (R6), so a case where a resolve takes about 2 frames has about half the samples. The orchestrator ran the checks and reported them on PR #346.
 
 | Check | Requirement | Result |
 | --- | --- | --- |
-| LC A1, probe (gate G-A1) | R1, R2 | Not checked |
-| LC A2, resolution | R5 | Not checked |
-| LC A3, plausibility | R3 to R7 | Not checked |
-| LC A4, benchmark | R9 | Not checked |
-| LC A5, overhead (gate G-A2) | TA4 | Not checked |
-| LC A6, cost again (#305) | R12 | Not checked |
-| LC A7, minimized | R3 | Not checked |
+| LC A1, probe (gate G-A1) | R1, R2 | Pass. `preview_main` and `output_main` report `gpuTimer: supported` and a `gpuMs` value. OBS with `?backend=webgl2`: backend `webgl2`, `gpuTimer: supported` (the timer extension), `gpuMs` `null` in 99 of 99 acknowledgments, never 0. Gate G-A1: pass. OBS on macOS has a GPU timer, so #316 continues with GPU time. |
+| LC A2, resolution | R5 | Pass (recorded). OBS: steps of 0.065536 ms (2^16 ns) for each timestamp. Editor window: below 1 µs. |
+| LC A3, plausibility | R3 to R7 | Fail on one part. The owner accepts it for now (2026-11-22); the follow-up is #349. The frame span agrees with the frame rate: Stage Rig case D gives p50 7.3 ms and p95 9.4 ms at 59.9 FPS (the sum gave 24.4 ms and 32.2 ms at the same rate). Case A gives p50 4.9 ms and p95 7.2 ms. But low samples continue: 0.07 ms to 0.26 ms (1 to 4 OBS steps), in short runs between normal values. Case A has 75 of 1105, and case C has 86 of 1130. Without them, the p95 of case A changes from 7.21 ms to 7.27 ms. In such a frame all the timestamps are almost equal, so PR1 cannot find these frames. |
+| LC A4, benchmark | R9 | Pass. `webgpu_smoke_v1`: `gpuMs` p50 0.92 ms, p95 1.31 ms, p99 1.64 ms, max 2.10 ms; `gpuSampleCount` 7196; `gpuUnknownCount` 2; 7198 frames; `appCommit` c3a08e3. The benchmark needs `OPENSEKAI_FIXTURE_MANIFEST` set to a manifest that has exactly `fixture_vrm_1` and `fixture_glb_1`. |
+| LC A5, overhead (gate G-A2) | TA4 | Pass. Light limits case B. Timer on: output CPU median 5.7 ms, 59.95 FPS. A local build with `trackTimestamp: false`: 5.8 ms, 59.96 FPS. The gate limits are +0.3 ms CPU and −0.5 FPS. OBS skipped 0 frames in both. Gate G-A2 selects TA4 (a): the timer is on when the device has the feature. |
+| LC A6, cost again (#305) | R12 | Partial. The light limits cases A to F and the stage beams cases A to D are in the tables below. Not done: the stage lights case, the `performance_v1` profile, the anti-aliasing modes, and grading. |
+| LC A7, minimized | R3 | Pass. For 12 s with the Editor minimized: `output_main` 59.8 FPS, 117 of 119 acknowledgments with `gpuMs` (p50 5.8 ms). The preview stops. |
+
+Not verified: the Editor forced to WebGL 2, Windows, and Linux.
+
+### Light limits (Stage Rig), `output_main`
+
+| Case | FPS | Output CPU ms, median | GPU ms p50 / p95 / max | Samples / acknowledgments | Samples below 2 ms |
+| --- | --- | --- | --- | --- | --- |
+| A, 8 lit lights, 6 beams | 59.9 | 5.5 | 4.9 / 7.2 / 9.1 | 1105 / 1182 | 75 |
+| B, 32 lights, 30 beams | 59.9 | 5.7 | 5.0 / 7.7 / 9.4 | 1100 / 1182 | 5 |
+| C, 32 lights, 6 beams | 60.0 | 5.6 | 5.0 / 7.3 / 8.4 | 1130 / 1181 | 86 |
+| D, B with a haze and 30 scattering lights | 59.9 | 6.1 | 7.3 / 9.4 / 12.3 | 1002 / 1181 | 1 |
+| E, B with a haze and 8 scattering lights | 59.9 | 6.2 | 13.0 / 16.6 / 22.7 | 611 / 1182 | 0 |
+| F, B with a haze and 16 scattering lights | 59.9 | 6.2 | 12.9 / 16.9 / 21.3 | 582 / 1181 | 0 |
+
+### Stage beams, `output_main`
+
+| Case | FPS | Output CPU ms, median | GPU ms p50 / p95 / max | Samples / acknowledgments | Samples below 2 ms |
+| --- | --- | --- | --- | --- | --- |
+| A, beams off | 60.0 | 5.1 | 4.2 / 5.4 / 7.5 | 1158 / 1182 | 6 |
+| B, 8 beams | 60.0 | 5.5 | 4.5 / 6.2 / 7.9 | 1162 / 1181 | 81 |
+| C, haze and 8 volumetric lights, beams off | 60.0 | 5.5 | 4.7 / 6.9 / 9.3 | 1127 / 1187 | 3 |
+| D, haze, 8 volumetric lights, and 8 beams | 60.0 | 5.6 | 5.0 / 7.2 / 11.3 | 1161 / 1190 | 35 |
+
+### Findings
+
+- Low samples (LC A3). The frame span did not remove them. They are 1 to 4 OBS steps, so all the timestamps of such a frame are almost equal. They change p95 by less than 0.1 ms. The owner accepts them for now (2026-11-22). Follow-up: #349.
+- Cases E and F have about half the samples of the other cases. There, a resolve takes about 2 frames, and each resolved batch gives one sample (R6). This is the design, not a loss.
+- Haze cost on Stage Rig. Case D (30 scattering lights) costs less GPU time than case E (8) and case F (16), and it looks the same as case E: the frames of D and E differ by 1.75 for each pixel (mean absolute difference, 0 to 255), and two frames of D differ by 1.65. On 2026-11-18, case D ran at 42 FPS; on 2026-11-22 it ran at 59.9 FPS. This is a renderer behavior, not a PR1 fault. Follow-up: #350.

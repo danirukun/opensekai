@@ -70,6 +70,21 @@ Each case is Stage Rig with the character and an FPS Counter, the Wide camera, a
 - The single 30 FPS reading at the end of case A is one capture. The output sequence for the full 120 s gives 59.5 FPS.
 - Runs that were disturbed are not in the table: a first run of A, in which the preview gave 32.2 FPS after an `UNAVAILABLE` reply, and a first run of F, in which a second character was added in the Editor during the measurement.
 
+#### GPU time (added 2026-11-22)
+
+The B43 check measured the GPU time span of each frame for the same cases. Commit `c3a08e3`, OBS 33.0.1, `production_v1`, `output_main`. Each case waited 30 s and then polled `app_status` at 10 Hz for 120 s. The B43 check names 30 scattering lights for case D. See [GPU time](gpu-time.md#local-checks-with-the-frame-span-2026-11-22) for the method and the low samples.
+
+| Case | FPS | Output CPU ms, median | GPU ms p50 / p95 / max | Samples / acknowledgments | Samples below 2 ms |
+| --- | --- | --- | --- | --- | --- |
+| A, 8 lit lights, 6 beams | 59.9 | 5.5 | 4.9 / 7.2 / 9.1 | 1105 / 1182 | 75 |
+| B, 32 lights, 30 beams | 59.9 | 5.7 | 5.0 / 7.7 / 9.4 | 1100 / 1182 | 5 |
+| C, 32 lights, 6 beams | 60.0 | 5.6 | 5.0 / 7.3 / 8.4 | 1130 / 1181 | 86 |
+| D, B with a haze and 30 scattering lights | 59.9 | 6.1 | 7.3 / 9.4 / 12.3 | 1002 / 1181 | 1 |
+| E, B with a haze and 8 scattering lights | 59.9 | 6.2 | 13.0 / 16.6 / 22.7 | 611 / 1182 | 0 |
+| F, B with a haze and 16 scattering lights | 59.9 | 6.2 | 12.9 / 16.9 / 21.3 | 582 / 1181 | 0 |
+
+In this run, case D kept 59.9 FPS and cost less GPU time than cases E and F. The rows above from 2026-11-18 do not change. Follow-up: #350.
+
 ### Other findings
 
 - The M1 message for a refused Affect tick shows at the bottom of the Inspector, and the window edge cuts half of it off. It is far from the checkbox.
