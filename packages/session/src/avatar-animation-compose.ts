@@ -34,7 +34,7 @@ function applyOverlayList(entries: readonly OverlayPoseEntry[], elapsedMs: numbe
   return bones;
 }
 
-/** Bones covered by active overlays (for Face-Only writer skip). */
+/** Bones covered by active overlays or hand poses (for Face-Only writer skip). */
 export function animationMaskedBones(animation: AvatarAnimation | undefined): Set<string> {
   const out = new Set<string>();
   if (!animation) return out;
@@ -45,6 +45,11 @@ export function animationMaskedBones(animation: AvatarAnimation | undefined): Se
       const part = bodyPartOf(bone);
       if (part && parts.has(part)) out.add(bone);
     }
+  }
+  for (const side of ['left', 'right'] as const) {
+    const hand = animation.overrideHandPoses[side];
+    if (!hand?.enabled || hand.weight <= 0) continue;
+    for (const bone of Object.keys(evaluateHandPose(side, hand.pose))) out.add(bone);
   }
   return out;
 }

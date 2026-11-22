@@ -100,7 +100,13 @@ export function createTrackingComposer(){
   const avatarPoses:AvatarPose[]=[];
   for(const entity of scene.entities){if(entity.kind!=='avatar')continue;
    const baseBones=entity.idleAnimation?.enabled?evaluateAvatarIdle(animationElapsedMs):undefined;
-   if(!entity.tracking&&!baseBones)continue;
+   // Hand/overlay animation still needs a pose entry when idle and tracking are both off.
+   const needsAnimationPose=!!entity.animation&&(
+     entity.animation.overlayingPoses.some(entry=>entry.weight>0)||
+     (['left','right'] as const).some(side=>{const hand=entity.animation!.overrideHandPoses[side];return !!hand?.enabled&&hand.weight>0;})||
+     (['left','right'] as const).some(side=>entity.animation!.handPin[side]?.enabled)
+   );
+   if(!entity.tracking&&!baseBones&&!needsAnimationPose)continue;
    const body=input(entity.tracking?.bodySourceId),face=input(entity.tracking?.faceSourceId??entity.tracking?.bodySourceId),ownsFace=entity.tracking?.faceSourceId!=null;
    const boneEntries:[string,TrackingBone][]=[];
    if(body)for(const[name,bone]of Object.entries(body.sample.bones)){if(ownsFace&&faceBones.has(name))continue;boneEntries.push([name,{...copy(bone),weight:body.weight}]);}

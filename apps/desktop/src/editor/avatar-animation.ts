@@ -18,8 +18,32 @@ export const overlayPoseOptions = OVERLAY_POSE_IDS.map(value => ({value, label: 
 export const handPoseOptions = HAND_POSE_IDS.map(value => ({value, label: value}));
 export const handSideLabels = {left: 'Left Hand', right: 'Right Hand'} as const;
 
-export const animationOf = (animation: AvatarAnimation | undefined): AvatarAnimation =>
-  animation ? structuredClone(animation) : structuredClone(DEFAULT_AVATAR_ANIMATION);
+// Plain copies: entity.animation can be a Svelte state proxy, which structuredClone rejects.
+const plainHand = (hand: HandOverride): HandOverride => ({enabled: hand.enabled, pose: hand.pose, weight: hand.weight, highPriority: hand.highPriority});
+const plainPin = (pin: HandPin): HandPin => ({enabled: pin.enabled, mode: pin.mode});
+const plainOverlay = (entry: OverlayPoseEntry): OverlayPoseEntry => ({
+  id: entry.id,
+  pose: entry.pose,
+  weight: entry.weight,
+  maskedBodyParts: [...entry.maskedBodyParts],
+  ...(entry.speed !== undefined ? {speed: entry.speed} : {}),
+});
+
+export const animationOf = (animation: AvatarAnimation | undefined): AvatarAnimation => {
+  const source = animation ?? DEFAULT_AVATAR_ANIMATION;
+  return {
+    overlayingPoses: source.overlayingPoses.map(plainOverlay),
+    overlayTransitionSeconds: source.overlayTransitionSeconds,
+    overrideHandPoses: {
+      ...(source.overrideHandPoses.left ? {left: plainHand(source.overrideHandPoses.left)} : {}),
+      ...(source.overrideHandPoses.right ? {right: plainHand(source.overrideHandPoses.right)} : {}),
+    },
+    handPin: {
+      ...(source.handPin.left ? {left: plainPin(source.handPin.left)} : {}),
+      ...(source.handPin.right ? {right: plainPin(source.handPin.right)} : {}),
+    },
+  };
+};
 
 export const defaultHandOverride = (): HandOverride => ({enabled: false, pose: 'open', weight: 1, highPriority: true});
 export const defaultHandPin = (): HandPin => ({enabled: false, mode: 'hold'});

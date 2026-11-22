@@ -46,4 +46,16 @@ describe('composeAvatarAnimation', () => {
     const out = composeAvatarAnimation([tracked], scene, 0, new Map());
     expect(out.poses[0]!.bones.rightIndexProximal!.rotation).not.toEqual([0, 0, 0, 1]);
   });
+
+  it('applies hand poses when tracking has no finger bones', () => {
+    const scene = withAnimation(makeSmokeScene(), {
+      overlayingPoses: [],
+      overlayTransitionSeconds: 0,
+      overrideHandPoses: {left: {enabled: true, pose: 'pinch2', weight: 1, highPriority: true}},
+      handPin: {},
+    });
+    const out = composeAvatarAnimation([pose()], scene, 0, new Map());
+    expect(out.poses[0]!.bones.leftIndexProximal).toBeDefined();
+    expect(out.poses[0]!.bones.leftThumbMetacarpal).toBeDefined();
+  });
 });

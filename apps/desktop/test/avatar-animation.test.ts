@@ -36,4 +36,17 @@ describe('avatar animation editor helpers', () => {
       highPriority: true,
     });
   });
+
+  it('plain-copies a proxy-backed animation (Svelte state rejects structuredClone)', () => {
+    const raw = {
+      ...DEFAULT_AVATAR_ANIMATION,
+      overrideHandPoses: {left: {enabled: true, pose: 'open' as const, weight: 1, highPriority: true}},
+    };
+    const proxied = new Proxy(raw, {});
+    expect(() => structuredClone(proxied)).toThrow();
+    const copy = animationOf(proxied);
+    expect(copy.overrideHandPoses.left).toEqual({enabled: true, pose: 'open', weight: 1, highPriority: true});
+    copy.overrideHandPoses.left!.enabled = false;
+    expect(raw.overrideHandPoses.left.enabled).toBe(true);
+  });
 });
