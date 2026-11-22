@@ -250,7 +250,7 @@ Each row of the three-liltoon [feature matrix](https://github.com/danirukun/thre
 | Light limit (`_LightMinLimit`, `_LightMaxLimit`, `_MonochromeLighting`, `_AsUnlit`) | Implemented (the HLSL) | Implemented as the HLSL since fork `66e7791`: the summed light plus the ambient is clamped once (`LilToonLightingModel.ts`, `finish()`), and the shading, the effects (rim, matcap, backlight), and the outline read that one light color. `_ShadowEnvStrength` reads `saturate(ambient)` as `fd.indLightColor` (`lil_common_frag.hlsl:1125`) | `LilToonLightingModel.ts` |
 | Environment reflections | Limited | Not drawn | — |
 | glTF/GLB material loading | Implemented | Implemented for a VRM file in OpenSekai; a GLB prop with the extension loads PBR with a warning (R1). A plain glTF transparent lilToon material gets `renderOrder` 19 against 0 for PBR | `GLTFLilToonNodeExtension.ts`, `assets.ts` |
-| VRM material expressions | Implemented | No expression binds; a VRM 0 `materialValues` bind or a VRM 1 color or texture-transform bind on a lilToon material warns | `vrm.ts` |
+| VRM material expressions | Implemented | A VRM 0 `materialValues` bind or a VRM 1 color or texture-transform bind on a lilToon material sets the lilToon color or `_MainTex_ST` of the surface and its outline (character expressions check); a VRM 0 property that three-vrm does not map still warns | `vrm.ts`, `liltoon-binds.ts` |
 | Texture-info `texCoord` selection | Unsupported | Unsupported | — |
 | Additional lights, lightmaps, probes | Unsupported | Each OpenSekai light is a toon light (see Direct lighting); no lightmap or probe | `LilToonLightingModel.ts` |
 | Unity fog, AudioLink, VRC Light Volumes, instancing, stereo, WebXR, tessellation | Unsupported | Unsupported | — |
@@ -265,7 +265,6 @@ Other rows of this slice:
 ### Differences from Unity
 
 - The main light: Unity lilToon shades one main light (the directional light plus the SH ambient) with the bands and adds the other lights to the light color. The port does the same (fork `2d29c26`), but it selects the main light by a rule: the first directional light of the light set, else the first lit light. "First" is the order in which the renderer made the three.js lights (three.js sorts the lights by object id), not the entity order: a later change of the entity order does not change the main light. Unity uses the sun or the brightest directional light. Each other light adds its color times its cast shadow and gives no bands and no backlight. Before `2d29c26` the port gave each light its own bands; that made the shader larger with each light (see Cost).
-- No expression binds on a lilToon material (warned).
 - No UV scroll and no tone correction on the main texture.
 - The ambient enters the light color at 1/π of the three irradiance (the Lambert convention of three), so an Ambient light of the same color as a Unity flat ambient is weaker by π. The ambient of the reference rig is small (0.033), and the result is inside the calibration window. Its place is the Unity place: inside the light limit (fork `66e7791`).
 - The outline on thin hair strands and at the glasses is thinner than the Unity outline.

@@ -37,12 +37,12 @@ const LILTOON = 'MOCHIYA_materials_liltoon';
 // Two triangles of VRM 0.x. Skin has the lilToon extension (an outline variant by default) and MToon data with an outline; Hair
 // is MToon with an outline. Each mesh has its own accessors, so the outline groups of the MToon plugin do not reach Skin. No texture,
 // so Node decodes no image. `vrm: false` gives the same file as a GLB prop.
-function avatar({shaderVariant = 'Hidden/lilToonOutline', vrm = true}: {shaderVariant?: string; vrm?: boolean} = {}): ArrayBuffer {
+function avatar({shaderVariant = 'Hidden/lilToonOutline', vrm = true, color, materialValues = []}: {shaderVariant?: string; vrm?: boolean; color?: number[]; materialValues?: object[]} = {}): ArrayBuffer {
     const triangle = new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1]);
     const accessor = (byteOffset: number, extra: object = {}) => ({bufferView: 0, byteOffset, componentType: 5126, count: 3, type: 'VEC3', ...extra});
     const primitive = (material: number) => ({attributes: {POSITION: 2 * material, NORMAL: 2 * material + 1}, material});
     const properties = (name: string) => ({name, shader: 'VRM/MToon', floatProperties: {_OutlineWidthMode: 1, _OutlineWidth: 0.5}, vectorProperties: {}, textureProperties: {}, keywordMap: {}, tagMap: {}});
-    const liltoon = {specVersion: '1.3', lilToonVersion: '2.4.1', shaderVariant, properties: {_UseShadow: 1}, textures: {}};
+    const liltoon = {specVersion: '1.3', lilToonVersion: '2.4.1', shaderVariant, properties: {_UseShadow: 1, ...(color ? {_Color: color} : {})}, textures: {}};
     return glb({
         asset: {version: '2.0'}, extensionsUsed: vrm ? ['VRM', LILTOON] : [LILTOON], scene: 0, scenes: [{nodes: [0, 1, 2]}],
         nodes: [{mesh: 0, name: 'Skin'}, {mesh: 1, name: 'Hair'}, {name: 'hips', children: BONES.slice(1).map((_, i) => 3 + i)}, ...BONES.slice(1).map(name => ({name}))],
@@ -50,7 +50,7 @@ function avatar({shaderVariant = 'Hidden/lilToonOutline', vrm = true}: {shaderVa
         materials: [{name: 'Skin', pbrMetallicRoughness: {}, extensions: {[LILTOON]: liltoon}}, {name: 'Hair', pbrMetallicRoughness: {}}],
         buffers: [{byteLength: triangle.byteLength}], bufferViews: [{buffer: 0, byteLength: triangle.byteLength}],
         accessors: [accessor(0, {min: [0, 0, 0], max: [1, 1, 0]}), accessor(36), accessor(72, {min: [0, 0, 0], max: [1, 1, 0]}), accessor(108)],
-        ...(vrm ? {extensions: {VRM: {specVersion: '0.0', meta: {title: 'Mixed'}, humanoid: {humanBones: BONES.map((bone, node) => ({bone, node: 2 + node}))}, materialProperties: [properties('Skin'), properties('Hair')]}}} : {}),
+        ...(vrm ? {extensions: {VRM: {specVersion: '0.0', meta: {title: 'Mixed'}, humanoid: {humanBones: BONES.map((bone, node) => ({bone, node: 2 + node}))}, materialProperties: [properties('Skin'), properties('Hair')], blendShapeMaster: {blendShapeGroups: [{name: 'Toggle', presetName: 'unknown', binds: [], materialValues}]}}}} : {}),
     }, new Uint8Array(triangle.buffer));
 }
 const load = (bytes: ArrayBuffer) => createAssetLoader({readAsset: async () => bytes})('asset_l');
@@ -111,6 +111,21 @@ it('gives a Hidden/lilToonFur material one UNSUPPORTED load warning that names t
     expect(asset.warnings[0]).toMatchObject({code: 'UNSUPPORTED', ids: ['asset_l']});
     expect(asset.warnings[0]!.message).toContain('Skin');
     expect(asset.warnings[0]!.message).toContain('shaderVariant');
+    asset.dispose();
+});
+
+it('applies a VRM expression color bind to the lilToon surface and its outline, and restores the color at weight 0', async () => {
+    const asset = await load(avatar({color: [1, 0.5, 0.25, 1], materialValues: [{materialName: 'Skin', propertyName: '_Color', targetValue: [0, 0, 0, 0]}]}));
+    expect(asset.warnings).toEqual([]);
+    const skin = materialsOf(asset.scene.getObjectByName('Skin') as Mesh) as CharacterLilToonMaterial[];
+    const colors = () => skin.map(material => material.getProperty('_Color'));
+    const expressions = asset.vrm!.expressionManager!;
+    expressions.setValue('Toggle', 1); expressions.update();
+    expect(colors()).toEqual([[0, 0, 0, 0], [0, 0, 0, 0]]);
+    expressions.setValue('Toggle', 0.5); expressions.update();
+    expect(colors()).toEqual([[0.5, 0.25, 0.125, 0.5], [0.5, 0.25, 0.125, 0.5]]);
+    expressions.setValue('Toggle', 0); expressions.update();
+    expect(colors()).toEqual([[1, 0.5, 0.25, 1], [1, 0.5, 0.25, 1]]);
     asset.dispose();
 });
 
