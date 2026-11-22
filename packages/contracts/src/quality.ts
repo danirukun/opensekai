@@ -10,7 +10,6 @@ export interface QualityProfile {
     readonly effectsQuality: EffectsQuality;
 }
 // A profile is a frozen measurement setting: a changed numeric value needs a new ID.
-// effectsQuality is a look-stack budget field added without new IDs (see 2026-11-22 design).
 export const QUALITY_PROFILES: Readonly<Record<QualityProfileId, QualityProfile>> = Object.freeze({
     preview_v1: Object.freeze({ id: "preview_v1", resolutionScale: 0.5, maxTextureSize: 1024, msaaSamples: 4, effectsQuality: "cheap" }),
     production_v1: Object.freeze({ id: "production_v1", resolutionScale: 1, maxTextureSize: 2048, msaaSamples: 4, effectsQuality: "full" }),
