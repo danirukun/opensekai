@@ -8,7 +8,7 @@ VPoyo ("VRMぽよぽよ動くやつ", "Something that makes VRM models wiggle an
 
 1. **Spring bones (hair and cloth physics), #14.** VPoyo's look depends on bouncy hair and cloth. Partial since 2026-11-18: OpenSekai runs the VRM-authored spring bones in the editor and OBS ([check](evaluation/spring-bones.md)). Controls, collisions with other objects, and `VRMC_springBone_limit` remain.
 2. **Bouncy Live2D-style motion, #294.** VPoyo exaggerates vertical bounce from head pitch and the jaw. In progress since 2026-11-21: the code is in the Face-Only Body Motion template, off by default (`Bouncy Motion`). The OBS check is not done, so nothing is verified yet ([check](evaluation/bouncy-live2d-motion.md)).
-3. **Pose presets for face-only tracking, #296,** and manual posing and IK, #12.
+3. **Pose presets for face-only tracking, #296,** and manual posing and IK, #12. In progress since 2026-11-22: Warudo-like Animation (overlay list, Override Hand Poses, Hand Pin) is in the show, Inspector, and Blueprint; macOS OBS evidence is not done ([check](evaluation/pose-presets-face-only.md)).
 4. **Items attached to the body, #297,** which needs bone attachment points, #13.
 5. **Hold Screen pose template, #293** (held image, video or capture, with the upper body following head tracking).
 6. **Eye jiggle, #295.**
@@ -26,7 +26,7 @@ App tabs: Avatar, Input, Motion, Pose, Item, Expression, Camera, Light, Backgrou
 | Bouncy hair and cloth | Partial: VRM-authored spring bones; no controls | #14 |
 | Exaggerated Live2D-like vertical bounce (sink when the chin drops, bounce when it rises) | In progress: code landed, OBS evidence pending | #294 |
 | Eye jiggle toggle, works on models without it | Missing | #295 (related #92) |
-| Poses that fix the hands in place (selfie, wave) | Missing | #296, #12 |
+| Poses that fix the hands in place (selfie, wave) | In progress: overlay poses, hand overrides, hand pin; OBS pending | #296, #12 |
 | Items attached to the body: condenser, handheld and stand mics, headphones, controller in colors, beer mug | Partial: props exist, no bone attachment | #297, #13, #41 |
 | Hold an image (add, previous and next, size, hold height, tilt, left or right side, both hands, flip transition) | Missing; Screens exist but cannot be held | #293 |
 | Expression tab | Has | #9 (closed) |
