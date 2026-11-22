@@ -8,4 +8,6 @@ type PropertyNameMapMap = Record<string, Record<string, [string, string | null]>
 export function supportNodeMaterialColorBinds(): void {
     const maps = (VRMExpressionMaterialColorBind as unknown as { _propertyNameMapMap: PropertyNameMapMap })._propertyNameMapMap;
     maps.isMToonNodeMaterial ??= maps.isMToonMaterial!;
+    // CharacterMToonMaterial is checked first when both flags are true; reuse the same property map.
+    maps.isCharacterMToonMaterial ??= maps.isMToonNodeMaterial;
 }

@@ -33,7 +33,7 @@ Write requirements in spdd/analysis/ and the seven REASONS sections in spdd/prom
 
 - Start implementation and evaluation on macOS. Keep platform code behind adapters. Windows is the next desktop target. Mobile remains a design constraint.
 - Use pnpm for JavaScript and TypeScript. Prefer functional TypeScript and plain data.
-- Use Svelte 5 and @oshi-connect/ui for editor controls when the kit provides them. Keep rendering and simulation independent of Svelte.
+- Use Svelte 5 and @oshi-connect/ui for editor controls when the kit provides them. Keep rendering and simulation independent of Svelte. Confirm each import against `.local/ui/dist/index.js` before you use it. The kit does not export `Checkbox`; editor booleans use `<label class="visibility-control"><input type="checkbox" …>` like Visible and Autofocus.
 - The concert benchmark and transparent OBS output are acceptance requirements. A running editor preview is insufficient evidence.
 - Do not add a continuous image readback, JPEG encode, or image stream through Tauri IPC to the production output path.
 - Use one authoritative simulation. Renderers consume evaluated state. Verify continued motion when the editor is minimized.

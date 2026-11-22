@@ -10,6 +10,7 @@ import { failure } from "./apply-frame";
 import { createTexturePool } from "./texture-sharing";
 import { createImageResizePolicy } from "./image-resize";
 import { supportNodeMaterialColorBinds } from "./mtoon-binds";
+import { applyMissingShadeMultiply } from "./mtoon-shade";
 supportNodeMaterialColorBinds();
 // B43 R14: spring bones run in the renderer; node constraints and spring bone limits do not.
 export function extensionWarnings(extensions: readonly string[], id: string): AppError[] {
@@ -189,6 +190,8 @@ export function createAssetLoader(resources: ResourceHost, options: { maxTexture
             if (imageFailure) { disposeObject(gltf.scene, lease); throw imageFailure; }
             const vrm = gltf.userData.vrm as VRM | undefined;
             if (vrm) VRMUtils.rotateVRM0(vrm);
+            // UniVRM VRM 0 → 1: a lit map with no shade map gets the lit map as shade multiply (Rem Eyes and similar).
+            applyMissingShadeMultiply(gltf.scene);
             const warnings: AppError[] = [];
             warnings.push(...extensionWarnings(extensions, id));
             if (material) warnings.push({ code: "UNSUPPORTED", message: material, ids: [id] });

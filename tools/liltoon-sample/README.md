@@ -89,7 +89,7 @@ Before the `-avatar` argument, the outputs were in `Export/` with no avatar fold
 | `_AlphaMode` opaque, cutout, transparent | `lilToon`, `Hidden/lilToonCutout`, `Hidden/lilToonTransparent`; the `...Outline` variant when the outline is on |
 | `_Cutoff`, `_DoubleSided` | `_Cutoff`, `_Cull` (0 when double-sided) |
 | `_ShadeColor` | `_ShadowColor`, `_UseShadow` = 1 |
-| `_ShadeTex` | `_ShadowColorTex` only when it is not the main texture |
+| `_ShadeTex` (or the lit map when shade is missing) | `_ShadowColorTex` (also when it is the same as the lit map; without the slot, flat `_ShadowColor` washes Rem Eyes) |
 | `_ShadingShiftFactor` s, `_ShadingToonyFactor` t | `_ShadowBorder` = 0.5 - 0.5 s, `_ShadowBlur` = 1 - t |
 | `_BumpMap`, `_BumpScale` | `_BumpMap`, `_BumpScale`, `_UseBumpMap` = 1 |
 | `_RimColor`, `_RimFresnelPower` | `_RimColor`, `_RimFresnelPower`, `_UseRim` = 1 when the color is not black |
@@ -100,6 +100,7 @@ Before the `-avatar` argument, the outputs were in `Export/` with no avatar fold
 
 Notes on the mapping:
 
+- When the source has a lit map and no shade map, the converter sets shade to the lit map (UniVRM VRM 0 → 1 migration). Rem Eyes is that case.
 - The shadow border and blur come from the two shading models. MToon10 shades with `linearstep(-1 + t, 1 - t, NdotL + s)`. lilToon shades on the half-Lambert value with the window `[border - blur / 2, border + blur / 2]`.
 - The `none` preset changes four lilToon defaults that do not agree with MToon. The `catboy` preset keeps the defaults, so the recorded Catboy export does not change.
   - `_ShadowBorderColor` = black. MToon has no shadow border gradient. The default (1, 0.1, 0) moves the red channel of the shade toward the lit color near each shadow edge. With a black MToon shade, this gives red edges on the face, the hair, and the clothes.

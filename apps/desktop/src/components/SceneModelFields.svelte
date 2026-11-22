@@ -1,5 +1,5 @@
 <script lang="ts">
- import {Button,Checkbox,Select} from '@oshi-connect/ui';
+ import {Button,Select} from '@oshi-connect/ui';
  import type {AssetRecord,Reply} from '@opensekai/contracts';
  import {SLIDERS} from '../editor/slider';
  import SliderField from './SliderField.svelte';
@@ -22,7 +22,7 @@
  {:else if status}<div class="source-status" class:failed={status.stage==='failed'}><span>{stageLabel(status)}</span>{#if status.stage!=='failed'}{#if status.progress===null}<progress max="1" aria-label={stageLabel(status)}></progress>{:else}<progress max="1" value={status.progress} aria-label={stageLabel(status)}></progress>{/if}{/if}</div>{/if}
  {#if error}<p class="source-status failed" role="alert">{error}</p>{/if}
  {#if onreflections}<div class="resettable"><SliderField label="Reflections Intensity" value={reflectionsIntensity} range={SLIDERS.reflections} disabled={reflectionsDisabled} onlive={onreflectionslive} onend={onliveend} oncommit={value=>{void onreflections?.(value);}}/>{#if marks.changed.has('reflectionsIntensity')}<ResetMark label="Reflections Intensity" disabled={marks.disabled||reflectionsDisabled} onreset={()=>{void onreflections?.(Number(marks.defaults.reflectionsIntensity));}}/>{/if}</div>{/if}
- {#if onlighting}<div class="resettable"><Checkbox label="Allow Lights To Affect Characters" checked={allowLightsToAffectCharacters} disabled={disabled} onchange={event=>onlighting?.(event.currentTarget.checked)}/>{#if marks.changed.has('allowLightsToAffectCharacters')}<ResetMark label="Allow Lights To Affect Characters" disabled={marks.disabled||disabled} onreset={()=>{onlighting?.(false);}}/>{/if}</div>{/if}
+ {#if onlighting}<div class="resettable"><label class="visibility-control"><input type="checkbox" checked={allowLightsToAffectCharacters} disabled={disabled} onchange={event=>onlighting?.(event.currentTarget.checked)}/>Allow Lights To Affect Characters</label>{#if marks.changed.has('allowLightsToAffectCharacters')}<ResetMark label="Allow Lights To Affect Characters" disabled={marks.disabled||disabled} onreset={()=>{onlighting?.(false);}}/>{/if}</div>{/if}
  {#if credits&&line}<dl class="credits">{#if credits.title}<dt>Title</dt><dd>{credits.title}</dd>{/if}{#if credits.author}<dt>Author</dt><dd>{credits.author}</dd>{/if}{#if credits.license}<dt>License</dt><dd>{credits.license}</dd>{/if}</dl><Button variant="ghost" onclick={copy}>{copied?'Copied':'Copy credit'}</Button>{/if}
 </div>
 <style>

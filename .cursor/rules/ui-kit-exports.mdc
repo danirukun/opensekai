@@ -1,0 +1,22 @@
+---
+description: Only import real @oshi-connect/ui exports; editor checkboxes stay native
+globs: apps/desktop/**/*.{svelte,ts}
+alwaysApply: false
+---
+
+# UI kit exports (OpenSekai editor)
+
+`@oshi-connect/ui` does **not** export `Checkbox`. Do not invent kit components.
+
+1. Before `import { X } from '@oshi-connect/ui'`, confirm `X` is in `.local/ui/dist/index.js` (or the kit `dist/index.js` ensure-ui snapshots). If it is missing, do not import it.
+2. Editor boolean fields use the existing native pattern — not a kit `Checkbox`:
+
+```svelte
+<label class="visibility-control">
+  <input type="checkbox" checked={value} disabled={off} onchange={...} />
+  Label
+</label>
+```
+
+Same pattern as Visible, Autofocus, Affect, and related Inspector fields. Use `settleCheckbox` when a failed reply must restore the prior value.
+3. Principle: use the kit **only when it already exports the control**. Do not assume a name exists because another product or a prior chat mentioned it.

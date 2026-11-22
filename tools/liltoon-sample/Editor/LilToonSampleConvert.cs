@@ -221,7 +221,9 @@ public static class LilToonSampleConvert
         material.SetFloat("_ShadowBorder", values.ShadowBorder);
         material.SetFloat("_ShadowBlur", values.ShadowBlur);
         material.SetFloat("_ShadowStrength", 1f);
-        if (values.ShadeTex != null && values.ShadeTex != values.MainTex)
+        // Same texture as MainTex still needs the slot: without it lilToon shades with flat _ShadowColor
+        // (white on Rem Eyes), which washes the lit map. UniVRM also keeps shade = main when migrating.
+        if (values.ShadeTex != null)
         {
             material.SetTexture("_ShadowColorTex", values.ShadeTex);
             features.Add("shadowColorTex");
@@ -473,6 +475,8 @@ public static class LilToonSampleConvert
             v.OutlineWidthTex = GetTexture(m, "_OutlineWidthTexture");
         }
         v.OutlineOn = outlineMode != 0 && v.OutlineWidth > 0f;
+        // UniVRM VRM 0 → 1: lit map with no shade map uses the lit map as shade (Rem Eyes and similar).
+        if (v.ShadeTex == null && v.MainTex != null) v.ShadeTex = v.MainTex;
         return v;
     }
 
