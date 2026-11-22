@@ -7,6 +7,7 @@
  import {hasFocusTarget} from '../editor/cameras';
  import {LENS_PRESETS,applyLensPreset,type LensPresetId,type LensPresetResult} from '../editor/lens-presets';
  import SliderField from './SliderField.svelte';
+ import LensDepthDiagram from './LensDepthDiagram.svelte';
  import ResetMark from './ResetMark.svelte';
  import {NO_MARKS,type ResetMarks} from '../editor/property-defaults';
  let {entityId,lens,effects,navigation,revision,disabled=false,marks=NO_MARKS,oncommit,onlive,onliveend,onpreset}:{entityId:string;lens:CameraLens;effects?:CameraEffects;navigation?:CameraNavigation;marks?:ResetMarks;revision:number;disabled?:boolean;oncommit?:Commit<CameraLens>;onlive?:(id:string,lens:CameraLens)=>void;onliveend?:()=>void;onpreset?:(id:string,result:LensPresetResult,revision:number)=>Promise<unknown>}=$props();
@@ -25,9 +26,12 @@
   void oncommit?.(entityId,next,revision);
  }
  function apply(){const parsed=parseLens(lens,values);invalid=!parsed;if(parsed)void oncommit?.(entityId,parsed,revision);}
- async function choosePreset(id:LensPresetId){await onpreset?.(entityId,applyLensPreset(id,lens,effects),revision);}
+ const presetOptions=LENS_PRESETS.map(p=>({value:p.id,label:p.label}));
+ let presetId=$state<LensPresetId>('default');
+ async function choosePreset(id:LensPresetId){presetId=id;await onpreset?.(entityId,applyLensPreset(id,lens,effects),revision);}
 </script>
-<div class="presets" role="group" aria-label="Preset">{#each LENS_PRESETS as preset (preset.id)}<Button type="button" variant="ghost" size="sm" disabled={off} onclick={()=>choosePreset(preset.id)}>{preset.label}</Button>{/each}</div>
+<div class="top"><Select label="Preset" value={presetId} options={presetOptions} disabled={off} onchange={event=>{void choosePreset(event.currentTarget.value as LensPresetId);}}/>
+ <LensDepthDiagram {lens} disabled={off||lens.autofocus} onlive={distance=>onlive?.(entityId,{...lens,focusDistance:distance})} onend={onliveend} oncommit={distance=>{void oncommit?.(entityId,{...lens,focusDistance:distance},revision);}}/></div>
 <form onsubmit={event=>{event.preventDefault();apply();}}><fieldset disabled={off}>{#snippet mark(id:LensFieldId,label:string)}{#if marks.changed.has(id)}<ResetMark {label} disabled={marks.disabled} onreset={()=>reset(id)}/>{/if}{/snippet}
  <div class="resettable"><SliderField label="Focal Length (mm)" value={lens.focalLengthMm} range={SLIDERS.focalLength} disabled={off} onlive={value=>onlive?.(entityId,lensWithFocalLength(lens,value))} onend={onliveend} oncommit={value=>{void oncommit?.(entityId,lensWithFocalLength(lens,value),revision);}}/>{@render mark('focalLengthMm','Focal Length (mm)')}</div>
  <div class="resettable"><SliderField label="Aperture (f-stop)" value={lens.fStop} range={SLIDERS.fStop} disabled={off} onlive={value=>onlive?.(entityId,{...lens,fStop:value})} onend={onliveend} oncommit={value=>{void oncommit?.(entityId,{...lens,fStop:value},revision);}}/>{@render mark('fStop','Aperture (f-stop)')}</div>
@@ -41,7 +45,7 @@
 <style>
  form{padding:0}
  fieldset{border:0;padding:0;margin:0;min-width:0;display:grid;gap:10px}
- .presets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+ .top{display:grid;gap:10px;margin-bottom:10px}
  .clips{display:flex;gap:8px}
  .clips>div{flex:1;min-width:0}
  .clips :global(input){min-width:0;width:100%}
