@@ -23,6 +23,22 @@ const setOverlayPoseFields = [
  { key: 'pose', label: 'Pose', kind: 'choice', options: overlayPoseOptions },
  { key: 'weight', label: 'Weight', kind: 'number', min: 0, max: 1 },
 ] as const;
+const playOneShotOverlay = z.strictObject({
+ entityId: IdSchema,
+ assetId: z.string().max(256),
+ weight: finite.min(0).max(1),
+ speed: finite.min(0.01).max(4),
+ blendInSeconds: finite.min(0).max(5),
+ blendOutSeconds: finite.min(0).max(5),
+});
+const playOneShotOverlayFields = [
+ { key: 'entityId', label: 'Character', kind: 'avatar' },
+ { key: 'assetId', label: 'Animation', kind: 'string', maxLength: 256 },
+ { key: 'weight', label: 'Weight', kind: 'number', min: 0, max: 1 },
+ { key: 'speed', label: 'Speed', kind: 'number', min: 0.01, max: 4 },
+ { key: 'blendInSeconds', label: 'Blend In', kind: 'number', min: 0, max: 5 },
+ { key: 'blendOutSeconds', label: 'Blend Out', kind: 'number', min: 0, max: 5 },
+] as const;
 const setHandPose = z.strictObject({
  entityId: IdSchema,
  side: z.enum(['left', 'right']),
@@ -95,6 +111,23 @@ export const CHARACTER_NODES = [
  defineNode({ type: 'character.setMeshesVisible', label: 'Set Character Meshes Visible', category: 'Character', keywords: ['mesh', 'clothes', 'clothing', 'accessory', 'outfit', 'show', 'hide', 'visible'], settings: meshes, ports: () => ({ inputs: { flow: 'flow', visible: 'boolean' }, outputs: { ...exit } }), inputDefaults: { visible: true }, defaults: meshDefaults, fields: meshFields }),
  defineNode({ type: 'character.lookAt', label: 'Look At', category: 'Character', keywords: ['look', 'gaze', 'head', 'face', 'camera', 'target', 'aim'], settings: lookAt, ports: () => ({ inputs: { flow: 'flow', weight: 'number' }, outputs: { ...exit } }), inputDefaults: { weight: 1 }, defaults: refs => refs.avatarId && refs.cameraId ? { entityId: refs.avatarId, targetId: refs.cameraId } : null, fields: [{ key: 'entityId', label: 'Character', kind: 'avatar' }, { key: 'targetId', label: 'Target', kind: 'entity' }, ...transitionFields] }),
  defineNode({ type: 'character.setOverlayPose', label: 'Set Overlay Pose', category: 'Character', keywords: ['overlay', 'pose', 'animation', 'idle', 'wave', 'selfie', 'hand'], settings: setOverlayPose, ports: () => ({ inputs: { flow: 'flow' }, outputs: { ...exit } }), defaults: refs => refs.avatarId ? { entityId: refs.avatarId, entryId: 'overlay', pose: 'rest' as const, weight: 1 } : null, fields: setOverlayPoseFields }),
+ defineNode({
+  type: 'character.playOneShotOverlay',
+  label: 'Play One Shot Overlay',
+  category: 'Character',
+  keywords: ['overlay', 'animation', 'clip', 'one-shot', 'oneshot', 'transient', 'dance', 'play'],
+  settings: playOneShotOverlay,
+  ports: () => ({ inputs: { flow: 'flow' }, outputs: { ...exit } }),
+  defaults: refs => refs.avatarId ? {
+   entityId: refs.avatarId,
+   assetId: '',
+   weight: 1,
+   speed: 1,
+   blendInSeconds: 0.2,
+   blendOutSeconds: 0.2,
+  } : null,
+  fields: playOneShotOverlayFields,
+ }),
  defineNode({ type: 'character.setHandPose', label: 'Set Hand Pose', category: 'Character', keywords: ['hand', 'pose', 'finger', 'fist', 'override'], settings: setHandPose, ports: () => ({ inputs: { flow: 'flow' }, outputs: { ...exit } }), defaults: refs => refs.avatarId ? { entityId: refs.avatarId, side: 'right' as const, enabled: true, pose: 'open' as const, weight: 1, highPriority: true } : null, fields: setHandPoseFields }),
  defineNode({ type: 'character.setHandPin', label: 'Set Hand Pin', category: 'Character', keywords: ['hand', 'pin', 'ik', 'wrist', 'hold'], settings: setHandPin, ports: () => ({ inputs: { flow: 'flow' }, outputs: { ...exit } }), defaults: refs => refs.avatarId ? { entityId: refs.avatarId, side: 'right' as const, enabled: true, mode: 'hold' as const } : null, fields: setHandPinFields }),
  ...materialNodes('character', 'avatar', 'Character', 'Character'),

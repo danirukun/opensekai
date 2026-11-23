@@ -80,15 +80,26 @@ function sampleTrack(times:readonly number[],rotations:readonly number[],timeSec
     const u = t1 === t0 ? 0 : (timeSec - t0) / (t1 - t0);
     return slerp(readQuat(rotations, lo), readQuat(rotations, hi), u);
 }
-export function evaluateAvatarClipIdle(animation:AssetAnimation,elapsedMs:number):Record<string,IdleBone> {
-    if (!Number.isFinite(elapsedMs) || elapsedMs < 0) {
-        throw new RangeError('Animation time must be finite and nonnegative');
-    }
-    const duration = animation.durationMs;
-    const timeSec = (elapsedMs % duration) / 1000;
+function sampleClipBones(animation:AssetAnimation,timeSec:number):Record<string,IdleBone> {
     const bones:Record<string,IdleBone> = {};
     for (const [name, track] of Object.entries(animation.bones)) {
         bones[name] = { space: 'normalized', rotation: sampleTrack(track.times, track.rotations, timeSec) };
     }
     return bones;
+}
+export function evaluateAvatarClipIdle(animation:AssetAnimation,elapsedMs:number):Record<string,IdleBone> {
+    if (!Number.isFinite(elapsedMs) || elapsedMs < 0) {
+        throw new RangeError('Animation time must be finite and nonnegative');
+    }
+    const duration = animation.durationMs;
+    return sampleClipBones(animation, (elapsedMs % duration) / 1000);
+}
+/** One-shot sample: clamp to the clip end (no loop). */
+export function evaluateAvatarClipOnce(animation:AssetAnimation,elapsedMs:number):Record<string,IdleBone> {
+    if (!Number.isFinite(elapsedMs) || elapsedMs < 0) {
+        throw new RangeError('Animation time must be finite and nonnegative');
+    }
+    const duration = animation.durationMs;
+    const clamped = duration <= 0 ? 0 : Math.min(elapsedMs, duration);
+    return sampleClipBones(animation, clamped / 1000);
 }

@@ -10,10 +10,48 @@ const wire = (id: string, from: string, fromPort: string, to: string, toPort: st
   ({id, sourceNodeId: from, sourcePort: fromPort, targetNodeId: to, targetPort: toPort});
 
 describe('avatar animation Blueprint nodes', () => {
-  it('defines Set Overlay Pose / Hand Pose / Hand Pin', () => {
+  it('defines Set Overlay Pose / Play One Shot Overlay / Hand Pose / Hand Pin', () => {
     expect(nodeDefinition('character.setOverlayPose').label).toBe('Set Overlay Pose');
+    expect(nodeDefinition('character.playOneShotOverlay').label).toBe('Play One Shot Overlay');
+    expect(nodeDefinition('character.playOneShotOverlay').defaults({avatarId: 'a', keystroke: {code: 'KeyA', control: true, alt: false, shift: false, meta: false}})).toMatchObject({
+      weight: 1, speed: 1, blendInSeconds: 0.2, blendOutSeconds: 0.2, assetId: '',
+    });
     expect(nodeDefinition('character.setHandPose').defaults({avatarId: 'a', keystroke: {code: 'KeyA', control: true, alt: false, shift: false, meta: false}})).toMatchObject({side: 'right', pose: 'open'});
     expect(nodeDefinition('character.setHandPin').settings.safeParse({entityId: 'a', side: 'left', enabled: true, mode: 'hold'}).success).toBe(true);
+  });
+
+  it('emits playOneShotOverlay without a scene effect', () => {
+    const scene = makeSmokeScene();
+    const graph = {
+      schemaVersion: 1,
+      id: 'g',
+      name: 'g',
+      nodes: [
+        node('start', 'event.update'),
+        node('play', 'character.playOneShotOverlay', {
+          entityId: 'performer',
+          assetId: 'animation_x',
+          weight: 1,
+          speed: 1,
+          blendInSeconds: 0.2,
+          blendOutSeconds: 0.2,
+        }),
+      ],
+      connections: [wire('1', 'start', 'flow', 'play', 'flow')],
+    };
+    const compiled = compileBlueprint(graph);
+    if (!compiled.ok) throw new Error(compiled.error.message);
+    const run = runFlow(compiled.data, {nodeId: 'start', port: 'flow'}, emptyState(), {visits: 64, effects: 8}, 0, {...NO_ENV, scene: () => scene});
+    expect(run.ok && run.data.effects).toEqual([{
+      kind: 'playOneShotOverlay',
+      entityId: 'performer',
+      assetId: 'animation_x',
+      maskedBodyParts: ['leftArm', 'rightArm', 'leftFingers', 'rightFingers'],
+      weight: 1,
+      speed: 1,
+      blendInSeconds: 0.2,
+      blendOutSeconds: 0.2,
+    }]);
   });
 
   it('writes setAvatarAnimation through applyEffects', () => {

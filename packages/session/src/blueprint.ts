@@ -4,6 +4,7 @@ import type { ExpressionEffect } from './expressions';
 import type { BoneLayerEffect } from './bone-offsets';
 import type { BlendShapeEffect } from './blend-shapes';
 import type { LookAtEffect } from './look-at';
+import type { PlayOneShotOverlayEffect } from './one-shot-overlays';
 import { DEBUG_EFFECT_KINDS, type DebugEffect, type DebugValueSample } from './debug-log';
 import { BlueprintLimitError, checkBlueprintValue, clearNodeState, cloneState, EVALUATORS, NO_ENV, type BlueprintValue, type Evaluator, type NodeRequest, type RunEnv, type RunState } from './blueprint-eval';
 import { BlueprintGraphSchema, blueprintPorts, nodeDefinition, connectionType, ownPort, unconnectedInputValue, type AvatarAnimation, type BlueprintConnection, type BlueprintGraph, type BlueprintNode, type Id, type PortShape, type Reply } from '@opensekai/contracts';
@@ -16,14 +17,15 @@ export type SceneEffect =
  | { kind: 'setAvatarAnimation'; entityId: Id; animation: AvatarAnimation }
  | { kind: 'selectCamera'; outputId: Id; cameraId: Id };
 export type CharacterLayerEffect = BlendShapeEffect | LookAtEffect;
-export type BlueprintEffect = SceneEffect | OverrideWrite | OrbitWrite | ExpressionEffect | BoneLayerEffect | CharacterLayerEffect | DebugEffect;
+export type BlueprintEffect = SceneEffect | OverrideWrite | OrbitWrite | ExpressionEffect | BoneLayerEffect | CharacterLayerEffect | PlayOneShotOverlayEffect | DebugEffect;
 export const isOverrideEffect = (effect: BlueprintEffect): effect is OverrideWrite => effect.kind === 'setProperty' || effect.kind === 'moveEntity' || effect.kind === 'setMaterial';
 export const isOrbitEffect = (effect: BlueprintEffect): effect is OrbitWrite => effect.kind === 'orbitCamera';
 export const isExpressionEffect = (effect: BlueprintEffect): effect is ExpressionEffect => effect.kind === 'setExpression' || effect.kind === 'toggleExpression';
+export const isOneShotEffect = (effect: BlueprintEffect): effect is PlayOneShotOverlayEffect => effect.kind === 'playOneShotOverlay';
 export const isBoneOffsetEffect = (effect: BlueprintEffect): effect is BoneLayerEffect => effect.kind === 'offsetBone' || effect.kind === 'offsetBoneTranslation' || effect.kind === 'offsetBoneScale';
 export const isCharacterLayerEffect = (effect: BlueprintEffect): effect is CharacterLayerEffect => effect.kind === 'setBlendShape' || effect.kind === 'lookAt';
 export const isDebugEffect = (effect: BlueprintEffect): effect is DebugEffect => DEBUG_EFFECT_KINDS.has(effect.kind);
-export const isSceneEffect = (effect: BlueprintEffect): effect is SceneEffect => !isOverrideEffect(effect) && !isOrbitEffect(effect) && !isExpressionEffect(effect) && !isBoneOffsetEffect(effect) && !isCharacterLayerEffect(effect) && !isDebugEffect(effect);
+export const isSceneEffect = (effect: BlueprintEffect): effect is SceneEffect => !isOverrideEffect(effect) && !isOrbitEffect(effect) && !isExpressionEffect(effect) && !isOneShotEffect(effect) && !isBoneOffsetEffect(effect) && !isCharacterLayerEffect(effect) && !isDebugEffect(effect);
 export interface CompiledBlueprint { graph: BlueprintGraph; nodes: Map<Id, BlueprintNode>; ports: Map<Id, PortShape>; dataIn: Map<string, BlueprintConnection>; flowNext: Map<string, BlueprintConnection> }
 export interface PendingDelay { nodeId: Id; dueMs: number }
 export interface FlowBudget { visits: number; effects: number }

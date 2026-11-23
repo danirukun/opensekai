@@ -8,7 +8,7 @@ import { createDeviceInput } from './devices';
 import { applyEffects, applyOperations } from './scene-ops';
 import { captureCalibration } from './tracking-calibration';
 import { fitRanges, mergeFit } from './blend-shape-fit';
-import { isBoneOffsetEffect, isCharacterLayerEffect, isDebugEffect, isExpressionEffect, isOrbitEffect, isOverrideEffect, isSceneEffect } from './blueprint';
+import { isBoneOffsetEffect, isCharacterLayerEffect, isDebugEffect, isExpressionEffect, isOneShotEffect, isOrbitEffect, isOverrideEffect, isSceneEffect } from './blueprint';
 import { createDebugLog } from './debug-log';
 import { composeBoneOffsets, EMPTY_BONE_OFFSETS, writeBoneOffset, writeBoneScale, writeBoneTranslation, type BoneOffsets } from './bone-offsets';
 import { advanceExpressions, composeExpressions, dropExpressionFades, EMPTY_EXPRESSIONS, expressionOwners, expressionView, reconcileExpressions, setExpression, type ExpressionStates } from './expressions';
@@ -20,6 +20,7 @@ import { dropGraphLookAts, EMPTY_LOOK_AT, lookAtOwners, sceneLookup, setLookAt, 
 import { advanceSpringResets, type SpringResetState } from './spring-resets';
 import { applyControls as applyVideoControls, checkControl, isControlOp, reconcilePlayback, screenPlayback, type ControlOp, type VideoPlaybacks } from './video-playback';
 import { composeAvatarAnimation, type AnimationRuntimes } from './avatar-animation-compose';
+import { advanceOneShots, EMPTY_ONE_SHOTS, startOneShot, type OneShotStates } from './one-shot-overlays';
 export interface Session {
     inspect(): SceneView;
     replaceScene(scene: SceneView, expectedRevision: number): Reply<SceneView>;
@@ -80,6 +81,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
     let boneOffsets: BoneOffsets = EMPTY_BONE_OFFSETS;
     let previousPoses = new Map<Id, AvatarPose>();
     let animationRuntimes: AnimationRuntimes = new Map();
+    let oneShots: OneShotStates = EMPTY_ONE_SHOTS;
     let records = new Map<Id, AssetRecord>();
     const record = (assetId: Id) => records.get(assetId);
     const storeRecords = (list: readonly AssetRecord[]) => { records = new Map(list.flatMap(item => { const parsed = AssetRecordSchema.safeParse(item); return parsed.success ? [[parsed.data.id, parsed.data] as const] : []; })); };
@@ -146,6 +148,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
         let moving = tweens;
         let ends = pendingEnds;
         let faces = reconcileExpressions(expressions, persistent);
+        let shots = oneShots;
         let offsets = boneOffsets;
         let shapes = blendShapes;
         let looks = lookAts;
@@ -188,6 +191,12 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
                 if (!set.ok) return set.error;
                 nextFaces = set.data;
             }
+            let nextShots = shots;
+            for (const effect of run.effects.filter(isOneShotEffect)) {
+                const set = startOneShot(nextShots, scene, record, effect, nowMs);
+                if (!set.ok) return set.error;
+                nextShots = set.data;
+            }
             let nextOffsets = offsets;
             for (const effect of run.effects.filter(isBoneOffsetEffect)) {
                 const written = effect.kind === 'offsetBone' ? writeBoneOffset(nextOffsets, scene, effect)
@@ -216,6 +225,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             moving = nextLayers.tweens;
             ends = nextLayers.pending ?? [];
             faces = nextFaces;
+            shots = nextShots;
             offsets = nextOffsets;
             shapes = nextShapes;
             looks = nextLooks;
@@ -225,6 +235,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
         tweens = moving;
         pendingEnds = ends;
         expressions = faces;
+        oneShots = shots;
         boneOffsets = offsets;
         blendShapes = shapes;
         lookAts = looks;
@@ -333,6 +344,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             boneOffsets = EMPTY_BONE_OFFSETS;
             blendShapes = EMPTY_BLEND_SHAPES;
             lookAts = EMPTY_LOOK_AT;
+            oneShots = EMPTY_ONE_SHOTS;
             previousPoses = new Map();
             animationRuntimes = new Map();
             videoPlayback = reconcilePlayback(new Map(), null, persistent, elapsed);
@@ -575,8 +587,9 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             lastTrackingNowMs = trackingNowMs ?? elapsedMs;
             const live=tracking.evaluate(shown,trackingNowMs??elapsedMs,elapsedMs,record);
             lastTrackingStatus = live.trackingStatus;
-            const animated = composeAvatarAnimation(live.avatarPoses, shown, elapsedMs, animationRuntimes, record);
+            const animated = composeAvatarAnimation(live.avatarPoses, shown, elapsedMs, animationRuntimes, record, oneShots);
             animationRuntimes = animated.runtimes;
+            oneShots = advanceOneShots(oneShots, shown, record, elapsedMs);
             previousPoses = new Map(animated.poses.map(pose => [pose.avatarId, structuredClone(pose)]));
             const faces = composeBlendShapes(composeExpressions(animated.poses, expressions, persistent, record), blendShapes);
             const avatarPoses = composeBoneOffsets(faces, looked.offsets);
