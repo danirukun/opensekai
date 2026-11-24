@@ -2,11 +2,13 @@ pub mod animation;
 pub mod hdr;
 mod image;
 mod materials;
+pub mod mixamo;
 mod registry;
 mod scene_import;
 mod video;
 mod vrm;
 pub use animation::prepare_animation;
+pub use mixamo::prepare_mixamo_fbx;
 pub use hdr::{parse_hdr, HdrHeader};
 pub use image::{parse_image, ImageHeader};
 pub use registry::{

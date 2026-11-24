@@ -46,6 +46,7 @@ url.workspace = true
 opensekai-contracts = { path = "../../../crates/contracts" }
 opensekai-evaluation = { path = "../../../crates/evaluation" }
 chrono.workspace = true
+ufbx = "=0.11.5"
 
 tauri-plugin-dialog = "=2.8.1"
 tauri-plugin-global-shortcut = "=2.4.0"

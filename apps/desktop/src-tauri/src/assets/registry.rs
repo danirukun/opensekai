@@ -433,6 +433,8 @@ pub fn read_located(path: &Path, record: &AssetRecord) -> Result<Vec<u8>, AppErr
         if header.format != record.format || record.video.as_ref() != Some(&header.video()) {
             return Err(error(ErrorCode::InvalidInput, id));
         }
+    } else if matches!(record.format, AssetFormat::Fbx) {
+        super::mixamo::prepare_mixamo_fbx(&bytes).map_err(|_| error(ErrorCode::InvalidInput, id))?;
     } else {
         validate_glb(&bytes).map_err(|_| error(ErrorCode::InvalidInput, id))?;
     }
@@ -446,7 +448,7 @@ fn library_prefix(format: &AssetFormat) -> &'static str {
         AssetFormat::Png | AssetFormat::Jpeg | AssetFormat::Webp | AssetFormat::Gif => "image",
         AssetFormat::Mp4 | AssetFormat::Webm => "video",
         AssetFormat::Hdr => "hdr",
-        AssetFormat::Vrma => "animation",
+        AssetFormat::Vrma | AssetFormat::Fbx => "animation",
     }
 }
 /// Reads, checks, and hashes an image into temporary library files. Runs without the registry lock (B28 R5).
@@ -514,7 +516,7 @@ pub fn stage_image(library: &Path, path: &Path) -> Result<StagedAsset, AppError>
         deduplicate: true,
     })
 }
-/// Reads, checks, and prepares a VRMA into temporary library files. Runs without the registry lock.
+/// Reads, checks, and prepares a VRMA or Mixamo-format FBX into temporary library files.
 pub fn stage_animation(library: &Path, path: &Path) -> Result<StagedAsset, AppError> {
     let source = std::fs::File::open(path).map_err(|_| error(ErrorCode::NotFound, ""))?;
     let size = source
@@ -532,9 +534,26 @@ pub fn stage_animation(library: &Path, path: &Path) -> Result<StagedAsset, AppEr
     if bytes.len() as u64 > MAX_IMPORT_BYTES {
         return Err(invalid("Animation exceeds import budget"));
     }
-    let json = validate_glb(&bytes)?;
-    let bin = super::animation::glb_bin_chunk(&bytes)?;
-    let animation = super::animation::prepare_animation(&json, bin)?;
+    let ext = path
+        .extension()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    let (format, animation) = match ext.as_str() {
+        "vrma" => {
+            let json = validate_glb(&bytes)?;
+            let bin = super::animation::glb_bin_chunk(&bytes)?;
+            (
+                AssetFormat::Vrma,
+                super::animation::prepare_animation(&json, bin)?,
+            )
+        }
+        "fbx" => (
+            AssetFormat::Fbx,
+            super::mixamo::prepare_mixamo_fbx(&bytes)?,
+        ),
+        _ => return Err(invalid("Choose a .vrma or .fbx file")),
+    };
     let sha256 = hex(&Sha256::digest(&bytes));
     let id = format!("animation_{sha256}");
     let name = path
@@ -544,7 +563,7 @@ pub fn stage_animation(library: &Path, path: &Path) -> Result<StagedAsset, AppEr
         .unwrap_or_else(|| "Animation".into());
     let record = AssetRecord {
         id: id.clone(),
-        format: AssetFormat::Vrma,
+        format: format.clone(),
         sha256,
         bytes: bytes.len() as u64,
         source_url: None,
@@ -564,7 +583,10 @@ pub fn stage_animation(library: &Path, path: &Path) -> Result<StagedAsset, AppEr
     };
     record.validate()?;
     std::fs::create_dir_all(library).map_err(|_| error(ErrorCode::Unavailable, ""))?;
-    let file = (temp_file(library, &bytes)?, format!("{id}.vrma"));
+    let file = (
+        temp_file(library, &bytes)?,
+        format!("{id}.{}", format.extension()),
+    );
     let json = record_file(library, &record)?;
     Ok(StagedAsset {
         record,

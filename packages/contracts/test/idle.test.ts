@@ -27,6 +27,7 @@ it('accepts AssetAnimation bounds and animation asset records',()=>{
   animation:{durationMs:1000,bones:{chest:track}},
  };
  expect(AssetRecordSchema.safeParse(record).success).toBe(true);
+ expect(AssetRecordSchema.safeParse({...record,format:'fbx' as const}).success).toBe(true);
  expect(AssetRecordSchema.safeParse({...record,id:'avatar_'+'a'.repeat(64)}).success).toBe(false);
  expect(AssetRecordSchema.safeParse({...record,animation:undefined}).success).toBe(false);
 });

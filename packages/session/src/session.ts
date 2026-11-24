@@ -416,13 +416,13 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             for (const operation of operations.data) {
                 if (operation.kind === 'setAvatarIdle' && operation.idleAnimation.kind === 'clip') {
                     const clip = record(operation.idleAnimation.assetId);
-                    if (!clip?.animation || clip.format !== 'vrma') return failure('INVALID_INPUT', 'Idle clip asset not found', [operation.idleAnimation.assetId]);
+                    if (!clip?.animation || (clip.format !== 'vrma' && clip.format !== 'fbx')) return failure('INVALID_INPUT', 'Idle clip asset not found', [operation.idleAnimation.assetId]);
                 }
                 if (operation.kind !== 'setAvatarAnimation') continue;
                 for (const entry of operation.animation.overlayingPoses) {
                     if (!isOverlayClipEntry(entry)) continue;
                     const clip = record(entry.assetId);
-                    if (!clip?.animation || clip.format !== 'vrma') return failure('INVALID_INPUT', 'Overlay clip asset not found', [entry.assetId]);
+                    if (!clip?.animation || (clip.format !== 'vrma' && clip.format !== 'fbx')) return failure('INVALID_INPUT', 'Overlay clip asset not found', [entry.assetId]);
                 }
             }
             const applied = applyOperations(persistent, operations.data, persistent.revision + 1);

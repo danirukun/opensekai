@@ -437,7 +437,7 @@ export const VIDEO_CODECS = ['h264', 'hevc', 'vp8', 'vp9', 'av1'] as const;
 export const VIDEO_AUDIO_CODECS = ['aac', 'mp3', 'opus', 'vorbis'] as const;
 export const VIDEO_LIMITS = { side: 4096, durationMs: 14_400_000, bytes: 256 * 1024 * 1024 } as const;
 const isVideoFormat = (format: string): boolean => (VIDEO_FORMATS as readonly string[]).includes(format);
-export const ANIMATION_FORMATS = ['vrma'] as const;
+export const ANIMATION_FORMATS = ['vrma', 'fbx'] as const;
 export const ANIMATION_LIMITS = { durationMs: 600_000, bones: 64, keys: 4096 } as const;
 const isAnimationFormat = (format: string): boolean => (ANIMATION_FORMATS as readonly string[]).includes(format);
 const unitQuat = (x: number, y: number, z: number, w: number): boolean => Math.abs(Math.hypot(x, y, z, w) - 1) <= 0.001;
@@ -481,6 +481,7 @@ export const AssetRecordSchema = z.strictObject({
         "glb",
         "vrm",
         "vrma",
+        "fbx",
         ...IMAGE_FORMATS,
         ...VIDEO_FORMATS,
         ...HDR_FORMATS

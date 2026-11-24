@@ -173,7 +173,7 @@ export interface AssetAnimationTrack { times: number[]; rotations: number[]; }
 export interface AssetAnimation { durationMs: number; bones: Record<string, AssetAnimationTrack>; }
 export interface AssetRecord {
     id: Id;
-    format: "glb" | "vrm" | "vrma" | "png" | "jpeg" | "webp" | "gif" | "mp4" | "webm" | "hdr";
+    format: "glb" | "vrm" | "vrma" | "fbx" | "png" | "jpeg" | "webp" | "gif" | "mp4" | "webm" | "hdr";
     sha256: string;
     bytes: number;
     sourceUrl: string | null;

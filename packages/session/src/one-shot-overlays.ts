@@ -95,7 +95,7 @@ export function startOneShot(
   const assetId = effect.assetId.trim();
   if (!assetId) return failure('INVALID_INPUT', 'Animation asset is required', [effect.entityId]);
   const asset = records(assetId);
-  if (!asset || asset.format !== 'vrma' || !asset.animation) {
+  if (!asset || (asset.format !== 'vrma' && asset.format !== 'fbx') || !asset.animation) {
     return failure('INVALID_INPUT', 'Animation asset not found', [effect.entityId, assetId]);
   }
   if (!(effect.speed > 0) || effect.speed > 4) {
@@ -126,7 +126,7 @@ export function evaluateOneShotBones(
 ): {bones: Record<string, OverlayBone>; contribution: number; done: boolean} | null {
   const asset = records(entry.assetId);
   const animation = asset?.animation;
-  if (!animation || asset.format !== 'vrma') return null;
+  if (!animation || (asset.format !== 'vrma' && asset.format !== 'fbx')) return null;
   const lengthMs = oneShotPlayLengthMs(animation.durationMs, entry.speed);
   const wallMs = Math.max(0, elapsedMs - entry.startedAtMs);
   if (!(lengthMs > 0)) return {bones: {}, contribution: 0, done: true};

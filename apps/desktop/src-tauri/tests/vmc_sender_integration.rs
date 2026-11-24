@@ -37,6 +37,7 @@ fn avatar(asset: &str) -> SceneEntity {
         asset_id: Some(asset.into()),
         tracking: None,
         idle_animation: None,
+        animation: None,
         expressions: None,
         hidden_meshes: None,
         lighting: None,

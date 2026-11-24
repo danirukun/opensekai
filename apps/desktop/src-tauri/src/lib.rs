@@ -200,7 +200,10 @@ async fn import_animation(
     let path = tauri::async_runtime::spawn_blocking(move || {
         let dialog = app.dialog().file().set_title("Import animation");
         #[cfg(not(target_os = "macos"))]
-        let dialog = dialog.add_filter("VRMA", &["vrma"]);
+        let dialog = dialog
+            .add_filter("Animation", &["vrma", "fbx"])
+            .add_filter("VRMA", &["vrma"])
+            .add_filter("FBX", &["fbx"]);
         dialog.blocking_pick_file()
     })
     .await

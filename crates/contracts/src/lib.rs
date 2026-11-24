@@ -58,7 +58,7 @@ strings!(Capability { Read=>"read", Edit=>"edit", Capture=>"capture", Benchmark=
 strings!(Role { Publisher=>"publisher", Operator=>"operator", Renderer=>"renderer" });
 strings!(ErrorCode { InvalidInput=>"INVALID_INPUT", Conflict=>"CONFLICT", Forbidden=>"FORBIDDEN", Unavailable=>"UNAVAILABLE", NotFound=>"NOT_FOUND", Unsupported=>"UNSUPPORTED", Timeout=>"TIMEOUT", RateLimited=>"RATE_LIMITED", Busy=>"BUSY", Cancelled=>"CANCELLED", VersionMismatch=>"VERSION_MISMATCH", StaleFrame=>"STALE_FRAME" });
 strings!(RunState { Warming=>"warming", Measuring=>"measuring", Complete=>"complete", Cancelled=>"cancelled", Failed=>"failed" });
-strings!(AssetFormat { Glb=>"glb", Vrm=>"vrm", Vrma=>"vrma", Png=>"png", Jpeg=>"jpeg", Webp=>"webp", Gif=>"gif", Mp4=>"mp4", Webm=>"webm", Hdr=>"hdr" });
+strings!(AssetFormat { Glb=>"glb", Vrm=>"vrm", Vrma=>"vrma", Fbx=>"fbx", Png=>"png", Jpeg=>"jpeg", Webp=>"webp", Gif=>"gif", Mp4=>"mp4", Webm=>"webm", Hdr=>"hdr" });
 impl AssetFormat {
     pub fn is_image(&self) -> bool {
         matches!(self, Self::Png | Self::Jpeg | Self::Webp | Self::Gif)
@@ -70,7 +70,7 @@ impl AssetFormat {
         matches!(self, Self::Hdr)
     }
     pub fn is_animation(&self) -> bool {
-        matches!(self, Self::Vrma)
+        matches!(self, Self::Vrma | Self::Fbx)
     }
     /// The library file extension (B28 R2).
     pub fn extension(&self) -> &'static str {
@@ -78,6 +78,7 @@ impl AssetFormat {
             Self::Glb => "glb",
             Self::Vrm => "vrm",
             Self::Vrma => "vrma",
+            Self::Fbx => "fbx",
             Self::Png => "png",
             Self::Jpeg => "jpg",
             Self::Webp => "webp",
@@ -90,6 +91,7 @@ impl AssetFormat {
     pub fn content_type(&self) -> &'static str {
         match self {
             Self::Glb | Self::Vrm | Self::Vrma => "model/gltf-binary",
+            Self::Fbx => "application/octet-stream",
             Self::Png => "image/png",
             Self::Jpeg => "image/jpeg",
             Self::Webp => "image/webp",
