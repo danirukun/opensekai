@@ -312,4 +312,41 @@ mod tests {
         let staged = crate::assets::stage_animation(dir.path(), std::path::Path::new(path)).unwrap();
         assert!(staged.id().starts_with("animation_"));
     }
+
+    #[test]
+    fn prepare_and_stage_qa_clips() {
+        let Ok(root) = std::env::var("OPENSEKAI_QA_ASSETS") else { return; };
+        let Ok(clips) = std::env::var("OPENSEKAI_QA_CLIPS") else { return; };
+        let mut registry = crate::assets::AssetRegistry::empty(std::path::Path::new(&root)).unwrap();
+        for name in clips.split(':') {
+            let path = std::path::PathBuf::from(name);
+            let bytes = std::fs::read(&path).unwrap();
+            match prepare_mixamo_fbx(&bytes) {
+                Ok(a) => eprintln!(
+                    "prepare OK {} bones={} duration_ms={}",
+                    path.display(),
+                    a.bones.len(),
+                    a.duration_ms
+                ),
+                Err(e) => {
+                    eprintln!("prepare ERR {} {}", path.display(), e.message);
+                    continue;
+                }
+            }
+            match crate::assets::stage_animation(registry.library().as_path(), &path) {
+                Ok(staged) => {
+                    let id = staged.id().to_string();
+                    let result = registry.commit(staged).unwrap();
+                    eprintln!(
+                        "staged {} -> {} format={:?}",
+                        path.display(),
+                        id,
+                        result.record.format
+                    );
+                }
+                Err(e) => eprintln!("stage ERR {} {}", path.display(), e.message),
+            }
+        }
+    }
+
 }
