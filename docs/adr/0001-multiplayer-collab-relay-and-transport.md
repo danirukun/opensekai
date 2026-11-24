@@ -35,6 +35,7 @@ What exists today (see `ARCHITECTURE.md`): a Tauri 2 app whose **Rust host** own
 | Persistence | In memory first; Postgres in a later phase |
 | Mocap transport | **WebRTC first** (DataChannels terminated by the Elixir relay), **WebTransport as the fallback "if all fails"**, built **only if the spike shows a need** |
 | Plan B if Fly UDP fails | **Cloudflare Realtime SFU DataChannels**, behind an **abstract transport adapter** so a later switch (for example to a pure-Elixir relay on a plain VM) is cheap |
+| WebRTC server | **Explore [LiveKit](https://github.com/livekit/livekit)** in the spike, behind the same adapter. It is not the chosen server. `ex_webrtc` stays the primary. |
 | TURN | **None** |
 | Pose rate | **60 Hz by default**, with a **30 Hz mode** the host can switch to. Add an automatic drop to 30 Hz under congestion **only if it is easy**. If it is not easy, keep the manual switch. |
 | Platforms | **macOS and Windows first**; Linux later |
@@ -66,7 +67,7 @@ What exists today (see `ARCHITECTURE.md`): a Tauri 2 app whose **Rust host** own
      connect(room: RoomRef, creds: TransportCreds): Promise<void> // negotiate (SDP/ICE, ticket, or WS) after host approval
      sendPose(frame: Uint8Array): void            // unreliable, latest-only; drops instead of queuing
      subscribe(onPose: (slot: number, frame: Uint8Array) => void): Unsubscribe
-     stats(): { kind: 'webrtc-relay' | 'cf-realtime' | 'webtransport' | 'websocket'; rttMs: number; lossPct: number; jitterMs: number; hz: 30 | 60 }
+     stats(): { kind: 'webrtc-relay' | 'cf-realtime' | 'livekit' | 'webtransport' | 'websocket'; rttMs: number; lossPct: number; jitterMs: number; hz: 30 | 60 }
      close(reason?: string): void
    }
    ```
@@ -74,6 +75,7 @@ What exists today (see `ARCHITECTURE.md`): a Tauri 2 app whose **Rust host** own
    On the relay, a matching `Relay.Transport` behaviour (`open_session/2`, `negotiate/3`, `forward/3`, `stats/1`, `close/2`) sits under the `RoomServer`; the room logic (roster, permissions, kick) calls only the behaviour. Implementations:
    - **`ExWebRTCRelay`** (primary): `ex_webrtc` PeerConnections on Fly.
    - **`CloudflareRealtime`** (Plan B): each participant publishes its `pose` DataChannel to a Cloudflare Realtime SFU session and subscribes to the others'; Phoenix creates and closes the SFU sessions with the app secret (server side only) and mirrors kick and permission changes by closing or not creating subscriptions.
+   - **`LiveKitRelay` (explore, not chosen):** a self-hosted [LiveKit](https://github.com/livekit/livekit) server forwards lossy data. Phoenix creates the room and the join token only after host approval. The Rust host uses the `livekit` crate for this adapter only. `str0m` stays the client for `ExWebRTCRelay`.
    - **`WebTransportSidecar`** (conditional fallback) and **`WebSocketFrames`** (last resort).
    - Later, if wanted: a **pure-Elixir relay on a plain VM** (WebRTC or WebTransport) behind the same behaviour.
    Transport selection is per room and per participant and is reported in diagnostics. Matches the constitution rule "Keep platform code behind adapters" and the R2 adapter pattern.
@@ -156,6 +158,7 @@ Both WebRTC and WebTransport need UDP, so in a network that blocks UDP entirely 
 3. **WebSocket only (rejected as primary, kept as last resort):** head-of-line stalls (see Q3).
 4. **Direct P2P WebRTC (rejected):** leaks IP addresses.
 5. **Cloudflare Realtime SFU DataChannels instead of our own relay (decided as Plan B if Fly UDP fails, behind the transport adapter).** Clients publish and subscribe to DataChannels on Cloudflare's SFU; unordered + `maxRetransmits: 0` is supported (since Aug 2026, with identical settings for publisher and subscribers); $0.05/GB after 1 TB/month free (1.19 GB per room-hour → about 840 free room-hours a month). No UDP to operate on Fly, global anycast, TURN included; Phoenix keeps signalling and room state. Against: a second vendor, and room logic (kick, permissions) has to be mirrored into SFU sessions. Poses stay E2E encrypted, so Cloudflare sees only ciphertext.
+6. **Existing WebRTC server: [LiveKit](https://github.com/livekit/livekit) (explore in the spike, not chosen).** The server is Go, on Pion, under Apache-2.0. It runs as one binary or a Docker image, so a self-hosted relay can ship that image. It forwards lossy data packets: each packet is sent once, with no order guarantee. That matches the pose path. It also has data tracks. Those are lossy too, but the subscriber delivers frames in publish order, so the spike must show that a gap does not hold the next pose. Use the lossy packet API if the track API waits. A pose is about 370 B. LiveKit asks for lossy packets at or under 1300 B, so one pose fits in one packet. Phoenix still owns the room. It creates the LiveKit token only after the host approves. Participants connect to the server, not to each other. OpenSekai still encrypts the pose, so the server sees ciphertext. The client for this adapter is the Rust crate `livekit` ([rust-sdks](https://github.com/livekit/rust-sdks)). `str0m` stays the client for `ex_webrtc`. The spike must run that crate on macOS and on Windows. LiveKit includes TURN. This explore leaves TURN off. LiveKit Cloud is a hosted product. This explore uses the self-hosted server only. Keep `ex_webrtc` as the primary unless the spike shows better ICE success, loss, jitter, and p95 latency.
 
 ### Hosting option: Cloudflare Containers (Elixir + WebTransport there?)
 
@@ -189,6 +192,7 @@ What the docs say (Nov 2026):
 1. **`ex_webrtc` DataChannel on Fly `ams`:** dedicated IPv4, UDP port range, `str0m` client from EU/NA/JP home connections. Measure ICE success rate, setup time, loss, jitter, p95 added latency, CPU per 100 rooms, behaviour across deploys.
 2. **WebTransport sidecar second:** only if (1) shows ICE failing where UDP 443 works, or the port range can't be routed.
 3. **Plan B** if Fly UDP fails (decided): switch the room's transport adapter to `CloudflareRealtime`; Phoenix stays on Fly. A pure-Elixir relay on a plain VM stays possible later through the same adapter.
+4. **LiveKit server (explore, not chosen).** Self-host the Go SFU. Phoenix issues a token only after host approval. The Rust host sends poses as lossy data (`reliable: false`). Measure the same numbers as (1), and check that a lost packet does not delay the next one. Also run the `livekit` crate on macOS and Windows. Do not switch the primary path unless those numbers are better. Leave TURN off. Do not use LiveKit Cloud in this spike.
 
 ## Consequences
 
@@ -208,6 +212,7 @@ What the docs say (Nov 2026):
 - The WebTransport fallback, if built, adds the Rust sidecar and certificates back.
 - The adapter layer is a small extra abstraction and must be kept honest: one shared conformance test suite (connect, send/receive at 60 and 30 Hz, loss handling, kick, close) runs against every implementation.
 - Plan B puts the mocap stream on a second vendor (Cloudflare). Poses stay E2E encrypted, so Cloudflare only forwards ciphertext.
+- A LiveKit selection would add a Go server and the `livekit` Rust crate beside the Elixir room. Select it only when the spike beats `ex_webrtc`.
 
 ### Follow-up work this ADR implies
 - `ARCHITECTURE.md`: new process boundary (collab client in the Rust host; `apps/relay` with `ex_webrtc`; the transport adapter).
@@ -227,6 +232,7 @@ Resolved on 2026-11-22 and moved into "Owner decisions": ADR location, Plan B, W
 
 ## Sources
 
+- LiveKit (explore): [livekit/livekit](https://github.com/livekit/livekit) (Go SFU, Apache-2.0), [lossy data packets](https://docs.livekit.io/transport/data/packets/), [data tracks](https://docs.livekit.io/transport/data/data-tracks/), [Rust SDK](https://github.com/livekit/rust-sdks).
 - WebRTC server: [ex_webrtc on Hex (0.18.0, Apache-2.0)](https://hex.pm/packages/ex_webrtc), [ex_webrtc GitHub](https://github.com/elixir-webrtc/ex_webrtc), [ExWebRTC.DataChannel](https://ex-webrtc.hexdocs.pm/ExWebRTC.DataChannel.html), [PeerConnection configuration (ice_port_range, ice_ip_filter, host_to_srflx_ip_mapper)](https://ex-webrtc.hexdocs.pm/ExWebRTC.PeerConnection.Configuration.html), [Deploying on bare machines (no ICE-TCP)](https://ex-webrtc.hexdocs.pm/bare.html), [Elixir Observer: ex_webrtc dependencies](https://elixir-observer.com/packages/ex_webrtc).
 - WebRTC client: [str0m crate](https://crates.io/crates/str0m), [str0m Channel docs](https://docs.rs/str0m/latest/str0m/channel/struct.Channel.html), [WebKitGTK enable-webrtc (default FALSE)](https://webkitgtk.org/reference/webkitgtk/stable/property.Settings.enable-webrtc.html), [Tauri app report: WebKitGTK builds lack WebRTC, wry never enables it](https://github.com/LanternOps/breeze/issues/9557), [WebKit bug 321290: WebRTC disabled for GTK/WPE 2.54](https://bugs.webkit.org/show_bug.cgi?id=321290).
 - Protocols: [RFC 8831 WebRTC data channels](https://www.rfc-editor.org/rfc/rfc8831), [RFC 3758 SCTP partial reliability](https://www.rfc-editor.org/rfc/rfc3758), [RFC 9221 QUIC datagrams](https://www.rfc-editor.org/rfc/rfc9221), [RFC 5681](https://www.rfc-editor.org/rfc/rfc5681), [RFC 6298](https://www.rfc-editor.org/rfc/rfc6298), [RFC 8985](https://www.rfc-editor.org/rfc/rfc8985).
