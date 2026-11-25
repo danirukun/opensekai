@@ -1,9 +1,20 @@
-import type {AvatarAnimation, AvatarPose, Id, OverlayPoseEntry, Quat, SceneView} from '@opensekai/contracts';
+import {
+  isOverlayClipEntry,
+  type AvatarAnimation,
+  type AvatarPose,
+  type Id,
+  type OverlayPoseEntry,
+  type Quat,
+  type SceneView,
+} from '@opensekai/contracts';
 import {bodyPartOf} from '@opensekai/contracts';
 import {IDENTITY, slerpQuat} from './bone-offsets';
 import {evaluateHandPose} from './hand-poses';
 import {stepHandPin, type HandPinRuntime} from './hand-pin';
+import {evaluateAvatarClipIdle} from './idle';
+import {evaluateOneShotBones, type OneShotEntry, type OneShotStates} from './one-shot-overlays';
 import {blendOverlayBones, evaluateOverlayPose, maskOverlayBones, type OverlayBone} from './overlay-poses';
+import type {AssetRecordLookup} from './tracking';
 
 export interface AvatarAnimationRuntime {
   pins: HandPinRuntime;
@@ -13,17 +24,43 @@ export interface AvatarAnimationRuntime {
 
 export type AnimationRuntimes = Map<Id, AvatarAnimationRuntime>;
 
-const overlayKey = (entries: readonly OverlayPoseEntry[]) =>
-  entries.map(e => `${e.id}:${e.pose}:${e.weight}:${e.speed ?? 1}:${e.maskedBodyParts.join(',')}`).join('|');
+const DEFAULT_MASK = ['leftArm', 'rightArm', 'leftFingers', 'rightFingers'] as const;
 
-function applyOverlayList(entries: readonly OverlayPoseEntry[], elapsedMs: number): Record<string, OverlayBone> {
+const overlayKey = (entries: readonly OverlayPoseEntry[]) =>
+  entries.map(e => {
+    const content = isOverlayClipEntry(e) ? `clip:${e.assetId}` : `pose:${e.pose}`;
+    return `${e.id}:${content}:${e.weight}:${e.speed ?? 1}:${e.maskedBodyParts.join(',')}`;
+  }).join('|');
+
+function evaluateEntry(
+  entry: OverlayPoseEntry,
+  elapsedMs: number,
+  record: AssetRecordLookup | undefined,
+): Record<string, OverlayBone> | null {
+  const speed = entry.speed ?? 1;
+  const mask = entry.maskedBodyParts.length ? entry.maskedBodyParts : [...DEFAULT_MASK];
+  if (isOverlayClipEntry(entry)) {
+    const animation = record?.(entry.assetId)?.animation;
+    if (!animation) return null;
+    const sampled = evaluateAvatarClipIdle(animation, elapsedMs * speed);
+    const asOverlay: Record<string, OverlayBone> = Object.fromEntries(
+      Object.entries(sampled).map(([name, bone]) => [name, {space: 'normalized' as const, rotation: bone.rotation}]),
+    );
+    return maskOverlayBones(asOverlay, mask);
+  }
+  return maskOverlayBones(evaluateOverlayPose(entry.pose, elapsedMs, speed), mask);
+}
+
+function applyOverlayList(
+  entries: readonly OverlayPoseEntry[],
+  elapsedMs: number,
+  record: AssetRecordLookup | undefined,
+): Record<string, OverlayBone> {
   let bones: Record<string, OverlayBone> = {};
   for (const entry of entries) {
     if (entry.weight <= 0) continue;
-    const evaluated = maskOverlayBones(
-      evaluateOverlayPose(entry.pose, elapsedMs, entry.speed ?? 1),
-      entry.maskedBodyParts.length ? entry.maskedBodyParts : ['leftArm', 'rightArm', 'leftFingers', 'rightFingers'],
-    );
+    const evaluated = evaluateEntry(entry, elapsedMs, record);
+    if (!evaluated) continue;
     const next: Record<string, OverlayBone> = {...bones};
     for (const [name, bone] of Object.entries(evaluated)) {
       const base = bones[name]?.rotation ?? IDENTITY;
@@ -34,14 +71,24 @@ function applyOverlayList(entries: readonly OverlayPoseEntry[], elapsedMs: numbe
   return bones;
 }
 
-/** Bones covered by active overlays or hand poses (for Face-Only writer skip). */
-export function animationMaskedBones(animation: AvatarAnimation | undefined): Set<string> {
+/** Bones covered by active overlays, one-shots, or hand poses (for Face-Only writer skip). */
+export function animationMaskedBones(
+  animation: AvatarAnimation | undefined,
+  record?: AssetRecordLookup,
+  oneShot?: OneShotEntry,
+  elapsedMs = 0,
+): Set<string> {
   const out = new Set<string>();
-  if (!animation) return out;
+  if (!animation) {
+    if (oneShot) for (const bone of oneShotMaskedNames(oneShot, elapsedMs, record)) out.add(bone);
+    return out;
+  }
   for (const entry of animation.overlayingPoses) {
     if (entry.weight <= 0) continue;
-    const parts = new Set(entry.maskedBodyParts.length ? entry.maskedBodyParts : ['leftArm', 'rightArm', 'leftFingers', 'rightFingers']);
-    for (const bone of Object.keys(evaluateOverlayPose(entry.pose, 0, entry.speed ?? 1))) {
+    const parts = new Set(entry.maskedBodyParts.length ? entry.maskedBodyParts : DEFAULT_MASK);
+    const evaluated = evaluateEntry(entry, 0, record);
+    if (!evaluated) continue;
+    for (const bone of Object.keys(evaluated)) {
       const part = bodyPartOf(bone);
       if (part && parts.has(part)) out.add(bone);
     }
@@ -51,7 +98,43 @@ export function animationMaskedBones(animation: AvatarAnimation | undefined): Se
     if (!hand?.enabled || hand.weight <= 0) continue;
     for (const bone of Object.keys(evaluateHandPose(side, hand.pose))) out.add(bone);
   }
+  if (oneShot) for (const bone of oneShotMaskedNames(oneShot, elapsedMs, record)) out.add(bone);
   return out;
+}
+
+function oneShotMaskedNames(
+  entry: OneShotEntry,
+  elapsedMs: number,
+  record: AssetRecordLookup | undefined,
+): string[] {
+  const evaluated = evaluateOneShotBones(entry, elapsedMs, record ?? (() => undefined));
+  if (!evaluated || evaluated.contribution <= 0) return [];
+  const parts = new Set(entry.maskedBodyParts.length ? entry.maskedBodyParts : DEFAULT_MASK);
+  return Object.keys(evaluated.bones).filter(bone => {
+    const part = bodyPartOf(bone);
+    return part != null && parts.has(part);
+  });
+}
+
+function applyOneShotToBones(
+  bones: Record<string, AvatarPose['bones'][string]>,
+  entry: OneShotEntry | undefined,
+  elapsedMs: number,
+  record: AssetRecordLookup | undefined,
+): void {
+  if (!entry) return;
+  const evaluated = evaluateOneShotBones(entry, elapsedMs, record ?? (() => undefined));
+  if (!evaluated || evaluated.contribution <= 0) return;
+  for (const [name, bone] of Object.entries(evaluated.bones)) {
+    const existing = bones[name];
+    if (existing?.space === 'raw') continue;
+    const base = existing?.rotation ?? IDENTITY;
+    bones[name] = {
+      rotation: slerpQuat(base, bone.rotation, evaluated.contribution),
+      space: 'normalized',
+      ...(existing?.weight !== undefined ? {weight: existing.weight} : {}),
+    };
+  }
 }
 
 export function composeAvatarAnimation(
@@ -59,22 +142,28 @@ export function composeAvatarAnimation(
   scene: SceneView,
   elapsedMs: number,
   runtimes: AnimationRuntimes,
+  record?: AssetRecordLookup,
+  oneShots?: OneShotStates,
 ): {poses: AvatarPose[]; runtimes: AnimationRuntimes} {
   const nextRuntimes: AnimationRuntimes = new Map();
   const out = poses.map(pose => {
     const avatar = scene.entities.find(e => e.id === pose.avatarId && e.kind === 'avatar');
-    if (!avatar || avatar.kind !== 'avatar' || !avatar.animation) return pose;
+    if (!avatar || avatar.kind !== 'avatar') return pose;
     const animation = avatar.animation;
+    const oneShot = oneShots?.get(avatar.id);
+    if (!animation && !oneShot) return pose;
     const prev = runtimes.get(avatar.id) ?? {pins: {}};
-    const key = overlayKey(animation.overlayingPoses);
-    const targetBones = applyOverlayList(animation.overlayingPoses, elapsedMs);
+    const key = animation ? overlayKey(animation.overlayingPoses) : '';
+    const targetBones = animation ? applyOverlayList(animation.overlayingPoses, elapsedMs, record) : {};
     let transition = prev.transition;
-    if (!transition || transition.key !== key) {
+    if (animation && (!transition || transition.key !== key)) {
       transition = {from: prev.displayed ?? {}, startedAtMs: elapsedMs, key};
     }
-    const span = animation.overlayTransitionSeconds * 1000;
-    const t = span <= 0 ? 1 : Math.min(1, Math.max(0, (elapsedMs - transition.startedAtMs) / span));
-    const overlayBones = blendOverlayBones(transition.from, targetBones, t) as Record<string, OverlayBone>;
+    const span = (animation?.overlayTransitionSeconds ?? 0) * 1000;
+    const t = !animation || span <= 0 ? 1 : Math.min(1, Math.max(0, (elapsedMs - (transition?.startedAtMs ?? elapsedMs)) / span));
+    const overlayBones = animation
+      ? blendOverlayBones(transition?.from ?? {}, targetBones, t) as Record<string, OverlayBone>
+      : {};
 
     const bones = {...pose.bones};
     for (const [name, bone] of Object.entries(overlayBones)) {
@@ -85,6 +174,12 @@ export function composeAvatarAnimation(
         space: 'normalized',
         ...(existing?.weight !== undefined ? {weight: existing.weight} : {}),
       };
+    }
+    applyOneShotToBones(bones, oneShot, elapsedMs, record);
+
+    if (!animation) {
+      nextRuntimes.set(avatar.id, {pins: prev.pins});
+      return {...pose, bones};
     }
 
     for (const side of ['left', 'right'] as const) {

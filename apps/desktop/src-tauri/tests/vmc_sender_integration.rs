@@ -37,6 +37,7 @@ fn avatar(asset: &str) -> SceneEntity {
         asset_id: Some(asset.into()),
         tracking: None,
         idle_animation: None,
+        animation: None,
         expressions: None,
         hidden_meshes: None,
         lighting: None,
@@ -114,6 +115,7 @@ fn record(id: &str, rig: Option<AvatarRig>) -> AssetRecord {
         materials: None,
         image: None,
         video: None,
+        animation: None,
     }
 }
 fn pose(id: &str) -> VmcSendPose {

@@ -39,30 +39,80 @@ pub enum HandPoseId {
     ThumbsUp,
 }
 
+fn overlay_parts_ok(parts: &[BodyPart]) -> bool {
+    parts.len() <= 8 && {
+        let mut seen = std::collections::HashSet::new();
+        parts.iter().all(|p| seen.insert(*p))
+    }
+}
+
+fn overlay_weight_speed_ok(weight: f64, speed: Option<f64>) -> bool {
+    weight.is_finite()
+        && (0.0..=1.0).contains(&weight)
+        && speed
+            .map(|s| s.is_finite() && (0.0..=4.0).contains(&s))
+            .unwrap_or(true)
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct OverlayPoseEntry {
-    pub id: Id,
-    pub pose: OverlayPoseId,
-    pub masked_body_parts: Vec<BodyPart>,
-    pub weight: f64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub speed: Option<f64>,
+#[serde(untagged)]
+pub enum OverlayPoseEntry {
+    /// Clip first so `kind: "clip"` does not fall through to the pose shape.
+    Clip {
+        id: Id,
+        kind: OverlayClipKind,
+        #[serde(rename = "assetId")]
+        asset_id: Id,
+        #[serde(rename = "maskedBodyParts")]
+        masked_body_parts: Vec<BodyPart>,
+        weight: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        speed: Option<f64>,
+    },
+    Pose {
+        id: Id,
+        pose: OverlayPoseId,
+        #[serde(rename = "maskedBodyParts")]
+        masked_body_parts: Vec<BodyPart>,
+        weight: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        speed: Option<f64>,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum OverlayClipKind {
+    Clip,
 }
 
 impl OverlayPoseEntry {
+    pub fn id(&self) -> &Id {
+        match self {
+            Self::Clip { id, .. } | Self::Pose { id, .. } => id,
+        }
+    }
+
     pub fn is_valid(&self) -> bool {
-        self.weight.is_finite()
-            && (0.0..=1.0).contains(&self.weight)
-            && self.masked_body_parts.len() <= 8
-            && {
-                let mut seen = std::collections::HashSet::new();
-                self.masked_body_parts.iter().all(|p| seen.insert(*p))
+        match self {
+            Self::Clip {
+                asset_id,
+                masked_body_parts,
+                weight,
+                speed,
+                ..
+            } => {
+                !asset_id.is_empty()
+                    && overlay_parts_ok(masked_body_parts)
+                    && overlay_weight_speed_ok(*weight, *speed)
             }
-            && self
-                .speed
-                .map(|s| s.is_finite() && (0.0..=4.0).contains(&s))
-                .unwrap_or(true)
+            Self::Pose {
+                masked_body_parts,
+                weight,
+                speed,
+                ..
+            } => overlay_parts_ok(masked_body_parts) && overlay_weight_speed_ok(*weight, *speed),
+        }
     }
 }
 
@@ -131,7 +181,7 @@ impl AvatarAnimation {
                 let mut ids = std::collections::BTreeSet::new();
                 self.overlaying_poses
                     .iter()
-                    .all(|e| e.is_valid() && ids.insert(e.id.clone()))
+                    .all(|e| e.is_valid() && ids.insert(e.id().clone()))
             }
             && self
                 .override_hand_poses

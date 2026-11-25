@@ -169,9 +169,11 @@ export interface ScenePatch {
 }
 export interface AssetCatalog { description: string | null; tags: string[]; }
 export interface AssetCredits { title: string | null; author: string | null; license: string | null; sourceUrl: string | null; }
+export interface AssetAnimationTrack { times: number[]; rotations: number[]; }
+export interface AssetAnimation { durationMs: number; bones: Record<string, AssetAnimationTrack>; }
 export interface AssetRecord {
     id: Id;
-    format: "glb" | "vrm" | "png" | "jpeg" | "webp" | "gif" | "mp4" | "webm" | "hdr";
+    format: "glb" | "vrm" | "vrma" | "fbx" | "png" | "jpeg" | "webp" | "gif" | "mp4" | "webm" | "hdr";
     sha256: string;
     bytes: number;
     sourceUrl: string | null;
@@ -187,12 +189,13 @@ export interface AssetRecord {
     materials?: AssetMaterial[];
     image?: AssetImage;
     video?: AssetVideo;
+    animation?: AssetAnimation;
 }
 export interface AssetImage { width: number; height: number; frames: number; }
 export type VideoCodec = "h264" | "hevc" | "vp8" | "vp9" | "av1";
 export type VideoAudioCodec = "aac" | "mp3" | "opus" | "vorbis";
 export interface AssetVideo { width: number; height: number; durationMs: number; videoCodec: VideoCodec; audioCodec: VideoAudioCodec | null; alpha: boolean; }
-export interface AssetSummary { id: Id; kind: "avatar" | "scene" | "image" | "video" | "hdr" | "fixture"; name: string; credits?: AssetCredits; catalog?: AssetCatalog; }
+export interface AssetSummary { id: Id; kind: "avatar" | "scene" | "image" | "video" | "hdr" | "animation" | "fixture"; name: string; credits?: AssetCredits; catalog?: AssetCatalog; }
 export interface AssetList { assets: AssetSummary[]; next: Id | null; }
 export interface ConnectionDescriptor {
     schemaVersion: 1;

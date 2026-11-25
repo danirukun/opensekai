@@ -7,7 +7,7 @@ export type VmcPositionRule='all'|'rotationsOnly'|'hipsOnly';
 export type TrackingConfig={kind:'vmc';enabled:boolean;bindAddress:string;port:number;senderAddress:string|null;positions?:VmcPositionRule}|{kind:'ifacialmocap';enabled:boolean;bindAddress:string;port:number;phoneAddress:string|null}|{kind:'openseeface';enabled:boolean;bindAddress:string;port:number;senderAddress:string|null}|{kind:'mediapipe';enabled:boolean;deviceId:string;face:boolean;upperBody:boolean;hands:boolean;mirror:boolean}|{kind:'facekit';enabled:boolean;deviceId:string};
 export interface TrackingSmoothing {enabled:boolean;minCutoff:number;beta:number;derivativeCutoff:number}
 export const DEFAULT_TRACKING_SMOOTHING:Readonly<TrackingSmoothing>=Object.freeze({enabled:true,minCutoff:5,beta:.5,derivativeCutoff:1});
-export interface AvatarIdle {kind:'builtin';enabled:boolean}
+export type AvatarIdle = {kind:'builtin';enabled:boolean} | {kind:'clip';enabled:boolean;assetId:Id}
 export interface IdleBone {rotation:Quat;space:'normalized';position?:Vec3}
 // The parts of a character that tracking can drive (TRK-05 slice 2). The order is the stored order of `trackedParts`.
 export const BODY_PARTS=['head','body','leftArm','rightArm','leftFingers','rightFingers','leftLeg','rightLeg'] as const;
@@ -61,7 +61,10 @@ export const TrackingConfigSchema=z.discriminatedUnion('kind',[
  z.strictObject({kind:z.literal('mediapipe'),enabled:z.boolean(),deviceId:z.string().max(512),face:z.boolean(),upperBody:z.boolean(),hands:z.boolean(),mirror:z.boolean()}).refine(c=>!c.enabled||c.face||c.upperBody||c.hands),
  z.strictObject({kind:z.literal('facekit'),enabled:z.boolean(),deviceId:z.string().max(512)})
 ]);
-export const AvatarIdleSchema=z.strictObject({kind:z.literal('builtin'),enabled:z.boolean()});
+export const AvatarIdleSchema=z.discriminatedUnion('kind',[
+ z.strictObject({kind:z.literal('builtin'),enabled:z.boolean()}),
+ z.strictObject({kind:z.literal('clip'),enabled:z.boolean(),assetId:id}),
+]);
 export const AvatarBodyTrackingSchema=z.strictObject({movementIntensity:n.min(0).max(2),trackedParts:z.array(z.enum(BODY_PARTS)).max(BODY_PARTS.length).refine(v=>new Set(v).size===v.length)});
 export const AvatarTrackingSchema=z.strictObject({bodySourceId:id.nullable(),faceSourceId:id.nullable(),fingersSourceId:id.nullable().optional(),body:AvatarBodyTrackingSchema.optional()});
 const calibrationBone=z.strictObject({rotation:quat,space:z.enum(['raw','normalized'])});

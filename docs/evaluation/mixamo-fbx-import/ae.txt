@@ -1,0 +1,9 @@
+builtin→breathing      AE=40.12%
+breathing a→b          AE=40.06%
+breathing b→c          AE=26.76%
+happy a→b              AE=32.42%
+excited a→b            AE=29.62%
+excited b→c            AE=29.22%
+breathing→happy        AE=17.84%
+happy→excited          AE=38.14%
+builtin→excited        AE=21.36%

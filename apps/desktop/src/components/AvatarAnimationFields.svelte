@@ -16,6 +16,7 @@
   handPoseOptions,
   handSideLabels,
   isHandPoseId,
+  isOverlayClipEntry,
   isOverlayPoseId,
   moveOverlay,
   newOverlayEntry,
@@ -23,10 +24,14 @@
   removeOverlay,
   withHandOverride,
   withHandPin,
+  withOverlayClip,
   withOverlayPart,
   withOverlayPose,
+  withOverlaySpeed,
   withOverlayWeight,
  } from '../editor/avatar-animation';
+
+ const OVERLAY_CLIP_SPEED = {min: 0, max: 4, step: 0.05, curve: 'linear'} as const;
 
  type Commit = (id: string, animation: AvatarAnimation, revision: number) => Promise<Reply<{revision: number}> | unknown>;
  let {
@@ -34,14 +39,21 @@
   animation,
   revision,
   disabled = false,
+  animations = [],
   oncommit,
  }: {
   entityId: string;
   animation?: AvatarAnimation;
   revision: number;
   disabled?: boolean;
+  animations?: {id: string; name: string}[];
   oncommit?: Commit;
  } = $props();
+
+ const overlaySourceOptions = $derived([
+  ...overlayPoseOptions.map(option => ({value: `pose:${option.value}`, label: option.label})),
+  ...animations.map(asset => ({value: `clip:${asset.id}`, label: asset.name})),
+ ]);
 
  const current = $derived(animationOf(animation));
  const leftHand = $derived(current.overrideHandPoses.left ?? defaultHandOverride());
@@ -69,13 +81,16 @@
    <div class="overlay">
     <div class="row">
      <Select
-      label="Pose"
-      value={entry.pose}
-      options={overlayPoseOptions}
+      label="Source"
+      value={isOverlayClipEntry(entry) ? `clip:${entry.assetId}` : `pose:${entry.pose}`}
+      options={overlaySourceOptions}
       disabled={disabled || !oncommit}
       onchange={event => {
-       const pose = event.currentTarget.value;
-       if (isOverlayPoseId(pose)) commit(withOverlayPose(current, entry.id, pose));
+       const value = event.currentTarget.value;
+       if (value.startsWith('pose:')) {
+        const pose = value.slice(5);
+        if (isOverlayPoseId(pose)) commit(withOverlayPose(current, entry.id, pose));
+       } else if (value.startsWith('clip:')) commit(withOverlayClip(current, entry.id, value.slice(5)));
       }}
      />
      <div class="moves">
@@ -91,6 +106,15 @@
      disabled={disabled || !oncommit}
      oncommit={value => commit(withOverlayWeight(current, entry.id, value))}
     />
+    {#if isOverlayClipEntry(entry)}
+     <SliderField
+      label="Speed"
+      value={entry.speed ?? 1}
+      range={OVERLAY_CLIP_SPEED}
+      disabled={disabled || !oncommit}
+      oncommit={value => commit(withOverlaySpeed(current, entry.id, value))}
+     />
+    {/if}
     <fieldset class="parts" disabled={disabled || !oncommit}>
      <legend>Masked Body Parts</legend>
      {#each bodyPartOptions as part (part.value)}

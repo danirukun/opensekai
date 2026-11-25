@@ -52,3 +52,29 @@ fn animation_patch_rejects_unknown_pose() {
     v["operations"][0]["animation"]["overlayingPoses"][0]["pose"] = json!("wave");
     assert!(validate_value::<ScenePatch>(&v).is_ok());
 }
+
+#[test]
+fn animation_patch_accepts_clip_overlays() {
+    let v = json!({
+        "sceneId": "s",
+        "expectedRevision": 0,
+        "operations": [{
+            "kind": "setAvatarAnimation",
+            "entityId": "avatar",
+            "animation": {
+                "overlayingPoses": [{
+                    "id": "c1",
+                    "kind": "clip",
+                    "assetId": "animation_idle",
+                    "maskedBodyParts": ["leftArm", "rightArm"],
+                    "weight": 1,
+                    "speed": 1
+                }],
+                "overlayTransitionSeconds": 1,
+                "overrideHandPoses": {},
+                "handPin": {}
+            }
+        }]
+    });
+    assert!(validate_value::<ScenePatch>(&v).is_ok());
+}

@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import type {AvatarPose, SceneView} from '@opensekai/contracts';
+import type {AssetRecord, AvatarPose, SceneView} from '@opensekai/contracts';
 import {makeSmokeScene} from '@opensekai/contracts';
 import {composeAvatarAnimation} from '../src/avatar-animation-compose';
 
@@ -57,5 +57,31 @@ describe('composeAvatarAnimation', () => {
     const out = composeAvatarAnimation([pose()], scene, 0, new Map());
     expect(out.poses[0]!.bones.leftIndexProximal).toBeDefined();
     expect(out.poses[0]!.bones.leftThumbMetacarpal).toBeDefined();
+  });
+
+  it('samples a clip overlay and skips a missing clip asset', () => {
+    const clipId = 'animation_' + 'c'.repeat(64);
+    const scene = withAnimation(makeSmokeScene(), {
+      overlayingPoses: [{
+        id: 'c1', kind: 'clip', assetId: clipId,
+        maskedBodyParts: ['body'], weight: 1, speed: 1,
+      }],
+      overlayTransitionSeconds: 0,
+      overrideHandPoses: {},
+      handPin: {},
+    });
+    const clip = {
+      durationMs: 1000,
+      bones: {chest: {times: [0, 1], rotations: [0, 0, 0, 1, 0, 0, Math.SQRT1_2, Math.SQRT1_2]}},
+    };
+    const clipRecord: AssetRecord = {
+      id: clipId, format: 'vrma', sha256: 'c'.repeat(64), bytes: 64, sourceUrl: null,
+      licenseLabel: 'User supplied', importerVersion: 1, name: 'chest', expressions: [], animation: clip,
+    };
+    const record = (id: string) => id === clipId ? clipRecord : undefined;
+    const hit = composeAvatarAnimation([pose()], scene, 0, new Map(), record);
+    expect(hit.poses[0]!.bones.chest).toBeDefined();
+    const miss = composeAvatarAnimation([pose()], scene, 0, new Map());
+    expect(miss.poses[0]!.bones.chest).toBeUndefined();
   });
 });

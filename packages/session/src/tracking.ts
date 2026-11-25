@@ -1,8 +1,16 @@
-import {TrackingUpdateSchema,canonicalArkitName,type ArkitName,type TrackingProbe,type TrackingUpdate,type TrackingSample,type VmcPositionRule,type TrackingStatus,type TrackingBone,type AvatarPose,type SceneView,type SceneEntity,DEFAULT_TRACKING_SMOOTHING,FINGER_BONES,type Quat,type Reply,bodyPartOf,type AvatarBodyTracking,FAILED_TRACKING_STATES} from '@opensekai/contracts';
+import {TrackingUpdateSchema,canonicalArkitName,type ArkitName,type AssetRecord,type TrackingProbe,type TrackingUpdate,type TrackingSample,type VmcPositionRule,type TrackingStatus,type TrackingBone,type AvatarPose,type SceneView,type SceneEntity,DEFAULT_TRACKING_SMOOTHING,FINGER_BONES,type Quat,type Reply,type Id,bodyPartOf,type AvatarBodyTracking,FAILED_TRACKING_STATES} from '@opensekai/contracts';
 import {applyCalibration} from './tracking-calibration';
 import {applyMapping,scaleRotation} from './tracking-mapping';
-import {evaluateAvatarIdle} from './idle';
+import {evaluateAvatarClipIdle,evaluateAvatarIdle} from './idle';
 import {createTrackingSampleFilter} from './tracking-filter';
+export type AssetRecordLookup=(assetId:Id)=>AssetRecord|undefined;
+function idleBaseline(entity:Extract<SceneEntity,{kind:'avatar'}>,elapsedMs:number,record:AssetRecordLookup|undefined){
+ const idle=entity.idleAnimation;
+ if(!idle?.enabled)return undefined;
+ if(idle.kind==='builtin')return evaluateAvatarIdle(elapsedMs);
+ const animation=record?.(idle.assetId)?.animation;
+ return animation?evaluateAvatarClipIdle(animation,elapsedMs):undefined;
+}
 const faceBones=new Set(['head','neck','leftEye','rightEye','jaw']),fingerBones=new Set(FINGER_BONES);
 const copy=<T>(value:T):T=>structuredClone(value);
 const failed=(state:TrackingStatus['state'])=>(FAILED_TRACKING_STATES as readonly string[]).includes(state);
@@ -83,7 +91,7 @@ export function createTrackingComposer(){
   if(resetPeaks)peaks.delete(sourceId);
   return result;
  },
- evaluate(scene:SceneView,nowMs:number,animationElapsedMs=nowMs):{avatarPoses:AvatarPose[];trackingStatus:TrackingStatus[]}{
+ evaluate(scene:SceneView,nowMs:number,animationElapsedMs=nowMs,record?:AssetRecordLookup):{avatarPoses:AvatarPose[];trackingStatus:TrackingStatus[]}{
   if(!Number.isFinite(nowMs)||nowMs<0)throw new RangeError('Invalid tracking time');
   if(!Number.isFinite(animationElapsedMs)||animationElapsedMs<0)throw new RangeError('Invalid animation time');reconcile(scene);
   function input(id:string|null|undefined){
@@ -99,7 +107,7 @@ export function createTrackingComposer(){
   const resolved=new Map<string,TrackingSample>();
   const avatarPoses:AvatarPose[]=[];
   for(const entity of scene.entities){if(entity.kind!=='avatar')continue;
-   const baseBones=entity.idleAnimation?.enabled?evaluateAvatarIdle(animationElapsedMs):undefined;
+   const baseBones=idleBaseline(entity,animationElapsedMs,record);
    // Hand/overlay animation still needs a pose entry when idle and tracking are both off.
    const needsAnimationPose=!!entity.animation&&(
      entity.animation.overlayingPoses.some(entry=>entry.weight>0)||

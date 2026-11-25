@@ -246,6 +246,20 @@ impl DesktopState {
             .ok_or_else(|| error(ErrorCode::Unavailable, "Session unavailable"))?;
         ports.import_hdr(path).await
     }
+    pub async fn import_animation(
+        &self,
+        path: PathBuf,
+    ) -> Result<crate::assets::ImportResult, AppError> {
+        let ports = self
+            .owned
+            .lock()
+            .await
+            .service
+            .as_ref()
+            .map(|service| service.ports())
+            .ok_or_else(|| error(ErrorCode::Unavailable, "Session unavailable"))?;
+        ports.import_animation(path).await
+    }
     pub async fn import_video(
         &self,
         path: PathBuf,

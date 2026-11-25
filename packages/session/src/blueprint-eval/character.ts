@@ -72,6 +72,19 @@ export const CHARACTER_EVALUATORS = {
   const overlayingPoses = [...current.overlayingPoses.filter(item => item.id !== entryId), entry];
   c.emit({ kind: 'setAvatarAnimation', entityId, animation: { ...current, overlayingPoses } });
  } },
+ 'character.playOneShotOverlay': { flow: (node, c) => {
+  const { entityId, assetId, weight, speed, blendInSeconds, blendOutSeconds } = node.settings;
+  c.emit({
+   kind: 'playOneShotOverlay',
+   entityId,
+   assetId,
+   maskedBodyParts: [...DEFAULT_OVERLAY_MASK],
+   weight,
+   speed,
+   blendInSeconds,
+   blendOutSeconds,
+  });
+ } },
  'character.setHandPose': { flow: (node, c) => {
   const scene = c.env.scene();
   if (!scene) throw new RangeError('Character is unavailable');
