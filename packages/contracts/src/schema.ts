@@ -40,6 +40,7 @@ export const LIMITS = {
     litLights: 8,
     shadowLights: 2,
     hazes: 1,
+    snows: 1,
     fpsCounters: 1,
     vmcSenders: 4,
     screens: 16,
@@ -209,6 +210,20 @@ export const HazeSettingsSchema = z.strictObject({
     intensity: n.min(0).max(4),
     drift: n.min(0).max(2)
 });
+export const SnowSettingsSchema = z.strictObject({
+    rate: n.min(0).max(1),
+    fallSpeed: n.min(0.2).max(3),
+    flakeSize: n.min(0.5).max(2),
+    flutter: n.min(0).max(2),
+    windDirection: n.min(0).max(360),
+    windSpeed: n.min(0).max(5),
+    buildUpSeconds: n.min(5).max(600),
+    meltSeconds: n.min(5).max(600),
+    thickness: n.min(0).max(0.05),
+    settleOnCharacters: z.boolean(),
+    settleOnProps: z.boolean(),
+    settleOnEnvironment: z.boolean()
+});
 export const FpsCounterCornerSchema = z.enum(["topLeft", "topRight", "bottomLeft", "bottomRight"]);
 // Size is in pixels of a 1080-pixel output (B19 R1).
 export const FpsCounterSettingsSchema = z.strictObject({
@@ -282,6 +297,10 @@ export const SceneEntitySchema = z.discriminatedUnion("kind", [
         haze: HazeSettingsSchema
     }),
     EntityBaseSchema.extend({
+        kind: z.literal("snow"),
+        snow: SnowSettingsSchema
+    }),
+    EntityBaseSchema.extend({
         kind: z.literal("fpsCounter"),
         fpsCounter: FpsCounterSettingsSchema
     }),
@@ -324,6 +343,7 @@ const SceneViewShapeSchema = z.strictObject({
  if(s.entities.filter(e=>e.kind==='environment').length>1)return false;
  if(sources.length>4||s.entities.filter(e=>e.kind==='avatar').length>2||s.entities.filter(e=>e.kind==='camera').length>LIMITS.cameras)return false;
  if(s.entities.filter(e=>e.kind==='haze').length>LIMITS.hazes)return false;
+ if(s.entities.filter(e=>e.kind==='snow').length>LIMITS.snows)return false;
  if(s.entities.filter(e=>e.kind==='fpsCounter').length>LIMITS.fpsCounters)return false;
  if(s.entities.filter(e=>e.kind==='screen').length>LIMITS.screens||s.entities.filter(isVideoScreen).length>LIMITS.videoScreens)return false;
  if(s.entities.filter(e=>e.kind==='screen'&&e.content.kind==='web').length>LIMITS.webScreens)return false;
@@ -372,6 +392,7 @@ export const PatchOpSchema = z.discriminatedUnion("kind", [
     z.strictObject({kind:z.literal('setEnvironmentLighting'),entityId:IdSchema,allowLightsToAffectCharacters:z.boolean()}),
     z.strictObject({kind:z.literal('setLight'),entityId:IdSchema,light:LightSettingsSchema}),
     z.strictObject({kind:z.literal('setHaze'),entityId:IdSchema,haze:HazeSettingsSchema}),
+    z.strictObject({kind:z.literal('setSnow'),entityId:IdSchema,snow:SnowSettingsSchema}),
     z.strictObject({kind:z.literal('setFpsCounter'),entityId:IdSchema,fpsCounter:FpsCounterSettingsSchema}),
     z.strictObject({kind:z.literal('setOutputFormat'),outputId:IdSchema,width:u.positive(),height:u.positive(),fps:OutputSpecSchema.shape.fps,renderScale:z.union(OUTPUT_RENDER_SCALES.map(scale => z.literal(scale)))}).refine(isOutputSize, 'Invalid output size'),
     z.strictObject({kind:z.literal('setVmcSender'),entityId:IdSchema,vmcSender:VmcSenderSettingsSchema}),

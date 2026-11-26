@@ -23,6 +23,7 @@ pub const LIGHT_BUDGET_LIGHTS_MESSAGE: &str = "Scene has the maximum of 32 light
 pub const LIGHT_BUDGET_LIT_MESSAGE: &str = "Scene has the maximum of 8 lit lights";
 pub const LIGHT_BUDGET_SHADOW_MESSAGE: &str = "Scene has the maximum of 2 shadow lights";
 pub const MAX_HAZES: usize = 1;
+pub const MAX_SNOWS: usize = 1;
 pub const MAX_FPS_COUNTERS: usize = 1;
 pub const MAX_SCREENS: usize = 16;
 pub const MAX_WEB_SCREENS: usize = 4;
@@ -516,6 +517,20 @@ object!(HazeSettings {
     intensity: f64,
     drift: f64
 });
+object!(SnowSettings {
+    rate: f64,
+    fall_speed: f64,
+    flake_size: f64,
+    flutter: f64,
+    wind_direction: f64,
+    wind_speed: f64,
+    build_up_seconds: f64,
+    melt_seconds: f64,
+    thickness: f64,
+    settle_on_characters: bool,
+    settle_on_props: bool,
+    settle_on_environment: bool
+});
 strings!(FpsCounterCorner { TopLeft=>"topLeft", TopRight=>"topRight", BottomLeft=>"bottomLeft", BottomRight=>"bottomRight" });
 // Size is in pixels of a 1080-pixel output (B19 R1).
 object!(FpsCounterSettings {
@@ -668,6 +683,22 @@ impl Validate for HazeSettings {
                 && within(self.intensity, 0., 4.)
                 && within(self.drift, 0., 2.),
             "invalid haze",
+        )
+    }
+}
+impl Validate for SnowSettings {
+    fn validate(&self) -> Result<(), AppError> {
+        require(
+            within(self.rate, 0., 1.)
+                && within(self.fall_speed, 0.2, 3.)
+                && within(self.flake_size, 0.5, 2.)
+                && within(self.flutter, 0., 2.)
+                && within(self.wind_direction, 0., 360.)
+                && within(self.wind_speed, 0., 5.)
+                && within(self.build_up_seconds, 5., 600.)
+                && within(self.melt_seconds, 5., 600.)
+                && within(self.thickness, 0., 0.05),
+            "invalid snow",
         )
     }
 }
@@ -912,6 +943,13 @@ pub enum SceneEntity {
         transform: Transform,
         haze: HazeSettings,
     },
+    Snow {
+        id: Id,
+        name: String,
+        visible: bool,
+        transform: Transform,
+        snow: SnowSettings,
+    },
     FpsCounter {
         id: Id,
         name: String,
@@ -973,6 +1011,7 @@ impl SceneEntity {
             | Self::Camera { id, .. }
             | Self::Light { id, .. }
             | Self::Haze { id, .. }
+            | Self::Snow { id, .. }
             | Self::FpsCounter { id, .. }
             | Self::VmcSender { id, .. }
             | Self::Screen { id, .. }
@@ -1005,6 +1044,7 @@ impl SceneEntity {
             | Self::Camera { transform, .. }
             | Self::Light { transform, .. }
             | Self::Haze { transform, .. }
+            | Self::Snow { transform, .. }
             | Self::FpsCounter { transform, .. }
             | Self::VmcSender { transform, .. }
             | Self::Screen { transform, .. }
@@ -1159,6 +1199,11 @@ pub enum PatchOp {
         #[serde(rename = "entityId")]
         entity_id: Id,
         haze: HazeSettings,
+    },
+    SetSnow {
+        #[serde(rename = "entityId")]
+        entity_id: Id,
+        snow: SnowSettings,
     },
     SetFpsCounter {
         #[serde(rename = "entityId")]
@@ -3230,6 +3275,14 @@ impl Validate for SceneView {
         require(
             self.entities
                 .iter()
+                .filter(|e| matches!(e, SceneEntity::Snow { .. }))
+                .count()
+                <= MAX_SNOWS,
+            "too many snows",
+        )?;
+        require(
+            self.entities
+                .iter()
                 .filter(|e| matches!(e, SceneEntity::FpsCounter { .. }))
                 .count()
                 <= MAX_FPS_COUNTERS,
@@ -3410,6 +3463,7 @@ pub fn validate_patch_ops(ops: &[PatchOp], max: usize) -> Result<(), AppError> {
             } => sky.validate()?,
             PatchOp::SetLight { light, .. } => light.validate()?,
             PatchOp::SetHaze { haze, .. } => haze.validate()?,
+            PatchOp::SetSnow { snow, .. } => snow.validate()?,
             PatchOp::SetFpsCounter { fps_counter, .. } => fps_counter.validate()?,
             PatchOp::SetScreenWeb { web, .. } => web.validate()?,
             PatchOp::SetScreenCapture { capture, .. } => capture.validate()?,
@@ -4314,6 +4368,9 @@ impl Validate for SceneEntity {
         }
         if let Self::Haze { haze, .. } = self {
             haze.validate()?;
+        }
+        if let Self::Snow { snow, .. } = self {
+            snow.validate()?;
         }
         if let Self::FpsCounter { fps_counter, .. } = self {
             fps_counter.validate()?;
