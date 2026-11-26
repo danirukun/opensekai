@@ -24,6 +24,9 @@ export function createSnowFlakes(sky: SnowSky, tint: UniformNode<"color">, count
     const fallSpeed = uniform(1), flakeSize = uniform(1), flutter = uniform(0), windDirection = uniform(0), windSpeed = uniform(0);
     // Fixed offsets, so that each client gets the same seeds. The example adds Math.random() values.
     const seedX = hash(instanceIndex.mul(uint(3))), seedY = hash(instanceIndex.mul(uint(3)).add(uint(1))), seedZ = hash(instanceIndex.mul(uint(3)).add(uint(2)));
+    // The size and the opacity have their own seeds: a position seed would give a size gradient across the box.
+    // The inputs start at 2^31, above each position seed input.
+    const seedSize = hash(instanceIndex.mul(uint(2)).add(uint(0x80000000))), seedOpacity = hash(instanceIndex.mul(uint(2)).add(uint(0x80000001)));
     // flakePosition, term for term. The TSL mod of a float is x − y·floor(x / y), so one mod is in [0, span) for span > 0.
     const angle = windDirection.mul(PI).div(180), sway = flutter.mul(0.15);
     const raw = vec3(
@@ -36,14 +39,14 @@ export function createSnowFlakes(sky: SnowSky, tint: UniformNode<"color">, count
     const distance = modelViewMatrix.mul(vec4(local, 1)).xyz.length();
     const fade = mix(float(1), float(0.4), distance.sub(15).div(25).saturate());
     // Per flake, so it is a varying: the fragment stage does not compute the position again.
-    const flakeOpacity = vertexStage(seedY.mul(0.55).add(0.35).mul(fade).mul(skyExposureNode(sky, world)));
+    const flakeOpacity = vertexStage(seedOpacity.mul(0.55).add(0.35).mul(fade).mul(skyExposureNode(sky, world)));
     const round = smoothstep(0, 1, uv().sub(0.5).length().mul(2)).oneMinus();
 
     const material = new SpriteNodeMaterial();
     material.positionNode = local;
     // The sprite quad is 1 × 1 and the object scale is 1, so the scale is the diameter in metres. The perspective camera
     // makes the on-screen size (sizeAttenuation is true).
-    material.scaleNode = vec2(flakeSize.mul(0.024).mul(seedX.add(0.5)));
+    material.scaleNode = vec2(flakeSize.mul(0.024).mul(seedSize.add(0.5)));
     // NodeMaterial multiplies the rgb by the alpha one time when premultipliedAlpha is true, and the blend is One, OneMinusSrcAlpha.
     material.colorNode = tint;
     material.opacityNode = flakeOpacity.mul(round);
