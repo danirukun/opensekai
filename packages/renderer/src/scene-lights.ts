@@ -1,8 +1,26 @@
-import { AmbientLight, Color, DirectionalLight, MathUtils, PointLight, PCFShadowMap, SpotLight, type Light, type Material, type Object3D, type OrthographicCamera, type PerspectiveCamera, type Scene, type WebGPURenderer } from "three/webgpu";
+import { AmbientLight, Color, DirectionalLight, MathUtils, PointLight, PCFShadowMap, SpotLight, type Light, type LightsNode, type Material, type Object3D, type OrthographicCamera, type PerspectiveCamera, type Scene, type WebGPURenderer } from "three/webgpu";
 import { lights } from "three/tsl";
+import DynamicLightsNode from "three/addons/tsl/lighting/DynamicLightsNode.js";
 import type { Id, LightSettings, SceneEntity, Transform, Vec3 } from "@opensekai/contracts";
-import { rotateByQuaternion } from "@opensekai/contracts";
+import { LIMITS, rotateByQuaternion } from "@opensekai/contracts";
 import { HAZE_LAYER } from "./haze";
+
+/** r187 `DynamicLightsNode` batches only the exact three.js light classes, so a directional light keeps the per-light path
+ * and the lilToon main light stays the first directional light (light scale TB3 (b)). */
+export class GroupDirectionalLight extends DirectionalLight {}
+
+/** The lights node of a material group: point, spot, and ambient lights without a shadow go into uniform arrays, so a change
+ * of them changes no program (light scale R13, R14). The throwaway lights make the three data nodes now, so the first light
+ * of a type does not change the program either (R15). */
+export const batchedLights = (list: Light[]): DynamicLightsNode => {
+    const node = new DynamicLightsNode({ maxPointLights: LIMITS.litLights, maxSpotLights: LIMITS.litLights });
+    node.setLights([new PointLight(), new SpotLight(), new AmbientLight()]);
+    node.setLights(list);
+    return node;
+};
+
+/** A light that a group node batches; all others (directional, or with a shadow) are per-light members (light scale R13). */
+const isBatched = (light: LightSettings): boolean => light.type === "ambient" || (light.type !== "directional" && !light.shadow.enabled);
 
 export type LightGroup = "characters" | "props" | "environment" | "haze";
 export type LightGroups = Record<LightGroup, Id[]>;
@@ -106,7 +124,7 @@ export const SPOT_SHADOW_FAR = 50;
 
 type ThreeLight = DirectionalLight | PointLight | SpotLight | AmbientLight;
 export interface SceneLights {
-    /** Reconciles the three.js lights with the frame. Returns true when the light signature changes, so the caller resets the failure state and compiles again. Only a group whose light list changed gets a new node (light limits R13). */
+    /** Reconciles the three.js lights with the frame. Returns true when the light signature changes, so the caller resets the failure state and compiles again. Only a group whose per-light members (material groups, light scale R16) or light list (haze, light limits R13) changed gets a new node. */
     apply(entities: readonly SceneEntity[]): boolean;
     /** ENV-01: sets the file lights from the loaded environment root and whether they affect characters. */
     setFileLights(fileLights: readonly Light[], affectCharacters: boolean): void;
@@ -132,12 +150,12 @@ export const isLitMaterial = (material: Material): boolean => {
 export function createSceneLights(scene: Scene, renderer: WebGPURenderer): SceneLights {
     const ambient = new AmbientLight(0xffffff, 1);
     // The built-in light (R5): it lights all materials when the scene has no light entity.
-    const builtin = new DirectionalLight(0xffffff, 3);
+    const builtin = new GroupDirectionalLight(0xffffff, 3);
     builtin.position.set(2, 4, 3);
     scene.add(ambient, builtin, builtin.target);
     renderer.shadowMap.type = PCFShadowMap;
     const owned = new Map<Id, { type: LightSettings["type"]; light: ThreeLight }>();
-    let current = "", generation = 0, nodes: Record<LightGroup, ReturnType<typeof lights>> | null = null, keys: Record<LightGroup, string> | null = null, shadows = false;
+    let current = "", generation = 0, nodes: Record<LightGroup, LightsNode> | null = null, keys: Record<LightGroup, string> | null = null, shadows = false;
     // ENV-01: file lights from the loaded environment root.
     let fileLightObjects: readonly Light[] = [], fileLightsAffectCharacters = false;
     // A placed light is also on the haze layer, so the haze pass sees it; its shadow camera keeps layer 0 and the haze
@@ -171,7 +189,7 @@ export function createSceneLights(scene: Scene, renderer: WebGPURenderer): Scene
             scene.add(light);
             return light;
         }
-        const light = new DirectionalLight(0xffffff, 1);
+        const light = new GroupDirectionalLight(0xffffff, 1);
         light.shadow.mapSize.set(2048, 2048);
         const camera = light.shadow.camera as OrthographicCamera;
         camera.left = -SHADOW_BOX; camera.right = SHADOW_BOX; camera.top = SHADOW_BOX; camera.bottom = -SHADOW_BOX;
@@ -246,18 +264,20 @@ export function createSceneLights(scene: Scene, renderer: WebGPURenderer): Scene
             const fixedAmbient = usesFixedAmbient(entities), builtinOn = !wanted.length;
             const settings = new Map(wanted.map(e => [e.id, e.light]));
             const members = (ids: Id[]) => ids.map(id => [id, settings.get(id)!.type, settings.get(id)!.shadow.enabled]);
-            // A group keeps its node object while its own light list stays the same (light limits R13).
+            // The haze keeps its node while its light list stays the same (light limits R13). A material group keeps its node
+            // while its per-light members stay the same, and gets its new batched lights through `setLights` (light scale R16).
             // File lights join environment always and characters when the flag is on; their identity is part of those keys.
             const fileKey = (group: LightGroup) =>
                 group === "environment" || (group === "characters" && fileLightsAffectCharacters) ? fileIds : "";
-            const nextKeys = Object.fromEntries(LIGHT_GROUPS.map(group => [group, JSON.stringify(group === "haze" ? members(groups.haze) : [fixedAmbient, builtinOn, members(groups[group]), fileKey(group)])])) as Record<LightGroup, string>;
-            const fixed = () => fixedAmbient ? [ambient] : [];
+            const nextKeys = Object.fromEntries(LIGHT_GROUPS.map(group => [group, JSON.stringify(group === "haze" ? members(groups.haze) : [builtinOn, members(groups[group].filter(id => !isBatched(settings.get(id)!))), fileKey(group)])])) as Record<LightGroup, string>;
             // ENV-01 R5: file lights always go to environment, optionally to characters, never to props or haze.
-            const fileExtra = (group: LightGroup) => group === "environment" || (group === "characters" && fileLightsAffectCharacters) ? [...fileLightObjects] : [];
-            const set = (group: LightGroup) => lights([...fixed(), ...(builtinOn ? [builtin] : groups[group].map(id => owned.get(id)!.light)), ...fileExtra(group)]);
-            const build = (group: LightGroup) => group === "haze" ? lights(groups.haze.map(id => owned.get(id)!.light)) : set(group);
+            const fileExtra = (group: LightGroup): Light[] => group === "environment" || (group === "characters" && fileLightsAffectCharacters) ? [...fileLightObjects] : [];
+            const list = (group: LightGroup): Light[] => [...(fixedAmbient ? [ambient] : []), ...(builtinOn ? [builtin] : groups[group].map(id => owned.get(id)!.light)), ...fileExtra(group)];
             const previous = nodes;
-            nodes = Object.fromEntries(LIGHT_GROUPS.map(group => [group, previous && keys?.[group] === nextKeys[group] ? previous[group] : build(group)])) as Record<LightGroup, ReturnType<typeof lights>>;
+            const kept = (group: LightGroup) => previous && keys?.[group] === nextKeys[group] ? previous[group] : null;
+            const build = (group: LightGroup): LightsNode => group === "haze" ? lights(groups.haze.map(id => owned.get(id)!.light)) : batchedLights(list(group));
+            nodes = Object.fromEntries(LIGHT_GROUPS.map(group => [group, kept(group) ?? build(group)])) as Record<LightGroup, LightsNode>;
+            for (const group of LIGHT_GROUPS) if (group !== "haze" && nodes[group] === previous?.[group]) nodes[group].setLights(list(group));
             if (!previous || LIGHT_GROUPS.some(group => nodes![group] !== previous[group])) generation += 1;
             keys = nextKeys;
             const fileShadows = fileLightObjects.some(light => light.castShadow);
