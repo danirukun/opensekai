@@ -379,8 +379,8 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         environmentLight.room(roomLight(drawn));
         characterShare.fill.value.setRGB(...characterFill(drawn));
         // Cameras, lights, and the haze have a scene object only in the editor viewport, as a pick target and helper (R14, B13 R13).
-        // An FPS counter is a DOM overlay and a VMC sender sends UDP; neither has a scene object (B19 R7, B21).
-        const wanted = new Set(frame.scene.entities.filter(x => x.kind !== "tracking" && x.kind !== "fpsCounter" && x.kind !== "vmcSender" && (editor || (x.kind !== "camera" && x.kind !== "light" && x.kind !== "haze"))).map(x => x.id));
+        // An FPS counter is a DOM overlay and a VMC sender sends UDP; neither has a scene object (B19 R7, B21). A snow entity has none either.
+        const wanted = new Set(frame.scene.entities.filter(x => x.kind !== "tracking" && x.kind !== "fpsCounter" && x.kind !== "snow" && x.kind !== "vmcSender" && (editor || (x.kind !== "camera" && x.kind !== "light" && x.kind !== "haze"))).map(x => x.id));
         for (const [id, value] of objects) {
             if (!wanted.has(id)) {
                 releaseObject(value);
@@ -397,7 +397,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         const webPlans = webScreenPlan(frame.scene);
         const captureViews = captures.apply(frame.scene.entities);
         for (const entity of frame.scene.entities) {
-            if (entity.kind === "tracking" || entity.kind === "fpsCounter" || entity.kind === "vmcSender") continue;
+            if (entity.kind === "tracking" || entity.kind === "fpsCounter" || entity.kind === "snow" || entity.kind === "vmcSender") continue;
             if (entity.kind === "camera") {
                 if (editor) {
                     let value = objects.get(entity.id);
