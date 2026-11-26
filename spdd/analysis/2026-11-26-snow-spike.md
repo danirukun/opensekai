@@ -106,6 +106,6 @@ The owner decisions and the changes after approval are in the design. The [contr
 - lilToon characters and outline copies (slice 3).
 - The static cap on props and environments, and the effect of the settle flags on them (slice 4).
 - Add › Snow, the Inspector section, the viewport helper, the `snowRate` Blueprint key, and the handbook page (slice 5).
-- The tier adapter, the WebGL 2 static cap and its warning, `pipeline-blame.ts`, the headless WebGPU integration test, and the load-job buffers (slice 6).
+- The tier adapter, the sparkle, the WebGL 2 static cap and its warning, `pipeline-blame.ts`, the headless WebGPU integration test, and the load-job buffers (slice 6).
 - A Wind asset, footprints, clumps, sound, a hidden trigger, and chat intents for snow.
 - A fix for the red baseline of `main`.

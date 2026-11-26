@@ -72,7 +72,7 @@ The six build-up constants are in `snow-math.ts`. They are start values, not set
 
 In: the entity and `setSnow` in both contracts, the session operation, the sky pass, the flakes, the build-up compute, the snow surface on `CharacterMToonMaterial` (not its outline copy), renderer wiring on WebGPU, and evidence items 1, 2, and 6 of the spec.
 
-Out (later slices of the spec): the session `cover` value and the warm start (slice 2), lilToon and outlines (slice 3), the static cap on props and environments and the effect of the settle flags on them (slice 4), Add › Snow, the Inspector section, the viewport helper, `snowRate`, and the handbook (slice 5), the tier adapter, the WebGL 2 static cap and its warning, `pipeline-blame`, the headless WebGPU integration test, and building the buffers in the load job (slice 6). In this slice a WebGL 2 client draws flakes and no build-up, and the buffers of an avatar are built on its first frame with snow.
+Out (later slices of the spec): the session `cover` value and the warm start (slice 2), lilToon and outlines (slice 3), the static cap on props and environments and the effect of the settle flags on them (slice 4), Add › Snow, the Inspector section, the viewport helper, `snowRate`, and the handbook (slice 5), the tier adapter, the sparkle, the WebGL 2 static cap and its warning, `pipeline-blame`, the headless WebGPU integration test, and building the buffers in the load job (slice 6). In this slice a WebGL 2 client draws flakes and no build-up, and the buffers of an avatar are built on its first frame with snow.
 
 ## Review Focus
 
@@ -155,7 +155,7 @@ R5.7. The buffers of an avatar are built on its first frame with snow (V2).
 
 R6.1. `snow-surface.ts` has the TSL nodes that turn an amount into a vertex push and a snow colour. It has no dependency on the other snow modules.
 
-R6.2. The edge mask compares the amount with a small tiling noise texture, in rest-pose space for a character. The vertex moves out along its normal by `thickness × amount`, scaled by the scale of the entity. The base colour mixes to snow white and the shade colour to a cool blue-grey, before the toon lighting. The mask lowers the rim and matcap terms. The sparkle is in the full tier only.
+R6.2. The edge mask compares the amount with a small tiling noise texture, in rest-pose space for a character. The vertex moves out along its normal by `thickness × amount`, scaled by the scale of the entity. The base colour mixes to snow white and the shade colour to a cool blue-grey, before the toon lighting. The mask lowers the rim and matcap terms.
 
 R6.3. `CharacterMToonMaterial` reads the amount from the state buffer in the vertex stage, at the vertex index plus the offset of its mesh. The hook takes the 3.5.5 facts into account: the base `setupPosition` restores `positionNode`, the base `setupDiffuseColor` restores `colorNode`, and `customProgramCacheKey` adds only `isOutline`. The cache key of a material with snow nodes differs from the key of a material without them.
 
