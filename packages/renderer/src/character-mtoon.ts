@@ -1,10 +1,12 @@
 // MToon avatars with shadows to the shade color, a back-light rim, and an environment fill (character lighting R3).
 import {Color, LightingNode, type LightingContext, type LightingModelDirectInput, type Node, type NodeBuilder, type UniformArrayNode, type UniformNode, Vector3} from 'three/webgpu';
-import {BRDF_Lambert, diffuseColor, float, materialReference, mix, normalView, normalWorld, positionViewDirection, smoothstep, uniform, uniformArray, vec3, getShIrradianceAt, renderGroup} from 'three/tsl';
+import {BRDF_Lambert, diffuseColor, float, materialReference, mix, normalLocal, normalView, normalWorld, positionLocal, positionViewDirection, smoothstep, uniform, uniformArray, varying, vec3, vec4, getShIrradianceAt, renderGroup} from 'three/tsl';
 import {MToonLightingModel, MToonNodeMaterial} from '@pixiv/three-vrm/nodes';
 import {DEFAULT_AVATAR_LIGHTING} from '@opensekai/contracts';
 import {CHARACTER_FILL, EXPONENT, FEATHER_MIN, FLAT_ROOM, RIM, SIDE} from './character-lighting-math';
 import {CHARACTER_AMBIENT} from './scene-lights';
+import {SNOW_COLOR, SNOW_SHADE} from './snow-math';
+import {snowAmount, snowEligible, snowMaskNode, type SnowShare} from './snow-surface';
 
 /** One object for each renderer; the renderer sets it on each character material. */
 export type CharacterShare = {fill: UniformNode<'color'>; sh: UniformArrayNode<'vec3'>; average: UniformNode<'vec3'>};
@@ -99,24 +101,50 @@ export class CharacterMToonMaterial extends MToonNodeMaterial {
     environmentFill = DEFAULT_AVATAR_LIGHTING.environmentFill;
     giEqualizationFactor: number;
     declare characterShare?: CharacterShare;
+    /** The renderer sets it with `needsUpdate = true`. */
+    snow: SnowShare | null = null;
     #variants: Variants | null = null;
     #shadowed = new Set<object>();
+    // The snow nodes of the current build: one amount varying for the push, the colour, and the variants.
+    #snowAmount: Float | null = null;
+    #snowMask: Float | null = null;
     constructor(parameters: Parameters = {}) {
         // The parent constructor deletes `giEqualizationFactor` from the parameters.
         const giEqualizationFactor = parameters.giEqualizationFactor ?? 0.9;
         super(parameters);
         this.giEqualizationFactor = giEqualizationFactor;
     }
+    customProgramCacheKey() {
+        return super.customProgramCacheKey() + (this.#snow() ? ':snow' : '');
+    }
+    setupPosition(builder: NodeBuilder) {
+        const share = this.#snow(), amount = share ? varying(snowAmount(share), 'SnowAmount') as unknown as Float : null;
+        this.#snowAmount = amount;
+        this.#snowMask = null;
+        // Along the rest normal, before the morph targets and the skinning: the skin carries the snow with the body.
+        if (share && amount) positionLocal.addAssign(normalLocal.mul(share.thickness).mul(amount));
+        return super.setupPosition(builder);
+    }
+    setupDiffuseColor(builder: NodeBuilder) {
+        super.setupDiffuseColor(builder);
+        const share = this.#snow();
+        if (!share || !this.#snowAmount) return;
+        const mask = this.#snowMask = snowMaskNode(this.#snowAmount, share).toVar('SnowMask') as unknown as Float;
+        const color = diffuseColor as unknown as Node<'vec4'>;
+        color.assign(vec4(mix(color.rgb, vec3(...SNOW_COLOR), mask), color.a));
+    }
     setupVariants() {
-        const setups = this as unknown as MToonSetups;
+        const setups = this as unknown as MToonSetups, mask = this.#snowMask;
+        const snowy = (node: Vec3, snow: (node: Vec3, mask: Float) => Vec3) => mask ? snow(node, mask) : node;
+        const clear = (node: Vec3, mask: Float) => node.mul(mask.oneMinus());
         this.#variants = {
-            shade: vec3(setups._setupShadeColorNode()).toVar('ShadeColor'),
+            shade: snowy(vec3(setups._setupShadeColorNode()), (node, mask) => mix(node, vec3(...SNOW_SHADE), mask)).toVar('ShadeColor'),
             shift: float(setups._setupShadingShiftNode()).toVar('ShadingShift'),
             toony: float(setups._setupShadingToonyNode()).toVar('ShadingToony'),
             rimMix: float(setups._setupRimLightingMixNode()).toVar('RimLightingMix'),
             rimMultiply: vec3(setups._setupRimMultiplyNode()).toVar('RimMultiply'),
-            matcap: vec3(setups._setupMatcapNode()).toVar('matcap'),
-            parametricRim: vec3(setups._setupParametricRimNode()).toVar('ParametricRim'),
+            matcap: snowy(vec3(setups._setupMatcapNode()), clear).toVar('matcap'),
+            parametricRim: snowy(vec3(setups._setupParametricRimNode()), clear).toVar('ParametricRim'),
         };
     }
     setupLighting(builder: NodeBuilder): Node {
@@ -137,6 +165,7 @@ export class CharacterMToonMaterial extends MToonNodeMaterial {
     }
     // An outline gets neither the added rim nor the environment fill.
     #share() { return this.isOutline ? null : this.characterShare ?? null; }
+    #snow() { return this.snow && snowEligible(this) ? this.snow : null; }
     copy(source: MToonNodeMaterial) {
         const from = source as CharacterMToonMaterial;
         if (from.isCharacterMToonMaterial) {
@@ -147,6 +176,7 @@ export class CharacterMToonMaterial extends MToonNodeMaterial {
             this.environmentFill = from.environmentFill;
             this.giEqualizationFactor = from.giEqualizationFactor;
             this.characterShare = from.characterShare;
+            this.snow = from.snow;
         }
         return super.copy(source);
     }
