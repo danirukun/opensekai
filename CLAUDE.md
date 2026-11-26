@@ -78,8 +78,29 @@ When you finish a feature, run `direnv exec . cargo sweep --time 7` from the wor
 
 [Cloud agent intake](docs/agent-intake.md) is the standing orders for cloud intake, rebase, and review runs. Read it before you start a cloud run. It adds to this file. It does not replace it.
 
+## Architecture decision records
+
+Record each significant architecture decision as an ADR in `docs/adr/`.
+
+- Write an ADR when a decision changes a process or trust boundary, a wire protocol, hosting, a vendor, data storage, or the security model. Also write an ADR for a choice that is expensive to reverse.
+- Do not write an ADR for a local implementation detail. Use the spec or the code comment.
+- Name the file `docs/adr/NNNN-kebab-case-title.md`. `NNNN` is the next free number, with 4 digits and leading zeros (`0001`, `0002`). Do not reuse a number.
+- Start the file with a title line `# NNNN. Title` and these header fields:
+  - `Status:` one of `Proposed`, `Accepted`, `Superseded by NNNN`, `Deprecated`.
+  - `Date:` the date of the last status change, in `YYYY-MM-DD` format.
+  - `Owner:` the person who decides.
+  - `Related:` issues, PRs, specs and other ADRs.
+- Use these sections: Context, Decision, Options considered, Consequences, Open questions (if any), Sources.
+- You can change a `Proposed` ADR. After an ADR is `Accepted`, do not change its decision text. To change a decision, write a new ADR. In the new ADR, write `Supersedes NNNN` in `Related:`. In the old ADR, change only the `Status:` line to `Superseded by NNNN`.
+- Add each ADR to the index in `docs/adr/README.md` in the same change.
+- Link the ADR from the specs and from `ARCHITECTURE.md` sections that it affects. A spec can refer to an ADR. A spec must not contradict an accepted ADR.
+- Write the ADR prose in ASD-STE100 Simplified Technical English (MUST #6).
+- After you change this section, run `cp AGENTS.md CLAUDE.md`.
+
 ## Documentation authority
 
 [ARCHITECTURE.md](ARCHITECTURE.md) is the map of the code as it is now. Read it before you change a boundary. You MUST update it in the same commit when you add, remove, or move a package, crate, process, window, data path, or trust check, or when its text becomes false. Keep it a short map; put direction in the architecture design and status in the parity checklist.
 
 The architecture owns overall direction. The parity checklist owns feature status. Slice contracts own implementation requirements. The benchmark contract owns performance measurement. Record unresolved technical choices as candidates with a selection gate; do not convert them into implemented claims.
+
+`docs/adr/` records accepted architecture decisions. An accepted ADR has authority over a spec until a new ADR supersedes it.
