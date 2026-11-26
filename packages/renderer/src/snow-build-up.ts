@@ -12,6 +12,7 @@ export interface SnowVertexData {
     /** 4 indices for each vertex, each plus the bone offset of its skeleton. */
     skinIndex: Uint32Array;
     skinWeight: Float32Array;
+    /** One entry for each bone block. Skeletons with the same bones and equal bone inverses share a block; the first is its entry. */
     skeletons: { skeleton: Skeleton; offset: number }[];
     bones: number;
     offsets: Map<SkinnedMesh, number>;
@@ -23,16 +24,29 @@ const collected = (object: Object3D): object is SkinnedMesh => {
     return attributes.position !== undefined && attributes.normal !== undefined && attributes.skinIndex !== undefined && attributes.skinWeight !== undefined;
 };
 
+/** Exact equality: the loader copies the same bytes into each skin. */
+const sameInverses = (a: Skeleton, b: Skeleton): boolean => a.boneInverses.every((inverse, i) => inverse.equals(b.boneInverses[i]));
+
 /** Pure. Skips a mesh that is not a SkinnedMesh or whose bindMode is not 'attached'. */
 export function collectSkinned(root: Object3D): SnowVertexData {
     const meshes: SkinnedMesh[] = [];
     root.traverse(object => { if (collected(object)) meshes.push(object); });
-    const skeletonOffsets = new Map<Skeleton, number>();
+    // The GLTFLoader makes one Skeleton for each skin, and a VRM often has many skins with the same joints. Equal skeletons
+    // give equal bone matrices, so they share one bone block: a key from the bone ids, then a compare of the inverses.
+    const skeletonOffsets = new Map<Skeleton, number>(), blocks = new Map<string, { skeleton: Skeleton; offset: number }[]>();
+    const skeletons: { skeleton: Skeleton; offset: number }[] = [];
     let bones = 0;
     for (const { skeleton } of meshes) {
         if (skeletonOffsets.has(skeleton)) continue;
-        skeletonOffsets.set(skeleton, bones);
-        bones += skeleton.bones.length;
+        const key = skeleton.bones.map(bone => bone?.id ?? -1).join(","), candidates = blocks.get(key) ?? [];
+        let block = candidates.find(candidate => sameInverses(candidate.skeleton, skeleton));
+        if (block === undefined) {
+            block = { skeleton, offset: bones };
+            blocks.set(key, [...candidates, block]);
+            skeletons.push(block);
+            bones += skeleton.bones.length;
+        }
+        skeletonOffsets.set(skeleton, block.offset);
     }
     const offsets = new Map<SkinnedMesh, number>();
     let count = 0;
@@ -59,8 +73,7 @@ export function collectSkinned(root: Object3D): SnowVertexData {
         }
     }
     return {
-        count, position, normal, skinIndex, skinWeight, bones, offsets,
-        skeletons: [...skeletonOffsets].map(([skeleton, offset]) => ({ skeleton, offset })),
+        count, position, normal, skinIndex, skinWeight, skeletons, bones, offsets,
     };
 }
 

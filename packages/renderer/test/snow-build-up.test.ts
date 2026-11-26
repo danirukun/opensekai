@@ -53,3 +53,20 @@ it('gives each collected mesh its vertex offset and a state of 4 floats for each
     buildUp.dispose();
     expect(meshA.userData.snowOffset).toBeUndefined();
 });
+it('gives skeletons with the same bones and bone inverses one bone block', () => {
+    const bones = [new Bone(), new Bone(), new Bone()];
+    const inverses = () => bones.map((_, k) => new Matrix4().makeTranslation(k, 0, 0));
+    const different = inverses();
+    different[1] = new Matrix4().makeTranslation(0, 5, 0);
+    const meshA = skinned(2, new Skeleton(bones, inverses()), 0, 2), meshB = skinned(3, new Skeleton(bones, inverses()), 0, 2);
+    const root = new Object3D();
+    root.add(meshA, meshB);
+    const data = collectSkinned(root);
+    expect(data.skeletons.length).toBe(1); expect(data.bones).toBe(3);
+    expect([...data.skinIndex]).toEqual(Array(5 * 4).fill(2));
+    const meshC = skinned(1, new Skeleton(bones, different), 0, 2);
+    root.add(meshC);
+    const withC = collectSkinned(root);
+    expect(withC.skeletons.map(entry => entry.offset)).toEqual([0, 3]); expect(withC.bones).toBe(6);
+    expect([...withC.skinIndex.slice(5 * 4)]).toEqual([5, 5, 5, 5]);
+});
