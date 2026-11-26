@@ -21,7 +21,16 @@ Neither reference collects snow on a skinned character. That part of this design
 | Control surface | One Snow scene entity, in the Haze pattern. No easter egg in this design. |
 | Surfaces | Characters get the full build-up. Props and the environment get a static cap. |
 | Budget | At most 2 ms p95 GPU on the M3 Pro at `production_v1`. A cheap tier through `effectsQuality`. M1 is unknown until measured. |
-| Approach | A compute pass and a storage buffer for each skinned mesh (WebGPU). WebGL 2 falls back to the static cap. |
+| Approach | A compute pass and storage buffers for each avatar (WebGPU). WebGL 2 falls back to the static cap. |
+
+### Changes after approval (planning, 2026-11-26)
+
+The plan for slice 1 found two facts that change the mechanism, not the behavior.
+
+| Change | Reason |
+| --- | --- |
+| One compute pass for each avatar, over the vertices of all its skinned meshes. The approved text said one pass for each skinned mesh. | The Catboy QA avatar has 57 meshes (Face, Body, Hair001 to Hair055). One pass for each mesh gives 57 pipelines, 57 dispatches, and 57 bone uploads on each frame. A new pipeline costs about 0.4 s in WebKit. |
+| The sky pass writes the height of the first surface under the sky into a colour target. The approved text said a depth target. | The three.js example `webgpu_compute_particles_snow` uses this method, and a colour target has no depth-texture sampling rule in a vertex or compute stage. This document still calls that surface the sky depth surface. |
 
 ## Goals
 
@@ -98,9 +107,9 @@ All snow code is in `packages/renderer`. `renderer.ts` gets the wiring only, as 
 | Module | Job | Depends on |
 | --- | --- | --- |
 | `snow-math.ts` | Pure CPU reference: flake position, build-up step, static cap, tier table. No three.js. | nothing |
-| `snow-sky.ts` | The sky depth pass: one orthographic camera at the top of the box that looks down, and one depth target. It gives the depth texture and the world-to-sky matrix as uniforms. | scene layers |
-| `snow-flakes.ts` | One instanced mesh on its own layer. A flake below the sky depth is not drawn. | `snow-sky` |
-| `snow-build-up.ts` | For each skinned mesh of an avatar: one storage buffer and one compute node. | `snow-sky`, the spring clock |
+| `snow-sky.ts` | The sky pass: one orthographic camera at the top of the box that looks down, and one height target. It gives the height texture and the world-to-sky matrix as uniforms. | scene layers |
+| `snow-flakes.ts` | One instanced sprite on its own layer. A flake below the sky depth surface is not drawn. | `snow-sky` |
+| `snow-build-up.ts` | For each avatar: one set of storage buffers and one compute node over the vertices of all its skinned meshes. | `snow-sky`, the spring clock |
 | `snow-surface.ts` | The TSL nodes that turn an amount into a vertex push and a snow colour. | nothing |
 | `snow.ts` | The facade: `createSnow()`, `update(entity, frame)`, `dispose()`. | the modules above |
 
@@ -124,7 +133,7 @@ Steps 2 and 3 run inside the applied frame, so `gpuMs` includes them. A render o
 
 ### Build-up on characters
 
-Each skinned mesh has one storage buffer with one record for each vertex: the previous world position and the amount (16 bytes). The compute node skins the vertex, reads the sky depth, and updates the amount. three.js 0.187 has `computeSkinning` and the bone matrices of the previous frame.
+Each avatar has one state buffer with one record for each vertex of its skinned meshes: the previous world position and the amount (16 bytes). Four more buffers hold the bind-space position, the bind-space normal, the skin indices, and the skin weights (64 bytes for each vertex), and one buffer holds the bone matrices of its skeletons. One compute node skins each vertex, reads the sky height, and updates the amount. A character material reads the state buffer in the vertex stage at the vertex index plus the offset of its mesh. three.js 0.187 does the same skinning math in `computeSkinning`, for one mesh.
 
 The step for each vertex, for one tick:
 
@@ -142,7 +151,7 @@ The amount stays in 0 to 1.
 - The six constants (0.35, 2 cm, 0.5 s, 0.6 m/s, 2 m/s, 0.25 s) are in `snow-math.ts`. They are start values, not settings. The spike tunes them on the Catboy avatar.
 - On the first frame of a renderer, after a reload, and for an avatar that loads while snow is on, each vertex starts at `cover × up × sky`.
 - The step follows the spring reset rules. On a frame where the spring stage resets (a teleport, a new session, more than 15 steps due), the speed term is 0 and the previous position is set again. A teleport does not shed snow.
-- A mesh in `hiddenMeshes` runs no compute.
+- A mesh in `hiddenMeshes` is not in the sky pass, so it gives no shelter. Its vertices stay in the compute pass, because one pass covers the avatar.
 - When `visible` goes off, each amount is set to 0.
 - With `settleOnCharacters` off, the amount of each vertex is 0 and no compute runs.
 
