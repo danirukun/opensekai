@@ -30,7 +30,7 @@
 
 In: the entity and `setSnow` in both contracts, the session operation, the sky pass, the flakes, the build-up compute, the snow surface on `CharacterMToonMaterial` (not its outline copy), renderer wiring on WebGPU, and evidence items 1, 2, and 6 of the spec.
 
-Out (later slices of the spec): the session `cover` value and the warm start (slice 2), lilToon and outlines (slice 3), the static cap on props and environments and the effect of the settle flags on them (slice 4), Add › Snow, the Inspector section, the viewport helper, `snowRate`, and the handbook (slice 5), the tier adapter, the WebGL 2 static cap and its warning, `pipeline-blame`, the headless WebGPU integration test, and building the buffers in the load job (slice 6). In this slice a WebGL 2 client draws flakes and no build-up, and the buffers of an avatar are built on its first frame with snow.
+Out (later slices of the spec): the session `cover` value and the warm start (slice 2), lilToon and outlines (slice 3), the static cap on props and environments and the effect of the settle flags on them (slice 4), Add › Snow, the Inspector section, the viewport helper, `snowRate`, and the handbook (slice 5), the tier adapter, the sparkle, the WebGL 2 static cap and its warning, `pipeline-blame`, the headless WebGPU integration test, and building the buffers in the load job (slice 6). In this slice a WebGL 2 client draws flakes and no build-up, and the buffers of an avatar are built on its first frame with snow.
 
 ## Review Focus
 

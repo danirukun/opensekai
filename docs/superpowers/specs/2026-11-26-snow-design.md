@@ -247,7 +247,7 @@ Each slice gets its analysis in `spdd/analysis/` and its REASONS contract in `sp
 3. **lilToon characters** and the outlines of both material types.
 4. **Static cap** on props and environments, with the settle flags. It needs the frame field of slice 2.
 5. **Editor.** Add › Snow, the Inspector section, the viewport helper, the `snowRate` Blueprint key, and a handbook page.
-6. **Tiers, the WebGL 2 fallback, and the full evidence run.**
+6. **Tiers, the sparkle, the WebGL 2 fallback, and the full evidence run.**
 
 Slice 1 is sequential, because it changes shared contracts. Slice 2 lands its frame field next. After that, slices 3, 4, and 5 touch different packages and can run in separate worktrees.
 
