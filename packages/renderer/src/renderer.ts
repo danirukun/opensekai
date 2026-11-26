@@ -1,6 +1,6 @@
 import { assertEditorScope, createEditorViewport, createHazeHelper, createLightHelper, updateHazeHelper, updateLightHelper } from './editor-viewport';
 import type { EditorOptions, EditorHandle } from './editor-viewport';
-import { Scene, Mesh, BoxGeometry, MeshStandardNodeMaterial, PerspectiveCamera, Object3D, DataTexture, EquirectangularReflectionMapping, HalfFloatType as THalfFloatType, LinearFilter, Texture as ThreeTexture, SRGBColorSpace } from "three/webgpu";
+import { Scene, Mesh, BoxGeometry, MeshStandardNodeMaterial, PerspectiveCamera, Object3D, Box3, Matrix4, Sphere, DataTexture, EquirectangularReflectionMapping, HalfFloatType as THalfFloatType, LinearFilter, Texture as ThreeTexture, SRGBColorSpace } from "three/webgpu";
 import { clone } from "three/addons/utils/SkeletonUtils.js";
 import { HDRLoader } from "three/addons/loaders/HDRLoader.js";
 import type { RuntimeFrame, FrameApplied, RendererDiagnostics, CaptureBytes, Id, ResourceHost, AppError, AssetDebug, SceneEntity, QualityProfile, ScreenshotBytes, OutputSpec, Vec3 } from "@opensekai/contracts";
@@ -18,6 +18,7 @@ import { createLoadJobs, type AssetLoadStatus, type LoadReport, type LoadRequest
 import { createEnvironmentLight, roomEnvironmentMap, roomIrradiance, type InstanceMaterials } from "./environment-light";
 import { copyUnlitMaterials, createMaterialBinding, type MaterialBinding } from "./material-values";
 import { createSceneLights, groupOf, isLitMaterial, roomLight, withDrafts, capFileLightShadows, collectFileLights, type LightGroup } from "./scene-lights";
+import { characterRadius, shadowDirty, shadowLights, type Caster, type ShadowState, type Sphere as CasterSphere } from "./shadow-cache";
 import { characterFill, normalizeRoom } from "./character-lighting-math";
 import { createCharacterShare, setRoomFill } from "./character-mtoon";
 import { logPipelineFailure, watchPipelineErrors, type PipelineDevice } from "./pipeline-diagnostics";
@@ -181,7 +182,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         setRoomFill(characterShare, normalizeRoom(coefficients));
         return null;
     }).catch((error: unknown) => error instanceof Error ? error.message : String(error));
-    type Ready = { root: Object3D; video?: ScreenVideoPlayer; avatar?: ReturnType<typeof createAvatarBinding>; meshes?: ReadonlyMap<string, Object3D>; binding?: MaterialBinding; assetId?: string; assetDispose?: () => void; instanceDispose?: () => void; materials?: InstanceMaterials; lit: number; warnings: AppError[]; dispose(): void };
+    type Ready = { root: Object3D; video?: ScreenVideoPlayer; avatar?: ReturnType<typeof createAvatarBinding>; meshes?: ReadonlyMap<string, Object3D>; binding?: MaterialBinding; assetId?: string; assetDispose?: () => void; instanceDispose?: () => void; materials?: InstanceMaterials; lit: number; radius?: number; warnings: AppError[]; dispose(): void };
     const loadListeners = new Set<(entries: AssetLoadStatus[]) => void>();
     // three r187 keeps one precompile state per renderer across awaits; overlapping compileAsync calls clear it.
     const compileOnce = serialize();
@@ -227,6 +228,9 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             try {
                 if (!asset.vrm) throw failure("INVALID_INPUT", "Avatar asset has no VRM");
                 const avatar = createAvatarBinding(asset.vrm);
+                // The shadow cache sphere of the character, from its rest pose (light scale R25).
+                const rest = meshBounds(avatar.root, true);
+                const radius = characterRadius(rest.min.toArray(), rest.max.toArray());
                 // The material builds read the share, so it goes on before GPU preparation, with the room irradiance in its uniforms.
                 const unavailable = await loadRoomFill();
                 for (const material of avatar.characters) material.characterShare = characterShare;
@@ -235,7 +239,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
                 const lit = sceneLights.generation();
                 await prepare(avatar.root, report, cancelled);
                 const binding = asset.materials?.length ? createMaterialBinding(asset.materials, avatar.root, asset.materialIndex) : undefined;
-                return { root: avatar.root, avatar, meshes: asset.meshes, binding, assetDispose: asset.dispose, lit, warnings: unavailable ? [...asset.warnings, { code: "UNAVAILABLE", message: "Room fill unavailable: " + unavailable, ids: [request.assetId] }] : asset.warnings, dispose: asset.dispose };
+                return { root: avatar.root, avatar, meshes: asset.meshes, binding, assetDispose: asset.dispose, lit, radius, warnings: unavailable ? [...asset.warnings, { code: "UNAVAILABLE", message: "Room fill unavailable: " + unavailable, ids: [request.assetId] }] : asset.warnings, dispose: asset.dispose };
             } catch (error) { asset.dispose(); throw error; }
         }
         const asset = await assets.get(request.assetId);
@@ -274,6 +278,10 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         materials?: InstanceMaterials;
         group?: LightGroup;
         lit?: number;
+        // The shadow cache data (light scale R25): the rest radius of a character, or the last key and world sphere of a prop or environment.
+        radius?: number;
+        shadowKey?: string;
+        sphere?: CasterSphere | null;
         warnings?: AppError[];
     }>();
     const editor = options.editor ? createEditorViewport(options.canvas, camera, scene, objects, options.editor) : null;
@@ -287,6 +295,27 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         const targetId = camera.lens.autofocus ? focusCharacterId(camera.navigation) : null;
         const target = targetId ? sceneView.entities.find(entity => entity.id === targetId) : undefined;
         return target ? distance(position, objects.get(target.id)?.avatar?.headWorldPosition() ?? headFallbackPosition(target.transform.position)) : null;
+    };
+    // The shadow map cache (light scale R22–R26). `shadowForce` marks each shadow light in the next applied frame, after a screenshot or a capture render.
+    let shadowState: ShadowState | null = null, shadowForce = false;
+    const casters = (entities: readonly SceneEntity[]): Map<Id, Caster> => {
+        const out = new Map<Id, Caster>();
+        for (const entity of entities) {
+            const value = objects.get(entity.id);
+            if (!value?.group) continue;
+            const root = value.root;
+            // A character moves in each frame; its sphere is at its root (R25).
+            if (value.radius !== undefined) { out.set(entity.id, { key: "", moving: true, sphere: root.visible ? { center: root.position.toArray(), radius: value.radius * maxScale(root) } : null }); continue; }
+            const key = JSON.stringify([root.uuid, root.position.toArray(), root.quaternion.toArray(), root.scale.toArray(), root.visible, entity.kind === "mesh" ? entity.materials ?? null : null]);
+            if (value.shadowKey !== key) {
+                value.shadowKey = key;
+                const box = root.visible ? meshBounds(root, false) : null;
+                const sphere = box && !box.isEmpty() ? box.getBoundingSphere(new Sphere()) : null;
+                value.sphere = sphere ? { center: sphere.center.toArray(), radius: sphere.radius } : null;
+            }
+            out.set(entity.id, { key, moving: false, sphere: value.sphere ?? null });
+        }
+        return out;
     };
     const releaseObject = (value: {root: Object3D; owned: boolean; assetDispose?: () => void; instanceDispose?: () => void}) => {
         value.instanceDispose?.();
@@ -502,7 +531,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             const old = objects.get(entityId);
             if (old) releaseObject(old);
             const installedVideo = entity.kind === "screen" && entity.content.kind === "video" ? entity.content : null;
-            const installed = { signature: entity.kind + ":" + (installedVideo ? "video:" : "") + request.assetId, root: ready.root, video: ready.video, owned: false, avatar: ready.avatar, meshes: ready.meshes, binding: ready.binding, assetId: ready.assetId, assetDispose: ready.assetDispose, instanceDispose: ready.instanceDispose, materials: ready.materials, group: groupOf(entity) ?? undefined, lit: ready.lit, warnings: ready.warnings, pickable: entity.kind !== "environment" };
+            const installed = { signature: entity.kind + ":" + (installedVideo ? "video:" : "") + request.assetId, root: ready.root, video: ready.video, owned: false, avatar: ready.avatar, meshes: ready.meshes, binding: ready.binding, assetId: ready.assetId, assetDispose: ready.assetDispose, instanceDispose: ready.instanceDispose, materials: ready.materials, group: groupOf(entity) ?? undefined, lit: ready.lit, radius: ready.radius, warnings: ready.warnings, pickable: entity.kind !== "environment" };
             scene.add(installed.root);
             objects.set(entityId, installed);
             installed.avatar?.apply(frame.avatarPoses?.find(pose => pose.avatarId === entityId));
@@ -548,6 +577,14 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         // A change of the light set gives each lit material its new group node set (R6, R7).
         const generation = sceneLights.generation();
         for (const value of objects.values()) if (value.group && value.lit !== generation) { sceneLights.assign(value.root, value.group); value.lit = generation; }
+        // Each shadow map draws only in a frame that changes its contents (R22, R23). A capture render marks each map (R26).
+        const shadowed = shadowLights(drawn);
+        if (shadowed.size) {
+            const marks = shadowDirty(shadowState, { lights: shadowed, casters: casters(frame.scene.entities), renderEnvironment: showEnvironment, force: lightsRebuilt || shadowForce || !applied });
+            shadowState = marks.state;
+            sceneLights.markShadows(marks.dirty);
+        } else shadowState = null;
+        shadowForce = !applied;
         editor?.refresh();
         const used = new Set([...objects.values()].flatMap(x => x.assetId ? [x.assetId] : []));
         for (const id of jobs.assetIds()) used.add(id);
@@ -691,6 +728,9 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
                 if (tex) environmentLight.iblFromEquirect(tex, shotSky.assetId);
                 else environmentLight.clearIbl();
             } else environmentLight.clearIbl();
+            // The screenshot draws each shadow map with its own visibility, and the next applied frame draws each again (R26).
+            sceneLights.markShadows(new Set(shadowState?.frame.lights.keys()));
+            shadowForce = true;
             let png: Uint8Array;
             try { png = await outsideFrame(() => renderScreenshot({ renderer, backend, scene, camera: shotCamera, show, antiAliasing: entity.antiAliasing ?? "none", msaaSamples: quality.msaaSamples, haze: shotHaze, grading: entity.grading ?? null, beams: shotBeams, effects: shotEffects, look: shotLook })); }
             finally { restoreSky(scene, shotSavedSky); environmentLight.clearIbl(); lease?.release(); }
@@ -722,6 +762,22 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
 function springClock(frame: RuntimeFrame, avatarId: Id): SpringClock {
     return { sessionId: frame.sessionId, tick: frame.tick, elapsedMs: frame.elapsedMs, resets: frame.springResets?.find(entry => entry.avatarId === avatarId)?.count ?? 0 };
 }
+// The box of the meshes of `root` from their geometry boxes (the rest pose of a skinned mesh), in world space or in the space of `root`.
+function meshBounds(root: Object3D, local: boolean): Box3 {
+    root.updateMatrixWorld(true);
+    const box = new Box3(), part = new Box3(), matrix = new Matrix4(), toLocal = local ? new Matrix4().copy(root.matrixWorld).invert() : null;
+    root.traverse(object => {
+        const mesh = object as Mesh & { isInstancedMesh?: boolean; boundingBox?: Box3 | null; computeBoundingBox?: () => void };
+        if (!mesh.isMesh) return;
+        // An instanced mesh has its own box that holds every instance.
+        if (mesh.isInstancedMesh && !mesh.boundingBox) mesh.computeBoundingBox!();
+        if (!mesh.isInstancedMesh && !mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
+        part.copy(mesh.isInstancedMesh ? mesh.boundingBox! : mesh.geometry.boundingBox!).applyMatrix4(toLocal ? matrix.multiplyMatrices(toLocal, mesh.matrixWorld) : mesh.matrixWorld);
+        box.union(part);
+    });
+    return box;
+}
+const maxScale = (object: Object3D) => Math.max(Math.abs(object.scale.x), Math.abs(object.scale.y), Math.abs(object.scale.z));
 function applyTransform(object: Object3D, entity: SceneEntity) { object.position.fromArray(entity.transform.position); object.quaternion.fromArray(entity.transform.rotation); object.scale.fromArray(entity.transform.scale); object.visible = entity.visible; object.updateMatrixWorld(true); }
 function disposeInstance(root: Object3D) { root.traverse(object => { const skeleton = (object as import("three/webgpu").SkinnedMesh).skeleton; if (skeleton)
     skeleton.dispose(); }); }

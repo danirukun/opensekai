@@ -112,6 +112,8 @@ export interface SceneLights {
     setFileLights(fileLights: readonly Light[], affectCharacters: boolean): void;
     /** Sets the group node set on each lit material of `root` and the shadow flags of its meshes. */
     assign(root: Object3D, group: LightGroup): void;
+    /** Draws the shadow map of each named light with a shadow in the next render (light scale R22). */
+    markShadows(dirty: ReadonlySet<Id>): void;
     /** The node set of one group; the haze material takes the `haze` set (B13 R7). */
     node(group: LightGroup): unknown;
     signature(): string;
@@ -192,6 +194,8 @@ export function createSceneLights(scene: Scene, renderer: WebGPURenderer): Scene
         if ((light as AmbientLight).isAmbientLight) return;
         const cast = light as DirectionalLight | PointLight | SpotLight;
         cast.castShadow = settings.shadow.enabled;
+        // The renderer marks a map only when its contents change (light scale R22).
+        cast.shadow.autoUpdate = false;
         cast.shadow.intensity = settings.shadow.intensity;
         cast.shadow.bias = settings.shadow.bias;
         cast.shadow.normalBias = settings.shadow.normalBias;
@@ -288,6 +292,12 @@ export function createSceneLights(scene: Scene, renderer: WebGPURenderer): Scene
                     if (used) material.dispose();
                 }
             });
+        },
+        markShadows(dirty) {
+            for (const id of dirty) {
+                const cast = owned.get(id)?.light as DirectionalLight | PointLight | SpotLight | undefined;
+                if (cast?.castShadow) cast.shadow.needsUpdate = true;
+            }
         },
         node: group => nodes?.[group] ?? null,
         signature: () => current,

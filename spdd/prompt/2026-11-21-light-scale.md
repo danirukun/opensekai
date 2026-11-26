@@ -77,12 +77,12 @@ R22. Each light with a shadow has `shadow.autoUpdate` false. The renderer sets `
 R23. A shadow light is dirty in a frame when one of these is true:
 - it is new, its shadow was turned on, or the light set was rebuilt (`apply` returned true);
 - its type, position, rotation (with a gizmo draft), range, cone, or shadow settings changed;
-- a character sphere (R25) intersects its shadow volume;
+- a character sphere (R25) intersects its shadow volume now, or did at its last draw (so a character that leaves the volume, or is hidden or removed, leaves no old shadow);
 - a prop or environment sphere that intersects its shadow volume now, or did at its last draw, was added, removed, moved, scaled, hidden, shown, or got a new model;
 - the output camera `renderEnvironment` changed;
 - the frame comes after a screenshot or a capture render (R26).
 R24. `shadowVolumeHits(light, sphere): boolean` is a pure function. Point: the sphere is within `range` + radius of the light, or `range` is 0. Spot: the sphere is within the cone half angle plus `asin(radius / distance)` and within `range` + radius (`SPOT_SHADOW_FAR` when `range` is 0). Directional: the sphere intersects the shadow box (half side `SHADOW_BOX`, depth from near to far along the light).
-R25. Character sphere: centered at the world position of the character root in each frame, with the radius of its rest-pose box (half the diagonal, measured one time at install) plus 1 m (TB6 (a)). A character counts as moved in each frame. Prop and environment sphere: the world bounding sphere, measured again only when the entity transform, model, or visibility changes.
+R25. Character sphere: centered at the world position of the character root in each frame. Its radius is the distance from the root to the farthest corner of the rest-pose box (measured one time at install, in the space of the root), times the largest root scale, plus 1 m (TB6 (a)). The sphere is at the root (the feet), not at the box center, so half the box diagonal does not hold a character that is taller than about 2 m. A hidden character has no sphere. A character counts as moved in each frame. Prop and environment sphere: the world bounding sphere, measured again only when the root transform (also a gizmo draft), the model, the visibility, or the saved material values change.
 R26. Before a screenshot or capture render, each shadow light is dirty. The first applied frame after it, each shadow light is dirty again.
 R27. With a dirty light in each frame, the shadow looks as it does now (LC S1).
 
@@ -118,7 +118,7 @@ R32. No pull request claims a GPU, OBS, look, cost, or Windows result that was n
 - Contracts: `GpuTimerSupportSchema = z.enum(['supported', 'unsupported'])`; `RendererDiagnostics.gpuTimer?`; `app_status` output `gpuTimer?`. Rust `GpuTimerSupport` (`supported`, `unsupported`), `gpu_timer: Option<GpuTimerSupport>` with `skip_serializing_if`.
 - Renderer: `initializeBackend` returns `gpuTimer`. `createGpuTimer(backend)` → `{ frameDone(): void; taint(): void; take(): number | null; support: GpuTimerSupport; dispose(): void }`. `framePairs(times, boundaries)`, `frameSpan(pairs)`, `gpuSample(spans)`.
 - Evaluation: `Entry.gpu: Vec<f64>`; summary `gpuMs`, `gpuSampleCount`.
-- Renderer lights: `SceneLights` keeps its interface. A directional light is a `GroupDirectionalLight` (an empty subclass of `DirectionalLight`, TB3 (b)). New `shadow-cache.ts`: `ShadowVolume`, `Sphere`, `shadowVolumeHits`, `shadowDirty(previous, next)`.
+- Renderer lights: `SceneLights` keeps its interface and adds `markShadows(dirty)` (PR3). A directional light is a `GroupDirectionalLight` (an empty subclass of `DirectionalLight`, TB3 (b)). New `shadow-cache.ts`: `ShadowVolume`, `Sphere`, `shadowVolume`, `shadowVolumeHits`, `characterRadius`, `shadowLights`, `shadowDirty(previous, next)`.
 - No new `PatchOp`, entity kind, show field, MCP tool, or show version.
 
 ## A — Approach
