@@ -6,7 +6,7 @@
  import {NO_MARKS,type ResetMarks} from '../editor/property-defaults';
  let {entityId,snow,revision,disabled=false,marks=NO_MARKS,oncommit,onlive,onliveend}:{entityId:string;snow:SnowSettings;marks?:ResetMarks;revision:number;disabled?:boolean;oncommit?:(id:string,snow:SnowSettings,revision:number)=>Promise<Reply<unknown>|undefined>;onlive?:(id:string,snow:SnowSettings)=>void;onliveend?:()=>void}=$props();
  const SETTLE='Settle On Characters';
- // The checkbox has no live path: the change compiles the character materials (snow Inspector R4).
+ // The checkbox has no live path: the first change to on compiles the character materials (snow Inspector R4).
  const settle=(value:boolean)=>{void oncommit?.(entityId,{...snow,settleOnCharacters:value},revision);};
 </script>
 <fieldset class="snow" disabled={disabled||!oncommit}>

@@ -8,7 +8,7 @@
  import {groupEntities} from '../editor/asset-groups';
  import {cameraLimitReached} from '../editor/cameras';
  import {fpsCounterLimitReached,hazeLimitReached,lightCopyLimitReached} from '../editor/lights';
- import {snowLimitReached} from '../editor/snow-fields';
+ import {snowLimitReached,snowTransform} from '../editor/snow-fields';
  import {copyTransform} from '../editor/interaction';
  import {vmcSenderLimitReached} from '../editor/vmc-sender';
  import HelpButton from './HelpButton.svelte';
@@ -86,7 +86,7 @@
    ?[{...action(entity.config.enabled?'Stop':'Start',entity.config.enabled?Square:Play,()=>{void ontrackingtoggle?.(id,!entity.config.enabled,revision);}),disabled:disabled||view.pending||!ontrackingtoggle}]
    :entity.kind==='vmcSender'?[action(entity.vmcSender.enabled?'Stop':'Start',entity.vmcSender.enabled?Square:Play,()=>{void model.setVmcSender(id,{...entity.vmcSender,enabled:!entity.vmcSender.enabled},revision);})]:[];
   const viewActions=spatial?[action(entity.visible?'Hide':'Show',entity.visible?EyeOff:Eye,()=>{void model.setVisibility(id,!entity.visible,revision);}),...(entity.kind==='camera'?[action('Use as output camera',Video,()=>{void model.selectCamera(id,revision);})]:[])]:[];
-  const resetActions=spatial?(['position','rotation','scale'] as const).map(row=>action(`Reset ${row}`,RotateCcw,()=>{void model.setTransform?.(id,{...copyTransform(entity.transform),[row]:row==='rotation'?[0,0,0,1]:row==='scale'?[1,1,1]:[0,0,0]},revision);})): [];
+  const resetActions=spatial?(['position','rotation','scale'] as const).map(row=>action(`Reset ${row}`,RotateCcw,()=>{void model.setTransform?.(id,{...copyTransform(entity.transform),[row]:row==='rotation'?[0,0,0,1]:row==='scale'?(entity.kind==='snow'?snowTransform().scale:[1,1,1]):[0,0,0]},revision);})): [];
   const referenced=scene!.outputs.some(output=>output.cameraId===id);
   const budgetFull=scene!.entities.length>=64||(entity.kind==='avatar'&&scene!.entities.filter(item=>item.kind==='avatar').length>=2)||entity.kind==='environment'||(entity.kind==='camera'&&cameraLimitReached(scene!.entities))||(entity.kind==='light'&&lightCopyLimitReached(entity,scene!.entities))||(entity.kind==='tracking'&&scene!.entities.filter(item=>item.kind==='tracking').length>=4)||(entity.kind==='haze'&&hazeLimitReached(scene!.entities))||(entity.kind==='snow'&&snowLimitReached(scene!.entities))||(entity.kind==='fpsCounter'&&fpsCounterLimitReached(scene!.entities))||(entity.kind==='vmcSender'&&vmcSenderLimitReached(scene!.entities))||(entity.kind==='screen'&&(screenLimitReached(scene!.entities)||duplicateLimitReached(entity,scene!.entities)));
   menu={x:event.clientX,y:event.clientY,actions:[...group('tool',toolActions),...group('control',controlActions),...group('view',viewActions),...group('reset',resetActions),...group('edit',[action('Rename',Pencil,()=>{void beginRename(id,revision);}),{...action('Duplicate',CopyPlus,()=>{void duplicate(id,revision);}),disabled:disabled||view.pending||budgetFull,title:budgetFull?'Scene asset limit reached':undefined}]),...group('remove',[{...action('Remove',Trash2,()=>{void remove(id,revision);}),disabled:disabled||view.pending||referenced,title:referenced?'Choose another output camera before removal':undefined}])]};

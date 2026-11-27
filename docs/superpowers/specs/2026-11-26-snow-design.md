@@ -51,6 +51,10 @@ Changes from the code review of 2026-11-27 (the [evidence page](../../evaluation
 | The failure rule covers the creation and the update of the facade, and the first scene draw after a material got or lost its share | Only the sky pass and the build-up steps were covered. A throw in the other places stopped each frame. |
 | An avatar with no material that can take snow gets no build-up | A lilToon avatar had the buffers and a compute step for each tick, and nothing read the result. |
 | Duplicate is off for a snow entity | A scene holds at most 1, and the session refused the copy. |
+| A pipeline of a snow material that fails to compile stops the snow, with the warning `Snow failed` | The report went to the haze or the beams, and the snow continued with a broken pipeline. |
+| An avatar keeps its share while `settleOnCharacters` is off. The build-up sets each amount to 0 and then does no work. | A release and a new share each built the pipelines of each character material again, inside the frame. The first change to on, and the add and the removal of the entity, still build them one time; the compile rule of this design needs that. |
+| The sky pass does not draw at `rate` 0 | No flake draws and nothing grows, so nothing reads the height. |
+| The default snow box is the position `[0, 2, 0]` and the scale `[6, 4, 6]` | A scale reset gave a box of 1 m. |
 
 Facts for the next decision:
 

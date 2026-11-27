@@ -15,7 +15,7 @@ Each fact was read in the code on 2026-11-27.
 - `model.setHaze` parses the group with `HazeSettingsSchema`, refuses an entity of another kind, and sends one `setHaze` patch (`apps/desktop/src/editor/model.ts:171`). The model has no `setSnow`.
 - `SLIDERS` in `apps/desktop/src/editor/slider.ts` holds the field ranges. Its hard limits are the contract limits.
 - `valuesFor`, `defaultsFor`, and `resetFieldIds` in `apps/desktop/src/editor/property-defaults.ts` give the reset marks. They have no snow branch, so a snow entity has reset marks only for the transform, with a default scale of 1 m on each axis.
-- `setSnow` is in `PatchOpSchema` and in `LivePatchOp`, and the session handles it (`packages/session/src/scene-ops.ts`). The renderer reads each number setting as a uniform. A change of `settleOnCharacters` disposes or makes the build-up and compiles the character materials again.
+- `setSnow` is in `PatchOpSchema` and in `LivePatchOp`, and the session handles it (`packages/session/src/scene-ops.ts`). The renderer reads each number setting as a uniform. At the time of this analysis a change of `settleOnCharacters` disposed or made the build-up and compiled the character materials again. Since the review fixes of 2026-11-27 only the first change to on compiles them.
 - The Add menu has no Snow item. No add default exists for the snow box.
 - `settleOnProps` and `settleOnEnvironment` have no effect before slice 4.
 
@@ -23,10 +23,10 @@ Each fact was read in the code on 2026-11-27.
 
 1. The section has the name Physics and comes after Transform. The first build had the name Snow, which repeats the name of the entity; the owner chose Physics on 2026-11-27.
 2. Each number setting is a slider with the contract range. `buildUpSeconds` and `meltSeconds` use the cubic curve with a slider end of 120 s, so the short times have fine control. A typed value can go to 600 s.
-3. `settleOnCharacters` is a checkbox with the label Settle On Characters. It commits one patch and has no live path, because it compiles materials.
+3. `settleOnCharacters` is a checkbox with the label Settle On Characters. It commits one patch and has no live path, because the first change to on compiles materials.
 4. The checkboxes for props and for the environment are not shown before slice 4. A control with no effect is a false control.
 5. Each shown field has a reset mark with the `DEFAULT_SNOW` value.
-6. The Transform section does not change. `TransformFields` makes its own reset marks from the default scale, so the scale reset gives a box of 1 m until Add › Snow of slice 5 gives a default box. This is a known limit of this slice.
+6. `TransformFields` makes its own reset marks from the default scale. The first build had no default box, so the scale reset gave a box of 1 m. The review fixes of 2026-11-27 added the default box (R8 of the contract).
 
 ## Risks
 

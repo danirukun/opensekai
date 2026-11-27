@@ -225,7 +225,7 @@ Seen in the same session, and open:
 
 ## Review fixes (2026-11-27)
 
-A code review of the branch gave 10 findings. Five are fixed in the commit after `1fdbc531`; the design page lists them. Checks:
+A code review of the branch gave 10 findings. Nine are fixed (`ee056f79` and the commit after it); the design page lists them. Checks:
 
 | Check | How | Result |
 | --- | --- | --- |
@@ -236,9 +236,16 @@ A code review of the branch gave 10 findings. Five are fixed in the commit after
 | An avatar with no eligible material gets no build-up step | Facade test | Pass |
 | Duplicate is off in the menu of a snow entity | Editor window, the context menu | Pass |
 
-Not checked on a GPU: a session of several hours, and a failed node build of a real material. The OBS output was not connected in this check.
+| A failed pipeline of a snow material stops the snow and not the haze or the beams | Unit tests of `blameFrame`, and a renderer test with a stub renderer | Pass |
+| A change of Settle On Characters keeps the share, so no material builds again | Facade test (the material version does not change) | Pass |
+| Settle On Characters off removes the snow from the character and keeps the flakes; on again brings the snow back | Editor window, four captures | Pass |
+| No sky pass at `rate` 0, and the build-up still steps | Facade test | Pass |
+| At `rate` 0 the flakes go and the snow on the character melts | Editor window, one capture after 24 s | Pass |
+| Reset scale in the context menu of a snow entity gives `[6, 4, 6]` | Editor window, then `scene_inspect` | Pass |
 
-The five findings that are open: a snow pipeline that fails to compile is blamed on the haze or the beams; a settle or a release compiles the character materials inside the frame; each client keeps its own build-up (slice 2); the sky pass also runs at `rate` 0; no default box for the snow (slice 5).
+Not checked on a GPU: a session of several hours, a failed node build or a failed pipeline of a real material, and the time of a Settle On Characters change (the poll of this check has a resolution of about 1 s, and the shader cache of WebKit hides a second compile). Not checked in the app: the scale reset mark of the Inspector (the Transform section was closed). The OBS output was not connected in these checks.
+
+One finding is open: each client keeps its own build-up, so the preview, the OBS output, and a reloaded source can show different cover. Slice 2 (the session cover and the warm start) is the fix.
 
 ## To close the gate
 

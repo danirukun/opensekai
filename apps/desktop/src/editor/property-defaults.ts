@@ -6,13 +6,13 @@ import {GRADING_FIELD_IDS,gradingValues} from './grading';
 import {LIGHTING_FIELD_IDS,lightingValues} from './avatar-lighting';
 import {effectValues,shownEffectFields} from './camera-effects';
 import {bodyTrackingOf} from './live-fields';
-import {SNOW_FIELDS} from './snow-fields';
+import {SNOW_FIELDS,snowTransform} from './snow-fields';
 import {AMBIENT_LIGHT,BEAM,DIRECTIONAL_LIGHT,FPS_COUNTER,HAZE,POINT_LIGHT,SPOT_LIGHT,hazeTransform} from './lights';
 // The reset defaults of the Inspector fields (B17 R1–R4). Each value comes from the add defaults, so a reset and an add cannot differ.
 export type EntityDefaults=Readonly<Record<string,unknown>>;
 const LIGHTS:Record<LightSettings['type'],LightSettings>={directional:DIRECTIONAL_LIGHT,point:POINT_LIGHT,spot:SPOT_LIGHT,ambient:AMBIENT_LIGHT};
 const camera=()=>{const added=makeAuthoringEntity('camera','camera_default',[]);if(added.kind!=='camera')throw new Error('camera default');return added;};
-const transform=(entity:SceneEntity)=>({position:[0,0,0],rotation:[0,0,0,1],scale:entity.kind==='haze'?hazeTransform().scale:[1,1,1]});
+const transform=(entity:SceneEntity)=>({position:[0,0,0],rotation:[0,0,0,1],scale:entity.kind==='haze'?hazeTransform().scale:entity.kind==='snow'?snowTransform().scale:[1,1,1]});
 function lightValues(light:LightSettings):Record<string,unknown> {
  return {color:light.color,intensity:light.intensity,range:light.range,angleDegrees:light.cone?.angleDegrees??40,penumbra:light.cone?.penumbra??0,beam:light.beam?.enabled===true,beamIntensity:light.beam?.intensity??BEAM.intensity,beamSoftness:light.beam?.softness??BEAM.softness,volumetric:light.volumetric===true,affectCharacters:light.affectCharacters,affectProps:light.affectProps,affectEnvironment:light.affectEnvironment,shadow:light.shadow.enabled,shadowIntensity:light.shadow.intensity,soft:light.shadow.soft,bias:light.shadow.bias,normalBias:light.shadow.normalBias};
 }

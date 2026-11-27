@@ -154,15 +154,69 @@ it('makes no build-up and no share without compute, and still draws the sky pass
     expect(snow.flakes.visible).toBe(true);
     snow.dispose();
 });
-it('removes the build-ups when snow does not settle on characters, and keeps the flakes', async () => {
-    const snow = make(), stub = stubRenderer(), a = avatar();
+it('keeps the share and stops the build-up when snow does not settle on characters, so no material builds again', async () => {
+    const snow = make(), stub = stubRenderer(), renderer = asRenderer(stub), a = avatar(), scene = new Scene();
     snow.update(entity(), 0, [entry('a', a)], []);
-    snow.update(entity({ settleOnCharacters: false }), 0, [entry('a', a, 2)], []);
-    expect(built[0]!.dispose).toHaveBeenCalledTimes(1);
+    await snow.render(renderer, scene);
+    const buildUp = built[0]!, share = a.material.snow, version = a.material.version;
+    stub.compute.mockClear();
+    expect(snow.update(entity({ settleOnCharacters: false }), 0.1, [entry('a', a, 2)], [])).toBe(false);
+    expect(buildUp.dispose).not.toHaveBeenCalled();
+    expect(a.material.snow).toBe(share); expect(a.material.version).toBe(version);
+    await snow.render(renderer, scene);
+    // One step sets each amount to 0. Then the build-up does no work.
+    expect(buildUp.clear).toHaveBeenCalledTimes(1);
+    expect(buildUp.step).toHaveBeenLastCalledWith(renderer, 0, false);
+    expect(stub.compute).toHaveBeenCalledTimes(1);
+    snow.update(entity({ settleOnCharacters: false }), 0.2, [entry('a', a, 3)], []);
+    await snow.render(renderer, scene);
+    expect(stub.compute).toHaveBeenCalledTimes(1);
+    // The flakes and the sky pass continue.
+    expect(snow.flakes.visible).toBe(true); expect(stub.renderAsync).toHaveBeenCalledTimes(3);
+    // On again: the same share, and the first step resets.
+    expect(snow.update(entity(), 0.3, [entry('a', a, 4)], [])).toBe(false);
+    await snow.render(renderer, scene);
+    expect(a.material.snow).toBe(share); expect(a.material.version).toBe(version);
+    expect(buildUp.step).toHaveBeenLastCalledWith(renderer, 0, true);
+    snow.dispose();
+});
+it('makes no build-up while snow never settled on characters, and makes it when the setting goes on', () => {
+    const snow = make(), a = avatar();
+    expect(snow.update(entity({ settleOnCharacters: false }), 0, [entry('a', a)], [])).toBe(false);
+    expect(createSnowBuildUp).not.toHaveBeenCalled();
     expect(a.material.snow).toBeNull();
-    await snow.render(asRenderer(stub), new Scene());
-    expect(stub.compute).not.toHaveBeenCalled(); expect(stub.renderAsync).toHaveBeenCalledTimes(1);
-    expect(snow.flakes.visible).toBe(true);
+    expect(snow.update(entity(), 0.1, [entry('a', a, 2)], [])).toBe(true);
+    expect(a.material.snow).not.toBeNull();
+    snow.dispose();
+});
+it('draws no sky pass at rate 0, and still steps the build-up with current world matrices', async () => {
+    const snow = make(), stub = stubRenderer(), renderer = asRenderer(stub), a = avatar(), scene = new Scene();
+    const matrices = vi.spyOn(scene, 'updateMatrixWorld');
+    snow.update(entity(), 0, [entry('a', a, 1)], []);
+    await snow.render(renderer, scene);
+    expect(stub.renderAsync).toHaveBeenCalledTimes(1);
+    stub.compute.mockClear(); matrices.mockClear();
+    snow.update(entity({ rate: 0 }), 0.1, [entry('a', a, 2)], []);
+    await snow.render(renderer, scene);
+    expect(stub.renderAsync).toHaveBeenCalledTimes(1);
+    expect(matrices).toHaveBeenCalledTimes(1);
+    expect(built[0]!.step).toHaveBeenLastCalledWith(renderer, 1 / 60, false);
+    expect(matrices.mock.invocationCallOrder[0]).toBeLessThan(stub.compute.mock.invocationCallOrder[0]!);
+    snow.update(entity({ rate: 0.5 }), 0.2, [entry('a', a, 3)], []);
+    await snow.render(renderer, scene);
+    expect(stub.renderAsync).toHaveBeenCalledTimes(2);
+    snow.dispose();
+});
+it('lists the ids of the materials whose pipelines are snow pipelines', () => {
+    const snow = make(), a = avatar(), other = new CharacterMToonMaterial();
+    expect(snow.materialIds().has(a.material.id)).toBe(false);
+    snow.update(entity(), 0, [entry('a', a)], []);
+    const ids = snow.materialIds();
+    expect(ids.has(a.material.id)).toBe(true);
+    expect(ids.has((snow.flakes as unknown as { material: { id: number } }).material.id)).toBe(true);
+    expect(ids.has(other.id)).toBe(false);
+    // The flakes, the sky pass, and one character material.
+    expect(ids.size).toBe(3);
     snow.dispose();
 });
 it('gives an avatar without a skinned vertex no share and no error, and does not collect it again', async () => {
@@ -191,8 +245,9 @@ it('reports a frame in which a material got or lost its share', () => {
     const snow = make(), a = avatar();
     expect(snow.update(entity(), 0, [entry('a', a)], [a.root])).toBe(true);
     expect(snow.update(entity(), 1 / 60, [entry('a', a, 2)], [a.root])).toBe(false);
-    expect(snow.update(entity({ settleOnCharacters: false }), 2 / 60, [entry('a', a, 3)], [a.root])).toBe(true);
-    expect(snow.update(entity({ settleOnCharacters: false }), 3 / 60, [entry('a', a, 4)], [a.root])).toBe(false);
+    // The avatar leaves: its material loses the share.
+    expect(snow.update(entity(), 2 / 60, [], [])).toBe(true);
+    expect(snow.update(entity(), 3 / 60, [], [])).toBe(false);
     snow.dispose();
 });
 

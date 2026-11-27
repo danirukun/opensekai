@@ -2,7 +2,7 @@ import { it, expect, vi, beforeEach } from 'vitest';
 import { Bone, BufferGeometry, Float32BufferAttribute, Object3D, OrthographicCamera, Skeleton, SkinnedMesh, Uint16BufferAttribute, type Camera, type Scene } from 'three/webgpu';
 import { DEFAULT_SNOW, QUALITY_PROFILES, makeSmokeFrame, type RuntimeFrame, type SceneEntity } from '@opensekai/contracts';
 type Mock = ReturnType<typeof vi.fn>;
-const ports = vi.hoisted(() => ({ aa: { render: vi.fn(), dispose: vi.fn() }, backend: 'webgpu' as 'webgpu' | 'webgl2', load: vi.fn(), renderer: {} as Record<'renderAsync' | 'compute', Mock>, settleError: null as Error | null }));
+const ports = vi.hoisted(() => ({ aa: { render: vi.fn(), dispose: vi.fn() }, backend: 'webgpu' as 'webgpu' | 'webgl2', load: vi.fn(), renderer: {} as Record<'renderAsync' | 'compute', Mock>, settleError: null as Error | null, report: (() => {}) as (failure: { label: string | null }, first: boolean) => void }));
 vi.mock('../src/snow-build-up', async original => {
     const actual = await original<typeof import('../src/snow-build-up')>();
     return { ...actual, createSnowBuildUp: (...args: Parameters<typeof actual.createSnowBuildUp>) => { if (ports.settleError) throw ports.settleError; return actual.createSnowBuildUp(...args); } };
@@ -17,7 +17,7 @@ vi.mock('../src/assets', async original => ({ ...await original<typeof import('.
 vi.mock('../src/avatar-pose', () => ({ createAvatarBinding: (vrm: { root: Object3D; characters: unknown[] }) => ({ root: vrm.root, characters: vrm.characters, apply: vi.fn(), uv: vi.fn(), lighting: vi.fn(), advanceSprings: vi.fn(), headWorldPosition: () => null }) }));
 vi.mock('../src/environment-light', async original => ({ ...await original<typeof import('../src/environment-light')>(), roomEnvironmentMap: () => () => ({ texture: null, dispose() {} }), roomIrradiance: async () => [[1, 1, 1], ...Array.from({ length: 8 }, () => [0, 0, 0])] }));
 vi.mock('../src/post-chain', async original => ({ ...await original<typeof import('../src/post-chain')>(), createPostChain: () => ports.aa }));
-vi.mock('../src/pipeline-diagnostics', async original => ({ ...await original<typeof import('../src/pipeline-diagnostics')>(), watchPipelineErrors: () => () => {}, logPipelineFailure: vi.fn() }));
+vi.mock('../src/pipeline-diagnostics', async original => ({ ...await original<typeof import('../src/pipeline-diagnostics')>(), watchPipelineErrors: (_device: unknown, report: (failure: { label: string | null }, first: boolean) => void) => { ports.report = report; return () => {}; }, logPipelineFailure: vi.fn() }));
 import { createRenderer } from '../src/renderer';
 import { CharacterMToonMaterial } from '../src/character-mtoon';
 import { SNOW_LAYER } from '../src/snow-flakes';
@@ -168,6 +168,18 @@ it('does not blame the snow for a draw that fails after the snow drew one time',
     const next = await renderer.applyFrame(frame([snow]));
     expect(next.warnings).toEqual([]);
     expect(drawnScene().getObjectByName('snow-flakes')).toBeDefined();
+    renderer.dispose();
+});
+it('stops the snow, and not the frame, when a pipeline of a snow material fails to compile', async () => {
+    const renderer = await make();
+    await renderer.applyFrame(frame([snow]));
+    const flakes = drawnScene().getObjectByName('snow-flakes') as unknown as { material: { id: number } };
+    ports.report({ label: `renderPipeline_snow-flakes_${flakes.material.id}` }, true);
+    const failed = await renderer.applyFrame(frame([snow]));
+    expect(failed.warnings).toContainEqual({ code: 'UNSUPPORTED', message: 'Snow failed: Pipeline compile failed', ids: ['snow_1'] });
+    const next = await renderer.applyFrame(frame([snow]));
+    expect(next.warnings).toContainEqual({ code: 'UNSUPPORTED', message: 'Snow failed: Pipeline compile failed', ids: ['snow_1'] });
+    expect(drawnScene().getObjectByName('snow-flakes')).toBeUndefined();
     renderer.dispose();
 });
 

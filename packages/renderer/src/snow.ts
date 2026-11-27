@@ -19,6 +19,8 @@ export interface Snow {
     update(entity: SnowEntity, elapsedSeconds: number, avatars: readonly SnowAvatar[], casters: readonly Object3D[]): boolean;
     /** The sky pass, then one build-up step for each avatar. Inside the applied frame. */
     render(renderer: WebGPURenderer, scene: Scene): Promise<void>;
+    /** The ids of the materials whose pipelines are snow pipelines: the flakes, the sky pass, and each material with a share. */
+    materialIds(): ReadonlySet<number>;
     warnings(): AppError[];
     dispose(): void;
 }
@@ -44,7 +46,7 @@ export function createSnow({ tint, compute }: { tint: UniformNode<"color">; comp
     const uniforms: SnowUniforms = { rate: uniform(0), buildUpSeconds: uniform(1), meltSeconds: uniform(1), thickness: uniform(0) };
     const noise = compute ? createSnowNoise() : null;
     const settled = new Map<string, Settled>();
-    let visible = false, clearPending = false;
+    let visible = false, settling = false, rate = 0, clearPending = false;
     const settle = ({ root, materials, clock }: SnowAvatar): Settled => {
         const buildUp = createSnowBuildUp(root, sky, uniforms);
         const share = buildUp && noise ? { state: buildUp.state, count: buildUp.count, thickness: uniforms.thickness, noise } : null;
@@ -77,9 +79,13 @@ export function createSnow({ tint, compute }: { tint: UniformNode<"color">; comp
             sky.update(entity);
             sky.markCasters(casters);
             flakes.update(entity, elapsedSeconds);
-            if (visible && !entity.visible) clearPending = true;
+            if (visible && settling && !(entity.visible && snow.settleOnCharacters)) clearPending = true;
             visible = entity.visible;
-            const wanted = new Map((compute && snow.settleOnCharacters ? avatars : []).map(avatar => [avatar.id, avatar]));
+            settling = snow.settleOnCharacters;
+            rate = snow.rate;
+            // An avatar gets its share when snow settles on characters the first time. It keeps the share while the setting is
+            // off: a release and a new share would each build the pipelines of its materials again, which stalls the output.
+            const wanted = new Map((compute ? avatars : []).filter(avatar => settling || settled.has(avatar.id)).map(avatar => [avatar.id, avatar]));
             let changed = false;
             for (const [id, entry] of settled) {
                 if (wanted.get(id)?.root === entry.root) continue;
@@ -97,9 +103,11 @@ export function createSnow({ tint, compute }: { tint: UniformNode<"color">; comp
             return changed;
         },
         async render(renderer, scene) {
-            if (visible) {
-                // The sky pass also updates the world matrices that the build-up steps read.
-                await sky.render(renderer, scene);
+            // At rate 0 no flake draws and nothing grows, so nothing reads the height. The sky pass also updates the world
+            // matrices that the build-up steps read, so without it the scene updates them.
+            if (visible && rate > 0) await sky.render(renderer, scene);
+            else if (visible && settling) scene.updateMatrixWorld();
+            if (visible && settling) {
                 for (const entry of settled.values()) {
                     const { seconds, reset } = snowSteps(entry.previous, entry.clock);
                     entry.buildUp?.step(renderer, seconds, reset);
@@ -116,6 +124,7 @@ export function createSnow({ tint, compute }: { tint: UniformNode<"color">; comp
                 entry.previous = null;
             }
         },
+        materialIds: () => new Set([flakes.object.material.id, sky.materialId, ...[...settled.values()].flatMap(entry => entry.materials.map(material => material.id))]),
         warnings: () => [...settled].filter(([, entry]) => entry.shared).map(([id]) => ({ code: "UNSUPPORTED", message: "Snow build-up shares a material", ids: [id] })),
         dispose() {
             for (const entry of settled.values()) release(entry);

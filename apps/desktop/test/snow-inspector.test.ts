@@ -4,7 +4,7 @@ import {createSession} from '@opensekai/session';
 import {createEditorModel} from '../src/editor/model';
 import {changedFields,defaultsFor,resetFieldIds,valuesFor} from '../src/editor/property-defaults';
 import {sectionsFor} from '../src/editor/inspector-sections';
-import {SNOW_FIELDS,snowLimitReached} from '../src/editor/snow-fields';
+import {SNOW_FIELDS,snowLimitReached,snowTransform} from '../src/editor/snow-fields';
 
 const snow=(settings:Partial<SnowSettings>={}):Extract<SceneEntity,{kind:'snow'}>=>({id:'snow',name:'Snow',visible:true,transform:{position:[0,2,0],rotation:[0,0,0,1],scale:[6,4,6]},kind:'snow',snow:{...DEFAULT_SNOW,...settings}});
 
@@ -22,9 +22,9 @@ it('has one slider for each number setting, with the contract limits (R2)',()=>{
 });
 it('marks a changed snow field for reset to the DEFAULT_SNOW value (R6)',()=>{
  expect(resetFieldIds(snow())).toEqual(['visible','position','rotation','scale',...SNOW_FIELDS.map(([key])=>key),'settleOnCharacters']);
- expect([...changedFields(snow())]).toEqual(['position','scale']);
+ expect([...changedFields(snow())]).toEqual(['position']);
  const changed=snow({rate:1,thickness:0.03,settleOnCharacters:false,settleOnProps:false});
- expect([...changedFields(changed)]).toEqual(['position','scale','rate','thickness','settleOnCharacters']);
+ expect([...changedFields(changed)]).toEqual(['position','rate','thickness','settleOnCharacters']);
  expect(valuesFor(changed)).toMatchObject({rate:1,thickness:0.03,settleOnCharacters:false});
  expect(defaultsFor(changed)).toMatchObject({rate:DEFAULT_SNOW.rate,thickness:DEFAULT_SNOW.thickness,settleOnCharacters:true});
 });
@@ -43,5 +43,10 @@ it('sends setSnow only for a snow entity with valid settings (R7)',async()=>{
 it('reaches the snow limit with one snow entity, so Duplicate is off',()=>{
  expect(snowLimitReached(makeSmokeScene().entities)).toBe(false);
  expect(snowLimitReached([...makeSmokeScene().entities,snow()])).toBe(true);
+});
+it('resets the scale of a snow entity to the default box, not to 1 m (R8)',()=>{
+ expect(snowTransform()).toEqual({position:[0,2,0],rotation:[0,0,0,1],scale:[6,4,6]});
+ expect(defaultsFor(snow()).scale).toEqual([6,4,6]);
+ expect([...changedFields({...snow(),transform:{position:[0,0,0],rotation:[0,0,0,1],scale:[1,1,1]}})]).toEqual(['scale']);
 });
 

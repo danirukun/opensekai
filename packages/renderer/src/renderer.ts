@@ -22,7 +22,7 @@ import { characterRadius, shadowDirty, shadowLights, type Caster, type ShadowSta
 import { characterFill, normalizeRoom } from "./character-lighting-math";
 import { createCharacterShare, setRoomFill } from "./character-mtoon";
 import { logPipelineFailure, watchPipelineErrors, type PipelineDevice } from "./pipeline-diagnostics";
-import { afterRebuild, blameFrame, initialBlame } from "./pipeline-blame";
+import { afterRebuild, blameFrame, forgetLabels, initialBlame, pipelineMaterialId } from "./pipeline-blame";
 import { freshModulePerPipeline, isWebKit } from "./webkit-shader-modules";
 import { createDiagnosticMarker } from "./diagnostic-marker";
 import { serialize } from "./serial";
@@ -602,6 +602,8 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
                     return value ? [value.root] : [];
                 });
                 if (snow.update(snowEntity, frame.elapsedMs / 1000, avatars, casters)) snowProven = false;
+                // New snow materials build their pipelines again: a label that failed before is new.
+                if (!snowProven) { const ids = snow.materialIds(); blame = forgetLabels(blame, label => ids.has(pipelineMaterialId(label) ?? -1)); }
                 warnings.push(...snow.warnings());
             }
             catch (error) { failSnow(snowEntity.id, error); }
@@ -690,9 +692,12 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
                 await draw();
             }
             if (snowDrawn) snowProven = true;
-            const blamed = blameFrame(blame, { haze: hazeDrawn !== null, beams: beamsDrawn !== null }, failureReports);
+            // A pipeline of a snow material that fails to compile stops the snow, not the haze or the beams.
+            const snowIds = snowDrawn?.snow.materialIds();
+            const blamed = blameFrame(blame, { haze: hazeDrawn !== null, beams: beamsDrawn !== null }, failureReports, snowIds && (label => snowIds.has(pipelineMaterialId(label) ?? -1)));
             blame = blamed.state;
             failureReports = [];
+            if (blamed.snow && snowDrawn) { failSnow(snowDrawn.entity.id, new Error("Pipeline compile failed")); snowDrawn = null; }
             if (blamed.stop.includes("haze")) hazeFailed = true;
             if (blamed.stop.includes("beams")) beamsFailed = true;
             if (marker) {

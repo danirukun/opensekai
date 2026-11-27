@@ -13,6 +13,8 @@ export interface SnowSky {
     readonly height: Texture;
     readonly matrix: UniformNode<"mat4">;
     readonly camera: OrthographicCamera;
+    /** The id of the material of the pass, as in the label of its pipeline. */
+    readonly materialId: number;
     /** Places the camera and sets the matrix. No recompile. */
     update(entity: SnowEntity): void;
     /** Enables SNOW_SKY_LAYER on each object under each root, one time for each root. */
@@ -41,12 +43,14 @@ export function createSnowSky(size = SNOW_SKY_SIZE): SnowSky {
     material.toneMapped = false;
     material.blending = NoBlending;
     material.side = DoubleSide;
+    material.name = "snow-sky";
     const marked = new WeakSet<Object3D>();
     const clearColor = new Color();
     return {
         height: target.texture,
         matrix,
         camera,
+        materialId: material.id,
         update({ transform: { position, rotation, scale } }) {
             const [x, y, z] = position, [sx, sy, sz] = scale, yaw = boxYaw(rotation);
             camera.left = -sx / 2; camera.right = sx / 2; camera.top = sz / 2; camera.bottom = -sz / 2;

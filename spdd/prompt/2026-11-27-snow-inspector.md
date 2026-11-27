@@ -10,6 +10,7 @@ Analysis: [Snow Inspector analysis](../analysis/2026-11-27-snow-inspector.md). D
 - R4. The section has one checkbox, Settle On Characters, for `settleOnCharacters`. A change sends one committed patch.
 - R5. `settleOnProps` and `settleOnEnvironment` have no control. A patch from the section keeps their values.
 - R6. Each field of R2 and R4 has a reset mark when its value is not the `DEFAULT_SNOW` value. A reset sends the default of that field only.
+- R8. The default snow box has the position `[0, 2, 0]` and the scale `[6, 4, 6]` (the box of the spike evidence). A scale reset of a snow entity, in the Inspector and in the context menu, gives this scale. Add › Snow of slice 5 uses the same box. Added on 2026-11-27 from the code review.
 - R7. `model.setSnow` refuses an entity that is not a snow and a group that `SnowSettingsSchema` refuses. It sends no patch in those cases.
 
 ## E — Entities
@@ -41,6 +42,5 @@ Kit `SliderField` and the `visibility-control` checkbox pattern. No helper text.
 
 - No control for a setting that has no effect.
 - The section adds no renderer code and no contract change.
-- The checkbox has no live path, because the change compiles materials.
-- The Transform section does not change. Its scale reset gives a box of 1 m, because no add default exists before Add › Snow of slice 5.
+- The checkbox has no live path, because the first change to on compiles the character materials. A later change compiles nothing: the materials keep the share while the setting is off.
 - The gate of slice 1 stays open; this slice makes no claim about the look or the cost.
