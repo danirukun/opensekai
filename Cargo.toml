@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = ["apps/desktop/src-tauri", "crates/contracts", "crates/evaluation"]
+exclude = ["apps/relay/deps"]
 
 [workspace.package]
 version = "0.1.0"
