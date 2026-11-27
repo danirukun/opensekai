@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-import-hdr"
+description = "Enables the import_hdr command without any pre-configured scope."
+commands.allow = ["import_hdr"]
+
+[[permission]]
+identifier = "deny-import-hdr"
+description = "Denies the import_hdr command without any pre-configured scope."
+commands.deny = ["import_hdr"]

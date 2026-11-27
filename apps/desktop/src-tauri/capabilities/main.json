@@ -16,6 +16,7 @@
     "allow-import-scene",
     "allow-import-image",
     "allow-import-video",
+    "allow-import-hdr",
     "allow-capture-source-list",
     "allow-capture-source-allow",
     "allow-open-capture-settings",
