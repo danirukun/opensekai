@@ -1,4 +1,4 @@
-import {BODY_PARTS,DEFAULT_AVATAR_BODY_TRACKING,DEFAULT_TRACKING_MAPPING,DEFAULT_TRACKING_SMOOTHING,defaultTrackingConfig,type LightSettings,type SceneEntity} from '@opensekai/contracts';
+import {BODY_PARTS,DEFAULT_AVATAR_BODY_TRACKING,DEFAULT_SNOW,DEFAULT_TRACKING_MAPPING,DEFAULT_TRACKING_SMOOTHING,defaultTrackingConfig,type LightSettings,type SceneEntity} from '@opensekai/contracts';
 import {makeAuthoringEntity} from './authoring';
 import {VMC_SENDER} from './vmc-sender';
 import {DEFAULT_WEB_SCREEN,VIDEO_DEFAULTS} from './screen';
@@ -6,6 +6,7 @@ import {GRADING_FIELD_IDS,gradingValues} from './grading';
 import {LIGHTING_FIELD_IDS,lightingValues} from './avatar-lighting';
 import {effectValues,shownEffectFields} from './camera-effects';
 import {bodyTrackingOf} from './live-fields';
+import {SNOW_FIELDS} from './snow-fields';
 import {AMBIENT_LIGHT,BEAM,DIRECTIONAL_LIGHT,FPS_COUNTER,HAZE,POINT_LIGHT,SPOT_LIGHT,hazeTransform} from './lights';
 // The reset defaults of the Inspector fields (B17 R1–R4). Each value comes from the add defaults, so a reset and an add cannot differ.
 export type EntityDefaults=Readonly<Record<string,unknown>>;
@@ -28,6 +29,7 @@ export function valuesFor(entity:SceneEntity):Record<string,unknown> {
  if(entity.kind==='camera')return {...base,renderEnvironment:entity.renderEnvironment!==false,antiAliasing:entity.antiAliasing??'none',...gradingValues(entity.grading),...effectValues(entity.effects),...entity.lens,controlMode:entity.navigation?.mode??'none',sensitivity:entity.navigation&&entity.navigation.mode!=='none'?entity.navigation.sensitivity:undefined,skyKind:entity.sky?.kind??'none',skyIntensity:entity.sky?.intensity??1,skyBlurriness:entity.sky?.blurriness??0,skyIbl:entity.sky?.ibl??false};
  if(entity.kind==='light')return {...base,...lightValues(entity.light)};
  if(entity.kind==='haze')return {...base,...entity.haze};
+ if(entity.kind==='snow')return {...base,...entity.snow};
  if(entity.kind==='fpsCounter')return {...base,...entity.fpsCounter};
  if(entity.kind==='vmcSender')return {address:entity.vmcSender.address,port:entity.vmcSender.port};
  if(entity.kind==='environment')return {...base,reflectionsIntensity:entity.reflectionsIntensity??1,allowLightsToAffectCharacters:entity.allowLightsToAffectCharacters===true};
@@ -41,6 +43,7 @@ export function defaultsFor(entity:SceneEntity):EntityDefaults {
  if(entity.kind==='camera'){const added=camera();return {...base,renderEnvironment:true,antiAliasing:'none',...gradingValues(),...effectValues(),...added.lens,controlMode:added.navigation?.mode,sensitivity:added.navigation&&added.navigation.mode!=='none'?added.navigation.sensitivity:undefined,skyKind:'none',skyIntensity:1,skyBlurriness:0,skyIbl:false};}
  if(entity.kind==='light')return {...base,...lightValues(LIGHTS[entity.light.type])};
  if(entity.kind==='haze')return {...base,...HAZE};
+ if(entity.kind==='snow')return {...base,...DEFAULT_SNOW};
  if(entity.kind==='fpsCounter')return {...base,...FPS_COUNTER};
  if(entity.kind==='vmcSender')return {...VMC_SENDER};
  if(entity.kind==='environment')return {...base,reflectionsIntensity:1,allowLightsToAffectCharacters:false};
@@ -60,6 +63,8 @@ export function resetFieldIds(entity:SceneEntity):string[] {
   return [...base,'color','intensity',...(placed?['range']:[]),...(type==='spot'?['angleDegrees','penumbra','beam',...(entity.light.beam?.enabled?['beamIntensity','beamSoftness']:[])]:[]),...(placed?['volumetric']:[]),'affectCharacters','affectProps','affectEnvironment',...(type!=='ambient'?['shadow']:[]),...(type!=='ambient'&&shadow.enabled?['shadowIntensity','soft','bias','normalBias']:[])];
  }
  if(entity.kind==='haze')return [...base,'density','smoke','intensity','drift'];
+ // The props and environment flags have no control before the static cap (snow Inspector R5).
+ if(entity.kind==='snow')return [...base,...SNOW_FIELDS.map(([key])=>key),'settleOnCharacters'];
  // An FPS counter has no Transform section (B19 R5).
  if(entity.kind==='fpsCounter')return ['visible','corner','size','color'];
  // A sender has no Transform or Visible field. Its character default depends on the scene, so it has no reset (B21 R5).

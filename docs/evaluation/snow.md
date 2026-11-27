@@ -203,6 +203,26 @@ Step 8 (a lower `SNOW_FLAKES`, then a lower `SNOW_SKY_SIZE`) did not run: there 
 - New test: "gives two shares two program keys, and one share one key" in `snow-surface.test.ts`. Before the fix it failed (`expected 'CharacterMToonMaterial…' not to be 'CharacterMToonMaterial…'`); after the fix it passes.
 - Changed test: the shed test in `snow-math.test.ts` reads `SNOW.shedStart` and `SNOW.shedFull`.
 
+## Inspector section (2026-11-27)
+
+The owner asked for the Inspector section of slice 5 before the gate ([contract](../../spdd/prompt/2026-11-27-snow-inspector.md)). The check ran on the debug build of the working tree after `a1869457`, in the Editor window (WebKit, WebGPU, `preview_v1`), with the Low Poly Winter Scene environment, an HDR sky, and the Catboy avatar. Accessibility actions drove the controls and MCP `scene_inspect` read the result.
+
+| Check | Result |
+| --- | --- |
+| A snow entity shows the Transform and Snow sections | Pass |
+| A typed Wind Speed of 1.5 gives `windSpeed` 1.5 | Pass |
+| A typed Wind Speed of 9 (above the limit of 5) changes nothing | Pass |
+| A step of the Rate slider changes `rate` | Pass |
+| Settle On Characters off gives `settleOnCharacters` false and keeps the two other flags | Pass |
+| The reset marks of Rate, Wind Speed, and Settle On Characters show and give the `DEFAULT_SNOW` values | Pass |
+
+Not checked: a pointer drag of a slider (the live patches), and the look of each setting in the preview. The flakes and the build-up draw in the Editor preview in this session, which is the first Editor observation of the spike. It is not a gate run.
+
+Seen in the same session, and open:
+
+- `camera_screenshot` shows the build-up but no flakes.
+- One earlier session logged `GPUValidationError: Bind group has incompatible usage list: Attachment ConstantTexture` on each frame while the flakes were visible. The error stopped at `rate` 0 and when the entity was hidden. Two later sessions did not show it. The cause is unknown.
+
 ## To close the gate
 
 1. Unlock the Mac, connect mains power, and run `caffeinate -d -u`. Keep the Editor window in view.

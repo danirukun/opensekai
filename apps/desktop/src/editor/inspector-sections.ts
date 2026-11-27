@@ -14,7 +14,7 @@ export function sectionsFor(entity:SceneEntity,options:{expressions:boolean;mesh
  if(entity.kind==='camera')return [transform,section('rendering','Rendering'),section('grading','Grading'),section('effects',EFFECT_LABELS.section),section('lens','Lens'),section('control','Control'),section('screenshot','Screenshot')];
  if(entity.kind==='light')return [transform,section('light','Light'),section('affect','Affect'),...(entity.light.type!=='ambient'?[section('shadow','Shadow')]:[])];
  if(entity.kind==='haze')return [transform,section('haze','Haze')];
- if(entity.kind==='snow')return [transform];
+ if(entity.kind==='snow')return [transform,section('snow','Snow')];
  if(entity.kind==='fpsCounter')return [section('fpsCounter','FPS Counter')];
  if(entity.kind==='vmcSender')return [section('sender','Sender')];
  if(entity.kind==='environment')return [transform,section('environment','Environment')];
