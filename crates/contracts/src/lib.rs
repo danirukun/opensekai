@@ -853,6 +853,11 @@ object!(SpringReset {
     avatar_id: Id,
     count: u64
 });
+// Snow cover R5: the session-owned cover of the snow entity.
+object!(SnowCover {
+    entity_id: Id,
+    cover: f64
+});
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub enum SceneEntity {
@@ -1930,6 +1935,8 @@ pub struct RuntimeFrame {
     pub screen_playback: Option<Vec<ScreenPlayback>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub spring_resets: Option<Vec<SpringReset>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub snow: Option<SnowCover>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -3555,6 +3562,12 @@ impl Validate for RuntimeFrame {
                         .iter()
                         .all(|r| r.count >= 1 && r.count as f64 <= MAX_SAFE_INTEGER),
                 "invalid spring resets",
+            )?;
+        }
+        if let Some(snow) = &self.snow {
+            require(
+                snow.cover.is_finite() && (0. ..=1.).contains(&snow.cover),
+                "invalid snow cover",
             )?;
         }
         self.scene.validate()

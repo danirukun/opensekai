@@ -575,6 +575,8 @@ export const ConnectionDescriptorSchema = z.strictObject({
 export const ScreenPlaybackSchema = z.strictObject({ entityId: IdSchema, playing: z.boolean(), positionMs: u });
 // B43 R1: the session-owned spring reset count of each avatar that had a teleport.
 export const SpringResetSchema = z.strictObject({ avatarId: IdSchema, count: u.min(1) });
+// Snow cover R5: the session-owned cover of the snow entity.
+export const SnowCoverSchema = z.strictObject({ entityId: IdSchema, cover: n.min(0).max(1) });
 export const RuntimeFrameSchema = z.strictObject({
     schemaVersion: z.literal(1),
     sessionId: IdSchema,
@@ -586,7 +588,8 @@ export const RuntimeFrameSchema = z.strictObject({
     avatarPoses:z.array(AvatarPoseSchema).max(2).optional(),
     trackingStatus:z.array(TrackingStatusSchema).max(4).refine(values=>new Set(values.map(value=>value.sourceId)).size===values.length).optional(),
     screenPlayback:z.array(ScreenPlaybackSchema).max(LIMITS.videoScreens).refine(values=>new Set(values.map(value=>value.entityId)).size===values.length).optional(),
-    springResets:z.array(SpringResetSchema).max(2).refine(values=>new Set(values.map(value=>value.avatarId)).size===values.length).optional()
+    springResets:z.array(SpringResetSchema).max(2).refine(values=>new Set(values.map(value=>value.avatarId)).size===values.length).optional(),
+    snow:SnowCoverSchema.optional()
 });
 export const FrameAppliedSchema = z.strictObject({
     outputId: IdSchema,

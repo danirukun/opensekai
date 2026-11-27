@@ -179,7 +179,7 @@ Step 8 (a lower `SNOW_FLAKES`, then a lower `SNOW_SKY_SIZE`) did not run: there 
 - The tuned shed speeds are 4 times lower than the first values, and they have a cost. The design wants a head shake or an arm swing to clear the snow, and breathing and idle sway to keep it. An estimate from the rule for 0.15 and 0.6 m/s: a small nod of ±8° at 0.7 Hz (0.12 m/s at the crown) keeps the snow; a nod of ±15° at 1 Hz (0.33 m/s) sheds most of it in 3 s. A performer who talks can nod like that, so the head can lose its snow in usual motion. The "keeps the snow" half was checked only with the built-in idle. It was not checked with live tracking (tracker jitter, or a feed below the tick rate, can give a high vertex speed for one tick). The owner selects the two constants after a check with live tracking.
 - No snow shows in the first 15 to 20 s at `rate` 1 and `buildUpSeconds` 45, because the mask starts above the lowest noise value. A slope gets its full cover later than 45 s (62 s in the images), because the amount grows with `up`.
 - The snow clips to white under the default Key Light.
-- The snow state stays when `setMaterialValues` rebuilds a material. It does not stay when the output page reloads (the session `cover` value is slice 2).
+- The snow state stays when `setMaterialValues` rebuilds a material. Since slice 2, a reloaded output page starts at the session cover (see [Session cover](#session-cover-slice-2)).
 - The top of a box prop gets no snow (the static cap is slice 4).
 - An avatar now has its own node build for each MToon material with snow (the fix). The first snow frame of two performers took 187 ms of `cpuMs`. This was not the first snow frame of this Mac, so the shader cache was probably warm (inferred).
 
@@ -245,7 +245,7 @@ A code review of the branch gave 10 findings. Nine are fixed (`ee056f79` and the
 
 Not checked on a GPU: a session of several hours, a failed node build or a failed pipeline of a real material, and the time of a Settle On Characters change (the poll of this check has a resolution of about 1 s, and the shader cache of WebKit hides a second compile). Not checked in the app: the scale reset mark of the Inspector (the Transform section was closed). The OBS output was not connected in these checks.
 
-One finding is open: each client keeps its own build-up, so the preview, the OBS output, and a reloaded source can show different cover. Slice 2 (the session cover and the warm start) is the fix.
+One finding was open: each client keeps its own build-up, so the preview, the OBS output, and a reloaded source can show different cover. Slice 2 fixed it (see [Session cover](#session-cover-slice-2)).
 
 ## To close the gate
 
@@ -255,3 +255,52 @@ One finding is open: each client keeps its own build-up, so the preview, the OBS
 4. For the budget, either run `cost-sample.mjs` again in these conditions (A, B, C, three times), or make `benchmark_start` usable first (the `animation_` records in `fixture_records`).
 5. If the difference stays above a limit, the owner selects again (contract R8.5). Expected, not measured: the CPU part needs the cheap-tier levers of the design (a sky pass and a build-up step on each second frame), not only the flake count and the sky size.
 6. Check the shed speeds with live tracking (a performer who talks and nods), and let the owner select the two constants.
+
+## Session cover (slice 2)
+
+Date: 2026-11-28. Contract: [Snow session cover](../../spdd/prompt/2026-11-27-snow-cover.md). Commit `8bba0667` (the last code commit of the slice). This is acceptance evidence 5 of the design: the preview and OBS show the same cover after an OBS source reload.
+
+### Conditions
+
+| Item | Value |
+| --- | --- |
+| Host | MacBook Pro (Mac15,6), Apple M3 Pro, on mains power, screen unlocked, `caffeinate -d -u` |
+| Build | Debug build of the host from the worktree: `OPENSEKAI_EVALUATION=1 direnv exec . pnpm dev:desktop` |
+| OBS | 33.0.3, obs-websocket 5.7.6. An isolated scene `OpenSekai-QA-snow-cover` with one Browser Source (1920 × 1080, custom 60 FPS, no shutdown when hidden) at `?quality=production_v1`. The program scene went back to `Scene` at the end, and the QA scene was removed. No stream and no recording. |
+| Outputs | `output_main`: `webgpu`, `production_v1`. `preview_main` (Editor window): `webgpu`, `preview_v1`. |
+| Character | Catboy (`avatar_7b7c689e…`), in the T-pose (no tracking source) |
+| Scene | The new-scene camera and lights. Snow entity: position `[0, 2, 0]`, scale `[6, 4, 6]`, `rate` 1, `buildUpSeconds` 45, `meltSeconds` 20. |
+| Method | [`cover-run.mjs`](snow/cover-run.mjs) with [`qa.mjs`](snow/qa.mjs): MCP `scene_patch` and `camera_screenshot`, and OBS `SaveSourceScreenshot`. An OBS reload is `PressInputPropertiesButton` `refreshnocache`. The script waits until `output_main` acknowledges new frames at the current revision (1.7 s to 1.8 s after the reload), and 1.5 s more. |
+
+Each sheet puts the OBS capture (left, premultiplied, on #30343c) next to the Editor preview `camera_screenshot` (right). The two captures of one row are about 1 s apart. `camera_screenshot` draws no flakes; this was seen before and is open.
+
+### Results
+
+| Case | Time from snow on | Result |
+| --- | --- | --- |
+| Reload during the build-up | Reload at 41.5 s (cover about 0.92) | Pass. After the reload, OBS shows the snow on the shoulders and the sleeves at once, with the same patch edges as the preview. Before slice 2 a reloaded page started at amount 0. |
+| Reload during a melt (`rate` 0) | `rate` 0 at full cover; reload 8.4 s later (cover about 0.58) | Pass. After the reload, OBS shows the same thin patches on the top of the sleeves as the preview. So the sky pass drew for the warm step at `rate` 0 (inferred from the code, not observed: with no height target, each vertex in the box gets snow, also below the arms). |
+| Settle On Characters off, then on | Off at full cover, on 3.4 s later | Pass. Off: no snow on the character in the two outputs, and the flakes continue in OBS. On: the two outputs show the full cover again at once (the warm step after a clear). |
+
+![Reload during the build-up](snow/cover-reload-grow.png)
+
+![Reload during a melt](snow/cover-reload-melt.png)
+
+![Settle On Characters off and on](snow/cover-settle-again.png)
+
+`app_status` had no warning, and neither output had a frame warning, at the end of the run.
+
+### Tests
+
+- `packages/contracts`: 965 tests pass, 1 skipped. New: the shared vectors of `fixtures/protocol/snow-cover.json`.
+- `crates/contracts`: `snow_cover.rs` (the same vectors, and no field without snow) and `spring_resets.rs` pass.
+- `packages/session`: 782 tests, all pass. New: `snow-cover.test.ts` (rise, melt, clamp, hidden, new id, show open, field presence).
+- `packages/renderer`: 9 failed, 621 passed, 8 skipped. The 9 failing names are the 9 names of the baseline of `main`. New: `warmAmount`, the warm step of the build-up, and the facade test of the cover and the sky pass at `rate` 0.
+- `tsc` passes for `contracts`, `session`, `renderer`, and `apps/output`. `apps/desktop` (3 errors in `Inspector.svelte`) and `apps/mcp` (1 error in `assist-tools.ts`) have the same errors on `main`.
+
+### Not verified
+
+- Two clients after a shed: a surface that shed its snow on one client gets the warm amount on a client that starts later. This is a known limit of the design.
+- A cover that a Blueprint transition moves (the `snowRate` key is slice 5). The session reads the evaluated scene, so the transition will move it; no check exists.
+- A show open with snow: covered by a session test only.
+- Release build, Windows, and WebGL 2 (no build-up there).

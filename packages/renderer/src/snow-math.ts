@@ -23,6 +23,8 @@ export const buildUpStep = ({ amount, up, sky, speed, rate, buildUpSeconds, melt
     const decay = (up === 0 ? 1 / SNOW.slideSeconds : 0) + smoothstep(SNOW.shedStart, SNOW.shedFull, speed) / SNOW.shedSeconds;
     return Math.min(1, Math.max(0, amount + seconds * (grow - melt) - amount * Math.min(1, seconds * decay)));
 };
+/** The amount of a vertex on a warm start: a build-up from 0 has it while the cover grows and nothing sheds. */
+export const warmAmount = (cover: number, up: number, sky: number): number => cover * up * sky;
 export const snowMask = (amount: number, noise: number): number =>
     smoothstep(noise - SNOW.maskEdge, noise + SNOW.maskEdge, amount * (1 + 2 * SNOW.maskEdge) - SNOW.maskEdge);
 

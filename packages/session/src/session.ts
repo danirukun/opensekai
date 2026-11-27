@@ -18,6 +18,7 @@ import { advanceBlendShapes, blendShapeOwners, composeBlendShapes, dropGraphBlen
 import { vmcPosesFor, withSendersStopped } from './vmc-send';
 import { dropGraphLookAts, EMPTY_LOOK_AT, lookAtOwners, sceneLookup, setLookAt, stepLookAt, type LookAtStates } from './look-at';
 import { advanceSpringResets, type SpringResetState } from './spring-resets';
+import { advanceSnowCover, type SnowCoverState } from './snow-cover';
 import { applyControls as applyVideoControls, checkControl, isControlOp, reconcilePlayback, screenPlayback, type ControlOp, type VideoPlaybacks } from './video-playback';
 import { composeAvatarAnimation, type AnimationRuntimes } from './avatar-animation-compose';
 import { advanceOneShots, EMPTY_ONE_SHOTS, startOneShot, type OneShotStates } from './one-shot-overlays';
@@ -75,6 +76,8 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
     let blendShapes: BlendShapeStates = EMPTY_BLEND_SHAPES;
     let lookAts: LookAtStates = EMPTY_LOOK_AT;
     let springResets: SpringResetState = new Map();
+    // Snow cover R1: never committed or saved.
+    let snowCover: SnowCoverState = null;
     // Transition ends that run on the next clock step: the ends of writes without a tween, and of tweens that reached their end.
     let pendingEnds: readonly TransitionEnd[] = [];
     // Never committed or saved: rebuilt by the Blueprint step of each tick.
@@ -348,6 +351,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             previousPoses = new Map();
             animationRuntimes = new Map();
             videoPlayback = reconcilePlayback(new Map(), null, persistent, elapsed);
+            snowCover = null;
             return { ok: true, data: structuredClone(persistent) };
         },
         editBlueprints(batch) {
@@ -578,6 +582,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             if (!failedThisTick) loggedFailures.clear();
             const shown = applyOverrides(persistent, overrides);
             const scene = adapter.evaluate(shown, elapsedMs);
+            snowCover = advanceSnowCover(snowCover, scene, (elapsedMs - elapsed) / 1000);
             expressions = advanceExpressions(expressions, persistent, record, (elapsedMs - elapsed) / 1000, elapsedMs);
             blendShapes = advanceBlendShapes(blendShapes, persistent, elapsedMs);
             const looked = stepLookAt(lookAts, sceneLookup(shown), elapsedMs, boneOffsets);
@@ -596,7 +601,7 @@ export function createSession(scene: SceneView, sessionId: Id, assets: readonly 
             const springs = advanceSpringResets(springResets, scene, avatarPoses);
             springResets = springs.state;
             const playback = screenPlayback(videoPlayback, persistent, elapsedMs);
-            return { schemaVersion: 1, sessionId, sequence, tick, elapsedMs, scene, blueprintRevision: store.revision(), ...(avatarPoses.length?{avatarPoses}:{}),...(live.trackingStatus.length?{trackingStatus:live.trackingStatus}:{}),...(playback.length?{screenPlayback:playback}:{}),...(springs.resets.length?{springResets:springs.resets}:{}) };
+            return { schemaVersion: 1, sessionId, sequence, tick, elapsedMs, scene, blueprintRevision: store.revision(), ...(avatarPoses.length?{avatarPoses}:{}),...(live.trackingStatus.length?{trackingStatus:live.trackingStatus}:{}),...(playback.length?{screenPlayback:playback}:{}),...(springs.resets.length?{springResets:springs.resets}:{}),...(snowCover?{snow:snowCover}:{}) };
         },
     };
     return api;

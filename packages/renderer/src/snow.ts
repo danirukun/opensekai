@@ -14,9 +14,9 @@ export interface Snow {
     readonly flakes: Object3D;
     /**
      * `casters` are the roots of the avatars, the props, and the environment. True when a material got or lost its share
-     * in this call: the next draw builds it again.
+     * in this call: the next draw builds it again. `cover` is the session cover of the entity.
      */
-    update(entity: SnowEntity, elapsedSeconds: number, avatars: readonly SnowAvatar[], casters: readonly Object3D[]): boolean;
+    update(entity: SnowEntity, elapsedSeconds: number, cover: number, avatars: readonly SnowAvatar[], casters: readonly Object3D[]): boolean;
     /** The sky pass, then one build-up step for each avatar. Inside the applied frame. */
     render(renderer: WebGPURenderer, scene: Scene): Promise<void>;
     /** The ids of the materials whose pipelines are snow pipelines: the flakes, the sky pass, and each material with a share. */
@@ -43,7 +43,7 @@ const isMToon = (material: Material): material is CharacterMToonMaterial => (mat
 /** The snow of one renderer: the sky pass, the flakes, and a build-up for each avatar. `compute` is false on WebGL 2. */
 export function createSnow({ tint, compute }: { tint: UniformNode<"color">; compute: boolean }): Snow {
     const sky = createSnowSky(), flakes = createSnowFlakes(sky, tint);
-    const uniforms: SnowUniforms = { rate: uniform(0), buildUpSeconds: uniform(1), meltSeconds: uniform(1), thickness: uniform(0) };
+    const uniforms: SnowUniforms = { rate: uniform(0), buildUpSeconds: uniform(1), meltSeconds: uniform(1), thickness: uniform(0), cover: uniform(0) };
     const noise = compute ? createSnowNoise() : null;
     const settled = new Map<string, Settled>();
     let visible = false, settling = false, rate = 0, clearPending = false;
@@ -70,8 +70,9 @@ export function createSnow({ tint, compute }: { tint: UniformNode<"color">; comp
     };
     return {
         flakes: flakes.object,
-        update(entity, elapsedSeconds, avatars, casters) {
+        update(entity, elapsedSeconds, cover, avatars, casters) {
             const { snow } = entity;
+            uniforms.cover.value = cover;
             uniforms.rate.value = snow.rate;
             uniforms.buildUpSeconds.value = snow.buildUpSeconds;
             uniforms.meltSeconds.value = snow.meltSeconds;
@@ -103,9 +104,10 @@ export function createSnow({ tint, compute }: { tint: UniformNode<"color">; comp
             return changed;
         },
         async render(renderer, scene) {
-            // At rate 0 no flake draws and nothing grows, so nothing reads the height. The sky pass also updates the world
-            // matrices that the build-up steps read, so without it the scene updates them.
-            if (visible && rate > 0) await sky.render(renderer, scene);
+            // At rate 0 no flake draws and nothing grows, so only a warm step with cover reads the height. The sky pass also
+            // updates the world matrices that the build-up steps read, so without it the scene updates them.
+            const warming = settling && uniforms.cover.value > 0 && [...settled.values()].some(entry => entry.buildUp?.warming());
+            if (visible && (rate > 0 || warming)) await sky.render(renderer, scene);
             else if (visible && settling) scene.updateMatrixWorld();
             if (visible && settling) {
                 for (const entry of settled.values()) {

@@ -77,20 +77,22 @@ export function collectSkinned(root: Object3D): SnowVertexData {
     };
 }
 
-export interface SnowUniforms { rate: UniformNode<"float">; buildUpSeconds: UniformNode<"float">; meltSeconds: UniformNode<"float">; thickness: UniformNode<"float"> }
+export interface SnowUniforms { rate: UniformNode<"float">; buildUpSeconds: UniformNode<"float">; meltSeconds: UniformNode<"float">; thickness: UniformNode<"float">; cover: UniformNode<"float"> }
 
 export interface SnowBuildUp {
     /** vec4 for each vertex: the previous world position, and w = the amount. */
     readonly state: StorageBufferAttribute;
     readonly count: number;
     step(renderer: WebGPURenderer, seconds: number, reset: boolean): void;
-    /** Sets each amount to 0 at the next step. */
+    /** Sets each amount to 0 at the next step. The step after it is a warm step. */
     clear(): void;
+    /** True when the next step sets each amount from the cover (`warmAmount`): the first step, and the first step after a clear. */
+    warming(): boolean;
     dispose(): void;
 }
 
 /** Sets `userData.snowOffset` on each collected mesh. Returns null when the root has no collected vertex. */
-export function createSnowBuildUp(root: Object3D, sky: SnowSky, { rate, buildUpSeconds, meltSeconds }: SnowUniforms): SnowBuildUp | null {
+export function createSnowBuildUp(root: Object3D, sky: SnowSky, { rate, buildUpSeconds, meltSeconds, cover }: SnowUniforms): SnowBuildUp | null {
     const data = collectSkinned(root);
     const { count } = data;
     if (count === 0) return null;
@@ -99,8 +101,8 @@ export function createSnowBuildUp(root: Object3D, sky: SnowSky, { rate, buildUpS
     const skinIndex = new StorageBufferAttribute(data.skinIndex, 4), skinWeight = new StorageBufferAttribute(data.skinWeight, 4);
     const boneCount = Math.max(1, data.bones), bones = new StorageBufferAttribute(new Float32Array(boneCount * 16), 16);
     const attributes = [state, position, normal, skinIndex, skinWeight, bones];
-    // reset and clear are 0 or 1: a bool cannot be in a uniform buffer.
-    const seconds = uniform(0), reset = uniform(1), clear = uniform(0);
+    // reset, clear, and warm are 0 or 1: a bool cannot be in a uniform buffer.
+    const seconds = uniform(0), reset = uniform(1), clear = uniform(0), warm = uniform(0);
     const stateNode = storage(state, "vec4", count);
     const positionNode = storage(position, "vec4", count).toReadOnly(), normalNode = storage(normal, "vec4", count).toReadOnly();
     const skinIndexNode = storage(skinIndex, "uvec4", count).toReadOnly(), skinWeightNode = storage(skinWeight, "vec4", count).toReadOnly();
@@ -127,13 +129,15 @@ export function createSnowBuildUp(root: Object3D, sky: SnowSky, { rate, buildUpS
         const melt = select(rate.equal(0), float(1).div(meltSeconds), float(0));
         const decay = select(up.equal(0), float(1 / SNOW.slideSeconds), float(0)).add(smoothstep(SNOW.shedStart, SNOW.shedFull, speed).div(SNOW.shedSeconds));
         const next = clamp(amount.add(seconds.mul(grow.sub(melt))).sub(amount.mul(min(1, seconds.mul(decay)))), 0, 1);
-        stateNode.element(instanceIndex).assign(vec4(world, select(clear.equal(1), float(0), next)));
+        // warmAmount of snow-math.ts.
+        const warmed = cover.mul(up).mul(exposure);
+        stateNode.element(instanceIndex).assign(vec4(world, select(clear.equal(1), float(0), select(warm.equal(1), warmed, next))));
     });
     const node = update().compute(count);
 
     for (const [mesh, offset] of data.offsets) mesh.userData.snowOffset = offset;
     // The state starts at 0, so the first step has no valid previous position.
-    let started = false, clearPending = false;
+    let started = false, clearPending = false, warmPending = true;
     return {
         state,
         count,
@@ -149,13 +153,17 @@ export function createSnowBuildUp(root: Object3D, sky: SnowSky, { rate, buildUpS
             seconds.value = stepSeconds;
             reset.value = resetNow || stepSeconds === 0 ? 1 : 0;
             clear.value = clearPending ? 1 : 0;
+            warm.value = warmPending && !clearPending ? 1 : 0;
             renderer.compute(node);
             started = true;
+            if (!clearPending) warmPending = false;
             clearPending = false;
         },
         clear() {
             clearPending = true;
+            warmPending = true;
         },
+        warming: () => warmPending && !clearPending,
         dispose() {
             for (const mesh of data.offsets.keys()) delete mesh.userData.snowOffset;
             node.dispose();

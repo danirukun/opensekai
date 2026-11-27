@@ -1,6 +1,6 @@
 # Snow
 
-Date: 2026-11-26. Status: design approved by the owner; slice 1 not verified (2026-11-27). The OBS checks of evidence 1 and 2 pass. The Editor window checks and the budget gate are unknown ([evidence](../../evaluation/snow.md)). Related: [ENV-10 / #48](https://github.com/danirukun/opensekai/issues/48) particle effects, [ENV-09 / #47](https://github.com/danirukun/opensekai/issues/47) wind, [quality profile effects budget](./2026-11-22-quality-profile-effects-budget-design.md), [spring bones](./2026-11-18-spring-bones-design.md), [benchmark contract](../../evaluation/benchmark-contract.md).
+Date: 2026-11-26. Status: design approved by the owner; slice 1 not verified (2026-11-27); slice 2 (session cover) done and checked in OBS and the Editor preview (2026-11-28). The OBS checks of evidence 1 and 2 pass. The Editor window checks and the budget gate are unknown ([evidence](../../evaluation/snow.md)). Related: [ENV-10 / #48](https://github.com/danirukun/opensekai/issues/48) particle effects, [ENV-09 / #47](https://github.com/danirukun/opensekai/issues/47) wind, [quality profile effects budget](./2026-11-22-quality-profile-effects-budget-design.md), [spring bones](./2026-11-18-spring-bones-design.md), [benchmark contract](../../evaluation/benchmark-contract.md).
 
 ## Intent
 
@@ -62,6 +62,16 @@ Facts for the next decision:
 - The new shed speeds are 4 times lower than the first values. An estimate from the rule: a nod of ±15° at 1 Hz, which is usual for a performer who talks, sheds most of the head snow in 3 s. The "idle keeps the snow" half was checked only with the built-in idle, not with live tracking.
 - At `rate` 1 and `buildUpSeconds` 45, no snow shows in the first 15 to 20 s, and a slope has its full cover after about 60 s.
 - An indicative sample (locked screen, battery power, not a benchmark summary) gave +2.29 ms p95 `gpuMs` and +1.7 ms p95 `cpuMs` for snow on against snow off. These values are above the budget gate. About 1 sampled frame in 6 had no `gpuMs` value with snow on, so the `gpuMs` difference is a lower limit. Expected, not measured: the `cpuMs` part does not depend on the flake count or the sky size.
+
+### Changes for slice 2 (2026-11-27)
+
+The [Snow session cover contract](../../../spdd/prompt/2026-11-27-snow-cover.md) has the requirements.
+
+| Change | Reason |
+| --- | --- |
+| The cover step reads the snow entity of the evaluated scene (after overrides and tweens) | A `snowRate` transition of slice 5 must move the cover |
+| The first step after a clear also takes the warm start. So Settle On Characters on again shows the snow at the cover. | One rule for each start. With a start from 0, a client that reloads later shows a different cover. After `visible` goes on again the cover is 0, so nothing changes there. |
+| The facade draws the sky pass at `rate` 0 on a frame with a warm step and a cover above 0 | A height target that never drew gives no shelter. An OBS source reload during a melt needs the shelter. |
 
 ## Goals
 
@@ -181,7 +191,7 @@ The step for each vertex, for one tick:
 The amount stays in 0 to 1.
 
 - The six constants (0.35, 2 cm, 0.5 s, 0.15 m/s, 0.6 m/s, 0.25 s) are in `snow-math.ts`. They are not settings. The spike tuned the two shed speeds on the Catboy avatar (first values 0.6 m/s and 2 m/s); the other four are the first values.
-- On the first frame of a renderer, after a reload, and for an avatar that loads while snow is on, each vertex starts at `cover × up × sky`.
+- On the first frame of a renderer, after a reload, for an avatar that loads while snow is on, and on the first step after a clear, each vertex starts at `cover × up × sky`.
 - The step follows the spring reset rules. On a frame where the spring stage resets (a teleport, a new session, more than 15 steps due), the speed term is 0 and the previous position is set again. A teleport does not shed snow.
 - A mesh in `hiddenMeshes` is not in the sky pass, so it gives no shelter. Its vertices stay in the compute pass, because one pass covers the avatar.
 - When `visible` goes off, each amount is set to 0.
