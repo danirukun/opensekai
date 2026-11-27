@@ -25,7 +25,7 @@ export const snowAmount = (share: SnowShare): Node<"float"> => {
 /** Fragment stage: the snow mask from the amount of the vertex stage and the noise at the rest position. */
 export const snowMaskNode = (amount: Node<"float">, share: SnowShare): Node<"float"> => {
     // The rest position keeps the pattern fixed on the body. `.mod(1)` tiles all three axes without a wrap mode.
-    const noise = texture3D(share.noise, positionGeometry.mul(6).mod(1), 0).r;
+    const noise = texture3D(share.noise, positionGeometry.mul(3).mod(1), 0).r;
     // snowMask of snow-math.ts, term for term.
     return smoothstep(noise.sub(SNOW.maskEdge), noise.add(SNOW.maskEdge), amount.mul(1 + 2 * SNOW.maskEdge).sub(SNOW.maskEdge)) as unknown as Node<"float">;
 };

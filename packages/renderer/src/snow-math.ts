@@ -1,7 +1,7 @@
 import type { Quat, SnowSettings, Vec3 } from '@opensekai/contracts';
 import { planSpringSteps, type SpringClock } from './spring-grid';
 
-export const SNOW = { upStart: 0.35, skyBand: 0.02, slideSeconds: 0.5, shedStart: 0.6, shedFull: 2, shedSeconds: 0.25, maskEdge: 0.1 } as const;
+export const SNOW = { upStart: 0.35, skyBand: 0.02, slideSeconds: 0.5, shedStart: 0.15, shedFull: 0.6, shedSeconds: 0.25, maskEdge: 0.1 } as const;
 export const SNOW_FLAKES = 12_000;
 export const SNOW_SKY_SIZE = 512;
 /** Linear RGB. */

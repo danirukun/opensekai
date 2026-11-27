@@ -31,9 +31,9 @@ describe('build-up step', () => {
         expect(buildUpStep({ ...base, amount: 1, up: 0 })).toBeCloseTo(1 - 1 / 30, 6);
         expect(buildUpStep({ ...base, amount: 1, up: 0, seconds: 0.5 })).toBe(0);
     });
-    it('keeps snow at 0.6 m/s and sheds it at 2 m/s with a time constant of 0.25 s', () => {
-        expect(buildUpStep({ ...base, amount: 1, speed: 0.6 })).toBe(1);
-        expect(buildUpStep({ ...base, amount: 1, speed: 2 })).toBeCloseTo(1 + 1 / 2700 - 4 / 60, 6);
+    it('keeps snow at the shed start speed and sheds it at the full speed with a time constant of 0.25 s', () => {
+        expect(buildUpStep({ ...base, amount: 1, speed: SNOW.shedStart })).toBe(1);
+        expect(buildUpStep({ ...base, amount: 1, speed: SNOW.shedFull })).toBeCloseTo(1 + 1 / 2700 - 4 / 60, 6);
         expect(buildUpStep({ ...base, amount: 1, speed: 9 })).toBeCloseTo(1 + 1 / 2700 - 4 / 60, 6);
     });
     it('melts by 1 / meltSeconds while the rate is 0', () => {
