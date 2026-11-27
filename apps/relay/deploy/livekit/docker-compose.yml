@@ -1,0 +1,13 @@
+# Run from this directory: docker compose up -d
+# Then: LIVEKIT_TEST_ENABLED=1 cargo test -p collab-transport --features livekit --test conformance
+services:
+  livekit:
+    image: livekit/livekit-server:latest
+    # A container IP is not reachable from the Mac host, so the SFU advertises 127.0.0.1.
+    command: --dev --bind 0.0.0.0 --config /etc/livekit.yaml --node-ip 127.0.0.1
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "7882:7882/udp"
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro

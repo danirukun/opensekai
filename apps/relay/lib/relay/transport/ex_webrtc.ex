@@ -1,10 +1,18 @@
 defmodule Relay.Transport.ExWebRTC do
   @moduledoc """
-  Fans pose frames out over `ex_webrtc` DataChannels.
+  Fans pose frames out over `ex_webrtc` DataChannels, with a WebSocket fallback per receiver.
 
-  The state holds an ETS table owned by the room process. Integer keys hold
-  `{slot, peer_process, peer_connection, pose_channel_ref | nil}`; atom keys are counters.
-  Peer processes read the table to fan frames out without going through the room process.
+  The state holds an ETS table owned by the room process:
+
+    * `{{:member, slot}, signal_pid}` for every slot in the room, from `open_session/2` to `close/2`.
+    * `{slot, peer_process, peer_connection, pose_channel_ref | nil}` while the slot has a peer
+      connection. `ExWebRTCPeer` writes it.
+    * atom keys are counters.
+
+  A receiver gets a frame over its open pose DataChannel, or as `{:ws_pose, frame}` to its
+  channel process when it has none. Each offer starts a fresh peer connection for the slot,
+  so a client can retry after a failure. Peer processes read the table to fan frames out
+  without going through the room process.
   """
 
   @behaviour Relay.Transport
@@ -14,19 +22,14 @@ defmodule Relay.Transport.ExWebRTC do
 
   @max_frame_bytes 1200
   @counters [:frames_in, :frames_out, :bytes_in, :bytes_out, :dropped_oversize]
+  @key_cert_term {__MODULE__, :key_cert}
 
   @impl true
   def open_session(%{room_id: room_id, transport_state: state, peer_pid: signal_pid}, slot) do
     state = state || new_state(room_id)
     stop_peer(state, slot)
-
-    spec =
-      {ExWebRTCPeer, slot: slot, table: state.table, owner: self(), signal_pid: signal_pid, pc_opts: pc_opts()}
-
-    case DynamicSupervisor.start_child(Relay.PeerSupervisor, spec) do
-      {:ok, _pid} -> {:ok, state, %{kind: "ex_webrtc", slot: slot, ice_servers: []}}
-      {:error, reason} -> {:error, reason}
-    end
+    true = :ets.insert(state.table, {{:member, slot}, signal_pid})
+    {:ok, state, %{kind: "ex_webrtc", slot: slot, ice_servers: []}}
   end
 
   @impl true
@@ -37,7 +40,8 @@ defmodule Relay.Transport.ExWebRTC do
   end
 
   defp do_negotiate(state, slot, %{"type" => "offer", "sdp" => sdp}) when is_binary(sdp) do
-    with {:ok, pc} <- fetch_pc(state, slot),
+    with {:ok, signal_pid} <- fetch_member(state, slot),
+         {:ok, pc} <- restart_peer(state, slot, signal_pid),
          :ok <-
            PeerConnection.set_remote_description(pc, SessionDescription.from_json(%{"type" => "offer", "sdp" => sdp})),
          {:ok, answer} <- PeerConnection.create_answer(pc),
@@ -72,7 +76,10 @@ defmodule Relay.Transport.ExWebRTC do
     {:ok, state}
   end
 
-  @doc "Sends `<<from_slot, ciphertext>>` to every other open pose channel. Drops oversize input."
+  @doc """
+  Sends `<<from_slot, ciphertext>>` to every other member: over its open pose channel, or over
+  its WebSocket when it has none. Drops oversize input.
+  """
   def fan_out(table, from_slot, ciphertext) when byte_size(ciphertext) > @max_frame_bytes do
     _ = from_slot
     bump(table, :dropped_oversize, 1)
@@ -80,10 +87,12 @@ defmodule Relay.Transport.ExWebRTC do
 
   def fan_out(table, from_slot, ciphertext) do
     frame = <<from_slot::8, ciphertext::binary>>
+    receivers = for {slot, signal_pid} <- members(table), slot != from_slot, do: route(table, slot, signal_pid)
 
-    receivers = for {slot, _peer, pc, ref} <- peers(table), slot != from_slot, ref != nil, do: {pc, ref}
-
-    Enum.each(receivers, fn {pc, ref} -> PeerConnection.send_data(pc, ref, frame, :binary) end)
+    Enum.each(receivers, fn
+      {:data_channel, pc, ref} -> PeerConnection.send_data(pc, ref, frame, :binary)
+      {:websocket, pid} -> send(pid, {:ws_pose, frame})
+    end)
 
     bump(table, :frames_in, 1)
     bump(table, :bytes_in, byte_size(ciphertext))
@@ -97,22 +106,65 @@ defmodule Relay.Transport.ExWebRTC do
 
     Map.merge(counters, %{
       kind: "ex_webrtc",
-      slots: state.table |> peers() |> Enum.map(&elem(&1, 0)) |> Enum.sort()
+      slots: state.table |> members() |> Enum.map(&elem(&1, 0)) |> Enum.sort(),
+      data_channel_slots: for({slot, _, _, ref} <- peers(state.table), ref != nil, do: slot) |> Enum.sort()
     })
   end
 
   @impl true
   def close(state, :all) do
+    state.table |> members() |> Enum.each(fn {slot, _} -> close(state, slot) end)
     state.table |> peers() |> Enum.each(fn {slot, _, _, _} -> stop_peer(state, slot) end)
     :ok
   end
 
   def close(state, slot) when slot in 0..3 do
+    :ets.delete(state.table, {:member, slot})
     stop_peer(state, slot)
     :ok
   end
 
+  @doc false
+  def ec_key_cert do
+    case :persistent_term.get(@key_cert_term, nil) do
+      nil ->
+        key_cert = generate_ec_key_cert()
+        :persistent_term.put(@key_cert_term, key_cert)
+        key_cert
+
+      key_cert ->
+        key_cert
+    end
+  end
+
+  # str0m (dimpl) accepts only ECDSA DTLS certificates, and ex_dtls generates RSA by default.
+  defp generate_ec_key_cert do
+    %{cert: cert, key: key} =
+      :public_key.pkix_test_root_cert(~c"relay", [{:key, {:namedCurve, :secp256r1}}, {:digest, :sha256}])
+
+    {:public_key.der_encode(:ECPrivateKey, key), cert}
+  end
+
   defp new_state(room_id), do: %{room_id: room_id, table: :ets.new(:ex_webrtc_peers, [:set, :public])}
+
+  defp route(table, slot, signal_pid) do
+    case :ets.lookup(table, slot) do
+      [{^slot, _peer, pc, ref}] when ref != nil -> {:data_channel, pc, ref}
+      _ -> {:websocket, signal_pid}
+    end
+  end
+
+  defp restart_peer(state, slot, signal_pid) do
+    stop_peer(state, slot)
+
+    spec =
+      {ExWebRTCPeer, slot: slot, table: state.table, owner: self(), signal_pid: signal_pid, pc_opts: pc_opts()}
+
+    case DynamicSupervisor.start_child(Relay.PeerSupervisor, spec) do
+      {:ok, _pid} -> fetch_pc(state, slot)
+      {:error, reason} -> {:error, reason}
+    end
+  end
 
   defp stop_peer(state, slot) do
     case :ets.lookup(state.table, slot) do
@@ -125,12 +177,21 @@ defmodule Relay.Transport.ExWebRTC do
     end
   end
 
+  defp fetch_member(state, slot) do
+    case :ets.lookup(state.table, {:member, slot}) do
+      [{{:member, ^slot}, signal_pid}] -> {:ok, signal_pid}
+      [] -> {:error, :not_in_room}
+    end
+  end
+
   defp fetch_pc(state, slot) do
     case :ets.lookup(state.table, slot) do
       [{^slot, _peer, pc, _ref}] -> {:ok, pc}
       [] -> {:error, :not_in_room}
     end
   end
+
+  defp members(table), do: :ets.select(table, [{{{:member, :"$1"}, :"$2"}, [], [{{:"$1", :"$2"}}]}])
 
   defp peers(table),
     do: :ets.select(table, [{{:"$1", :"$2", :"$3", :"$4"}, [{:is_integer, :"$1"}], [{{:"$1", :"$2", :"$3", :"$4"}}]}])
@@ -150,7 +211,8 @@ defmodule Relay.Transport.ExWebRTC do
     [
       ice_ip_filter: ip_filter(bind_ip),
       ice_port_range: Application.fetch_env!(:relay, :ice_port_min)..Application.fetch_env!(:relay, :ice_port_max),
-      ice_aggressive_nomination: true
+      ice_aggressive_nomination: true,
+      key_cert: ec_key_cert()
     ]
     |> put_srflx_mapper(Application.get_env(:relay, :public_ipv4))
   end

@@ -8,6 +8,8 @@ use tokio::sync::broadcast;
 
 pub mod auto_upgrade;
 pub mod codec;
+#[cfg(feature = "livekit")]
+pub mod livekit_transport;
 pub mod signaling;
 pub mod stats;
 pub mod str0m_transport;
@@ -15,6 +17,8 @@ pub mod websocket;
 
 pub use auto_upgrade::{AutoUpgradeConfig, AutoUpgradeTransport, BackoffSchedule, LinkHealth};
 pub use codec::{CodecError, PoseFrame, RoomCipher};
+#[cfg(feature = "livekit")]
+pub use livekit_transport::{LiveKitMode, LiveKitTransport};
 pub use signaling::{SignalingClient, SignalingError};
 pub use stats::{ImpairmentConfig, ImpairmentFilter, StreamMetrics, StreamSummary};
 pub use str0m_transport::Str0mTransport;
