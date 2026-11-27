@@ -115,7 +115,10 @@ export class CharacterMToonMaterial extends MToonNodeMaterial {
         this.giEqualizationFactor = giEqualizationFactor;
     }
     customProgramCacheKey() {
-        return super.customProgramCacheKey() + (this.#snow() ? ':snow' : '');
+        // three.js keeps one node build for each key, and a build holds the storage buffer of its first material. The key
+        // has the state of the share, so each avatar reads its own state. The WGSL is the same, so the program is a cache hit.
+        const share = this.#snow();
+        return super.customProgramCacheKey() + (share ? ':snow' + share.state.id : '');
     }
     setupPosition(builder: NodeBuilder) {
         const share = this.#snow(), amount = share ? varying(snowAmount(share), 'SnowAmount') as unknown as Float : null;

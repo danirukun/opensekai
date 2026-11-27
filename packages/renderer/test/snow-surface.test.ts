@@ -20,6 +20,15 @@ it('changes the program key when the material gets a share, and gives it back wh
     material.snow = null;
     expect(key(material)).toBe(before);
 });
+// three.js keeps one node build for each cache key, and the build holds the storage buffer of its first material.
+it('gives two shares two program keys, and one share one key', () => {
+    const [first, second, third] = [new CharacterMToonMaterial(), new CharacterMToonMaterial(), new CharacterMToonMaterial()];
+    first.snow = share();
+    second.snow = share();
+    third.snow = first.snow;
+    expect(key(second)).not.toBe(key(first));
+    expect(key(third)).toBe(key(first));
+});
 it('gives no snow to an outline copy or to a blended material', () => {
     expect(snowEligible({ isOutline: false, transparent: false })).toBe(true);
     expect(snowEligible({ isOutline: true, transparent: false })).toBe(false);
