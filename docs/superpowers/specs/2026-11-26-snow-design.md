@@ -1,6 +1,6 @@
 # Snow
 
-Date: 2026-11-26. Status: design approved by the owner; not implemented. Related: [ENV-10 / #48](https://github.com/danirukun/opensekai/issues/48) particle effects, [ENV-09 / #47](https://github.com/danirukun/opensekai/issues/47) wind, [quality profile effects budget](./2026-11-22-quality-profile-effects-budget-design.md), [spring bones](./2026-11-18-spring-bones-design.md), [benchmark contract](../../evaluation/benchmark-contract.md).
+Date: 2026-11-26. Status: design approved by the owner; slice 1 not verified (2026-11-27). The OBS checks of evidence 1 and 2 pass. The Editor window checks and the budget gate are unknown ([evidence](../../evaluation/snow.md)). Related: [ENV-10 / #48](https://github.com/danirukun/opensekai/issues/48) particle effects, [ENV-09 / #47](https://github.com/danirukun/opensekai/issues/47) wind, [quality profile effects budget](./2026-11-22-quality-profile-effects-budget-design.md), [spring bones](./2026-11-18-spring-bones-design.md), [benchmark contract](../../evaluation/benchmark-contract.md).
 
 ## Intent
 
@@ -31,6 +31,22 @@ The plan for slice 1 found two facts that change the mechanism, not the behavior
 | --- | --- |
 | One compute pass for each avatar, over the vertices of all its skinned meshes. The approved text said one pass for each skinned mesh. | The Catboy QA avatar has 57 meshes (Face, Body, Hair001 to Hair055). One pass for each mesh gives 57 pipelines, 57 dispatches, and 57 bone uploads on each frame. A new pipeline costs about 0.4 s in WebKit. |
 | The sky pass writes the height of the first surface under the sky into a colour target. The approved text said a depth target. | The three.js example `webgpu_compute_particles_snow` uses this method, and a colour target has no depth-texture sampling rule in a vertex or compute stage. This document still calls that surface the sky depth surface. |
+
+### Changes from the spike (slice 1, 2026-11-27)
+
+The first run on a GPU changed these values and one mechanism. The [evidence page](../../evaluation/snow.md) has the measurements.
+
+| Change | Reason |
+| --- | --- |
+| Shed start 0.15 m/s (was 0.6) and full shed 0.6 m/s (was 2) | A yaw head shake of ±30° at 2 Hz moves the ear tips at 0.66 m/s and the crown at almost 0 m/s. At 0.6 m/s the head kept all its snow. At the new values the shake clears the head, and the built-in idle keeps the snow. |
+| Noise scale of the edge mask: 3 for each metre (was 6) | At 6, a build-up or a melt showed as a 5 mm speckle. At 3, the snow comes and goes as patches with a ragged edge. |
+| Each avatar has its own node build of each MToon material with snow. The program cache key has the id of the state buffer. | three.js keeps one node build for each cache key, and a build holds the storage buffer of its first material. With one key, two avatars drew the amounts of one avatar. The WGSL is the same, so the GPU program is shared. |
+
+Facts for the next decision:
+
+- A shake around the vertical axis keeps a tuft of snow at the axis, because the shed rule uses the vertex speed.
+- At `rate` 1 and `buildUpSeconds` 45, no snow shows in the first 15 to 20 s, and a slope has its full cover after about 60 s.
+- An indicative sample (locked screen, battery power, not a benchmark summary) gave +2.29 ms p95 `gpuMs` and +1.7 ms p95 `cpuMs` for snow on against snow off. These values are above the budget gate. The `cpuMs` part does not depend on the flake count or the sky size.
 
 ## Goals
 
@@ -143,12 +159,12 @@ The step for each vertex, for one tick:
 | `sky` | 1 when the vertex is at the sky depth surface, 0 when it is more than 2 cm below that surface, with a soft step between. 0 outside the box. |
 | Grow | `rate / buildUpSeconds × up × sky` |
 | Slide | While `up` is 0, the amount decays with a time constant of 0.5 s |
-| Shed | From the vertex speed: no loss below 0.6 m/s, and above 2 m/s the amount decays with a time constant of 0.25 s, with a smooth step between |
+| Shed | From the vertex speed: no loss below 0.15 m/s, and above 0.6 m/s the amount decays with a time constant of 0.25 s, with a smooth step between |
 | Melt | `1 / meltSeconds` while `rate` is 0 |
 
 The amount stays in 0 to 1.
 
-- The six constants (0.35, 2 cm, 0.5 s, 0.6 m/s, 2 m/s, 0.25 s) are in `snow-math.ts`. They are start values, not settings. The spike tunes them on the Catboy avatar.
+- The six constants (0.35, 2 cm, 0.5 s, 0.15 m/s, 0.6 m/s, 0.25 s) are in `snow-math.ts`. They are not settings. The spike tuned the two shed speeds on the Catboy avatar (first values 0.6 m/s and 2 m/s); the other four are the first values.
 - On the first frame of a renderer, after a reload, and for an avatar that loads while snow is on, each vertex starts at `cover × up × sky`.
 - The step follows the spring reset rules. On a frame where the spring stage resets (a teleport, a new session, more than 15 steps due), the speed term is 0 and the previous position is set again. A teleport does not shed snow.
 - A mesh in `hiddenMeshes` is not in the sky pass, so it gives no shelter. Its vertices stay in the compute pass, because one pass covers the avatar.
@@ -163,7 +179,7 @@ The amount is a function in the shader: `up × cover × inside`, where `up` has 
 
 `snow-surface.ts` has one function. A character material gives it the amount from the storage buffer as a vertex attribute. A prop or environment material gives it the static cap.
 
-- **Edge.** The mask is the amount compared against a small tiling noise texture. A character uses rest-pose space, so the pattern stays fixed on the body. A prop or the environment uses world space. Snow arrives as patches with a ragged edge.
+- **Edge.** The mask is the amount compared against a small tiling noise texture, at 3 repeats for each metre. A character uses rest-pose space, so the pattern stays fixed on the body. A prop or the environment uses world space. Snow arrives as patches with a ragged edge.
 - **Depth.** The vertex moves out along its normal by `thickness × amount`, scaled by the scale of the entity.
 - **Colour.** The base colour mixes to snow white and the shade colour to a cool blue-grey, before the toon lighting. So snow takes the scene lights, the shadow bands, and the shade colour. The mask lowers the rim and matcap terms.
 - **Sparkle.** Small view-dependent glints, in the full tier only.
@@ -186,7 +202,7 @@ One adapter, `snowTier(profileId)`, reads `QUALITY_PROFILES[id].effectsQuality`,
 | Build-up step | each tick | each second tick, with a doubled time step |
 | Sparkle | on | off |
 
-These are start values. The spike measures them, and this table then gets the final values with the measured cost.
+The spike did not change these values. The full tier (12,000 flakes, a 512 × 512 sky target each frame, a build-up step each tick) ran in OBS on WebGPU. Its measured cost against the budget gate is unknown: no valid run exists. An indicative sample gave +2.29 ms p95 `gpuMs` and +1.7 ms p95 `cpuMs` with two performers ([evidence](../../evaluation/snow.md#evidence-6-budget)). The cheap tier has no code and no measurement.
 
 ## Budget gate
 
@@ -260,4 +276,7 @@ Slice 1 is sequential, because it changes shared contracts. Slice 2 lands its fr
 
 ## Open questions
 
-None. The spike can change the tier table and the six build-up constants; record each change here.
+- Does the full tier pass the budget gate in valid conditions (unlocked screen, mains power, a benchmark summary)? If the `cpuMs` difference stays above 0.5 ms, the owner selects again: the flake count and the sky size do not lower it.
+- Is a tuft of snow at the turn axis after a head shake acceptable, or does the shed rule need a term for the turn rate?
+
+The changes of the spike are in "Changes from the spike".
