@@ -4,5 +4,5 @@ const categories=[['environment','Environment'],['light','Lights'],['camera','Ca
 export function groupEntities(entities:readonly SceneEntity[],search=''):AssetGroup[]{
  const query=search.trim().toLowerCase();
  // The haze is a stage light effect, so it shows in the Lights group (B13 R11).
- return categories.map(([key,label])=>({key,label,entities:entities.filter(entity=>(entity.kind==='tracking'?entity.config.kind:entity.kind==='haze'?'light':entity.kind==='fpsCounter'?'overlay':entity.kind)===key&&entity.name.toLowerCase().includes(query))})).filter(group=>group.entities.length>0);
+ return categories.map(([key,label])=>({key,label,entities:entities.filter(entity=>(entity.kind==='tracking'?entity.config.kind:entity.kind==='haze'?'light':entity.kind==='snow'?'environment':entity.kind==='fpsCounter'?'overlay':entity.kind)===key&&entity.name.toLowerCase().includes(query))})).filter(group=>group.entities.length>0);
 }

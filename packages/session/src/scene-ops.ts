@@ -81,6 +81,7 @@ export function applyOperations(scene: SceneView, operations: ScenePatch["operat
                  case 'setEnvironmentLighting':if(entity.kind!=='environment')return failure('INVALID_INPUT','Entity is not an environment',[entity.id]);entity.allowLightsToAffectCharacters=operation.allowLightsToAffectCharacters;break;
                  case 'setLight':if(entity.kind!=='light')return failure('INVALID_INPUT','Entity is not a light',[entity.id]);entity.light=structuredClone(operation.light);break;
                  case 'setHaze':if(entity.kind!=='haze')return failure('INVALID_INPUT','Entity is not a haze',[entity.id]);entity.haze=structuredClone(operation.haze);break;
+                 case 'setSnow':if(entity.kind!=='snow')return failure('INVALID_INPUT','Entity is not a snow',[entity.id]);entity.snow=structuredClone(operation.snow);break;
                  case 'setFpsCounter':if(entity.kind!=='fpsCounter')return failure('INVALID_INPUT','Entity is not an FPS counter',[entity.id]);entity.fpsCounter=structuredClone(operation.fpsCounter);break;
                  case 'setVmcSender':if(entity.kind!=='vmcSender')return failure('INVALID_INPUT','Entity is not a VMC sender',[entity.id]);entity.vmcSender=structuredClone(operation.vmcSender);break;
                  case 'setAvatarExpression':{

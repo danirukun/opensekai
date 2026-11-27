@@ -22,13 +22,16 @@ import { characterRadius, shadowDirty, shadowLights, type Caster, type ShadowSta
 import { characterFill, normalizeRoom } from "./character-lighting-math";
 import { createCharacterShare, setRoomFill } from "./character-mtoon";
 import { logPipelineFailure, watchPipelineErrors, type PipelineDevice } from "./pipeline-diagnostics";
-import { afterRebuild, blameFrame, initialBlame } from "./pipeline-blame";
+import { afterRebuild, blameFrame, forgetLabels, initialBlame, pipelineMaterialId } from "./pipeline-blame";
 import { freshModulePerPipeline, isWebKit } from "./webkit-shader-modules";
 import { createDiagnosticMarker } from "./diagnostic-marker";
 import { serialize } from "./serial";
 import { createPostChain } from "./post-chain";
 import { createHaze, type Haze } from "./haze";
 import { createBeams } from "./beam";
+import { createSnow, type Snow, type SnowAvatar } from "./snow";
+import { SNOW_LAYER } from "./snow-flakes";
+import type { SnowEntity } from "./snow-sky";
 import { renderScreenshot, SCREENSHOT_HEIGHT, SCREENSHOT_WIDTH } from "./screenshot";
 import { applyPerspectiveLens } from "./lens";
 import { IMAGE_LOAD_FAILED, createScreenImagePool, createScreenMesh, loadScreenImage } from "./screen";
@@ -94,6 +97,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     const gpuTimer = createGpuTimer(renderer.backend as unknown as TimestampBackend | undefined);
     const outsideFrame = <T>(render: () => T): T => { gpuTimer.taint(); return render(); };
     const camera = new PerspectiveCamera();
+    camera.layers.enable(SNOW_LAYER);
     const scene = new Scene();
     scene.background = null;
     const sceneLights = createSceneLights(scene, renderer);
@@ -113,6 +117,9 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
     // The cone root is in the scene only while a beam draws, so a scene without a beam keeps its objects.
     const beams = createBeams();
     let beamsFailed = false;
+    // The snow facade exists only while a snow entity does. A snow failure stops it until the entity or the scene revision changes.
+    // `snowProven` is true after a draw with the current snow materials: a later draw failure is not a snow failure.
+    let snow: Snow | null = null, snowFailed: { id: Id; revision: number; message: string } | null = null, snowProven = false;
     const assets = createAssetCache(loadAsset);
     const debugs = new Map<string, AssetDebug>();
     // One texture for each image asset in this client, shared by all screens that show it (B28 R12). Each quad holds a
@@ -350,6 +357,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         unwatchPipelines?.();
         postChain.dispose();
         haze?.dispose();
+        snow?.dispose();
         beams.dispose();
         marker?.dispose();
         scene.clear();
@@ -379,8 +387,8 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         environmentLight.room(roomLight(drawn));
         characterShare.fill.value.setRGB(...characterFill(drawn));
         // Cameras, lights, and the haze have a scene object only in the editor viewport, as a pick target and helper (R14, B13 R13).
-        // An FPS counter is a DOM overlay and a VMC sender sends UDP; neither has a scene object (B19 R7, B21).
-        const wanted = new Set(frame.scene.entities.filter(x => x.kind !== "tracking" && x.kind !== "fpsCounter" && x.kind !== "vmcSender" && (editor || (x.kind !== "camera" && x.kind !== "light" && x.kind !== "haze"))).map(x => x.id));
+        // An FPS counter is a DOM overlay and a VMC sender sends UDP; neither has a scene object (B19 R7, B21). A snow entity has none either.
+        const wanted = new Set(frame.scene.entities.filter(x => x.kind !== "tracking" && x.kind !== "fpsCounter" && x.kind !== "snow" && x.kind !== "vmcSender" && (editor || (x.kind !== "camera" && x.kind !== "light" && x.kind !== "haze"))).map(x => x.id));
         for (const [id, value] of objects) {
             if (!wanted.has(id)) {
                 releaseObject(value);
@@ -397,7 +405,7 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         const webPlans = webScreenPlan(frame.scene);
         const captureViews = captures.apply(frame.scene.entities);
         for (const entity of frame.scene.entities) {
-            if (entity.kind === "tracking" || entity.kind === "fpsCounter" || entity.kind === "vmcSender") continue;
+            if (entity.kind === "tracking" || entity.kind === "fpsCounter" || entity.kind === "snow" || entity.kind === "vmcSender") continue;
             if (entity.kind === "camera") {
                 if (editor) {
                     let value = objects.get(entity.id);
@@ -570,6 +578,37 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             haze.setLights(sceneLights.node("haze"));
         } else if (haze) { haze.dispose(); haze = null; }
         const hazeDrawn = haze && hazeEntity?.visible && !hazeFailed ? haze : null;
+        const snowEntity = drawn.find((x): x is SnowEntity => x.kind === "snow");
+        // A snow failure does not stop the frame: the facade goes, and the frame carries the warning.
+        const failSnow = (id: Id, error: unknown) => {
+            const message = error instanceof Error ? error.message : String(error);
+            snow?.dispose();
+            snow = null;
+            snowFailed = { id, revision: frame.scene.revision, message };
+            warnings.push({ code: "UNSUPPORTED", message: "Snow failed: " + message, ids: [id] });
+        };
+        if (snowFailed && (snowFailed.id !== snowEntity?.id || snowFailed.revision !== frame.scene.revision)) snowFailed = null;
+        if (snowFailed) warnings.push({ code: "UNSUPPORTED", message: "Snow failed: " + snowFailed.message, ids: [snowFailed.id] });
+        else if (snowEntity) {
+            try {
+                if (!snow) { snow = createSnow({ tint: characterShare.fill, compute: backend === "webgpu" }); scene.add(snow.flakes); snowProven = false; }
+                // Only installed content: an avatar that still loads has no binding yet.
+                const avatars = drawn.flatMap((entity): SnowAvatar[] => {
+                    const value = entity.kind === "avatar" ? objects.get(entity.id) : undefined;
+                    return value?.avatar ? [{ id: entity.id, root: value.root, materials: value.avatar.characters, clock: springClock(frame, entity.id) }] : [];
+                });
+                const casters = drawn.flatMap(entity => {
+                    const value = entity.kind === "avatar" || entity.kind === "mesh" || entity.kind === "environment" ? objects.get(entity.id) : undefined;
+                    return value ? [value.root] : [];
+                });
+                if (snow.update(snowEntity, frame.elapsedMs / 1000, avatars, casters)) snowProven = false;
+                // New snow materials build their pipelines again: a label that failed before is new.
+                if (!snowProven) { const ids = snow.materialIds(); blame = forgetLabels(blame, label => ids.has(pipelineMaterialId(label) ?? -1)); }
+                warnings.push(...snow.warnings());
+            }
+            catch (error) { failSnow(snowEntity.id, error); }
+        } else if (snow) { snow.dispose(); snow = null; }
+        let snowDrawn = snowEntity && snow ? { entity: snowEntity, snow } : null;
         // `drawn` has the gizmo drafts, so a dragged light moves its beam.
         const beamsDrawn = beams.update(drawn) && !beamsFailed ? beams : null;
         if (!beamsDrawn) beams.root.removeFromParent();
@@ -638,10 +677,27 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
         try {
             // three.js 0.180: on WebGPU a shadow first set up during a draw stays empty, so compile first; on WebGL 2 this compile leaves the shadow empty.
             if (lightsRebuilt && sceneLights.shadows() && backend === "webgpu") await compileOnce(() => renderer.compileAsync(scene, camera));
-            await postChain.render(scene, camera, cameraEntity.antiAliasing, hazeDrawn, cameraEntity.grading ?? null, beamsDrawn, effectsDrawn, lookDrawn);
-            const blamed = blameFrame(blame, { haze: hazeDrawn !== null, beams: beamsDrawn !== null }, failureReports);
+            // The sky pass and the build-up steps come before the scene draw.
+            if (snowDrawn) {
+                try { await snowDrawn.snow.render(renderer, scene); }
+                catch (error) { failSnow(snowDrawn.entity.id, error); snowDrawn = null; }
+            }
+            const draw = () => postChain.render(scene, camera, cameraEntity.antiAliasing, hazeDrawn, cameraEntity.grading ?? null, beamsDrawn, effectsDrawn, lookDrawn);
+            try { await draw(); }
+            catch (error) {
+                // The first draw with new snow materials builds their nodes. A failure there is a snow failure: draw again without the snow.
+                if (!snowDrawn || snowProven) throw error;
+                failSnow(snowDrawn.entity.id, error);
+                snowDrawn = null;
+                await draw();
+            }
+            if (snowDrawn) snowProven = true;
+            // A pipeline of a snow material that fails to compile stops the snow, not the haze or the beams.
+            const snowIds = snowDrawn?.snow.materialIds();
+            const blamed = blameFrame(blame, { haze: hazeDrawn !== null, beams: beamsDrawn !== null }, failureReports, snowIds && (label => snowIds.has(pipelineMaterialId(label) ?? -1)));
             blame = blamed.state;
             failureReports = [];
+            if (blamed.snow && snowDrawn) { failSnow(snowDrawn.entity.id, new Error("Pipeline compile failed")); snowDrawn = null; }
             if (blamed.stop.includes("haze")) hazeFailed = true;
             if (blamed.stop.includes("beams")) beamsFailed = true;
             if (marker) {
@@ -696,6 +752,8 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
             const entity = frame.scene.entities.find(x => x.id === cameraId && x.kind === "camera");
             if (!entity || entity.kind !== "camera") throw failure("NOT_FOUND", "Camera not found", [cameraId]);
             const shotCamera = new PerspectiveCamera();
+            // The flakes as in the output, with the height target and the amounts of the last applied frame.
+            shotCamera.layers.enable(SNOW_LAYER);
             shotCamera.aspect = SCREENSHOT_WIDTH / SCREENSHOT_HEIGHT;
             applyPerspectiveLens(shotCamera, entity.lens);
             applyTransform(shotCamera, entity);

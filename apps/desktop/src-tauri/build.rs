@@ -41,6 +41,7 @@ fn main() {
             "import_scene",
             "import_image",
             "import_video",
+            "import_hdr",
             "capture_source_list",
             "capture_source_allow",
             "open_capture_settings",
