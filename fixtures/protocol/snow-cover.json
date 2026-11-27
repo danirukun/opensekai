@@ -1,0 +1,17 @@
+{
+ "valid": [
+  { "name": "no cover", "snow": { "entityId": "snow_1", "cover": 0 } },
+  { "name": "part cover", "snow": { "entityId": "snow_1", "cover": 0.375 } },
+  { "name": "full cover", "snow": { "entityId": "snow_1", "cover": 1 } }
+ ],
+ "invalid": [
+  { "name": "above 1", "snow": { "entityId": "snow_1", "cover": 1.01 } },
+  { "name": "negative", "snow": { "entityId": "snow_1", "cover": -0.01 } },
+  { "name": "text cover", "snow": { "entityId": "snow_1", "cover": "0.5" } },
+  { "name": "empty id", "snow": { "entityId": "", "cover": 0.5 } },
+  { "name": "missing cover", "snow": { "entityId": "snow_1" } },
+  { "name": "missing id", "snow": { "cover": 0.5 } },
+  { "name": "extra field", "snow": { "entityId": "snow_1", "cover": 0.5, "rate": 1 } },
+  { "name": "list", "snow": [{ "entityId": "snow_1", "cover": 0.5 }] }
+ ]
+}
