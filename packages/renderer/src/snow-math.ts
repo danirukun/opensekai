@@ -27,14 +27,40 @@ export const snowMask = (amount: number, noise: number): number =>
     smoothstep(noise - SNOW.maskEdge, noise + SNOW.maskEdge, amount * (1 + 2 * SNOW.maskEdge) - SNOW.maskEdge);
 
 export type FlakeMotion = Pick<SnowSettings, 'fallSpeed' | 'flutter' | 'windDirection' | 'windSpeed'>;
-/** Box-local metres, each axis in [-size/2, size/2). `seed` has three values in [0, 1). */
-export const flakePosition = (seed: Vec3, t: number, size: Vec3, { fallSpeed, flutter, windDirection, windSpeed }: FlakeMotion): Vec3 => {
-    const angle = windDirection * Math.PI / 180, sway = 0.15 * flutter, turn = 2 * Math.PI;
-    const wrap = (value: number, span: number) => ((value % span) + span) % span - span / 2;
+/** The count of fall speeds and of sway rates. A flake takes one level from a seed, so each time term has a period. */
+export const SNOW_FLAKE_LEVELS = 64;
+/** Three position values and one speed value, each in [0, 1). */
+export type FlakeSeed = readonly [number, number, number, number];
+/** The time terms of `flakePosition`. Each one is below its period: the box size for a distance, 2π for an angle. */
+export interface FlakeClock { driftX: number; driftZ: number; fall: number; fallStep: number; swayX: number; swayZ: number; swayStep: number }
+const period = (value: number, span: number) => ((value % span) + span) % span;
+/**
+ * In double precision, on the CPU. A float32 of the session time loses millimetres after some hours, and the flakes
+ * then move in steps. A term below its period keeps its precision for a session of any length.
+ */
+export const flakeClock = (t: number, size: Readonly<Vec3>, { fallSpeed, windDirection, windSpeed }: Omit<FlakeMotion, 'flutter'>): FlakeClock => {
+    const angle = windDirection * Math.PI / 180, turn = 2 * Math.PI;
+    return {
+        driftX: period(Math.sin(angle) * windSpeed * t, size[0]),
+        driftZ: period(Math.cos(angle) * windSpeed * t, size[2]),
+        fall: period(fallSpeed * 0.75 * t, size[1]),
+        fallStep: period(fallSpeed * 0.5 / SNOW_FLAKE_LEVELS * t, size[1]),
+        swayX: period(0.7 * t, turn),
+        swayZ: period(0.5 * t, turn),
+        swayStep: period(t / SNOW_FLAKE_LEVELS, turn),
+    };
+};
+/**
+ * Box-local metres, each axis in [-size/2, size/2). The fall speed is fallSpeed × (0.75 + 0.5 × level / levels), with the
+ * level from the speed seed: a position seed would make one side of the box fall faster than the other.
+ */
+export const flakePosition = (seed: FlakeSeed, clock: FlakeClock, size: Readonly<Vec3>, flutter: number): Vec3 => {
+    const sway = 0.15 * flutter, turn = 2 * Math.PI, level = (value: number) => Math.floor(value * SNOW_FLAKE_LEVELS);
+    const wrap = (value: number, span: number) => period(value, span) - span / 2;
     return [
-        wrap(seed[0] * size[0] + Math.sin(angle) * windSpeed * t + Math.sin(t * (0.7 + seed[1]) + seed[2] * turn) * sway, size[0]),
-        wrap(seed[1] * size[1] - fallSpeed * (0.75 + 0.5 * seed[2]) * t, size[1]),
-        wrap(seed[2] * size[2] + Math.cos(angle) * windSpeed * t + Math.cos(t * (0.5 + seed[0]) + seed[1] * turn) * sway, size[2]),
+        wrap(seed[0] * size[0] + clock.driftX + Math.sin(clock.swayX + level(seed[1]) * clock.swayStep + seed[2] * turn) * sway, size[0]),
+        wrap(seed[1] * size[1] - clock.fall - level(seed[3]) * clock.fallStep, size[1]),
+        wrap(seed[2] * size[2] + clock.driftZ + Math.cos(clock.swayZ + level(seed[0]) * clock.swayStep + seed[1] * turn) * sway, size[2]),
     ];
 };
 

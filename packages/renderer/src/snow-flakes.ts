@@ -1,6 +1,6 @@
 import { Quaternion, Sprite, SpriteNodeMaterial, Vector3, type Node, type UniformNode } from "three/webgpu";
-import { PI, TWO_PI, cos, float, hash, instanceIndex, mix, mod, modelViewMatrix, modelWorldMatrix, sin, smoothstep, uint, uniform, uv, vec2, vec3, vec4, vertexStage } from "three/tsl";
-import { SNOW_FLAKES, boxYaw } from "./snow-math";
+import { TWO_PI, cos, float, floor, hash, instanceIndex, mix, mod, modelViewMatrix, modelWorldMatrix, sin, smoothstep, uint, uniform, uv, vec2, vec3, vec4, vertexStage } from "three/tsl";
+import { SNOW_FLAKES, SNOW_FLAKE_LEVELS, boxYaw, flakeClock } from "./snow-math";
 import { skyExposureNode, type SnowEntity, type SnowSky } from "./snow-sky";
 
 /** The layer of the snow flakes. The scene camera draws it; the sky pass and the shadow passes do not. */
@@ -20,19 +20,20 @@ const up = new Vector3(0, 1, 0);
  * `tint` is the character fill colour of the renderer (`characterShare.fill`).
  */
 export function createSnowFlakes(sky: SnowSky, tint: UniformNode<"color">, count = SNOW_FLAKES): SnowFlakes {
-    const time = uniform(0), size = uniform(new Vector3(1, 1, 1));
-    const fallSpeed = uniform(1), flakeSize = uniform(1), flutter = uniform(0), windDirection = uniform(0), windSpeed = uniform(0);
+    const size = uniform(new Vector3(1, 1, 1)), flakeSize = uniform(1), flutter = uniform(0);
+    // flakeClock: the time terms come from the CPU, each below its period, so a long session keeps its precision.
+    const driftX = uniform(0), driftZ = uniform(0), fall = uniform(0), fallStep = uniform(0), swayX = uniform(0), swayZ = uniform(0), swayStep = uniform(0);
     // Fixed offsets, so that each client gets the same seeds. The example adds Math.random() values.
     const seedX = hash(instanceIndex.mul(uint(3))), seedY = hash(instanceIndex.mul(uint(3)).add(uint(1))), seedZ = hash(instanceIndex.mul(uint(3)).add(uint(2)));
-    // The size and the opacity have their own seeds: a position seed would give a size gradient across the box.
+    // The speed, the size, and the opacity have their own seeds: a position seed would give a gradient across the box.
     // The inputs start at 2^31, above each position seed input.
-    const seedSize = hash(instanceIndex.mul(uint(2)).add(uint(0x80000000))), seedOpacity = hash(instanceIndex.mul(uint(2)).add(uint(0x80000001)));
+    const seedSpeed = hash(instanceIndex.mul(uint(3)).add(uint(0x80000000))), seedSize = hash(instanceIndex.mul(uint(3)).add(uint(0x80000001))), seedOpacity = hash(instanceIndex.mul(uint(3)).add(uint(0x80000002)));
     // flakePosition, term for term. The TSL mod of a float is x − y·floor(x / y), so one mod is in [0, span) for span > 0.
-    const angle = windDirection.mul(PI).div(180), sway = flutter.mul(0.15);
+    const sway = flutter.mul(0.15), level = (seed: typeof seedX) => floor(seed.mul(SNOW_FLAKE_LEVELS));
     const raw = vec3(
-        seedX.mul(size.x).add(sin(angle).mul(windSpeed).mul(time)).add(sin(time.mul(seedY.add(0.7)).add(seedZ.mul(TWO_PI))).mul(sway)),
-        seedY.mul(size.y).sub(fallSpeed.mul(seedZ.mul(0.5).add(0.75)).mul(time)),
-        seedZ.mul(size.z).add(cos(angle).mul(windSpeed).mul(time)).add(cos(time.mul(seedX.add(0.5)).add(seedY.mul(TWO_PI))).mul(sway)),
+        seedX.mul(size.x).add(driftX).add(sin(swayX.add(level(seedY).mul(swayStep)).add(seedZ.mul(TWO_PI))).mul(sway)),
+        seedY.mul(size.y).sub(fall).sub(level(seedSpeed).mul(fallStep)),
+        seedZ.mul(size.z).add(driftZ).add(cos(swayZ.add(level(seedX).mul(swayStep)).add(seedY.mul(TWO_PI))).mul(sway)),
     );
     const local = mod(raw, size).sub(size.mul(0.5));
     const world = modelWorldMatrix.mul(vec4(local, 1)).xyz as unknown as Node<"vec3">;
@@ -69,10 +70,11 @@ export function createSnowFlakes(sky: SnowSky, tint: UniformNode<"color">, count
     return {
         object,
         update({ visible, transform: { position, rotation, scale }, snow }, elapsedSeconds) {
-            time.value = elapsedSeconds;
             size.value.fromArray(scale);
-            fallSpeed.value = snow.fallSpeed; flakeSize.value = snow.flakeSize; flutter.value = snow.flutter;
-            windDirection.value = snow.windDirection; windSpeed.value = snow.windSpeed;
+            flakeSize.value = snow.flakeSize; flutter.value = snow.flutter;
+            const clock = flakeClock(elapsedSeconds, scale, snow);
+            driftX.value = clock.driftX; driftZ.value = clock.driftZ; fall.value = clock.fall; fallStep.value = clock.fallStep;
+            swayX.value = clock.swayX; swayZ.value = clock.swayZ; swayStep.value = clock.swayStep;
             object.position.fromArray(position);
             object.quaternion.copy(yaw.setFromAxisAngle(up, boxYaw(rotation)));
             object.count = Math.round(count * snow.rate);

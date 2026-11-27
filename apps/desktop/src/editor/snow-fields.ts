@@ -1,4 +1,4 @@
-import type {SnowSettings} from '@opensekai/contracts';
+import {LIMITS,type SceneEntity,type SnowSettings} from '@opensekai/contracts';
 import {SLIDERS,type SliderRange} from './slider';
 type NumberKey={[K in keyof SnowSettings]:SnowSettings[K] extends number?K:never}[keyof SnowSettings];
 // The sliders of the Physics section of a snow entity, in the order of the settings (snow Inspector R2).
@@ -13,3 +13,4 @@ export const SNOW_FIELDS:readonly (readonly [NumberKey,string,SliderRange])[]=[
  ['meltSeconds','Melt Time (s)',SLIDERS.snowSeconds],
  ['thickness','Thickness (m)',SLIDERS.snowThickness],
 ];
+export const snowLimitReached=(entities:readonly SceneEntity[]):boolean=>entities.filter(entity=>entity.kind==='snow').length>=LIMITS.snows;

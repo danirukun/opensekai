@@ -4,7 +4,7 @@ import {createSession} from '@opensekai/session';
 import {createEditorModel} from '../src/editor/model';
 import {changedFields,defaultsFor,resetFieldIds,valuesFor} from '../src/editor/property-defaults';
 import {sectionsFor} from '../src/editor/inspector-sections';
-import {SNOW_FIELDS} from '../src/editor/snow-fields';
+import {SNOW_FIELDS,snowLimitReached} from '../src/editor/snow-fields';
 
 const snow=(settings:Partial<SnowSettings>={}):Extract<SceneEntity,{kind:'snow'}>=>({id:'snow',name:'Snow',visible:true,transform:{position:[0,2,0],rotation:[0,0,0,1],scale:[6,4,6]},kind:'snow',snow:{...DEFAULT_SNOW,...settings}});
 
@@ -40,3 +40,8 @@ it('sends setSnow only for a snow entity with valid settings (R7)',async()=>{
  expect((await model.setSnow('snow',{...DEFAULT_SNOW,rate:2})).ok).toBe(false);
  expect(api.scenePatch).toHaveBeenCalledTimes(1);
 });
+it('reaches the snow limit with one snow entity, so Duplicate is off',()=>{
+ expect(snowLimitReached(makeSmokeScene().entities)).toBe(false);
+ expect(snowLimitReached([...makeSmokeScene().entities,snow()])).toBe(true);
+});
+

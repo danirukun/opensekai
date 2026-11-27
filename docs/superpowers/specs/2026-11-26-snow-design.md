@@ -42,6 +42,16 @@ The first run on a GPU changed these values and one mechanism. The [evidence pag
 | Noise scale of the edge mask: 3 for each metre (was 6) | At 6, a build-up or a melt showed as a 5 mm speckle. At 3, the snow comes and goes as patches with a ragged edge. |
 | Each avatar has its own node build of each MToon material with snow. The program cache key has the id of the state buffer. | three.js keeps one node build for each cache key, and a build holds the storage buffer of its first material. With one key, two avatars drew the amounts of one avatar. The WGSL is the same, so the GPU program is shared. |
 
+Changes from the code review of 2026-11-27 (the [evidence page](../../evaluation/snow.md) has the checks):
+
+| Change | Reason |
+| --- | --- |
+| The fall speed has its own seed (it had the Z position seed) | One side of the box fell 67 % faster than the other. |
+| The time terms of the flake position are wrapped on the CPU (`flakeClock`), with 64 levels of fall speed and of sway rate | The session time as a float32, multiplied by a speed, has steps of 2 to 8 mm after about 6 hours, so the fall moved in steps. |
+| The failure rule covers the creation and the update of the facade, and the first scene draw after a material got or lost its share | Only the sky pass and the build-up steps were covered. A throw in the other places stopped each frame. |
+| An avatar with no material that can take snow gets no build-up | A lilToon avatar had the buffers and a compute step for each tick, and nothing read the result. |
+| Duplicate is off for a snow entity | A scene holds at most 1, and the session refused the copy. |
+
 Facts for the next decision:
 
 - A shake around the vertical axis keeps a tuft of snow at the axis, because the shed rule uses the vertex speed.
@@ -143,6 +153,7 @@ Steps 2 and 3 run inside the applied frame, so `gpuMs` includes them. A render o
 
 - The position of a flake is a pure function of its seed, `frame.elapsedMs`, and the settings. No flake has state. All clients agree for the same frame, and the motion continues while the editor is minimized.
 - A flake wraps inside the box.
+- The fall speed of a flake is `fallSpeed` × (0.75 to 1.24). The factor comes from a seed of its own, not from a position seed, so no side of the box falls faster. The factor and the sway rate each have 64 levels. With levels, each time term has a period (the box size or one turn), and the renderer sends each term below its period. A float32 then keeps its precision in a session of any length.
 - A flake below the sky depth surface is not drawn. So no flake falls through a head, a prop, or a roof.
 - Flakes are soft round billboards. The size and the opacity vary with the seed, and a far flake is smaller and fainter. Flakes take the ambient colour of the scene.
 - Flakes draw in the scene pass. They do not make the renderer use the post chain, and a screenshot includes them.

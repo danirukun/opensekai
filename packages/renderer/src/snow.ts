@@ -12,8 +12,11 @@ import type { SpringClock } from "./spring-grid";
 export interface SnowAvatar { id: string; root: Object3D; materials: readonly Material[]; clock: SpringClock }
 export interface Snow {
     readonly flakes: Object3D;
-    /** `casters` are the roots of the avatars, the props, and the environment. */
-    update(entity: SnowEntity, elapsedSeconds: number, avatars: readonly SnowAvatar[], casters: readonly Object3D[]): void;
+    /**
+     * `casters` are the roots of the avatars, the props, and the environment. True when a material got or lost its share
+     * in this call: the next draw builds it again.
+     */
+    update(entity: SnowEntity, elapsedSeconds: number, avatars: readonly SnowAvatar[], casters: readonly Object3D[]): boolean;
     /** The sky pass, then one build-up step for each avatar. Inside the applied frame. */
     render(renderer: WebGPURenderer, scene: Scene): Promise<void>;
     warnings(): AppError[];
@@ -54,6 +57,8 @@ export function createSnow({ tint, compute }: { tint: UniformNode<"color">; comp
             material.needsUpdate = true;
             owned.push(material);
         }
+        // No material reads the amounts (a lilToon avatar, or only blended materials): no buffers and no step for each tick.
+        if (owned.length === 0) { buildUp?.dispose(); return { root, buildUp: null, share: null, materials: owned, shared, clock, previous: null }; }
         return { root, buildUp, share, materials: owned, shared, clock, previous: null };
     };
     const release = ({ buildUp, share, materials }: Settled) => {
@@ -75,16 +80,21 @@ export function createSnow({ tint, compute }: { tint: UniformNode<"color">; comp
             if (visible && !entity.visible) clearPending = true;
             visible = entity.visible;
             const wanted = new Map((compute && snow.settleOnCharacters ? avatars : []).map(avatar => [avatar.id, avatar]));
+            let changed = false;
             for (const [id, entry] of settled) {
                 if (wanted.get(id)?.root === entry.root) continue;
+                if (entry.materials.length > 0) changed = true;
                 release(entry);
                 settled.delete(id);
             }
             for (const avatar of wanted.values()) {
                 const entry = settled.get(avatar.id);
-                if (entry) entry.clock = avatar.clock;
-                else settled.set(avatar.id, settle(avatar));
+                if (entry) { entry.clock = avatar.clock; continue; }
+                const made = settle(avatar);
+                if (made.materials.length > 0) changed = true;
+                settled.set(avatar.id, made);
             }
+            return changed;
         },
         async render(renderer, scene) {
             if (visible) {

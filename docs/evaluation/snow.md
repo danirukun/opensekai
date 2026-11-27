@@ -223,6 +223,23 @@ Seen in the same session, and open:
 - `camera_screenshot` shows the build-up but no flakes.
 - One earlier session logged `GPUValidationError: Bind group has incompatible usage list: Attachment ConstantTexture` on each frame while the flakes were visible. The error stopped at `rate` 0 and when the entity was hidden. Two later sessions did not show it. The cause is unknown.
 
+## Review fixes (2026-11-27)
+
+A code review of the branch gave 10 findings. Five are fixed in the commit after `1fdbc531`; the design page lists them. Checks:
+
+| Check | How | Result |
+| --- | --- | --- |
+| The fall speed does not follow the place in the box | Unit test of `flakePosition` | Pass |
+| The float32 time terms keep the flake position within 0.1 mm at 3 days | Unit test of `flakeClock` | Pass |
+| The new flake shader compiles and the flakes draw and move | Editor window (WebKit, WebGPU, `preview_v1`, debug build), two captures 0.5 s apart; no console error and no frame warning | Pass |
+| A throw in the snow update, or in the first draw with new snow materials, leaves the frame drawn with the warning `Snow failed` | Renderer tests with a stub renderer | Pass |
+| An avatar with no eligible material gets no build-up step | Facade test | Pass |
+| Duplicate is off in the menu of a snow entity | Editor window, the context menu | Pass |
+
+Not checked on a GPU: a session of several hours, and a failed node build of a real material. The OBS output was not connected in this check.
+
+The five findings that are open: a snow pipeline that fails to compile is blamed on the haze or the beams; a settle or a release compiles the character materials inside the frame; each client keeps its own build-up (slice 2); the sky pass also runs at `rate` 0; no default box for the snow (slice 5).
+
 ## To close the gate
 
 1. Unlock the Mac, connect mains power, and run `caffeinate -d -u`. Keep the Editor window in view.

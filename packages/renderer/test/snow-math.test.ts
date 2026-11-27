@@ -1,6 +1,6 @@
 import { expect, it, describe } from 'vitest';
 import { Matrix4, Vector4 } from 'three/webgpu';
-import { SNOW, boxYaw, buildUpStep, flakePosition, skyExposure, skyMatrix, snowMask, snowSteps, upFacing } from '../src/snow-math';
+import { SNOW, SNOW_FLAKE_LEVELS, boxYaw, buildUpStep, flakeClock, flakePosition, skyExposure, skyMatrix, snowMask, snowSteps, upFacing, type FlakeClock } from '../src/snow-math';
 
 const base = { amount: 0, up: 1, sky: 1, speed: 0, rate: 1, buildUpSeconds: 45, meltSeconds: 20, seconds: 1 / 60 };
 const still = { fallSpeed: 1, flutter: 0, windDirection: 0, windSpeed: 0 };
@@ -48,19 +48,47 @@ describe('mask', () => {
     });
 });
 describe('flakes', () => {
-    const size = [6, 4, 6] as const, seed = [0.5, 0.5, 0.5] as const;
+    const size = [6, 4, 6] as const, seed = [0.5, 0.5, 0.5, 0.5] as const;
+    type Motion = typeof still;
+    const at = (flake: readonly [number, number, number, number], t: number, motion: Motion = still) => flakePosition(flake, flakeClock(t, size, motion), size, motion.flutter);
     it('gives the same position for the same seed and time, in the box, also after 4 hours', () => {
+        const motion = { ...still, flutter: 2, windSpeed: 5, windDirection: 30 };
         for (const t of [0, 1, 1000, 14_400]) {
-            const p = flakePosition([...seed], t, [...size], { ...still, flutter: 2, windSpeed: 5, windDirection: 30 });
-            expect(p).toEqual(flakePosition([...seed], t, [...size], { ...still, flutter: 2, windSpeed: 5, windDirection: 30 }));
+            const p = at(seed, t, motion);
+            expect(p).toEqual(at(seed, t, motion));
             p.forEach((value, axis) => { expect(Number.isFinite(value)).toBe(true); expect(Math.abs(value)).toBeLessThanOrEqual(size[axis]! / 2); });
         }
     });
-    it('falls by fallSpeed × (0.75 + 0.5 × seed z) and drifts with the wind', () => {
-        const a = flakePosition([...seed], 0, [...size], still), b = flakePosition([...seed], 0.1, [...size], still);
+    it('falls by fallSpeed × (0.75 + 0.5 × the speed level) and drifts with the wind', () => {
+        const a = at(seed, 0), b = at(seed, 0.1);
         expect(a[1] - b[1]).toBeCloseTo(0.1, 6); expect(b[0]).toBeCloseTo(a[0], 6);
-        const c = flakePosition([...seed], 0.1, [...size], { ...still, windDirection: 90, windSpeed: 1 });
+        const c = at(seed, 0.1, { ...still, windDirection: 90, windSpeed: 1 });
         expect(c[0] - a[0]).toBeCloseTo(0.1, 6); expect(c[2]).toBeCloseTo(a[2], 6);
+    });
+    it('takes the fall speed from the speed seed, not from the place in the box', () => {
+        const fall = (flake: readonly [number, number, number, number]) => at(flake, 0)[1] - at(flake, 0.1)[1];
+        expect(fall([0.5, 0.5, 0.1, 0.5])).toBeCloseTo(0.1, 6);
+        expect(fall([0.5, 0.5, 0.9, 0.5])).toBeCloseTo(0.1, 6);
+        expect(fall([0.5, 0.5, 0.5, 0])).toBeCloseTo(0.075, 6);
+        expect(fall([0.5, 0.5, 0.5, 0.999])).toBeCloseTo(0.1 * (0.75 + 0.5 * (SNOW_FLAKE_LEVELS - 1) / SNOW_FLAKE_LEVELS), 6);
+    });
+    it('keeps each time term below its period, so a float32 holds a session of 3 days', () => {
+        const motion = { fallSpeed: 3, flutter: 2, windDirection: 30, windSpeed: 5 }, t = 3 * 86_400 + 0.25;
+        const single = (clock: FlakeClock) => Object.fromEntries(Object.entries(clock).map(([key, value]) => [key, Math.fround(value)])) as unknown as FlakeClock;
+        const clock = flakeClock(t, size, motion), turn = 2 * Math.PI;
+        expect(clock.driftX).toBeLessThan(size[0]); expect(clock.driftZ).toBeLessThan(size[2]);
+        expect(clock.fall).toBeLessThan(size[1]); expect(clock.fallStep).toBeLessThan(size[1]);
+        expect(clock.swayX).toBeLessThan(turn); expect(clock.swayZ).toBeLessThan(turn); expect(clock.swayStep).toBeLessThan(turn);
+        // The distance between the double and the float32 result, along the wrap of the box.
+        const apart = (a: number, b: number, span: number) => Math.min(Math.abs(a - b), span - Math.abs(a - b));
+        for (const flake of [[0.1, 0.2, 0.3, 0.999], [0.9, 0.999, 0.5, 0], [0.5, 0.5, 0.5, 0.5]] as const) {
+            const exact = flakePosition(flake, clock, size, motion.flutter), rounded = flakePosition(flake, single(clock), size, motion.flutter);
+            exact.forEach((value, axis) => expect(apart(value, rounded[axis]!, size[axis]!)).toBeLessThan(1e-4));
+            // One frame later the float32 result moved by the fall of one frame.
+            const next = flakePosition(flake, single(flakeClock(t + 1 / 60, size, motion)), size, motion.flutter);
+            const speed = motion.fallSpeed * (0.75 + 0.5 * Math.floor(flake[3] * SNOW_FLAKE_LEVELS) / SNOW_FLAKE_LEVELS);
+            expect(apart(apart(rounded[1], next[1], size[1]), speed / 60, size[1])).toBeLessThan(2e-4);
+        }
     });
 });
 describe('sky matrix', () => {

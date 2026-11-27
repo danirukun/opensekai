@@ -25,7 +25,7 @@ const collected = (object: Object3D): object is SkinnedMesh => {
 };
 
 /** Exact equality: the loader copies the same bytes into each skin. */
-const sameInverses = (a: Skeleton, b: Skeleton): boolean => a.boneInverses.every((inverse, i) => inverse.equals(b.boneInverses[i]));
+const sameInverses = (a: Skeleton, b: Skeleton): boolean => a.boneInverses.length === b.boneInverses.length && a.boneInverses.every((inverse, i) => inverse.equals(b.boneInverses[i]!));
 
 /** Pure. Skips a mesh that is not a SkinnedMesh or whose bindMode is not 'attached'. */
 export function collectSkinned(root: Object3D): SnowVertexData {

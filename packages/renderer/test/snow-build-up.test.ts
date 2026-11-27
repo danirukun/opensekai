@@ -70,3 +70,14 @@ it('gives skeletons with the same bones and bone inverses one bone block', () =>
     expect(withC.skeletons.map(entry => entry.offset)).toEqual([0, 3]); expect(withC.bones).toBe(6);
     expect([...withC.skinIndex.slice(5 * 4)]).toEqual([5, 5, 5, 5]);
 });
+it('keeps two skeletons with the same bones and a different count of inverses apart', () => {
+    const bones = [new Bone(), new Bone()], full = new Skeleton(bones), short = new Skeleton(bones);
+    short.boneInverses.pop();
+    const root = new Object3D();
+    root.add(skinned(1, full), skinned(1, short));
+    expect(collectSkinned(root).skeletons.length).toBe(2);
+    const other = new Object3D();
+    other.add(skinned(1, short), skinned(1, full));
+    expect(collectSkinned(other).skeletons.length).toBe(2);
+});
+

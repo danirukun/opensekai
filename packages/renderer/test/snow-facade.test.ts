@@ -175,3 +175,24 @@ it('gives an avatar without a skinned vertex no share and no error, and does not
     expect(snow.warnings()).toEqual([]);
     snow.dispose();
 });
+it('keeps no build-up for an avatar whose materials cannot take the share', async () => {
+    const snow = make(), a = avatar(), lilToon = new MeshBasicMaterial(), renderer = stubRenderer();
+    expect(snow.update(entity(), 0, [{ ...entry('a', a), materials: [lilToon] }], [a.root])).toBe(false);
+    expect(built[0]!.dispose).toHaveBeenCalledTimes(1);
+    await snow.render(asRenderer(renderer), new Scene());
+    expect(built[0]!.step).not.toHaveBeenCalled();
+    expect(renderer.compute).not.toHaveBeenCalled();
+    // The avatar is not settled again on the next frame.
+    snow.update(entity(), 1 / 60, [{ ...entry('a', a, 2), materials: [lilToon] }], [a.root]);
+    expect(createSnowBuildUp).toHaveBeenCalledTimes(1);
+    snow.dispose();
+});
+it('reports a frame in which a material got or lost its share', () => {
+    const snow = make(), a = avatar();
+    expect(snow.update(entity(), 0, [entry('a', a)], [a.root])).toBe(true);
+    expect(snow.update(entity(), 1 / 60, [entry('a', a, 2)], [a.root])).toBe(false);
+    expect(snow.update(entity({ settleOnCharacters: false }), 2 / 60, [entry('a', a, 3)], [a.root])).toBe(true);
+    expect(snow.update(entity({ settleOnCharacters: false }), 3 / 60, [entry('a', a, 4)], [a.root])).toBe(false);
+    snow.dispose();
+});
+

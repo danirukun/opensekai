@@ -2,7 +2,11 @@ import { it, expect, vi, beforeEach } from 'vitest';
 import { Bone, BufferGeometry, Float32BufferAttribute, Object3D, OrthographicCamera, Skeleton, SkinnedMesh, Uint16BufferAttribute, type Camera, type Scene } from 'three/webgpu';
 import { DEFAULT_SNOW, QUALITY_PROFILES, makeSmokeFrame, type RuntimeFrame, type SceneEntity } from '@opensekai/contracts';
 type Mock = ReturnType<typeof vi.fn>;
-const ports = vi.hoisted(() => ({ aa: { render: vi.fn(), dispose: vi.fn() }, backend: 'webgpu' as 'webgpu' | 'webgl2', load: vi.fn(), renderer: {} as Record<'renderAsync' | 'compute', Mock> }));
+const ports = vi.hoisted(() => ({ aa: { render: vi.fn(), dispose: vi.fn() }, backend: 'webgpu' as 'webgpu' | 'webgl2', load: vi.fn(), renderer: {} as Record<'renderAsync' | 'compute', Mock>, settleError: null as Error | null }));
+vi.mock('../src/snow-build-up', async original => {
+    const actual = await original<typeof import('../src/snow-build-up')>();
+    return { ...actual, createSnowBuildUp: (...args: Parameters<typeof actual.createSnowBuildUp>) => { if (ports.settleError) throw ports.settleError; return actual.createSnowBuildUp(...args); } };
+});
 vi.mock('../src/backend', () => ({ initializeBackend: async () => {
     const renderer = { backend: { device: {} }, shadowMap: { enabled: false }, info: { memory: { geometries: 0, textures: 0 } }, autoClear: true, setSize: vi.fn(), renderAsync: vi.fn(async () => {}), compileAsync: vi.fn(), dispose: vi.fn(),
         compute: vi.fn(), clear: vi.fn(), getRenderTarget: vi.fn(() => null), setRenderTarget: vi.fn(), getClearColor: vi.fn((color: unknown) => color), getClearAlpha: vi.fn(() => 0), setClearColor: vi.fn() };
@@ -42,7 +46,7 @@ const avatarAsset = () => {
     root.add(mesh);
     return { root, mesh, material, value: { scene: root, vrm: { root, characters: [material] }, debug: {}, warnings: [], dispose: vi.fn() } };
 };
-beforeEach(() => { ports.aa.render.mockReset().mockResolvedValue(undefined); ports.aa.dispose.mockReset(); ports.load.mockReset(); ports.backend = 'webgpu'; });
+beforeEach(() => { ports.aa.render.mockReset().mockResolvedValue(undefined); ports.aa.dispose.mockReset(); ports.load.mockReset(); ports.backend = 'webgpu'; ports.settleError = null; });
 
 it('applies a frame with a snow entity without loading it as an object', async () => {
     const readAsset = vi.fn();
@@ -128,3 +132,42 @@ it('draws the rest of the frame when the snow fails, and tries again after a rev
     expect(drawnScene().getObjectByName('snow-flakes')).toBeDefined();
     renderer.dispose();
 });
+it('draws the frame when the snow update fails', async () => {
+    const asset = avatarAsset();
+    ports.load.mockResolvedValue(asset.value);
+    const renderer = await make();
+    await renderer.applyFrame(frame([], true));
+    await settle();
+    ports.settleError = new Error('settle lost');
+    const failed = await renderer.applyFrame(frame([snow], true));
+    expect(failed.warnings).toContainEqual({ code: 'UNSUPPORTED', message: 'Snow failed: settle lost', ids: ['snow_1'] });
+    expect(drawnScene().getObjectByName('snow-flakes')).toBeUndefined();
+    expect(asset.material.snow).toBeNull();
+    renderer.dispose();
+});
+it('draws the frame again without the snow when the first draw with new snow materials fails', async () => {
+    const asset = avatarAsset();
+    ports.load.mockResolvedValue(asset.value);
+    const renderer = await make();
+    await renderer.applyFrame(frame([], true));
+    await settle();
+    ports.aa.render.mockClear();
+    ports.aa.render.mockRejectedValueOnce(new Error('node build lost'));
+    const failed = await renderer.applyFrame(frame([snow], true));
+    expect(failed.warnings).toContainEqual({ code: 'UNSUPPORTED', message: 'Snow failed: node build lost', ids: ['snow_1'] });
+    expect(ports.aa.render).toHaveBeenCalledTimes(2);
+    expect(drawnScene().getObjectByName('snow-flakes')).toBeUndefined();
+    expect(asset.material.snow).toBeNull();
+    renderer.dispose();
+});
+it('does not blame the snow for a draw that fails after the snow drew one time', async () => {
+    const renderer = await make();
+    await renderer.applyFrame(frame([snow]));
+    ports.aa.render.mockRejectedValueOnce(new Error('device lost'));
+    await expect(renderer.applyFrame(frame([snow]))).rejects.toMatchObject({ message: 'Render submission failed' });
+    const next = await renderer.applyFrame(frame([snow]));
+    expect(next.warnings).toEqual([]);
+    expect(drawnScene().getObjectByName('snow-flakes')).toBeDefined();
+    renderer.dispose();
+});
+
