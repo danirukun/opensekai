@@ -19,11 +19,29 @@ end
 secret_key_base =
   env_string.("SECRET_KEY_BASE", Base.encode64(:crypto.strong_rand_bytes(48)))
 
-bind_ip = if config_env() == :prod, do: {0, 0, 0, 0, 0, 0, 0, 0}, else: {127, 0, 0, 1}
+default_http_ip = if config_env() == :prod, do: "::", else: "127.0.0.1"
+
+{:ok, bind_ip} =
+  env_string.("RELAY_HTTP_IP", default_http_ip) |> String.to_charlist() |> :inet.parse_address()
+
+public_host =
+  env_string.(
+    "RELAY_HOST",
+    case System.get_env("FLY_APP_NAME") do
+      nil -> "localhost"
+      "" -> "localhost"
+      app -> "#{app}.fly.dev"
+    end
+  )
 
 config :relay, Relay.Endpoint,
+  url: [host: public_host],
   http: [ip: bind_ip, port: env_int.("PORT", 4000)],
   secret_key_base: secret_key_base
+
+if System.get_env("PHX_SERVER") in ["true", "1"] do
+  config :relay, Relay.Endpoint, server: true
+end
 
 {ice_port_min, ice_port_max} = if config_env() == :test, do: {40_000, 40_500}, else: {50_000, 50_999}
 

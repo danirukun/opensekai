@@ -4,12 +4,17 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 
+[[bin]]
+name = "transport-bench"
+path = "src/bin/transport_bench.rs"
+
 [features]
 default = []
 livekit = ["dep:livekit"]
 
 [dependencies]
 aes-gcm.workspace = true
+clap = { workspace = true, features = ["derive", "std", "help", "usage", "error-context"] }
 futures-util.workspace = true
 serde.workspace = true
 serde_json.workspace = true

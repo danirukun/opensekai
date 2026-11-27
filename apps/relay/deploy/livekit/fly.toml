@@ -1,0 +1,33 @@
+# LiveKit SFU for the ADR 0001 spike. From apps/relay/deploy/livekit:
+#   fly apps create <name>; fly ips allocate-v4 --app <name>
+#   fly secrets set NODE_IP=<dedicated ipv4> LIVEKIT_KEYS="<key>: <secret>" --app <name>
+#   fly deploy
+# Use the same key and secret for LIVEKIT_API_KEY and LIVEKIT_API_SECRET on the relay.
+app = "opensekai-livekit"
+primary_region = "ams"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 7880
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+# LiveKit keeps its media on one UDP mux port. Fly does not rewrite the destination port, so 7882 maps to 7882.
+[[services]]
+  protocol = "udp"
+  internal_port = 7882
+
+  [[services.ports]]
+    port = 7882
+
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "1gb"

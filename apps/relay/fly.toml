@@ -1,0 +1,56 @@
+# Spike relay for ADR 0001. Create the app first: `fly apps create <name>`, then
+# `fly ips allocate-v4` (UDP needs a dedicated IPv4) and `fly deploy --config apps/relay/fly.toml --dockerfile apps/relay/Dockerfile apps/relay`.
+# Set RELAY_PUBLIC_IPV4 to the dedicated IPv4 with `fly secrets set`; set the LIVEKIT_* values the same way.
+app = "opensekai-relay"
+primary_region = "ams"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PHX_SERVER = "true"
+  PORT = "4000"
+  RELAY_UDP_BIND_IP = "fly-global-services"
+  RELAY_ICE_PORT_MIN = "50000"
+  RELAY_ICE_PORT_MAX = "50999"
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 4000
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+    force_https = true
+
+  [services.concurrency]
+    type = "connections"
+    soft_limit = 200
+    hard_limit = 250
+
+  [[services.http_checks]]
+    method = "get"
+    path = "/healthz"
+    interval = "15s"
+    timeout = "2s"
+    grace_period = "10s"
+
+# Fly keeps the destination port of UDP packets, so the range maps port for port to the ICE range above.
+[[services]]
+  protocol = "udp"
+  internal_port = 50000
+
+  [[services.ports]]
+    start_port = 50000
+    end_port = 50999
+
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "1gb"

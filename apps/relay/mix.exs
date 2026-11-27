@@ -8,7 +8,8 @@ defmodule Relay.MixProject do
       elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      releases: [relay: [include_executables_for: [:unix]]]
     ]
   end
 

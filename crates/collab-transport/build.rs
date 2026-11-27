@@ -5,6 +5,7 @@ fn main() {
     // libwebrtc's Objective-C categories are dropped from the static archive without -ObjC,
     // and the first peer connection then aborts on an unrecognized selector.
     if livekit && macos {
-        println!("cargo:rustc-link-arg=-ObjC");
+        println!("cargo:rustc-link-arg-tests=-ObjC");
+        println!("cargo:rustc-link-arg-bin=transport-bench=-ObjC");
     }
 }
