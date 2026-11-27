@@ -601,7 +601,8 @@ export async function createRenderer(options: RendererOptions): Promise<Renderer
                     const value = entity.kind === "avatar" || entity.kind === "mesh" || entity.kind === "environment" ? objects.get(entity.id) : undefined;
                     return value ? [value.root] : [];
                 });
-                if (snow.update(snowEntity, frame.elapsedMs / 1000, avatars, casters)) snowProven = false;
+                const cover = frame.snow?.entityId === snowEntity.id ? frame.snow.cover : 0;
+                if (snow.update(snowEntity, frame.elapsedMs / 1000, cover, avatars, casters)) snowProven = false;
                 // New snow materials build their pipelines again: a label that failed before is new.
                 if (!snowProven) { const ids = snow.materialIds(); blame = forgetLabels(blame, label => ids.has(pipelineMaterialId(label) ?? -1)); }
                 warnings.push(...snow.warnings());

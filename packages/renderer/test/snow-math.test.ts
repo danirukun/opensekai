@@ -1,6 +1,6 @@
 import { expect, it, describe } from 'vitest';
 import { Matrix4, Vector4 } from 'three/webgpu';
-import { SNOW, SNOW_FLAKE_LEVELS, boxYaw, buildUpStep, flakeClock, flakePosition, skyExposure, skyMatrix, snowMask, snowSteps, upFacing, type FlakeClock } from '../src/snow-math';
+import { SNOW, SNOW_FLAKE_LEVELS, boxYaw, buildUpStep, flakeClock, flakePosition, skyExposure, skyMatrix, snowMask, snowSteps, upFacing, warmAmount, type FlakeClock } from '../src/snow-math';
 
 const base = { amount: 0, up: 1, sky: 1, speed: 0, rate: 1, buildUpSeconds: 45, meltSeconds: 20, seconds: 1 / 60 };
 const still = { fallSpeed: 1, flutter: 0, windDirection: 0, windSpeed: 0 };
@@ -115,4 +115,15 @@ describe('steps', () => {
         expect(snowSteps(clock(5), clock(6, 1))).toEqual({ reset: true, seconds: 1 / 60 });
         expect(snowSteps(clock(5), clock(5))).toEqual({ reset: false, seconds: 0 });
     });
+});
+
+// Snow cover R7.
+it('warm starts at cover × up × sky, which a build-up from 0 reaches while the cover grows and nothing sheds', () => {
+    expect(warmAmount(0, 1, 1)).toBe(0);
+    expect(warmAmount(0.6, 0.5, 1)).toBeCloseTo(0.3);
+    expect(warmAmount(0.6, 1, 0)).toBe(0);
+    const settings = { rate: 0.5, buildUpSeconds: 45, meltSeconds: 20 }, up = 0.7, sky = 1;
+    let amount = 0;
+    for (let tick = 0; tick < 30 * 60; tick++) amount = buildUpStep({ amount, up, sky, speed: 0, ...settings, seconds: 1 / 60 });
+    expect(warmAmount(30 * settings.rate / settings.buildUpSeconds, up, sky)).toBeCloseTo(amount, 6);
 });

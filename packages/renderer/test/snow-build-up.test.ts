@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { Bone, BufferGeometry, DetachedBindMode, Float32BufferAttribute, Matrix4, Mesh, Object3D, Skeleton, SkinnedMesh, Uint16BufferAttribute } from 'three/webgpu';
 import { uniform } from 'three/tsl';
 import { collectSkinned, createSnowBuildUp } from '../src/snow-build-up';
@@ -24,7 +24,7 @@ const avatar = () => {
     meshB.add(meshC);
     return { root, meshA, meshB, meshC };
 };
-const uniforms = () => ({ rate: uniform(1), buildUpSeconds: uniform(60), meltSeconds: uniform(30), thickness: uniform(0.015) });
+const uniforms = () => ({ rate: uniform(1), buildUpSeconds: uniform(60), meltSeconds: uniform(30), thickness: uniform(0.015), cover: uniform(0) });
 
 it('joins the skinned meshes of a root with vertex and bone offsets', () => {
     const data = collectSkinned(avatar().root);
@@ -81,3 +81,22 @@ it('keeps two skeletons with the same bones and a different count of inverses ap
     expect(collectSkinned(other).skeletons.length).toBe(2);
 });
 
+
+// Snow cover R7, R8: the first step and the first step after a clear are warm steps. A teleport is not.
+it('takes a warm step first and after a clear, and not on a spring reset', () => {
+    const buildUp = createSnowBuildUp(avatar().root, createSnowSky(64), uniforms())!;
+    const renderer = { compute: vi.fn() } as never;
+    expect(buildUp.warming()).toBe(true);
+    buildUp.step(renderer, 1 / 60, true);
+    expect(buildUp.warming()).toBe(false);
+    buildUp.step(renderer, 1 / 60, true);
+    expect(buildUp.warming()).toBe(false);
+    buildUp.clear();
+    // The step that clears writes 0. The step after it is warm.
+    expect(buildUp.warming()).toBe(false);
+    buildUp.step(renderer, 0, false);
+    expect(buildUp.warming()).toBe(true);
+    buildUp.step(renderer, 0, true);
+    expect(buildUp.warming()).toBe(false);
+    buildUp.dispose();
+});
