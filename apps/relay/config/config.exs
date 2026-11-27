@@ -7,7 +7,9 @@ config :relay, Relay.Endpoint,
   server: true
 
 config :relay, :transports, %{
-  "websocket" => Relay.Transport.WebSocket
+  "websocket" => Relay.Transport.WebSocket,
+  "ex_webrtc" => Relay.Transport.ExWebRTC,
+  "livekit" => Relay.Transport.LiveKit
 }
 
 config :relay, :room_idle_timeout_ms, 30_000

@@ -9,6 +9,7 @@ defmodule Relay.Application do
       {Phoenix.PubSub, name: Relay.PubSub},
       {Registry, keys: :unique, name: Relay.RoomRegistry},
       Relay.RoomSupervisor,
+      {DynamicSupervisor, name: Relay.PeerSupervisor, strategy: :one_for_one},
       Relay.Endpoint
     ]
 
