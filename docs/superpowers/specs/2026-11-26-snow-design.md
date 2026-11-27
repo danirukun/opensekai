@@ -56,6 +56,16 @@ Changes from the code review of 2026-11-27 (the [evidence page](../../evaluation
 | The sky pass does not draw at `rate` 0 | No flake draws and nothing grows, so nothing reads the height. |
 | The default snow box is the position `[0, 2, 0]` and the scale `[6, 4, 6]` | A scale reset gave a box of 1 m. |
 
+### Changes for slice 2 (2026-11-27)
+
+The [Snow session cover contract](../../../spdd/prompt/2026-11-27-snow-cover.md) has the requirements.
+
+| Change | Reason |
+| --- | --- |
+| The cover step reads the snow entity of the evaluated scene (after overrides and tweens) | A `snowRate` transition of slice 5 must move the cover |
+| The first step after a clear also takes the warm start. So Settle On Characters on again shows the snow at the cover. | One rule for each start. With a start from 0, a client that reloads later shows a different cover. After `visible` goes on again the cover is 0, so nothing changes there. |
+| The facade draws the sky pass at `rate` 0 on a frame with a warm step and a cover above 0 | A height target that never drew gives no shelter. An OBS source reload during a melt needs the shelter. |
+
 Facts for the next decision:
 
 - A shake around the vertical axis keeps a tuft of snow at the axis, because the shed rule uses the vertex speed.
@@ -181,7 +191,7 @@ The step for each vertex, for one tick:
 The amount stays in 0 to 1.
 
 - The six constants (0.35, 2 cm, 0.5 s, 0.15 m/s, 0.6 m/s, 0.25 s) are in `snow-math.ts`. They are not settings. The spike tuned the two shed speeds on the Catboy avatar (first values 0.6 m/s and 2 m/s); the other four are the first values.
-- On the first frame of a renderer, after a reload, and for an avatar that loads while snow is on, each vertex starts at `cover × up × sky`.
+- On the first frame of a renderer, after a reload, for an avatar that loads while snow is on, and on the first step after a clear, each vertex starts at `cover × up × sky`.
 - The step follows the spring reset rules. On a frame where the spring stage resets (a teleport, a new session, more than 15 steps due), the speed term is 0 and the previous position is set again. A teleport does not shed snow.
 - A mesh in `hiddenMeshes` is not in the sky pass, so it gives no shelter. Its vertices stay in the compute pass, because one pass covers the avatar.
 - When `visible` goes off, each amount is set to 0.
