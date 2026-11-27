@@ -35,6 +35,6 @@ Each fact was read in the code on 2026-11-27.
 ## Risks
 
 - The warm start puts snow on a surface that shed it on another client. The two clients agree again only where the rule grows or melts the snow. The design lists this limit.
-- At the cover of a slope the warm amount is `cover × up`, and the grow rule gives the same value on a slope that had no shed. So a warm start agrees with the other clients on each surface that did not shed.
+- While the cover grows and is below 1, the grow rule gives `cover × up × sky` on a surface that did not shed, so a warm start agrees with the other clients there. After the cover reaches 1, a slope of another client keeps growing to 1 while the warm amount stays `up`. During a melt, the amount of a slope melts at `1 / meltSeconds` and the warm amount at `up / meltSeconds`. On these surfaces the clients differ. A surface that faces straight up agrees in each case.
 - A pop of snow when Settle On Characters goes on again. This is an edit-time action.
 - The cover is a float64 in the session and a float32 uniform in the renderer. The step error is below 1e-7 of the full cover.

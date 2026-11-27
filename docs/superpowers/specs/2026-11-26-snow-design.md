@@ -56,6 +56,13 @@ Changes from the code review of 2026-11-27 (the [evidence page](../../evaluation
 | The sky pass does not draw at `rate` 0 | No flake draws and nothing grows, so nothing reads the height. |
 | The default snow box is the position `[0, 2, 0]` and the scale `[6, 4, 6]` | A scale reset gave a box of 1 m. |
 
+Facts for the next decision:
+
+- A shake around the vertical axis keeps a tuft of snow at the axis, because the shed rule uses the vertex speed.
+- The new shed speeds are 4 times lower than the first values. An estimate from the rule: a nod of ±15° at 1 Hz, which is usual for a performer who talks, sheds most of the head snow in 3 s. The "idle keeps the snow" half was checked only with the built-in idle, not with live tracking.
+- At `rate` 1 and `buildUpSeconds` 45, no snow shows in the first 15 to 20 s, and a slope has its full cover after about 60 s.
+- An indicative sample (locked screen, battery power, not a benchmark summary) gave +2.29 ms p95 `gpuMs` and +1.7 ms p95 `cpuMs` for snow on against snow off. These values are above the budget gate. About 1 sampled frame in 6 had no `gpuMs` value with snow on, so the `gpuMs` difference is a lower limit. Expected, not measured: the `cpuMs` part does not depend on the flake count or the sky size.
+
 ### Changes for slice 2 (2026-11-27)
 
 The [Snow session cover contract](../../../spdd/prompt/2026-11-27-snow-cover.md) has the requirements.
@@ -65,13 +72,6 @@ The [Snow session cover contract](../../../spdd/prompt/2026-11-27-snow-cover.md)
 | The cover step reads the snow entity of the evaluated scene (after overrides and tweens) | A `snowRate` transition of slice 5 must move the cover |
 | The first step after a clear also takes the warm start. So Settle On Characters on again shows the snow at the cover. | One rule for each start. With a start from 0, a client that reloads later shows a different cover. After `visible` goes on again the cover is 0, so nothing changes there. |
 | The facade draws the sky pass at `rate` 0 on a frame with a warm step and a cover above 0 | A height target that never drew gives no shelter. An OBS source reload during a melt needs the shelter. |
-
-Facts for the next decision:
-
-- A shake around the vertical axis keeps a tuft of snow at the axis, because the shed rule uses the vertex speed.
-- The new shed speeds are 4 times lower than the first values. An estimate from the rule: a nod of ±15° at 1 Hz, which is usual for a performer who talks, sheds most of the head snow in 3 s. The "idle keeps the snow" half was checked only with the built-in idle, not with live tracking.
-- At `rate` 1 and `buildUpSeconds` 45, no snow shows in the first 15 to 20 s, and a slope has its full cover after about 60 s.
-- An indicative sample (locked screen, battery power, not a benchmark summary) gave +2.29 ms p95 `gpuMs` and +1.7 ms p95 `cpuMs` for snow on against snow off. These values are above the budget gate. About 1 sampled frame in 6 had no `gpuMs` value with snow on, so the `gpuMs` difference is a lower limit. Expected, not measured: the `cpuMs` part does not depend on the flake count or the sky size.
 
 ## Goals
 

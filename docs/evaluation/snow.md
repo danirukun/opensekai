@@ -292,7 +292,7 @@ Each sheet puts the OBS capture (left, premultiplied, on #30343c) next to the Ed
 
 ### Tests
 
-- `packages/contracts`: 966 tests, all pass (1 skipped). New: the shared vectors of `fixtures/protocol/snow-cover.json`.
+- `packages/contracts`: 965 tests pass, 1 skipped. New: the shared vectors of `fixtures/protocol/snow-cover.json`.
 - `crates/contracts`: `snow_cover.rs` (the same vectors, and no field without snow) and `spring_resets.rs` pass.
 - `packages/session`: 782 tests, all pass. New: `snow-cover.test.ts` (rise, melt, clamp, hidden, new id, show open, field presence).
 - `packages/renderer`: 9 failed, 621 passed, 8 skipped. The 9 failing names are the 9 names of the baseline of `main`. New: `warmAmount`, the warm step of the build-up, and the facade test of the cover and the sky pass at `rate` 0.
