@@ -48,6 +48,7 @@ The plan for slice 1 found two facts that change the mechanism, not the behavior
 | Flakes, full tier | 12,000 at rate 1 | The flake count |
 | Sky target, full tier | 512 × 512 | The sky depth target size |
 | Tick | 1/60 s | The build-up step, on the grid of `spring-grid.ts` |
+| Note (Task 10, 2026-11-27) | Shed start 0.15 m/s, shed full 0.6 m/s, noise scale 3 for each metre | The spike tuned the two shed speeds and the noise scale of the edge mask. The rows above keep the first values. The [design](../../docs/superpowers/specs/2026-11-26-snow-design.md#changes-from-the-spike-slice-1-2026-11-27) has the reasons, and the shed speeds are an open question there. |
 
 The six build-up constants are in `snow-math.ts`. They are start values, not settings.
 
