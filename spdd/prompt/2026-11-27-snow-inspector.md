@@ -4,8 +4,8 @@ Analysis: [Snow Inspector analysis](../analysis/2026-11-27-snow-inspector.md). D
 
 ## R — Requirements
 
-- R1. A snow entity has two Inspector sections in this order: Transform, Snow.
-- R2. The Snow section has one slider for each of `rate`, `fallSpeed`, `flakeSize`, `flutter`, `windDirection`, `windSpeed`, `buildUpSeconds`, `meltSeconds`, and `thickness`. The hard limits of each slider are the limits of `SnowSettingsSchema`.
+- R1. A snow entity has two Inspector sections in this order: Transform, Physics. The owner chose the name Physics on 2026-11-27, after the first build had the name Snow.
+- R2. The Physics section has one slider for each of `rate`, `fallSpeed`, `flakeSize`, `flutter`, `windDirection`, `windSpeed`, `buildUpSeconds`, `meltSeconds`, and `thickness`. The hard limits of each slider are the limits of `SnowSettingsSchema`.
 - R3. A slider drag sends live `setSnow` patches. The end of the drag, or a typed value, sends one committed `setSnow` patch. Each patch carries the whole group and changes only the edited field.
 - R4. The section has one checkbox, Settle On Characters, for `settleOnCharacters`. A change sends one committed patch.
 - R5. `settleOnProps` and `settleOnEnvironment` have no control. A patch from the section keeps their values.
@@ -23,7 +23,7 @@ Follow the Haze section. A `SnowFields` component draws the fields from a table 
 ## S — Structure
 
 - `apps/desktop/src/editor/slider.ts`: the snow ranges in `SLIDERS`.
-- `apps/desktop/src/editor/inspector-sections.ts`: the Snow section.
+- `apps/desktop/src/editor/inspector-sections.ts`: the Physics section.
 - `apps/desktop/src/editor/property-defaults.ts`: the values, the defaults, and the reset fields of a snow entity.
 - `apps/desktop/src/editor/model.ts`: `setSnow`.
 - `apps/desktop/src/components/SnowFields.svelte`: the fields.

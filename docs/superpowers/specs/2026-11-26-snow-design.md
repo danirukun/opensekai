@@ -101,7 +101,7 @@ The settle flags follow the Affect flags of a light. With `settleOnEnvironment` 
 
 ### Control paths
 
-- **Editor.** Add › Snow. One Snow section in the Inspector, with kit sliders and the existing `visibility-control` checkbox pattern. A box helper and pick target in the editor viewport, as for Haze.
+- **Editor.** Add › Snow. One Physics section in the Inspector, with kit sliders and the existing `visibility-control` checkbox pattern. A box helper and pick target in the editor viewport, as for Haze.
 - **MCP.** `scene_patch` with `setSnow`. No new tool.
 - **Blueprint.** The property registry gives a snow entity the `position`, `rotation`, `scale`, and `visible` targets, and one new key `snowRate` (number, 0 to 1). A transition on `snowRate` gives a fade. `snow` is a reference kind in a Blueprint file.
 - **Rust.** `crates/contracts` mirrors the shape, and `fixtures/protocol/validation-vectors.json` keeps both sides equal.
@@ -268,7 +268,7 @@ Each slice gets its analysis in `spdd/analysis/` and its REASONS contract in `sp
 
 Slice 1 is sequential, because it changes shared contracts. Slice 2 lands its frame field next. After that, slices 3, 4, and 5 touch different packages and can run in separate worktrees.
 
-Change of order (owner, 2026-11-27): the Inspector section of slice 5 comes forward, because the owner cannot tune the look without it. The [Snow Inspector contract](../../../spdd/prompt/2026-11-27-snow-inspector.md) has its requirements. It gives one Snow section with a slider for each number setting and the Settle On Characters checkbox. The checkboxes for props and for the environment come with slice 4, because they have no effect before it. Add › Snow, the viewport helper, the `snowRate` Blueprint key, and the handbook page stay in slice 5. The gate of slice 1 does not change.
+Change of order (owner, 2026-11-27): the Inspector section of slice 5 comes forward, because the owner cannot tune the look without it. The [Snow Inspector contract](../../../spdd/prompt/2026-11-27-snow-inspector.md) has its requirements. It gives one section, with the name Physics by the choice of the owner, with a slider for each number setting and the Settle On Characters checkbox. The checkboxes for props and for the environment come with slice 4, because they have no effect before it. Add › Snow, the viewport helper, the `snowRate` Blueprint key, and the handbook page stay in slice 5. The gate of slice 1 does not change.
 
 ## Documents to update
 

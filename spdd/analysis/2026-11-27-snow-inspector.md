@@ -21,7 +21,7 @@ Each fact was read in the code on 2026-11-27.
 
 ## Decisions
 
-1. The section has the name Snow and comes after Transform.
+1. The section has the name Physics and comes after Transform. The first build had the name Snow, which repeats the name of the entity; the owner chose Physics on 2026-11-27.
 2. Each number setting is a slider with the contract range. `buildUpSeconds` and `meltSeconds` use the cubic curve with a slider end of 120 s, so the short times have fine control. A typed value can go to 600 s.
 3. `settleOnCharacters` is a checkbox with the label Settle On Characters. It commits one patch and has no live path, because it compiles materials.
 4. The checkboxes for props and for the environment are not shown before slice 4. A control with no effect is a false control.

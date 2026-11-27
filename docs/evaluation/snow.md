@@ -209,7 +209,7 @@ The owner asked for the Inspector section of slice 5 before the gate ([contract]
 
 | Check | Result |
 | --- | --- |
-| A snow entity shows the Transform and Snow sections | Pass |
+| A snow entity shows the Transform and Physics sections (the name was Snow at the time of the other checks) | Pass |
 | A typed Wind Speed of 1.5 gives `windSpeed` 1.5 | Pass |
 | A typed Wind Speed of 9 (above the limit of 5) changes nothing | Pass |
 | A step of the Rate slider changes `rate` | Pass |

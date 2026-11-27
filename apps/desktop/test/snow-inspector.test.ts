@@ -8,8 +8,8 @@ import {SNOW_FIELDS} from '../src/editor/snow-fields';
 
 const snow=(settings:Partial<SnowSettings>={}):Extract<SceneEntity,{kind:'snow'}>=>({id:'snow',name:'Snow',visible:true,transform:{position:[0,2,0],rotation:[0,0,0,1],scale:[6,4,6]},kind:'snow',snow:{...DEFAULT_SNOW,...settings}});
 
-it('gives a snow entity the Transform and Snow sections (R1)',()=>{
- expect(sectionsFor(snow(),{expressions:false}).map(section=>section.label)).toEqual(['Transform','Snow']);
+it('gives a snow entity the Transform and Physics sections (R1)',()=>{
+ expect(sectionsFor(snow(),{expressions:false}).map(section=>section.label)).toEqual(['Transform','Physics']);
 });
 it('has one slider for each number setting, with the contract limits (R2)',()=>{
  const numbers=Object.keys(DEFAULT_SNOW).filter(key=>typeof DEFAULT_SNOW[key as keyof SnowSettings]==='number');
