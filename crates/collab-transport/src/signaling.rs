@@ -228,6 +228,7 @@ fn install_crypto_provider() {
 type Pending = Arc<Mutex<HashMap<String, oneshot::Sender<Reply>>>>;
 
 struct Inner {
+    url: url::Url,
     topic: String,
     join_ref: String,
     next_ref: AtomicU64,
@@ -351,6 +352,7 @@ impl SignalingClient {
 
         let client = Self {
             inner: Arc::new(Inner {
+                url,
                 topic,
                 join_ref,
                 next_ref: AtomicU64::new(2),
@@ -371,6 +373,11 @@ impl SignalingClient {
             return Err(SignalingError::JoinRejected(join.response));
         }
         Ok(client)
+    }
+
+    /// The socket URL after the default path and `vsn` were added.
+    pub fn relay_url(&self) -> &url::Url {
+        &self.inner.url
     }
 
     pub fn subscribe_events(&self) -> broadcast::Receiver<ServerEvent> {

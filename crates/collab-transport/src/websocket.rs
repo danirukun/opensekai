@@ -4,6 +4,7 @@ use std::sync::Arc;
 use tokio::sync::broadcast;
 use tokio::task::JoinHandle;
 
+use crate::auto_upgrade::LinkHealth;
 use crate::codec::parse_relay_envelope;
 use crate::signaling::{BinaryEvent, SignalingClient};
 use crate::stats::{ImpairmentConfig, ImpairmentFilter};
@@ -119,6 +120,16 @@ impl MocapTransport for WebSocketTransport {
             forwarder.abort();
         }
         self.signaling.close().await;
+    }
+}
+
+impl LinkHealth for WebSocketTransport {
+    fn is_connected(&self) -> bool {
+        self.connected && !self.signaling.is_closed()
+    }
+
+    fn last_inbound(&self) -> Option<tokio::time::Instant> {
+        None
     }
 }
 

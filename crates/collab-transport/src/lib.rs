@@ -6,14 +6,18 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::sync::broadcast;
 
+pub mod auto_upgrade;
 pub mod codec;
 pub mod signaling;
 pub mod stats;
+pub mod str0m_transport;
 pub mod websocket;
 
+pub use auto_upgrade::{AutoUpgradeConfig, AutoUpgradeTransport, BackoffSchedule, LinkHealth};
 pub use codec::{CodecError, PoseFrame, RoomCipher};
 pub use signaling::{SignalingClient, SignalingError};
 pub use stats::{ImpairmentConfig, ImpairmentFilter, StreamMetrics, StreamSummary};
+pub use str0m_transport::Str0mTransport;
 pub use websocket::WebSocketTransport;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
