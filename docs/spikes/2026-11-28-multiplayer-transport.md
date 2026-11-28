@@ -1,68 +1,56 @@
 # Transport spike runbook
 
-Date: 2026-11-28. Issue: [#365](https://github.com/danirukun/opensekai/issues/365). Contract: [transport spike](../../spdd/prompt/2026-11-28-multiplayer-transport-spike.md). ADR 0001 stays **Proposed**. This run does not accept it.
+Date: 2026-11-28. Issue: [#365](https://github.com/danirukun/opensekai/issues/365). Contract: [transport spike](../../spdd/prompt/2026-11-28-multiplayer-transport-spike.md). ADR 0001 stays **Proposed**. This run does not accept it. The numbers below are loopback on this Linux host. They are not the Fly or desktop result.
 
 ## What you run
 
-The relay needs Elixir 1.17 and Erlang/OTP 27. OTP 25 cannot compile `ranch` 2.4. The host feature is not in the default desktop build.
+The relay needs Elixir 1.17 and Erlang/OTP 27. The `str0m` client uses the `openssl` feature. The LiveKit client is `cargo run -p opensekai-transport-spike --features livekit`. That feature is not on the default desktop build.
 
 ```bash
 export PATH="/opt/otp-27/bin:/opt/elixir/bin:$PATH"
+# For the LiveKit pass, also:
+# livekit-server --dev
+# LIVEKIT_API_KEY=devkey LIVEKIT_API_SECRET=secret LIVEKIT_URL=ws://127.0.0.1:7880
 bash scripts/transport-spike.sh
 ```
 
-The script runs `mix test`, starts the relay on `127.0.0.1:4000` with `RELAY_LOOPBACK=1`, runs the Rust unit tests, then runs the bin at 60 Hz and at 30 Hz.
+`tc qdisc` is present and returns `Operation not permitted` on this host. Netem was not applied.
 
-Fly is not part of this script. A deploy needs a Fly account, `fly ips allocate-v4 --region ams`, and a check that UDP ports 50000–50099 receive packets. If the range is dark, list one port per line in `apps/relay/fly.toml`.
+## Why the handshake works
 
-## Loopback result
+Two changes, both in this spike:
 
-Place: this Linux host. Adapter: `ex_webrtc` + `str0m` 0.25.0. Participants did not reach an open DataChannel.
+1. `str0m` 0.25.0 with its default `dimpl` backend does not finish DTLS against `ex_dtls` 0.18.0. As the DTLS server it returns `no client certificate received`. The spike crate builds `str0m` with the `openssl` feature. That handshake finishes.
+2. `ex_webrtc` 0.18.0 starts SCTP only when it sent the SDP offer. `str0m` starts SCTP only when it is the DTLS client. The posted offer rewrites `a=setup:actpass` to `a=setup:active`, so `str0m` sends the SCTP INIT. The relay depends on `ex_sctp` 0.1.3. Without that dependency, `ex_webrtc` compiles the data channel out.
 
-The offer and the answer were exchanged. DTLS then failed:
+## Loopback result, 4 participants, 2 seconds
 
-`DTLS error: certificate error: no client certificate received`
+| Field | ex_webrtc 60 Hz | ex_webrtc 30 Hz | LiveKit 60 Hz | LiveKit 30 Hz |
+| --- | --- | --- | --- | --- |
+| iceSuccess | true | true | true | true |
+| setupMs | 26 | 29 | 215 | 160 |
+| lossPct | 0.81 | 0.42 | 0 | 0 |
+| jitterMs | 10.83 | 10.71 | 0.66 | 0.59 |
+| p95Ms | 24.5 | 28.1 | 2.58 | 2.81 |
+| lostPacketHeldNext | false | false | false | false |
 
-| Field | 60 Hz | 30 Hz |
-| --- | --- | --- |
-| iceSuccess | false | false |
-| setupMs | null | null |
-| lossPct | null | null |
-| jitterMs | null | null |
-| p95Ms | null | null |
-| lostPacketHeldNext | null | null |
-| clientCpuPct | 10.9 | not a pose load |
-| relayErlangRuntimePct | 97.5 | not a pose load |
+The relay BEAM used about 19% of one core at 60 Hz and about 14% at 30 Hz during the `ex_webrtc` pass. The client process CPU in that same run also includes the LiveKit pass, so it is not an `ex_webrtc`-only figure. CPU per 100 rooms was not measured.
 
-The CPU samples are from the failed handshake. They are not the CPU of a room at 60 Hz. Null means this run did not measure that field. It is not zero.
-
-Unit tests that did pass:
-
-- Relay: 9 tests, 0 failures. Approval, opaque fan-out, LiveKit token shape, Fly file.
-- Rust: 5 tests, 0 failures. Cipher, unordered playout, empty metrics stay null, pose channel `ordered: false` and max retransmits 0.
+LiveKit server was `livekit-server` 1.13.11 `--dev` on `127.0.0.1:7880`, key `devkey`. No TURN. The token comes from the relay after host approval.
 
 ## Not measured
 
 | Item | Result |
 | --- | --- |
-| Fly `ams` | null. No Fly credentials in this run. No dedicated IPv4. No deploy. |
-| macOS `str0m` and `livekit` | null. This host is Linux. |
-| Windows `str0m` and `livekit` | null. This host is Linux. |
-| EU, NA, and JP home paths | null. |
+| Netem | `tc` is installed. `RTNETLINK answers: Operation not permitted`. |
+| Fly `ams` | null. No Fly credentials. No dedicated IPv4. No deploy. |
+| macOS and Windows | null. This host is Linux. |
+| EU, NA, and JP paths | null. |
 | CPU per 100 rooms | null. |
-| LiveKit lossy packets | null. The crate is not linked. |
-| WebTransport sidecar | not built. The ADR trigger was not met. |
-| Cloudflare Realtime | not built. Fly UDP did not fail, because Fly was not deployed. |
 
-## Blockers that need a decision or a machine
+The primary stays `ex_webrtc` until a Fly run and the desktop runs exist. Loopback alone does not accept the ADR.
 
-1. DTLS between `str0m` 0.25.0 and `ex_webrtc` 0.18.0 fails on loopback with `no client certificate received`. Pose loss, jitter, and p95 stay unknown until that handshake succeeds.
-2. `livekit` 0.12.1 needs `zip` ^9.0.4 and `libwebrtc`. The workspace pins `zip` 9.0.3. This run did not link the crate and did not start a LiveKit server.
-3. Fly `ams`: an account that can create the app `opensekai-relay`, allocate a dedicated IPv4, and confirm the UDP range. The range risk in the ADR is still open.
-4. A Mac and a Windows machine to run the `livekit` crate, after the crate links.
+## Still blocked
 
-## What this run did build
-
-- `apps/relay`: one `RoomServer` per room, host approval before a participant secret, opaque fan-out, `ex_webrtc` answer path, LiveKit token only after approval, no TURN, no LiveKit Cloud host.
-- `crates/transport-spike`: the `str0m` client and the measurement bin. The desktop feature `transport-spike` re-exports it. The default app does not link it.
-- `apps/relay/fly.toml`: region `ams`, UDP 50000–50099.
+1. Fly access for `opensekai-relay` in `ams`, plus a dedicated IPv4, to test UDP 50000–50099.
+2. A Mac and a Windows machine for the client runs.

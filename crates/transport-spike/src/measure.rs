@@ -75,12 +75,10 @@ async fn session(http: &Http, hz: u32, seconds: u64) -> Result<Value, String> {
     let key = [9u8; 32];
     let mut opened = 0u32;
     let mut setup_ms = Vec::new();
-    let mut samples = Vec::new();
-    let mut sent = 0u64;
-    let mut saw_seq_3 = false;
+    let mut sessions = Vec::new();
     let interval = Duration::from_micros(1_000_000 / hz as u64);
     let frames = (hz as u64) * seconds;
-    for (sender, secret) in peers {
+    for (sender, secret) in &peers {
         let offer = Session::offer()?;
         let mid = offer
             .sdp
@@ -90,7 +88,7 @@ async fn session(http: &Http, hz: u32, seconds: u64) -> Result<Value, String> {
         let signal = http
             .signal(
                 &room.room_id,
-                &secret,
+                secret,
                 &offer.sdp,
                 &[serde_json::json!({
                     "candidate": offer.candidate,
@@ -117,51 +115,78 @@ async fn session(http: &Http, hz: u32, seconds: u64) -> Result<Value, String> {
         let setup = Instant::now();
         let mut session = Session::accept(offer, &answer, &remote)?;
         let open = session.wait_open(Duration::from_secs(8))?;
-        if open {
-            opened += 1;
-            setup_ms.push(setup.elapsed().as_millis() as u64);
+        if !open {
+            let sctp: Vec<&str> = answer
+                .lines()
+                .filter(|line| line.contains("sctp") || line.starts_with("a=setup:"))
+                .collect();
+            return Err(format!(
+                "channel closed ice={} udp_in={} remote_candidates={} sdp_cand={} {}",
+                session.ice,
+                session.udp_in,
+                remote.len(),
+                answer.matches("a=candidate:").count(),
+                sctp.join(" ")
+            ));
         }
-        let send_until = Instant::now() + Duration::from_secs(seconds);
-        let mut next = Instant::now();
-        let mut seq = 1u32;
-        while Instant::now() < send_until && seq as u64 <= frames {
-            if Instant::now() >= next {
-                let skip = sender == 1 && seq == 2;
+        opened += 1;
+        setup_ms.push(setup.elapsed().as_millis() as u64);
+        sessions.push((*sender, session));
+    }
+    let send_until = Instant::now() + Duration::from_secs(seconds);
+    let mut next = vec![Instant::now(); sessions.len()];
+    let mut seq = vec![1u32; sessions.len()];
+    let mut sent = 0u64;
+    while Instant::now() < send_until {
+        for (index, (sender, session)) in sessions.iter_mut().enumerate() {
+            if Instant::now() >= next[index] && seq[index] as u64 <= frames {
+                let skip = *sender == 1 && seq[index] == 2;
                 if !skip {
                     let send_us = now_us();
-                    let mut body = seal(&key, sender, seq, send_us);
+                    let mut body = seal(&key, *sender, seq[index], send_us);
                     let mut packet = Vec::with_capacity(8 + body.len());
                     packet.extend_from_slice(&sender.to_le_bytes());
-                    packet.extend_from_slice(&seq.to_le_bytes());
+                    packet.extend_from_slice(&seq[index].to_le_bytes());
                     packet.append(&mut body);
                     let _ = session.send(&packet)?;
                     sent += 1;
                 }
-                let _ = deliver_unordered(seq);
-                seq += 1;
-                next += interval;
+                let _ = deliver_unordered(seq[index]);
+                seq[index] += 1;
+                next[index] += interval;
             }
-            session.pump(Instant::now() + Duration::from_millis(5))?;
+            session.pump(Instant::now() + Duration::from_millis(1))?;
         }
-        for packet in session.inbound() {
+    }
+    let mut samples = Vec::new();
+    let mut saw_seq_3 = false;
+    for (_sender, session) in &sessions {
+        for (packet, recv_us) in session.inbound() {
             if packet.len() < 8 {
                 continue;
             }
             let from = u32::from_le_bytes(packet[0..4].try_into().unwrap());
-            let seq = u32::from_le_bytes(packet[4..8].try_into().unwrap());
-            if let Some((opened_seq, send_us)) = super::pose::open(&key, from, seq, &packet[8..]) {
+            let packet_seq = u32::from_le_bytes(packet[4..8].try_into().unwrap());
+            if let Some((opened_seq, send_us)) = super::pose::open(&key, from, packet_seq, &packet[8..])
+            {
                 if from == 1 && opened_seq == 3 {
                     saw_seq_3 = true;
                 }
                 samples.push(Sample {
                     send_us,
-                    recv_us: now_us(),
+                    recv_us: *recv_us,
                 });
             }
         }
     }
-    let summary = summarize(sent, &samples);
+    let expected = sent.saturating_mul(3);
+    let summary = summarize(expected, &samples);
     let ice = opened == 4;
+    let livekit_report = if super::livekit::linked() && std::env::var("LIVEKIT_URL").is_ok() {
+        Some(super::livekit::compare(http, &room.room_id, &peers, hz, seconds, &key).await)
+    } else {
+        None
+    };
     Ok(json!({
         "place": "loopback",
         "adapter": "ex_webrtc",
@@ -173,7 +198,8 @@ async fn session(http: &Http, hz: u32, seconds: u64) -> Result<Value, String> {
         "jitterMs": summary.jitter_ms,
         "p95Ms": summary.p95_ms,
         "lostPacketHeldNext": if saw_seq_3 { Some(false) } else { None },
-        "opened": opened
+        "opened": opened,
+        "livekit": livekit_report
     }))
 }
 

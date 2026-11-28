@@ -27,7 +27,8 @@ defmodule Relay.MixProject do
       {:phoenix, "~> 1.7.18"},
       {:jason, "~> 1.4"},
       {:plug_cowboy, "~> 2.7"},
-      {:ex_webrtc, "0.18.0"}
+      {:ex_webrtc, "0.18.0"},
+      {:ex_sctp, "0.1.3"}
     ]
   end
 end

@@ -32,7 +32,9 @@ pub struct Session {
     socket: UdpSocket,
     channel_id: ChannelId,
     open: bool,
-    inbound: Vec<Vec<u8>>,
+    inbound: Vec<(Vec<u8>, u64)>,
+    pub udp_in: u64,
+    pub ice: String,
 }
 
 impl Session {
@@ -53,7 +55,10 @@ impl Session {
             .ok_or_else(|| "offer did not negotiate".to_string())?;
         drain(&mut rtc, &socket)?;
         Ok(Offer {
-            sdp: offer.to_sdp_string(),
+            // ex_webrtc 0.18 starts SCTP only when it sent the SDP offer.
+            // str0m starts SCTP only when it is the DTLS client. Offer
+            // setup:active so str0m is the DTLS client and sends the SCTP INIT.
+            sdp: offer.to_sdp_string().replace("a=setup:actpass", "a=setup:active"),
             candidate: candidate.to_string(),
             pending: SdpPendingHold { inner: pending },
             rtc,
@@ -90,18 +95,22 @@ impl Session {
             channel_id,
             open: false,
             inbound: Vec::new(),
+            udp_in: 0,
+            ice: "new".to_string(),
         })
     }
 
     pub fn pump(&mut self, until: Instant) -> Result<(), String> {
         let mut buf = vec![0u8; 2000];
         while Instant::now() < until {
-            drain(&mut self.rtc, &self.socket)?;
+            self.poll_out()?;
             self.socket
                 .set_read_timeout(Some(Duration::from_millis(2)))
                 .map_err(|err| err.to_string())?;
             let input = match self.socket.recv_from(&mut buf) {
-                Ok((n, source)) => Input::Receive(
+                Ok((n, source)) => {
+                    self.udp_in += 1;
+                    Input::Receive(
                     Instant::now(),
                     Receive {
                         proto: Protocol::Udp,
@@ -109,7 +118,8 @@ impl Session {
                         destination: self.socket.local_addr().map_err(|err| err.to_string())?,
                         contents: buf[..n].try_into().map_err(|err| format!("{err:?}"))?,
                     },
-                ),
+                )
+                }
                 Err(err) if err.kind() == std::io::ErrorKind::WouldBlock || err.kind() == std::io::ErrorKind::TimedOut => {
                     Input::Timeout(Instant::now())
                 }
@@ -118,16 +128,21 @@ impl Session {
             self.rtc
                 .handle_input(input)
                 .map_err(|err| format!("input {err:?}"))?;
-            self.take_events()?;
+            self.poll_out()?;
         }
         Ok(())
     }
 
     pub fn wait_open(&mut self, budget: Duration) -> Result<bool, String> {
+        if self.rtc.channel(self.channel_id).is_some() {
+            self.open = true;
+            return Ok(true);
+        }
         let deadline = Instant::now() + budget;
         while Instant::now() < deadline {
             self.pump(Instant::now() + Duration::from_millis(20))?;
-            if self.open {
+            if self.open || self.rtc.channel(self.channel_id).is_some() {
+                self.open = true;
                 return Ok(true);
             }
         }
@@ -144,16 +159,15 @@ impl Session {
                 .write(true, bytes)
                 .map_err(|err| format!("write {err:?}"))?
         };
-        drain(&mut self.rtc, &self.socket)?;
-        self.take_events()?;
+        self.poll_out()?;
         Ok(accepted)
     }
 
-    pub fn inbound(&self) -> &[Vec<u8>] {
+    pub fn inbound(&self) -> &[(Vec<u8>, u64)] {
         &self.inbound
     }
 
-    fn take_events(&mut self) -> Result<(), String> {
+    fn poll_out(&mut self) -> Result<(), String> {
         for _ in 0..128 {
             match self.rtc.poll_output() {
                 Ok(Output::Timeout(_)) => return Ok(()),
@@ -170,12 +184,21 @@ impl Session {
     fn on_event(&mut self, event: Event) {
         match event {
             Event::ChannelOpen(id, _) if id == self.channel_id => self.open = true,
+            Event::IceConnectionStateChange(state) => self.ice = format!("{state:?}"),
+            Event::Connected => self.ice = "connected".to_string(),
             Event::ChannelData(data) if data.id == self.channel_id => {
-                self.inbound.push(data.data.to_vec());
+                self.inbound.push((data.data, recv_us()));
             }
             _ => {}
         }
     }
+}
+
+fn recv_us() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_micros() as u64)
+        .unwrap_or(0)
 }
 
 fn drain(rtc: &mut Rtc, socket: &UdpSocket) -> Result<(), String> {

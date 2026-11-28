@@ -74,6 +74,17 @@ impl Http {
         .await
     }
 
+    #[allow(dead_code)]
+    pub async fn livekit_token(&self, room_id: &str, secret: &str) -> Result<(String, String), String> {
+        let body = self
+            .post(
+                &format!("/api/rooms/{room_id}/livekit"),
+                json!({"participantSecret": secret}),
+            )
+            .await?;
+        Ok((text(&body, "url")?, text(&body, "token")?))
+    }
+
     pub async fn runtime_ms(&self) -> Result<u64, String> {
         let body = self.get("/api/runtime").await?;
         body.get("erlangRuntimeMs")

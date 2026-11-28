@@ -66,22 +66,13 @@ defmodule Relay.Transport.ExWebRTC do
     start_port = port_env("RELAY_ICE_PORT_START", 50_000)
     end_port = port_env("RELAY_ICE_PORT_END", 50_099)
 
-    opts = [
+    [
       controlling_process: self(),
       ice_port_range: start_port..end_port,
       ice_aggressive_nomination: true,
       features: []
     ]
-
-    if System.get_env("RELAY_LOOPBACK") == "1" do
-      Keyword.put(opts, :ice_ip_filter, &loopback?/1)
-    else
-      opts
-    end
   end
-
-  defp loopback?({127, 0, 0, 1}), do: true
-  defp loopback?(_), do: false
 
   defp port_env(name, default) do
     case System.get_env(name) do
@@ -136,16 +127,16 @@ defmodule Relay.Transport.ExWebRTC do
     timeout = max(deadline - System.monotonic_time(:millisecond), 0)
 
     receive do
-      {:ex_webrtc, ^pc, {:ice_candidate, candidate}} ->
+      {:ex_webrtc, _from, {:ice_candidate, candidate}} ->
         gather(pc, [candidate | acc], channel_ref, deadline)
 
-      {:ex_webrtc, ^pc, {:data_channel, channel}} ->
+      {:ex_webrtc, _from, {:data_channel, channel}} ->
         gather(pc, acc, channel.ref, deadline)
 
-      {:ex_webrtc, ^pc, {:ice_gathering_state_change, :complete}} ->
+      {:ex_webrtc, _from, {:ice_gathering_state_change, :complete}} ->
         {Enum.reverse(acc), channel_ref}
 
-      {:ex_webrtc, ^pc, _other} ->
+      {:ex_webrtc, _from, _other} ->
         gather(pc, acc, channel_ref, deadline)
     after
       timeout -> {Enum.reverse(acc), channel_ref}
