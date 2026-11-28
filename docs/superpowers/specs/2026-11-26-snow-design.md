@@ -1,6 +1,6 @@
 # Snow
 
-Date: 2026-11-26. Status: design approved by the owner; slice 1 not verified (2026-11-27); slice 2 (session cover) done and checked in OBS and the Editor preview (2026-11-28). Slice 3 (lilToon characters and outlines) done and checked in OBS (2026-11-28); a gap opens at a split-normal seam (open). The OBS checks of evidence 1 and 2 pass. The Editor window checks and the budget gate are unknown ([evidence](../../evaluation/snow.md)). Related: [ENV-10 / #48](https://github.com/danirukun/opensekai/issues/48) particle effects, [ENV-09 / #47](https://github.com/danirukun/opensekai/issues/47) wind, [quality profile effects budget](./2026-11-22-quality-profile-effects-budget-design.md), [spring bones](./2026-11-18-spring-bones-design.md), [benchmark contract](../../evaluation/benchmark-contract.md).
+Date: 2026-11-26. Status: design approved by the owner; slice 1 not verified (2026-11-27); slice 2 (session cover) done and checked in OBS and the Editor preview (2026-11-28). Slice 3 (lilToon characters and outlines) in progress (2026-11-28): the push of each split position changes after the OBS check. The OBS checks of evidence 1 and 2 pass. The Editor window checks and the budget gate are unknown ([evidence](../../evaluation/snow.md)). Related: [ENV-10 / #48](https://github.com/danirukun/opensekai/issues/48) particle effects, [ENV-09 / #47](https://github.com/danirukun/opensekai/issues/47) wind, [quality profile effects budget](./2026-11-22-quality-profile-effects-budget-design.md), [spring bones](./2026-11-18-spring-bones-design.md), [benchmark contract](../../evaluation/benchmark-contract.md).
 
 ## Intent
 
@@ -83,6 +83,7 @@ The [Snow on lilToon characters and outlines contract](../../../spdd/prompt/2026
 | The fork `danirukun/three-liltoon` gets two general hooks on `LilToonNodeMaterial`: `shadeColor(shade)` and `effectStrength()` (owner, 2026-11-28) | The lilToon shade colour and the backlight, matcap, and rim terms are inside the fork lighting model, and a subclass cannot reach them. The other choice (no fork change) keeps the authored shade on the snow and draws the matcap and the rim on it. |
 | On lilToon, the mask also removes the backlight | The backlight is a lilToon light effect of the same type as the rim |
 | A lilToon material without `_UseShadow` has no shade term. Its snow gets the base colour only. | lilToon draws no shade on such a material |
+| The vertices at one position move by one vector: the summed normal of the copies × a hard-edge scale × the thickness × the amount of one representative copy. A hard edge (copies 45° or more apart, `smoothstep(0.7, 0.9, d)`) gets no push. The colour keeps the amount of each vertex. (owner, 2026-11-28) | A push along the own normal by the own amount opened a gap at each split position. On the flat-shaded glasses frame of the Catboy samples (2.4 mm), the faces moved apart by up to the thickness and showed shards across the face. |
 
 ## Goals
 
