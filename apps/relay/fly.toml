@@ -1,0 +1,2851 @@
+# Spike relay for ADR 0001. Create the app first: `fly apps create <name>`, then
+# `fly ips allocate-v4` (UDP needs a dedicated IPv4) and, from apps/relay, `fly deploy --app <name>`.
+# Set RELAY_PUBLIC_IPV4 to the dedicated IPv4 with `fly secrets set`; set the LIVEKIT_* values the same way.
+app = "opensekai-relay"
+primary_region = "ams"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PHX_SERVER = "true"
+  PORT = "4000"
+  RELAY_UDP_BIND_IP = "fly-global-services"
+  RELAY_ICE_PORT_MIN = "50000"
+  RELAY_ICE_PORT_MAX = "50399"
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 4000
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+    force_https = true
+
+  [services.concurrency]
+    type = "connections"
+    soft_limit = 200
+    hard_limit = 250
+
+  [[services.http_checks]]
+    method = "get"
+    path = "/healthz"
+    interval = "15s"
+    timeout = "2s"
+    grace_period = "10s"
+
+# ICE UDP ports: one [[services]] block per port, internal = external port, 50000-50399.
+# A UDP service with a port range (start_port/end_port) received no packets on Fly (checked
+# 2026-11-28, docs/evaluation/transport-spike.md). Keep RELAY_ICE_PORT_MAX at the last port below.
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50000
+
+  [[services.ports]]
+    port = 50000
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50001
+
+  [[services.ports]]
+    port = 50001
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50002
+
+  [[services.ports]]
+    port = 50002
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50003
+
+  [[services.ports]]
+    port = 50003
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50004
+
+  [[services.ports]]
+    port = 50004
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50005
+
+  [[services.ports]]
+    port = 50005
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50006
+
+  [[services.ports]]
+    port = 50006
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50007
+
+  [[services.ports]]
+    port = 50007
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50008
+
+  [[services.ports]]
+    port = 50008
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50009
+
+  [[services.ports]]
+    port = 50009
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50010
+
+  [[services.ports]]
+    port = 50010
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50011
+
+  [[services.ports]]
+    port = 50011
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50012
+
+  [[services.ports]]
+    port = 50012
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50013
+
+  [[services.ports]]
+    port = 50013
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50014
+
+  [[services.ports]]
+    port = 50014
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50015
+
+  [[services.ports]]
+    port = 50015
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50016
+
+  [[services.ports]]
+    port = 50016
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50017
+
+  [[services.ports]]
+    port = 50017
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50018
+
+  [[services.ports]]
+    port = 50018
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50019
+
+  [[services.ports]]
+    port = 50019
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50020
+
+  [[services.ports]]
+    port = 50020
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50021
+
+  [[services.ports]]
+    port = 50021
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50022
+
+  [[services.ports]]
+    port = 50022
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50023
+
+  [[services.ports]]
+    port = 50023
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50024
+
+  [[services.ports]]
+    port = 50024
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50025
+
+  [[services.ports]]
+    port = 50025
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50026
+
+  [[services.ports]]
+    port = 50026
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50027
+
+  [[services.ports]]
+    port = 50027
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50028
+
+  [[services.ports]]
+    port = 50028
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50029
+
+  [[services.ports]]
+    port = 50029
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50030
+
+  [[services.ports]]
+    port = 50030
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50031
+
+  [[services.ports]]
+    port = 50031
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50032
+
+  [[services.ports]]
+    port = 50032
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50033
+
+  [[services.ports]]
+    port = 50033
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50034
+
+  [[services.ports]]
+    port = 50034
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50035
+
+  [[services.ports]]
+    port = 50035
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50036
+
+  [[services.ports]]
+    port = 50036
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50037
+
+  [[services.ports]]
+    port = 50037
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50038
+
+  [[services.ports]]
+    port = 50038
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50039
+
+  [[services.ports]]
+    port = 50039
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50040
+
+  [[services.ports]]
+    port = 50040
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50041
+
+  [[services.ports]]
+    port = 50041
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50042
+
+  [[services.ports]]
+    port = 50042
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50043
+
+  [[services.ports]]
+    port = 50043
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50044
+
+  [[services.ports]]
+    port = 50044
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50045
+
+  [[services.ports]]
+    port = 50045
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50046
+
+  [[services.ports]]
+    port = 50046
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50047
+
+  [[services.ports]]
+    port = 50047
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50048
+
+  [[services.ports]]
+    port = 50048
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50049
+
+  [[services.ports]]
+    port = 50049
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50050
+
+  [[services.ports]]
+    port = 50050
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50051
+
+  [[services.ports]]
+    port = 50051
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50052
+
+  [[services.ports]]
+    port = 50052
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50053
+
+  [[services.ports]]
+    port = 50053
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50054
+
+  [[services.ports]]
+    port = 50054
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50055
+
+  [[services.ports]]
+    port = 50055
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50056
+
+  [[services.ports]]
+    port = 50056
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50057
+
+  [[services.ports]]
+    port = 50057
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50058
+
+  [[services.ports]]
+    port = 50058
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50059
+
+  [[services.ports]]
+    port = 50059
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50060
+
+  [[services.ports]]
+    port = 50060
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50061
+
+  [[services.ports]]
+    port = 50061
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50062
+
+  [[services.ports]]
+    port = 50062
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50063
+
+  [[services.ports]]
+    port = 50063
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50064
+
+  [[services.ports]]
+    port = 50064
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50065
+
+  [[services.ports]]
+    port = 50065
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50066
+
+  [[services.ports]]
+    port = 50066
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50067
+
+  [[services.ports]]
+    port = 50067
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50068
+
+  [[services.ports]]
+    port = 50068
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50069
+
+  [[services.ports]]
+    port = 50069
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50070
+
+  [[services.ports]]
+    port = 50070
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50071
+
+  [[services.ports]]
+    port = 50071
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50072
+
+  [[services.ports]]
+    port = 50072
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50073
+
+  [[services.ports]]
+    port = 50073
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50074
+
+  [[services.ports]]
+    port = 50074
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50075
+
+  [[services.ports]]
+    port = 50075
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50076
+
+  [[services.ports]]
+    port = 50076
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50077
+
+  [[services.ports]]
+    port = 50077
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50078
+
+  [[services.ports]]
+    port = 50078
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50079
+
+  [[services.ports]]
+    port = 50079
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50080
+
+  [[services.ports]]
+    port = 50080
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50081
+
+  [[services.ports]]
+    port = 50081
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50082
+
+  [[services.ports]]
+    port = 50082
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50083
+
+  [[services.ports]]
+    port = 50083
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50084
+
+  [[services.ports]]
+    port = 50084
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50085
+
+  [[services.ports]]
+    port = 50085
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50086
+
+  [[services.ports]]
+    port = 50086
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50087
+
+  [[services.ports]]
+    port = 50087
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50088
+
+  [[services.ports]]
+    port = 50088
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50089
+
+  [[services.ports]]
+    port = 50089
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50090
+
+  [[services.ports]]
+    port = 50090
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50091
+
+  [[services.ports]]
+    port = 50091
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50092
+
+  [[services.ports]]
+    port = 50092
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50093
+
+  [[services.ports]]
+    port = 50093
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50094
+
+  [[services.ports]]
+    port = 50094
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50095
+
+  [[services.ports]]
+    port = 50095
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50096
+
+  [[services.ports]]
+    port = 50096
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50097
+
+  [[services.ports]]
+    port = 50097
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50098
+
+  [[services.ports]]
+    port = 50098
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50099
+
+  [[services.ports]]
+    port = 50099
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50100
+
+  [[services.ports]]
+    port = 50100
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50101
+
+  [[services.ports]]
+    port = 50101
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50102
+
+  [[services.ports]]
+    port = 50102
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50103
+
+  [[services.ports]]
+    port = 50103
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50104
+
+  [[services.ports]]
+    port = 50104
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50105
+
+  [[services.ports]]
+    port = 50105
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50106
+
+  [[services.ports]]
+    port = 50106
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50107
+
+  [[services.ports]]
+    port = 50107
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50108
+
+  [[services.ports]]
+    port = 50108
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50109
+
+  [[services.ports]]
+    port = 50109
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50110
+
+  [[services.ports]]
+    port = 50110
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50111
+
+  [[services.ports]]
+    port = 50111
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50112
+
+  [[services.ports]]
+    port = 50112
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50113
+
+  [[services.ports]]
+    port = 50113
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50114
+
+  [[services.ports]]
+    port = 50114
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50115
+
+  [[services.ports]]
+    port = 50115
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50116
+
+  [[services.ports]]
+    port = 50116
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50117
+
+  [[services.ports]]
+    port = 50117
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50118
+
+  [[services.ports]]
+    port = 50118
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50119
+
+  [[services.ports]]
+    port = 50119
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50120
+
+  [[services.ports]]
+    port = 50120
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50121
+
+  [[services.ports]]
+    port = 50121
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50122
+
+  [[services.ports]]
+    port = 50122
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50123
+
+  [[services.ports]]
+    port = 50123
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50124
+
+  [[services.ports]]
+    port = 50124
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50125
+
+  [[services.ports]]
+    port = 50125
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50126
+
+  [[services.ports]]
+    port = 50126
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50127
+
+  [[services.ports]]
+    port = 50127
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50128
+
+  [[services.ports]]
+    port = 50128
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50129
+
+  [[services.ports]]
+    port = 50129
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50130
+
+  [[services.ports]]
+    port = 50130
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50131
+
+  [[services.ports]]
+    port = 50131
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50132
+
+  [[services.ports]]
+    port = 50132
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50133
+
+  [[services.ports]]
+    port = 50133
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50134
+
+  [[services.ports]]
+    port = 50134
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50135
+
+  [[services.ports]]
+    port = 50135
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50136
+
+  [[services.ports]]
+    port = 50136
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50137
+
+  [[services.ports]]
+    port = 50137
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50138
+
+  [[services.ports]]
+    port = 50138
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50139
+
+  [[services.ports]]
+    port = 50139
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50140
+
+  [[services.ports]]
+    port = 50140
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50141
+
+  [[services.ports]]
+    port = 50141
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50142
+
+  [[services.ports]]
+    port = 50142
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50143
+
+  [[services.ports]]
+    port = 50143
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50144
+
+  [[services.ports]]
+    port = 50144
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50145
+
+  [[services.ports]]
+    port = 50145
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50146
+
+  [[services.ports]]
+    port = 50146
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50147
+
+  [[services.ports]]
+    port = 50147
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50148
+
+  [[services.ports]]
+    port = 50148
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50149
+
+  [[services.ports]]
+    port = 50149
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50150
+
+  [[services.ports]]
+    port = 50150
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50151
+
+  [[services.ports]]
+    port = 50151
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50152
+
+  [[services.ports]]
+    port = 50152
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50153
+
+  [[services.ports]]
+    port = 50153
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50154
+
+  [[services.ports]]
+    port = 50154
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50155
+
+  [[services.ports]]
+    port = 50155
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50156
+
+  [[services.ports]]
+    port = 50156
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50157
+
+  [[services.ports]]
+    port = 50157
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50158
+
+  [[services.ports]]
+    port = 50158
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50159
+
+  [[services.ports]]
+    port = 50159
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50160
+
+  [[services.ports]]
+    port = 50160
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50161
+
+  [[services.ports]]
+    port = 50161
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50162
+
+  [[services.ports]]
+    port = 50162
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50163
+
+  [[services.ports]]
+    port = 50163
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50164
+
+  [[services.ports]]
+    port = 50164
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50165
+
+  [[services.ports]]
+    port = 50165
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50166
+
+  [[services.ports]]
+    port = 50166
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50167
+
+  [[services.ports]]
+    port = 50167
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50168
+
+  [[services.ports]]
+    port = 50168
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50169
+
+  [[services.ports]]
+    port = 50169
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50170
+
+  [[services.ports]]
+    port = 50170
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50171
+
+  [[services.ports]]
+    port = 50171
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50172
+
+  [[services.ports]]
+    port = 50172
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50173
+
+  [[services.ports]]
+    port = 50173
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50174
+
+  [[services.ports]]
+    port = 50174
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50175
+
+  [[services.ports]]
+    port = 50175
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50176
+
+  [[services.ports]]
+    port = 50176
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50177
+
+  [[services.ports]]
+    port = 50177
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50178
+
+  [[services.ports]]
+    port = 50178
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50179
+
+  [[services.ports]]
+    port = 50179
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50180
+
+  [[services.ports]]
+    port = 50180
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50181
+
+  [[services.ports]]
+    port = 50181
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50182
+
+  [[services.ports]]
+    port = 50182
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50183
+
+  [[services.ports]]
+    port = 50183
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50184
+
+  [[services.ports]]
+    port = 50184
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50185
+
+  [[services.ports]]
+    port = 50185
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50186
+
+  [[services.ports]]
+    port = 50186
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50187
+
+  [[services.ports]]
+    port = 50187
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50188
+
+  [[services.ports]]
+    port = 50188
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50189
+
+  [[services.ports]]
+    port = 50189
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50190
+
+  [[services.ports]]
+    port = 50190
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50191
+
+  [[services.ports]]
+    port = 50191
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50192
+
+  [[services.ports]]
+    port = 50192
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50193
+
+  [[services.ports]]
+    port = 50193
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50194
+
+  [[services.ports]]
+    port = 50194
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50195
+
+  [[services.ports]]
+    port = 50195
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50196
+
+  [[services.ports]]
+    port = 50196
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50197
+
+  [[services.ports]]
+    port = 50197
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50198
+
+  [[services.ports]]
+    port = 50198
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50199
+
+  [[services.ports]]
+    port = 50199
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50200
+
+  [[services.ports]]
+    port = 50200
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50201
+
+  [[services.ports]]
+    port = 50201
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50202
+
+  [[services.ports]]
+    port = 50202
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50203
+
+  [[services.ports]]
+    port = 50203
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50204
+
+  [[services.ports]]
+    port = 50204
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50205
+
+  [[services.ports]]
+    port = 50205
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50206
+
+  [[services.ports]]
+    port = 50206
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50207
+
+  [[services.ports]]
+    port = 50207
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50208
+
+  [[services.ports]]
+    port = 50208
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50209
+
+  [[services.ports]]
+    port = 50209
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50210
+
+  [[services.ports]]
+    port = 50210
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50211
+
+  [[services.ports]]
+    port = 50211
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50212
+
+  [[services.ports]]
+    port = 50212
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50213
+
+  [[services.ports]]
+    port = 50213
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50214
+
+  [[services.ports]]
+    port = 50214
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50215
+
+  [[services.ports]]
+    port = 50215
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50216
+
+  [[services.ports]]
+    port = 50216
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50217
+
+  [[services.ports]]
+    port = 50217
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50218
+
+  [[services.ports]]
+    port = 50218
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50219
+
+  [[services.ports]]
+    port = 50219
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50220
+
+  [[services.ports]]
+    port = 50220
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50221
+
+  [[services.ports]]
+    port = 50221
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50222
+
+  [[services.ports]]
+    port = 50222
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50223
+
+  [[services.ports]]
+    port = 50223
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50224
+
+  [[services.ports]]
+    port = 50224
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50225
+
+  [[services.ports]]
+    port = 50225
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50226
+
+  [[services.ports]]
+    port = 50226
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50227
+
+  [[services.ports]]
+    port = 50227
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50228
+
+  [[services.ports]]
+    port = 50228
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50229
+
+  [[services.ports]]
+    port = 50229
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50230
+
+  [[services.ports]]
+    port = 50230
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50231
+
+  [[services.ports]]
+    port = 50231
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50232
+
+  [[services.ports]]
+    port = 50232
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50233
+
+  [[services.ports]]
+    port = 50233
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50234
+
+  [[services.ports]]
+    port = 50234
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50235
+
+  [[services.ports]]
+    port = 50235
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50236
+
+  [[services.ports]]
+    port = 50236
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50237
+
+  [[services.ports]]
+    port = 50237
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50238
+
+  [[services.ports]]
+    port = 50238
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50239
+
+  [[services.ports]]
+    port = 50239
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50240
+
+  [[services.ports]]
+    port = 50240
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50241
+
+  [[services.ports]]
+    port = 50241
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50242
+
+  [[services.ports]]
+    port = 50242
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50243
+
+  [[services.ports]]
+    port = 50243
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50244
+
+  [[services.ports]]
+    port = 50244
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50245
+
+  [[services.ports]]
+    port = 50245
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50246
+
+  [[services.ports]]
+    port = 50246
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50247
+
+  [[services.ports]]
+    port = 50247
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50248
+
+  [[services.ports]]
+    port = 50248
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50249
+
+  [[services.ports]]
+    port = 50249
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50250
+
+  [[services.ports]]
+    port = 50250
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50251
+
+  [[services.ports]]
+    port = 50251
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50252
+
+  [[services.ports]]
+    port = 50252
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50253
+
+  [[services.ports]]
+    port = 50253
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50254
+
+  [[services.ports]]
+    port = 50254
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50255
+
+  [[services.ports]]
+    port = 50255
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50256
+
+  [[services.ports]]
+    port = 50256
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50257
+
+  [[services.ports]]
+    port = 50257
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50258
+
+  [[services.ports]]
+    port = 50258
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50259
+
+  [[services.ports]]
+    port = 50259
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50260
+
+  [[services.ports]]
+    port = 50260
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50261
+
+  [[services.ports]]
+    port = 50261
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50262
+
+  [[services.ports]]
+    port = 50262
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50263
+
+  [[services.ports]]
+    port = 50263
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50264
+
+  [[services.ports]]
+    port = 50264
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50265
+
+  [[services.ports]]
+    port = 50265
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50266
+
+  [[services.ports]]
+    port = 50266
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50267
+
+  [[services.ports]]
+    port = 50267
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50268
+
+  [[services.ports]]
+    port = 50268
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50269
+
+  [[services.ports]]
+    port = 50269
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50270
+
+  [[services.ports]]
+    port = 50270
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50271
+
+  [[services.ports]]
+    port = 50271
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50272
+
+  [[services.ports]]
+    port = 50272
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50273
+
+  [[services.ports]]
+    port = 50273
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50274
+
+  [[services.ports]]
+    port = 50274
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50275
+
+  [[services.ports]]
+    port = 50275
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50276
+
+  [[services.ports]]
+    port = 50276
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50277
+
+  [[services.ports]]
+    port = 50277
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50278
+
+  [[services.ports]]
+    port = 50278
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50279
+
+  [[services.ports]]
+    port = 50279
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50280
+
+  [[services.ports]]
+    port = 50280
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50281
+
+  [[services.ports]]
+    port = 50281
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50282
+
+  [[services.ports]]
+    port = 50282
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50283
+
+  [[services.ports]]
+    port = 50283
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50284
+
+  [[services.ports]]
+    port = 50284
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50285
+
+  [[services.ports]]
+    port = 50285
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50286
+
+  [[services.ports]]
+    port = 50286
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50287
+
+  [[services.ports]]
+    port = 50287
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50288
+
+  [[services.ports]]
+    port = 50288
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50289
+
+  [[services.ports]]
+    port = 50289
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50290
+
+  [[services.ports]]
+    port = 50290
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50291
+
+  [[services.ports]]
+    port = 50291
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50292
+
+  [[services.ports]]
+    port = 50292
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50293
+
+  [[services.ports]]
+    port = 50293
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50294
+
+  [[services.ports]]
+    port = 50294
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50295
+
+  [[services.ports]]
+    port = 50295
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50296
+
+  [[services.ports]]
+    port = 50296
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50297
+
+  [[services.ports]]
+    port = 50297
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50298
+
+  [[services.ports]]
+    port = 50298
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50299
+
+  [[services.ports]]
+    port = 50299
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50300
+
+  [[services.ports]]
+    port = 50300
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50301
+
+  [[services.ports]]
+    port = 50301
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50302
+
+  [[services.ports]]
+    port = 50302
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50303
+
+  [[services.ports]]
+    port = 50303
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50304
+
+  [[services.ports]]
+    port = 50304
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50305
+
+  [[services.ports]]
+    port = 50305
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50306
+
+  [[services.ports]]
+    port = 50306
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50307
+
+  [[services.ports]]
+    port = 50307
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50308
+
+  [[services.ports]]
+    port = 50308
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50309
+
+  [[services.ports]]
+    port = 50309
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50310
+
+  [[services.ports]]
+    port = 50310
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50311
+
+  [[services.ports]]
+    port = 50311
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50312
+
+  [[services.ports]]
+    port = 50312
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50313
+
+  [[services.ports]]
+    port = 50313
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50314
+
+  [[services.ports]]
+    port = 50314
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50315
+
+  [[services.ports]]
+    port = 50315
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50316
+
+  [[services.ports]]
+    port = 50316
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50317
+
+  [[services.ports]]
+    port = 50317
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50318
+
+  [[services.ports]]
+    port = 50318
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50319
+
+  [[services.ports]]
+    port = 50319
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50320
+
+  [[services.ports]]
+    port = 50320
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50321
+
+  [[services.ports]]
+    port = 50321
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50322
+
+  [[services.ports]]
+    port = 50322
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50323
+
+  [[services.ports]]
+    port = 50323
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50324
+
+  [[services.ports]]
+    port = 50324
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50325
+
+  [[services.ports]]
+    port = 50325
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50326
+
+  [[services.ports]]
+    port = 50326
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50327
+
+  [[services.ports]]
+    port = 50327
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50328
+
+  [[services.ports]]
+    port = 50328
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50329
+
+  [[services.ports]]
+    port = 50329
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50330
+
+  [[services.ports]]
+    port = 50330
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50331
+
+  [[services.ports]]
+    port = 50331
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50332
+
+  [[services.ports]]
+    port = 50332
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50333
+
+  [[services.ports]]
+    port = 50333
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50334
+
+  [[services.ports]]
+    port = 50334
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50335
+
+  [[services.ports]]
+    port = 50335
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50336
+
+  [[services.ports]]
+    port = 50336
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50337
+
+  [[services.ports]]
+    port = 50337
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50338
+
+  [[services.ports]]
+    port = 50338
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50339
+
+  [[services.ports]]
+    port = 50339
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50340
+
+  [[services.ports]]
+    port = 50340
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50341
+
+  [[services.ports]]
+    port = 50341
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50342
+
+  [[services.ports]]
+    port = 50342
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50343
+
+  [[services.ports]]
+    port = 50343
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50344
+
+  [[services.ports]]
+    port = 50344
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50345
+
+  [[services.ports]]
+    port = 50345
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50346
+
+  [[services.ports]]
+    port = 50346
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50347
+
+  [[services.ports]]
+    port = 50347
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50348
+
+  [[services.ports]]
+    port = 50348
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50349
+
+  [[services.ports]]
+    port = 50349
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50350
+
+  [[services.ports]]
+    port = 50350
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50351
+
+  [[services.ports]]
+    port = 50351
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50352
+
+  [[services.ports]]
+    port = 50352
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50353
+
+  [[services.ports]]
+    port = 50353
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50354
+
+  [[services.ports]]
+    port = 50354
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50355
+
+  [[services.ports]]
+    port = 50355
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50356
+
+  [[services.ports]]
+    port = 50356
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50357
+
+  [[services.ports]]
+    port = 50357
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50358
+
+  [[services.ports]]
+    port = 50358
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50359
+
+  [[services.ports]]
+    port = 50359
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50360
+
+  [[services.ports]]
+    port = 50360
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50361
+
+  [[services.ports]]
+    port = 50361
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50362
+
+  [[services.ports]]
+    port = 50362
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50363
+
+  [[services.ports]]
+    port = 50363
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50364
+
+  [[services.ports]]
+    port = 50364
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50365
+
+  [[services.ports]]
+    port = 50365
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50366
+
+  [[services.ports]]
+    port = 50366
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50367
+
+  [[services.ports]]
+    port = 50367
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50368
+
+  [[services.ports]]
+    port = 50368
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50369
+
+  [[services.ports]]
+    port = 50369
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50370
+
+  [[services.ports]]
+    port = 50370
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50371
+
+  [[services.ports]]
+    port = 50371
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50372
+
+  [[services.ports]]
+    port = 50372
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50373
+
+  [[services.ports]]
+    port = 50373
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50374
+
+  [[services.ports]]
+    port = 50374
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50375
+
+  [[services.ports]]
+    port = 50375
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50376
+
+  [[services.ports]]
+    port = 50376
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50377
+
+  [[services.ports]]
+    port = 50377
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50378
+
+  [[services.ports]]
+    port = 50378
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50379
+
+  [[services.ports]]
+    port = 50379
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50380
+
+  [[services.ports]]
+    port = 50380
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50381
+
+  [[services.ports]]
+    port = 50381
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50382
+
+  [[services.ports]]
+    port = 50382
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50383
+
+  [[services.ports]]
+    port = 50383
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50384
+
+  [[services.ports]]
+    port = 50384
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50385
+
+  [[services.ports]]
+    port = 50385
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50386
+
+  [[services.ports]]
+    port = 50386
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50387
+
+  [[services.ports]]
+    port = 50387
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50388
+
+  [[services.ports]]
+    port = 50388
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50389
+
+  [[services.ports]]
+    port = 50389
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50390
+
+  [[services.ports]]
+    port = 50390
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50391
+
+  [[services.ports]]
+    port = 50391
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50392
+
+  [[services.ports]]
+    port = 50392
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50393
+
+  [[services.ports]]
+    port = 50393
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50394
+
+  [[services.ports]]
+    port = 50394
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50395
+
+  [[services.ports]]
+    port = 50395
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50396
+
+  [[services.ports]]
+    port = 50396
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50397
+
+  [[services.ports]]
+    port = 50397
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50398
+
+  [[services.ports]]
+    port = 50398
+
+[[services]]
+  protocol = "udp"
+  internal_port = 50399
+
+  [[services.ports]]
+    port = 50399
+
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "1gb"

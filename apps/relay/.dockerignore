@@ -1,0 +1,12 @@
+_build
+deps
+test
+deploy
+.git
+.gitignore
+.formatter.exs
+erl_crash.dump
+*.ez
+fly.toml
+Dockerfile
+.dockerignore

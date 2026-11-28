@@ -1,0 +1,10 @@
+port: 7880
+log_level: info
+rtc:
+  udp_port: 7882
+  use_external_ip: false
+  # node_ip comes from the NODE_IP env var (the dedicated Fly IPv4). API keys come from LIVEKIT_KEYS.
+turn:
+  enabled: false
+room:
+  empty_timeout: 300

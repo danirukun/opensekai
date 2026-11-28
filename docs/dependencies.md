@@ -39,3 +39,17 @@ The Blueprint input devices slice (BP-06, 2026-10-18) uses gilrs 0.11.2 (Apache-
 The JavaScript upgrade of 2026-11-09 moves each direct dependency to its latest stable release, except TypeScript (see above). three and @types/three go from 0.180.0 to 0.187.0. @pixiv/three-vrm 3.5.5 is still the latest release, and its MToon node bundle imports `transformedNormalView`, which three r187 removed. `patches/@pixiv__three-vrm@3.5.5.patch` replaces it with `normalView` in `lib/nodes/index.module.js` and `lib/nodes/index.cjs`. In r178 to r186, `transformedNormalView` returned `normalView`, so the shader is the same. The patch is the change of the open upstream pull request pixiv/three-vrm#1890. Remove the patch when a three-vrm release includes that change. @mediapipe/tasks-vision goes from 1.0.1 to 1.2.2. Version 1.2.2 has no `nosimd` WASM files, so `apps/desktop/src/tracking/models.json` lists four WASM files.
 
 The lilToon on WebGPU slice (2026-11-19) uses `@mochiya/three-liltoon` 0.1.9 from the Git fork `github:danirukun/three-liltoon` (branch `webgpu`), pinned to commit 716557bd077748417d7bf9f80d7b9c2a1a14fa23 in `packages/renderer/package.json`. The npm release has only WebGL 2 materials. The fork adds the `webgpu` entry point: a TSL node material (`LilToonNodeMaterial`), the VRM loader hook (`enableLilToonNodeVRM`), and the lighting hooks that `CharacterLilToonMaterial` uses. The fork commits its `dist` build, so the install runs no build script. Its peer dependencies are three `>=0.180.0 <0.190.0` and, optional, @pixiv/three-vrm `>=3.4.0 <4`; this repository resolves them to three 0.187.0 and @pixiv/three-vrm 3.5.5. The package uses the MIT license (copyright 2026 Mochiya). It ports the shading of lilToon (lilxyzw), which also uses the MIT license. Replace the Git pin with an npm release when upstream publishes the WebGPU material.
+
+The multiplayer transport spike (ADR 0001, 2026-11-27) adds `crates/collab-transport` and `apps/relay`. The Rust pins are in workspace.dependencies, except `livekit`, which `crates/collab-transport/Cargo.toml` pins. `livekit` is optional (Cargo feature `livekit`, off by default), so the desktop build does not compile `libwebrtc`. It enables `rustls-tls-webpki-roots`; without a TLS feature, `wss://` signalling fails at run time. On macOS a binary that links it needs the `-ObjC` linker flag. `zip` goes from 9.0.3 to 9.0.4, because the `livekit` dependency tree needs 9.0.4; the desktop build uses the same version. The transitive `syn` crate goes from 3.0.6 to 3.0.10 (through the `clap` derive). Results: [transport spike](evaluation/transport-spike.md).
+
+| Rust crate | Exact pin | Required Rust | License |
+| --- | --- | --- | --- |
+| str0m | 0.26.0 | 1.89 | MIT or Apache-2.0 |
+| aes-gcm | 0.11.1 | 1.85 | Apache-2.0 or MIT |
+| clap | 4.6.10 | 1.85 | MIT or Apache-2.0 |
+| thiserror | 2.0.21 | 1.77 | MIT or Apache-2.0 |
+| rustls | 0.23.45 | 1.71 | Apache-2.0, ISC, or MIT |
+| zip | 9.0.4 | 1.88 | MIT |
+| livekit (optional) | 0.12.1 | not declared | Apache-2.0 |
+
+The relay is an Elixir application. `apps/relay/mix.exs` gives the ranges, and `apps/relay/mix.lock` locks these versions: phoenix 1.8.17 (`~> 1.8.0`), bandit 1.15.0 (`~> 1.15.0`), jason 1.4.5 (`~> 1.4`), ex_webrtc 0.18.0 (`~> 0.18.0`), and ex_sctp 0.1.3 (`~> 0.1.3`). `ex_sctp` builds a Rustler NIF, so the relay build needs a Rust toolchain, and the root `Cargo.toml` excludes `apps/relay/deps` from the workspace. The release image uses Elixir 1.18.6 on OTP 27.3.4.20 (`hexpm/elixir`, Debian bookworm).
