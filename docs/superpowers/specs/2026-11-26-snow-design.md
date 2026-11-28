@@ -1,6 +1,6 @@
 # Snow
 
-Date: 2026-11-26. Status: design approved by the owner; slice 1 not verified (2026-11-27); slice 2 (session cover) done and checked in OBS and the Editor preview (2026-11-28). The OBS checks of evidence 1 and 2 pass. The Editor window checks and the budget gate are unknown ([evidence](../../evaluation/snow.md)). Related: [ENV-10 / #48](https://github.com/danirukun/opensekai/issues/48) particle effects, [ENV-09 / #47](https://github.com/danirukun/opensekai/issues/47) wind, [quality profile effects budget](./2026-11-22-quality-profile-effects-budget-design.md), [spring bones](./2026-11-18-spring-bones-design.md), [benchmark contract](../../evaluation/benchmark-contract.md).
+Date: 2026-11-26. Status: design approved by the owner; slice 1 not verified (2026-11-27); slice 2 (session cover) done and checked in OBS and the Editor preview (2026-11-28). Slice 3 (lilToon characters and outlines) in progress (2026-11-28). The OBS checks of evidence 1 and 2 pass. The Editor window checks and the budget gate are unknown ([evidence](../../evaluation/snow.md)). Related: [ENV-10 / #48](https://github.com/danirukun/opensekai/issues/48) particle effects, [ENV-09 / #47](https://github.com/danirukun/opensekai/issues/47) wind, [quality profile effects budget](./2026-11-22-quality-profile-effects-budget-design.md), [spring bones](./2026-11-18-spring-bones-design.md), [benchmark contract](../../evaluation/benchmark-contract.md).
 
 ## Intent
 
@@ -72,6 +72,17 @@ The [Snow session cover contract](../../../spdd/prompt/2026-11-27-snow-cover.md)
 | The cover step reads the snow entity of the evaluated scene (after overrides and tweens) | A `snowRate` transition of slice 5 must move the cover |
 | The first step after a clear also takes the warm start. So Settle On Characters on again shows the snow at the cover. | One rule for each start. With a start from 0, a client that reloads later shows a different cover. After `visible` goes on again the cover is 0, so nothing changes there. |
 | The facade draws the sky pass at `rate` 0 on a frame with a warm step and a cover above 0 | A height target that never drew gives no shelter. An OBS source reload during a melt needs the shelter. |
+
+### Changes for slice 3 (2026-11-28)
+
+The [Snow on lilToon characters and outlines contract](../../../spdd/prompt/2026-11-28-snow-liltoon.md) has the requirements.
+
+| Change | Reason |
+| --- | --- |
+| The outline copy of each kind gets the share and the vertex push only. Its colour does not change. | The approved text said that the outline copies get the vertex push. Slice 1 gave the outline no share, so the snow layer covered the outline of the surface below it. |
+| The fork `danirukun/three-liltoon` gets two general hooks on `LilToonNodeMaterial`: `shadeColor(shade)` and `effectStrength()` (owner, 2026-11-28) | The lilToon shade colour and the backlight, matcap, and rim terms are inside the fork lighting model, and a subclass cannot reach them. The other choice (no fork change) keeps the authored shade on the snow and draws the matcap and the rim on it. |
+| On lilToon, the mask also removes the backlight | The backlight is a lilToon light effect of the same type as the rim |
+| A lilToon material without `_UseShadow` has no shade term. Its snow gets the base colour only. | lilToon draws no shade on such a material |
 
 ## Goals
 
