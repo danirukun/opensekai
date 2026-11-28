@@ -304,3 +304,54 @@ Each sheet puts the OBS capture (left, premultiplied, on #30343c) next to the Ed
 - A cover that a Blueprint transition moves (the `snowRate` key is slice 5). The session reads the evaluated scene, so the transition will move it; no check exists.
 - A show open with snow: covered by a session test only.
 - Release build, Windows, and WebGL 2 (no build-up there).
+
+## lilToon characters and outlines (slice 3)
+
+Date: 2026-11-28. Contract: [Snow on lilToon characters and outlines](../../spdd/prompt/2026-11-28-snow-liltoon.md). Commit `e36514ad` (the code commit of the slice). Fork `danirukun/three-liltoon` at `a79e4eef` (branch `webgpu`). The `dist/webgpu.js` that the renderer resolves has sha256 `bcb89bb8bbc476f3fc23592cd8aea0faa452fe277e8473b2ba0606c947ce2f28`. The OBS page bundle (`apps/output/dist`) was built after the code commit and has the two fork hooks (`shadeColor`, `effectStrength`).
+
+### Conditions
+
+| Item | Value |
+| --- | --- |
+| Host | MacBook Pro (Mac15,6), Apple M3 Pro, on mains power, screen unlocked, `caffeinate -d -u` |
+| Build | Debug build of the host from the worktree: `OPENSEKAI_EVALUATION=1 direnv exec . pnpm dev:desktop` |
+| OBS | 33.0.3, obs-websocket 5.7.6. An isolated scene `OpenSekai-QA-snow-liltoon` with one Browser Source (1920 × 1080, custom 60 FPS, no shutdown when hidden) at `?quality=production_v1`. The program scene went back to `Scene` at the end, and the QA scene was removed. No stream and no recording. |
+| Outputs | `output_main`: `webgpu`, `production_v1`. `preview_main` (Editor window): `webgpu`, `preview_v1`. |
+| Characters | lilToon Catboy (`avatar_2cd7340b…`, 16 lilToon materials, `material_list`) as performers A (x −0.9) and B (x 0.9). Then B changes to the MToon Catboy (`avatar_7b7c689e…`). T-pose, no tracking source. A scene holds at most 2 avatars. |
+| Scene | The new-scene camera and lights. A box roof `[0.5, 0.03, 0.5]` at `[0.9, 1.95, 0]` above B. Snow entity: position `[0, 2, 0]`, scale `[6, 4, 6]`, `rate` 1, `buildUpSeconds` 15, `thickness` 0.015. |
+| Method | [`liltoon-run.mjs`](snow/liltoon-run.mjs) with [`qa.mjs`](snow/qa.mjs): MCP `scene_patch`, OBS `SaveSourceScreenshot`. The seam check used the same steps with `settleOnCharacters` off and on. The sheets put each premultiplied capture on #30343c. |
+
+### Results
+
+| Check | Result |
+| --- | --- |
+| Build-up on lilToon | Pass. Snow builds up on the tops of the sleeves and the shoulders of the two lilToon performers, and the face and the front of the body stay clean. |
+| Two lilToon performers keep separate snow | Pass. Below the roof, B has snow only on the outer parts of the arms. A has snow up to the neck. Thus each lilToon avatar reads its own state buffer (R1, R7). |
+| Shade on the snow in a shadow | Pass. With the Key Light from below and in front and the Back Light off, the tops face away from each light. The mean colour of the snow on the tops is (210, 215, 220) on lilToon and (220, 220, 223) on MToon. With the usual Key Light it is (255, 255, 255) for the two kinds. The blue tilt on lilToon agrees with `SNOW_SHADE` through `shadeColor` (inferred from the colour, not isolated). |
+| Outline at the silhouette | Pass for the silhouette. At `thickness` 0.015 and 0.05, the top edge of the snow on the sleeves has no outline line inside it, for lilToon and for MToon. |
+| Mixed kinds | Pass. With A on lilToon and B changed to MToon (roof removed), the two show snow 20 s after the change. The run did not check if the new model starts at the session cover. |
+| Warnings | Pass. `app_status` had no warning, and neither output had a frame warning, at the end of the run. The first `output_main` frame at the snow revision had `cpuMs` 320.5 and `gpuMs` null (the first compile of the new programs; no cost claim). |
+
+![No snow, two lilToon performers, and lilToon A with MToon B](snow/liltoon-wide.png)
+
+![lilToon A (left) and lilToon B below the roof (right)](snow/liltoon-two-performers.png)
+
+![lilToon with the usual Key Light, lilToon in shadow, MToon in shadow](snow/liltoon-shade.png)
+
+![Shoulder seam: off, 0.015, 0.05; lilToon (top) and MToon (bottom)](snow/liltoon-outline-seam.png)
+
+### Limits seen
+
+- **A gap opens at the raglan seam of the tops.** With Settle On Characters off, the seam is closed. With snow, a dark red sliver shows along the seam from the shoulder down the sleeve. It is wider at `thickness` 0.05, and MToon shows a thin one at 0.05. Inferred, not checked: the push moves the two copies of each seam vertex along different normals, and the dark red is the outline colour seen through the gap. It is not known if the gap was there in slice 1 (no close-up of a seam). A fix changes the push (for example, a seam-welded normal); that is outside this slice.
+
+### Tests
+
+- Fork `three-liltoon`: 166 tests in `test/webgpu` pass. New: the shade hook reaches the light with `_UseShadow` only; the strength reaches the backlight, matcap, and rim, and not the emission; the default hooks.
+- `packages/renderer`: 9 failed, 628 passed, 8 skipped. The 9 failing names are the 9 names of the baseline of `main`. New: the two rules, the lilToon and MToon keys with a share, two shares, and an outline, `copy`, the lilToon node graph of a surface and of an outline, and the facade with lilToon surfaces and the outlines of the two kinds.
+
+### Not verified
+
+- The Editor window: `preview_main` drew (no frame warning), but this run took no Editor capture.
+- A lilToon material with blended transparency, and a lilToon material without `_UseShadow` (no shade term by design). The run used one lilToon sample.
+- The matcap and rim removal on the snow: only the fork unit test covers it. The tops of the sample show no matcap or rim in these captures.
+- Release build, Windows, and WebGL 2.

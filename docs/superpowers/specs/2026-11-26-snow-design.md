@@ -1,6 +1,6 @@
 # Snow
 
-Date: 2026-11-26. Status: design approved by the owner; slice 1 not verified (2026-11-27); slice 2 (session cover) done and checked in OBS and the Editor preview (2026-11-28). Slice 3 (lilToon characters and outlines) in progress (2026-11-28). The OBS checks of evidence 1 and 2 pass. The Editor window checks and the budget gate are unknown ([evidence](../../evaluation/snow.md)). Related: [ENV-10 / #48](https://github.com/danirukun/opensekai/issues/48) particle effects, [ENV-09 / #47](https://github.com/danirukun/opensekai/issues/47) wind, [quality profile effects budget](./2026-11-22-quality-profile-effects-budget-design.md), [spring bones](./2026-11-18-spring-bones-design.md), [benchmark contract](../../evaluation/benchmark-contract.md).
+Date: 2026-11-26. Status: design approved by the owner; slice 1 not verified (2026-11-27); slice 2 (session cover) done and checked in OBS and the Editor preview (2026-11-28). Slice 3 (lilToon characters and outlines) done and checked in OBS (2026-11-28); a gap opens at a split-normal seam (open). The OBS checks of evidence 1 and 2 pass. The Editor window checks and the budget gate are unknown ([evidence](../../evaluation/snow.md)). Related: [ENV-10 / #48](https://github.com/danirukun/opensekai/issues/48) particle effects, [ENV-09 / #47](https://github.com/danirukun/opensekai/issues/47) wind, [quality profile effects budget](./2026-11-22-quality-profile-effects-budget-design.md), [spring bones](./2026-11-18-spring-bones-design.md), [benchmark contract](../../evaluation/benchmark-contract.md).
 
 ## Intent
 
