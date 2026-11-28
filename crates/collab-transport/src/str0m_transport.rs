@@ -25,7 +25,9 @@ use crate::{
 const POSE_LABEL: &str = "pose";
 const SIGNAL_EVENT: &str = "signal";
 /// A frame is dropped instead of queued when SCTP already buffers more than this.
-const MAX_BUFFERED_BYTES: usize = 1024;
+/// The buffered amount also counts in-flight bytes until a SACK or abandonment, so on a WAN
+/// at 60 Hz it holds several frames. The bound is about 0.7 s of 60 Hz poses.
+const MAX_BUFFERED_BYTES: usize = 16 * 1024;
 const RECEIVED_CAPACITY: usize = 1024;
 const RECV_BUFFER_LEN: usize = 2048;
 const NEGOTIATION_TIMEOUT: Duration = Duration::from_secs(10);
@@ -595,17 +597,18 @@ mod tests {
     }
 
     #[test]
-    fn outbox_drops_when_sctp_buffers_more_than_1024_bytes() {
+    fn outbox_drops_when_sctp_buffers_more_than_the_bound() {
         let link = open_link();
         let (tx, mut rx) = mpsc::channel(1);
         let outbox = Outbox {
             tx,
             link: Arc::clone(&link),
         };
-        link.buffered.store(1025, Ordering::Relaxed);
+        link.buffered
+            .store(MAX_BUFFERED_BYTES + 1, Ordering::Relaxed);
         assert_eq!(outbox.offer(&[1]), SendOutcome::DroppedBackpressure);
         assert!(rx.try_recv().is_err());
-        link.buffered.store(1024, Ordering::Relaxed);
+        link.buffered.store(MAX_BUFFERED_BYTES, Ordering::Relaxed);
         assert_eq!(outbox.offer(&[1]), SendOutcome::Sent);
         assert_eq!(link.dropped_backpressure.load(Ordering::Relaxed), 1);
     }
