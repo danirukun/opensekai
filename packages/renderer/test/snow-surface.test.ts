@@ -5,9 +5,9 @@ import { MToonNodeMaterial } from '@pixiv/three-vrm/nodes';
 import { LilToonNodeMaterial } from '@mochiya/three-liltoon/webgpu';
 import { CharacterLilToonMaterial } from '../src/character-liltoon';
 import { CharacterMToonMaterial } from '../src/character-mtoon';
-import { createSnowNoise, snowColorEligible, snowPushEligible, type SnowShare } from '../src/snow-surface';
+import { createSnowNoise, snowColorEligible, snowPushEligible, snowVertex, type SnowShare } from '../src/snow-surface';
 
-const share = (): SnowShare => ({ state: new StorageBufferAttribute(new Float32Array(12), 4), count: 3, thickness: uniform(0.015), noise: createSnowNoise() });
+const share = (): SnowShare => ({ state: new StorageBufferAttribute(new Float32Array(12), 4), push: new StorageBufferAttribute(new Float32Array(12), 4), count: 3, thickness: uniform(0.015), noise: createSnowNoise() });
 type Snowy = CharacterMToonMaterial | CharacterLilToonMaterial;
 const key = (material: Snowy) => material.customProgramCacheKey();
 const kinds = [
@@ -63,3 +63,21 @@ it('gives the push to an outline copy, the colour to a surface only, and no snow
     expect(snowColorEligible({ isOutline: false, transparent: true })).toBe(false);
 });
 it('makes a small noise volume', () => expect(createSnowNoise().image).toMatchObject({ width: 32, height: 32, depth: 32 }));
+
+// Snow on lilToon R11: the push reads the push data and the amount of the representative; the colour reads the own amount.
+it('reads the push data and the thickness for the push, and not for the colour amount', () => {
+    const snow = share(), { amount, push } = snowVertex(snow);
+    const reads = (root: object, target: object) => {
+        const seen = new Set<object>(), stack = [root];
+        while (stack.length) {
+            const node = stack.pop()!;
+            if (seen.has(node)) continue;
+            seen.add(node);
+            if (node === target || (node as { value?: unknown }).value === target) return true;
+            for (const value of Object.values(node)) for (const child of Array.isArray(value) ? value : [value]) if (child?.isNode) stack.push(child);
+        }
+        return false;
+    };
+    expect([reads(push, snow.push), reads(push, snow.state), reads(push, snow.thickness)]).toEqual([true, true, true]);
+    expect([reads(amount, snow.push), reads(amount, snow.state), reads(amount, snow.thickness)]).toEqual([false, true, false]);
+});

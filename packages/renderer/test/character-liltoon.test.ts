@@ -271,7 +271,7 @@ it('keeps the full scene ambient and no fill without a share', () => {
 
 // Snow on lilToon R2 to R5: the node graph of a surface and of its outline with a share, with no WGSL.
 it('gives a lilToon surface with a share the snow push, colour, shade, and effect strength, and its outline the push only', () => {
-    const snow = {state: new StorageBufferAttribute(new Float32Array(12), 4), count: 3, thickness: uniform(0.015), noise: createSnowNoise()};
+    const snow = {state: new StorageBufferAttribute(new Float32Array(12), 4), push: new StorageBufferAttribute(new Float32Array(12), 4), count: 3, thickness: uniform(0.015), noise: createSnowNoise()};
     const build = (material: CharacterLilToonMaterial) => {
         material.snow = snow;
         const mesh = new Mesh(new BufferGeometry(), material);
@@ -284,7 +284,7 @@ it('gives a lilToon surface with a share the snow push, colour, shade, and effec
         const mask = (root: Node) => find(root, node => (node as Node & {name?: string}).name === 'SnowMask').size > 0;
         const color = (root: Node, [x, y, z]: readonly number[]) => find(root, node => { const value = (node as Node & {value?: Partial<Vector3>}).value; return value?.x === x && value?.y === y && value?.z === z; }).size > 0;
         return {
-            push: vertex.some(node => uses(node, snow.thickness)),
+            push: vertex.some(node => uses(node, snow.thickness)) && vertex.some(node => find(node, child => (child as Node & {value?: unknown}).value === snow.push).size > 0),
             color: vertex.some(node => color(node, SNOW_COLOR)),
             shade: outgoing.some(node => color(node, SNOW_SHADE)),
             masked: outgoing.some(mask),

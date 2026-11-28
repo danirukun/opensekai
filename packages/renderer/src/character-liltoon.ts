@@ -1,13 +1,13 @@
 // lilToon avatars with the character share: Shadow Strength on the cast shadow and the room fill of CharacterMToonMaterial (lilToon on WebGPU R8).
 import type {Node, NodeBuilder} from 'three/webgpu';
-import {diffuseColor, float, materialReference, mix, normalLocal, positionLocal, varying, vec3, vec4} from 'three/tsl';
+import {diffuseColor, float, materialReference, mix, positionLocal, varying, vec3, vec4} from 'three/tsl';
 import {LilToonNodeMaterial} from '@mochiya/three-liltoon/webgpu';
 import {DEFAULT_AVATAR_LIGHTING} from '@opensekai/contracts';
 import {CharacterEnvironmentNode, type CharacterShare} from './character-mtoon';
 import {CHARACTER_FILL} from './character-lighting-math';
 import {CHARACTER_AMBIENT} from './scene-lights';
 import {SNOW_COLOR, SNOW_SHADE} from './snow-math';
-import {snowAmount, snowColorEligible, snowMaskNode, snowPushEligible, type SnowShare} from './snow-surface';
+import {snowColorEligible, snowMaskNode, snowPushEligible, snowVertex, type SnowShare} from './snow-surface';
 
 type Vec3 = Node<'vec3'>;
 type Float = Node<'float'>;
@@ -29,13 +29,13 @@ export class CharacterLilToonMaterial extends LilToonNodeMaterial {
     // The snow nodes of the current build: one amount varying for the push and the colour, and the mask of the colour.
     #snowAmount: Float | null = null;
     #snowMask: Float | null = null;
-    // Along the rest normal, before the morph targets and the skinning, as CharacterMToonMaterial. The outline offset of the fork
+    // Before the morph targets and the skinning, as CharacterMToonMaterial. The outline offset of the fork
     // takes `positionLocal` as its base, so an outline copy follows the snow.
     override setupPosition(builder: NodeBuilder) {
-        const share = this.#snow(), amount = share ? varying(snowAmount(share), 'SnowAmount') as unknown as Float : null;
+        const share = this.#snow(), vertex = share ? snowVertex(share) : null, amount = vertex ? varying(vertex.amount, 'SnowAmount') as unknown as Float : null;
         this.#snowAmount = amount;
         this.#snowMask = null;
-        if (share && amount) positionLocal.addAssign(normalLocal.mul(share.thickness).mul(amount));
+        if (vertex) positionLocal.addAssign(vertex.push);
         return super.setupPosition(builder);
     }
     // The lighting model reads `diffuseColor` as the albedo, so the snow colour is in the bands and the effects.

@@ -1,12 +1,12 @@
 // MToon avatars with shadows to the shade color, a back-light rim, and an environment fill (character lighting R3).
 import {Color, LightingNode, type LightingContext, type LightingModelDirectInput, type Node, type NodeBuilder, type UniformArrayNode, type UniformNode, Vector3} from 'three/webgpu';
-import {BRDF_Lambert, diffuseColor, float, materialReference, mix, normalLocal, normalView, normalWorld, positionLocal, positionViewDirection, smoothstep, uniform, uniformArray, varying, vec3, vec4, getShIrradianceAt, renderGroup} from 'three/tsl';
+import {BRDF_Lambert, diffuseColor, float, materialReference, mix, normalView, normalWorld, positionLocal, positionViewDirection, smoothstep, uniform, uniformArray, varying, vec3, vec4, getShIrradianceAt, renderGroup} from 'three/tsl';
 import {MToonLightingModel, MToonNodeMaterial} from '@pixiv/three-vrm/nodes';
 import {DEFAULT_AVATAR_LIGHTING} from '@opensekai/contracts';
 import {CHARACTER_FILL, EXPONENT, FEATHER_MIN, FLAT_ROOM, RIM, SIDE} from './character-lighting-math';
 import {CHARACTER_AMBIENT} from './scene-lights';
 import {SNOW_COLOR, SNOW_SHADE} from './snow-math';
-import {snowAmount, snowColorEligible, snowMaskNode, snowPushEligible, type SnowShare} from './snow-surface';
+import {snowColorEligible, snowMaskNode, snowPushEligible, snowVertex, type SnowShare} from './snow-surface';
 
 /** One object for each renderer; the renderer sets it on each character material. */
 export type CharacterShare = {fill: UniformNode<'color'>; sh: UniformArrayNode<'vec3'>; average: UniformNode<'vec3'>};
@@ -121,11 +121,11 @@ export class CharacterMToonMaterial extends MToonNodeMaterial {
         return super.customProgramCacheKey() + (share ? ':snow' + share.state.id : '');
     }
     setupPosition(builder: NodeBuilder) {
-        const share = this.#snow(), amount = share ? varying(snowAmount(share), 'SnowAmount') as unknown as Float : null;
+        const share = this.#snow(), vertex = share ? snowVertex(share) : null, amount = vertex ? varying(vertex.amount, 'SnowAmount') as unknown as Float : null;
         this.#snowAmount = amount;
         this.#snowMask = null;
-        // Along the rest normal, before the morph targets and the skinning: the skin carries the snow with the body.
-        if (share && amount) positionLocal.addAssign(normalLocal.mul(share.thickness).mul(amount));
+        // Before the morph targets and the skinning: the skin carries the snow with the body. The copies at one position move together.
+        if (vertex) positionLocal.addAssign(vertex.push);
         return super.setupPosition(builder);
     }
     setupDiffuseColor(builder: NodeBuilder) {

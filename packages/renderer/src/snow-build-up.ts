@@ -1,4 +1,4 @@
-import { AttachedBindMode, SkinnedMesh, StorageBufferAttribute, Vector3, type Node, type Object3D, type Skeleton, type UniformNode, type WebGPURenderer } from "three/webgpu";
+import { AttachedBindMode, MathUtils, SkinnedMesh, StorageBufferAttribute, Vector3, type BufferAttribute, type BufferGeometry, type InterleavedBufferAttribute, type Node, type Object3D, type Skeleton, type UniformNode, type WebGPURenderer } from "three/webgpu";
 import { Fn, add, clamp, float, instanceIndex, length, max, min, normalize, select, smoothstep, storage, uniform, vec4 } from "three/tsl";
 import { SNOW } from "./snow-math";
 import { skyExposureNode, type SnowSky } from "./snow-sky";
@@ -12,6 +12,8 @@ export interface SnowVertexData {
     /** 4 indices for each vertex, each plus the bone offset of its skeleton. */
     skinIndex: Uint32Array;
     skinWeight: Float32Array;
+    /** 4 floats for each vertex: the push of `snowPushData`, with w in the index space of the avatar. */
+    push: Float32Array;
     /** One entry for each bone block. Skeletons with the same bones and equal bone inverses share a block; the first is its entry. */
     skeletons: { skeleton: Skeleton; offset: number }[];
     bones: number;
@@ -26,6 +28,44 @@ const collected = (object: Object3D): object is SkinnedMesh => {
 
 /** Exact equality: the loader copies the same bytes into each skin. */
 const sameInverses = (a: Skeleton, b: Skeleton): boolean => a.boneInverses.length === b.boneInverses.length && a.boneInverses.every((inverse, i) => inverse.equals(b.boneInverses[i]!));
+
+type Attribute = BufferAttribute | InterleavedBufferAttribute;
+
+/**
+ * Pure. Snow on lilToon R11: 4 floats for each vertex, the push direction × the hard-edge scale in geometry space (xyz) and
+ * the representative vertex (w). The vertices that `index` draws group by exact position, and each vertex of a group gets
+ * the same push, so the copies at a split normal or UV move together. A vertex without a copy, or one that the index does
+ * not draw, keeps its own normal and itself.
+ */
+export function snowPushData(position: Attribute, normal: Attribute, index: Attribute | null): Float32Array {
+    const { count } = position, push = new Float32Array(count * 4), drawn = new Uint8Array(count);
+    if (index) for (let i = 0; i < index.count; i++) drawn[index.getX(i)] = 1;
+    else drawn.fill(1);
+    const groups = new Map<string, number[]>();
+    for (let v = 0; v < count; v++) {
+        push.set([normal.getX(v), normal.getY(v), normal.getZ(v), v], v * 4);
+        if (!drawn[v]) continue;
+        const key = `${position.getX(v)},${position.getY(v)},${position.getZ(v)}`, group = groups.get(key);
+        if (group) group.push(v);
+        else groups.set(key, [v]);
+    }
+    const a = new Vector3(), b = new Vector3(), sum = new Vector3();
+    for (const group of groups.values()) {
+        if (group.length === 1) continue;
+        let least = 1, representative = group[0]!, top = -Infinity;
+        sum.set(0, 0, 0);
+        for (const v of group) {
+            a.fromBufferAttribute(normal, v).normalize();
+            sum.add(a);
+            if (a.y > top) { top = a.y; representative = v; }
+            for (const w of group) least = Math.min(least, a.dot(b.fromBufferAttribute(normal, w).normalize()));
+        }
+        // A hard edge (copies 45° or more apart) gets no push; a seam within about 25° gets all of it. Opposite normals sum to 0.
+        sum.normalize().multiplyScalar(MathUtils.smoothstep(least, 0.7, 0.9));
+        for (const v of group) push.set([sum.x, sum.y, sum.z, representative], v * 4);
+    }
+    return push;
+}
 
 /** Pure. Skips a mesh that is not a SkinnedMesh or whose bindMode is not 'attached'. */
 export function collectSkinned(root: Object3D): SnowVertexData {
@@ -55,11 +95,15 @@ export function collectSkinned(root: Object3D): SnowVertexData {
         count += mesh.geometry.attributes.position.count;
     }
     const position = new Float32Array(count * 4), normal = new Float32Array(count * 4);
-    const skinIndex = new Uint32Array(count * 4), skinWeight = new Float32Array(count * 4);
+    const skinIndex = new Uint32Array(count * 4), skinWeight = new Float32Array(count * 4), push = new Float32Array(count * 4);
     const point = new Vector3(), direction = new Vector3();
+    // The GLTFLoader can give the meshes of one glTF mesh one vertex buffer; each keeps its own index, so each its own geometry.
+    const pushes = new Map<BufferGeometry, Float32Array>();
     for (const mesh of meshes) {
         const { position: positions, normal: normals, skinIndex: indices, skinWeight: weights } = mesh.geometry.attributes;
         const first = offsets.get(mesh)!, boneOffset = skeletonOffsets.get(mesh.skeleton)!;
+        const local = pushes.get(mesh.geometry) ?? snowPushData(positions, normals, mesh.geometry.index);
+        pushes.set(mesh.geometry, local);
         for (let v = 0; v < positions.count; v++) {
             const at = (first + v) * 4;
             point.fromBufferAttribute(positions, v).applyMatrix4(mesh.bindMatrix);
@@ -70,10 +114,11 @@ export function collectSkinned(root: Object3D): SnowVertexData {
             // getX … getW denormalize: glTF skin indices are often 8 or 16 bits and weights can be normalized integers.
             skinIndex.set([indices.getX(v), indices.getY(v), indices.getZ(v), indices.getW(v)].map(index => index + boneOffset), at);
             skinWeight.set([weights.getX(v), weights.getY(v), weights.getZ(v), weights.getW(v)], at);
+            push.set([local[v * 4]!, local[v * 4 + 1]!, local[v * 4 + 2]!, local[v * 4 + 3]! + first], at);
         }
     }
     return {
-        count, position, normal, skinIndex, skinWeight, skeletons, bones, offsets,
+        count, position, normal, skinIndex, skinWeight, push, skeletons, bones, offsets,
     };
 }
 
@@ -82,6 +127,8 @@ export interface SnowUniforms { rate: UniformNode<"float">; buildUpSeconds: Unif
 export interface SnowBuildUp {
     /** vec4 for each vertex: the previous world position, and w = the amount. */
     readonly state: StorageBufferAttribute;
+    /** vec4 for each vertex, read-only: the push of `snowPushData` in the index space of the avatar. The materials read it. */
+    readonly push: StorageBufferAttribute;
     readonly count: number;
     step(renderer: WebGPURenderer, seconds: number, reset: boolean): void;
     /** Sets each amount to 0 at the next step. The step after it is a warm step. */
@@ -96,11 +143,11 @@ export function createSnowBuildUp(root: Object3D, sky: SnowSky, { rate, buildUpS
     const data = collectSkinned(root);
     const { count } = data;
     if (count === 0) return null;
-    const state = new StorageBufferAttribute(count, 4);
+    const state = new StorageBufferAttribute(count, 4), push = new StorageBufferAttribute(data.push, 4);
     const position = new StorageBufferAttribute(data.position, 4), normal = new StorageBufferAttribute(data.normal, 4);
     const skinIndex = new StorageBufferAttribute(data.skinIndex, 4), skinWeight = new StorageBufferAttribute(data.skinWeight, 4);
     const boneCount = Math.max(1, data.bones), bones = new StorageBufferAttribute(new Float32Array(boneCount * 16), 16);
-    const attributes = [state, position, normal, skinIndex, skinWeight, bones];
+    const attributes = [state, push, position, normal, skinIndex, skinWeight, bones];
     // reset, clear, and warm are 0 or 1: a bool cannot be in a uniform buffer.
     const seconds = uniform(0), reset = uniform(1), clear = uniform(0), warm = uniform(0);
     const stateNode = storage(state, "vec4", count);
@@ -140,6 +187,7 @@ export function createSnowBuildUp(root: Object3D, sky: SnowSky, { rate, buildUpS
     let started = false, clearPending = false, warmPending = true;
     return {
         state,
+        push,
         count,
         step(renderer, stepSeconds, stepReset) {
             const resetNow = stepReset || !started;

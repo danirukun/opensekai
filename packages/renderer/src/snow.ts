@@ -54,7 +54,7 @@ export function createSnow({ tint, compute }: { tint: UniformNode<"color">; comp
     let visible = false, settling = false, rate = 0, clearPending = false;
     const settle = ({ root, materials, clock }: SnowAvatar): Settled => {
         const buildUp = createSnowBuildUp(root, sky, uniforms);
-        const share = buildUp && noise ? { state: buildUp.state, count: buildUp.count, thickness: uniforms.thickness, noise } : null;
+        const share = buildUp && noise ? { state: buildUp.state, push: buildUp.push, count: buildUp.count, thickness: uniforms.thickness, noise } : null;
         const owned: Character[] = [];
         let shared = false;
         if (share) for (const material of materials) {
