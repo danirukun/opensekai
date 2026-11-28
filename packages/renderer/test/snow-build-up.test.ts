@@ -1,7 +1,7 @@
 import { expect, it, vi } from 'vitest';
-import { Bone, BufferGeometry, DetachedBindMode, Float32BufferAttribute, Matrix4, Mesh, Object3D, Skeleton, SkinnedMesh, Uint16BufferAttribute } from 'three/webgpu';
+import { Bone, BufferGeometry, DetachedBindMode, Float32BufferAttribute, Matrix4, Mesh, Object3D, Skeleton, SkinnedMesh, Uint16BufferAttribute, Vector3 } from 'three/webgpu';
 import { uniform } from 'three/tsl';
-import { collectSkinned, createSnowBuildUp } from '../src/snow-build-up';
+import { collectSkinned, createSnowBuildUp, snowPushData } from '../src/snow-build-up';
 import { createSnowSky } from '../src/snow-sky';
 
 const skeleton = (bones: number) => new Skeleton(Array.from({ length: bones }, () => new Bone()));
@@ -98,5 +98,46 @@ it('takes a warm step first and after a clear, and not on a spring reset', () =>
     expect(buildUp.warming()).toBe(true);
     buildUp.step(renderer, 0, true);
     expect(buildUp.warming()).toBe(false);
+    buildUp.dispose();
+});
+
+// Snow on lilToon R11: one push for each position.
+const pushOf = (data: Float32Array, v: number) => ({ direction: [...data.slice(v * 4, v * 4 + 3)], representative: data[v * 4 + 3] });
+const attribute = (rows: number[][]) => new Float32BufferAttribute(rows.flat(), 3);
+const close = (actual: number[], expected: number[]) => actual.forEach((value, i) => expect(value).toBeCloseTo(expected[i]!, 6));
+it('gives the copies at a hard edge no push, and a vertex without a copy its own normal and itself', () => {
+    // A box corner: three copies with normals 90° apart, and one vertex elsewhere.
+    const data = snowPushData(attribute([[0, 0, 0], [0, 0, 0], [0, 0, 0], [1, 0, 0]]), attribute([[1, 0, 0], [0, 1, 0], [0, 0, 1], [0, 0.6, 0.8]]), null);
+    for (const v of [0, 1, 2]) { close(pushOf(data, v).direction, [0, 0, 0]); expect(pushOf(data, v).representative).toBe(1); }
+    close(pushOf(data, 3).direction, [0, 0.6, 0.8]); expect(pushOf(data, 3).representative).toBe(3);
+});
+it('gives the copies at a soft seam one summed direction at full scale and the copy that points most up', () => {
+    const a = new Vector3(0, 1, 0), b = new Vector3(Math.sin(0.35), Math.cos(0.35), 0);
+    const data = snowPushData(attribute([[0, 1, 0], [5, 5, 5], [0, 1, 0]]), attribute([b.toArray(), [1, 0, 0], a.toArray()]), null);
+    const sum = a.clone().add(b).normalize().toArray();
+    close(pushOf(data, 0).direction, sum); close(pushOf(data, 2).direction, sum);
+    expect([pushOf(data, 0).representative, pushOf(data, 2).representative]).toEqual([2, 2]);
+});
+it('scales the push between a seam of 25° and an edge of 45°', () => {
+    const at = (degrees: number) => {
+        const r = degrees * Math.PI / 180;
+        const data = snowPushData(attribute([[0, 0, 0], [0, 0, 0]]), attribute([[0, 1, 0], [Math.sin(r), Math.cos(r), 0]]), null);
+        return Math.hypot(...pushOf(data, 0).direction);
+    };
+    expect(at(25)).toBeCloseTo(1, 6); expect(at(46)).toBeCloseTo(0, 6);
+    expect(at(35)).toBeGreaterThan(0.1); expect(at(35)).toBeLessThan(0.9);
+});
+it('groups only the vertices that the index draws', () => {
+    // Vertex 1 is at the position of vertex 0 with a hard edge, but this mesh does not draw it.
+    const data = snowPushData(attribute([[0, 0, 0], [0, 0, 0], [1, 0, 0]]), attribute([[0, 1, 0], [1, 0, 0], [0, 1, 0]]), new Uint16BufferAttribute([0, 2, 2], 1));
+    close(pushOf(data, 0).direction, [0, 1, 0]); expect(pushOf(data, 0).representative).toBe(0);
+});
+it('puts the representative of each vertex in the index space of the avatar', () => {
+    const { root } = avatar();
+    const data = collectSkinned(root);
+    expect(data.push.length).toBe(data.count * 4);
+    expect([3, 4, 5].map(v => data.push[v * 4 + 3])).toEqual([3, 4, 5]);
+    const buildUp = createSnowBuildUp(root, createSnowSky(64), uniforms())!;
+    expect(buildUp.push.array.length).toBe(36);
     buildUp.dispose();
 });
