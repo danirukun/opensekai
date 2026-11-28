@@ -8,8 +8,10 @@ export interface SnowShare { readonly state: StorageBufferAttribute; readonly co
 /** A 32³ tiling noise volume; one for each renderer. */
 export const createSnowNoise = (): Data3DTexture => noiseVolume(32);
 
-/** False for an outline copy and for a material with blended transparency. */
-export const snowEligible = ({ isOutline, transparent }: { isOutline?: boolean; transparent: boolean }): boolean => !isOutline && !transparent;
+/** The vertex push: false for a material with blended transparency. An outline copy gets it, so it follows the snow. */
+export const snowPushEligible = ({ transparent }: { transparent: boolean }): boolean => !transparent;
+/** The snow colour: a surface only, not an outline copy. */
+export const snowColorEligible = (material: { isOutline?: boolean; transparent: boolean }): boolean => snowPushEligible(material) && !material.isOutline;
 
 /** Vertex stage: the amount of this vertex, or 0 for an object without `userData.snowOffset`. */
 export const snowAmount = (share: SnowShare): Node<"float"> => {

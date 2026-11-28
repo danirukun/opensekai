@@ -1,12 +1,13 @@
 import type { Material, Object3D, Scene, UniformNode, WebGPURenderer } from "three/webgpu";
 import { uniform } from "three/tsl";
 import type { AppError } from "@opensekai/contracts";
+import type { CharacterLilToonMaterial } from "./character-liltoon";
 import type { CharacterMToonMaterial } from "./character-mtoon";
 import { createSnowBuildUp, type SnowBuildUp, type SnowUniforms } from "./snow-build-up";
 import { createSnowFlakes } from "./snow-flakes";
 import { snowSteps } from "./snow-math";
 import { createSnowSky, type SnowEntity } from "./snow-sky";
-import { createSnowNoise, snowEligible, type SnowShare } from "./snow-surface";
+import { createSnowNoise, snowPushEligible, type SnowShare } from "./snow-surface";
 import type { SpringClock } from "./spring-grid";
 
 export interface SnowAvatar { id: string; root: Object3D; materials: readonly Material[]; clock: SpringClock }
@@ -31,14 +32,18 @@ interface Settled {
     buildUp: SnowBuildUp | null;
     share: SnowShare | null;
     /** The materials that hold `share`. */
-    materials: CharacterMToonMaterial[];
+    materials: Character[];
     /** True when a material of the avatar holds the share of another avatar. */
     shared: boolean;
     clock: SpringClock;
     previous: SpringClock | null;
 }
 
-const isMToon = (material: Material): material is CharacterMToonMaterial => (material as Partial<CharacterMToonMaterial>).isCharacterMToonMaterial === true;
+type Character = CharacterMToonMaterial | CharacterLilToonMaterial;
+const isCharacter = (material: Material): material is Character => {
+    const flags = material as Partial<CharacterMToonMaterial & CharacterLilToonMaterial>;
+    return flags.isCharacterMToonMaterial === true || flags.isCharacterLilToonMaterial === true;
+};
 
 /** The snow of one renderer: the sky pass, the flakes, and a build-up for each avatar. `compute` is false on WebGL 2. */
 export function createSnow({ tint, compute }: { tint: UniformNode<"color">; compute: boolean }): Snow {
@@ -50,16 +55,17 @@ export function createSnow({ tint, compute }: { tint: UniformNode<"color">; comp
     const settle = ({ root, materials, clock }: SnowAvatar): Settled => {
         const buildUp = createSnowBuildUp(root, sky, uniforms);
         const share = buildUp && noise ? { state: buildUp.state, count: buildUp.count, thickness: uniforms.thickness, noise } : null;
-        const owned: CharacterMToonMaterial[] = [];
+        const owned: Character[] = [];
         let shared = false;
         if (share) for (const material of materials) {
-            if (!isMToon(material) || !snowEligible(material)) continue;
+            // The surfaces and their outline copies of the two kinds. An outline gets the push only.
+            if (!isCharacter(material) || !snowPushEligible(material)) continue;
             if (material.snow) { shared = true; continue; }
             material.snow = share;
             material.needsUpdate = true;
             owned.push(material);
         }
-        // No material reads the amounts (a lilToon avatar, or only blended materials): no buffers and no step for each tick.
+        // No material reads the amounts (only blended materials, or no character material): no buffers and no step for each tick.
         if (owned.length === 0) { buildUp?.dispose(); return { root, buildUp: null, share: null, materials: owned, shared, clock, previous: null }; }
         return { root, buildUp, share, materials: owned, shared, clock, previous: null };
     };

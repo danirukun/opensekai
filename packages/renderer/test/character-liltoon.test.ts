@@ -1,7 +1,7 @@
 // The character lilToon material on the real loader path, the frame path, and its lighting hooks, with no GPU draw (lilToon on WebGPU R8).
 import {afterEach, expect, it, vi} from 'vitest';
-import {Mesh, PointLight, StackNode, Texture, type Material, type Node, type NodeBuilder, type Vector3} from 'three/webgpu';
-import {float, setCurrentStack, stack, vec3} from 'three/tsl';
+import {BufferGeometry, Mesh, PointLight, StackNode, StorageBufferAttribute, Texture, type Material, type Node, type NodeBuilder, type Vector3} from 'three/webgpu';
+import {float, setCurrentStack, stack, uniform, vec3} from 'three/tsl';
 import {DEFAULT_AVATAR_LIGHTING, QUALITY_PROFILES, makeSmokeFrame, type AvatarLighting, type RuntimeFrame} from '@opensekai/contracts';
 import type {LilToonLightingModel} from '@mochiya/three-liltoon/webgpu';
 import {createAssetLoader} from '../src/assets';
@@ -9,6 +9,8 @@ import {CharacterMToonMaterial, createCharacterShare} from '../src/character-mto
 import {CharacterLilToonMaterial} from '../src/character-liltoon';
 import {CHARACTER_AMBIENT, GroupDirectionalLight, batchedLights, isLitMaterial} from '../src/scene-lights';
 import {CHARACTER_FILL} from '../src/character-lighting-math';
+import {SNOW_COLOR, SNOW_SHADE} from '../src/snow-math';
+import {createSnowNoise} from '../src/snow-surface';
 import type * as AvatarPose from '../src/avatar-pose';
 
 const ports = vi.hoisted(() => ({bindings: [] as ReturnType<typeof AvatarPose.createAvatarBinding>[]}));
@@ -180,7 +182,8 @@ function run(material: CharacterLilToonMaterial, lights: Light[], {lightNodes = 
     setCurrentStack(nodes);
     try { model.start(builder); model.finish(builder); } finally { setCurrentStack(null); }
     const sourcesOf = (name: string) => (nodes.nodes as StackEntry[]).filter(entry => entry.targetNode?.name === name).map(entry => entry.sourceNode!);
-    return {context, sourcesOf};
+    const outgoing = (nodes.nodes as StackEntry[]).filter(entry => entry.targetNode === context.outgoingLight).map(entry => entry.sourceNode!);
+    return {context, sourcesOf, outgoing};
 }
 // The nodes of a graph that match. Node.traverse does not go into the inputs of a TSL function call.
 const find = (root: Node, match: (node: Node) => boolean) => {
@@ -264,6 +267,34 @@ it('keeps the full scene ambient and no fill without a share', () => {
     expect(withValue(ambient!, CHARACTER_AMBIENT)).toBe(0);
     expect(uses(ambient!, context.iblIrradiance)).toBe(false);
     expect(material.setupEnvironment()).toBeNull();
+});
+
+// Snow on lilToon R2 to R5: the node graph of a surface and of its outline with a share, with no WGSL.
+it('gives a lilToon surface with a share the snow push, colour, shade, and effect strength, and its outline the push only', () => {
+    const snow = {state: new StorageBufferAttribute(new Float32Array(12), 4), count: 3, thickness: uniform(0.015), noise: createSnowNoise()};
+    const build = (material: CharacterLilToonMaterial) => {
+        material.snow = snow;
+        const mesh = new Mesh(new BufferGeometry(), material);
+        const builder = {object: mesh, geometry: mesh.geometry, material, isOpaque: () => true} as unknown as NodeBuilder;
+        const nodes = stack();
+        setCurrentStack(nodes);
+        try { material.setupPosition(builder); material.setupDiffuseColor(builder); } finally { setCurrentStack(null); }
+        const vertex = nodes.nodes as Node[];
+        const {outgoing} = run(material, [{shadowNode: null, baseColorNode: null}]);
+        const mask = (root: Node) => find(root, node => (node as Node & {name?: string}).name === 'SnowMask').size > 0;
+        const color = (root: Node, [x, y, z]: readonly number[]) => find(root, node => { const value = (node as Node & {value?: Partial<Vector3>}).value; return value?.x === x && value?.y === y && value?.z === z; }).size > 0;
+        return {
+            push: vertex.some(node => uses(node, snow.thickness)),
+            color: vertex.some(node => color(node, SNOW_COLOR)),
+            shade: outgoing.some(node => color(node, SNOW_SHADE)),
+            masked: outgoing.some(mask),
+        };
+    };
+    const properties = {_UseShadow: 1, _UseRim: 1};
+    expect(build(new CharacterLilToonMaterial({properties}))).toEqual({push: true, color: true, shade: true, masked: true});
+    const outline = new CharacterLilToonMaterial({properties});
+    outline.isOutline = true;
+    expect(build(outline)).toEqual({push: true, color: false, shade: false, masked: false});
 });
 
 it('keeps the lighting values and the share on clone, and keys the program on the share', () => {

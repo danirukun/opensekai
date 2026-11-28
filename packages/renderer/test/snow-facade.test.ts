@@ -14,6 +14,7 @@ vi.mock('../src/snow-build-up', async original => {
     }) };
 });
 import { createSnowBuildUp } from '../src/snow-build-up';
+import { CharacterLilToonMaterial } from '../src/character-liltoon';
 import { CharacterMToonMaterial } from '../src/character-mtoon';
 import { SNOW_SKY_LAYER } from '../src/snow-sky';
 import { createSnow, type SnowAvatar } from '../src/snow';
@@ -42,19 +43,23 @@ const asRenderer = (stub: ReturnType<typeof stubRenderer>) => stub as unknown as
 const make = (compute = true) => createSnow({ tint: uniform(new Color(1, 1, 1)), compute });
 beforeEach(() => { built.length = 0; vi.mocked(createSnowBuildUp).mockClear(); });
 
-it('gives each avatar its own share and sets it on eligible MToon materials only', () => {
+it('gives each avatar its own share and sets it on the character materials of the two kinds and their outlines, not on a blended one', () => {
     const snow = make(), a = avatar(), b = avatar();
-    const outline = new CharacterMToonMaterial(), blended = new CharacterMToonMaterial(), lilToon = new MeshBasicMaterial();
+    const outline = new CharacterMToonMaterial(), blended = new CharacterMToonMaterial(), lilToon = new CharacterLilToonMaterial(), lilToonOutline = new CharacterLilToonMaterial(), plain = new MeshBasicMaterial();
     outline.isOutline = true;
+    lilToonOutline.isOutline = true;
     blended.transparent = true;
-    snow.update(entity(), 0, 0, [{ ...entry('a', a), materials: [a.material, outline, blended, lilToon] }, entry('b', b)], [a.root, b.root]);
+    snow.update(entity(), 0, 0, [{ ...entry('a', a), materials: [a.material, outline, blended, lilToon, lilToonOutline, plain] }, entry('b', b)], [a.root, b.root]);
     expect(a.material.snow).not.toBeNull(); expect(b.material.snow).not.toBeNull();
     expect(a.material.snow).not.toBe(b.material.snow);
     expect(a.material.snow!.state).not.toBe(b.material.snow!.state);
     expect(a.material.snow).toMatchObject({ state: built[0]!.state, count: 3 });
     expect(a.material.snow!.thickness).toBe(b.material.snow!.thickness);
     expect(a.material.snow!.noise).toBe(b.material.snow!.noise);
-    expect(outline.snow).toBeNull(); expect(blended.snow).toBeNull(); expect('snow' in lilToon).toBe(false);
+    for (const material of [outline, lilToon, lilToonOutline]) expect(material.snow).toBe(a.material.snow);
+    expect(blended.snow).toBeNull(); expect('snow' in plain).toBe(false);
+    // The blame of a failed compile names the outline pipelines too.
+    for (const material of [outline, lilToon, lilToonOutline]) expect(snow.materialIds().has(material.id)).toBe(true);
     expect(a.mesh.layers.isEnabled(SNOW_SKY_LAYER)).toBe(true);
     expect(snow.warnings()).toEqual([]);
     snow.dispose();
@@ -230,14 +235,14 @@ it('gives an avatar without a skinned vertex no share and no error, and does not
     snow.dispose();
 });
 it('keeps no build-up for an avatar whose materials cannot take the share', async () => {
-    const snow = make(), a = avatar(), lilToon = new MeshBasicMaterial(), renderer = stubRenderer();
-    expect(snow.update(entity(), 0, 0, [{ ...entry('a', a), materials: [lilToon] }], [a.root])).toBe(false);
+    const snow = make(), a = avatar(), plain = new MeshBasicMaterial(), renderer = stubRenderer();
+    expect(snow.update(entity(), 0, 0, [{ ...entry('a', a), materials: [plain] }], [a.root])).toBe(false);
     expect(built[0]!.dispose).toHaveBeenCalledTimes(1);
     await snow.render(asRenderer(renderer), new Scene());
     expect(built[0]!.step).not.toHaveBeenCalled();
     expect(renderer.compute).not.toHaveBeenCalled();
     // The avatar is not settled again on the next frame.
-    snow.update(entity(), 1 / 60, 0, [{ ...entry('a', a, 2), materials: [lilToon] }], [a.root]);
+    snow.update(entity(), 1 / 60, 0, [{ ...entry('a', a, 2), materials: [plain] }], [a.root]);
     expect(createSnowBuildUp).toHaveBeenCalledTimes(1);
     snow.dispose();
 });

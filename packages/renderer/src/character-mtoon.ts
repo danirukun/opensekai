@@ -6,7 +6,7 @@ import {DEFAULT_AVATAR_LIGHTING} from '@opensekai/contracts';
 import {CHARACTER_FILL, EXPONENT, FEATHER_MIN, FLAT_ROOM, RIM, SIDE} from './character-lighting-math';
 import {CHARACTER_AMBIENT} from './scene-lights';
 import {SNOW_COLOR, SNOW_SHADE} from './snow-math';
-import {snowAmount, snowEligible, snowMaskNode, type SnowShare} from './snow-surface';
+import {snowAmount, snowColorEligible, snowMaskNode, snowPushEligible, type SnowShare} from './snow-surface';
 
 /** One object for each renderer; the renderer sets it on each character material. */
 export type CharacterShare = {fill: UniformNode<'color'>; sh: UniformArrayNode<'vec3'>; average: UniformNode<'vec3'>};
@@ -130,7 +130,8 @@ export class CharacterMToonMaterial extends MToonNodeMaterial {
     }
     setupDiffuseColor(builder: NodeBuilder) {
         super.setupDiffuseColor(builder);
-        const share = this.#snow();
+        // An outline copy keeps its colour: it has the push only.
+        const share = snowColorEligible(this) ? this.#snow() : null;
         if (!share || !this.#snowAmount) return;
         const mask = this.#snowMask = snowMaskNode(this.#snowAmount, share).toVar('SnowMask') as unknown as Float;
         const color = diffuseColor as unknown as Node<'vec4'>;
@@ -168,7 +169,7 @@ export class CharacterMToonMaterial extends MToonNodeMaterial {
     }
     // An outline gets neither the added rim nor the environment fill.
     #share() { return this.isOutline ? null : this.characterShare ?? null; }
-    #snow() { return this.snow && snowEligible(this) ? this.snow : null; }
+    #snow() { return this.snow && snowPushEligible(this) ? this.snow : null; }
     copy(source: MToonNodeMaterial) {
         const from = source as CharacterMToonMaterial;
         if (from.isCharacterMToonMaterial) {
