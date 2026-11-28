@@ -342,7 +342,31 @@ Date: 2026-11-28. Contract: [Snow on lilToon characters and outlines](../../spdd
 
 ### Limits seen
 
-- **A gap opens at the raglan seam of the tops (open).** With Settle On Characters off, the seam is closed. At the default `thickness` 0.015, the lilToon sample shows a thin dark red sliver along the seam from the shoulder down the sleeve, and the MToon sample shows no gap. At 0.05 the lilToon gap is wider, and MToon shows a thin one. Slice 1 used 0.015 on MToon only, so this run agrees with no gap in slice 1. Inferred, not checked: the push along the rest normal (R2) moves the two copies of each seam vertex in different directions, and the dark red is the outline colour seen through the gap. This is a limit of the push, not a break of the contract. A fix changes the push (for example, a seam-welded normal). The owner decides if the fix is a follow-up.
+- **A gap opened at the raglan seam of the tops (fixed by R11, see the next section).** With Settle On Characters off, the seam is closed. At the default `thickness` 0.015, the lilToon sample showed a thin dark red sliver along the seam from the shoulder down the sleeve, and the MToon sample showed no gap. At 0.05 the lilToon gap was wider, and MToon showed a thin one. The push along the rest normal moved the copies of each split vertex in different directions, and the dark red is the outline colour seen through the gap.
+- **Shards on the glasses frame (owner report, fixed by R11).** In the Editor preview, white shards showed across the face from the glasses frame. The frame is flat shaded, so each of its positions has copies with different normals, and the push moved them apart. At `thickness` 0 the shards do not show.
+
+## One push for each vertex position (slice 3, R11)
+
+Date: 2026-11-28. Contract: R11 of [Snow on lilToon characters and outlines](../../spdd/prompt/2026-11-28-snow-liltoon.md) (analysis decision 8). Commit `0c09a7b4`. The OBS page bundle was built from the code of that commit (`index-Cmp73JKe.js`). The host, OBS, outputs, and the two Catboy samples are as in the slice 3 run. A is the lilToon Catboy at x −0.9, B is the MToon Catboy at x 0.9, no roof. Snow entity as in the slice 3 run (`buildUpSeconds` 15), with 40 s of build-up before the first capture.
+
+Method: [`push-run.mjs`](snow/push-run.mjs) with [`qa.mjs`](snow/qa.mjs), in an isolated OBS scene `OpenSekai-QA-snow-push` (removed at the end; the program scene went back to `Scene`). For each performer, three camera views (the glasses from the front, the glasses from above at −50°, and the shoulder), each with `settleOnCharacters` off, then on at `thickness` 0, 0.015, and 0.05. The "before" seam captures are from the slice 3 run (`e36514ad`, [`liltoon-seam.mjs`](snow/liltoon-seam.mjs)) at the same camera.
+
+| Check | Result |
+| --- | --- |
+| Glasses frame | Pass. From the front and from above, at 0, 0.015, and 0.05, the frame has no shards on the two kinds. The top of the frame shows snow; the front does not. |
+| Raglan seam | Pass at 0.015 and at 0.05. The long gap along the seam is closed on the two kinds. |
+| Upper sleeve at 0.05 | Limit. A narrow wedge with the outline colour shows across the upper sleeve on the two kinds, at the same place as before R11. At 0.015 there is no wedge, and the top edge of the snow shows a small dip at that place. The analysis (decision 8) gives the measured candidates; the positions that make the wedge are not isolated. |
+| Warnings | Pass. `app_status` had no warning, and neither output had a frame warning, at the end of the run. |
+
+![Glasses from above: off, 0.015, 0.05; lilToon (top) and MToon (bottom)](snow/push-glasses.png)
+
+![Shoulder at 0.05: before R11 (left) and with R11 (right); lilToon (top) and MToon (bottom)](snow/push-seam.png)
+
+Tests: `packages/renderer` has 9 failed, 634 passed, 8 skipped. The 9 failing names are the 9 names of the baseline of `main`. New: the R11 groups (a hard corner, a soft seam, the scale band, only drawn vertices, the avatar index of the representative) and the material push that reads the push buffer and the thickness.
+
+The owner report came from the Editor preview. After the OBS run, MCP `camera_screenshot` took the glasses from above at 0, 0.015, and 0.05 on the two kinds: the frame has no shards.
+
+Not verified: a capture of the Editor window itself, a model with a thin smooth-shaded mesh (it still swells), and a moving performer.
 
 ### Tests
 
