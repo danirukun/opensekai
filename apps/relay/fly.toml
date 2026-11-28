@@ -1,0 +1,29 @@
+app = "opensekai-relay"
+primary_region = "ams"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[http_service]
+  internal_port = 4000
+  force_https = true
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    interval = "15s"
+    timeout = "2s"
+    method = "GET"
+    path = "/api/runtime"
+
+# UDP pose ports. A range can be declared and still receive nothing.
+# If a deploy shows that, replace this block with one [[services.ports]]
+# entry per port. This file does not allocate the dedicated IPv4.
+[[services]]
+  protocol = "udp"
+  internal_port = 50000
+
+  [[services.ports]]
+    start_port = 50000
+    end_port = 50099

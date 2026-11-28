@@ -70,7 +70,7 @@ R17. This slice does not add a WebTransport sidecar and does not add a Cloudflar
 ## E — Entities
 
 - `apps/relay`: Phoenix endpoint, `Relay.RoomServer`, `Relay.Fanout`, `Relay.LiveKitToken`, `Relay.Transport.ExWebRTC`, Fly config, Dockerfile.
-- `apps/desktop/src-tauri/src/collab/`: pose cipher, playout, metrics, `str0m` client, LiveKit adapter, measurement bin.
+- `crates/transport-spike`: pose cipher, playout, metrics, `str0m` client, LiveKit adapter stub, measurement bin. The host re-exports it behind `transport-spike`.
 - `scripts/transport-spike.sh`: start the relay on loopback and run the bin.
 - `docs/spikes/2026-11-28-multiplayer-transport.md`: runbook and the result table.
 - `ARCHITECTURE.md`: the new process and the feature gate.
@@ -85,7 +85,7 @@ Write this contract first. Then the relay and the host feature. Unit tests cover
 | --- | --- | --- |
 | Contract | `spdd/analysis/2026-11-28-multiplayer-transport-spike.md`, this file | — |
 | Relay | `apps/relay/**` | `.gitignore` |
-| Host spike | `apps/desktop/src-tauri/src/collab/**`, `src/bin/transport-spike.rs` | `Cargo.toml`, `src/lib.rs` |
+| Host spike | `crates/transport-spike/**` | desktop `Cargo.toml`, `src/lib.rs` |
 | Run | `scripts/transport-spike.sh`, `docs/spikes/2026-11-28-multiplayer-transport.md` | `ARCHITECTURE.md` |
 
 ## O — Operations

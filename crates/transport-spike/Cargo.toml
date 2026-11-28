@@ -1,0 +1,16 @@
+[package]
+name = "opensekai-transport-spike"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "transport-spike"
+path = "src/main.rs"
+
+[dependencies]
+aes-gcm = "=0.10.3"
+reqwest = { workspace = true, features = ["json"] }
+serde_json = { workspace = true }
+str0m = "=0.25.0"
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }

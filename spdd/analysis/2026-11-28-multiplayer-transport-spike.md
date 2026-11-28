@@ -41,7 +41,7 @@ Issue #365 asks for a measurement of the ADR 0001 pose path before any guest-roo
 
 | # | Decided | Rejected alternative |
 | --- | --- | --- |
-| D6 | The spike client lives in the Tauri host under `src/collab/` and the cargo feature `transport-spike`. The default desktop build does not link it and does not open a relay socket | Put the client on the session worker or the production output path |
+| D6 | The spike client lives in `crates/transport-spike`. The Tauri host re-exports it behind the cargo feature `transport-spike`. The default desktop build does not link it and does not open a relay socket | Put the client on the session worker or the production output path |
 | D7 | The measurement process holds the room key. The relay API has no key field. Pose bytes on the DataChannel are AES-256-GCM ciphertext | Let the relay mint the pose key and return it in the approve body |
 | D8 | Signaling for the harness is HTTP on the Phoenix endpoint. A room is one `RoomServer`. LiveKit, when configured, returns a token only after approval | A second relay process for the spike |
 | D9 | Local loopback may record numbers. Fly, home-network, macOS, and Windows cells stay empty when this run cannot measure them. An empty cell is unknown. It is not zero | Fill those cells from a loopback run |

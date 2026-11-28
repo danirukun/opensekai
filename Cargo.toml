@@ -1,6 +1,11 @@
 [workspace]
 resolver = "2"
-members = ["apps/desktop/src-tauri", "crates/contracts", "crates/evaluation"]
+members = [
+  "apps/desktop/src-tauri",
+  "crates/contracts",
+  "crates/evaluation",
+  "crates/transport-spike",
+]
 
 [workspace.package]
 version = "0.1.0"

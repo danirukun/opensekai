@@ -1,3 +1,7 @@
+#[cfg(feature = "transport-spike")]
+pub mod collab {
+    pub use opensekai_transport_spike::run;
+}
 pub mod assets;
 pub mod blueprint_file;
 mod bootstrap;
