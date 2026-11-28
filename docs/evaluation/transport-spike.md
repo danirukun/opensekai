@@ -11,12 +11,12 @@ This record gives measured facts. It does not change ADR 0001. The owner decides
 - **Not in the gate rule.** Two results go against `ex_webrtc`:
   - With the final 16 KiB drop bound, `str0m` senders stopped for 0.9 to 2.0 s in 2 of 9 `ex_webrtc` runs below saturation: one sender in Scenario B run 1 (2.0 s), and four senders in the 10-room step of Scenario E (0.9 to 1.1 s, at 79% relay CPU). Each time, the buffered amount of the SCTP association stayed above the bound, and that peer sent no poses. A check with a 4380 B bound had one more stop (1.1 s). No LiveKit run with one room for each client process had a gap above 230 ms.
   - The relay used 21.7% of its 2 shared vCPUs for one room of 4 peers at 60 Hz. The LiveKit SFU used 4.0% for the same room. The relay saturated between 10 and 25 rooms.
-- **Recommendation.** Keep `ex_webrtc` + `str0m` as the primary for slice A1 only together with two follow-ups: find and fix the SCTP send stall, and reduce the relay CPU for each room. If A1 cannot fix both, write a new ADR that makes LiveKit `LossyPacket` the primary. The adapter boundary already supports that change.
+- **Recommendation.** Keep `ex_webrtc` + `str0m` as the primary for slice A1 only together with two follow-ups: find and fix the SCTP send stall, and reduce the relay CPU for each room. If A1 cannot fix both, write a new ADR that makes LiveKit `LossyPacket` the primary. The adapter boundary supports that change only after two adapter gaps are closed (see Unknown): LiveKit token revocation and identity reuse, and WebSocket fan-out in LiveKit rooms.
 - **LiveKit `LossyPacket` against `DataTrack`.** No `DataTrack` run showed a stall after a gap. `DataTrack` lost more frames at 60 Hz (1.5 to 2.4% against 0.2 to 1.1%), and its setup was about 150 ms slower. Use `LossyPacket` if LiveKit becomes the primary. The synthetic loss of Scenario B is applied at the receiver after the transport. Thus Scenario B does not test head-of-line wait on network loss. Only the real Wi-Fi loss of the runs tests it.
 
 ## Setup
 
-- **Client.** MacBook Pro (Apple M3 Pro, 12 cores), macOS 27.2.1 (26B131), arm64. Home connection in Vienna, Austria (T-Mobile Austria), on Wi-Fi. Apple `networkQuality`: 492 Mbit/s down, 66 Mbit/s up, base RTT 64 ms. All 4 peers of a room run in one `transport-bench` process, so one-way latency is sender to relay to receiver on one clock.
+- **Client.** MacBook Pro (Apple M3 Pro, 12 cores), macOS 27.2.1 (26B131), arm64. Home Wi-Fi connection in Central Europe. Apple `networkQuality`: 492 Mbit/s down, 66 Mbit/s up, base RTT 64 ms. All 4 peers of a room run in one `transport-bench` process, so one-way latency is sender to relay to receiver on one clock.
 - **Client path.** ICMP RTT to the relay IPv4 was 23 to 28 ms, with one 45 to 113 ms sample about every 0.5 s (`ping -i 0.1`, 50 samples: 27 27 27 99 27 26 27 24 113 …). The AWDL interface was active. This periodic Wi-Fi stall is in every transport, WebSocket included. It sets p95 near 115 ms and the max raw gap near 110 to 130 ms for all transports. The 100 ms freeze target cannot be checked from this client.
 - **Relay.** Fly app `opensekai-relay-spike`, region `ams`, one Machine `shared-cpu-2x`, 1 GB, Firecracker. Dedicated IPv4 `66.51.127.176`. `RELAY_UDP_BIND_IP=fly-global-services` (`172.19.4.91` in the Machine). Elixir 1.18.6, OTP 27 (image `hexpm/elixir:1.18.6-erlang-27.3.4.20-debian-bookworm-20261123-slim`), `ex_webrtc` 0.18.0, `ex_ice` 0.16.1, `ex_dtls` 0.18.2, `ex_sctp` 0.1.3, Phoenix 1.8.17, Bandit 1.15.0, Jason 1.4.5. Release build, `MIX_ENV=prod`.
 - **LiveKit.** Fly app `opensekai-livekit-spike`, region `ams`, one Machine `shared-cpu-2x`, 1 GB. Dedicated IPv4 `168.220.88.192` as `NODE_IP`. `livekit-server` 1.13.11 (image `livekit/livekit-server:latest`), one UDP port `7882`, TURN off, ICE over TCP not published.
@@ -153,10 +153,13 @@ The apps `opensekai-relay-spike` and `opensekai-livekit-spike` and their dedicat
 
 ## Unknown
 
-- Results from other networks (wired, EU, NA, JP homes). ADR 0001 asks for EU, NA, and JP. This run has one Wi-Fi client in Vienna.
+- Results from other networks (wired, EU, NA, JP homes). ADR 0001 asks for EU, NA, and JP. This run has one Wi-Fi client in Central Europe, on home Wi-Fi.
 - The cause of the `ex_webrtc` baseline loss of about 2%.
 - The cause of the `str0m` SCTP send stall of 1 to 2 s.
 - The cause of the relay memory growth.
 - LiveKit SFU headroom above 4 rooms, and LiveKit SFU restart recovery.
 - Behaviour across a full `fly deploy` (only `fly machine restart` was run).
 - A `performance` Machine size. All runs used `shared-cpu-2x`.
+- LiveKit kick does not revoke the 1-hour join token, and `slot-N` identities are reused on later approvals. Lane A1 with LiveKit in production needs short-TTL tokens and a unique participant identity for each approval.
+- LiveKit rooms do not fan out WebSocket fallback poses (`forward/3` returns `:client_publishes_directly`). Thus `AutoUpgradeTransport` over LiveKit loses frames during its WebSocket phase until WebSocket fan-out is added.
+- `str0m` 0.26 `Rtc::disconnect()` sends no SCTP ABORT. After a client falls back to WebSocket, the relay can keep routing frames to the dead DataChannel until the next retry offer or the ICE timeout. Lane A1 must send an explicit fallback or bye signal, or close the DataChannel, before it disconnects.
