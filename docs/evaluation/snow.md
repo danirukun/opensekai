@@ -319,7 +319,7 @@ Date: 2026-11-28. Contract: [Snow on lilToon characters and outlines](../../spdd
 | Outputs | `output_main`: `webgpu`, `production_v1`. `preview_main` (Editor window): `webgpu`, `preview_v1`. |
 | Characters | lilToon Catboy (`avatar_2cd7340b…`, 16 lilToon materials, `material_list`) as performers A (x −0.9) and B (x 0.9). Then B changes to the MToon Catboy (`avatar_7b7c689e…`). T-pose, no tracking source. A scene holds at most 2 avatars. |
 | Scene | The new-scene camera and lights. A box roof `[0.5, 0.03, 0.5]` at `[0.9, 1.95, 0]` above B. Snow entity: position `[0, 2, 0]`, scale `[6, 4, 6]`, `rate` 1, `buildUpSeconds` 15, `thickness` 0.015. |
-| Method | [`liltoon-run.mjs`](snow/liltoon-run.mjs) with [`qa.mjs`](snow/qa.mjs): MCP `scene_patch`, OBS `SaveSourceScreenshot`. The seam check used the same steps with `settleOnCharacters` off and on. The sheets put each premultiplied capture on #30343c. |
+| Method | [`liltoon-run.mjs`](snow/liltoon-run.mjs) with [`qa.mjs`](snow/qa.mjs): MCP `scene_patch`, OBS `SaveSourceScreenshot`. [`liltoon-seam.mjs`](snow/liltoon-seam.mjs) is the seam check: a close-up of one shoulder with `settleOnCharacters` off, then on at `thickness` 0.015 and 0.05. The sheets put each premultiplied capture on #30343c. |
 
 ### Results
 
@@ -342,7 +342,7 @@ Date: 2026-11-28. Contract: [Snow on lilToon characters and outlines](../../spdd
 
 ### Limits seen
 
-- **A gap opens at the raglan seam of the tops.** With Settle On Characters off, the seam is closed. With snow, a dark red sliver shows along the seam from the shoulder down the sleeve. It is wider at `thickness` 0.05, and MToon shows a thin one at 0.05. Inferred, not checked: the push moves the two copies of each seam vertex along different normals, and the dark red is the outline colour seen through the gap. It is not known if the gap was there in slice 1 (no close-up of a seam). A fix changes the push (for example, a seam-welded normal); that is outside this slice.
+- **A gap opens at the raglan seam of the tops (open).** With Settle On Characters off, the seam is closed. At the default `thickness` 0.015, the lilToon sample shows a thin dark red sliver along the seam from the shoulder down the sleeve, and the MToon sample shows no gap. At 0.05 the lilToon gap is wider, and MToon shows a thin one. Slice 1 used 0.015 on MToon only, so this run agrees with no gap in slice 1. Inferred, not checked: the push along the rest normal (R2) moves the two copies of each seam vertex in different directions, and the dark red is the outline colour seen through the gap. This is a limit of the push, not a break of the contract. A fix changes the push (for example, a seam-welded normal). The owner decides if the fix is a follow-up.
 
 ### Tests
 
