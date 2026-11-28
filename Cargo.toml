@@ -1,6 +1,13 @@
 [workspace]
 resolver = "2"
-members = ["apps/desktop/src-tauri", "crates/contracts", "crates/evaluation"]
+members = [
+  "apps/desktop/src-tauri",
+  "crates/contracts",
+  "crates/evaluation",
+  "crates/transport-spike",
+]
+
+exclude = ["apps/relay/deps/ex_sctp/native/ex_sctp"]
 
 [workspace.package]
 version = "0.1.0"
@@ -24,6 +31,6 @@ base64 = { version = "=0.23.1", features = [] }
 futures-util = { version = "=0.3.34", features = [] }
 tempfile = { version = "=3.27.0", features = [] }
 url = { version = "=2.5.8", features = [] }
-zip = { version = "=9.0.3", default-features = false, features = ["deflate"] }
+zip = { version = "=9.0.4", default-features = false, features = ["deflate"] }
 percent-encoding = { version = "=2.3.2", features = [] }
 chrono = { version = "=0.4.45", default-features = false, features = ["clock", "std"] }

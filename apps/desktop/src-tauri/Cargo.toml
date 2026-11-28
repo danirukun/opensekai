@@ -12,6 +12,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 # B31 R12: the test capture adapter. Only tests enable it:
 # cargo test -p opensekai-desktop --features capture-fixture --test capture_integration
 capture-fixture = []
+transport-spike = ["dep:opensekai-transport-spike"]
 
 [[test]]
 name = "capture_integration"
@@ -44,6 +45,7 @@ zip.workspace = true
 percent-encoding.workspace = true
 url.workspace = true
 opensekai-contracts = { path = "../../../crates/contracts" }
+opensekai-transport-spike = { path = "../../../crates/transport-spike", optional = true }
 opensekai-evaluation = { path = "../../../crates/evaluation" }
 chrono.workspace = true
 ufbx = "=0.11.5"

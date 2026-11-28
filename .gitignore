@@ -29,3 +29,8 @@ apps/desktop/public/tracking/
 
 # direnv
 .direnv/
+
+# Relay spike
+apps/relay/deps/
+apps/relay/_build/
+apps/relay/.elixir_ls/
